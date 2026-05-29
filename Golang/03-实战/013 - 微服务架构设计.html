@@ -1,0 +1,543 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>013 - 微服务架构设计</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Golang/index.html">Golang</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Golang/03-实战/index.html">Golang实战</a>
+</nav>
+<h1>013 - 微服务架构设计</h1>
+<div class="meta">
+<span>📂 Golang实战</span>
+<span>🏷️ Golang</span>
+</div>
+<article>
+
+
+<h1>068: 微服务架构设计</h1>
+
+<blockquote><p><strong>难度：⭐⭐⭐⭐⭐ 专家级</strong> | 从单体到微服务的架构演进，服务拆分、通信、治理的全链路设计。<br><br><strong>前置知识：</strong> gRPC 基础（066-067）、数据库设计、基本架构概念<br><br><strong>学习目标：</strong> 掌握微服务拆分原则、同步/异步通信、API 网关、熔断器和分布式追踪的完整设计。</p></blockquote>
+
+<h2>概念讲解</h2>
+
+<p>微服务架构将一个大应用拆分为多个独立部署的小服务。核心原则：</p>
+
+<ul>
+<li><strong>服务拆分（DDD 限界上下文）：</strong> 按业务域划分服务边界。每个服务有自己的聚合根（Aggregate Root），对外暴露 API，内部数据隔离。</li>
+<li><strong>同步通信（gRPC/HTTP）：</strong> 服务间直接调用，适合需要即时响应的场景。缺点是强耦合、级联故障。</li>
+<li><strong>异步通信（消息队列）：</strong> 通过事件解耦，适合不需要即时响应的场景。优点是松耦合、削峰填谷。</li>
+<li><strong>API 网关：</strong> 统一入口，负责路由、认证、限流。客户端只跟网关通信。</li>
+<li><strong>可观测性三件套：</strong> 日志（Logging）、指标（Metrics）、追踪（Tracing）。</li>
+<li><strong>熔断器（Circuit Breaker）：</strong> 当下游服务故障时快速失败，避免级联雪崩。</li>
+
+<h3>单体 vs 微服务判断标准</h3>
+
+<table><thead><tr>
+<th>因素</th>
+<th>适合单体</th>
+<th>适合微服务</th>
+</tr></thead><tbody>
+<tr>
+<td>团队规模</td>
+<td>1-5 人</td>
+<td>10+ 人</td>
+</tr>
+<tr>
+<td>业务复杂度</td>
+<td>低</td>
+<td>高（多业务域）</td>
+</tr>
+<tr>
+<td>部署频率</td>
+<td>周/月级</td>
+<td>天/小时级</td>
+</tr>
+<tr>
+<td>扩展需求</td>
+<td>统一扩展</td>
+<td>差异化扩展</td>
+</tr>
+<tr>
+<td>技术栈</td>
+<td>统一</td>
+<td>可混合</td>
+</tr>
+</tbody></table>
+
+<h2>脑图</h2>
+
+<pre><code>微服务架构
+├── 拆分原则
+│   ├── 限界上下文 (Bounded Context)
+│   ├── 高内聚低耦合
+│   ├── 独立部署
+│   └── 数据隔离
+├── 通信方式
+│   ├── 同步 (gRPC/HTTP)
+│   └── 异步 (消息队列)
+├── API 网关
+│   ├── 路由转发
+│   ├── 认证/限流
+│   └── 反向代理
+├── 可观测性
+│   ├── 日志 (slog/Zap)
+│   ├── 指标 (Prometheus)
+│   └── 追踪 (OpenTelemetry)
+├── 弹性设计
+│   ├── 熔断器 (Circuit Breaker)
+│   ├── 超时/重试
+│   └── 降级策略
+└── 数据一致性
+    ├── Saga 模式
+    └── 最终一致性</code></pre>
+
+<h2>代码演进</h2>
+
+<h3>v1：服务拆分 + 同步通信</h3>
+
+<pre><code class="language-go">// order/service.go - Order service calls Product service via gRPC
+package order
+
+import (
+    &quot;context&quot;
+    &quot;fmt&quot;
+
+    pb &quot;github.com/example/proto/product&quot;
+    &quot;google.golang.org/grpc&quot;
+)
+
+// OrderService depends on Product service client
+type OrderService struct {
+    productClient pb.ProductServiceClient
+}
+
+func NewOrderService(productConn *grpc.ClientConn) *OrderService {
+    return &amp;OrderService{
+        productClient: pb.NewProductServiceClient(productConn),
+    }
+}
+
+func (s *OrderService) CreateOrder(ctx context.Context, req *CreateOrderReq) error {
+    // Synchronous call to Product service for stock check
+    product, err := s.productClient.GetProduct(ctx, &amp;pb.GetProductReq{
+        Id: req.ProductID,
+    })
+    if err != nil {
+        return fmt.Errorf(&quot;get product failed: %w&quot;, err)
+    }
+    if product.Stock &lt; req.Quantity {
+        return fmt.Errorf(&quot;insufficient stock: have %d, want %d&quot;, product.Stock, req.Quantity)
+    }
+    // Create order in local DB
+    // ...
+    return nil
+}</code></pre>
+
+<h3>v2：异步通信 + 消息队列</h3>
+
+<pre><code class="language-go">// messaging/rabbitmq.go - Event-driven communication
+package messaging
+
+import (
+    &quot;context&quot;
+    &quot;encoding/json&quot;
+    &quot;log&quot;
+
+    &quot;github.com/rabbitmq/amqp091-go&quot;
+)
+
+// EventBus wraps RabbitMQ connection
+type EventBus struct {
+    conn *amqp091.Connection
+    ch   *amqp091.Channel
+}
+
+func NewEventBus(url string) (*EventBus, error) {
+    conn, err := amqp091.Dial(url)
+    if err != nil {
+        return nil, err
+    }
+    ch, err := conn.Channel()
+    if err != nil {
+        return nil, err
+    }
+    // Declare exchange for pub/sub pattern
+    ch.ExchangeDeclare(&quot;events&quot;, &quot;topic&quot;, true, false, false, false, nil)
+    return &amp;EventBus{conn: conn, ch: ch}, nil
+}
+
+// Publish sends an event to the message broker
+func (b *EventBus) Publish(ctx context.Context, routingKey string, event interface{}) error {
+    body, _ := json.Marshal(event)
+    return b.ch.PublishWithContext(ctx, &quot;events&quot;, routingKey, false, false,
+        amqp091.Publishing{
+            ContentType: &quot;application/json&quot;,
+            Body:       body,
+        })
+}
+
+// Subscribe registers a handler for a routing key
+func (b *EventBus) Subscribe(queue, routingKey string, handler func([]byte) error) error {
+    q, _ := b.ch.QueueDeclare(queue, true, false, false, false, nil)
+    b.ch.QueueBind(q.Name, routingKey, &quot;events&quot;, false, nil)
+
+    msgs, _ := b.ch.Consume(q.Name, &quot;&quot;, false, false, false, false, nil)
+    go func() {
+        for msg := range msgs {
+            if err := handler(msg.Body); err != nil {
+                msg.Nack(false, true) // Requeue on error
+            } else {
+                msg.Ack(false) // Acknowledge on success
+            }
+        }
+    }()
+    return nil
+}</code></pre>
+
+<h3>v3：API 网关 + 熔断器 + 分布式追踪</h3>
+
+<pre><code class="language-go">// gateway/main.go - API Gateway with reverse proxy
+package main
+
+import (
+    &quot;log&quot;
+    &quot;net/http&quot;
+    &quot;net/http/httputil&quot;
+    &quot;net/url&quot;
+    &quot;strings&quot;
+)
+
+type Gateway struct {
+    routes map[string]*httputil.ReverseProxy
+}
+
+func NewGateway() *Gateway {
+    gw := &amp;Gateway{routes: make(map[string]*httputil.ReverseProxy)}
+
+    userURL, _ := url.Parse(&quot;http://user-service:8081&quot;)
+    orderURL, _ := url.Parse(&quot;http://order-service:8082&quot;)
+
+    gw.routes[&quot;/api/users&quot;] = httputil.NewSingleHostReverseProxy(userURL)
+    gw.routes[&quot;/api/orders&quot;] = httputil.NewSingleHostReverseProxy(orderURL)
+    return gw
+}
+
+func (gw *Gateway) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+    for prefix, proxy := range gw.routes {
+        if strings.HasPrefix(r.URL.Path, prefix) {
+            proxy.ServeHTTP(w, r)
+            return
+        }
+    }
+    http.NotFound(w, r)
+}
+
+func main() {
+    log.Fatal(http.ListenAndServe(&quot;:8080&quot;, NewGateway()))
+}</code></pre>
+
+<p><strong>熔断器：</strong></p>
+
+<pre><code class="language-go">// circuitbreaker/breaker.go - Circuit breaker using gobreaker
+package circuitbreaker
+
+import (
+    &quot;time&quot;
+    &quot;github.com/sony/gobreaker&quot;
+)
+
+func NewBreaker(name string) *gobreaker.CircuitBreaker {
+    return gobreaker.NewCircuitBreaker(gobreaker.Settings{
+        Name:        name,
+        MaxRequests: 3,                // Requests allowed in half-open state
+        Interval:    10 * time.Second, // Statistical period
+        Timeout:     30 * time.Second, // Open → Half-open wait time
+        ReadyToTrip: func(counts gobreaker.Counts) bool {
+            return counts.ConsecutiveFailures &gt; 5 // Trip after 5 consecutive failures
+        },
+    })
+}
+
+// Execute wraps a function call with circuit breaker protection
+func callWithBreaker(breaker *gobreaker.CircuitBreaker, fn func() (interface{}, error)) (interface{}, error) {
+    return breaker.Execute(func() (interface{}, error) {
+        return fn()
+    })
+}</code></pre>
+
+<p><strong>分布式追踪（OpenTelemetry）：</strong></p>
+
+<pre><code class="language-go">// tracing/setup.go - Initialize OpenTelemetry tracer
+package tracing
+
+import (
+    &quot;context&quot;
+
+    &quot;go.opentelemetry.io/otel&quot;
+    &quot;go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc&quot;
+    &quot;go.opentelemetry.io/otel/sdk/resource&quot;
+    sdktrace &quot;go.opentelemetry.io/otel/sdk/trace&quot;
+    semconv &quot;go.opentelemetry.io/otel/semconv/v1.24.0&quot;
+)
+
+func InitTracer(serviceName, collectorAddr string) (func(context.Context) error, error) {
+    exporter, err := otlptracegrpc.New(context.Background(),
+        otlptracegrpc.WithEndpoint(collectorAddr),
+        otlptracegrpc.WithInsecure(),
+    )
+    if err != nil {
+        return nil, err
+    }
+
+    provider := sdktrace.NewTracerProvider(
+        sdktrace.WithBatcher(exporter),
+        sdktrace.WithResource(resource.NewWithAttributes(
+            semconv.SchemaURL,
+            semconv.ServiceName(serviceName),
+        )),
+    )
+    otel.SetTracerProvider(provider)
+    return provider.Shutdown, nil
+}</code></pre>
+
+<h2>执行预览</h2>
+
+<pre><code># Start all services
+$ docker-compose up -d
+[+] Running 5/5
+ ✔ Network app_default  Created
+ ✔ Container rabbitmq   Started
+ ✔ Container user-service  Started
+ ✔ Container order-service Started
+ ✔ Container gateway    Started
+
+# Test via gateway
+$ curl http://localhost:8080/api/orders -d &#x27;{&quot;product_id&quot;:&quot;p1&quot;,&quot;quantity&quot;:2}&#x27;
+{&quot;order_id&quot;:&quot;ord-123&quot;,&quot;status&quot;:&quot;created&quot;}
+
+# When product-service is down → circuit breaker trips
+$ curl http://localhost:8080/api/orders -d &#x27;{&quot;product_id&quot;:&quot;p1&quot;,&quot;quantity&quot;:2}&#x27;
+{&quot;error&quot;:&quot;service unavailable: circuit breaker open&quot;}
+
+# Jaeger UI shows the full trace
+# http://localhost:16686 → order-service → product-service call chain</code></pre>
+
+<h2>注意事项</h2>
+
+<table><thead><tr>
+<th>项目</th>
+<th>说明</th>
+<th>严重度</th>
+</tr></thead><tbody>
+<tr>
+<td>不要过早拆分</td>
+<td>先写好单体，业务稳定后再拆。拆分成本很高</td>
+<td>🔴 严重</td>
+</tr>
+<tr>
+<td>分布式事务</td>
+<td>尽量用 Saga 模式（最终一致性）替代强一致性</td>
+<td>⚠️ 重要</td>
+</tr>
+<tr>
+<td>网络不可靠</td>
+<td>服务间调用必须考虑超时、重试、熔断</td>
+<td>🔴 严重</td>
+</tr>
+<tr>
+<td>可观测性</td>
+<td>日志+指标+追踪三件套缺一不可，否则排障是噩梦</td>
+<td>⚠️ 重要</td>
+</tr>
+<tr>
+<td>数据隔离</td>
+<td>每个服务独立数据库，禁止跨服务直接查库</td>
+<td>🔴 严重</td>
+</tr>
+<tr>
+<td>幂等性</td>
+<td>异步消息可能重复投递，消费者必须幂等</td>
+<td>⚠️ 重要</td>
+</tr>
+</tbody></table>
+
+<h2>避坑指南</h2>
+
+<table><thead><tr>
+<th>❌ 错误做法</th>
+<th>✅ 正确做法</th>
+</tr></thead><tbody>
+<tr>
+<td>一上来就微服务</td>
+<td>先模块化单体，有明确痛点再拆</td>
+</tr>
+<tr>
+<td>服务间共享数据库</td>
+<td>每个服务独立数据库，通过 API 通信</td>
+</tr>
+<tr>
+<td>同步调用链路过长（>3层）</td>
+<td>引入消息队列异步解耦</td>
+</tr>
+<tr>
+<td>不设超时直接调用下游</td>
+<td>每次调用都带 context.WithTimeout</td>
+</tr>
+<tr>
+<td>熔断器阈值设太低</td>
+<td>根据实际 QPS 和延迟设置，5-10 次连续失败再熔断</td>
+</tr>
+<tr>
+<td>消息消费不幂等</td>
+<td>消息带唯一 ID，消费前检查是否已处理</td>
+</tr>
+</tbody></table>
+
+<h2>练习题</h2>
+
+<p><strong>🟢 入门：设计微服务拆分方案</strong></p>
+<p>将一个博客系统（用户、文章、评论、标签、通知）拆分为微服务。画出服务关系图，定义各服务的 API 接口和数据库表。</p>
+
+<p><strong>🟡 进阶：RabbitMQ 异步订单流程</strong></p>
+<p>订单服务创建订单后发布 <code>order.created</code> 事件，库存服务扣减库存，通知服务发邮件。三个服务通过消息队列解耦。</p>
+
+<p><strong>🔴 挑战：OpenTelemetry + Jaeger 全链路追踪</strong></p>
+<p>为两个 gRPC 服务添加分布式追踪。在 Jaeger UI 中查看完整调用链路，分析各环节耗时。</p>
+
+<h2>知识点总结</h2>
+
+<pre><code>微服务架构
+├── 拆分
+│   ├── DDD 限界上下文
+│   ├── 聚合根
+│   └── 数据隔离
+├── 通信
+│   ├── 同步 (gRPC)
+│   ├── 异步 (RabbitMQ)
+│   └── 事件驱动
+├── 网关
+│   ├── 反向代理
+│   ├── 路由匹配
+│   └── 认证/限流
+├── 弹性
+│   ├── 熔断器 (gobreaker)
+│   ├── 超时/重试
+│   └── 降级
+├── 可观测性
+│   ├── OpenTelemetry
+│   ├── Jaeger (追踪)
+│   └── slog (日志)
+└── 一致性
+    ├── Saga 模式
+    └── 幂等消费</code></pre>
+
+<h2>举一反三</h2>
+
+<table><thead><tr>
+<th>本文学到</th>
+<th>可迁移到</th>
+<th>应用场景</th>
+</tr></thead><tbody>
+<tr>
+<td>限界上下文拆分</td>
+<td>DDD 领域建模</td>
+<td>任何中大型系统设计</td>
+</tr>
+<tr>
+<td>消息队列解耦</td>
+<td>Kafka、RocketMQ</td>
+<td>订单、支付、通知流水线</td>
+</tr>
+<tr>
+<td>熔断器</td>
+<td>Istio Service Mesh</td>
+<td>服务网格级故障隔离</td>
+</tr>
+<tr>
+<td>分布式追踪</td>
+<td>ELK + SkyWalking</td>
+<td>全链路性能分析</td>
+</tr>
+<tr>
+<td>API Gateway</td>
+<td>Kong、Nginx Ingress</td>
+<td>统一入口管理</td>
+</tr>
+<tr>
+<td>幂等消费</td>
+<td>数据库唯一约束</td>
+<td>防重复扣款/发货</td>
+</tr>
+</tbody></table>
+
+<h2>参考资料</h2>
+
+<ul>
+<li><a href="https://martinfowler.com/articles/microservices.html">Martin Fowler - Microservices</a></li>
+<li><a href="https://microservices.io/">《微服务架构设计模式》Chris Richardson</a></li>
+<li><a href="https://opentelemetry.io/docs/instrumentation/go/">OpenTelemetry Go SDK</a></li>
+<li><a href="https://github.com/sony/gobreaker">gobreaker 熔断器</a></li>
+
+<hr>
+
+<p>_拆分有度，治理有方，微服务不是银弹而是工具。_ 🏗️</p>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

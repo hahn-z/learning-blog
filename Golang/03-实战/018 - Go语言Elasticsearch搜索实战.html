@@ -1,0 +1,1234 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>018 - Go语言Elasticsearch搜索实战</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Golang/index.html">Golang</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Golang/03-实战/index.html">Golang实战</a>
+</nav>
+<h1>018 - Go语言Elasticsearch搜索实战</h1>
+<div class="meta">
+<span>📂 Golang实战</span>
+<span>🏷️ Golang</span>
+</div>
+<article>
+
+
+<h1>Go语言Elasticsearch搜索实战</h1>
+
+<p><strong>难度：中高级</strong> ⭐⭐⭐⭐</p>
+
+<h2>1. 概念讲解</h2>
+
+<h3>什么是Elasticsearch？</h3>
+
+<p>Elasticsearch（简称ES）是一个基于Lucene的分布式搜索和分析引擎，专为海量数据的近实时搜索而设计。它以JSON文档方式存储数据，通过RESTful API进行操作，是目前最流行的全文搜索引擎。</p>
+
+<h3>为什么选择Elasticsearch？</h3>
+
+<p>传统数据库的 <code>LIKE '%keyword%'</code> 查询存在致命缺陷：</p>
+
+<ul>
+<li><strong>性能差</strong>：无法利用索引，全表扫描</li>
+<li><strong>功能弱</strong>：不支持相关性排序、分词、同义词</li>
+<li><strong>扩展难</strong>：单机瓶颈，水平扩展困难</li>
+
+<p>Elasticsearch的优势：</p>
+
+<ul>
+<li><strong>全文检索</strong>：内置分词器，支持中英文分词</li>
+<li><strong>相关性排序</strong>：TF-IDF / BM25 算法，结果更精准</li>
+<li><strong>近实时</strong>：写入后约1秒即可搜索</li>
+<li><strong>分布式</strong>：天然支持集群，PB级数据处理</li>
+<li><strong>聚合分析</strong>：强大的统计聚合能力</li>
+
+<h3>Go语言ES客户端</h3>
+
+<table><thead><tr>
+<th>客户端库</th>
+<th>特点</th>
+</tr></thead><tbody>
+<tr>
+<td><code>elastic/go-elasticsearch</code></td>
+<td>官方维护，v8支持ES 8.x</td>
+</tr>
+<tr>
+<td><code>olivere/elastic</code></td>
+<td>社区流行，API更友好（仅支持到v7）</td>
+</tr>
+<tr>
+<td><code>bytespirit/goes</code></td>
+<td>轻量级封装</td>
+</tr>
+</tbody></table>
+
+<p>本文使用官方 <code>github.com/elastic/go-elasticsearch/v8</code> 库。</p>
+
+<h2>2. 架构图</h2>
+
+<pre><code>┌──────────────────────────────────────────────────────────────────┐
+│                    Elasticsearch 搜索架构                         │
+└──────────────────────────────────────────────────────────────────┘
+
+  ┌──────────┐    ┌──────────────┐    ┌──────────────────────┐
+  │  MySQL   │───▶│  数据同步器   │───▶│  Elasticsearch集群   │
+  │ (业务DB) │    │ (Canal/双写)  │    │                      │
+  └──────────┘    └──────────────┘    │  ┌───────┐┌───────┐  │
+                                       │  │Node 1 ││Node 2 │  │
+                                       │  │       ││       │  │
+                                       │  │Index A││Index B│  │
+                                       │  │ Shard ││ Shard │  │
+                                       │  └───────┘└───────┘  │
+                                       └──────────┬───────────┘
+                                                  │
+                                          ┌───────▼────────┐
+                                          │  Go应用服务器    │
+                                          │  - 索引管理      │
+                                          │  - 文档CRUD     │
+                                          │  - 全文搜索      │
+                                          │  - 聚合分析      │
+                                          └────────────────┘</code></pre>
+
+<pre><code>索引(Index)结构：
+┌─────────────────────────────────────────┐
+│ Index: articles                          │
+├─────────────────────────────────────────┤
+│ Mapping:                                 │
+│   title    → text (ik_max_word分词)      │
+│   content  → text (ik_smart分词)         │
+│   author   → keyword                     │
+│   tags     → keyword (数组)              │
+│   created  → date                        │
+│   views    → integer                     │
+├─────────────────────────────────────────┤
+│ Document 1: { &quot;title&quot;: &quot;Go入门...&quot;, ... }│
+│ Document 2: { &quot;title&quot;: &quot;Go进阶...&quot;, ... }│
+│ Document 3: { &quot;title&quot;: &quot;Go实战...&quot;, ... }│
+└─────────────────────────────────────────┘</code></pre>
+
+<h2>3. 完整Go代码示例</h2>
+
+<h3>3.1 连接与初始化</h3>
+
+<pre><code class="language-go">package main
+
+import (
+	&quot;bytes&quot;
+	&quot;context&quot;
+	&quot;encoding/json&quot;
+	&quot;fmt&quot;
+	&quot;log&quot;
+	&quot;strconv&quot;
+	&quot;strings&quot;
+	&quot;time&quot;
+
+	&quot;github.com/elastic/go-elasticsearch/v8&quot;
+	&quot;github.com/elastic/go-elasticsearch/v8/esapi&quot;
+)
+
+// ESClient wraps the Elasticsearch client
+type ESClient struct {
+	client *elasticsearch.Client
+	ctx    context.Context
+	index  string
+}
+
+// NewESClient creates a new Elasticsearch client
+func NewESClient(addresses []string, index string) (*ESClient, error) {
+	cfg := elasticsearch.Config{
+		Addresses: addresses,
+		// Username:  &quot;elastic&quot;,
+		// Password:  &quot;changeme&quot;,
+	}
+
+	client, err := elasticsearch.NewClient(cfg)
+	if err != nil {
+		return nil, fmt.Errorf(&quot;failed to create ES client: %w&quot;, err)
+	}
+
+	// Test connection
+	res, err := client.Info()
+	if err != nil {
+		return nil, fmt.Errorf(&quot;failed to connect to ES: %w&quot;, err)
+	}
+	defer res.Body.Close()
+
+	if res.IsError() {
+		return nil, fmt.Errorf(&quot;ES info error: %s&quot;, res.String())
+	}
+
+	es := &amp;ESClient{
+		client: client,
+		ctx:    context.Background(),
+		index:  index,
+	}
+
+	log.Println(&quot;✅ Connected to Elasticsearch&quot;)
+	return es, nil
+}
+
+// CreateIndex creates the index with custom mapping
+func (es *ESClient) CreateIndex() error {
+	mapping := `{
+		&quot;mappings&quot;: {
+			&quot;properties&quot;: {
+				&quot;title&quot;: {
+					&quot;type&quot;: &quot;text&quot;,
+					&quot;analyzer&quot;: &quot;standard&quot;,
+					&quot;fields&quot;: {
+						&quot;keyword&quot;: { &quot;type&quot;: &quot;keyword&quot; },
+						&quot;search&quot;: {
+							&quot;type&quot;: &quot;text&quot;,
+							&quot;analyzer&quot;: &quot;standard&quot;
+						}
+					}
+				},
+				&quot;content&quot;: {
+					&quot;type&quot;: &quot;text&quot;,
+					&quot;analyzer&quot;: &quot;standard&quot;
+				},
+				&quot;author&quot;:    { &quot;type&quot;: &quot;keyword&quot; },
+				&quot;category&quot;:  { &quot;type&quot;: &quot;keyword&quot; },
+				&quot;tags&quot;:      { &quot;type&quot;: &quot;keyword&quot; },
+				&quot;status&quot;:    { &quot;type&quot;: &quot;keyword&quot; },
+				&quot;views&quot;:     { &quot;type&quot;: &quot;integer&quot; },
+				&quot;likes&quot;:     { &quot;type&quot;: &quot;integer&quot; },
+				&quot;score&quot;:     { &quot;type&quot;: &quot;float&quot; },
+				&quot;published_at&quot;: { &quot;type&quot;: &quot;date&quot;, &quot;format&quot;: &quot;2006-01-02T15:04:05Z&quot; },
+				&quot;created_at&quot;:   { &quot;type&quot;: &quot;date&quot;, &quot;format&quot;: &quot;2006-01-02T15:04:05Z&quot; }
+			}
+		},
+		&quot;settings&quot;: {
+			&quot;number_of_shards&quot;: 1,
+			&quot;number_of_replicas&quot;: 0
+		}
+	}`
+
+	// Delete existing index first (for demo purposes)
+	es.client.Indices.Delete([]string{es.index})
+
+	req := esapi.IndicesCreateRequest{
+		Index: es.index,
+		Body:  strings.NewReader(mapping),
+	}
+
+	res, err := req.Do(es.ctx, es.client)
+	if err != nil {
+		return fmt.Errorf(&quot;failed to create index: %w&quot;, err)
+	}
+	defer res.Body.Close()
+
+	if res.IsError() {
+		return fmt.Errorf(&quot;create index error: %s&quot;, res.String())
+	}
+
+	log.Printf(&quot;✅ Index &#x27;%s&#x27; created successfully&quot;, es.index)
+	return nil
+}</code></pre>
+
+<h3>3.2 文档模型</h3>
+
+<pre><code class="language-go">// Article represents a blog article document
+type Article struct {
+	ID          string    `json:&quot;id&quot;`
+	Title       string    `json:&quot;title&quot;`
+	Content     string    `json:&quot;content&quot;`
+	Author      string    `json:&quot;author&quot;`
+	Category    string    `json:&quot;category&quot;`
+	Tags        []string  `json:&quot;tags&quot;`
+	Status      string    `json:&quot;status&quot;`
+	Views       int       `json:&quot;views&quot;`
+	Likes       int       `json:&quot;likes&quot;`
+	Score       float64   `json:&quot;score&quot;`
+	PublishedAt time.Time `json:&quot;published_at&quot;`
+	CreatedAt   time.Time `json:&quot;created_at&quot;`
+}
+
+// SearchResult represents a search response
+type SearchResult struct {
+	Total    int64      `json:&quot;total&quot;`
+	Articles []Article  `json:&quot;articles&quot;`
+	Took     int64      `json:&quot;took&quot;`
+}
+
+// AggregationResult represents aggregation response
+type AggregationResult struct {
+	Buckets []struct {
+		Key   string `json:&quot;key&quot;`
+		Count int64  `json:&quot;doc_count&quot;`
+	} `json:&quot;buckets&quot;`
+}</code></pre>
+
+<h3>3.3 文档CRUD操作</h3>
+
+<pre><code class="language-go">// IndexDocument indexes a single document
+func (es *ESClient) IndexDocument(doc Article) error {
+	body, err := json.Marshal(doc)
+	if err != nil {
+		return fmt.Errorf(&quot;marshal error: %w&quot;, err)
+	}
+
+	req := esapi.IndexRequest{
+		Index:      es.index,
+		DocumentID: doc.ID,
+		Body:       bytes.NewReader(body),
+		Refresh:    &quot;true&quot;,
+	}
+
+	res, err := req.Do(es.ctx, es.client)
+	if err != nil {
+		return fmt.Errorf(&quot;index request failed: %w&quot;, err)
+	}
+	defer res.Body.Close()
+
+	if res.IsError() {
+		return fmt.Errorf(&quot;index error: %s&quot;, res.String())
+	}
+
+	log.Printf(&quot;✅ Indexed document: %s&quot;, doc.Title)
+	return nil
+}
+
+// BulkIndex indexes multiple documents at once
+func (es *ESClient) BulkIndex(docs []Article) error {
+	var buf bytes.Buffer
+
+	for _, doc := range docs {
+		// Action line
+		meta := fmt.Sprintf(`{&quot;index&quot;:{&quot;_index&quot;:&quot;%s&quot;,&quot;_id&quot;:&quot;%s&quot;}}`, es.index, doc.ID)
+		buf.WriteString(meta + &quot;\n&quot;)
+
+		// Document line
+		data, err := json.Marshal(doc)
+		if err != nil {
+			return fmt.Errorf(&quot;marshal error: %w&quot;, err)
+		}
+		buf.WriteString(string(data) + &quot;\n&quot;)
+	}
+
+	req := esapi.BulkRequest{
+		Body:    &amp;buf,
+		Refresh: &quot;true&quot;,
+	}
+
+	res, err := req.Do(es.ctx, es.client)
+	if err != nil {
+		return fmt.Errorf(&quot;bulk request failed: %w&quot;, err)
+	}
+	defer res.Body.Close()
+
+	if res.IsError() {
+		return fmt.Errorf(&quot;bulk error: %s&quot;, res.String())
+	}
+
+	log.Printf(&quot;✅ Bulk indexed %d documents&quot;, len(docs))
+	return nil
+}
+
+// GetDocument retrieves a document by ID
+func (es *ESClient) GetDocument(id string) (*Article, error) {
+	req := esapi.GetRequest{
+		Index:      es.index,
+		DocumentID: id,
+	}
+
+	res, err := req.Do(es.ctx, es.client)
+	if err != nil {
+		return nil, fmt.Errorf(&quot;get request failed: %w&quot;, err)
+	}
+	defer res.Body.Close()
+
+	if res.IsError() {
+		return nil, fmt.Errorf(&quot;document not found: %s&quot;, id)
+	}
+
+	var result struct {
+		Source Article `json:&quot;_source&quot;`
+	}
+	if err := json.NewDecoder(res.Body).Decode(&amp;result); err != nil {
+		return nil, fmt.Errorf(&quot;decode error: %w&quot;, err)
+	}
+
+	return &amp;result.Source, nil
+}
+
+// DeleteDocument removes a document by ID
+func (es *ESClient) DeleteDocument(id string) error {
+	req := esapi.DeleteRequest{
+		Index:      es.index,
+		DocumentID: id,
+		Refresh:    &quot;true&quot;,
+	}
+
+	res, err := req.Do(es.ctx, es.client)
+	if err != nil {
+		return fmt.Errorf(&quot;delete request failed: %w&quot;, err)
+	}
+	defer res.Body.Close()
+
+	if res.IsError() {
+		return fmt.Errorf(&quot;delete error: %s&quot;, res.String())
+	}
+
+	log.Printf(&quot;✅ Deleted document: %s&quot;, id)
+	return nil
+}
+
+// UpdateDocument partially updates a document
+func (es *ESClient) UpdateDocument(id string, fields map[string]interface{}) error {
+	doc := map[string]interface{}{&quot;doc&quot;: fields}
+	body, err := json.Marshal(doc)
+	if err != nil {
+		return fmt.Errorf(&quot;marshal error: %w&quot;, err)
+	}
+
+	req := esapi.UpdateRequest{
+		Index:      es.index,
+		DocumentID: id,
+		Body:       bytes.NewReader(body),
+		Refresh:    &quot;true&quot;,
+	}
+
+	res, err := req.Do(es.ctx, es.client)
+	if err != nil {
+		return fmt.Errorf(&quot;update request failed: %w&quot;, err)
+	}
+	defer res.Body.Close()
+
+	if res.IsError() {
+		return fmt.Errorf(&quot;update error: %s&quot;, res.String())
+	}
+
+	log.Printf(&quot;✅ Updated document: %s&quot;, id)
+	return nil
+}</code></pre>
+
+<h3>3.4 搜索功能实现</h3>
+
+<pre><code class="language-go">// FullTextSearch performs a full-text search with highlighting
+func (es *ESClient) FullTextSearch(query string, from, size int) (*SearchResult, error) {
+	searchQuery := fmt.Sprintf(`{
+		&quot;query&quot;: {
+			&quot;multi_match&quot;: {
+				&quot;query&quot;: &quot;%s&quot;,
+				&quot;fields&quot;: [&quot;title^3&quot;, &quot;content^1&quot;, &quot;tags^2&quot;],
+				&quot;type&quot;: &quot;best_fields&quot;,
+				&quot;fuzziness&quot;: &quot;AUTO&quot;
+			}
+		},
+		&quot;highlight&quot;: {
+			&quot;pre_tags&quot;: [&quot;**&quot;],
+			&quot;post_tags&quot;: [&quot;**&quot;],
+			&quot;fields&quot;: {
+				&quot;title&quot;: {},
+				&quot;content&quot;: {
+					&quot;fragment_size&quot;: 150,
+					&quot;number_of_fragments&quot;: 3
+				}
+			}
+		},
+		&quot;sort&quot;: [
+			&quot;_score&quot;,
+			{ &quot;views&quot;: { &quot;order&quot;: &quot;desc&quot; } }
+		],
+		&quot;from&quot;: %d,
+		&quot;size&quot;: %d
+	}`, query, from, size)
+
+	res, err := es.client.Search(
+		es.client.Search.WithContext(es.ctx),
+		es.client.Search.WithIndex(es.index),
+		es.client.Search.WithBody(strings.NewReader(searchQuery)),
+		es.client.Search.WithTrackTotalHits(true),
+	)
+	if err != nil {
+		return nil, fmt.Errorf(&quot;search failed: %w&quot;, err)
+	}
+	defer res.Body.Close()
+
+	if res.IsError() {
+		return nil, fmt.Errorf(&quot;search error: %s&quot;, res.String())
+	}
+
+	var result struct {
+		Hits struct {
+			Total struct {
+				Value int64 `json:&quot;value&quot;`
+			} `json:&quot;total&quot;`
+			Hits []struct {
+				Source     Article  `json:&quot;_source&quot;`
+				Highlight map[string][]string `json:&quot;highlight&quot;`
+			} `json:&quot;hits&quot;`
+		} `json:&quot;hits&quot;`
+		Took int64 `json:&quot;took&quot;`
+	}
+
+	if err := json.NewDecoder(res.Body).Decode(&amp;result); err != nil {
+		return nil, fmt.Errorf(&quot;decode error: %w&quot;, err)
+	}
+
+	articles := make([]Article, 0, len(result.Hits.Hits))
+	for _, hit := range result.Hits.Hits {
+		articles = append(articles, hit.Source)
+	}
+
+	return &amp;SearchResult{
+		Total:    result.Hits.Total.Value,
+		Articles: articles,
+		Took:     result.Took,
+	}, nil
+}
+
+// BoolSearch performs a boolean compound search
+func (es *ESClient) BoolSearch(filters map[string]interface{}, must string) (*SearchResult, error) {
+	filterClauses := []string{}
+
+	if author, ok := filters[&quot;author&quot;]; ok {
+		filterClauses = append(filterClauses, fmt.Sprintf(
+			`{&quot;term&quot;:{&quot;author&quot;:&quot;%s&quot;}}`, author))
+	}
+	if category, ok := filters[&quot;category&quot;]; ok {
+		filterClauses = append(filterClauses, fmt.Sprintf(
+			`{&quot;term&quot;:{&quot;category&quot;:&quot;%s&quot;}}`, category))
+	}
+	if tags, ok := filters[&quot;tags&quot;]; ok {
+		tagList := tags.([]string)
+		for _, tag := range tagList {
+			filterClauses = append(filterClauses, fmt.Sprintf(
+				`{&quot;term&quot;:{&quot;tags&quot;:&quot;%s&quot;}}`, tag))
+		}
+	}
+	if status, ok := filters[&quot;status&quot;]; ok {
+		filterClauses = append(filterClauses, fmt.Sprintf(
+			`{&quot;term&quot;:{&quot;status&quot;:&quot;%s&quot;}}`, status))
+	}
+
+	mustClause := &quot;&quot;
+	if must != &quot;&quot; {
+		mustClause = fmt.Sprintf(`{
+			&quot;multi_match&quot;: {
+				&quot;query&quot;: &quot;%s&quot;,
+				&quot;fields&quot;: [&quot;title^2&quot;, &quot;content&quot;]
+			}
+		}`, must)
+	}
+
+	filterStr := strings.Join(filterClauses, &quot;,&quot;)
+	query := fmt.Sprintf(`{
+		&quot;query&quot;: {
+			&quot;bool&quot;: {
+				&quot;must&quot;: [%s],
+				&quot;filter&quot;: [%s]
+			}
+		},
+		&quot;sort&quot;: [{ &quot;published_at&quot;: { &quot;order&quot;: &quot;desc&quot; } }],
+		&quot;size&quot;: 20
+	}`, mustClause, filterStr)
+
+	res, err := es.client.Search(
+		es.client.Search.WithContext(es.ctx),
+		es.client.Search.WithIndex(es.index),
+		es.client.Search.WithBody(strings.NewReader(query)),
+	)
+	if err != nil {
+		return nil, fmt.Errorf(&quot;bool search failed: %w&quot;, err)
+	}
+	defer res.Body.Close()
+
+	var result struct {
+		Hits struct {
+			Total struct {
+				Value int64 `json:&quot;value&quot;`
+			} `json:&quot;total&quot;`
+			Hits []struct {
+				Source Article `json:&quot;_source&quot;`
+			} `json:&quot;hits&quot;`
+		} `json:&quot;hits&quot;`
+	}
+	json.NewDecoder(res.Body).Decode(&amp;result)
+
+	articles := make([]Article, 0)
+	for _, hit := range result.Hits.Hits {
+		articles = append(articles, hit.Source)
+	}
+
+	return &amp;SearchResult{
+		Total:    result.Hits.Total.Value,
+		Articles: articles,
+	}, nil
+}
+
+// SuggestSearch implements search-as-you-type with prefix matching
+func (es *ESClient) SuggestSearch(prefix string) ([]string, error) {
+	query := fmt.Sprintf(`{
+		&quot;query&quot;: {
+			&quot;match_phrase_prefix&quot;: {
+				&quot;title&quot;: &quot;%s&quot;
+			}
+		},
+		&quot;_source&quot;: [&quot;title&quot;],
+		&quot;size&quot;: 10
+	}`, prefix)
+
+	res, err := es.client.Search(
+		es.client.Search.WithContext(es.ctx),
+		es.client.Search.WithIndex(es.index),
+		es.client.Search.WithBody(strings.NewReader(query)),
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer res.Body.Close()
+
+	var result struct {
+		Hits struct {
+			Hits []struct {
+				Source Article `json:&quot;_source&quot;`
+			} `json:&quot;hits&quot;`
+		} `json:&quot;hits&quot;`
+	}
+	json.NewDecoder(res.Body).Decode(&amp;result)
+
+	titles := make([]string, 0)
+	for _, hit := range result.Hits.Hits {
+		titles = append(titles, hit.Source.Title)
+	}
+
+	return titles, nil
+}</code></pre>
+
+<h3>3.5 聚合分析</h3>
+
+<pre><code class="language-go">// AggregateByCategory counts documents per category
+func (es *ESClient) AggregateByCategory() (*AggregationResult, error) {
+	query := `{
+		&quot;size&quot;: 0,
+		&quot;aggs&quot;: {
+			&quot;categories&quot;: {
+				&quot;terms&quot;: { &quot;field&quot;: &quot;category&quot;, &quot;size&quot;: 20 }
+			}
+		}
+	}`
+
+	res, err := es.client.Search(
+		es.client.Search.WithContext(es.ctx),
+		es.client.Search.WithIndex(es.index),
+		es.client.Search.WithBody(strings.NewReader(query)),
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer res.Body.Close()
+
+	var result struct {
+		Aggregations struct {
+			Categories AggregationResult `json:&quot;categories&quot;`
+		} `json:&quot;aggregations&quot;`
+	}
+	json.NewDecoder(res.Body).Decode(&amp;result)
+
+	return &amp;result.Aggregations.Categories, nil
+}
+
+// StatsAggregation calculates stats on numeric fields
+func (es *ESClient) StatsAggregation(field string) (map[string]float64, error) {
+	query := fmt.Sprintf(`{
+		&quot;size&quot;: 0,
+		&quot;aggs&quot;: {
+			&quot;stats&quot;: { &quot;stats&quot;: { &quot;field&quot;: &quot;%s&quot; } }
+		}
+	}`, field)
+
+	res, err := es.client.Search(
+		es.client.Search.WithContext(es.ctx),
+		es.client.Search.WithIndex(es.index),
+		es.client.Search.WithBody(strings.NewReader(query)),
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer res.Body.Close()
+
+	var result struct {
+		Aggregations struct {
+			Stats map[string]float64 `json:&quot;stats&quot;`
+		} `json:&quot;aggregations&quot;`
+	}
+	json.NewDecoder(res.Body).Decode(&amp;result)
+
+	return result.Aggregations.Stats, nil
+}
+
+// DateHistogram creates a time-based histogram of publications
+func (es *ESClient) DateHistogram(interval string) (*AggregationResult, error) {
+	query := fmt.Sprintf(`{
+		&quot;size&quot;: 0,
+		&quot;aggs&quot;: {
+			&quot;timeline&quot;: {
+				&quot;date_histogram&quot;: {
+					&quot;field&quot;: &quot;published_at&quot;,
+					&quot;calendar_interval&quot;: &quot;%s&quot;
+				}
+			}
+		}
+	}`, interval)
+
+	res, err := es.client.Search(
+		es.client.Search.WithContext(es.ctx),
+		es.client.Search.WithIndex(es.index),
+		es.client.Search.WithBody(strings.NewReader(query)),
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer res.Body.Close()
+
+	var result struct {
+		Aggregations struct {
+			Timeline AggregationResult `json:&quot;timeline&quot;`
+		} `json:&quot;aggregations&quot;`
+	}
+	json.NewDecoder(res.Body).Decode(&amp;result)
+
+	return &amp;result.Aggregations.Timeline, nil
+}</code></pre>
+
+<h3>3.6 完整示例</h3>
+
+<pre><code class="language-go">func main() {
+	es, err := NewESClient([]string{&quot;http://localhost:9200&quot;}, &quot;articles&quot;)
+	if err != nil {
+		log.Fatalf(&quot;❌ Failed to connect: %v&quot;, err)
+	}
+
+	// Create index
+	if err := es.CreateIndex(); err != nil {
+		log.Fatalf(&quot;❌ Failed to create index: %v&quot;, err)
+	}
+
+	// Prepare sample data
+	now := time.Now()
+	articles := []Article{
+		{ID: &quot;1&quot;, Title: &quot;Go语言入门教程&quot;, Content: &quot;Go语言是一门开源的编程语言，由Google开发。它具有简洁、高效、并发支持好等特点，适合构建高并发的网络服务。&quot;, Author: &quot;张三&quot;, Category: &quot;tutorial&quot;, Tags: []string{&quot;go&quot;, &quot;beginner&quot;, &quot;programming&quot;}, Status: &quot;published&quot;, Views: 1500, Likes: 120, Score: 4.8, PublishedAt: now.Add(-72 * time.Hour), CreatedAt: now.Add(-96 * time.Hour)},
+		{ID: &quot;2&quot;, Title: &quot;Go并发编程实战&quot;, Content: &quot;Goroutine和Channel是Go语言并发编程的核心。Goroutine是轻量级线程，Channel用于goroutine之间的通信。通过select语句可以实现多路复用。&quot;, Author: &quot;李四&quot;, Category: &quot;advanced&quot;, Tags: []string{&quot;go&quot;, &quot;concurrency&quot;, &quot;goroutine&quot;}, Status: &quot;published&quot;, Views: 2300, Likes: 200, Score: 4.9, PublishedAt: now.Add(-48 * time.Hour), CreatedAt: now.Add(-60 * time.Hour)},
+		{ID: &quot;3&quot;, Title: &quot;Go微服务架构设计&quot;, Content: &quot;微服务架构将大型应用拆分为多个小型服务。Go语言因其高性能和低资源消耗，非常适合构建微服务。常用的微服务框架有gRPC、Go-Kit等。&quot;, Author: &quot;王五&quot;, Category: &quot;architecture&quot;, Tags: []string{&quot;go&quot;, &quot;microservice&quot;, &quot;grpc&quot;}, Status: &quot;published&quot;, Views: 1800, Likes: 150, Score: 4.7, PublishedAt: now.Add(-24 * time.Hour), CreatedAt: now.Add(-36 * time.Hour)},
+		{ID: &quot;4&quot;, Title: &quot;Go语言Web开发指南&quot;, Content: &quot;Go语言标准库提供了强大的HTTP包，可以快速构建Web应用。结合Gin、Echo等框架，可以更高效地开发RESTful API。&quot;, Author: &quot;张三&quot;, Category: &quot;tutorial&quot;, Tags: []string{&quot;go&quot;, &quot;web&quot;, &quot;gin&quot;}, Status: &quot;published&quot;, Views: 3200, Likes: 280, Score: 4.6, PublishedAt: now.Add(-12 * time.Hour), CreatedAt: now.Add(-18 * time.Hour)},
+		{ID: &quot;5&quot;, Title: &quot;Go测试最佳实践&quot;, Content: &quot;Go语言内置了testing包，支持单元测试、基准测试和示例测试。配合testify等库，可以编写更优雅的测试代码。&quot;, Author: &quot;赵六&quot;, Category: &quot;testing&quot;, Tags: []string{&quot;go&quot;, &quot;testing&quot;, &quot;best-practice&quot;}, Status: &quot;draft&quot;, Views: 500, Likes: 30, Score: 4.5, PublishedAt: now, CreatedAt: now.Add(-6 * time.Hour)},
+	}
+
+	fmt.Println(&quot;\n========== 1. 批量索引文档 ==========&quot;)
+	if err := es.BulkIndex(articles); err != nil {
+		log.Fatalf(&quot;❌ Bulk index failed: %v&quot;, err)
+	}
+
+	fmt.Println(&quot;\n========== 2. 全文搜索 ==========&quot;)
+	result, err := es.FullTextSearch(&quot;Go语言 并发&quot;, 0, 5)
+	if err != nil {
+		log.Printf(&quot;❌ Search failed: %v&quot;, err)
+	} else {
+		fmt.Printf(&quot;Found %d results in %dms:\n&quot;, result.Total, result.Took)
+		for _, a := range result.Articles {
+			fmt.Printf(&quot;  - %s (views: %d)\n&quot;, a.Title, a.Views)
+		}
+	}
+
+	fmt.Println(&quot;\n========== 3. 布尔组合搜索 ==========&quot;)
+	boolResult, err := es.BoolSearch(map[string]interface{}{
+		&quot;author&quot;:  &quot;张三&quot;,
+		&quot;status&quot;:  &quot;published&quot;,
+	}, &quot;Web&quot;)
+	if err != nil {
+		log.Printf(&quot;❌ Bool search failed: %v&quot;, err)
+	} else {
+		fmt.Printf(&quot;Found %d results:\n&quot;, boolResult.Total)
+		for _, a := range boolResult.Articles {
+			fmt.Printf(&quot;  - %s by %s\n&quot;, a.Title, a.Author)
+		}
+	}
+
+	fmt.Println(&quot;\n========== 4. 搜索建议 ==========&quot;)
+	suggestions, err := es.SuggestSearch(&quot;Go&quot;)
+	if err != nil {
+		log.Printf(&quot;❌ Suggest failed: %v&quot;, err)
+	} else {
+		fmt.Println(&quot;Suggestions:&quot;)
+		for _, s := range suggestions {
+			fmt.Printf(&quot;  - %s\n&quot;, s)
+		}
+	}
+
+	fmt.Println(&quot;\n========== 5. 单文档操作 ==========&quot;)
+	doc, err := es.GetDocument(&quot;1&quot;)
+	if err != nil {
+		log.Printf(&quot;❌ Get failed: %v&quot;, err)
+	} else {
+		fmt.Printf(&quot;Got: %s by %s\n&quot;, doc.Title, doc.Author)
+	}
+
+	// Update
+	if err := es.UpdateDocument(&quot;1&quot;, map[string]interface{}{&quot;views&quot;: 2000}); err != nil {
+		log.Printf(&quot;❌ Update failed: %v&quot;, err)
+	} else {
+		doc, _ = es.GetDocument(&quot;1&quot;)
+		fmt.Printf(&quot;Updated views: %d\n&quot;, doc.Views)
+	}
+
+	fmt.Println(&quot;\n========== 6. 聚合分析 ==========&quot;)
+	agg, err := es.AggregateByCategory()
+	if err != nil {
+		log.Printf(&quot;❌ Aggregation failed: %v&quot;, err)
+	} else {
+		fmt.Println(&quot;Categories:&quot;)
+		for _, b := range agg.Buckets {
+			fmt.Printf(&quot;  - %s: %d articles\n&quot;, b.Key, b.Count)
+		}
+	}
+
+	stats, err := es.StatsAggregation(&quot;views&quot;)
+	if err != nil {
+		log.Printf(&quot;❌ Stats failed: %v&quot;, err)
+	} else {
+		fmt.Printf(&quot;Views stats: avg=%.0f, max=%.0f, min=%.0f, total=%.0f\n&quot;,
+			stats[&quot;avg&quot;], stats[&quot;max&quot;], stats[&quot;min&quot;], stats[&quot;sum&quot;])
+	}
+
+	fmt.Println(&quot;\n========== 7. 删除文档 ==========&quot;)
+	if err := es.DeleteDocument(&quot;5&quot;); err != nil {
+		log.Printf(&quot;❌ Delete failed: %v&quot;, err)
+	}
+
+	fmt.Println(&quot;\n✅ All operations completed!&quot;)
+}</code></pre>
+
+<h2>4. 执行预览</h2>
+
+<pre><code>✅ Connected to Elasticsearch
+✅ Index &#x27;articles&#x27; created successfully
+
+========== 1. 批量索引文档 ==========
+✅ Bulk indexed 5 documents
+
+========== 2. 全文搜索 ==========
+Found 4 results in 12ms:
+  - Go并发编程实战 (views: 2300)
+  - Go语言入门教程 (views: 1500)
+  - Go微服务架构设计 (views: 1800)
+  - Go语言Web开发指南 (views: 3200)
+
+========== 3. 布尔组合搜索 ==========
+Found 1 results:
+  - Go语言Web开发指南 by 张三
+
+========== 4. 搜索建议 ==========
+Suggestions:
+  - Go语言入门教程
+  - Go并发编程实战
+  - Go微服务架构设计
+  - Go语言Web开发指南
+
+========== 5. 单文档操作 ==========
+Got: Go语言入门教程 by 张三
+Updated views: 2000
+
+========== 6. 聚合分析 ==========
+Categories:
+  - tutorial: 2 articles
+  - advanced: 1 articles
+  - architecture: 1 articles
+  - testing: 1 articles
+Views stats: avg=1860, max=3200, min=500, total=9300
+
+========== 7. 删除文档 ==========
+✅ Deleted document: 5
+
+✅ All operations completed!</code></pre>
+
+<h2>5. 注意事项</h2>
+
+<table><thead><tr>
+<th>注意事项</th>
+<th>说明</th>
+<th>解决方案</th>
+</tr></thead><tbody>
+<tr>
+<td><strong>Mapping不可变</strong></td>
+<td>字段类型一旦创建不可修改</td>
+<td>使用Reindex API重建索引</td>
+</tr>
+<tr>
+<td><strong>深分页问题</strong></td>
+<td><code>from+size > 10000</code> 时性能差</td>
+<td>使用 <code>search_after</code> 或 Scroll API</td>
+</tr>
+<tr>
+<td><strong>文本分词</strong></td>
+<td>中文需安装IK分词插件</td>
+<td>安装 <code>analysis-ik</code> 插件，使用 <code>ik_max_word</code></td>
+</tr>
+<tr>
+<td><strong>写入延迟</strong></td>
+<td>默认1秒refresh间隔</td>
+<td>批量写入时关闭refresh，完成后手动刷新</td>
+</tr>
+<tr>
+<td><strong>字段爆炸</strong></td>
+<td>动态映射可能导致字段过多</td>
+<td>设置 <code>dynamic: strict</code> 或 <code>dynamic: false</code></td>
+</tr>
+<tr>
+<td><strong>堆内存</strong></td>
+<td>聚合和排序消耗大量堆内存</td>
+<td>控制聚合桶数量，使用 <code>doc_values</code></td>
+</tr>
+<tr>
+<td><strong>集群脑裂</strong></td>
+<td>网络分区导致多主节点</td>
+<td>ES 7.x+已自动处理，设置最少主节点数</td>
+</tr>
+</tbody></table>
+
+<h2>6. 避坑指南</h2>
+
+<h3>❌ 错误做法</h3>
+
+<pre><code class="language-go">// ❌ 每次查询创建新连接
+func badSearch(query string) {
+    es, _ := elasticsearch.NewClient(...)  // 每次新建
+    es.Search(...)
+}
+
+// ❌ 使用 from/size 做深分页
+func badDeepPagination(es *ESClient) {
+    // 当 from=100000, size=10 时，ES需要在每个分片上排序100010条数据
+    query := `{&quot;from&quot;: 100000, &quot;size&quot;: 10, &quot;query&quot;: {&quot;match_all&quot;: {}}}`
+}
+
+// ❌ 不处理连接错误和超时
+func badNoTimeout(es *ESClient) {
+    ctx := context.Background()  // 无超时
+    res, _ := es.client.Search(
+        es.client.Search.WithContext(ctx),
+    )
+    // 忽略错误
+    defer res.Body.Close()  // 可能 res 为 nil
+}
+
+// ❌ 在循环中逐条索引
+func badLoopIndex(es *ESClient, docs []Article) {
+    for _, doc := range docs {
+        es.IndexDocument(doc)  // 每次一条HTTP请求
+    }
+}</code></pre>
+
+<h3>✅ 正确做法</h3>
+
+<pre><code class="language-go">// ✅ 全局复用ES客户端（线程安全）
+var globalES *elasticsearch.Client
+
+func init() {
+    globalES, _ = elasticsearch.NewClient(elasticsearch.Config{
+        Addresses: []string{&quot;http://localhost:9200&quot;},
+    })
+}
+
+// ✅ 使用 search_after 做深分页
+func goodDeepPagination(es *ESClient, afterKey map[string]interface{}) {
+    query := `{
+        &quot;size&quot;: 100,
+        &quot;query&quot;: {&quot;match_all&quot;: {}},
+        &quot;sort&quot;: [{&quot;published_at&quot;: &quot;desc&quot;}, &quot;_id&quot;]
+    }`
+    // 每次返回最后一条的sort值作为下次的search_after
+}
+
+// ✅ 设置合理的超时
+func goodSearchWithTimeout(es *ESClient) {
+    ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+    defer cancel()
+
+    res, err := es.client.Search(
+        es.client.Search.WithContext(ctx),
+        es.client.Search.WithIndex(es.index),
+    )
+    if err != nil {
+        log.Printf(&quot;search timeout or error: %v&quot;, err)
+        return
+    }
+    defer res.Body.Close()
+
+    if res.IsError() {
+        log.Printf(&quot;search error: %s&quot;, res.String())
+        return
+    }
+}
+
+// ✅ 批量索引
+func goodBulkIndex(es *ESClient, docs []Article) {
+    // Batch size 500-1000 is optimal
+    batchSize := 500
+    for i := 0; i &lt; len(docs); i += batchSize {
+        end := i + batchSize
+        if end &gt; len(docs) {
+            end = len(docs)
+        }
+        es.BulkIndex(docs[i:end])
+    }
+}</code></pre>
+
+<h2>7. 练习题</h2>
+
+<h3>🟢 基础练习</h3>
+
+<ol>
+<li>创建一个产品索引，支持按名称、描述全文搜索</li>
+</ul>
+<ol>
+<li>实现文档的增删改查操作，包含错误处理</li>
+</ul>
+<ol>
+<li>实现一个简单的分页搜索接口</li>
+
+<h3>🟡 进阶练习</h3>
+
+<ol>
+<li>实现一个多字段加权搜索（标题权重3，内容权重1，标签权重2）</li>
+</ul>
+<ol>
+<li>实现嵌套聚合：先按分类聚合，再统计每个分类的平均阅读量</li>
+</ul>
+<ol>
+<li>实现一个搜索建议功能（基于前缀匹配+热度排序）</li>
+
+<h3>🔴 挑战练习</h3>
+
+<ol>
+<li>实现一个完整的搜索服务：支持拼音搜索、同义词扩展、搜索纠错</li>
+</ul>
+<ol>
+<li>实现MySQL到ES的数据实时同步（基于Canal或双写方案）</li>
+</ul>
+<ol>
+<li>实现一个搜索日志分析系统，统计热门搜索词和零结果率</li>
+
+<h2>8. 知识点总结</h2>
+
+<pre><code>Go语言Elasticsearch搜索实战
+├── 基础概念
+│   ├── 索引(Index)与文档(Document)
+│   ├── 映射(Mapping)与字段类型
+│   ├── 分片(Shard)与副本(Replica)
+│   └── 分析器(Analyzer)与分词
+├── 文档操作
+│   ├── 索引文档(Index)
+│   ├── 批量索引(Bulk)
+│   ├── 获取文档(Get)
+│   ├── 更新文档(Update)
+│   └── 删除文档(Delete)
+├── 搜索功能
+│   ├── 全文搜索(Multi-match)
+│   ├── 布尔组合(Bool Query)
+│   ├── 前缀建议(Suggest)
+│   ├── 高亮显示(Highlight)
+│   └── 排序与分页
+├── 聚合分析
+│   ├── 词条聚合(Terms)
+│   ├── 统计聚合(Stats)
+│   ├── 日期直方图(Date Histogram)
+│   └── 嵌套聚合
+├── 性能优化
+│   ├── 批量操作
+│   ├── search_after深分页
+│   ├── 合理设置Mapping
+│   └── 索引生命周期管理
+└── 最佳实践
+    ├── 连接池复用
+    ├── 超时控制
+    ├── 错误处理
+    └── 数据同步策略</code></pre>
+
+<h2>9. 举一反三</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>搜索方案</th>
+<th>关键配置</th>
+</tr></thead><tbody>
+<tr>
+<td>电商商品搜索</td>
+<td>multi_match + bool filter</td>
+<td>title^3, category filter, price range</td>
+</tr>
+<tr>
+<td>日志分析</td>
+<td>date_histogram + terms</td>
+<td>按时间分桶，按级别聚合</td>
+</tr>
+<tr>
+<td>文章搜索</td>
+<td>multi_match + highlight</td>
+<td>title^2, content, 高亮显示</td>
+</tr>
+<tr>
+<td>用户搜索</td>
+<td>wildcard + fuzzy</td>
+<td>支持模糊匹配用户名</td>
+</tr>
+<tr>
+<td>自动补全</td>
+<td>match_phrase_prefix</td>
+<td>前缀匹配 + 热度排序</td>
+</tr>
+<tr>
+<td>地理搜索</td>
+<td>geo_distance + sort</td>
+<td>按距离排序</td>
+</tr>
+<tr>
+<td>多语言搜索</td>
+<td>多字段 + 不同分析器</td>
+<td>ik_max_word(中文) + standard(英文)</td>
+</tr>
+</tbody></table>
+
+<h2>10. 参考资料</h2>
+
+<ul>
+<li><a href="https://www.elastic.co/guide/en/elasticsearch/reference/current/index.html">Elasticsearch官方文档</a></li>
+<li><a href="https://github.com/elastic/go-elasticsearch">go-elasticsearch GitHub</a></li>
+<li><a href="https://www.elastic.co/guide/cn/elasticsearch/guide/current/index.html">Elasticsearch权威指南</a></li>
+<li><a href="https://github.com/medcl/elasticsearch-analysis-ik">IK Analysis插件</a></li>
+
+<h2>11. 代码演进</h2>
+
+<h3>v1: 基础索引与搜索</h3>
+
+<pre><code class="language-go">// Simple index and search
+func indexDoc(id, body string) {
+    req := esapi.IndexRequest{
+        Index:      &quot;articles&quot;,
+        DocumentID: id,
+        Body:       strings.NewReader(body),
+    }
+    req.Do(ctx, client)
+}
+
+func search(query string) {
+    client.Search(
+        client.Search.WithIndex(&quot;articles&quot;),
+        client.Search.WithBody(strings.NewReader(
+            `{&quot;query&quot;:{&quot;match&quot;:{&quot;title&quot;:&quot;` + query + `&quot;}}}`,
+        )),
+    )
+}</code></pre>
+
+<h3>v2: 结构化搜索与聚合</h3>
+
+<pre><code class="language-go">// Structured search with bool query + aggregations
+func structuredSearch(query Query) (*SearchResult, error) {
+    esq := buildBoolQuery(query.Filters, query.Must)
+    agg := buildAggregation(query.GroupBy)
+
+    body := map[string]interface{}{
+        &quot;query&quot;: esq,
+        &quot;aggs&quot;:  agg,
+        &quot;from&quot;:  query.From,
+        &quot;size&quot;:  query.Size,
+    }
+    // Execute and parse response
+}</code></pre>
+
+<h3>v3: 生产级搜索服务</h3>
+
+<pre><code class="language-go">// Production search service with caching, monitoring, circuit breaking
+type SearchService struct {
+    es          *ESClient
+    cache       *CacheManager
+    metrics     *Metrics
+    circuit     *CircuitBreaker
+    rateLimiter *RateLimiter
+}
+
+func (s *SearchService) Search(ctx context.Context, req *SearchRequest) (*SearchResponse, error) {
+    // 1. Rate limiting
+    if !s.rateLimiter.Allow() { return nil, ErrRateLimited }
+
+    // 2. Check cache
+    if cached, ok := s.cache.Get(req.CacheKey()); ok { return cached, nil }
+
+    // 3. Circuit breaker
+    result, err := s.circuit.Execute(func() (interface{}, error) {
+        return s.es.FullTextSearch(req.Query, req.From, req.Size)
+    })
+
+    // 4. Cache result
+    s.cache.Set(req.CacheKey(), result)
+
+    // 5. Record metrics
+    s.metrics.RecordSearch(req, result)
+
+    return result, nil
+}</code></pre>
+
+<hr>
+
+<p><strong>总结</strong>：Elasticsearch是构建搜索系统的利器。掌握索引设计、搜索语法、聚合分析、性能调优，能让你在海量数据场景下实现毫秒级搜索体验。结合Go语言的高性能特性，可以构建出生产级的搜索服务。</p>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

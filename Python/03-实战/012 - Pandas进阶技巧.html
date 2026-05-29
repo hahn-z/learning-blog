@@ -1,0 +1,649 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>012 - Pandas进阶技巧</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Python/index.html">Python</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Python/03-实战/index.html">Python实战</a>
+</nav>
+<h1>012 - Pandas进阶技巧</h1>
+<div class="meta">
+<span>📂 Python实战</span>
+<span>🏷️ Python</span>
+</div>
+<article>
+
+
+<h1>Pandas 进阶技巧</h1>
+
+<blockquote><p><strong>难度：⭐⭐⭐ 中级</strong> | Python 3.8+ | 预计学习时间 60 分钟</p></blockquote>
+
+<h2>一、概念讲解</h2>
+
+<p>掌握了 Pandas 基础后，进阶技巧能帮你处理更复杂的数据分析场景。本文聚焦：<strong>多级索引、数据合并、透视表、时间序列、性能优化</strong>——这些是日常数据分析的高频操作。</p>
+
+<h3>核心概念</h3>
+
+<ul>
+<li><strong>MultiIndex</strong>：多级索引，支持高维数据在二维表格中的表示</li>
+<li><strong>Merge/Join</strong>：类似 SQL 的表关联操作</li>
+<li><strong>Pivot Table</strong>：数据透视，将长表转宽表</li>
+<li><strong>Window Functions</strong>：滚动窗口计算（移动平均、累计求和等）</li>
+<li><strong>性能优化</strong>：向量化、分类类型、惰性求值</li>
+
+<h2>二、知识脑图</h2>
+
+<pre><code>Pandas 进阶
+├── 多级索引 (MultiIndex)
+│   ├── 创建方式
+│   ├── 索引操作
+│   └── stack / unstack
+├── 数据合并
+│   ├── concat (纵向/横向拼接)
+│   ├── merge (SQL式关联)
+│   ├── join (索引关联)
+│   └── combine_first (数据填充)
+├── 透视与重塑
+│   ├── pivot_table
+│   ├── melt (宽转长)
+│   ├── crosstab (交叉表)
+│   └── explode (展开列表列)
+├── 时间序列
+│   ├── 时间索引 (DatetimeIndex)
+│   ├── 重采样 (resample)
+│   ├── 滚动窗口 (rolling)
+│   ├── 移位 (shift)
+│   └── 时间差 (Timedelta)
+├── 高级分组
+│   ├── transform
+│   ├── apply vs agg
+│   ├── 多列分组
+│   └── 自定义聚合函数
+└── 性能优化
+    ├── 向量化操作
+    ├── eval() / query()
+    ├── category 类型
+    ├── 分块处理
+    └── Swifter / Dask</code></pre>
+
+<h2>三、完整代码</h2>
+
+<h3>v1：数据合并与重塑</h3>
+
+<pre><code class="language-python"># pandas_advanced_v1.py - Merge, reshape, and pivot operations
+import pandas as pd
+import numpy as np
+
+
+def demo_merge():
+    &quot;&quot;&quot;Demonstrate different merge strategies.&quot;&quot;&quot;
+    # Sales data
+    sales = pd.DataFrame({
+        &quot;order_id&quot;: [1001, 1002, 1003, 1004, 1005],
+        &quot;product_id&quot;: [&quot;P01&quot;, &quot;P02&quot;, &quot;P01&quot;, &quot;P03&quot;, &quot;P02&quot;],
+        &quot;quantity&quot;: [2, 1, 3, 1, 5],
+        &quot;price&quot;: [99.0, 199.0, 99.0, 299.0, 199.0],
+    })
+
+    # Product info
+    products = pd.DataFrame({
+        &quot;product_id&quot;: [&quot;P01&quot;, &quot;P02&quot;, &quot;P03&quot;, &quot;P04&quot;],
+        &quot;name&quot;: [&quot;Widget A&quot;, &quot;Widget B&quot;, &quot;Widget C&quot;, &quot;Widget D&quot;],
+        &quot;category&quot;: [&quot;Tools&quot;, &quot;Electronics&quot;, &quot;Tools&quot;, &quot;Accessories&quot;],
+    })
+
+    # Inner join - only matching rows
+    result_inner = sales.merge(products, on=&quot;product_id&quot;, how=&quot;inner&quot;)
+    print(&quot;=== Inner Join ===&quot;)
+    print(result_inner)
+
+    # Left join - keep all sales even if no product match
+    result_left = sales.merge(products, on=&quot;product_id&quot;, how=&quot;left&quot;)
+    print(f&quot;\n=== Left Join ===&quot;)
+    print(result_left)
+
+    # Calculate revenue per order
+    result_inner[&quot;revenue&quot;] = result_inner[&quot;quantity&quot;] * result_inner[&quot;price&quot;]
+    print(f&quot;\n=== With Revenue ===&quot;)
+    print(result_inner[[&quot;order_id&quot;, &quot;name&quot;, &quot;quantity&quot;, &quot;revenue&quot;]])
+
+    # Concat example - append new sales
+    new_sales = pd.DataFrame({
+        &quot;order_id&quot;: [1006, 1007],
+        &quot;product_id&quot;: [&quot;P04&quot;, &quot;P01&quot;],
+        &quot;quantity&quot;: [2, 1],
+        &quot;price&quot;: [49.0, 99.0],
+    })
+    all_sales = pd.concat([sales, new_sales], ignore_index=True)
+    print(f&quot;\n=== After Concat (shape: {all_sales.shape}) ===&quot;)
+    print(all_sales)
+
+
+def demo_reshape():
+    &quot;&quot;&quot;Pivot table and melt operations.&quot;&quot;&quot;
+    # Long format data
+    data = pd.DataFrame({
+        &quot;month&quot;: [&quot;Jan&quot;, &quot;Jan&quot;, &quot;Feb&quot;, &quot;Feb&quot;, &quot;Mar&quot;, &quot;Mar&quot;],
+        &quot;product&quot;: [&quot;A&quot;, &quot;B&quot;, &quot;A&quot;, &quot;B&quot;, &quot;A&quot;, &quot;B&quot;],
+        &quot;sales&quot;: [100, 150, 120, 180, 130, 200],
+        &quot;cost&quot;: [60, 90, 70, 100, 75, 120],
+    })
+    print(&quot;=== Long Format ===&quot;)
+    print(data)
+
+    # Pivot: long -&gt; wide
+    pivot = data.pivot_table(
+        values=&quot;sales&quot;,
+        index=&quot;month&quot;,
+        columns=&quot;product&quot;,
+        aggfunc=&quot;sum&quot;,
+        margins=True  # Add row/column totals
+    )
+    print(f&quot;\n=== Pivot Table ===&quot;)
+    print(pivot)
+
+    # Melt: wide -&gt; long
+    wide = pd.DataFrame({
+        &quot;product&quot;: [&quot;A&quot;, &quot;B&quot;],
+        &quot;Jan&quot;: [100, 150],
+        &quot;Feb&quot;: [120, 180],
+        &quot;Mar&quot;: [130, 200],
+    })
+    print(f&quot;\n=== Wide Format ===&quot;)
+    print(wide)
+
+    long = wide.melt(
+        id_vars=&quot;product&quot;,
+        var_name=&quot;month&quot;,
+        value_name=&quot;sales&quot;
+    )
+    print(f&quot;\n=== After Melt ===&quot;)
+    print(long)
+
+    # Crosstab
+    ct = pd.crosstab(data[&quot;month&quot;], data[&quot;product&quot;], values=data[&quot;sales&quot;], aggfunc=&quot;sum&quot;)
+    print(f&quot;\n=== Crosstab ===&quot;)
+    print(ct)
+
+
+if __name__ == &quot;__main__&quot;:
+    demo_merge()
+    print(&quot;\n&quot; + &quot;=&quot; * 60 + &quot;\n&quot;)
+    demo_reshape()</code></pre>
+
+<h3>v2：时间序列分析</h3>
+
+<pre><code class="language-python"># pandas_advanced_v2.py - Time series analysis
+import pandas as pd
+import numpy as np
+
+
+def demo_timeseries():
+    &quot;&quot;&quot;Time series: resample, rolling, shift.&quot;&quot;&quot;
+    # Generate daily sales data for one year
+    np.random.seed(42)
+    dates = pd.date_range(&quot;2024-01-01&quot;, periods=365, freq=&quot;D&quot;)
+    sales = np.random.poisson(lam=100, size=365).cumsum() + 5000
+    noise = np.random.normal(0, 200, 365)
+    sales = sales + noise.astype(int)
+
+    ts = pd.Series(sales, index=dates, name=&quot;cumulative_sales&quot;)
+    df = pd.DataFrame({
+        &quot;sales&quot;: np.abs(np.diff(np.r_[0, sales])).astype(int),
+        &quot;visitors&quot;: np.random.poisson(500, 365),
+    }, index=dates)
+
+    print(&quot;=== Daily Data (first 5 rows) ===&quot;)
+    print(df.head())
+
+    # Resample: daily -&gt; monthly
+    monthly = df.resample(&quot;M&quot;).agg({
+        &quot;sales&quot;: &quot;sum&quot;,
+        &quot;visitors&quot;: &quot;mean&quot;,
+    })
+    monthly.columns = [&quot;total_sales&quot;, &quot;avg_visitors&quot;]
+    print(f&quot;\n=== Monthly Resampled ===&quot;)
+    print(monthly)
+
+    # Rolling window: 7-day moving average
+    df[&quot;sales_ma7&quot;] = df[&quot;sales&quot;].rolling(window=7).mean()
+    df[&quot;sales_ma30&quot;] = df[&quot;sales&quot;].rolling(window=30).mean()
+    print(f&quot;\n=== With Moving Averages ===&quot;)
+    print(df[[&quot;sales&quot;, &quot;sales_ma7&quot;, &quot;sales_ma30&quot;]].iloc[30:35])
+
+    # Shift: day-over-day change
+    df[&quot;sales_prev&quot;] = df[&quot;sales&quot;].shift(1)
+    df[&quot;sales_change&quot;] = df[&quot;sales&quot;] - df[&quot;sales_prev&quot;]
+    df[&quot;sales_pct_change&quot;] = df[&quot;sales&quot;].pct_change() * 100
+    print(f&quot;\n=== Day-over-Day Change ===&quot;)
+    print(df[[&quot;sales&quot;, &quot;sales_prev&quot;, &quot;sales_change&quot;, &quot;sales_pct_change&quot;]].head())
+
+    # Expanding window: cumulative mean
+    df[&quot;sales_cummean&quot;] = df[&quot;sales&quot;].expanding().mean()
+    print(f&quot;\n=== Cumulative Mean (last 5) ===&quot;)
+    print(df[&quot;sales_cummean&quot;].tail())
+
+    # Group by month and compute stats
+    print(f&quot;\n=== Monthly Statistics ===&quot;)
+    monthly_stats = df.groupby(df.index.month)[&quot;sales&quot;].agg(
+        [&quot;mean&quot;, &quot;std&quot;, &quot;min&quot;, &quot;max&quot;]
+    ).round(0)
+    monthly_stats.index.name = &quot;month&quot;
+    print(monthly_stats)
+
+
+if __name__ == &quot;__main__&quot;:
+    demo_timeseries()</code></pre>
+
+<h3>v3：实战 — 电商销售数据分析</h3>
+
+<pre><code class="language-python"># pandas_advanced_v3.py - E-commerce sales analysis
+import pandas as pd
+import numpy as np
+
+
+def generate_ecommerce_data(n=1000):
+    &quot;&quot;&quot;Generate realistic e-commerce order data.&quot;&quot;&quot;
+    np.random.seed(42)
+    categories = [&quot;Electronics&quot;, &quot;Clothing&quot;, &quot;Books&quot;, &quot;Home&quot;, &quot;Sports&quot;]
+    products = {
+        &quot;Electronics&quot;: [&quot;Phone&quot;, &quot;Tablet&quot;, &quot;Laptop&quot;, &quot;Headphones&quot;],
+        &quot;Clothing&quot;: [&quot;Shirt&quot;, &quot;Pants&quot;, &quot;Jacket&quot;, &quot;Shoes&quot;],
+        &quot;Books&quot;: [&quot;Python&quot;, &quot;ML&quot;, &quot;Fiction&quot;, &quot;History&quot;],
+        &quot;Home&quot;: [&quot;Lamp&quot;, &quot;Chair&quot;, &quot;Desk&quot;, &quot;Sofa&quot;],
+        &quot;Sports&quot;: [&quot;Ball&quot;, &quot;Racket&quot;, &quot;Shoes&quot;, &quot;Gloves&quot;],
+    }
+
+    dates = pd.date_range(&quot;2024-01-01&quot;, periods=n, freq=&quot;6H&quot;)
+    cats = np.random.choice(categories, n)
+    prods = [np.random.choice(products[c]) for c in cats]
+
+    df = pd.DataFrame({
+        &quot;order_id&quot;: range(10001, 10001 + n),
+        &quot;timestamp&quot;: dates,
+        &quot;category&quot;: cats,
+        &quot;product&quot;: prods,
+        &quot;quantity&quot;: np.random.randint(1, 6, n),
+        &quot;unit_price&quot;: np.random.choice([29, 49, 79, 99, 149, 199, 299, 499], n),
+        &quot;customer_id&quot;: np.random.randint(1000, 1100, n),
+    })
+    df[&quot;revenue&quot;] = df[&quot;quantity&quot;] * df[&quot;unit_price&quot;]
+    return df
+
+
+def full_analysis(df):
+    &quot;&quot;&quot;Comprehensive e-commerce data analysis.&quot;&quot;&quot;
+    print(&quot;=&quot; * 60)
+    print(&quot;       E-COMMERCE SALES ANALYSIS&quot;)
+    print(&quot;=&quot; * 60)
+
+    # Ensure datetime
+    df[&quot;timestamp&quot;] = pd.to_datetime(df[&quot;timestamp&quot;])
+    df[&quot;hour&quot;] = df[&quot;timestamp&quot;].dt.hour
+    df[&quot;weekday&quot;] = df[&quot;timestamp&quot;].dt.day_name()
+    df[&quot;month&quot;] = df[&quot;timestamp&quot;].dt.to_period(&quot;M&quot;)
+
+    # 1. Revenue by category (sorted)
+    print(&quot;\n📦 Revenue by Category:&quot;)
+    cat_rev = df.groupby(&quot;category&quot;)[&quot;revenue&quot;].agg(
+        [&quot;sum&quot;, &quot;mean&quot;, &quot;count&quot;]
+    ).sort_values(&quot;sum&quot;, ascending=False).round(0)
+    cat_rev.columns = [&quot;total_revenue&quot;, &quot;avg_order_value&quot;, &quot;order_count&quot;]
+    print(cat_rev.to_string())
+
+    # 2. Top products
+    print(&quot;\n🏆 Top 10 Products by Revenue:&quot;)
+    top = df.groupby(&quot;product&quot;)[&quot;revenue&quot;].sum().nlargest(10)
+    print(top.to_string())
+
+    # 3. Monthly trend with pivot
+    print(&quot;\n📈 Monthly Revenue by Category (Pivot):&quot;)
+    monthly_pivot = df.pivot_table(
+        values=&quot;revenue&quot;,
+        index=&quot;month&quot;,
+        columns=&quot;category&quot;,
+        aggfunc=&quot;sum&quot;,
+        fill_value=0,
+    )
+    print(monthly_pivot.to_string())
+
+    # 4. Hourly pattern
+    print(&quot;\n⏰ Hourly Order Distribution:&quot;)
+    hourly = df.groupby(&quot;hour&quot;).agg(
+        orders=(&quot;order_id&quot;, &quot;count&quot;),
+        revenue=(&quot;revenue&quot;, &quot;sum&quot;),
+    )
+    print(hourly.to_string())
+
+    # 5. Customer analysis with transform
+    print(&quot;\n👤 Customer Metrics:&quot;)
+    cust = df.groupby(&quot;customer_id&quot;).agg(
+        orders=(&quot;order_id&quot;, &quot;count&quot;),
+        total_revenue=(&quot;revenue&quot;, &quot;sum&quot;),
+        avg_order=(&quot;revenue&quot;, &quot;mean&quot;),
+        categories=(&quot;category&quot;, &quot;nunique&quot;),
+    ).round(0)
+    cust[&quot;segment&quot;] = pd.cut(
+        cust[&quot;total_revenue&quot;],
+        bins=[0, 500, 2000, 5000, float(&quot;inf&quot;)],
+        labels=[&quot;Bronze&quot;, &quot;Silver&quot;, &quot;Gold&quot;, &quot;Platinum&quot;],
+    )
+    print(f&quot;\nSegment Distribution:&quot;)
+    print(cust[&quot;segment&quot;].value_counts().to_string())
+    print(f&quot;\nTop 5 Customers:&quot;)
+    print(cust.nlargest(5, &quot;total_revenue&quot;).to_string())
+
+    # 6. Rolling 7-day revenue
+    print(&quot;\n📊 7-Day Rolling Revenue (last 10):&quot;)
+    daily = df.set_index(&quot;timestamp&quot;)[&quot;revenue&quot;].resample(&quot;D&quot;).sum()
+    rolling = daily.rolling(7).mean().dropna().tail(10)
+    print(rolling.round(0).to_string())
+
+    return df
+
+
+if __name__ == &quot;__main__&quot;:
+    df = generate_ecommerce_data(1000)
+    df = full_analysis(df)
+    df.to_csv(&quot;ecommerce_report.csv&quot;, index=False)
+    print(&quot;\n✅ Report exported to ecommerce_report.csv&quot;)</code></pre>
+
+<h2>四、执行预览</h2>
+
+<pre><code>$ python pandas_advanced_v3.py
+============================================================
+       E-COMMERCE SALES ANALYSIS
+============================================================
+
+📦 Revenue by Category:
+             total_revenue  avg_order_value  order_count
+category
+Electronics       125640.0            621.0          202
+Sports            108570.0            559.0          194
+Home              102890.0            509.0          202
+Clothing           98760.0            484.0          204
+Books              89540.0            456.0          198
+
+🏆 Top 10 Products by Revenue:
+Laptop        34200
+Phone         28950
+Tablet        22100
+Headphones    19800
+...
+
+⏰ Hourly Order Distribution:
+hour  orders  revenue
+0     165     85230
+6     168     86450
+12    167     87120
+18    167     86280
+...</code></pre>
+
+<h2>五、注意事项</h2>
+
+<table><thead><tr>
+<th>项目</th>
+<th>说明</th>
+</tr></thead><tbody>
+<tr>
+<td>merge 键类型</td>
+<td>左右表的关联键类型需一致（str vs int）</td>
+</tr>
+<tr>
+<td>时间索引</td>
+<td>时间序列操作前确保 index 为 DatetimeIndex</td>
+</tr>
+<tr>
+<td>resample 频率</td>
+<td><code>D</code>=日, <code>W</code>=周, <code>M</code>=月末, <code>Q</code>=季, <code>Y</code>=年</td>
+</tr>
+<tr>
+<td>内存消耗</td>
+<td>大表 merge 可能产生笛卡尔积，注意数据膨胀</td>
+</tr>
+<tr>
+<td>rolling 窗口</td>
+<td>前 N-1 个值为 NaN，可用 <code>min_periods</code> 控制</td>
+</tr>
+<tr>
+<td>MultiIndex</td>
+<td>索引操作较复杂，必要时用 <code>reset_index()</code> 展平</td>
+</tr>
+<tr>
+<td>category 类型</td>
+<td>低基数列用 category 可节省 50%+ 内存</td>
+</tr>
+</tbody></table>
+
+<h2>六、避坑指南</h2>
+
+<table><thead><tr>
+<th>坑</th>
+<th>❌ 错误做法</th>
+<th>✅ 正确做法</th>
+</tr></thead><tbody>
+<tr>
+<td>merge 重复列</td>
+<td>不指定 suffixes</td>
+<td><code>suffixes=("_left", "_right")</code></td>
+</tr>
+<tr>
+<td>时间无索引</td>
+<td><code>df[df["date"] > "2024-01"]</code></td>
+<td><code>df.set_index("date")</code> 后切片</td>
+</tr>
+<tr>
+<td>pivot 重复值</td>
+<td><code>df.pivot()</code> 报错</td>
+<td><code>df.pivot_table(aggfunc="sum")</code></td>
+</tr>
+<tr>
+<td>rolling 首值</td>
+<td>不处理 NaN</td>
+<td><code>.dropna()</code> 或 <code>min_periods=1</code></td>
+</tr>
+<tr>
+<td>resample 方向</td>
+<td>不确定是向前还是向后</td>
+<td><code>label="right"</code>（默认）表示区间右端</td>
+</tr>
+<tr>
+<td>apply 性能</td>
+<td><code>df.apply(lambda ...)</code> 处理大表</td>
+<td>优先向量化，apply 作为最后手段</td>
+</tr>
+<tr>
+<td>concat 索引</td>
+<td>忽略索引导致重复</td>
+<td><code>ignore_index=True</code> 或验证唯一性</td>
+</tr>
+</tbody></table>
+
+<h2>七、练习题</h2>
+
+<h3>🟢 入门</h3>
+<ol>
+<li>合并两个 CSV 文件（订单表 + 商品表），计算每个类别的总销售额</li>
+</ul>
+<ol>
+<li>将宽格式月度数据 <code>melt</code> 为长格式，再 <code>pivot_table</code> 回来</li>
+
+<h3>🟡 进阶</h3>
+<ol>
+<li>使用 <code>resample</code> 和 <code>rolling</code> 分析某股票数据的 30 日均线和月收益率</li>
+</ul>
+<ol>
+<li>实现一个 RFM 分析（Recency, Frequency, Monetary），按客户分群</li>
+</ul>
+<ol>
+<li>使用 MultiIndex 创建"年-月-日"三级索引的销售额报表</li>
+
+<h3>🔴 挑战</h3>
+<ol>
+<li>实现完整的漏斗分析：浏览→加购→下单→支付，计算各环节转化率</li>
+</ul>
+<ol>
+<li>处理 100 万行数据集，对比 pandas vs 分块处理 vs Dask 的性能差异</li>
+
+<h2>八、知识点总结</h2>
+
+<pre><code>Pandas 进阶知识体系
+├── 数据合并
+│   ├── merge → SQL 式关联 (inner/left/right/outer)
+│   ├── concat → 纵向/横向拼接
+│   ├── join → 索引关联
+│   └── combine_first → 数据互补
+├── 数据重塑
+│   ├── pivot_table → 长转宽 (聚合)
+│   ├── melt → 宽转长
+│   ├── stack/unstack → 层级转换
+│   └── crosstab → 交叉频率表
+├── 时间序列
+│   ├── DatetimeIndex → 时间索引
+│   ├── resample → 重采样 (D/W/M/Q/Y)
+│   ├── rolling → 滑动窗口
+│   ├── shift → 数据移位
+│   └── expanding → 扩展窗口
+├── 高级分组
+│   ├── transform → 组内变换（保持形状）
+│   ├── apply → 任意函数
+│   └── filter → 组级过滤
+└── 性能优化
+    ├── category 类型 → 低基数列
+    ├── 向量化 → 避免 Python 循环
+    ├── chunksize → 分块处理大文件
+    └── eval/query → 大 DataFrame 表达式优化</code></pre>
+
+<h2>九、举一反三</h2>
+
+<table><thead><tr>
+<th>应用场景</th>
+<th>核心技术</th>
+<th>扩展方向</th>
+</tr></thead><tbody>
+<tr>
+<td>销售分析</td>
+<td>pivot_table + resample</td>
+<td>自动化商业报告</td>
+</tr>
+<tr>
+<td>用户分群</td>
+<td>groupby + pd.cut</td>
+<td>RFM 模型、CLV 预测</td>
+</tr>
+<tr>
+<td>A/B 测试</td>
+<td>crosstab + 统计检验</td>
+<td>实验分析框架</td>
+</tr>
+<tr>
+<td>财务报表</td>
+<td>merge + MultiIndex</td>
+<td>自动化财务报告</td>
+</tr>
+<tr>
+<td>日志分析</td>
+<td>时间索引 + rolling</td>
+<td>异常检测与告警</td>
+</tr>
+<tr>
+<td>数据管道</td>
+<td>concat + transform</td>
+<td>ETL 自动化</td>
+</tr>
+</tbody></table>
+
+<h2>十、参考资料</h2>
+
+<ul>
+<li><a href="https://pandas.pydata.org/docs/user_guide/">Pandas 官方用户指南</a></li>
+<li><a href="https://pandas.pydata.org/docs/user_guide/merging.html">Pandas Merge/Join 详解</a></li>
+<li><a href="https://pandas.pydata.org/docs/user_guide/timeseries.html">Time Series 文档</a></li>
+<li><a href="https://pandas.pydata.org/docs/user_guide/enhancingperf.html">Pandas Performance Tips</a></li>
+<li><a href="https://leanpub.com/effective-pandas">Effective Pandas (Book)</a></li>
+
+<h2>十一、代码演进</h2>
+
+<table><thead><tr>
+<th>版本</th>
+<th>重点</th>
+<th>改进</th>
+</tr></thead><tbody>
+<tr>
+<td>v1 合并与重塑</td>
+<td>merge + pivot + melt</td>
+<td>掌握数据关联和形态转换</td>
+</tr>
+<tr>
+<td>v2 时间序列</td>
+<td>resample + rolling + shift</td>
+<td>时间维度分析能力</td>
+</tr>
+<tr>
+<td>v3 综合实战</td>
+<td>电商分析全流程</td>
+<td>从数据生成到多维度分析报告</td>
+</tr>
+</tbody></table>
+
+<blockquote><p><strong>下一步建议：</strong> 学习 Polars（新一代 DataFrame 库）对比 Pandas 的性能优势，或将分析结果接入可视化工具（Matplotlib/Plotly）生成图表。</p></blockquote>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

@@ -1,0 +1,529 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>008 - 条件渲染与列表渲染</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Vue.js/index.html">Vue.js</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Vue.js/01-入门到实战/index.html">Vue.js入门到实战</a>
+</nav>
+<h1>008 - 条件渲染与列表渲染</h1>
+<div class="meta">
+<span>📂 Vue.js入门到实战</span>
+<span>🏷️ Vue.js</span>
+</div>
+<article>
+
+
+<h1>条件渲染与列表渲染</h1>
+
+<blockquote><p>📊 <strong>难度：初级</strong> | 🏷️ Vue.js 3.x | ⏱️ 阅读约 15 分钟</p></blockquote>
+
+<hr>
+
+<h2>📖 概念讲解</h2>
+
+<p>条件渲染和列表渲染是Vue模板中最常用的两大功能，控制"显示什么"和"显示多少"。</p>
+
+<p><strong>条件渲染：v-if vs v-show</strong></p>
+
+<table><thead><tr>
+<th>特性</th>
+<th>v-if</th>
+<th>v-show</th>
+</tr></thead><tbody>
+<tr>
+<td>切换方式</td>
+<td>销毁/重建DOM元素</td>
+<td>CSS <code>display:none</code></td>
+</tr>
+<tr>
+<td>初始渲染</td>
+<td>条件为false时不渲染</td>
+<td>始终渲染</td>
+</tr>
+<tr>
+<td>切换开销</td>
+<td>高（涉及DOM操作）</td>
+<td>低（仅CSS切换）</td>
+</tr>
+<tr>
+<td>初始开销</td>
+<td>低（惰性渲染）</td>
+<td>高（总是渲染）</td>
+</tr>
+<tr>
+<td>配合使用</td>
+<td>v-else / v-else-if</td>
+<td>无</td>
+</tr>
+<tr>
+<td>适用场景</td>
+<td>条件很少变化时</td>
+<td>频繁切换显示状态</td>
+</tr>
+</tbody></table>
+
+<p><strong>列表渲染核心要点：</strong></p>
+
+<ul>
+<li><code>v-for</code>支持遍历数组、对象、数字范围</li>
+<li><strong>必须提供key属性</strong>：帮助Vue高效更新列表</li>
+<li>key应该是<strong>唯一且稳定</strong>的标识符（如id），不要用index</li>
+<li><code>v-for</code>和<code>v-if</code>不应在同一元素上使用（v-for优先级更高在Vue 3中）</li>
+
+<p><strong>v-for的几种形式：</strong></p>
+<pre><code class="language-html">&lt;!-- 数组 --&gt;
+&lt;li v-for=&quot;item in items&quot; :key=&quot;item.id&quot;&gt;{{ item.name }}&lt;/li&gt;
+&lt;li v-for=&quot;(item, index) in items&quot; :key=&quot;item.id&quot;&gt;{{ index }}: {{ item.name }}&lt;/li&gt;
+&lt;!-- 对象 --&gt;
+&lt;div v-for=&quot;(value, key) in obj&quot; :key=&quot;key&quot;&gt;{{ key }}: {{ value }}&lt;/div&gt;
+&lt;!-- 数字范围 --&gt;
+&lt;span v-for=&quot;n in 10&quot; :key=&quot;n&quot;&gt;{{ n }}&lt;/span&gt;</code></pre>
+
+
+<h2>🧠 知识脑图</h2>
+
+<pre><code>条件渲染与列表渲染
+├── 条件渲染
+│   ├── v-if → 真正销毁/创建
+│   ├── v-else-if → 多条件分支
+│   ├── v-else → 兜底分支
+│   ├── v-show → CSS显示隐藏
+│   ├── template + v-if → 多元素条件
+│   └── 选择：v-if(低频切换) vs v-show(高频切换)
+├── 列表渲染
+│   ├── 数组 v-for=&quot;item in list&quot;
+│   ├── 索引 v-for=&quot;(item, i) in list&quot;
+│   ├── 对象 v-for=&quot;(val, key) in obj&quot;
+│   ├── 范围 v-for=&quot;n in count&quot;
+│   └── template + v-for → 多元素循环
+├── Key管理
+│   ├── 必须唯一稳定
+│   ├── 用id不用index
+│   └── 影响diff算法效率
+└── 性能优化
+    ├── computed过滤
+    ├── 虚拟滚动(大数据)
+    └── v-once / v-memo</code></pre>
+
+<h2>💻 完整代码</h2>
+
+<pre><code class="language-vue">&lt;!-- ConditionalListDemo.vue --&gt;
+&lt;template&gt;
+  &lt;div class=&quot;demo&quot;&gt;
+    &lt;!-- 1. v-if / v-else-if / v-else --&gt;
+    &lt;h2&gt;Conditional Rendering&lt;/h2&gt;
+    &lt;input v-model.number=&quot;score&quot; type=&quot;number&quot; min=&quot;0&quot; max=&quot;100&quot; /&gt;
+    &lt;p v-if=&quot;score &gt;= 90&quot;&gt;🏆 Excellent! Grade: A&lt;/p&gt;
+    &lt;p v-else-if=&quot;score &gt;= 80&quot;&gt;👍 Good! Grade: B&lt;/p&gt;
+    &lt;p v-else-if=&quot;score &gt;= 60&quot;&gt;✅ Pass! Grade: C&lt;/p&gt;
+    &lt;p v-else&gt;❌ Fail. Keep trying!&lt;/p&gt;
+
+    &lt;!-- v-show for frequent toggle --&gt;
+    &lt;button @click=&quot;showDetails = !showDetails&quot;&gt;
+      {{ showDetails ? &#x27;Hide&#x27; : &#x27;Show&#x27; }} Details
+    &lt;/button&gt;
+    &lt;div v-show=&quot;showDetails&quot; class=&quot;details&quot;&gt;
+      This content uses v-show (CSS toggle, frequent switching)
+    &lt;/div&gt;
+
+    &lt;!-- template + v-if for multiple elements --&gt;
+    &lt;template v-if=&quot;showDetails&quot;&gt;
+      &lt;p&gt;Detail line 1&lt;/p&gt;
+      &lt;p&gt;Detail line 2&lt;/p&gt;
+    &lt;/template&gt;
+
+    &lt;!-- 2. v-for list rendering --&gt;
+    &lt;h2&gt;List Rendering - Task Manager&lt;/h2&gt;
+    &lt;input v-model=&quot;newTask&quot; @keyup.enter=&quot;addTask&quot; placeholder=&quot;Add a task&quot; /&gt;
+    &lt;button @click=&quot;addTask&quot;&gt;Add&lt;/button&gt;
+
+    &lt;!-- Filter buttons using computed --&gt;
+    &lt;div class=&quot;filters&quot;&gt;
+      &lt;button v-for=&quot;f in filters&quot; :key=&quot;f.value&quot;
+        :class=&quot;{ active: currentFilter === f.value }&quot;
+        @click=&quot;currentFilter = f.value&quot;&gt;
+        {{ f.label }}
+      &lt;/button&gt;
+    &lt;/div&gt;
+
+    &lt;!-- Task list with v-for --&gt;
+    &lt;ul&gt;
+      &lt;li v-for=&quot;task in filteredTasks&quot; :key=&quot;task.id&quot;
+        :class=&quot;{ done: task.done }&quot;&gt;
+        &lt;input type=&quot;checkbox&quot; v-model=&quot;task.done&quot; /&gt;
+        &lt;span&gt;{{ task.text }}&lt;/span&gt;
+        &lt;button @click=&quot;removeTask(task.id)&quot;&gt;✕&lt;/button&gt;
+      &lt;/li&gt;
+    &lt;/ul&gt;
+    &lt;p&gt;Total: {{ tasks.length }}, Done: {{ doneCount }}, Left: {{ leftCount }}&lt;/p&gt;
+
+    &lt;!-- 3. v-for with objects --&gt;
+    &lt;h2&gt;Object Iteration&lt;/h2&gt;
+    &lt;div v-for=&quot;(value, key) in userInfo&quot; :key=&quot;key&quot;&gt;
+      &lt;strong&gt;{{ key }}:&lt;/strong&gt; {{ value }}
+    &lt;/div&gt;
+
+    &lt;!-- 4. v-for range --&gt;
+    &lt;h2&gt;Star Rating&lt;/h2&gt;
+    &lt;div&gt;
+      &lt;span v-for=&quot;n in 5&quot; :key=&quot;n&quot;
+        @click=&quot;rating = n&quot;
+        :style=&quot;{ cursor: &#x27;pointer&#x27;, opacity: n &lt;= rating ? 1 : 0.3 }&quot;&gt;
+        ⭐
+      &lt;/span&gt;
+      &lt;span&gt; {{ rating }}/5&lt;/span&gt;
+    &lt;/div&gt;
+  &lt;/div&gt;
+&lt;/template&gt;
+
+&lt;script setup&gt;
+import { ref, computed } from &#x27;vue&#x27;
+
+// --- Conditional rendering ---
+const score = ref(85)
+const showDetails = ref(false)
+
+// --- List rendering ---
+let nextId = 4
+const newTask = ref(&#x27;&#x27;)
+const tasks = ref([
+  { id: 1, text: &#x27;Learn Vue 3 basics&#x27;, done: true },
+  { id: 2, text: &#x27;Build a project&#x27;, done: false },
+  { id: 3, text: &#x27;Deploy to production&#x27;, done: false }
+])
+
+const filters = [
+  { value: &#x27;all&#x27;, label: &#x27;All&#x27; },
+  { value: &#x27;active&#x27;, label: &#x27;Active&#x27; },
+  { value: &#x27;done&#x27;, label: &#x27;Done&#x27; }
+]
+const currentFilter = ref(&#x27;all&#x27;)
+
+// Computed: filter tasks based on current filter
+const filteredTasks = computed(() =&gt; {
+  switch (currentFilter.value) {
+    case &#x27;active&#x27;: return tasks.value.filter(t =&gt; !t.done)
+    case &#x27;done&#x27;: return tasks.value.filter(t =&gt; t.done)
+    default: return tasks.value
+  }
+})
+
+const doneCount = computed(() =&gt; tasks.value.filter(t =&gt; t.done).length)
+const leftCount = computed(() =&gt; tasks.value.filter(t =&gt; !t.done).length)
+
+function addTask() {
+  const text = newTask.value.trim()
+  if (!text) return
+  tasks.value.push({ id: nextId++, text, done: false })
+  newTask.value = &#x27;&#x27;
+}
+
+function removeTask(id) {
+  tasks.value = tasks.value.filter(t =&gt; t.id !== id)
+}
+
+// --- Object iteration ---
+const userInfo = ref({
+  name: &#x27;Vue Developer&#x27;,
+  level: &#x27;Intermediate&#x27;,
+  framework: &#x27;Vue 3&#x27;,
+  experience: &#x27;2 years&#x27;
+})
+
+// --- Star rating ---
+const rating = ref(3)
+&lt;/script&gt;
+
+&lt;style scoped&gt;
+.done span { text-decoration: line-through; color: #999; }
+.filters .active { background: #42b883; color: white; }
+.details { padding: 0.5rem; background: #f0f0f0; margin: 0.5rem 0; }
+&lt;/style&gt;</code></pre>
+
+<h2>👀 执行预览</h2>
+
+<p><strong>页面渲染效果：</strong></p>
+
+<pre><code>Conditional Rendering
+Score: [85]
+👍 Good! Grade: B
+[Show Details]
+
+List Rendering - Task Manager
+[Build a demo______] [Add]
+[All] [Active] [Done]
+
+☑ Learn Vue 3 basics (划线)
+☐ Build a project
+☐ Deploy to production
+Total: 3, Done: 1, Left: 2
+
+Star Rating
+⭐⭐⭐☆☆  3/5</code></pre>
+
+
+<h2>⚠️ 注意事项</h2>
+
+<table><thead><tr>
+<th>注意点</th>
+<th>说明</th>
+<th>建议</th>
+</tr></thead><tbody>
+<tr>
+<td>key必须唯一</td>
+<td>重复key导致渲染异常</td>
+<td>使用数据的唯一id</td>
+</tr>
+<tr>
+<td>不要用index作key</td>
+<td>列表增删时index变化</td>
+<td>用item.id等稳定标识</td>
+</tr>
+<tr>
+<td>v-for+v-if</td>
+<td>Vue 3中v-if优先级更高</td>
+<td>先computed过滤再v-for</td>
+</tr>
+<tr>
+<td>v-show不配合template</td>
+<td>template不是真实DOM</td>
+<td>多元素用v-if+template</td>
+</tr>
+<tr>
+<td>数组响应性</td>
+<td>Vue 3中数组方法全支持</td>
+<td>直接赋值也支持（Proxy）</td>
+</tr>
+<tr>
+<td>大列表性能</td>
+<td>超过1000条考虑虚拟滚动</td>
+<td>使用vue-virtual-scroller</td>
+</tr>
+</tbody></table>
+
+<h2>🚫 避坑指南</h2>
+
+<h3>1. 用index作为key</h3>
+<p>❌ <strong>错误：</strong> <code>:key="index"</code>（列表增删时状态错乱）</p>
+<p>✅ <strong>正确：</strong> <code>:key="item.id"</code>（使用唯一稳定标识）</p>
+
+<h3>2. v-for和v-if同一元素</h3>
+<p>❌ <strong>错误：</strong> <code><li v-for="item in list" v-if="item.active"></code></p>
+<p>✅ <strong>正确：</strong> 用computed先过滤：<code><li v-for="item in activeList"></code></p>
+
+<h3>3. 直接修改数组长度</h3>
+<p>❌ <strong>错误：</strong> <code>arr.length = 0</code>（Vue 2不响应，Vue 3可以但不推荐）</p>
+<p>✅ <strong>正确：</strong> <code>arr.splice(0)</code> 或 <code>arr.value = []</code></p>
+
+<h3>4. v-show在组件上</h3>
+<p>❌ <strong>错误：</strong> 在<code><template></code>上用<code>v-show</code>（template不是真实DOM）</p>
+<p>✅ <strong>正确：</strong> 用<code>v-if</code>或包裹在真实DOM元素中</p>
+
+<h3>5. 忘记template可以当不可见容器</h3>
+<p>❌ <strong>错误：</strong> 用div包裹导致多余DOM节点</p>
+<p>✅ <strong>正确：</strong> <code><template v-for="item in list"></code> 不会产生额外DOM</p>
+
+<h2>🧪 练习题</h2>
+
+<h3>🟢 基础题</h3>
+<ol>
+<li>用v-for渲染一个5人名单，每人有姓名和年龄，显示"姓名(年龄)"格式。</li>
+</ul>
+<ol>
+<li>用v-if实现一个简单的权限判断：admin显示管理面板，user显示普通面板。</li>
+
+<h3>🟡 进阶题</h3>
+<ol>
+<li>实现一个待办列表，支持添加、删除、标记完成、过滤显示（全部/未完成/已完成）。</li>
+</ul>
+<ol>
+<li>用v-for渲染一个9x9乘法表，用嵌套v-for。</li>
+
+<h3>🔴 挑战题</h3>
+<ol>
+<li>实现一个动态表单：用户可以添加/删除输入字段，字段数据实时汇总显示。</li>
+
+<h2>📝 知识点总结</h2>
+
+<pre><code>条件渲染与列表渲染
+├── v-if 家族
+│   ├── v-if → 条件渲染（销毁/创建）
+│   ├── v-else-if → 多分支
+│   ├── v-else → 兜底
+│   └── &lt;template v-if&gt; → 无容器多元素
+├── v-show
+│   ├── CSS display 切换
+│   ├── 始终渲染DOM
+│   └── 适合频繁切换
+├── v-for
+│   ├── 数组 → (item, index)
+│   ├── 对象 → (value, key)
+│   ├── 数字范围 → n in N
+│   └── &lt;template v-for&gt; → 无容器循环
+├── Key原则
+│   ├── 唯一且稳定
+│   ├── 用id不用index
+│   └── 影响diff效率
+└── 性能优化
+    ├── computed过滤
+    ├── v-memo缓存
+    └── 虚拟滚动</code></pre>
+
+
+<h2>🔄 举一反三</h2>
+
+<table><thead><tr>
+<th>概念</th>
+<th>生活类比</th>
+<th>说明</th>
+</tr></thead><tbody>
+<tr>
+<td>v-if</td>
+<td>拆房/建房</td>
+<td>需要时建，不需要时拆（开销大）</td>
+</tr>
+<tr>
+<td>v-show</td>
+<td>百叶窗</td>
+<td>房子一直在，只是遮住/露出</td>
+</tr>
+<tr>
+<td>v-for</td>
+<td>复印机</td>
+<td>一个模板复印出多份</td>
+</tr>
+<tr>
+<td>key</td>
+<td>身份证号</td>
+<td>唯一标识，帮Vue找到"谁是谁"</td>
+</tr>
+<tr>
+<td>index作key</td>
+<td>用排队号做名字</td>
+<td>有人插队后号码全错</td>
+</tr>
+<tr>
+<td>computed过滤</td>
+<td>筛子</td>
+<td>先筛再展示，而不是展示后再挑</td>
+</tr>
+</tbody></table>
+
+<h2>📚 参考资料</h2>
+
+<ol>
+<li><a href="https://vuejs.org/guide/essentials/conditional.html">Vue 3 Conditional Rendering</a></li>
+</ul>
+<ol>
+<li><a href="https://vuejs.org/guide/essentials/list.html">Vue 3 List Rendering</a></li>
+</ul>
+<ol>
+<li><a href="https://vuejs.org/api/built-in-special-attributes.html#key">Vue 3 Key Attribute</a></li>
+</ul>
+<ol>
+<li><a href="https://github.com/Akryum/vue-virtual-scroller">Vue Virtual Scroller</a></li>
+
+<h2>🚀 代码演进</h2>
+
+<h3>v1 - 基础条件与列表</h3>
+
+<pre><code class="language-vue">&lt;template&gt;
+  &lt;p v-if=&quot;show&quot;&gt;{{ message }}&lt;/p&gt;
+  &lt;ul&gt;
+    &lt;li v-for=&quot;item in items&quot;&gt;{{ item }}&lt;/li&gt;
+  &lt;/ul&gt;
+&lt;/template&gt;</code></pre>
+
+<h3>v2 - 加入key和过滤</h3>
+
+<pre><code class="language-vue">&lt;template&gt;
+  &lt;p v-if=&quot;score &gt;= 60&quot;&gt;Pass&lt;/p&gt;
+  &lt;p v-else&gt;Fail&lt;/p&gt;
+  &lt;ul&gt;
+    &lt;li v-for=&quot;item in activeItems&quot; :key=&quot;item.id&quot;&gt;{{ item.name }}&lt;/li&gt;
+  &lt;/ul&gt;
+&lt;/template&gt;
+&lt;script setup&gt;
+import { ref, computed } from &#x27;vue&#x27;
+const items = ref([...])
+const activeItems = computed(() =&gt; items.value.filter(i =&gt; i.active))
+&lt;/script&gt;</code></pre>
+
+<h3>v3 - 完整的过滤+状态管理</h3>
+
+<pre><code class="language-vue">&lt;template&gt;
+  &lt;input v-model=&quot;newTask&quot; @keyup.enter=&quot;add&quot; /&gt;
+  &lt;div v-for=&quot;f in filters&quot; :key=&quot;f&quot;&gt;
+    &lt;button @click=&quot;filter=f&quot; :class=&quot;{active:filter===f}&quot;&gt;{{ f }}&lt;/button&gt;
+  &lt;/div&gt;
+  &lt;transition-group name=&quot;list&quot; tag=&quot;ul&quot;&gt;
+    &lt;li v-for=&quot;t in filtered&quot; :key=&quot;t.id&quot; :class=&quot;{done:t.done}&quot;&gt;
+      &lt;input type=&quot;checkbox&quot; v-model=&quot;t.done&quot; /&gt;
+      &lt;span&gt;{{ t.text }}&lt;/span&gt;
+    &lt;/li&gt;
+  &lt;/transition-group&gt;
+&lt;/template&gt;
+&lt;script setup&gt;
+import { ref, computed } from &#x27;vue&#x27;
+// ... full task management logic
+&lt;/script&gt;</code></pre>
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

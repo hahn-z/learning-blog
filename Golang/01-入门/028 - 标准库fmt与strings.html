@@ -1,0 +1,512 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>028 - 标准库fmt与strings</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/learning-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/learning-blog/Golang/index.html">Golang</a>
+<span class="sep">›</span>
+<a href="/learning-blog/Golang/01-入门/index.html">Golang入门</a>
+</nav>
+<h1>028 - 标准库fmt与strings</h1>
+<div class="meta">
+<span>📂 Golang入门</span>
+<span>🏷️ Golang</span>
+</div>
+<article>
+
+
+
+<h1>028 - 标准库 fmt 与 strings</h1>
+
+<blockquote><p>难度：⭐⭐（中级）<br><br>掌握 Go 标准库中最常用的两个字符串处理包，从格式化输出到高效字符串拼接。</p></blockquote>
+
+<hr>
+
+<h2>一、概念讲解</h2>
+
+<p>Go 的 <code>fmt</code> 包实现了类似 C 语言的 <code>printf</code>/<code>scanf</code> 格式化 I/O，是日常开发中使用频率最高的包之一。<code>strings</code> 包则提供了丰富的字符串操作函数，涵盖查找、分割、替换、拼接等功能。</p>
+
+<p><strong>为什么重要？</strong></p>
+
+<ul>
+<li>日志输出依赖 <code>fmt</code></li>
+<li>字符串处理是后端开发的基本功</li>
+<li><code>strings.Builder</code> 是高频拼接场景的性能利器</li>
+
+<hr>
+
+<h2>二、脑图</h2>
+
+<pre><code>                fmt &amp; strings
+                    │
+        ┌───────────┼───────────┐
+        │           │           │
+      fmt         strings   strings.Builder
+        │           │           │
+   ┌────┼────┐   ┌──┼──┐       │
+   │    │    │   │  │  │      性能优化
+ Print Scan  │ Find│  Join     │
+ 系列  系列 Fprintf │ Split    Grow/Reset
+              │     │
+           格式化   Trim系列
+           动词     Replace</code></pre>
+
+<hr>
+
+<h2>三、完整代码</h2>
+
+<pre><code class="language-go">package main
+
+import (
+	&quot;bytes&quot;
+	&quot;fmt&quot;
+	&quot;strings&quot;
+)
+
+func main() {
+	// ========== fmt.Printf: formatted output to stdout ==========
+	name := &quot;Go&quot;
+	version := 1.22
+	fmt.Printf(&quot;Language: %s, Version: %.2f\n&quot;, name, version)
+
+	// ========== Format verbs ==========
+	num := 42
+	pi := 3.14159265
+	complexVal := struct {
+		Name string
+		Age  int
+	}{&quot;Alice&quot;, 30}
+
+	fmt.Printf(&quot;%%v  (default):      %v\n&quot;, num)
+	fmt.Printf(&quot;%%+v (struct fields): %+v\n&quot;, complexVal)
+	fmt.Printf(&quot;%%#v (Go syntax):    %#v\n&quot;, complexVal)
+	fmt.Printf(&quot;%%T  (type):         %T\n&quot;, num)
+	fmt.Printf(&quot;%%d  (decimal):      %d\n&quot;, num)
+	fmt.Printf(&quot;%%b  (binary):       %b\n&quot;, num)
+	fmt.Printf(&quot;%%x  (hex):          %x\n&quot;, num)
+	fmt.Printf(&quot;%%o  (octal):        %o\n&quot;, num)
+	fmt.Printf(&quot;%%f  (float):        %f\n&quot;, pi)
+	fmt.Printf(&quot;%%.2f (2 decimals):  %.2f\n&quot;, pi)
+	fmt.Printf(&quot;%%e  (scientific):   %e\n&quot;, pi)
+	fmt.Printf(&quot;%%s  (string):       %s\n&quot;, &quot;hello&quot;)
+	fmt.Printf(&quot;%%q  (quoted):       %q\n&quot;, &quot;hello&quot;)
+	fmt.Printf(&quot;%%p  (pointer):      %p\n&quot;, &amp;num)
+	fmt.Printf(&quot;%%t  (bool):         %t\n&quot;, true)
+	fmt.Printf(&quot;%%c  (char):         %c\n&quot;, 65)
+	fmt.Printf(&quot;%%02d (zero-pad):    %02d\n&quot;, 7)
+	fmt.Printf(&quot;%%-10s (left-align): |%-10s|\n&quot;, &quot;left&quot;)
+	fmt.Printf(&quot;%%10s  (right-align):|%10s|\n&quot;, &quot;right&quot;)
+
+	// ========== fmt.Sprintf: returns formatted string ==========
+	msg := fmt.Sprintf(&quot;Welcome, %s! You are %d years old.&quot;, &quot;Bob&quot;, 25)
+	fmt.Println(msg)
+
+	// ========== fmt.Fprintf: writes to any io.Writer ==========
+	var buf bytes.Buffer
+	fmt.Fprintf(&amp;buf, &quot;Buffered: %s = %d\n&quot;, &quot;answer&quot;, 42)
+	fmt.Print(buf.String())
+
+	// ========== strings: basic operations ==========
+	s := &quot;Hello, Go World!&quot;
+
+	// Contains
+	fmt.Printf(&quot;Contains &#x27;Go&#x27;:     %v\n&quot;, strings.Contains(s, &quot;Go&quot;))
+	fmt.Printf(&quot;ContainsAny &#x27;xyz&#x27;: %v\n&quot;, strings.ContainsAny(s, &quot;xyz&quot;))
+
+	// Prefix / Suffix
+	fmt.Printf(&quot;HasPrefix &#x27;Hello&#x27;: %v\n&quot;, strings.HasPrefix(s, &quot;Hello&quot;))
+	fmt.Printf(&quot;HasSuffix &#x27;!&#x27;:     %v\n&quot;, strings.HasSuffix(s, &quot;!&quot;))
+
+	// Index
+	fmt.Printf(&quot;Index &#x27;Go&#x27;:        %d\n&quot;, strings.Index(s, &quot;Go&quot;))
+	fmt.Printf(&quot;LastIndex &#x27;o&#x27;:     %d\n&quot;, strings.LastIndex(s, &quot;o&quot;))
+
+	// Count
+	fmt.Printf(&quot;Count &#x27;o&#x27;:         %d\n&quot;, strings.Count(s, &quot;o&quot;))
+
+	// Repeat
+	fmt.Printf(&quot;Repeat &#x27;Go&#x27; x3:    %s\n&quot;, strings.Repeat(&quot;Go&quot;, 3))
+
+	// Replace
+	fmt.Printf(&quot;Replace &#x27;o&#x27;-&gt;&#x27;0&#x27;:  %s\n&quot;, strings.Replace(s, &quot;o&quot;, &quot;0&quot;, 1))
+	fmt.Printf(&quot;ReplaceAll &#x27;o&#x27;-&gt;&#x27;0&#x27;: %s\n&quot;, strings.ReplaceAll(s, &quot;o&quot;, &quot;0&quot;))
+
+	// Split
+	parts := strings.Split(&quot;a,b,c,d&quot;, &quot;,&quot;)
+	fmt.Printf(&quot;Split:             %v (len=%d)\n&quot;, parts, len(parts))
+
+	// Join
+	fmt.Printf(&quot;Join:              %s\n&quot;, strings.Join(parts, &quot;-&quot;))
+
+	// Trim
+	fmt.Printf(&quot;Trim &#x27;!&#x27; :         %s\n&quot;, strings.Trim(s, &quot;! &quot;))
+	fmt.Printf(&quot;TrimSpace:         %s\n&quot;, strings.TrimSpace(&quot;  hello  &quot;))
+	fmt.Printf(&quot;TrimPrefix:        %s\n&quot;, strings.TrimPrefix(s, &quot;Hello, &quot;))
+
+	// Title / ToUpper / ToLower
+	fmt.Printf(&quot;Title:             %s\n&quot;, strings.Title(&quot;hello world&quot;)) // Deprecated but still common
+	fmt.Printf(&quot;ToUpper:           %s\n&quot;, strings.ToUpper(s))
+	fmt.Printf(&quot;ToLower:           %s\n&quot;, strings.ToLower(s))
+
+	// ========== strings.Builder: efficient concatenation ==========
+	var builder strings.Builder
+	builder.Grow(100) // pre-allocate to reduce GC pressure
+	for i := 0; i &lt; 5; i++ {
+		builder.WriteString(fmt.Sprintf(&quot;Line %d\n&quot;, i))
+	}
+	fmt.Printf(&quot;Builder result:\n%s&quot;, builder.String())
+	fmt.Printf(&quot;Builder len: %d, cap: %d\n&quot;, builder.Len(), builder.Cap())
+	builder.Reset()
+	fmt.Printf(&quot;After Reset - len: %d\n&quot;, builder.Len())
+
+	// ========== fmt.Scanner (basic) ==========
+	// Simulate scanning from a string reader
+	input := &quot;42 3.14 hello&quot;
+	var age int
+	var score float64
+	var label string
+	reader := strings.NewReader(input)
+	_, _ = fmt.Fscan(reader, &amp;age, &amp;score, &amp;label)
+	fmt.Printf(&quot;Scanned: age=%d, score=%.2f, label=%s\n&quot;, age, score, label)
+
+	// Sscanf for pattern-based scanning
+	var a, b int
+	fmt.Sscanf(&quot;2024-01&quot;, &quot;%d-%d&quot;, &amp;a, &amp;b)
+	fmt.Printf(&quot;Sscanf: year=%d, month=%d\n&quot;, a, b)
+}</code></pre>
+
+<h3>执行预览</h3>
+
+<pre><code>Language: Go, Version: 1.22
+%v  (default):      42
+%+v (struct fields): {Name:Alice Age:30}
+%#v (Go syntax):    struct { Name string; Age int }{Name:&quot;Alice&quot;, Age:30}
+%T  (type):         int
+%d  (decimal):      42
+%b  (binary):       101010
+%x  (hex):          2a
+%o  (octal):        52
+%f  (float):        3.141593
+%.2f (2 decimals):  3.14
+%s  (string):       hello
+%q  (quoted):       &quot;hello&quot;
+%t  (bool):         true
+%c  (char):         A
+%02d (zero-pad):    07
+%-10s (left-align): |left      |
+%10s  (right-align):|     right|
+Welcome, Bob! You are 25 years old.
+Buffered: answer = 42
+Contains &#x27;Go&#x27;:     true
+ContainsAny &#x27;xyz&#x27;: false
+HasPrefix &#x27;Hello&#x27;: true
+HasSuffix &#x27;!&#x27;:     true
+Index &#x27;Go&#x27;:        7
+LastIndex &#x27;o&#x27;:     11
+Count &#x27;o&#x27;:         2
+Repeat &#x27;Go&#x27; x3:    GoGoGo
+Replace &#x27;o&#x27;-&gt;&#x27;0&#x27;:  Hell0, Go World!
+ReplaceAll &#x27;o&#x27;-&gt;&#x27;0&#x27;: Hell0, G0 W0rld!
+Split:             [a b c d] (len=4)
+Join:              a-b-c-d
+Trim &#x27;!&#x27; :         Hello, Go World
+TrimSpace:         hello
+TrimPrefix:        Go World!
+Builder result:
+Line 0
+Line 1
+Line 2
+Line 3
+Line 4
+Builder len: 35, cap: 100
+After Reset - len: 0
+Scanned: age=42, score=3.14, label=hello
+Sscanf: year=2024, month=1</code></pre>
+
+<hr>
+
+<h2>四、注意事项</h2>
+
+<table><thead><tr>
+<th>项目</th>
+<th>说明</th>
+</tr></thead><tbody>
+<tr>
+<td><code>strings.Title</code> 已废弃</td>
+<td>Go 1.18+ 建议使用 <code>golang.org/x/text/cases</code> 代替</td>
+</tr>
+<tr>
+<td><code>%v</code> vs <code>%+v</code> vs <code>%#v</code></td>
+<td><code>%v</code> 默认输出，<code>%+v</code> 显示 struct 字段名，<code>%#v</code> 输出 Go 语法</td>
+</tr>
+<tr>
+<td><code>strings.Builder</code> 非并发安全</td>
+<td>多 goroutine 使用需加锁或每人一个实例</td>
+</tr>
+<tr>
+<td><code>fmt.Sprintf</code> 有性能开销</td>
+<td>热路径拼接优先用 <code>strings.Builder</code></td>
+</tr>
+<tr>
+<td><code>strings.Split</code> 空字符串</td>
+<td><code>strings.Split("", ",")</code> 返回 <code>[""]</code>，不是空切片</td>
+</tr>
+<tr>
+<td><code>strings.Replace</code> 的 n 参数</td>
+<td><code>n=-1</code> 等价于 <code>ReplaceAll</code>，<code>n=1</code> 只替换第一个</td>
+</tr>
+<tr>
+<td><code>fmt.Printf</code> 的 <code>%%</code></td>
+<td>要输出 <code>%</code> 本身需要写 <code>%%</code></td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>五、避坑指南</h2>
+
+<p>❌ <strong>循环中用 <code>+</code> 或 <code>fmt.Sprintf</code> 拼接字符串</strong></p>
+<pre><code class="language-go">// Bad: each concatenation creates a new string, O(n²)
+result := &quot;&quot;
+for i := 0; i &lt; 10000; i++ {
+    result += fmt.Sprintf(&quot;item-%d,&quot;, i)
+}</code></pre>
+
+<p>✅ <strong>使用 <code>strings.Builder</code></strong></p>
+<pre><code class="language-go">// Good: O(n) with pre-allocation
+var b strings.Builder
+b.Grow(100000)
+for i := 0; i &lt; 10000; i++ {
+    b.WriteString(fmt.Sprintf(&quot;item-%d,&quot;, i))
+}
+result := b.String()</code></pre>
+
+<hr>
+
+<p>❌ <strong>混淆 <code>strings.Split</code> 和 <code>strings.SplitN</code></strong></p>
+<pre><code class="language-go">// &quot;a,b,c&quot; → Split gives [a b c]
+// &quot;a,,c&quot;  → Split gives [a  c] (empty element preserved!)</code></pre>
+
+<p>✅ <strong>注意空元素处理</strong></p>
+<pre><code class="language-go">parts := strings.Split(&quot;a,,c&quot;, &quot;,&quot;)
+// Filter empty if needed
+for _, p := range parts {
+    if p != &quot;&quot; {
+        fmt.Println(p)
+    }
+}</code></pre>
+
+<hr>
+
+<p>❌ <strong>忽略 <code>fmt.Fprintf</code> 的返回值</strong></p>
+<pre><code class="language-go">fmt.Fprintf(w, &quot;data&quot;) // discards error and bytes written</code></pre>
+
+<p>✅ <strong>检查写入结果（生产环境）</strong></p>
+<pre><code class="language-go">n, err := fmt.Fprintf(w, &quot;data&quot;)
+if err != nil {
+    log.Printf(&quot;write failed: %v&quot;, err)
+}</code></pre>
+
+<hr>
+
+<h2>六、练习题</h2>
+
+<h3>🟢 初级</h3>
+<ol>
+<li>使用 <code>fmt.Sprintf</code> 生成格式为 <code>"[2024-01-15] User: Alice, Action: Login"</code> 的日志字符串</li>
+</ul>
+<ol>
+<li>写一个函数 <code>countWord(s, word string) int</code>，使用 <code>strings.Count</code> 统计单词出现次数</li>
+
+<h3>🟡 中级</h3>
+<ol>
+<li>使用 <code>strings.Builder</code> 构建一个 CSV 行：给定 <code>[]string{"Alice", "30", "Shanghai"}</code>，输出 <code>Alice,30,Shanghai</code></li>
+</ul>
+<ol>
+<li>使用 <code>fmt.Sscanf</code> 从 <code>"2024-01-15T08:30:00Z"</code> 解析出年、月、日、时、分、秒</li>
+
+<h3>🔴 高级</h3>
+<ol>
+<li>实现一个简易模板引擎：将 <code>"Hello, {name}! You have {count} messages."</code> 中的 <code>{name}</code> 和 <code>{count}</code> 替换为实际值（提示：使用 <code>strings.Builder</code> + <code>strings.Index</code>）</li>
+
+<hr>
+
+<h2>七、知识点总结</h2>
+
+<pre><code>fmt &amp; strings
+├── fmt
+│   ├── Print 系列
+│   │   ├── Print()      — 原样输出
+│   │   ├── Println()    — 加换行
+│   │   └── Printf()     — 格式化输出
+│   ├── Sprint 系列
+│   │   ├── Sprintf()    — 返回字符串
+│   │   └── Sscan()      — 从字符串扫描
+│   ├── Fprint 系列
+│   │   ├── Fprintf()    — 写入 io.Writer
+│   │   └── Fscan()      — 从 io.Reader 扫描
+│   └── 格式化动词
+│       ├── 通用: %v %+v %#v %T
+│       ├── 整数: %d %b %x %o %c
+│       ├── 浮点: %f %e %g
+│       ├── 字符串: %s %q
+│       └── 其他: %t %p %%
+├── strings
+│   ├── 查找: Contains, Index, LastIndex, Count
+│   ├── 前后缀: HasPrefix, HasSuffix
+│   ├── 变换: ToUpper, ToLower, Title, Replace, Trim
+│   ├── 分合: Split, SplitN, Join
+│   └── 其他: Repeat, NewReader, EqualFold
+└── strings.Builder
+    ├── WriteString()  — 追加字符串
+    ├── Grow()         — 预分配内存
+    ├── Reset()        — 重置复用
+    └── String()       — 获取结果</code></pre>
+
+<hr>
+
+<h2>八、举一反三</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>fmt 函数</th>
+<th>strings 函数</th>
+</tr></thead><tbody>
+<tr>
+<td>生成日志</td>
+<td><code>Sprintf</code></td>
+<td><code>Join</code>, <code>Replace</code></td>
+</tr>
+<tr>
+<td>解析配置行</td>
+<td><code>Sscanf</code></td>
+<td><code>Split</code>, <code>TrimSpace</code></td>
+</tr>
+<tr>
+<td>构建查询字符串</td>
+<td><code>Sprintf</code></td>
+<td><code>Join</code>, <code>HasPrefix</code></td>
+</tr>
+<tr>
+<td>输出调试信息</td>
+<td><code>Printf("%+v")</code></td>
+<td>—</td>
+</tr>
+<tr>
+<td>高频字符串拼接</td>
+<td>—</td>
+<td><code>Builder.WriteString</code></td>
+</tr>
+<tr>
+<td>CSV 处理</td>
+<td>—</td>
+<td><code>Split</code>, <code>Join</code></td>
+</tr>
+<tr>
+<td>URL 路径处理</td>
+<td>—</td>
+<td><code>TrimPrefix</code>, <code>HasPrefix</code></td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>九、参考资料</h2>
+
+<ul>
+<li><a href="https://pkg.go.dev/fmt">fmt 官方文档</a></li>
+<li><a href="https://pkg.go.dev/strings">strings 官方文档</a></li>
+<li><a href="https://go.dev/blog/strings">Go 字符串优化技巧</a></li>
+
+<hr>
+
+<h2>十、代码演进</h2>
+
+<h3>v1：基础格式化输出</h3>
+<pre><code class="language-go">package main
+
+import &quot;fmt&quot;
+
+func main() {
+    name := &quot;World&quot;
+    fmt.Printf(&quot;Hello, %s!\n&quot;, name)
+    fmt.Println(&quot;That&#x27;s all.&quot;)
+}</code></pre>
+
+<h3>v2：引入 strings 操作</h3>
+<pre><code class="language-go">package main
+
+import (
+    &quot;fmt&quot;
+    &quot;strings&quot;
+)
+
+func main() {
+    s := &quot;Hello, World!&quot;
+    fmt.Println(strings.Contains(s, &quot;World&quot;))
+    fmt.Println(strings.ReplaceAll(s, &quot;World&quot;, &quot;Go&quot;))
+    parts := strings.Split(s, &quot;, &quot;)
+    fmt.Println(strings.Join(parts, &quot; &amp; &quot;))
+}</code></pre>
+
+<h3>v3：完整工具集 + Builder 优化</h3>
+<p>（即上方完整代码，包含所有格式化动词、strings 全操作、Builder 性能优化和 Scanner）</p>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

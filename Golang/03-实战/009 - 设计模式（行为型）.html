@@ -1,0 +1,883 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>009 - 设计模式（行为型）</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Golang/index.html">Golang</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Golang/03-实战/index.html">Golang实战</a>
+</nav>
+<h1>009 - 设计模式（行为型）</h1>
+<div class="meta">
+<span>📂 Golang实战</span>
+<span>🏷️ Golang</span>
+</div>
+<article>
+
+
+<h1>设计模式（行为型） ⭐⭐⭐⭐高级</h1>
+
+<blockquote><p><strong>难度标注：</strong> ⭐⭐⭐⭐ 高级 | 预计阅读时间：25分钟 | 前置知识：Go接口、channel、函数类型</p></blockquote>
+
+<h2>📖 概念讲解</h2>
+
+<p>行为型设计模式关注<strong>"对象之间的通信和职责分配"</strong>，解决"谁做什么、怎么协作"的问题。Go语言的函数是一等公民，channel天然支持发布订阅，很多行为型模式在Go中有更简洁的实现方式。</p>
+
+<p>本章覆盖5种行为型模式：<strong>策略(Strategy)、观察者(Observer)、责任链(Chain of Responsibility)、状态(State)、模板方法(Template Method)</strong>。</p>
+
+<pre><code>行为型设计模式脑图
+├── Strategy 策略
+│   ├── 算法族封装
+│   ├── 运行时切换
+│   └── Go函数类型天然支持
+├── Observer 观察者
+│   ├── 一对多依赖
+│   ├── channel实现
+│   └── 事件总线
+├── Chain of Responsibility 责任链
+│   ├── 请求沿链传递
+│   ├── 处理或转发
+│   └── HTTP中间件就是这个模式
+├── State 状态
+│   ├── 状态机
+│   ├── 订单/工作流
+│   └── 状态隔离
+└── Template Method 模板方法
+    ├── 固定骨架，可变步骤
+    ├── Go用嵌入实现
+    └── sort.Interface就是模板</code></pre>
+
+<h2>💻 完整Go代码</h2>
+
+<h3>v1 基础版本：策略 + 简单观察者</h3>
+
+<pre><code class="language-go">// v1_basic.go - Strategy pattern and simple observer
+package main
+
+import &quot;fmt&quot;
+
+// ===== Strategy Pattern =====
+
+// SortStrategy defines how to sort
+type SortStrategy interface {
+    Sort([]int) []int
+}
+
+type BubbleSort struct{}
+
+func (s *BubbleSort) Sort(data []int) []int {
+    result := make([]int, len(data))
+    copy(result, data)
+    for i := 0; i &lt; len(result)-1; i++ {
+        for j := 0; j &lt; len(result)-i-1; j++ {
+            if result[j] &gt; result[j+1] {
+                result[j], result[j+1] = result[j+1], result[j]
+            }
+        }
+    }
+    return result
+}
+
+type QuickSort struct{}
+
+func (s *QuickSort) Sort(data []int) []int {
+    if len(data) &lt;= 1 {
+        return data
+    }
+    pivot := data[0]
+    var left, right []int
+    for _, v := range data[1:] {
+        if v &lt;= pivot {
+            left = append(left, v)
+        } else {
+            right = append(right, v)
+        }
+    }
+    result := append(s.Sort(left), pivot)
+    result = append(result, s.Sort(right)...)
+    return result
+}
+
+// Sorter uses a strategy
+type Sorter struct {
+    strategy SortStrategy
+}
+
+func (s *Sorter) SetStrategy(strategy SortStrategy) {
+    s.strategy = strategy
+}
+
+func (s *Sorter) Sort(data []int) []int {
+    return s.strategy.Sort(data)
+}
+
+// ===== Simple Observer =====
+
+type EventListener interface {
+    OnEvent(event string)
+}
+
+type EventEmitter struct {
+    listeners []EventListener
+}
+
+func (e *EventEmitter) Subscribe(listener EventListener) {
+    e.listeners = append(e.listeners, listener)
+}
+
+func (e *EventEmitter) Emit(event string) {
+    for _, l := range e.listeners {
+        l.OnEvent(event)
+    }
+}
+
+type Logger struct{ Name string }
+func (l *Logger) OnEvent(event string) {
+    fmt.Printf(&quot;[%s] Received: %s\n&quot;, l.Name, event)
+}
+
+func main() {
+    // Strategy
+    sorter := &amp;Sorter{}
+    data := []int{5, 3, 8, 1, 9, 2}
+
+    sorter.SetStrategy(&amp;BubbleSort{})
+    fmt.Println(&quot;Bubble:&quot;, sorter.Sort(data))
+
+    sorter.SetStrategy(&amp;QuickSort{})
+    fmt.Println(&quot;Quick:&quot;, sorter.Sort(data))
+
+    // Observer
+    emitter := &amp;EventEmitter{}
+    emitter.Subscribe(&amp;Logger{Name: &quot;FileLogger&quot;})
+    emitter.Subscribe(&amp;Logger{Name: &quot;Console&quot;})
+    emitter.Emit(&quot;user_login&quot;)
+}</code></pre>
+
+<h3>v2 进阶版本：完整5种行为型模式</h3>
+
+<pre><code class="language-go">// v2_patterns.go - All 5 behavioral patterns
+package main
+
+import (
+    &quot;fmt&quot;
+    &quot;strings&quot;
+    &quot;sync&quot;
+)
+
+// ===== 1. Strategy - Payment processing =====
+
+type PaymentStrategy interface {
+    Pay(amount float64) string
+}
+
+type CreditCard struct{ Owner string }
+func (c *CreditCard) Pay(amount float64) string {
+    return fmt.Sprintf(&quot;Paid $%.2f via CreditCard (%s)&quot;, amount, c.Owner)
+}
+
+type Alipay struct{ Account string }
+func (a *Alipay) Pay(amount float64) string {
+    return fmt.Sprintf(&quot;Paid $%.2f via Alipay (%s)&quot;, amount, a.Account)
+}
+
+type WechatPay struct{ OpenID string }
+func (w *WechatPay) Pay(amount float64) string {
+    return fmt.Sprintf(&quot;Paid $%.2f via WechatPay (%s)&quot;, amount, w.OpenID)
+}
+
+// Go idiom: function type as strategy
+type PayFunc func(amount float64) string
+
+func (f PayFunc) Pay(amount float64) string { return f(amount) }
+
+// ===== 2. Observer - Event Bus with channels =====
+
+type EventBus struct {
+    subscribers map[string][]chan string
+    mu          sync.RWMutex
+}
+
+func NewEventBus() *EventBus {
+    return &amp;EventBus{
+        subscribers: make(map[string][]chan string),
+    }
+}
+
+func (bus *EventBus) Subscribe(topic string) chan string {
+    bus.mu.Lock()
+    defer bus.mu.Unlock()
+    ch := make(chan string, 10) // Buffered channel
+    bus.subscribers[topic] = append(bus.subscribers[topic], ch)
+    return ch
+}
+
+func (bus *EventBus) Publish(topic, message string) {
+    bus.mu.RLock()
+    defer bus.mu.RUnlock()
+    for _, ch := range bus.subscribers[topic] {
+        select {
+        case ch &lt;- message:
+        default:
+            fmt.Printf(&quot;[WARN] Channel full, dropped: %s\n&quot;, message)
+        }
+    }
+}
+
+// ===== 3. Chain of Responsibility - Request validation =====
+
+type Request struct {
+    Data   map[string]string
+    Errors []string
+}
+
+func (r *Request) AddError(err string) {
+    r.Errors = append(r.Errors, err)
+}
+
+type Handler interface {
+    SetNext(handler Handler) Handler
+    Handle(request *Request) bool
+}
+
+type BaseHandler struct {
+    next Handler
+}
+
+func (h *BaseHandler) SetNext(handler Handler) Handler {
+    h.next = handler
+    return handler
+}
+
+func (h *BaseHandler) HandleNext(request *Request) bool {
+    if h.next != nil {
+        return h.next.Handle(request)
+    }
+    return true
+}
+
+// AuthHandler checks authentication
+type AuthHandler struct{ BaseHandler }
+
+func (h *AuthHandler) Handle(request *Request) bool {
+    if token, ok := request.Data[&quot;token&quot;]; !ok || token == &quot;&quot; {
+        request.AddError(&quot;Missing auth token&quot;)
+        return false
+    }
+    fmt.Println(&quot;[Auth] Token validated&quot;)
+    return h.HandleNext(request)
+}
+
+// ValidationHandler validates input fields
+type ValidationHandler struct{ BaseHandler }
+
+func (h *ValidationHandler) Handle(request *Request) bool {
+    if email, ok := request.Data[&quot;email&quot;]; !ok || !strings.Contains(email, &quot;@&quot;) {
+        request.AddError(&quot;Invalid email&quot;)
+        return false
+    }
+    fmt.Println(&quot;[Validation] Fields valid&quot;)
+    return h.HandleNext(request)
+}
+
+// RateLimitHandler checks rate limit
+type RateLimitHandler struct {
+    BaseHandler
+    maxRequests int
+    counter     int
+}
+
+func (h *RateLimitHandler) Handle(request *Request) bool {
+    h.counter++
+    if h.counter &gt; h.maxRequests {
+        request.AddError(&quot;Rate limit exceeded&quot;)
+        return false
+    }
+    fmt.Println(&quot;[RateLimit] OK&quot;)
+    return h.HandleNext(request)
+}
+
+// ===== 4. State - Order state machine =====
+
+type OrderState interface {
+    Next() OrderState
+    Cancel() OrderState
+    String() string
+}
+
+type Order struct {
+    state OrderState
+}
+
+func NewOrder() *Order {
+    return &amp;Order{state: &amp;CreatedState{}}
+}
+
+func (o *Order) Next() {
+    o.state = o.state.Next()
+    fmt.Printf(&quot;State → %s\n&quot;, o.state.String())
+}
+
+func (o *Order) Cancel() {
+    o.state = o.state.Cancel()
+    fmt.Printf(&quot;State → %s\n&quot;, o.state.String())
+}
+
+type CreatedState struct{}
+
+func (s *CreatedState) Next() OrderState { return &amp;PaidState{} }
+func (s *CreatedState) Cancel() OrderState { return &amp;CancelledState{} }
+func (s *CreatedState) String() string { return &quot;Created&quot; }
+
+type PaidState struct{}
+
+func (s *PaidState) Next() OrderState { return &amp;ShippedState{} }
+func (s *PaidState) Cancel() OrderState { return &amp;CancelledState{} }
+func (s *PaidState) String() string { return &quot;Paid&quot; }
+
+type ShippedState struct{}
+
+func (s *ShippedState) Next() OrderState { return &amp;DeliveredState{} }
+func (s *ShippedState) Cancel() OrderState { return &amp;CancelledState{} }
+func (s *ShippedState) String() string { return &quot;Shipped&quot; }
+
+type DeliveredState struct{}
+
+func (s *DeliveredState) Next() OrderState { return s } // Terminal
+func (s *DeliveredState) Cancel() OrderState { return s }
+func (s *DeliveredState) String() string { return &quot;Delivered&quot; }
+
+type CancelledState struct{}
+
+func (s *CancelledState) Next() OrderState { return s }
+func (s *CancelledState) Cancel() OrderState { return s }
+func (s *CancelledState) String() string { return &quot;Cancelled&quot; }
+
+// ===== 5. Template Method - Data processing pipeline =====
+
+// DataProcessor defines the skeleton algorithm
+type DataProcessor interface {
+    Read() []string
+    Process(data []string) []string
+    Write(data []string)
+}
+
+// RunPipeline is the template method (free function in Go)
+func RunPipeline(p DataProcessor) {
+    data := p.Read()
+    processed := p.Process(data)
+    p.Write(processed)
+}
+
+// CSVProcessor processes CSV files
+type CSVProcessor struct {
+    Source string
+}
+
+func (c *CSVProcessor) Read() []string {
+    fmt.Printf(&quot;[CSV] Reading from %s\n&quot;, c.Source)
+    return []string{&quot;name,age&quot;, &quot;Alice,30&quot;, &quot;Bob,25&quot;}
+}
+
+func (c *CSVProcessor) Process(data []string) []string {
+    fmt.Println(&quot;[CSV] Parsing and transforming&quot;)
+    var result []string
+    for _, line := range data[1:] { // Skip header
+        result = append(result, &quot;processed: &quot;+line)
+    }
+    return result
+}
+
+func (c *CSVProcessor) Write(data []string) {
+    fmt.Printf(&quot;[CSV] Writing %d records\n&quot;, len(data))
+}
+
+// JSONProcessor processes JSON files
+type JSONProcessor struct {
+    Source string
+}
+
+func (j *JSONProcessor) Read() []string {
+    fmt.Printf(&quot;[JSON] Reading from %s\n&quot;, j.Source)
+    return []string{`{&quot;name&quot;:&quot;Alice&quot;,&quot;age&quot;:30}`, `{&quot;name&quot;:&quot;Bob&quot;,&quot;age&quot;:25}`}
+}
+
+func (j *JSONProcessor) Process(data []string) []string {
+    fmt.Println(&quot;[JSON] Parsing and transforming&quot;)
+    var result []string
+    for _, line := range data {
+        result = append(result, &quot;transformed: &quot;+line)
+    }
+    return result
+}
+
+func (j *JSONProcessor) Write(data []string) {
+    fmt.Printf(&quot;[JSON] Writing %d records\n&quot;, len(data))
+}
+
+// ===== Demo =====
+func main() {
+    fmt.Println(&quot;=== 1. Strategy (Function Type) ===&quot;)
+    strategies := []PaymentStrategy{
+        &amp;CreditCard{Owner: &quot;Alice&quot;},
+        &amp;Alipay{Account: &quot;alice@example.com&quot;},
+        PayFunc(func(amount float64) string {
+            return fmt.Sprintf(&quot;Crypto payment: $%.2f&quot;, amount)
+        }),
+    }
+    for _, s := range strategies {
+        fmt.Println(s.Pay(99.99))
+    }
+
+    fmt.Println(&quot;\n=== 2. Observer (Event Bus) ===&quot;)
+    bus := NewEventBus()
+    ch1 := bus.Subscribe(&quot;order.created&quot;)
+    ch2 := bus.Subscribe(&quot;order.created&quot;)
+    go func() {
+        for msg := range ch1 {
+            fmt.Println(&quot;[EmailService]&quot;, msg)
+        }
+    }()
+    go func() {
+        for msg := range ch2 {
+            fmt.Println(&quot;[InventoryService]&quot;, msg)
+        }
+    }()
+    bus.Publish(&quot;order.created&quot;, &quot;Order #123&quot;)
+    bus.Publish(&quot;order.created&quot;, &quot;Order #124&quot;)
+
+    fmt.Println(&quot;\n=== 3. Chain of Responsibility ===&quot;)
+    auth := &amp;AuthHandler{}
+    validation := &amp;ValidationHandler{}
+    rateLimit := &amp;RateLimitHandler{maxRequests: 5}
+    auth.SetNext(validation).SetNext(rateLimit)
+
+    req := &amp;Request{Data: map[string]string{&quot;token&quot;: &quot;abc123&quot;, &quot;email&quot;: &quot;test@example.com&quot;}}
+    if auth.Handle(req) {
+        fmt.Println(&quot;Request approved!&quot;)
+    }
+
+    fmt.Println(&quot;\n=== 4. State Machine ===&quot;)
+    order := NewOrder()
+    order.Next()   // Created → Paid
+    order.Next()   // Paid → Shipped
+    order.Next()   // Shipped → Delivered
+
+    fmt.Println(&quot;\n=== 5. Template Method ===&quot;)
+    RunPipeline(&amp;CSVProcessor{Source: &quot;data.csv&quot;})
+    RunPipeline(&amp;JSONProcessor{Source: &quot;data.json&quot;})
+}</code></pre>
+
+<h3>v3 生产级版本：泛型事件总线 + 状态机框架</h3>
+
+<pre><code class="language-go">// v3_production.go - Generic event bus and state machine framework
+package main
+
+import (
+    &quot;fmt&quot;
+    &quot;reflect&quot;
+    &quot;sync&quot;
+)
+
+// ===== Generic Event Bus =====
+
+type GenericEventBus struct {
+    handlers map[reflect.Type][]interface{}
+    mu       sync.RWMutex
+}
+
+func NewGenericEventBus() *GenericEventBus {
+    return &amp;GenericEventBus{
+        handlers: make(map[reflect.Type][]interface{}),
+    }
+}
+
+// Subscribe registers a handler function for event type T
+func Subscribe[T any](bus *GenericEventBus, handler func(T)) {
+    bus.mu.Lock()
+    defer bus.mu.Unlock()
+    t := reflect.TypeOf((*T)(nil)).Elem()
+    bus.handlers[t] = append(bus.handlers[t], handler)
+}
+
+// Publish sends event to all subscribers of type T
+func Publish[T any](bus *GenericEventBus, event T) {
+    bus.mu.RLock()
+    defer bus.mu.RUnlock()
+    t := reflect.TypeOf((*T)(nil)).Elem()
+    for _, h := range bus.handlers[t] {
+        if fn, ok := h.(func(T)); ok {
+            fn(event)
+        }
+    }
+}
+
+// ===== State Machine Framework =====
+
+type Transition struct {
+    From string
+    To   string
+    On   string // Event that triggers transition
+}
+
+type StateMachine struct {
+    current     string
+    transitions []Transition
+    onEnter     map[string]func()
+    mu          sync.Mutex
+}
+
+func NewStateMachine(initial string) *StateMachine {
+    return &amp;StateMachine{
+        current: initial,
+        onEnter: make(map[string]func()),
+    }
+}
+
+func (sm *StateMachine) AddTransition(from, to, event string) *StateMachine {
+    sm.transitions = append(sm.transitions, Transition{from, to, event})
+    return sm
+}
+
+func (sm *StateMachine) OnEnter(state string, fn func()) *StateMachine {
+    sm.onEnter[state] = fn
+    return sm
+}
+
+func (sm *StateMachine) Fire(event string) error {
+    sm.mu.Lock()
+    defer sm.mu.Unlock()
+    for _, t := range sm.transitions {
+        if t.From == sm.current &amp;&amp; t.On == event {
+            sm.current = t.To
+            if fn, ok := sm.onEnter[t.To]; ok {
+                fn()
+            }
+            return nil
+        }
+    }
+    return fmt.Errorf(&quot;no transition from %s on event %s&quot;, sm.current, event)
+}
+
+func (sm *StateMachine) State() string { return sm.current }
+
+// ===== Demo =====
+func main() {
+    // Generic Event Bus
+    bus := NewGenericEventBus()
+
+    type UserCreated struct {
+        ID   int
+        Name string
+    }
+    type OrderPlaced struct {
+        OrderID string
+        Amount  float64
+    }
+
+    Subscribe(bus, func(e UserCreated) {
+        fmt.Printf(&quot;[Handler1] New user: %s (%d)\n&quot;, e.Name, e.ID)
+    })
+    Subscribe(bus, func(e OrderPlaced) {
+        fmt.Printf(&quot;[Handler2] Order: %s $%.2f\n&quot;, e.OrderID, e.Amount)
+    })
+
+    Publish(bus, UserCreated{ID: 1, Name: &quot;Alice&quot;})
+    Publish(bus, OrderPlaced{OrderID: &quot;ORD-001&quot;, Amount: 99.99})
+
+    // State Machine
+    sm := NewStateMachine(&quot;draft&quot;).
+        AddTransition(&quot;draft&quot;, &quot;review&quot;, &quot;submit&quot;).
+        AddTransition(&quot;review&quot;, &quot;approved&quot;, &quot;approve&quot;).
+        AddTransition(&quot;review&quot;, &quot;draft&quot;, &quot;reject&quot;).
+        AddTransition(&quot;approved&quot;, &quot;published&quot;, &quot;publish&quot;).
+        OnEnter(&quot;approved&quot;, func() { fmt.Println(&quot;→ Notified: article approved!&quot;) }).
+        OnEnter(&quot;published&quot;, func() { fmt.Println(&quot;→ Article is now live!&quot;) })
+
+    fmt.Printf(&quot;State: %s\n&quot;, sm.State())
+    sm.Fire(&quot;submit&quot;)
+    fmt.Printf(&quot;State: %s\n&quot;, sm.State())
+    sm.Fire(&quot;approve&quot;)
+    fmt.Printf(&quot;State: %s\n&quot;, sm.State())
+    sm.Fire(&quot;publish&quot;)
+    fmt.Printf(&quot;State: %s\n&quot;, sm.State())
+}</code></pre>
+
+<h2>👀 执行预览</h2>
+
+<pre><code class="language-bash">$ go run v2_patterns.go
+=== 1. Strategy (Function Type) ===
+Paid $99.99 via CreditCard (Alice)
+Paid $99.99 via Alipay (alice@example.com)
+Crypto payment: $99.99
+
+=== 3. Chain of Responsibility ===
+[Auth] Token validated
+[Validation] Fields valid
+[RateLimit] OK
+Request approved!
+
+=== 4. State Machine ===
+State → Paid
+State → Shipped
+State → Delivered
+
+$ go run v3_production.go
+[Handler1] New user: Alice (1)
+[Handler2] Order: ORD-001 $99.99
+State: draft
+State: review
+→ Notified: article approved!
+State: approved
+→ Article is now live!
+State: published</code></pre>
+
+<h2>⚠️ 注意事项</h2>
+
+<table><thead><tr>
+<th>事项</th>
+<th>说明</th>
+<th>严重度</th>
+</tr></thead><tbody>
+<tr>
+<td>观察者内存泄漏</td>
+<td>subscriber channel必须关闭或消费，否则goroutine泄漏</td>
+<td>🔴 高</td>
+</tr>
+<tr>
+<td>责任链顺序</td>
+<td>链的顺序影响结果（如先鉴权再限流）</td>
+<td>🔴 高</td>
+</tr>
+<tr>
+<td>状态机终态</td>
+<td>终态不能再转换，需明确处理</td>
+<td>⚠️ 中</td>
+</tr>
+<tr>
+<td>反射性能</td>
+<td>泛型事件总线用reflect，热路径有性能开销</td>
+<td>⚠️ 中</td>
+</tr>
+<tr>
+<td>策略切换线程安全</td>
+<td>运行时切换策略需加锁保护</td>
+<td>⚠️ 中</td>
+</tr>
+</tbody></table>
+
+<h2>🚫→✅ 避坑指南</h2>
+
+<table><thead><tr>
+<th>❌ 错误做法</th>
+<th>✅ 正确做法</th>
+</tr></thead><tbody>
+<tr>
+<td>策略用switch硬编码</td>
+<td>用接口/函数类型，运行时注入</td>
+</tr>
+<tr>
+<td>观察者同步通知阻塞发布者</td>
+<td>用channel或goroutine异步通知</td>
+</tr>
+<tr>
+<td>责任链每个handler都处理</td>
+<td>明确返回true/false决定是否继续传递</td>
+</tr>
+<tr>
+<td>用大if-else实现状态机</td>
+<td>独立State接口，每个状态一个实现</td>
+</tr>
+<tr>
+<td>模板方法用继承</td>
+<td>Go用嵌入或组合，Template用接口</td>
+</tr>
+<tr>
+<td>事件总线无错误处理</td>
+<td>handler panic要recover，防止整个系统崩溃</td>
+</tr>
+</tbody></table>
+
+<h2>🏋️ 练习题</h2>
+
+<h3>🟢 初级</h3>
+<ol>
+<li>用函数类型实现排序策略，支持传入 <code>func(a, b int) bool</code> 作为比较策略。</li>
+</ul>
+<ol>
+<li>实现一个简单的事件发射器，支持 <code>On(event, handler)</code> 和 <code>Emit(event, data)</code>。</li>
+
+<h3>🟡 中级</h3>
+<ol>
+<li>实现一个审批流责任链：组员→组长→经理→总监，不同金额由不同层级审批。</li>
+</ul>
+<ol>
+<li>用状态模式实现红绿灯：Red→Green→Yellow→Red循环，每个状态持续不同时间。</li>
+
+<h3>🔴 高级</h3>
+<ol>
+<li>实现一个带优先级的事件总线：高优先级事件先处理，低优先级排队等待。</li>
+</ul>
+<ol>
+<li>设计一个通用的有限状态机(FSM)框架：支持配置驱动（JSON定义状态和转换），支持守卫条件(guard condition)和动作(action)。</li>
+
+<h2>🌳 知识点总结</h2>
+
+<pre><code>行为型设计模式
+├── Strategy 策略
+│   ├── 接口多态 → 运行时切换算法
+│   ├── 函数类型 → Go惯用策略
+│   └── 配置驱动 → 外部配置选择策略
+├── Observer 观察者
+│   ├── Channel实现 → goroutine安全
+│   ├── 事件总线 → 一对多解耦
+│   └── 泛型总线 → 类型安全(Go 1.18+)
+├── Chain of Responsibility 责任链
+│   ├── 链式传递 → 逐步处理
+│   ├── 中间件模式 → HTTP常用
+│   └── 纯/不纯 → 是否只由一个处理
+├── State 状态
+│   ├── 状态接口 → 独立行为
+│   ├── 状态机 → 转换表驱动
+│   └── 共享状态 → 单例状态对象
+└── Template Method 模板方法
+    ├── 固定骨架 → 接口定义步骤
+    ├── Hook方法 → 可选覆盖
+    └── sort.Interface → 标准库范例</code></pre>
+
+<h2>🔄 举一反三</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>推荐模式</th>
+<th>Go实现</th>
+</tr></thead><tbody>
+<tr>
+<td>支付方式选择</td>
+<td>Strategy</td>
+<td>接口/函数类型</td>
+</tr>
+<tr>
+<td>用户注册事件通知</td>
+<td>Observer</td>
+<td>channel事件总线</td>
+</tr>
+<tr>
+<td>HTTP请求处理链</td>
+<td>Chain of Responsibility</td>
+<td>中间件 <code>func(Handler) Handler</code></td>
+</tr>
+<tr>
+<td>订单状态流转</td>
+<td>State</td>
+<td>状态接口+状态机</td>
+</tr>
+<tr>
+<td>数据ETL流水线</td>
+<td>Template Method</td>
+<td>接口定义Read/Process/Write</td>
+</tr>
+<tr>
+<td>插件系统</td>
+<td>Strategy+Observer</td>
+<td>动态注册策略和事件监听</td>
+</tr>
+</tbody></table>
+
+<h2>📚 参考资料</h2>
+
+<ul>
+<li><a href="https://refactoring.guru/design-patterns/behavioral-patterns">Go设计模式 - refactoring.guru</a></li>
+<li><a href="https://pkg.go.dev/sort#Interface">Go标准库中的行为模式</a></li>
+<li><a href="https://github.com/looplab/fsm">State Machine in Go</a></li>
+<li>《设计模式》- GoF 第五章 行为型模式</li>
+<li><a href="https://go.dev/blog/pipelines">Go事件驱动架构</a></li>
+
+<h2>📈 代码演进总结</h2>
+
+<table><thead><tr>
+<th>版本</th>
+<th>核心改进</th>
+<th>特点</th>
+<th>适用场景</th>
+</tr></thead><tbody>
+<tr>
+<td>v1 基础版</td>
+<td>策略+观察者基础实现</td>
+<td>概念清晰</td>
+<td>学习入门</td>
+</tr>
+<tr>
+<td>v2 完整版</td>
+<td>5种模式+channel事件总线</td>
+<td>Go惯用写法</td>
+<td>项目参考</td>
+</tr>
+<tr>
+<td>v3 生产版</td>
+<td>泛型事件总线+状态机框架</td>
+<td>类型安全、可配置</td>
+<td>大型项目</td>
+</tr>
+</tbody></table>
+
+<blockquote><p><strong>Go智慧：</strong> 行为型模式在Go中不需要类继承。函数类型替代策略类，channel替代观察者列表，接口组合替代继承链。Go让设计模式回归本质——解决问题，而不是堆结构。</p></blockquote>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>002 - Gin路由与路由组：Radix树原理与API版本管理</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Golang/index.html">Golang</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Golang/03-实战/index.html">Golang实战</a>
+</nav>
+<h1>002 - Gin路由与路由组：Radix树原理与API版本管理</h1>
+<div class="meta">
+<span>📂 Golang实战</span>
+<span>🏷️ Golang</span>
+</div>
+<article>
+
+
+<h2>难度标注</h2>
+
+<blockquote><p>🟡 中级 | 需要掌握 Gin 基础用法，了解 RESTful API 设计</p></blockquote>
+
+<h2>概念讲解</h2>
+
+<p>Gin 的路由基于 <strong>httprouter</strong>，底层使用 <strong>Radix 树</strong>（压缩前缀树）实现，路由查找时间复杂度为 O(k)，k 为路径长度。</p>
+
+<p><strong>路由类型：</strong></p>
+<ul>
+<li><strong>静态路由</strong>：<code>/users/profile</code> — 精确匹配</li>
+<li><strong>参数路由</strong>：<code>/users/:id</code> — 捕获路径段</li>
+<li><strong>通配路由</strong>：<code>/files/*filepath</code> — 捕获剩余路径</li>
+
+<p><strong>路由组（RouterGroup）</strong> 是 Gin 的核心组织机制：</p>
+<ul>
+<li>共享前缀路径</li>
+<li>共享中间件</li>
+<li>支持嵌套组合</li>
+
+<p><strong>Radix 树原理简述：</strong></p>
+<p>Gin 启动时将所有路由构建成一棵 Radix 树。请求到来时，从根节点按路径逐字符匹配，时间复杂度与路由数量无关，只与路径长度有关。</p>
+
+<h2>脑图</h2>
+
+<pre><code>Gin 路由与路由组
+├── 路由类型
+│   ├── 静态路由 /hello
+│   ├── 参数路由 /users/:id
+│   └── 通配路由 /static/*filepath
+├── 路由组
+│   ├── 创建 r.Group(&quot;/api&quot;)
+│   ├── 嵌套 v1.Group(&quot;/admin&quot;)
+│   ├── 共享中间件
+│   └── 共享前缀
+├── 路由特性
+│   ├── NoRoute 处理
+│   ├── NoMethod 处理
+│   ├── 重定向
+│   └── 路由冲突检测
+└── 底层原理
+    ├── Radix 树
+    ├── O(k) 查找
+    └── 路由优先级</code></pre>
+
+<h2>完整 Go 代码</h2>
+
+<pre><code class="language-go">package main
+
+import (
+	&quot;fmt&quot;
+	&quot;net/http&quot;
+	&quot;strings&quot;
+
+	&quot;github.com/gin-gonic/gin&quot;
+)
+
+func main() {
+	r := gin.Default()
+
+	// ============================================
+	// 1. Static routes
+	// ============================================
+	r.GET(&quot;/&quot;, func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{&quot;message&quot;: &quot;Welcome!&quot;})
+	})
+
+	// ============================================
+	// 2. Parameterized routes
+	// ============================================
+	// /users/:id - captures a single path segment
+	r.GET(&quot;/users/:id&quot;, func(c *gin.Context) {
+		id := c.Param(&quot;id&quot;) // e.g. &quot;42&quot;
+		c.JSON(http.StatusOK, gin.H{&quot;user_id&quot;: id})
+	})
+
+	// Multiple parameters
+	r.GET(&quot;/users/:uid/posts/:pid&quot;, func(c *gin.Context) {
+		uid := c.Param(&quot;uid&quot;)
+		pid := c.Param(&quot;pid&quot;)
+		c.JSON(http.StatusOK, gin.H{&quot;user_id&quot;: uid, &quot;post_id&quot;: pid})
+	})
+
+	// ============================================
+	// 3. Wildcard routes (catch-all)
+	// ============================================
+	// /files/*filepath captures everything after /files/
+	r.GET(&quot;/files/*filepath&quot;, func(c *gin.Context) {
+		fp := c.Param(&quot;filepath&quot;) // starts with &quot;/&quot;
+		c.JSON(http.StatusOK, gin.H{&quot;filepath&quot;: fp})
+	})
+
+	// ============================================
+	// 4. Router groups - API versioning
+	// ============================================
+	// Public API
+	api := r.Group(&quot;/api&quot;)
+	{
+		// v1 endpoints
+		v1 := api.Group(&quot;/v1&quot;)
+		{
+			v1.GET(&quot;/products&quot;, func(c *gin.Context) {
+				c.JSON(http.StatusOK, gin.H{
+					&quot;version&quot;: &quot;v1&quot;,
+					&quot;products&quot;: []string{&quot;Apple&quot;, &quot;Banana&quot;},
+				})
+			})
+			v1.GET(&quot;/products/:id&quot;, func(c *gin.Context) {
+				c.JSON(http.StatusOK, gin.H{
+					&quot;version&quot;: &quot;v1&quot;,
+					&quot;product_id&quot;: c.Param(&quot;id&quot;),
+				})
+			})
+		}
+
+		// v2 endpoints (new schema)
+		v2 := api.Group(&quot;/v2&quot;)
+		{
+			v2.GET(&quot;/products&quot;, func(c *gin.Context) {
+				c.JSON(http.StatusOK, gin.H{
+					&quot;version&quot;: &quot;v2&quot;,
+					&quot;data&quot;: []map[string]any{
+						{&quot;id&quot;: 1, &quot;name&quot;: &quot;Apple&quot;, &quot;price&quot;: 3.5},
+						{&quot;id&quot;: 2, &quot;name&quot;: &quot;Banana&quot;, &quot;price&quot;: 2.8},
+					},
+				})
+			})
+		}
+	}
+
+	// ============================================
+	// 5. Group with middleware
+	// ============================================
+	auth := r.Group(&quot;/admin&quot;)
+	auth.Use(authRequired())
+	{
+		auth.GET(&quot;/dashboard&quot;, func(c *gin.Context) {
+			user := c.GetString(&quot;user&quot;)
+			c.JSON(http.StatusOK, gin.H{&quot;dashboard&quot;: user})
+		})
+
+		// Nested group
+		settings := auth.Group(&quot;/settings&quot;)
+		{
+			settings.GET(&quot;/&quot;, func(c *gin.Context) {
+				c.JSON(http.StatusOK, gin.H{&quot;settings&quot;: &quot;all&quot;})
+			})
+			settings.GET(&quot;/:key&quot;, func(c *gin.Context) {
+				c.JSON(http.StatusOK, gin.H{
+					&quot;key&quot;:   c.Param(&quot;key&quot;),
+					&quot;value&quot;: &quot;demo&quot;,
+				})
+			})
+		}
+	}
+
+	// ============================================
+	// 6. NoRoute and NoMethod handlers
+	// ============================================
+	r.NoRoute(func(c *gin.Context) {
+		c.JSON(http.StatusNotFound, gin.H{
+			&quot;error&quot;:   &quot;not found&quot;,
+			&quot;path&quot;:    c.Request.URL.Path,
+			&quot;method&quot;:  c.Request.Method,
+		})
+	})
+
+	r.NoMethod(func(c *gin.Context) {
+		c.JSON(http.StatusMethodNotAllowed, gin.H{
+			&quot;error&quot;: &quot;method not allowed&quot;,
+		})
+	})
+
+	// Enable HandleMethodNotFoundError
+	r.HandleMethodNotAllowed = true
+
+	r.Run(&quot;:8080&quot;)
+}
+
+// authRequired is a simple auth middleware for demo.
+func authRequired() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		token := c.GetHeader(&quot;Authorization&quot;)
+		if token == &quot;&quot; || !strings.HasPrefix(token, &quot;Bearer &quot;) {
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
+				&quot;error&quot;: &quot;authorization required&quot;,
+			})
+			return
+		}
+		// Extract user from token (simplified)
+		c.Set(&quot;user&quot;, strings.TrimPrefix(token, &quot;Bearer &quot;))
+		c.Next()
+	}
+}</code></pre>
+
+<h2>执行预览</h2>
+
+<pre><code class="language-bash">$ go run main.go
+
+# 静态路由
+$ curl localhost:8080/
+{&quot;message&quot;:&quot;Welcome!&quot;}
+
+# 参数路由
+$ curl localhost:8080/users/42
+{&quot;user_id&quot;:&quot;42&quot;}
+
+$ curl localhost:8080/users/5/posts/100
+{&quot;post_id&quot;:&quot;100&quot;,&quot;user_id&quot;:&quot;5&quot;}
+
+# 通配路由
+$ curl localhost:8080/files/docs/readme.md
+{&quot;filepath&quot;:&quot;/docs/readme.md&quot;}
+
+# API 版本
+$ curl localhost:8080/api/v1/products
+{&quot;products&quot;:[&quot;Apple&quot;,&quot;Banana&quot;],&quot;version&quot;:&quot;v1&quot;}
+
+$ curl localhost:8080/api/v2/products
+{&quot;data&quot;:[{&quot;id&quot;:1,&quot;name&quot;:&quot;Apple&quot;,&quot;price&quot;:3.5},{&quot;id&quot;:2,&quot;name&quot;:&quot;Banana&quot;,&quot;price&quot;:2.8}],&quot;version&quot;:&quot;v2&quot;}
+
+# 带中间件的路由组
+$ curl localhost:8080/admin/dashboard
+{&quot;error&quot;:&quot;authorization required&quot;}
+
+$ curl -H &quot;Authorization: Bearer admin&quot; localhost:8080/admin/dashboard
+{&quot;dashboard&quot;:&quot;admin&quot;}
+
+# 404 处理
+$ curl localhost:8080/nonexistent
+{&quot;error&quot;:&quot;not found&quot;,&quot;method&quot;:&quot;GET&quot;,&quot;path&quot;:&quot;/nonexistent&quot;}</code></pre>
+
+<h2>注意事项</h2>
+
+<table><thead><tr>
+<th>项目</th>
+<th>说明</th>
+</tr></thead><tbody>
+<tr>
+<td>路由冲突</td>
+<td><code>:id</code> 和 <code>/*name</code> 不能在同一层级，Gin 启动时会 panic</td>
+</tr>
+<tr>
+<td>参数获取</td>
+<td><code>c.Param()</code> 返回的是字符串，需手动转换类型</td>
+</tr>
+<tr>
+<td>通配符</td>
+<td><code>*filepath</code> 只能放在路径末尾，匹配值带前导 <code>/</code></td>
+</tr>
+<tr>
+<td>路由注册</td>
+<td>路由必须在 <code>r.Run()</code> 之前注册，之后注册无效</td>
+</tr>
+<tr>
+<td>路由组</td>
+<td><code>Group()</code> 返回的 <code>*RouterGroup</code> 可嵌套</td>
+</tr>
+<tr>
+<td>方法匹配</td>
+<td><code>r.Handle("GET", ...)</code> 等价于 <code>r.GET(...)</code></td>
+</tr>
+</tbody></table>
+
+<h2>避坑指南</h2>
+
+<ul>
+<li>❌ 在同一层级混用 <code>:id</code> 和 <code>new</code></li>
+<li>✅ 把特殊路径放在参数路由之前，或用不同前缀区分</li>
+
+<ul>
+<li>❌ <code>c.Param("id")</code> 不做校验直接用</li>
+<li>✅ 使用 <code>strconv.Atoi()</code> 或正则校验参数格式</li>
+
+<ul>
+<li>❌ 路由组嵌套过深（5层以上）</li>
+<li>✅ 控制在 2-3 层，必要时拆分注册函数</li>
+
+<ul>
+<li>❌ 忘记设置 <code>HandleMethodNotAllowed = true</code></li>
+<li>✅ 需要 405 响应时手动开启</li>
+
+<h2>练习题</h2>
+
+<p>🟢 <strong>基础：</strong> 创建路由 <code>/hello/:name</code>，返回 JSON <code>{"greeting": "Hello, {name}!"}</code></p>
+
+<p>🟡 <strong>进阶：</strong> 设计一个博客 API 路由结构：<code>/api/v1/posts</code>、<code>/api/v1/posts/:id/comments</code>、<code>/api/v1/admin/*</code>（需要认证中间件）</p>
+
+<p>🔴 <strong>挑战：</strong> 实现一个支持多版本 API 共存的路由系统，v1 和 v2 共用数据库但响应格式不同，支持通过 Header <code>Accept-Version</code> 选择版本。</p>
+
+<h2>知识点总结</h2>
+
+<pre><code>路由知识树
+├── 路由注册
+│   ├── r.GET/POST/PUT/DELETE/PATCH/OPTIONS
+│   ├── r.Any(path, handlers) → 匹配所有方法
+│   └── r.Handle(method, path, handlers)
+├── 参数类型
+│   ├── c.Param(&quot;id&quot;) → /:id 路径参数
+│   ├── c.Query(&quot;key&quot;) → ?key=value 查询参数
+│   ├── c.DefaultQuery(&quot;key&quot;, &quot;default&quot;)
+│   └── c.GetHeader(&quot;Authorization&quot;)
+├── 路由组
+│   ├── r.Group(&quot;/prefix&quot;) → 创建组
+│   ├── group.Use(middleware) → 添加中间件
+│   └── 嵌套 group.Group(&quot;/sub&quot;)
+├── 错误处理
+│   ├── r.NoRoute(handler) → 404
+│   └── r.NoMethod(handler) → 405
+└── 底层原理
+    ├── Radix 树存储路由
+    ├── 路由优先级：静态 &gt; 参数 &gt; 通配
+    └── 启动时构建，运行时查找 O(k)</code></pre>
+
+<h2>举一反三</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>方案</th>
+<th>示例</th>
+</tr></thead><tbody>
+<tr>
+<td>API 版本管理</td>
+<td>路由组前缀</td>
+<td><code>/api/v1</code> vs <code>/api/v2</code></td>
+</tr>
+<tr>
+<td>认证区域</td>
+<td>路由组 + 中间件</td>
+<td><code>/admin</code> 组要求 Bearer Token</td>
+</tr>
+<tr>
+<td>多租户</td>
+<td>路径参数</td>
+<td><code>/tenants/:tid/resources</code></td>
+</tr>
+<tr>
+<td>静态文件服务</td>
+<td>通配路由或 <code>r.Static()</code></td>
+<td><code>/static/*filepath</code></td>
+</tr>
+<tr>
+<td>优雅降级</td>
+<td>版本路由共存</td>
+<td>v1 deprecated 但仍可用</td>
+</tr>
+</tbody></table>
+
+<h2>参考资料</h2>
+
+<ul>
+<li><a href="https://gin-gonic.com/docs/examples/routing/">Gin Routing 官方文档</a></li>
+<li><a href="https://github.com/julienschmidt/httprouter">httprouter 路由原理</a></li>
+<li><a href="https://restfulapi.net/">RESTful API 设计指南</a></li>
+<li><a href="https://en.wikipedia.org/wiki/Radix_tree">Radix Tree 数据结构</a></li>
+
+<h2>代码演进</h2>
+
+<p><strong>v1 — 基础路由：</strong></p>
+<pre><code class="language-go">r := gin.Default()
+r.GET(&quot;/users/:id&quot;, getUser)
+r.Run()</code></pre>
+
+<p><strong>v2 — 添加路由组和版本：</strong></p>
+<pre><code class="language-go">api := r.Group(&quot;/api&quot;)
+v1 := api.Group(&quot;/v1&quot;)
+v1.GET(&quot;/users/:id&quot;, getUser)</code></pre>
+
+<p><strong>v3 — 完整路由架构（如上方代码）：</strong></p>
+<ul>
+<li>路由组嵌套</li>
+<li>中间件绑定</li>
+<li>NoRoute/NoMethod 处理</li>
+<li>通配路由</li>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

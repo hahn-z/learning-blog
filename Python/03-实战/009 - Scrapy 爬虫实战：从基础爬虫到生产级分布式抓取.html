@@ -1,0 +1,672 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>009 - Scrapy 爬虫实战：从基础爬虫到生产级分布式抓取</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Python/index.html">Python</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Python/03-实战/index.html">Python实战</a>
+</nav>
+<h1>009 - Scrapy 爬虫实战：从基础爬虫到生产级分布式抓取</h1>
+<div class="meta">
+<span>📂 Python实战</span>
+<span>🏷️ Python</span>
+</div>
+<article>
+
+
+<h2>难度标注</h2>
+
+<blockquote><p><strong>难度：⭐⭐⭐⭐ 中高级</strong> | 预计阅读时间：20分钟 | 前置知识：Python基础、HTML/CSS选择器、HTTP协议</p></blockquote>
+
+<h2>概念讲解</h2>
+
+<h3>为什么选 Scrapy？</h3>
+
+<table><thead><tr>
+<th>特性</th>
+<th>requests+BS4</th>
+<th>Scrapy</th>
+</tr></thead><tbody>
+<tr>
+<td>并发</td>
+<td>单线程（需手动）</td>
+<td>内置 Twisted 异步</td>
+</tr>
+<tr>
+<td>去重</td>
+<td>手动维护</td>
+<td>自动 URL 去重</td>
+</tr>
+<tr>
+<td>管道</td>
+<td>手写</td>
+<td>内置 Pipeline 机制</td>
+</tr>
+<tr>
+<td>中间件</td>
+<td>手写</td>
+<td>Downloader/Spider 中间件</td>
+</tr>
+<tr>
+<td>分布式</td>
+<td>手写</td>
+<td>Scrapy-Redis 扩展</td>
+</tr>
+<tr>
+<td>调试</td>
+<td>print</td>
+<td>scrapy shell + parse 命令</td>
+</tr>
+</tbody></table>
+
+<p><strong>Scrapy 核心数据流：</strong></p>
+
+<pre><code>Spider -&gt; Request -&gt; Engine -&gt; Scheduler -&gt; Downloader -&gt; Response -&gt; Spider -&gt; Items -&gt; Pipeline
+              ^                                                         |
+              +---------------------------------------------------------+</code></pre>
+
+<h2>脑图</h2>
+
+<pre><code>Scrapy 架构
+├── Spider（爬虫）
+│   ├── scrapy.Spider - 基础
+│   ├── CrawlSpider - 规则爬取
+│   ├── XMLFeedSpider - XML
+│   └── 自定义 start_requests
+├── Selector（选择器）
+│   ├── CSS 选择器
+│   ├── XPath 选择器
+│   └── .re() 正则提取
+├── Item（数据模型）
+│   ├── 定义字段
+│   ├── ItemLoader - 批量处理
+│   └── 输入/输出处理器
+├── Pipeline（管道）
+│   ├── 数据清洗
+│   ├── 去重
+│   ├── 存储数据库
+│   └── 存储文件
+├── Middlewares（中间件）
+│   ├── 随机 UA
+│   ├── 代理 IP
+│   ├── 重试逻辑
+│   └── Cookies 处理
+└── Settings（配置）
+    ├── CONCURRENT_REQUESTS
+    ├── DOWNLOAD_DELAY
+    ├── ROBOTSTXT_OBEY
+    └── AUTOTHROTTLE</code></pre>
+
+<h2>完整代码：技术博客爬虫</h2>
+
+<h3>项目初始化</h3>
+
+<pre><code class="language-bash">scrapy startproject techblog_scraper
+cd techblog_scraper
+scrapy genspider blogspider example.com</code></pre>
+
+<h3>v1 基础版本 - 单页爬取</h3>
+
+<pre><code class="language-python"># items.py - define data structure
+import scrapy
+
+class BlogPostItem(scrapy.Item):
+    title = scrapy.Field()
+    url = scrapy.Field()
+    author = scrapy.Field()
+    publish_date = scrapy.Field()
+    tags = scrapy.Field()
+    content = scrapy.Field()
+    crawl_time = scrapy.Field()</code></pre>
+
+<pre><code class="language-python"># spiders/blogspider.py - v1: basic spider
+import scrapy
+from ..items import BlogPostItem
+
+class BlogSpider(scrapy.Spider):
+    name = &quot;blogspider&quot;
+    allowed_domains = [&quot;example.com&quot;]
+    start_urls = [&quot;https://example.com/blog&quot;]
+
+    def parse(self, response):
+        &quot;&quot;&quot;Parse blog listing page.&quot;&quot;&quot;
+        articles = response.css(&quot;article.post&quot;)
+
+        for article in articles:
+            item = BlogPostItem()
+            item[&quot;title&quot;] = article.css(&quot;h2 a::text&quot;).get()
+            item[&quot;url&quot;] = article.css(&quot;h2 a::attr(href)&quot;).get()
+            item[&quot;author&quot;] = article.css(&quot;.author::text&quot;).get()
+            item[&quot;publish_date&quot;] = article.css(&quot;time::attr(datetime)&quot;).get()
+            yield item
+
+        # Pagination
+        next_page = response.css(&quot;a.next-page::attr(href)&quot;).get()
+        if next_page:
+            yield response.follow(next_page, callback=self.parse)</code></pre>
+
+<pre><code class="language-python"># settings.py - v1: basic settings
+BOT_NAME = &quot;techblog_scraper&quot;
+SPIDER_MODULES = [&quot;techblog_scraper.spiders&quot;]
+NEWSPIDER_MODULE = &quot;techblog_scraper.spiders&quot;
+ROBOTSTXT_OBEY = True
+CONCURRENT_REQUESTS = 8
+DOWNLOAD_DELAY = 1
+FEEDS = {
+    &quot;output.json&quot;: {&quot;format&quot;: &quot;json&quot;},
+}</code></pre>
+
+<p><strong>v1 问题</strong>：没去重、没清洗、没存储数据库、没反反爬、内容没抓全文。</p>
+
+<h3>v2 进阶版本 - ItemLoader + Pipeline + 详情页</h3>
+
+<pre><code class="language-python"># loaders.py - ItemLoader for clean data processing
+from itemloaders.processors import TakeFirst, MapCompose, Join
+from scrapy.loader import ItemLoader
+
+class BlogPostLoader(ItemLoader):
+    # Input processors: applied when assigning values
+    title_in = MapCompose(str.strip)
+    author_in = MapCompose(str.strip)
+    tags_in = MapCompose(str.strip)
+
+    # Output processors: applied when loading item
+    default_output_processor = TakeFirst()
+    tags_out = MapCompose(str.strip)  # tags stay as list</code></pre>
+
+<pre><code class="language-python"># spiders/blogspider.py - v2: detail page + ItemLoader
+import scrapy
+from datetime import datetime
+from ..items import BlogPostItem
+from ..loaders import BlogPostLoader
+
+class BlogSpider(scrapy.Spider):
+    name = &quot;blogspider&quot;
+    allowed_domains = [&quot;example.com&quot;]
+
+    custom_settings = {
+        &quot;DOWNLOAD_DELAY&quot;: 2,
+        &quot;CONCURRENT_REQUESTS_PER_DOMAIN&quot;: 4,
+    }
+
+    def start_requests(self):
+        &quot;&quot;&quot;Custom start requests with categories.&quot;&quot;&quot;
+        categories = [&quot;python&quot;, &quot;javascript&quot;, &quot;devops&quot;]
+        for cat in categories:
+            url = f&quot;https://example.com/blog/category/{cat}&quot;
+            yield scrapy.Request(url, callback=self.parse_list,
+                                 meta={&quot;category&quot;: cat})
+
+    def parse_list(self, response):
+        &quot;&quot;&quot;Parse listing page, yield detail page requests.&quot;&quot;&quot;
+        articles = response.css(&quot;article.post&quot;)
+
+        self.logger.info(f&quot;Found {len(articles)} articles on {response.url}&quot;)
+
+        for article in articles:
+            url = article.css(&quot;h2 a::attr(href)&quot;).get()
+            if url:
+                yield response.follow(
+                    url,
+                    callback=self.parse_detail,
+                    meta={&quot;category&quot;: response.meta.get(&quot;category&quot;)},
+                )
+
+        # Pagination with depth limit
+        next_page = response.css(&quot;a.next::attr(href)&quot;).get()
+        current_depth = response.meta.get(&quot;depth&quot;, 0)
+        if next_page and current_depth &lt; 10:
+            yield response.follow(
+                next_page,
+                callback=self.parse_list,
+                meta={&quot;depth&quot;: current_depth + 1, &quot;category&quot;: response.meta.get(&quot;category&quot;)},
+            )
+
+    def parse_detail(self, response):
+        &quot;&quot;&quot;Parse article detail page.&quot;&quot;&quot;
+        loader = BlogPostLoader(item=BlogPostItem(), response=response)
+
+        loader.add_css(&quot;title&quot;, &quot;h1.title::text&quot;)
+        loader.add_css(&quot;author&quot;, &quot;.author-name::text&quot;)
+        loader.add_css(&quot;publish_date&quot;, &quot;time::attr(datetime)&quot;)
+        loader.add_css(&quot;tags&quot;, &quot;.tag::text&quot;)
+        loader.add_css(&quot;content&quot;, &quot;.article-body&quot;)
+        loader.add_value(&quot;url&quot;, response.url)
+        loader.add_value(&quot;crawl_time&quot;, datetime.now().isoformat())
+
+        yield loader.load_item()</code></pre>
+
+<pre><code class="language-python"># pipelines.py - v2: validation + dedup + database
+import hashlib
+import sqlite3
+from scrapy.exceptions import DropItem
+
+class DeduplicationPipeline:
+    &quot;&quot;&quot;Drop duplicate items based on URL hash.&quot;&quot;&quot;
+
+    def __init__(self):
+        self.seen = set()
+
+    def process_item(self, item, spider):
+        url_hash = hashlib.md5(item[&quot;url&quot;].encode()).hexdigest()
+        if url_hash in self.seen:
+            spider.logger.debug(f&quot;Duplicate: {item[&#x27;url&#x27;]}&quot;)
+            raise DropItem(f&quot;Duplicate item: {item[&#x27;url&#x27;]}&quot;)
+        self.seen.add(url_hash)
+        return item
+
+class ValidationPipeline:
+    &quot;&quot;&quot;Ensure required fields exist.&quot;&quot;&quot;
+
+    REQUIRED_FIELDS = [&quot;title&quot;, &quot;url&quot;, &quot;content&quot;]
+
+    def process_item(self, item, spider):
+        for field in self.REQUIRED_FIELDS:
+            if not item.get(field):
+                raise DropItem(f&quot;Missing {field} in {item.get(&#x27;url&#x27;)}&quot;)
+        return item
+
+class SQLitePipeline:
+    &quot;&quot;&quot;Store items in SQLite database.&quot;&quot;&quot;
+
+    def open_spider(self, spider):
+        self.conn = sqlite3.connect(&quot;blog_posts.db&quot;)
+        self.cursor = self.conn.cursor()
+        self.cursor.execute(&quot;&quot;&quot;
+            CREATE TABLE IF NOT EXISTS posts (
+                url TEXT PRIMARY KEY,
+                title TEXT,
+                author TEXT,
+                publish_date TEXT,
+                tags TEXT,
+                content TEXT,
+                crawl_time TEXT
+            )
+        &quot;&quot;&quot;)
+        self.conn.commit()
+
+    def close_spider(self, spider):
+        self.conn.close()
+
+    def process_item(self, item, spider):
+        self.cursor.execute(
+            &quot;INSERT OR REPLACE INTO posts VALUES (?,?,?,?,?,?,?)&quot;,
+            (item[&quot;url&quot;], item[&quot;title&quot;], item.get(&quot;author&quot;,&quot;&quot;),
+             item.get(&quot;publish_date&quot;,&quot;&quot;), &quot;,&quot;.join(item.get(&quot;tags&quot;,[])),
+             item.get(&quot;content&quot;,&quot;&quot;), item.get(&quot;crawl_time&quot;,&quot;&quot;))
+        )
+        self.conn.commit()
+        return item</code></pre>
+
+<h3>v3 生产版本 - 中间件 + 代理 + AutoThrottle</h3>
+
+<pre><code class="language-python"># middlewares.py - anti-ban middleware
+import random
+from scrapy import signals
+
+class RandomUserAgentMiddleware:
+    &quot;&quot;&quot;Rotate User-Agent for each request.&quot;&quot;&quot;
+
+    USER_AGENTS = [
+        &quot;Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0.0.0&quot;,
+        &quot;Mozilla/5.0 (Macintosh; Intel Mac OS X 14_1) AppleWebKit/605.1.15 Safari/605.1&quot;,
+        &quot;Mozilla/5.0 (X11; Linux x86_64; rv:121.0) Gecko/20100101 Firefox/121.0&quot;,
+    ]
+
+    def process_request(self, request, spider):
+        request.headers[&quot;User-Agent&quot;] = random.choice(self.USER_AGENTS)
+
+class ProxyMiddleware:
+    &quot;&quot;&quot;Rotate proxy IPs from a pool.&quot;&quot;&quot;
+
+    def __init__(self, proxy_list):
+        self.proxies = proxy_list
+        self.current = 0
+
+    @classmethod
+    def from_crawler(cls, crawler):
+        proxy_file = crawler.settings.get(&quot;PROXY_LIST_FILE&quot;, &quot;&quot;)
+        if proxy_file:
+            with open(proxy_file) as f:
+                proxies = [line.strip() for line in f if line.strip()]
+        else:
+            proxies = []
+        return cls(proxies)
+
+    def process_request(self, request, spider):
+        if self.proxies:
+            proxy = self.proxies[self.current % len(self.proxies)]
+            request.meta[&quot;proxy&quot;] = proxy
+            self.current += 1
+
+class RetryMiddleware:
+    &quot;&quot;&quot;Custom retry with exponential backoff.&quot;&quot;&quot;
+
+    RETRY_TIMES = 3
+    RETRY_HTTP_CODES = [429, 500, 502, 503, 504]
+
+    def __init__(self):
+        self.retry_count = {}
+
+    def process_response(self, request, response, spider):
+        if response.status in self.RETRY_HTTP_CODES:
+            url = request.url
+            self.retry_count[url] = self.retry_count.get(url, 0) + 1
+
+            if self.retry_count[url] &lt;= self.RETRY_TIMES:
+                spider.logger.warning(f&quot;Retry {self.retry_count[url]}: {url}&quot;)
+                return request.replace(dont_filter=True)
+            else:
+                spider.logger.error(f&quot;Max retries exceeded: {url}&quot;)
+
+        return response</code></pre>
+
+<pre><code class="language-python"># settings.py - v3: production settings
+BOT_NAME = &quot;techblog_scraper&quot;
+
+# Concurrency &amp; politeness
+CONCURRENT_REQUESTS = 16
+CONCURRENT_REQUESTS_PER_DOMAIN = 4
+DOWNLOAD_DELAY = 2
+RANDOMIZE_DOWNLOAD_DELAY = True
+AUTOTHROTTLE_ENABLED = True
+AUTOTHROTTLE_TARGET_CONCURRENCY = 2.0
+
+# Retry &amp; timeout
+RETRY_TIMES = 3
+RETRY_HTTP_CODES = [429, 500, 502, 503, 504]
+DOWNLOAD_TIMEOUT = 30
+
+# Anti-ban
+ROBOTSTXT_OBEY = True
+COOKIES_ENABLED = False
+
+# Middlewares
+DOWNLOADER_MIDDLEWARES = {
+    &quot;techblog_scraper.middlewares.RandomUserAgentMiddleware&quot;: 400,
+    &quot;techblog_scraper.middlewares.ProxyMiddleware&quot;: 410,
+}
+
+# Pipelines
+ITEM_PIPELINES = {
+    &quot;techblog_scraper.pipelines.DeduplicationPipeline&quot;: 100,
+    &quot;techblog_scraper.pipelines.ValidationPipeline&quot;: 200,
+    &quot;techblog_scraper.pipelines.SQLitePipeline&quot;: 300,
+}
+
+# Logging
+LOG_LEVEL = &quot;INFO&quot;
+LOG_FORMAT = &quot;%(asctime)s [%(name)s] %(levelname)s: %(message)s&quot;
+
+# Feeds (for export)
+FEEDS = {
+    &quot;output/%(time)s.json&quot;: {&quot;format&quot;: &quot;json&quot;, &quot;encoding&quot;: &quot;utf-8&quot;},
+    &quot;output/%(time)s.csv&quot;: {&quot;format&quot;: &quot;csv&quot;},
+}</code></pre>
+
+<pre><code class="language-python"># run.py - convenient entry point
+from scrapy.crawler import CrawlerProcess
+from scrapy.utils.project import get_project_settings
+
+if __name__ == &quot;__main__&quot;:
+    settings = get_project_settings()
+    process = CrawlerProcess(settings)
+    process.crawl(&quot;blogspider&quot;)
+    process.start()  # blocks until finished</code></pre>
+
+<h2>执行预览</h2>
+
+<pre><code class="language-bash"># Run spider
+scrapy crawl blogspider
+
+# Output:
+# 2026-04-29 07:00:00 [blogspider] INFO: Found 15 articles on https://example.com/blog/category/python
+# 2026-04-29 07:00:02 [blogspider] INFO: Crawled 15 articles, 0 duplicates
+# 2026-04-29 07:00:05 [blogspider] INFO: Spider closed (finished)
+# {&#x27;downloader/response_count&#x27;: 50, &#x27;item_scraped_count&#x27;: 45, ...}
+
+# Debug in shell
+scrapy shell &quot;https://example.com/blog&quot;
+&gt;&gt;&gt; response.css(&quot;h1::text&quot;).get()
+&#x27;Blog Home&#x27;
+
+# Parse command (test spider logic)
+scrapy parse --spider=blogspider -c parse_list &quot;https://example.com/blog&quot;
+
+# Export to JSON
+scrapy crawl blogspider -o output.json
+
+# Check stats after run
+# Item scraped count: 45
+# Duplicate dropped: 3
+# Retry count: 2</code></pre>
+
+<h2>注意事项</h2>
+
+<table><thead><tr>
+<th>项目</th>
+<th>说明</th>
+<th>建议</th>
+</tr></thead><tbody>
+<tr>
+<td>robots.txt</td>
+<td>默认遵守爬取规则</td>
+<td>确认目标站点允许爬取</td>
+</tr>
+<tr>
+<td>请求频率</td>
+<td>太快会被封 IP</td>
+<td><code>AUTOTHROTTLE_ENABLED=True</code></td>
+</tr>
+<tr>
+<td>内存</td>
+<td>大量 URL 在队列中占内存</td>
+<td>设置 <code>SCHEDULER_DISK_QUEUE</code></td>
+</tr>
+<tr>
+<td>编码</td>
+<td>页面编码不一致</td>
+<td>Scrapy 自动处理大部分情况</td>
+</tr>
+<tr>
+<td>动态页面</td>
+<td>JS 渲染的内容抓不到</td>
+<td>用 Splash 或 Playwright 中间件</td>
+</tr>
+<tr>
+<td>法律</td>
+<td>爬取敏感数据有法律风险</td>
+<td>只爬公开数据，遵守 ToS</td>
+</tr>
+</tbody></table>
+
+<h2>避坑指南</h2>
+
+<p>❌ <strong>用 <code>time.sleep()</code> 控制频率</strong></p>
+<p>✅ 用 <code>DOWNLOAD_DELAY</code> + <code>AUTOTHROTTLE</code> 自动调速</p>
+
+<p>❌ <strong>在 <code>parse</code> 里发同步 HTTP 请求</strong></p>
+<p>✅ 全部用 <code>yield Request()</code> 异步回调</p>
+
+<p>❌ <strong>忽略 HTTP 错误状态码</strong></p>
+<p>✅ 配置 <code>RETRY_HTTP_CODES</code> + <code>handle_httpstatus_list</code></p>
+
+<p>❌ <strong>Pipeline 里做阻塞 IO（同步数据库写入）</strong></p>
+<p>✅ 批量写入（攒够 N 条再 insert），或用异步 Pipeline</p>
+
+<p>❌ <strong>XPath/CSS 选择器写死具体路径</strong></p>
+<p>✅ 用语义化的 class/属性选择器，降低页面变更影响</p>
+
+<h2>练习题</h2>
+
+<p>🟢 <strong>基础题：多页面爬取</strong></p>
+<p>修改 v1 爬虫，爬取分页列表的前 5 页，将结果保存为 CSV 文件。</p>
+
+<p>🟡 <strong>进阶题：登录爬取</strong></p>
+<p>实现一个需要登录才能访问的站点爬虫（通过 <code>FormRequest.from_response</code> 提交登录表单）。</p>
+
+<p>🔴 <strong>挑战题：分布式爬虫</strong></p>
+<p>使用 Scrapy-Redis 实现分布式爬虫：多台机器共享 URL 队列，去重集合存储在 Redis 中。</p>
+
+<h2>知识点总结</h2>
+
+<pre><code>Scrapy 爬虫
+├── 核心组件
+│   ├── Spider - 定义爬取逻辑和 URL
+│   ├── Engine - 调度中心
+│   ├── Scheduler - URL 队列 + 去重
+│   ├── Downloader - HTTP 请求
+│   └── Pipeline - 数据处理流水线
+├── 数据提取
+│   ├── CSS Selector - .css(&quot;h1::text&quot;)
+│   ├── XPath - .xpath(&quot;//h1/text()&quot;)
+│   └── .re() - 正则提取
+├── Item &amp; Loader
+│   ├── Item - 数据模型
+│   └── ItemLoader - 输入输出处理器
+├── 反反爬
+│   ├── 随机 UA
+│   ├── 代理 IP 池
+│   ├── 请求频率控制
+│   └── Cookie 管理
+└── 进阶
+    ├── Scrapy-Redis - 分布式
+    ├── Splash - JS 渲染
+    ├── AutoThrottle - 自适应频率
+    └── Contracts - 爬虫测试</code></pre>
+
+<h2>举一反三</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>方案</th>
+<th>关键技术</th>
+</tr></thead><tbody>
+<tr>
+<td>静态页面</td>
+<td>基础 Spider</td>
+<td>CSS/XPath</td>
+</tr>
+<tr>
+<td>登录后爬取</td>
+<td>FormRequest</td>
+<td>Cookie + Session</td>
+</tr>
+<tr>
+<td>JS 动态渲染</td>
+<td>Splash / Playwright</td>
+<td>中间件集成</td>
+</tr>
+<tr>
+<td>增量爬取</td>
+<td>记录上次爬取时间</td>
+<td>dupefilter 自定义</td>
+</tr>
+<tr>
+<td>海量数据分布式</td>
+<td>Scrapy-Redis</td>
+<td>共享调度器</td>
+</tr>
+<tr>
+<td>定时爬取</td>
+<td>Scrapyd + cron</td>
+<td>部署管理</td>
+</tr>
+<tr>
+<td>数据监控</td>
+<td>Scrapy+Prometheus</td>
+<td>自定义扩展</td>
+</tr>
+</tbody></table>
+
+<h2>参考资料</h2>
+
+<ul>
+<li><a href="https://docs.scrapy.org/">Scrapy 官方文档</a></li>
+<li><a href="https://github.com/rmax/scrapy-redis">Scrapy-Redis 分布式爬虫</a></li>
+<li><a href="https://github.com/scrapy-plugins/scrapy-playwright">scrapy-playwright</a></li>
+<li><a href="https://scrapyd.readthedocs.io/">Scrapyd - 爬虫部署服务</a></li>
+
+<h2>代码演进总结</h2>
+
+<table><thead><tr>
+<th>版本</th>
+<th>特点</th>
+<th>适用场景</th>
+</tr></thead><tbody>
+<tr>
+<td>v1</td>
+<td>单页爬取 + 文件输出</td>
+<td>学习、小规模爬取</td>
+</tr>
+<tr>
+<td>v2</td>
+<td>ItemLoader + Pipeline + 详情页</td>
+<td>中等项目</td>
+</tr>
+<tr>
+<td>v3</td>
+<td>中间件 + 代理 + AutoThrottle</td>
+<td>生产级大规模爬取</td>
+</tr>
+</tbody></table>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

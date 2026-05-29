@@ -1,0 +1,536 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>011 - gRPC基础</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Golang/index.html">Golang</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Golang/03-实战/index.html">Golang实战</a>
+</nav>
+<h1>011 - gRPC基础</h1>
+<div class="meta">
+<span>📂 Golang实战</span>
+<span>🏷️ Golang</span>
+</div>
+<article>
+
+
+<h1>066: gRPC基础</h1>
+
+<blockquote><p><strong>难度：⭐⭐⭐⭐ 高级</strong> | gRPC 是 Google 开源的高性能 RPC 框架，基于 Protobuf 序列化和 HTTP/2 传输，是微服务通信的基石。<br><br><strong>前置知识：</strong> Go 基础、HTTP 协议、基本网络编程<br><br><strong>学习目标：</strong> 掌握 gRPC 核心概念，能独立编写 Unary/Streaming RPC 服务，理解 Protobuf 定义和代码生成流程。</p></blockquote>
+
+<h2>概念讲解</h2>
+
+<p>gRPC（gRPC Remote Procedure Call）让你像调用本地函数一样调用远程服务。核心要素：</p>
+
+<ul>
+<li><strong>Protocol Buffers (Protobuf)：</strong> Google 的二进制序列化格式，比 JSON 更小更快。用 <code>.proto</code> 文件定义消息结构和服务接口。</li>
+<li><strong>HTTP/2：</strong> 传输层协议，支持多路复用、头部压缩、双向流。gRPC 天然支持四种通信模式。</li>
+<li><strong>代码生成：</strong> <code>protoc</code> 编译器根据 <code>.proto</code> 文件自动生成 Go 客户端和服务端代码。</li>
+<li><strong>四种 RPC 模式：</strong> Unary（一元调用）、Server Streaming（服务端流）、Client Streaming（客户端流）、Bidirectional Streaming（双向流）。</li>
+
+<h3>gRPC vs REST 对比</h3>
+
+<table><thead><tr>
+<th>特性</th>
+<th>gRPC</th>
+<th>REST</th>
+</tr></thead><tbody>
+<tr>
+<td>协议</td>
+<td>HTTP/2</td>
+<td>HTTP/1.1</td>
+</tr>
+<tr>
+<td>数据格式</td>
+<td>Protobuf（二进制）</td>
+<td>JSON（文本）</td>
+</tr>
+<tr>
+<td>接口定义</td>
+<td>.proto 文件</td>
+<td>OpenAPI/Swagger</td>
+</tr>
+<tr>
+<td>流式支持</td>
+<td>✅ 双向流</td>
+<td>❌ 需 WebSocket</td>
+</tr>
+<tr>
+<td>代码生成</td>
+<td>✅ 自动生成</td>
+<td>❌ 手动或工具辅助</td>
+</tr>
+<tr>
+<td>性能</td>
+<td>高（二进制+HTTP/2）</td>
+<td>较低（文本+HTTP/1.1）</td>
+</tr>
+<tr>
+<td>浏览器支持</td>
+<td>需要 grpc-web</td>
+<td>✅ 原生支持</td>
+</tr>
+</tbody></table>
+
+<h2>脑图</h2>
+
+<pre><code>gRPC基础
+├── Protobuf
+│   ├── 消息定义 (message)
+│   ├── 服务定义 (service/rpc)
+│   ├── 字段类型 (scalar/repeated/map/oneof)
+│   └── 代码生成 (protoc)
+├── 四种RPC模式
+│   ├── Unary (一元调用)
+│   ├── Server Streaming (服务端流)
+│   ├── Client Streaming (客户端流)
+│   └── Bidirectional Streaming (双向流)
+├── 服务端
+│   ├── 注册服务
+│   ├── 拦截器 (Interceptor)
+│   └── 错误处理 (status codes)
+├── 客户端
+│   ├── 连接管理 (Dial)
+│   ├── 超时控制 (context)
+│   └── 流式接收 (Recv)
+└── 工程实践
+    ├── .proto 文件管理
+    ├── 版本兼容性
+    └── 拦截器链</code></pre>
+
+<h2>代码演进</h2>
+
+<h3>v1：最小 Unary RPC（proto + server + client）</h3>
+
+<p><strong>proto 定义：</strong></p>
+
+<pre><code class="language-protobuf">// proto/hello.proto
+syntax = &quot;proto3&quot;;
+package helloworld;
+option go_package = &quot;github.com/example/grpcdemo/proto&quot;;
+
+message HelloRequest {
+  string name = 1;
+}
+
+message HelloResponse {
+  string message = 1;
+}
+
+service Greeter {
+  rpc SayHello(HelloRequest) returns (HelloResponse);
+}</code></pre>
+
+<p><strong>服务端：</strong></p>
+
+<pre><code class="language-go">package main
+
+import (
+    &quot;context&quot;
+    &quot;log&quot;
+    &quot;net&quot;
+
+    pb &quot;github.com/example/grpcdemo/proto&quot;
+    &quot;google.golang.org/grpc&quot;
+)
+
+// Server implements GreeterServer interface
+type Server struct {
+    pb.UnimplementedGreeterServer // Must embed for forward compatibility
+}
+
+// SayHello handles Unary RPC - like a normal function call
+func (s *Server) SayHello(ctx context.Context, req *pb.HelloRequest) (*pb.HelloResponse, error) {
+    return &amp;pb.HelloResponse{
+        Message: &quot;Hello &quot; + req.GetName(),
+    }, nil
+}
+
+func main() {
+    lis, err := net.Listen(&quot;tcp&quot;, &quot;:50051&quot;)
+    if err != nil {
+        log.Fatal(err)
+    }
+    s := grpc.NewServer()
+    pb.RegisterGreeterServer(s, &amp;Server{})
+    log.Println(&quot;gRPC server on :50051&quot;)
+    log.Fatal(s.Serve(lis))
+}</code></pre>
+
+<p><strong>客户端：</strong></p>
+
+<pre><code class="language-go">package main
+
+import (
+    &quot;context&quot;
+    &quot;log&quot;
+    &quot;time&quot;
+
+    pb &quot;github.com/example/grpcdemo/proto&quot;
+    &quot;google.golang.org/grpc&quot;
+    &quot;google.golang.org/grpc/credentials/insecure&quot;
+)
+
+func main() {
+    // Dial creates a connection (not immediately connected)
+    conn, err := grpc.Dial(&quot;localhost:50051&quot;,
+        grpc.WithTransportCredentials(insecure.NewCredentials()),
+    )
+    if err != nil {
+        log.Fatal(err)
+    }
+    defer conn.Close()
+
+    client := pb.NewGreeterClient(conn)
+    ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+    defer cancel()
+
+    resp, err := client.SayHello(ctx, &amp;pb.HelloRequest{Name: &quot;Go&quot;})
+    if err != nil {
+        log.Fatal(err)
+    }
+    log.Println(&quot;Response:&quot;, resp.GetMessage())
+}</code></pre>
+
+<h3>v2：添加 Server Streaming + 拦截器</h3>
+
+<pre><code class="language-go">// Add streaming RPC to proto:
+// rpc StreamGreetings(HelloRequest) returns (stream HelloResponse);
+
+// Server streaming: server sends multiple responses
+func (s *Server) StreamGreetings(req *pb.HelloRequest, stream pb.Greeter_StreamGreetingsServer) error {
+    for i := 0; i &lt; 5; i++ {
+        if err := stream.Send(&amp;pb.HelloResponse{
+            Message:   &quot;Hello &quot; + req.GetName(),
+            Timestamp: time.Now().Unix(),
+        }); err != nil {
+            return err // Transport error, stop streaming
+        }
+        time.Sleep(time.Second)
+    }
+    return nil // nil means stream completed successfully
+}
+
+// Logging interceptor - middleware for gRPC
+func loggingInterceptor(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
+    start := time.Now()
+    resp, err := handler(ctx, req)
+    log.Printf(&quot;method=%s duration=%v err=%v&quot;, info.FullMethod, time.Since(start), err)
+    return resp, err
+}
+
+// Register with interceptor
+func main() {
+    s := grpc.NewServer(grpc.UnaryInterceptor(loggingInterceptor))
+    pb.RegisterGreeterServer(s, &amp;Server{})
+    // ...
+}
+
+// Client streaming receive
+func streamReceive(client pb.GreeterClient) {
+    stream, err := client.StreamGreetings(context.Background(), &amp;pb.HelloRequest{Name: &quot;Stream&quot;})
+    if err != nil {
+        log.Fatal(err)
+    }
+    for {
+        resp, err := stream.Recv()
+        if err == io.EOF {
+            break // Server finished sending
+        }
+        if err != nil {
+            log.Fatal(err)
+        }
+        log.Println(&quot;Stream:&quot;, resp.GetMessage())
+    }
+}</code></pre>
+
+<h3>v3：完整工程化（错误处理 + 参数校验 + metadata）</h3>
+
+<pre><code class="language-go">// Enhanced SayHello with validation and rich error
+func (s *Server) SayHello(ctx context.Context, req *pb.HelloRequest) (*pb.HelloResponse, error) {
+    // Input validation
+    if req.GetName() == &quot;&quot; {
+        return nil, status.Error(codes.InvalidArgument, &quot;name is required&quot;)
+    }
+
+    // Read metadata (like HTTP headers)
+    md, ok := metadata.FromIncomingContext(ctx)
+    if ok {
+        log.Printf(&quot;client version: %v&quot;, md.Get(&quot;x-client-version&quot;))
+    }
+
+    // Check context cancellation
+    select {
+    case &lt;-ctx.Done():
+        return nil, status.FromContextError(ctx.Err()).Err()
+    default:
+    }
+
+    return &amp;pb.HelloResponse{
+        Message:   fmt.Sprintf(&quot;Hello %s! You are visitor #%d&quot;, req.GetName(), atomic.AddInt64(&amp;s.counter, 1)),
+        Timestamp: time.Now().Unix(),
+    }, nil
+}
+
+// Bidirectional streaming - chat room style
+func (s *Server) Chat(stream pb.Greeter_ChatServer) error {
+    for {
+        req, err := stream.Recv()
+        if err == io.EOF {
+            return nil
+        }
+        if err != nil {
+            return err
+        }
+        // Echo back with server timestamp
+        if err := stream.Send(&amp;pb.HelloResponse{
+            Message:   &quot;Echo: &quot; + req.GetName(),
+            Timestamp: time.Now().Unix(),
+        }); err != nil {
+            return err
+        }
+    }
+}</code></pre>
+
+<p><strong>编译 Proto 文件：</strong></p>
+
+<pre><code class="language-bash"># Install protoc and Go plugins
+go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
+go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
+
+# Generate Go code
+protoc --go_out=. --go_opt=paths=source_relative \
+       --go-grpc_out=. --go-grpc_opt=paths=source_relative \
+       proto/hello.proto</code></pre>
+
+<h2>执行预览</h2>
+
+<pre><code># Terminal 1: Start server
+$ go run server.go
+2024/01/15 10:30:00 gRPC server on :50051
+2024/01/15 10:30:05 method=/helloworld.Greeter/SayHello duration=120µs err=&lt;nil&gt;
+
+# Terminal 2: Run client
+$ go run client.go
+2024/01/15 10:30:05 Response: Hello Go
+
+# Terminal 2: Streaming client
+$ go run client/stream.go
+2024/01/15 10:31:00 Stream: Hello Stream
+2024/01/15 10:31:01 Stream: Hello Stream
+2024/01/15 10:31:02 Stream: Hello Stream
+2024/01/15 10:31:03 Stream: Hello Stream
+2024/01/15 10:31:04 Stream: Hello Stream</code></pre>
+
+<h2>注意事项</h2>
+
+<table><thead><tr>
+<th>项目</th>
+<th>说明</th>
+<th>严重度</th>
+</tr></thead><tbody>
+<tr>
+<td>UnimplementedGreeterServer</td>
+<td>必须嵌入，否则编译不过。保证新增 RPC 方法时旧代码不会崩溃</td>
+<td>⚠️ 必须</td>
+</tr>
+<tr>
+<td>Protobuf 字段编号</td>
+<td>一旦发布不可修改，只能新增。删字段用 <code>reserved</code></td>
+<td>🔴 严重</td>
+</tr>
+<tr>
+<td>HTTP/2 依赖</td>
+<td>gRPC 需要 HTTP/2，部分 LB/代理需额外配置</td>
+<td>⚠️ 注意</td>
+</tr>
+<tr>
+<td>浏览器不支持</td>
+<td>前端需 grpc-web 或 grpc-gateway 代理</td>
+<td>💡 提示</td>
+</tr>
+<tr>
+<td>拦截器 = 中间件</td>
+<td>UnaryInterceptor 处理一元调用，StreamInterceptor 处理流式调用</td>
+<td>💡 提示</td>
+</tr>
+</tbody></table>
+
+<h2>避坑指南</h2>
+
+<table><thead><tr>
+<th>❌ 错误做法</th>
+<th>✅ 正确做法</th>
+</tr></thead><tbody>
+<tr>
+<td>直接用 <code>json.Marshal</code> 序列化 protobuf 消息</td>
+<td>使用 <code>protojson.Marshal</code> 或 <code>prototext.Marshal</code></td>
+</tr>
+<tr>
+<td>忽略 <code>stream.Recv()</code> 返回的 <code>io.EOF</code></td>
+<td>判断 <code>err == io.EOF</code> 表示流结束，正常退出</td>
+</tr>
+<tr>
+<td>不设置客户端超时</td>
+<td>用 <code>context.WithTimeout</code> 设置合理超时</td>
+</tr>
+<tr>
+<td>在 proto 里修改已有字段编号</td>
+<td>只新增字段，旧编号永远不用</td>
+</tr>
+<tr>
+<td>服务端不检查 <code>ctx.Done()</code></td>
+<td>长时间操作中检查 context 取消</td>
+</tr>
+<tr>
+<td>用 <code>grpc.Dial</code> 同步连接</td>
+<td><code>grpc.Dial</code> 是异步的，用 <code>grpc.WithBlock()</code> 才同步（已废弃，改用 <code>WaitForReady</code>）</td>
+</tr>
+</tbody></table>
+
+<h2>练习题</h2>
+
+<p><strong>🟢 入门：实现一个 Calculator gRPC 服务</strong></p>
+<p>定义 <code>Calculator</code> 服务，包含 <code>Add(a, b)</code> 和 <code>Multiply(a, b)</code> 两个 Unary RPC。编写 proto、server、client。</p>
+
+<p><strong>🟡 进阶：实现双向流聊天</strong></p>
+<p>定义 <code>ChatService</code>，客户端持续发送消息，服务端收到后广播给所有连接的客户端。提示：用 <code>sync.Map</code> 管理活跃流。</p>
+
+<p><strong>🔴 挑战：添加 JWT 认证拦截器</strong></p>
+<p>实现 <code>UnaryInterceptor</code>，从 metadata 提取 Bearer Token，验证 JWT 签名和过期时间。未认证返回 <code>codes.Unauthenticated</code>，登录接口跳过认证。</p>
+
+<h2>知识点总结</h2>
+
+<pre><code>gRPC基础
+├── Proto3 语法
+│   ├── message 定义（字段类型、编号、repeated）
+│   ├── service / rpc 定义
+│   └── option go_package
+├── 代码生成
+│   ├── protoc-gen-go（消息类型）
+│   └── protoc-gen-go-grpc（服务接口）
+├── 四种模式
+│   ├── Unary: ctx → req, resp
+│   ├── Server Stream: stream.Send() 循环
+│   ├── Client Stream: stream.Recv() + SendAndClose()
+│   └── Bidi Stream: Recv/Send 并行
+├── 错误处理
+│   ├── status.Error(codes.XXX, msg)
+│   └── status.FromError(err)
+├── 拦截器
+│   ├── UnaryInterceptor
+│   └── StreamInterceptor
+└── 元数据
+    ├── metadata.FromIncomingContext
+    └── metadata.NewOutgoingContext</code></pre>
+
+<h2>举一反三</h2>
+
+<table><thead><tr>
+<th>本文学到</th>
+<th>可迁移到</th>
+<th>应用场景</th>
+</tr></thead><tbody>
+<tr>
+<td>Unary RPC</td>
+<td>Thrift RPC、WCF</td>
+<td>请求-响应式服务调用</td>
+</tr>
+<tr>
+<td>Server Streaming</td>
+<td>SSE、WebSocket 推送</td>
+<td>实时日志、股票行情</td>
+</tr>
+<tr>
+<td>Client Streaming</td>
+<td>文件分片上传</td>
+<td>大文件上传、批量数据导入</td>
+</tr>
+<tr>
+<td>Bidi Streaming</td>
+<td>WebSocket 聊天</td>
+<td>即时通讯、协作编辑</td>
+</tr>
+<tr>
+<td>Interceptor</td>
+<td>HTTP Middleware</td>
+<td>认证、日志、限流、链路追踪</td>
+</tr>
+<tr>
+<td>Protobuf 定义</td>
+<td>OpenAPI/Swagger</td>
+<td>接口契约管理</td>
+</tr>
+</tbody></table>
+
+<h2>参考资料</h2>
+
+<ul>
+<li><a href="https://grpc.io/docs/">gRPC 官方文档</a></li>
+<li><a href="https://protobuf.dev/programming-guides/proto3/">Protocol Buffers 语言指南</a></li>
+<li><a href="https://github.com/grpc/grpc-go/tree/master/examples">gRPC-Go 示例代码</a></li>
+<li><a href="https://cloud.google.com/apis/design">Google API 设计指南</a></li>
+
+<hr>
+
+<p>_从 Proto 定义到四种 RPC 模式，gRPC 让微服务通信更高效。_ 🔗</p>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

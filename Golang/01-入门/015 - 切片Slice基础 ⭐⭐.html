@@ -1,0 +1,604 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>015 - 切片Slice基础 ⭐⭐</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/learning-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/learning-blog/Golang/index.html">Golang</a>
+<span class="sep">›</span>
+<a href="/learning-blog/Golang/01-入门/index.html">Golang入门</a>
+</nav>
+<h1>015 - 切片Slice基础 ⭐⭐</h1>
+<div class="meta">
+<span>📂 Golang入门</span>
+<span>🏷️ Golang</span>
+</div>
+<article>
+
+
+
+<h2>难度标注</h2>
+
+<blockquote><p>⭐⭐ 中等 | 切片是 Go 中最常用的数据结构，理解 len/cap 和底层数组是关键</p></blockquote>
+
+<h2>概念讲解</h2>
+
+<h3>什么是切片（Slice）？</h3>
+
+<p>切片是 Go 语言中对数组的一个<strong>轻量级抽象</strong>。与数组不同，切片的长度是动态的，可以按需增长。切片是 Go 中最常用的数据结构，<strong>99% 的场景用切片而非数组</strong>。</p>
+
+<h3>切片的内部结构</h3>
+
+<p>切片底层是一个包含三个字段的结构体（slice header）：</p>
+
+<pre><code>Slice Header (24 bytes on 64-bit)
+┌──────────┬──────────┬──────────┐
+│  Pointer │   Len    │   Cap    │
+│  8 bytes │  8 bytes │  8 bytes │
+└────┬─────┴──────────┴──────────┘
+     │
+     ▼
+┌────┬────┬────┬────┬────┬────┬────┬────┐
+│ e0 │ e1 │ e2 │ e3 │    │    │    │    │  ← Underlying array
+└────┴────┴────┴────┴────┴────┴────┴────┘
+      ↑                    ↑
+      │←─── Len = 4 ───→│←─ Cap = 8 ─→│</code></pre>
+
+<ul>
+<li><strong>Pointer</strong>：指向底层数组的指针</li>
+<li><strong>Len</strong>：当前元素个数（<code>len(s)</code>）</li>
+<li><strong>Cap</strong>：底层数组容量（<code>cap(s)</code>），从 slice 开始位置到底层数组末尾</li>
+
+<h3>切片 vs 数组对比</h3>
+
+<pre><code class="language-go">// Array: length is part of type
+var a [5]int    // type: [5]int
+
+// Slice: length is NOT part of type
+var s []int     // type: []int (nil slice)
+s = []int{1,2,3} // type: still []int</code></pre>
+
+<h3>nil 切片 vs 空切片</h3>
+
+<pre><code class="language-go">var s1 []int          // nil slice: pointer=nil, len=0, cap=0
+s2 := []int{}         // empty slice: pointer!=nil, len=0, cap=0
+s3 := make([]int, 0)  // empty slice: pointer!=nil, len=0, cap=0
+
+fmt.Println(s1 == nil) // true
+fmt.Println(s2 == nil) // false
+fmt.Println(s3 == nil) // false</code></pre>
+
+<p><strong>实际区别很小</strong>，<code>len()</code>、<code>cap()</code>、<code>append()</code>、<code>range</code> 对两者行为一致。推荐使用 nil 切片表示"没有元素"，空切片表示"明确为空集合"。</p>
+
+<h2>脑图</h2>
+
+<pre><code>切片 Slice
+├── 创建方式
+│   ├── var s []T              (nil slice)
+│   ├── s := []T{1,2,3}        (literal)
+│   ├── s := make([]T, len)    (make with len)
+│   ├── s := make([]T, len, cap)(make with cap)
+│   └── s := arr[1:3]          (slice from array)
+├── 核心概念
+│   ├── len(s)  当前长度
+│   ├── cap(s)  底层数组容量
+│   ├── append  追加元素（可能扩容）
+│   └── s[i:j]  切片操作（左闭右开）
+├── 底层机制
+│   ├── slice header (ptr/len/cap)
+│   ├── 共享底层数组
+│   ├── 扩容策略 (&lt;1024 ×2, &gt;=1024 ×1.25)
+│   └── 3-index slice s[low:high:max]
+├── nil vs 空
+│   ├── var s []T  → nil
+│   ├── []T{}      → empty
+│   └── make([]T,0)→ empty
+├── copy 函数
+│   └── copy(dst, src) 返回拷贝元素数
+├── 作为函数参数
+│   ├── 传 slice header（引用语义）
+│   └── append 可能修改底层数组
+└── 常见陷阱
+    ├── append 后原 slice 被覆盖
+    ├── 大切片的子切片引用不释放
+    └── nil slice 可用但要注意 JSON</code></pre>
+
+<h2>完整 Go 代码</h2>
+
+<h3>代码演进 v1：创建与基本操作</h3>
+
+<pre><code class="language-go">package main
+
+import &quot;fmt&quot;
+
+func main() {
+    // 1. Nil slice
+    var s1 []int
+    fmt.Println(&quot;Nil slice:&quot;, s1, &quot;len:&quot;, len(s1), &quot;cap:&quot;, cap(s1), &quot;nil:&quot;, s1 == nil)
+
+    // 2. Slice literal
+    s2 := []int{1, 2, 3, 4, 5}
+    fmt.Println(&quot;Literal:&quot;, s2, &quot;len:&quot;, len(s2), &quot;cap:&quot;, cap(s2))
+
+    // 3. Make with length
+    s3 := make([]int, 3) // len=3, cap=3, all zeros
+    fmt.Println(&quot;Make(3):&quot;, s3, &quot;len:&quot;, len(s3), &quot;cap:&quot;, cap(s3))
+
+    // 4. Make with length and capacity
+    s4 := make([]int, 3, 10) // len=3, cap=10
+    fmt.Println(&quot;Make(3,10):&quot;, s4, &quot;len:&quot;, len(s4), &quot;cap:&quot;, cap(s4))
+
+    // 5. Slice from array
+    arr := [5]int{10, 20, 30, 40, 50}
+    s5 := arr[1:4] // elements at index 1, 2, 3
+    fmt.Println(&quot;From array:&quot;, s5, &quot;len:&quot;, len(s5), &quot;cap:&quot;, cap(s5))
+    // Note: cap=4 because underlying array goes from index 1 to end
+
+    // 6. Slice expressions
+    fmt.Println(&quot;s2[1:3]:&quot;, s2[1:3])   // [2 3]
+    fmt.Println(&quot;s2[:3]:&quot;, s2[:3])     // [1 2 3]
+    fmt.Println(&quot;s2[2:]:&quot;, s2[2:])     // [3 4 5]
+    fmt.Println(&quot;s2[:]:&quot;, s2[:])       // [1 2 3 4 5]
+}</code></pre>
+
+<h3>代码演进 v2：append、扩容、copy</h3>
+
+<pre><code class="language-go">package main
+
+import &quot;fmt&quot;
+
+func main() {
+    // === Append and capacity growth ===
+    s := make([]int, 0, 3) // cap=3
+    fmt.Printf(&quot;Start: len=%d cap=%d %v\n&quot;, len(s), cap(s), s)
+
+    for i := 0; i &lt; 10; i++ {
+        s = append(s, i)
+        fmt.Printf(&quot;After append(%2d): len=%d cap=%d %v\n&quot;, i, len(s), cap(s), s)
+    }
+
+    // === Shared underlying array pitfall ===
+    fmt.Println(&quot;\n--- Shared array pitfall ---&quot;)
+    original := []int{1, 2, 3, 4, 5}
+    sub := original[1:3] // sub = [2, 3], shares underlying array
+    fmt.Println(&quot;original:&quot;, original)
+    fmt.Println(&quot;sub:     &quot;, sub)
+
+    sub[0] = 999 // modifies shared array!
+    fmt.Println(&quot;After sub[0]=999:&quot;)
+    fmt.Println(&quot;original:&quot;, original) // [1 999 3 4 5] - CHANGED!
+    fmt.Println(&quot;sub:     &quot;, sub)      // [999 3]
+
+    // === Fix: use copy or 3-index slice ===
+    fmt.Println(&quot;\n--- Safe copy ---&quot;)
+    original2 := []int{1, 2, 3, 4, 5}
+    sub2 := make([]int, 2)
+    copy(sub2, original2[1:3]) // independent copy
+    sub2[0] = 999
+    fmt.Println(&quot;original2:&quot;, original2) // [1 2 3 4 5] - safe!
+    fmt.Println(&quot;sub2:     &quot;, sub2)      // [999 3]
+
+    // === 3-index slice limits capacity ===
+    fmt.Println(&quot;\n--- 3-index slice ---&quot;)
+    base := []int{1, 2, 3, 4, 5}
+    limited := base[1:3:3] // len=2, cap=2 (not 4!)
+    fmt.Println(&quot;limited: len:&quot;, len(limited), &quot;cap:&quot;, cap(limited))
+    // append will create new underlying array
+    limited = append(limited, 100)
+    fmt.Println(&quot;After append: len:&quot;, len(limited), &quot;cap:&quot;, cap(limited))
+    fmt.Println(&quot;base (unchanged):&quot;, base)
+}</code></pre>
+
+<h3>代码演进 v3：实际应用模式</h3>
+
+<pre><code class="language-go">package main
+
+import (
+    &quot;encoding/json&quot;
+    &quot;fmt&quot;
+    &quot;sort&quot;
+    &quot;strings&quot;
+)
+
+// Filter returns elements that satisfy the predicate
+func Filter[T any](s []T, pred func(T) bool) []T {
+    result := make([]T, 0, len(s)) // pre-allocate
+    for _, v := range s {
+        if pred(v) {
+            result = append(result, v)
+        }
+    }
+    return result
+}
+
+// Map transforms each element
+func Map[T, U any](s []T, fn func(T) U) []U {
+    result := make([]U, len(s))
+    for i, v := range s {
+        result[i] = fn(v)
+    }
+    return result
+}
+
+// Contains checks if element exists
+func Contains[T comparable](s []T, target T) bool {
+    for _, v := range s {
+        if v == target {
+            return true
+        }
+    }
+    return false
+}
+
+// Remove element at index (preserves order)
+func RemoveAt[T any](s []T, i int) []T {
+    return append(s[:i], s[i+1:]...)
+}
+
+// Remove element at index (fast, does NOT preserve order)
+func RemoveAtFast[T any](s []T, i int) []T {
+    s[i] = s[len(s)-1]
+    return s[:len(s)-1]
+}
+
+func main() {
+    // === Functional patterns ===
+    nums := []int{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}
+
+    evens := Filter(nums, func(n int) bool { return n%2 == 0 })
+    fmt.Println(&quot;Evens:&quot;, evens)
+
+    doubled := Map(nums, func(n int) int { return n * 2 })
+    fmt.Println(&quot;Doubled:&quot;, doubled)
+
+    fmt.Println(&quot;Contains 5:&quot;, Contains(nums, 5))
+    fmt.Println(&quot;Contains 11:&quot;, Contains(nums, 11))
+
+    // === Remove patterns ===
+    items := []string{&quot;a&quot;, &quot;b&quot;, &quot;c&quot;, &quot;d&quot;, &quot;e&quot;}
+    items = RemoveAt(items, 2) // remove &quot;c&quot;
+    fmt.Println(&quot;After remove:&quot;, items)
+
+    // === Sort slice ===
+    unsorted := []int{5, 2, 8, 1, 9, 3}
+    sort.Ints(unsorted)
+    fmt.Println(&quot;Sorted:&quot;, unsorted)
+
+    // === String splitting ===
+    csv := &quot;go,python,rust,java&quot;
+    langs := strings.Split(csv, &quot;,&quot;)
+    fmt.Println(&quot;Languages:&quot;, langs)
+    fmt.Println(&quot;Joined:&quot;, strings.Join(langs, &quot; | &quot;))
+
+    // === nil slice and JSON ===
+    var nilSlice []string
+    emptySlice := []string{}
+
+    b1, _ := json.Marshal(nilSlice)
+    b2, _ := json.Marshal(emptySlice)
+    fmt.Println(&quot;nil slice JSON:&quot;, string(b1))   // null
+    fmt.Println(&quot;empty slice JSON:&quot;, string(b2)) // []
+}</code></pre>
+
+<h2>执行预览</h2>
+
+<h3>v1 执行结果</h3>
+
+<pre><code>Nil slice: [] len: 0 cap: 0 nil: true
+Literal: [1 2 3 4 5] len: 5 cap: 5
+Make(3): [0 0 0] len: 3 cap: 3
+Make(3,10): [0 0 0] len: 3 cap: 10
+From array: [20 30 40] len: 3 cap: 4
+s2[1:3]: [2 3]
+s2[:3]: [1 2 3]
+s2[2:]: [3 4 5]
+s2[:]: [1 2 3 4 5]</code></pre>
+
+<h3>v2 执行结果（扩容部分）</h3>
+
+<pre><code>Start: len=0 cap=3 []
+After append( 0): len=1 cap=3 [0]
+After append( 1): len=2 cap=3 [0 1]
+After append( 2): len=3 cap=3 [0 1 2]
+After append( 3): len=4 cap=6 [0 1 2 3]
+After append( 4): len=5 cap=6 [0 1 2 3 4]
+After append( 5): len=6 cap=6 [0 1 2 3 4 5]
+After append( 6): len=7 cap=12 [0 1 2 3 4 5 6]
+...</code></pre>
+
+<h3>v3 执行结果</h3>
+
+<pre><code>Evens: [2 4 6 8 10]
+Doubled: [2 4 6 8 10 12 14 16 18 20]
+Contains 5: true
+Contains 11: false
+After remove: [a b d e]
+Sorted: [1 2 3 5 8 9]
+Languages: [go python rust java]
+Joined: go | python | rust | java
+nil slice JSON: null
+empty slice JSON: []</code></pre>
+
+<h2>注意事项</h2>
+
+<table><thead><tr>
+<th>注意点</th>
+<th>说明</th>
+<th>严重程度</th>
+</tr></thead><tbody>
+<tr>
+<td>append 返回新 slice</td>
+<td>必须用 <code>s = append(s, x)</code> 接收返回值</td>
+<td>🔴 严重</td>
+</tr>
+<tr>
+<td>共享底层数组</td>
+<td>子切片修改会影响原切片</td>
+<td>🔴 严重</td>
+</tr>
+<tr>
+<td>扩容策略变化</td>
+<td>Go 1.18+ 扩容规则更复杂，不总是 2 倍</td>
+<td>🟡 注意</td>
+</tr>
+<tr>
+<td>nil slice JSON = null</td>
+<td>API 返回 <code>[]</code> 需用空切片而非 nil</td>
+<td>🟡 注意</td>
+</tr>
+<tr>
+<td>copy 返回拷贝数量</td>
+<td>以 dst 和 src 中较短的为准</td>
+<td>🟡 注意</td>
+</tr>
+<tr>
+<td>并发不安全</td>
+<td>多 goroutine 同时 append 需要 mutex 或 sync.Pool</td>
+<td>🔴 严重</td>
+</tr>
+<tr>
+<td>大切片子切片内存泄漏</td>
+<td>子切片引用底层数组，GC 无法回收</td>
+<td>🔴 严重</td>
+</tr>
+</tbody></table>
+
+<h2>避坑指南</h2>
+
+<h3>❌ 忘记接收 append 返回值</h3>
+
+<pre><code class="language-go">// ❌ BAD: append 结果丢失
+s := []int{1, 2, 3}
+append(s, 4) // s 仍然是 [1,2,3]</code></pre>
+
+<pre><code class="language-go">// ✅ GOOD: 始终接收返回值
+s := []int{1, 2, 3}
+s = append(s, 4) // s = [1,2,3,4]</code></pre>
+
+<h3>❌ 子切片导致内存泄漏</h3>
+
+<pre><code class="language-go">// ❌ BAD: 大 slice 的一个小子切片，整个大数组无法 GC
+var bigData = make([]byte, 1&lt;&lt;30) // 1GB
+smallPiece := bigData[:10]         // 只用 10 bytes，但 1GB 无法回收</code></pre>
+
+<pre><code class="language-go">// ✅ GOOD: copy 需要的数据，释放原数组
+smallPiece := make([]byte, 10)
+copy(smallPiece, bigData[:10])
+bigData = nil // now 1GB can be GC&#x27;d</code></pre>
+
+<h3>❌ nil slice 在 JSON 中为 null</h3>
+
+<pre><code class="language-go">// ❌ BAD: API 返回 null 而非 []
+var items []string
+json.NewEncoder(w).Encode(items) // returns &quot;null&quot;</code></pre>
+
+<pre><code class="language-go">// ✅ GOOD: 初始化为空切片
+items := make([]string, 0) // or []string{}
+json.NewEncoder(w).Encode(items) // returns &quot;[]&quot;</code></pre>
+
+<h2>练习题</h2>
+
+<h3>🟢 基础题</h3>
+
+<p><strong>题目 1：</strong> 写一个函数 <code>Reverse(s []int) []int</code>，原地反转切片并返回。</p>
+
+<p><details></p>
+<p><summary>参考答案</summary></p>
+
+<pre><code class="language-go">func Reverse(s []int) []int {
+    for i, j := 0, len(s)-1; i &lt; j; i, j = i+1, j-1 {
+        s[i], s[j] = s[j], s[i]
+    }
+    return s
+}</code></pre>
+<p></details></p>
+
+<h3>🟡 进阶题</h3>
+
+<p><strong>题目 2：</strong> 实现一个函数 <code>Dedupe(s []string) []string</code>，去除字符串切片中的重复元素，保持原始顺序。</p>
+
+<p><details></p>
+<p><summary>参考答案</summary></p>
+
+<pre><code class="language-go">func Dedupe(s []string) []string {
+    seen := make(map[string]bool)
+    result := make([]string, 0, len(s))
+    for _, v := range s {
+        if !seen[v] {
+            seen[v] = true
+            result = append(result, v)
+        }
+    }
+    return result
+}</code></pre>
+<p></details></p>
+
+<h3>🔴 挑战题</h3>
+
+<p><strong>题目 3：</strong> 实现一个 <code>Chunk<a href="s []T, size int">T any</a> [][]T</code> 函数，将切片分成长度为 size 的多个子切片。处理 size ≤ 0 的情况，以及最后一个 chunk 可能不足 size 的情况。</p>
+
+<p><details></p>
+<p><summary>参考答案</summary></p>
+
+<pre><code class="language-go">func Chunk[T any](s []T, size int) [][]T {
+    if size &lt;= 0 {
+        return nil
+    }
+    chunks := make([][]T, 0, (len(s)+size-1)/size)
+    for size &lt; len(s) {
+        s, chunks = s[size:], append(chunks, s[:size:size])
+    }
+    chunks = append(chunks, s)
+    return chunks
+}
+
+func main() {
+    nums := []int{1, 2, 3, 4, 5, 6, 7}
+    fmt.Println(Chunk(nums, 3)) // [[1 2 3] [4 5 6] [7]]
+    fmt.Println(Chunk(nums, 0)) // []
+}</code></pre>
+
+<p>关键点：<code>s[:size:size]</code> 使用 3-index slice 限制子切片容量，避免共享底层数组导致的内存泄漏。</p>
+<p></details></p>
+
+<h2>知识点总结</h2>
+
+<pre><code>切片 Slice
+├── 创建
+│   ├── var s []T              nil slice
+│   ├── s := []T{...}          literal
+│   ├── make([]T, len)         指定长度
+│   ├── make([]T, len, cap)    长度+容量
+│   └── arr[low:high]          从数组切片
+├── 操作
+│   ├── len(s) / cap(s)        长度/容量
+│   ├── append(s, elems...)    追加（返回新slice）
+│   ├── s[low:high]            切片（左闭右开）
+│   ├── s[low:high:max]        限制容量
+│   ├── copy(dst, src)         复制
+│   └── range                  遍历
+├── 底层
+│   ├── SliceHeader{Ptr,Len,Cap}
+│   ├── 共享底层数组
+│   └── 扩容：&lt; 256 → ×2, ≥ 256 → ~1.25×
+├── 特殊
+│   ├── nil slice vs empty slice
+│   ├── nil → JSON null
+│   └── empty → JSON []
+└── 最佳实践
+    ├── 预分配容量（避免多次扩容）
+    ├── copy 避免共享数组
+    ├── 3-index slice 限制容量
+    └── 始终接收 append 返回值</code></pre>
+
+<h2>举一反三</h2>
+
+<table><thead><tr>
+<th>操作</th>
+<th>Go</th>
+<th>Python</th>
+<th>JavaScript</th>
+</tr></thead><tbody>
+<tr>
+<td>创建</td>
+<td><code>make([]int, 0)</code></td>
+<td><code>[]</code></td>
+<td><code>[]</code></td>
+</tr>
+<tr>
+<td>追加</td>
+<td><code>s = append(s, x)</code></td>
+<td><code>s.append(x)</code></td>
+<td><code>s.push(x)</code></td>
+</tr>
+<tr>
+<td>切片</td>
+<td><code>s[1:3]</code></td>
+<td><code>s[1:3]</code></td>
+<td><code>s.slice(1,3)</code></td>
+</tr>
+<tr>
+<td>长度</td>
+<td><code>len(s)</code></td>
+<td><code>len(s)</code></td>
+<td><code>s.length</code></td>
+</tr>
+<tr>
+<td>是否包含</td>
+<td>手写循环</td>
+<td><code>x in s</code></td>
+<td><code>s.includes(x)</code></td>
+</tr>
+<tr>
+<td>连接</td>
+<td><code>append(a, b...)</code></td>
+<td><code>a + b</code></td>
+<td><code>[...a, ...b]</code></td>
+</tr>
+</tbody></table>
+
+<h2>参考资料</h2>
+
+<ul>
+<li><a href="https://go.dev/ref/spec#Slice_types">Go 语言规范 - Slice types</a></li>
+<li><a href="https://go.dev/blog/slices-intro">Go 博客 - Go Slices: usage and internals</a></li>
+<li><a href="https://go.dev/blog/slices">Go 博客 - Arrays, slices and strings</a></li>
+<li><a href="https://go.dev/doc/go1.18">Go 1.18 切片扩容规则变化</a></li>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

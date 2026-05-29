@@ -1,0 +1,837 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>002 - NestJS入门：用TypeScript构建企业级Node.js应用</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Node.js/index.html">Node.js</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Node.js/02-实战/index.html">Node.js实战</a>
+</nav>
+<h1>002 - NestJS入门：用TypeScript构建企业级Node.js应用</h1>
+<div class="meta">
+<span>📂 Node.js实战</span>
+<span>🏷️ Node.js</span>
+</div>
+<article>
+
+
+<h2>难度标注</h2>
+
+<blockquote><p><strong>难度：</strong> 🟡 中等 | <strong>前置知识：</strong> TypeScript基础、Node.js、面向对象编程 | <strong>预计耗时：</strong> 3-4小时</p></blockquote>
+
+<hr>
+
+<h2>概念讲解</h2>
+
+<h3>什么是NestJS？</h3>
+
+<p>NestJS是一个用于构建高效、可扩展的Node.js服务器端应用的框架。它使用<strong>TypeScript</strong>编写，结合了面向对象编程（OOP）、函数式编程（FP）和函数响应式编程（FRP）的元素。</p>
+
+<h3>核心设计理念</h3>
+
+<p>NestJS的灵感来自Angular，采用<strong>装饰器（Decorator）+ 依赖注入（DI）+ 模块化</strong>的架构：</p>
+
+<pre><code>NestJS架构 = Angular的设计模式 + Express/Fastify的底层</code></pre>
+
+<h3>与其他框架对比</h3>
+
+<table><thead><tr>
+<th>特性</th>
+<th>Express</th>
+<th>Koa</th>
+<th>NestJS</th>
+</tr></thead><tbody>
+<tr>
+<td>语言</td>
+<td>JavaScript</td>
+<td>JavaScript</td>
+<td>TypeScript（首选）</td>
+</tr>
+<tr>
+<td>架构</td>
+<td>无固定架构</td>
+<td>无固定架构</td>
+<td>分层模块化架构</td>
+</tr>
+<tr>
+<td>DI</td>
+<td>无</td>
+<td>无</td>
+<td>内置依赖注入</td>
+</tr>
+<tr>
+<td>装饰器</td>
+<td>无</td>
+<td>无</td>
+<td>大量使用</td>
+</tr>
+<tr>
+<td>测试</td>
+<td>需自行配置</td>
+<td>需自行配置</td>
+<td>内置Jest + e2e</td>
+</tr>
+<tr>
+<td>学习曲线</td>
+<td>低</td>
+<td>低</td>
+<td>中高</td>
+</tr>
+<tr>
+<td>适用场景</td>
+<td>小型项目</td>
+<td>中型项目</td>
+<td>企业级应用</td>
+</tr>
+</tbody></table>
+
+<h3>核心概念速览</h3>
+
+<ol>
+<li><strong>Controller（控制器）</strong>：处理HTTP请求，定义路由</li>
+</ul>
+<ol>
+<li><strong>Service（服务）</strong>：封装业务逻辑，可被注入到控制器</li>
+</ul>
+<ol>
+<li><strong>Module（模块）</strong>：组织相关功能，声明依赖关系</li>
+</ul>
+<ol>
+<li><strong>Decorator（装饰器）</strong>：附加元数据，简化代码</li>
+</ul>
+<ol>
+<li><strong>Pipe（管道）</strong>：数据验证和转换</li>
+</ul>
+<ol>
+<li><strong>Guard（守卫）</strong>：权限验证</li>
+</ul>
+<ol>
+<li><strong>Interceptor（拦截器）</strong>：请求/响应变换</li>
+
+<hr>
+
+<h2>脑图</h2>
+
+<pre><code>NestJS入门
+├── 项目初始化
+│   ├── @nestjs/cli 安装
+│   ├── nest new project
+│   └── 项目结构解析
+├── 核心概念
+│   ├── Controller → 处理请求
+│   ├── Service → 业务逻辑
+│   ├── Module → 组织模块
+│   └── DI → 依赖注入容器
+├── 装饰器体系
+│   ├── @Controller() / @Get() / @Post()
+│   ├── @Body() / @Param() / @Query()
+│   ├── @Injectable()
+│   └── @Module()
+├── 请求生命周期
+│   ├── Middleware → Guard → Interceptor
+│   ├── Pipe → Controller → Service
+│   └── Interceptor → Response
+├── 数据验证
+│   ├── class-validator
+│   ├── class-transformer
+│   └── ValidationPipe
+└── 实战项目
+    ├── 用户CRUD API
+    ├── DTO数据验证
+    └── 异常过滤器</code></pre>
+
+<hr>
+
+<h2>完整代码：NestJS 用户管理 API</h2>
+
+<h3>项目结构</h3>
+
+<pre><code>nestjs-demo/
+├── src/
+│   ├── main.ts                 # Bootstrap
+│   ├── app.module.ts           # Root module
+│   ├── users/
+│   │   ├── users.module.ts     # Users module
+│   │   ├── users.controller.ts # Users controller
+│   │   ├── users.service.ts    # Users service
+│   │   ├── dto/
+│   │   │   ├── create-user.dto.ts
+│   │   │   └── update-user.dto.ts
+│   │   └── entities/
+│   │       └── user.entity.ts
+│   └── common/
+│       └── filters/
+│           └── http-exception.filter.ts
+├── test/
+├── nest-cli.json
+├── tsconfig.json
+└── package.json</code></pre>
+
+<h3>代码实现</h3>
+
+<pre><code class="language-typescript">// src/main.ts - Application bootstrap
+import { NestFactory } from &#x27;@nestjs/core&#x27;;
+import { ValidationPipe } from &#x27;@nestjs/common&#x27;;
+import { AppModule } from &#x27;./app.module&#x27;;
+
+async function bootstrap() {
+  const app = await NestFactory.create(AppModule);
+
+  // Enable global validation pipe
+  app.useGlobalPipes(
+    new ValidationPipe({
+      whitelist: true,            // Strip unknown properties
+      forbidNonWhitelisted: true, // Throw error on unknown props
+      transform: true,            // Auto-transform types
+    }),
+  );
+
+  // Enable CORS
+  app.enableCors();
+
+  await app.listen(3000);
+  console.log(&#x27;🚀 NestJS server running on http://localhost:3000&#x27;);
+}
+bootstrap();</code></pre>
+
+<pre><code class="language-typescript">// src/app.module.ts - Root module
+import { Module } from &#x27;@nestjs/common&#x27;;
+import { UsersModule } from &#x27;./users/users.module&#x27;;
+
+@Module({
+  imports: [UsersModule],
+})
+export class AppModule {}</code></pre>
+
+<pre><code class="language-typescript">// src/users/entities/user.entity.ts
+export class User {
+  id: number;
+  name: string;
+  email: string;
+  createdAt: Date;
+
+  constructor(partial: Partial&lt;User&gt;) {
+    Object.assign(this, partial);
+    this.createdAt = new Date();
+  }
+}</code></pre>
+
+<pre><code class="language-typescript">// src/users/dto/create-user.dto.ts
+import { IsEmail, IsNotEmpty, IsString, MinLength } from &#x27;class-validator&#x27;;
+
+export class CreateUserDto {
+  @IsString()
+  @IsNotEmpty({ message: &#x27;Name is required&#x27; })
+  name: string;
+
+  @IsEmail({}, { message: &#x27;Invalid email format&#x27; })
+  email: string;
+
+  @IsString()
+  @MinLength(6, { message: &#x27;Password must be at least 6 characters&#x27; })
+  password: string;
+}</code></pre>
+
+<pre><code class="language-typescript">// src/users/dto/update-user.dto.ts
+import { IsEmail, IsOptional, IsString } from &#x27;class-validator&#x27;;
+
+export class UpdateUserDto {
+  @IsOptional()
+  @IsString()
+  name?: string;
+
+  @IsOptional()
+  @IsEmail()
+  email?: string;
+}</code></pre>
+
+<pre><code class="language-typescript">// src/users/users.service.ts - Business logic layer
+import { Injectable, NotFoundException } from &#x27;@nestjs/common&#x27;;
+import { CreateUserDto } from &#x27;./dto/create-user.dto&#x27;;
+import { UpdateUserDto } from &#x27;./dto/update-user.dto&#x27;;
+import { User } from &#x27;./entities/user.entity&#x27;;
+
+@Injectable()
+export class UsersService {
+  private users: User[] = [];
+  private idCounter = 1;
+
+  // Create a new user
+  create(createUserDto: CreateUserDto): User {
+    const user = new User({
+      id: this.idCounter++,
+      name: createUserDto.name,
+      email: createUserDto.email,
+    });
+    this.users.push(user);
+    return user;
+  }
+
+  // Find all users
+  findAll(): User[] {
+    return this.users;
+  }
+
+  // Find one user by ID
+  findOne(id: number): User {
+    const user = this.users.find(u =&gt; u.id === id);
+    if (!user) {
+      throw new NotFoundException(`User #${id} not found`);
+    }
+    return user;
+  }
+
+  // Update a user
+  update(id: number, updateUserDto: UpdateUserDto): User {
+    const user = this.findOne(id);
+    Object.assign(user, updateUserDto);
+    return user;
+  }
+
+  // Delete a user
+  remove(id: number): void {
+    const index = this.users.findIndex(u =&gt; u.id === id);
+    if (index === -1) {
+      throw new NotFoundException(`User #${id} not found`);
+    }
+    this.users.splice(index, 1);
+  }
+}</code></pre>
+
+<pre><code class="language-typescript">// src/users/users.controller.ts - Request handler
+import {
+  Controller,
+  Get,
+  Post,
+  Put,
+  Delete,
+  Body,
+  Param,
+  ParseIntPipe,
+  HttpCode,
+  HttpStatus,
+} from &#x27;@nestjs/common&#x27;;
+import { UsersService } from &#x27;./users.service&#x27;;
+import { CreateUserDto } from &#x27;./dto/create-user.dto&#x27;;
+import { UpdateUserDto } from &#x27;./dto/update-user.dto&#x27;;
+import { User } from &#x27;./entities/user.entity&#x27;;
+
+@Controller(&#x27;users&#x27;)
+export class UsersController {
+  constructor(private readonly usersService: UsersService) {}
+
+  @Post()
+  @HttpCode(HttpStatus.CREATED)
+  create(@Body() createUserDto: CreateUserDto): User {
+    return this.usersService.create(createUserDto);
+  }
+
+  @Get()
+  findAll(): User[] {
+    return this.usersService.findAll();
+  }
+
+  @Get(&#x27;:id&#x27;)
+  findOne(@Param(&#x27;id&#x27;, ParseIntPipe) id: number): User {
+    return this.usersService.findOne(id);
+  }
+
+  @Put(&#x27;:id&#x27;)
+  update(
+    @Param(&#x27;id&#x27;, ParseIntPipe) id: number,
+    @Body() updateUserDto: UpdateUserDto,
+  ): User {
+    return this.usersService.update(id, updateUserDto);
+  }
+
+  @Delete(&#x27;:id&#x27;)
+  @HttpCode(HttpStatus.NO_CONTENT)
+  remove(@Param(&#x27;id&#x27;, ParseIntPipe) id: number): void {
+    this.usersService.remove(id);
+  }
+}</code></pre>
+
+<pre><code class="language-typescript">// src/users/users.module.ts - Users feature module
+import { Module } from &#x27;@nestjs/common&#x27;;
+import { UsersController } from &#x27;./users.controller&#x27;;
+import { UsersService } from &#x27;./users.service&#x27;;
+
+@Module({
+  controllers: [UsersController],
+  providers: [UsersService],
+})
+export class UsersModule {}</code></pre>
+
+<pre><code class="language-typescript">// src/common/filters/http-exception.filter.ts
+import {
+  ExceptionFilter,
+  Catch,
+  ArgumentsHost,
+  HttpException,
+} from &#x27;@nestjs/common&#x27;;
+import { Response } from &#x27;express&#x27;;
+
+@Catch(HttpException)
+export class HttpExceptionFilter implements ExceptionFilter {
+  catch(exception: HttpException, host: ArgumentsHost) {
+    const ctx = host.switchToHttp();
+    const response = ctx.getResponse&lt;Response&gt;();
+    const status = exception.getStatus();
+    const exceptionResponse = exception.getResponse();
+
+    response.status(status).json({
+      success: false,
+      statusCode: status,
+      message:
+        typeof exceptionResponse === &#x27;string&#x27;
+          ? exceptionResponse
+          : (exceptionResponse as any).message,
+      timestamp: new Date().toISOString(),
+    });
+  }
+}</code></pre>
+
+<h3>package.json 核心依赖</h3>
+
+<pre><code class="language-json">{
+  &quot;dependencies&quot;: {
+    &quot;@nestjs/common&quot;: &quot;^10.0.0&quot;,
+    &quot;@nestjs/core&quot;: &quot;^10.0.0&quot;,
+    &quot;@nestjs/platform-express&quot;: &quot;^10.0.0&quot;,
+    &quot;class-validator&quot;: &quot;^0.14.0&quot;,
+    &quot;class-transformer&quot;: &quot;^0.5.1&quot;,
+    &quot;reflect-metadata&quot;: &quot;^0.1.14&quot;,
+    &quot;rxjs&quot;: &quot;^7.8.0&quot;
+  }
+}</code></pre>
+
+<hr>
+
+<h2>执行预览</h2>
+
+<pre><code class="language-bash"># 安装CLI并创建项目
+$ npm i -g @nestjs/cli
+$ nest new nestjs-demo
+$ cd nestjs-demo
+
+# 启动开发模式
+$ npm run start:dev
+[Nest] Log [NestFactory] Starting Nest application...
+[Nest] Log [InstanceLoader] AppModule dependencies initialized
+[Nest] Log [RoutesResolver] UsersController {/users}
+[Nest] Log [RouterExplorer] Mapped {/users, POST} route
+[Nest] Log [RouterExplorer] Mapped {/users, GET} route
+[Nest] Log [RouterExplorer] Mapped {/users/:id, GET} route
+[Nest] Log [RouterExplorer] Mapped {/users/:id, PUT} route
+[Nest] Log [RouterExplorer] Mapped {/users/:id, DELETE} route
+🚀 NestJS server running on http://localhost:3000
+
+# 创建用户
+$ curl -X POST http://localhost:3000/users \
+  -H &quot;Content-Type: application/json&quot; \
+  -d &#x27;{&quot;name&quot;:&quot;Alice&quot;,&quot;email&quot;:&quot;alice@test.com&quot;,&quot;password&quot;:&quot;123456&quot;}&#x27;
+{&quot;id&quot;:1,&quot;name&quot;:&quot;Alice&quot;,&quot;email&quot;:&quot;alice@test.com&quot;,&quot;createdAt&quot;:&quot;2024-01-15T10:00:00.000Z&quot;}
+
+# 验证失败（缺少必填字段）
+$ curl -X POST http://localhost:3000/users \
+  -H &quot;Content-Type: application/json&quot; \
+  -d &#x27;{&quot;name&quot;:&quot;Bob&quot;}&#x27;
+{
+  &quot;success&quot;: false,
+  &quot;statusCode&quot;: 400,
+  &quot;message&quot;: [&quot;email must be an email&quot;, &quot;password must be longer than 5 characters&quot;]
+}
+
+# 获取所有用户
+$ curl http://localhost:3000/users
+[{&quot;id&quot;:1,&quot;name&quot;:&quot;Alice&quot;,&quot;email&quot;:&quot;alice@test.com&quot;,&quot;createdAt&quot;:&quot;2024-01-15T10:00:00.000Z&quot;}]</code></pre>
+
+<hr>
+
+<h2>注意事项</h2>
+
+<table><thead><tr>
+<th>项目</th>
+<th>说明</th>
+<th>建议</th>
+</tr></thead><tbody>
+<tr>
+<td>装饰器顺序</td>
+<td>装饰器执行从下到上</td>
+<td>Method装饰器写在最上面，Param装饰器在参数上</td>
+</tr>
+<tr>
+<td>DTO验证</td>
+<td>必须启用ValidationPipe</td>
+<td>在main.ts中全局注册，否则class-validator不生效</td>
+</tr>
+<tr>
+<td>依赖注入</td>
+<td>通过构造函数注入</td>
+<td>使用 <code>private readonly</code> + TypeScript类型</td>
+</tr>
+<tr>
+<td>模块导入</td>
+<td>Service默认在模块内可用</td>
+<td>跨模块使用需要exports + imports</td>
+</tr>
+<tr>
+<td>异步provider</td>
+<td>支持factory provider</td>
+<td>数据库连接等异步初始化用useFactory</td>
+</tr>
+<tr>
+<td>热重载</td>
+<td>start:dev 支持HMR</td>
+<td>开发时用 start:dev，生产用 start:prod</td>
+</tr>
+<tr>
+<td>CLI生成</td>
+<td>nest g resource name</td>
+<td>快速生成完整CRUD模块</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>避坑指南</h2>
+
+<h3>❌ 忘记注册 Service 到 Module</h3>
+
+<pre><code class="language-typescript">// WRONG: UsersController can&#x27;t resolve UsersService
+@Module({
+  controllers: [UsersController],
+  // Missing providers: [UsersService]
+})
+export class UsersModule {}
+// Error: Nest can&#x27;t resolve dependencies of UsersController</code></pre>
+
+<h3>✅ 正确注册 providers</h3>
+
+<pre><code class="language-typescript">// CORRECT: Register service as provider
+@Module({
+  controllers: [UsersController],
+  providers: [UsersService],
+})
+export class UsersModule {}</code></pre>
+
+<h3>❌ 忘记启用 ValidationPipe</h3>
+
+<pre><code class="language-typescript">// WRONG: DTO decorators are ignored, any data passes through
+async function bootstrap() {
+  const app = await NestFactory.create(AppModule);
+  // No ValidationPipe registered!
+  await app.listen(3000);
+}</code></pre>
+
+<h3>✅ 全局注册 ValidationPipe</h3>
+
+<pre><code class="language-typescript">// CORRECT: Global validation active for all routes
+async function bootstrap() {
+  const app = await NestFactory.create(AppModule);
+  app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
+  await app.listen(3000);
+}</code></pre>
+
+<h3>❌ 直接在 Controller 写业务逻辑</h3>
+
+<pre><code class="language-typescript">// WRONG: Controller doing business logic
+@Post()
+create(@Body() dto: CreateUserDto) {
+  // Validation, database calls, email sending... all here
+  if (!dto.email.includes(&#x27;@&#x27;)) throw new Error(&#x27;bad email&#x27;);
+  const user = { id: ++this.counter, ...dto };
+  this.users.push(user);
+  return user;
+}</code></pre>
+
+<h3>✅ Controller 只做路由，Service 处理业务</h3>
+
+<pre><code class="language-typescript">// CORRECT: Thin controller, fat service
+@Post()
+create(@Body() dto: CreateUserDto): User {
+  return this.usersService.create(dto); // Delegate to service
+}</code></pre>
+
+<hr>
+
+<h2>练习题</h2>
+
+<h3>🟢 基础题</h3>
+
+<ol>
+<li><strong>CLI命令</strong>：用NestJS CLI创建一个名为 <code>products</code> 的完整CRUD模块，命令是什么？</li>
+
+<p><details><summary>参考答案</summary><code>nest g resource products</code>（自动生成 controller、service、module、dto、entities）</details></p>
+
+<ol>
+<li><strong>装饰器匹配</strong>：以下请求对应哪个方法？<code>GET /users/42</code></li>
+
+<pre><code class="language-typescript">@Get() findAll() {}
+@Get(&#x27;:id&#x27;) findOne(@Param(&#x27;id&#x27;) id: string) {}
+@Get(&#x27;profile&#x27;) getProfile() {}</code></pre>
+
+<p><details><summary>参考答案</summary><code>findOne</code>，因为 <code>:id</code> 是动态参数，匹配 <code>42</code>。注意 <code>profile</code> 是固定路径，优先级高于动态参数。</details></p>
+
+<h3>🟡 进阶题</h3>
+
+<ol>
+<li><strong>自定义Pipe</strong>：实现一个 <code>ParseEmailPipe</code>，验证参数是否为合法email格式。</li>
+
+<p><details><summary>参考答案</summary></p>
+
+<pre><code class="language-typescript">import { PipeTransform, Injectable, BadRequestException } from &#x27;@nestjs/common&#x27;;
+
+@Injectable()
+export class ParseEmailPipe implements PipeTransform&lt;string, string&gt; {
+  transform(value: string): string {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(value)) {
+      throw new BadRequestException(&#x27;Invalid email format&#x27;);
+    }
+    return value;
+  }
+}
+
+// Usage: @Param(&#x27;email&#x27;, ParseEmailPipe) email: string</code></pre>
+
+<p></details></p>
+
+<h3>🔴 挑战题</h3>
+
+<ol>
+<li><strong>实现全局响应拦截器</strong>：创建一个拦截器，将所有成功响应包装为 <code>{ success: true, data: <original> }</code> 格式。</li>
+
+<p><details><summary>参考答案</summary></p>
+
+<pre><code class="language-typescript">import { Injectable, NestInterceptor, ExecutionContext, CallHandler } from &#x27;@nestjs/common&#x27;;
+import { map } from &#x27;rxjs/operators&#x27;;
+import { Observable } from &#x27;rxjs&#x27;;
+
+export interface Response&lt;T&gt; { success: boolean; data: T; }
+
+@Injectable()
+export class TransformInterceptor&lt;T&gt; implements NestInterceptor&lt;T, Response&lt;T&gt;&gt; {
+  intercept(context: ExecutionContext, next: CallHandler): Observable&lt;Response&lt;T&gt;&gt; {
+    return next.handle().pipe(map(data =&gt; ({ success: true, data })));
+  }
+}
+
+// Register globally in main.ts:
+// app.useGlobalInterceptors(new TransformInterceptor());</code></pre>
+
+<p></details></p>
+
+<hr>
+
+<h2>知识点总结</h2>
+
+<pre><code>NestJS框架
+├── 装饰器（Decorators）
+│   ├── 类装饰器: @Controller(), @Module(), @Injectable()
+│   ├── 方法装饰器: @Get(), @Post(), @Put(), @Delete()
+│   └── 参数装饰器: @Body(), @Param(), @Query(), @Headers()
+├── 核心组件
+│   ├── Controller → 接收请求，返回响应
+│   ├── Service → 封装业务逻辑
+│   ├── Module → 组织组件，声明依赖
+│   └── DTO → 定义数据结构和验证规则
+├── 请求处理管道
+│   ├── Middleware → 请求预处理
+│   ├── Guard → 权限验证
+│   ├── Interceptor → 请求/响应变换
+│   └── Pipe → 数据验证和转换
+└── 生命周期
+    ├── onModuleInit → 模块初始化
+    ├── onApplicationBootstrap → 应用启动完成
+    └── onModuleDestroy → 模块销毁</code></pre>
+
+<hr>
+
+<h2>举一反三</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>NestJS方案</th>
+<th>关键技术</th>
+</tr></thead><tbody>
+<tr>
+<td>数据库操作</td>
+<td>TypeORM / Prisma</td>
+<td>@InjectRepository, PrismaService</td>
+</tr>
+<tr>
+<td>JWT认证</td>
+<td>Passport + JWT Strategy</td>
+<td>@UseGuards(AuthGuard('jwt'))</td>
+</tr>
+<tr>
+<td>文件上传</td>
+<td>Multer中间件</td>
+<td>@UseInterceptors(FileInterceptor)</td>
+</tr>
+<tr>
+<td>WebSocket</td>
+<td>@WebSocketGateway</td>
+<td>socket.io, @SubscribeMessage</td>
+</tr>
+<tr>
+<td>微服务</td>
+<td>@MessagePattern</td>
+<td>TCP/Redis/RabbitMQ transport</td>
+</tr>
+<tr>
+<td>任务调度</td>
+<td>@nestjs/schedule</td>
+<td>@Cron(), @Interval()</td>
+</tr>
+<tr>
+<td>缓存</td>
+<td>@nestjs/cache-manager</td>
+<td>@CacheKey(), TTL配置</td>
+</tr>
+<tr>
+<td>日志</td>
+<td>自定义Logger</td>
+<td>@InjectLogger, winston</td>
+</tr>
+<tr>
+<td>配置管理</td>
+<td>@nestjs/config</td>
+<td>ConfigService, .env文件</td>
+</tr>
+<tr>
+<td>API文档</td>
+<td>@nestjs/swagger</td>
+<td>@ApiTags, @ApiOperation</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>参考资料</h2>
+
+<ul>
+<li><a href="https://docs.nestjs.com/">NestJS 官方文档</a></li>
+<li><a href="https://docs.nestjs.com/cli/overview">NestJS CLI 文档</a></li>
+<li><a href="https://github.com/typestack/class-validator">class-validator 装饰器列表</a></li>
+<li><a href="https://github.com/nestjs/nest">NestJS GitHub 仓库</a></li>
+
+<hr>
+
+<h2>代码演进</h2>
+
+<h3>v1: 最小NestJS应用</h3>
+
+<pre><code class="language-typescript">// main.ts
+import { NestFactory } from &#x27;@nestjs/core&#x27;;
+import { Module, Controller, Get } from &#x27;@nestjs/common&#x27;;
+
+@Controller()
+class AppController {
+  @Get()
+  hello() { return { message: &#x27;Hello NestJS!&#x27; }; }
+}
+
+@Module({ controllers: [AppController] })
+class AppModule {}
+
+async function bootstrap() {
+  const app = await NestFactory.create(AppModule);
+  await app.listen(3000);
+}
+bootstrap();</code></pre>
+
+<h3>v2: 分离Controller和Service</h3>
+
+<pre><code class="language-typescript">// Separation of concerns
+@Controller(&#x27;users&#x27;)
+export class UsersController {
+  constructor(private readonly usersService: UsersService) {}
+  
+  @Get() findAll() { return this.usersService.findAll(); }
+  @Post() create(@Body() dto: CreateUserDto) { return this.usersService.create(dto); }
+}
+
+@Injectable()
+export class UsersService {
+  private users = [];
+  findAll() { return this.users; }
+  create(dto) { const user = { id: Date.now(), ...dto }; this.users.push(user); return user; }
+}
+
+@Module({ controllers: [UsersController], providers: [UsersService] })
+export class UsersModule {}</code></pre>
+
+<h3>v3: 企业级完整项目（本文最终版）</h3>
+
+<p>在 v2 基础上增加：</p>
+<ul>
+<li>✅ DTO数据验证（class-validator + ValidationPipe）</li>
+<li>✅ 统一异常过滤器</li>
+<li>✅ 类型安全的Param解析（ParseIntPipe）</li>
+<li>✅ 规范的HTTP状态码（@HttpCode）</li>
+<li>✅ Entity实体类</li>
+<li>✅ 完整的项目目录结构</li>
+<li>✅ CORS支持</li>
+
+<p>从单文件到分层架构，这就是NestJS项目演进的标准路径。</p>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

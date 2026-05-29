@@ -1,0 +1,707 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>016 - Gin 文件上传与静态资源</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Golang/index.html">Golang</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Golang/05-Gin框架/index.html">Gin框架</a>
+</nav>
+<h1>016 - Gin 文件上传与静态资源</h1>
+<div class="meta">
+<span>📂 Gin框架</span>
+<span>🏷️ Golang</span>
+</div>
+<article>
+
+
+<h1>016 - Gin 文件上传与静态资源</h1>
+
+<blockquote><p><strong>难度：⭐⭐⭐</strong> | <strong>预计阅读：15 分钟</strong><br><br>掌握 Gin 框架中文件上传（单文件/多文件）、大小限制、类型校验、存储策略以及静态文件服务的完整方案。</p></blockquote>
+
+<hr>
+
+<h2>一、概念讲解</h2>
+
+<p>文件上传是 Web 开发中最常见的功能之一。Gin 框架基于 <code>net/http</code> 的 <code>multipart/form-data</code> 解析，提供了简洁的文件上传 API。</p>
+
+<p><strong>核心流程：</strong></p>
+
+<pre><code>客户端 (multipart/form-data) → Gin Handler → 解析文件 → 校验 → 存储 → 返回URL</code></pre>
+
+<p><strong>关键类型：</strong></p>
+<ul>
+<li><code>*multipart.FileHeader</code> — 文件元信息（文件名、大小、MIME类型）</li>
+<li><code>multipart.File</code> — 文件内容读取器</li>
+<li><code>FormFile()</code> — 单文件快捷方法</li>
+<li><code>MultipartForm()</code> — 多文件/表单数据</li>
+
+<p><strong>静态文件服务：</strong> Gin 提供 <code>Static()</code>、<code>StaticFile()</code>、<code>StaticFS()</code> 方法，将本地目录映射为 HTTP 路径。</p>
+
+<hr>
+
+<h2>二、脑图</h2>
+
+<pre><code>文件上传与静态资源
+├── 单文件上传
+│   ├── c.FormFile()
+│   ├── c.SaveUploadedFile()
+│   └── 文件重命名
+├── 多文件上传
+│   ├── c.MultipartForm()
+│   └── 批量保存
+├── 安全限制
+│   ├── 文件大小限制
+│   ├── 文件类型校验
+│   └── 文件名过滤
+├── 存储策略
+│   ├── 本地磁盘
+│   └── 对象存储(OSS)
+└── 静态文件服务
+    ├── Static()
+    ├── StaticFile()
+    └── StaticFS()</code></pre>
+
+<hr>
+
+<h2>三、完整代码</h2>
+
+<h3>v1：基础单文件上传</h3>
+
+<pre><code class="language-go">package main
+
+import (
+	&quot;fmt&quot;
+	&quot;net/http&quot;
+	&quot;os&quot;
+	&quot;path/filepath&quot;
+	&quot;time&quot;
+
+	&quot;github.com/gin-gonic/gin&quot;
+)
+
+func main() {
+	r := gin.Default()
+
+	// Set max multipart memory (default 32MiB)
+	r.MaxMultipartMemory = 8 &lt;&lt; 20 // 8 MiB
+
+	// v1: single file upload
+	r.POST(&quot;/upload&quot;, func(c *gin.Context) {
+		file, err := c.FormFile(&quot;file&quot;)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{&quot;error&quot;: err.Error()})
+			return
+		}
+
+		// Generate unique filename
+		ext := filepath.Ext(file.Filename)
+		newName := fmt.Sprintf(&quot;%d%s&quot;, time.Now().UnixMilli(), ext)
+
+		// Ensure upload directory exists
+		os.MkdirAll(&quot;./uploads&quot;, 0755)
+
+		dst := filepath.Join(&quot;./uploads&quot;, newName)
+		if err := c.SaveUploadedFile(file, dst); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{&quot;error&quot;: &quot;save failed&quot;})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{
+			&quot;filename&quot;: newName,
+			&quot;size&quot;:     file.Size,
+			&quot;url&quot;:      &quot;/static/&quot; + newName,
+		})
+	})
+
+	// Serve static files
+	r.Static(&quot;/static&quot;, &quot;./uploads&quot;)
+
+	r.Run(&quot;:8080&quot;)
+}</code></pre>
+
+<h3>v2：多文件上传 + 类型校验 + 大小限制</h3>
+
+<pre><code class="language-go">package main
+
+import (
+	&quot;fmt&quot;
+	&quot;net/http&quot;
+	&quot;os&quot;
+	&quot;path/filepath&quot;
+	&quot;strings&quot;
+	&quot;time&quot;
+
+	&quot;github.com/gin-gonic/gin&quot;
+)
+
+// Allowed MIME types for upload
+var allowedTypes = map[string]bool{
+	&quot;image/jpeg&quot;: true,
+	&quot;image/png&quot;:  true,
+	&quot;image/gif&quot;:  true,
+	&quot;image/webp&quot;: true,
+	&quot;application/pdf&quot;: true,
+}
+
+// Max file size: 10MB
+const maxFileSize = 10 &lt;&lt; 20
+
+func main() {
+	r := gin.Default()
+	r.MaxMultipartMemory = 8 &lt;&lt; 20
+
+	// Middleware: check content type
+	uploadGroup := r.Group(&quot;/upload&quot;)
+	uploadGroup.Use(func(c *gin.Context) {
+		if !strings.HasPrefix(c.ContentType(), &quot;multipart/form-data&quot;) {
+			c.JSON(http.StatusBadRequest, gin.H{&quot;error&quot;: &quot;must be multipart/form-data&quot;})
+			c.Abort()
+			return
+		}
+		c.Next()
+	})
+
+	// Single file upload with validation
+	uploadGroup.POST(&quot;/single&quot;, uploadSingle)
+	// Multiple file upload
+	uploadGroup.POST(&quot;/multi&quot;, uploadMulti)
+
+	r.Static(&quot;/static&quot;, &quot;./uploads&quot;)
+	r.Run(&quot;:8080&quot;)
+}
+
+func uploadSingle(c *gin.Context) {
+	file, err := c.FormFile(&quot;file&quot;)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{&quot;error&quot;: err.Error()})
+		return
+	}
+
+	// Validate file size
+	if file.Size &gt; maxFileSize {
+		c.JSON(http.StatusBadRequest, gin.H{&quot;error&quot;: &quot;file too large, max 10MB&quot;})
+		return
+	}
+
+	// Validate file type
+	if !allowedTypes[file.Header.Get(&quot;Content-Type&quot;)] {
+		c.JSON(http.StatusBadRequest, gin.H{
+			&quot;error&quot;: &quot;file type not allowed&quot;,
+			&quot;got&quot;:   file.Header.Get(&quot;Content-Type&quot;),
+		})
+		return
+	}
+
+	filename, err := saveFile(file)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{&quot;error&quot;: err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		&quot;filename&quot;: filename,
+		&quot;size&quot;:     file.Size,
+		&quot;url&quot;:      &quot;/static/&quot; + filename,
+	})
+}
+
+func uploadMulti(c *gin.Context) {
+	form, err := c.MultipartForm()
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{&quot;error&quot;: err.Error()})
+		return
+	}
+
+	files := form.File[&quot;files&quot;]
+	var results []map[string]interface{}
+	os.MkdirAll(&quot;./uploads&quot;, 0755)
+
+	for _, file := range files {
+		if file.Size &gt; maxFileSize {
+			results = append(results, map[string]interface{}{
+				&quot;original&quot;: file.Filename,
+				&quot;error&quot;:    &quot;file too large&quot;,
+			})
+			continue
+		}
+
+		filename, err := saveFile(file)
+		if err != nil {
+			results = append(results, map[string]interface{}{
+				&quot;original&quot;: file.Filename,
+				&quot;error&quot;:    err.Error(),
+			})
+			continue
+		}
+
+		results = append(results, map[string]interface{}{
+			&quot;original&quot;: file.Filename,
+			&quot;filename&quot;: filename,
+			&quot;size&quot;:     file.Size,
+			&quot;url&quot;:      &quot;/static/&quot; + filename,
+		})
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		&quot;total&quot;:  len(files),
+		&quot;saved&quot;:  len(results),
+		&quot;files&quot;:  results,
+	})
+}
+
+// saveFile generates a unique name and saves the uploaded file
+func saveFile(file *multipart.FileHeader) (string, error) {
+	ext := filepath.Ext(file.Filename)
+	newName := fmt.Sprintf(&quot;%d_%s%s&quot;, time.Now().UnixMilli(), randomStr(6), ext)
+	os.MkdirAll(&quot;./uploads&quot;, 0755)
+	dst := filepath.Join(&quot;./uploads&quot;, newName)
+	return newName, c.SaveUploadedFile(file, dst)
+}</code></pre>
+
+<h3>v3：生产级文件上传（按日期存储 + 图片处理）</h3>
+
+<pre><code class="language-go">package main
+
+import (
+	&quot;fmt&quot;
+	&quot;image&quot;
+	&quot;image/jpeg&quot;
+	&quot;image/png&quot;
+	&quot;log&quot;
+	&quot;net/http&quot;
+	&quot;os&quot;
+	&quot;path/filepath&quot;
+	&quot;strings&quot;
+	&quot;time&quot;
+
+	&quot;github.com/gin-gonic/gin&quot;
+	&quot;github.com/nfnt/resize&quot;
+)
+
+const (
+	maxUploadSize = 10 &lt;&lt; 20 // 10MB
+	uploadDir     = &quot;./uploads&quot;
+	maxThumbWidth = 300
+)
+
+var imageTypes = map[string]bool{
+	&quot;image/jpeg&quot;: true,
+	&quot;image/png&quot;:  true,
+	&quot;image/gif&quot;:  true,
+	&quot;image/webp&quot;: true,
+}
+
+func main() {
+	r := gin.Default()
+	r.MaxMultipartMemory = 8 &lt;&lt; 20
+
+	r.POST(&quot;/api/upload&quot;, uploadHandler)
+	r.POST(&quot;/api/upload/batch&quot;, batchUploadHandler)
+
+	// Static file server with cache headers
+	r.Use(func(c *gin.Context) {
+		c.Header(&quot;Cache-Control&quot;, &quot;public, max-age=86400&quot;)
+		c.Next()
+	})
+	r.Static(&quot;/static&quot;, uploadDir)
+
+	log.Println(&quot;Server running on :8080&quot;)
+	r.Run(&quot;:8080&quot;)
+}
+
+// datePath returns a path like ./uploads/2024/01/15/
+func datePath() string {
+	now := time.Now()
+	p := filepath.Join(uploadDir, now.Format(&quot;2006&quot;), now.Format(&quot;01&quot;), now.Format(&quot;02&quot;))
+	os.MkdirAll(p, 0755)
+	return p
+}
+
+// uniqueName generates a unique filename preserving extension
+func uniqueName(original string) string {
+	ext := filepath.Ext(original)
+	return fmt.Sprintf(&quot;%d%s&quot;, time.Now().UnixNano(), ext)
+}
+
+// validateFile checks size and type
+func validateFile(header *multipart.FileHeader) error {
+	if header.Size &gt; maxUploadSize {
+		return fmt.Errorf(&quot;file too large: %d bytes (max %d)&quot;, header.Size, maxUploadSize)
+	}
+	ct := header.Header.Get(&quot;Content-Type&quot;)
+	if !imageTypes[ct] {
+		return fmt.Errorf(&quot;type %s not allowed&quot;, ct)
+	}
+	return nil
+}
+
+// createThumbnail generates a smaller version of the image
+func createThumbnail(srcPath, thumbPath string) error {
+	file, err := os.Open(srcPath)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	img, _, err := image.Decode(file)
+	if err != nil {
+		return err
+	}
+
+	thumb := resize.Thumbnail(maxThumbWidth, 0, img, resize.Lanczos3)
+	out, err := os.Create(thumbPath)
+	if err != nil {
+		return err
+	}
+	defer out.Close()
+
+	ext := strings.ToLower(filepath.Ext(srcPath))
+	if ext == &quot;.png&quot; {
+		return png.Encode(out, thumb)
+	}
+	return jpeg.Encode(out, thumb, &amp;jpeg.Options{Quality: 85})
+}
+
+func uploadHandler(c *gin.Context) {
+	file, err := c.FormFile(&quot;file&quot;)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{&quot;error&quot;: &quot;no file provided&quot;})
+		return
+	}
+
+	if err := validateFile(file); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{&quot;error&quot;: err.Error()})
+		return
+	}
+
+	dir := datePath()
+	name := uniqueName(file.Filename)
+	fullPath := filepath.Join(dir, name)
+
+	if err := c.SaveUploadedFile(file, fullPath); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{&quot;error&quot;: &quot;save failed&quot;})
+		return
+	}
+
+	// Generate thumbnail
+	thumbName := &quot;thumb_&quot; + name
+	thumbPath := filepath.Join(dir, thumbName)
+	_ = createThumbnail(fullPath, thumbPath) // non-fatal
+
+	// Build relative URL from uploadDir
+	relPath := strings.TrimPrefix(fullPath, uploadDir+&quot;/&quot;)
+
+	c.JSON(http.StatusOK, gin.H{
+		&quot;url&quot;:       &quot;/static/&quot; + relPath,
+		&quot;thumbnail&quot;: &quot;/static/&quot; + strings.TrimPrefix(thumbPath, uploadDir+&quot;/&quot;),
+		&quot;size&quot;:      file.Size,
+		&quot;filename&quot;:  name,
+	})
+}
+
+func batchUploadHandler(c *gin.Context) {
+	form, err := c.MultipartForm()
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{&quot;error&quot;: err.Error()})
+		return
+	}
+
+	files := form.File[&quot;files&quot;]
+	type result struct {
+		URL       string `json:&quot;url&quot;`
+		Original  string `json:&quot;original&quot;`
+		Size      int64  `json:&quot;size&quot;`
+		Error     string `json:&quot;error,omitempty&quot;`
+	}
+
+	var results []result
+	for _, f := range files {
+		if err := validateFile(f); err != nil {
+			results = append(results, result{Original: f.Filename, Error: err.Error()})
+			continue
+		}
+
+		dir := datePath()
+		name := uniqueName(f.Filename)
+		dst := filepath.Join(dir, name)
+
+		if err := c.SaveUploadedFile(f, dst); err != nil {
+			results = append(results, result{Original: f.Filename, Error: &quot;save failed&quot;})
+			continue
+		}
+
+		relPath := strings.TrimPrefix(dst, uploadDir+&quot;/&quot;)
+		results = append(results, result{
+			URL:      &quot;/static/&quot; + relPath,
+			Original: f.Filename,
+			Size:     f.Size,
+		})
+	}
+
+	c.JSON(http.StatusOK, gin.H{&quot;results&quot;: results})
+}</code></pre>
+
+<hr>
+
+<h2>四、执行预览</h2>
+
+<pre><code class="language-bash"># 单文件上传
+curl -X POST http://localhost:8080/upload/single \
+  -F &quot;file=@photo.jpg&quot;
+# → {&quot;filename&quot;:&quot;1714000000000_abc123.jpg&quot;,&quot;size&quot;:102400,&quot;url&quot;:&quot;/static/1714000000000_abc123.jpg&quot;}
+
+# 多文件上传
+curl -X POST http://localhost:8080/upload/multi \
+  -F &quot;files=@a.jpg&quot; -F &quot;files=@b.png&quot;
+# → {&quot;total&quot;:2,&quot;saved&quot;:2,&quot;files&quot;:[...]}
+
+# 访问静态文件
+curl http://localhost:8080/static/1714000000000_abc123.jpg
+# → 图片二进制内容</code></pre>
+
+<hr>
+
+<h2>五、注意事项</h2>
+
+<table><thead><tr>
+<th>项目</th>
+<th>说明</th>
+</tr></thead><tbody>
+<tr>
+<td><code>MaxMultipartMemory</code></td>
+<td>内存缓冲区，超出部分写入临时文件，建议 8-32MB</td>
+</tr>
+<tr>
+<td>并发写入</td>
+<td>同一文件名会覆盖，必须生成唯一文件名</td>
+</tr>
+<tr>
+<td>路径穿越</td>
+<td>永远不要用用户提供的文件名直接拼接路径</td>
+</tr>
+<tr>
+<td>MIME 校验</td>
+<td><code>Content-Type</code> 可伪造，生产环境建议读取文件头验证</td>
+</tr>
+<tr>
+<td>临时文件</td>
+<td><code>SaveUploadedFile</code> 后临时文件会被清理，无需手动处理</td>
+</tr>
+<tr>
+<td>目录权限</td>
+<td><code>os.MkdirAll</code> 需要 0755，确保运行用户有写权限</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>六、避坑指南</h2>
+
+<table><thead><tr>
+<th>❌ 错误做法</th>
+<th>✅ 正确做法</th>
+</tr></thead><tbody>
+<tr>
+<td><code>c.SaveUploadedFile(file, file.Filename)</code></td>
+<td>用 UUID/时间戳生成唯一文件名</td>
+</tr>
+<tr>
+<td>不限制上传大小</td>
+<td>设置 <code>r.MaxMultipartMemory</code> 并检查 <code>file.Size</code></td>
+</tr>
+<tr>
+<td>只校验文件扩展名</td>
+<td>校验 MIME 类型 + 文件头魔数</td>
+</tr>
+<tr>
+<td>文件存在 public 目录无任何保护</td>
+<td>按日期分目录 + 随机文件名 + 权限控制</td>
+</tr>
+<tr>
+<td>前端不压缩图片直接上传</td>
+<td>后端做缩略图 + 前端预压缩</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>七、练习题</h2>
+
+<h3>🟢 入门</h3>
+<ol>
+<li>实现一个只允许上传 PNG/JPG 的单文件上传接口，限制 2MB</li>
+</ul>
+<ol>
+<li>配置 <code>/static</code> 路径映射到 <code>./assets</code> 目录</li>
+
+<h3>🟡 进阶</h3>
+<ol>
+<li>实现多文件上传，返回每个文件的成功/失败状态</li>
+</ul>
+<ol>
+<li>上传后自动生成缩略图（300px 宽）</li>
+
+<h3>🔴 挑战</h3>
+<ol>
+<li>实现分片上传（Chunk Upload），支持大文件断点续传</li>
+</ul>
+<ol>
+<li>对接阿里云 OSS，上传文件直接写入对象存储</li>
+
+<hr>
+
+<h2>八、知识点总结</h2>
+
+<pre><code>文件上传知识树
+├── 核心 API
+│   ├── FormFile(&quot;key&quot;) → 单文件
+│   ├── MultipartForm() → 整个表单
+│   └── SaveUploadedFile() → 保存
+├── 安全
+│   ├── 大小限制 (MaxMultipartMemory + Size)
+│   ├── 类型校验 (MIME + 魔数)
+│   └── 文件名过滤 (唯一名 + 路径过滤)
+├── 存储
+│   ├── 本地: 按日期分目录
+│   └── OSS: 直接流式上传
+├── 图片处理
+│   ├── 缩略图生成
+│   └── 格式转换
+└── 静态服务
+    ├── Static(path, dir)
+    ├── StaticFile(path, file)
+    └── StaticFS(path, fs)</code></pre>
+
+<hr>
+
+<h2>九、举一反三</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>方案</th>
+<th>关键点</th>
+</tr></thead><tbody>
+<tr>
+<td>头像上传</td>
+<td>单文件 + 裁剪 + 压缩</td>
+<td>固定尺寸输出</td>
+</tr>
+<tr>
+<td>批量图片</td>
+<td>多文件 + 异步处理</td>
+<td>用 channel/goroutine 并发生成缩略图</td>
+</tr>
+<tr>
+<td>文档上传</td>
+<td>PDF/Word 校验 + 病毒扫描</td>
+<td>调用 ClamAV 扫描</td>
+</tr>
+<tr>
+<td>视频上传</td>
+<td>分片上传 + 进度回调</td>
+<td>tus 协议或自实现</td>
+</tr>
+<tr>
+<td>对象存储</td>
+<td>流式上传到 S3/OSS</td>
+<td>不落盘，直接 pipe</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>十、参考资料</h2>
+
+<ul>
+<li><a href="https://gin-gonic.com/docs/examples/bind-and-validate/">Gin 官方文档 - Model binding and validation</a></li>
+<li><a href="https://github.com/gin-gonic/examples/tree/master/upload-file">Gin 官方示例 - Upload files</a></li>
+<li><a href="https://pkg.go.dev/mime/multipart">Go <code>mime/multipart</code> 包</a></li>
+<li><a href="https://github.com/nfnt/resize">nfnt/resize 图片处理库</a></li>
+
+<hr>
+
+<h2>十一、代码演进</h2>
+
+<table><thead><tr>
+<th>版本</th>
+<th>特点</th>
+<th>适用场景</th>
+</tr></thead><tbody>
+<tr>
+<td><strong>v1</strong></td>
+<td>单文件上传 + 静态服务</td>
+<td>原型开发、学习</td>
+</tr>
+<tr>
+<td><strong>v2</strong></td>
+<td>多文件 + 类型校验 + 大小限制</td>
+<td>中小项目</td>
+</tr>
+<tr>
+<td><strong>v3</strong></td>
+<td>日期分目录 + 缩略图 + 生产级</td>
+<td>生产环境</td>
+</tr>
+</tbody></table>
+
+<blockquote><p>从 v1 到 v3，逐步加入安全校验、存储优化和图片处理能力。实际项目中建议直接使用 v3 架构。</p></blockquote>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

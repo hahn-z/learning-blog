@@ -1,0 +1,773 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>007 - 设计模式（创建型）</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Golang/index.html">Golang</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Golang/03-实战/index.html">Golang实战</a>
+</nav>
+<h1>007 - 设计模式（创建型）</h1>
+<div class="meta">
+<span>📂 Golang实战</span>
+<span>🏷️ Golang</span>
+</div>
+<article>
+
+
+<h1>设计模式（创建型） ⭐⭐⭐中级</h1>
+
+<blockquote><p><strong>难度标注：</strong> ⭐⭐⭐ 中级 | 预计阅读时间：20分钟 | 前置知识：Go接口、结构体、并发基础</p></blockquote>
+
+<h2>📖 概念讲解</h2>
+
+<p>创建型设计模式关注<strong>"如何创建对象"</strong>，核心思想是将对象的创建与使用分离，让系统不依赖于具体类的实例化方式。Go语言没有类和继承，但通过<strong>接口组合</strong>和<strong>函数一等公民</strong>的特性，可以优雅地实现这些模式。</p>
+
+<p>本章覆盖5种创建型模式：<strong>单例(Singleton)、工厂方法(Factory Method)、抽象工厂(Abstract Factory)、建造者(Builder)、原型(Prototype)</strong>。</p>
+
+<pre><code>创建型设计模式脑图
+├── Singleton 单例
+│   ├── sync.Once 保证唯一
+│   ├── 懒加载 vs 饿加载
+│   └── 并发安全
+├── Factory Method 工厂方法
+│   ├── 简单工厂（静态工厂）
+│   ├── 接口多态
+│   └── 配置驱动创建
+├── Abstract Factory 抽象工厂
+│   ├── 产品族概念
+│   ├── 接口组合
+│   └── 数据库驱动切换
+├── Builder 建造者
+│   ├── 链式调用
+│   ├── 参数校验
+│   └── 可选参数处理
+└── Prototype 原型
+    ├── 深拷贝 vs 浅拷贝
+    ├── JSON序列化克隆
+    └── 原型管理器</code></pre>
+
+<h2>💻 完整Go代码</h2>
+
+<h3>v1 基础版本：简单工厂 + 基础单例</h3>
+
+<pre><code class="language-go">// v1_basic.go - Simple factory and basic singleton
+package main
+
+import &quot;fmt&quot;
+
+// ===== Simple Factory =====
+
+// Animal interface defines behavior
+type Animal interface {
+    Speak() string
+}
+
+type Dog struct{ Name string }
+func (d *Dog) Speak() string { return d.Name + &quot;: Woof!&quot; }
+
+type Cat struct{ Name string }
+func (c *Cat) Speak() string { return c.Name + &quot;: Meow!&quot; }
+
+// Simple factory function
+func NewAnimal(kind, name string) Animal {
+    switch kind {
+    case &quot;dog&quot;:
+        return &amp;Dog{Name: name}
+    case &quot;cat&quot;:
+        return &amp;Cat{Name: name}
+    default:
+        return nil
+    }
+}
+
+// ===== Basic Singleton (NOT concurrent-safe) =====
+
+type Database struct {
+    connection string
+}
+
+var dbInstance *Database
+
+func GetDatabase() *Database {
+    if dbInstance == nil {
+        dbInstance = &amp;Database{connection: &quot;mysql://localhost:3306&quot;}
+    }
+    return dbInstance
+}
+
+func main() {
+    // Factory usage
+    animals := []Animal{
+        NewAnimal(&quot;dog&quot;, &quot;Buddy&quot;),
+        NewAnimal(&quot;cat&quot;, &quot;Kitty&quot;),
+    }
+    for _, a := range animals {
+        fmt.Println(a.Speak())
+    }
+
+    // Singleton usage
+    db1 := GetDatabase()
+    db2 := GetDatabase()
+    fmt.Printf(&quot;Same instance: %v\n&quot;, db1 == db2)
+}</code></pre>
+
+<h3>v2 进阶版本：完整5种创建型模式</h3>
+
+<pre><code class="language-go">// v2_patterns.go - All 5 creational patterns with Go idioms
+package main
+
+import (
+    &quot;encoding/json&quot;
+    &quot;fmt&quot;
+    &quot;sync&quot;
+)
+
+// ===== 1. Singleton (concurrent-safe with sync.Once) =====
+
+type Config struct {
+    AppName string `json:&quot;app_name&quot;`
+    Port    int    `json:&quot;port&quot;`
+    Debug   bool   `json:&quot;debug&quot;`
+}
+
+var (
+    configInstance *Config
+    configOnce     sync.Once
+)
+
+// GetConfig returns singleton config, thread-safe
+func GetConfig() *Config {
+    configOnce.Do(func() {
+        configInstance = &amp;Config{
+            AppName: &quot;MyApp&quot;,
+            Port:    8080,
+            Debug:   false,
+        }
+        fmt.Println(&quot;Config initialized (once)&quot;)
+    })
+    return configInstance
+}
+
+// ===== 2. Factory Method =====
+
+// Storage interface for different backends
+type Storage interface {
+    Save(key string, data []byte) error
+    Load(key string) ([]byte, error)
+    String() string
+}
+
+type MemoryStorage struct {
+    data map[string][]byte
+}
+
+func NewMemoryStorage() *MemoryStorage {
+    return &amp;MemoryStorage{data: make(map[string][]byte)}
+}
+
+func (m *MemoryStorage) Save(key string, data []byte) error {
+    m.data[key] = data
+    return nil
+}
+
+func (m *MemoryStorage) Load(key string) ([]byte, error) {
+    return m.data[key], nil
+}
+
+func (m *MemoryStorage) String() string { return &quot;MemoryStorage&quot; }
+
+type FileStorage struct {
+    baseDir string
+}
+
+func NewFileStorage(dir string) *FileStorage {
+    return &amp;FileStorage{baseDir: dir}
+}
+
+func (f *FileStorage) Save(key string, data []byte) error {
+    fmt.Printf(&quot;Saved %s to %s\n&quot;, key, f.baseDir)
+    return nil
+}
+
+func (f *FileStorage) Load(key string) ([]byte, error) {
+    return []byte(&quot;data&quot;), nil
+}
+
+func (f *FileStorage) String() string { return &quot;FileStorage:&quot; + f.baseDir }
+
+// Factory function - creates storage by type
+func NewStorage(storageType string) Storage {
+    switch storageType {
+    case &quot;memory&quot;:
+        return NewMemoryStorage()
+    case &quot;file&quot;:
+        return NewFileStorage(&quot;/tmp/data&quot;)
+    default:
+        return NewMemoryStorage() // Default fallback
+    }
+}
+
+// ===== 3. Abstract Factory =====
+
+// UIFactory creates a family of UI components
+type Button interface {
+    Render() string
+}
+
+type TextBox interface {
+    Render() string
+}
+
+type UIFactory interface {
+    CreateButton() Button
+    CreateTextBox() TextBox
+}
+
+// Windows family
+type WinButton struct{}
+func (b *WinButton) Render() string { return &quot;[Windows Button]&quot; }
+
+type WinTextBox struct{}
+func (t *WinTextBox) Render() string { return &quot;[Windows TextBox]&quot; }
+
+type WindowsFactory struct{}
+
+func (f *WindowsFactory) CreateButton() Button  { return &amp;WinButton{} }
+func (f *WindowsFactory) CreateTextBox() TextBox { return &amp;WinTextBox{} }
+
+// Linux family
+type LinuxButton struct{}
+func (b *LinuxButton) Render() string { return &quot;&lt;Linux Button&gt;&quot; }
+
+type LinuxTextBox struct{}
+func (t *LinuxTextBox) Render() string { return &quot;&lt;Linux TextBox&gt;&quot; }
+
+type LinuxFactory struct{}
+
+func (f *LinuxFactory) CreateButton() Button  { return &amp;LinuxButton{} }
+func (f *LinuxFactory) CreateTextBox() TextBox { return &amp;LinuxTextBox{} }
+
+// Factory selector
+func GetUIFactory(platform string) UIFactory {
+    if platform == &quot;linux&quot; {
+        return &amp;LinuxFactory{}
+    }
+    return &amp;WindowsFactory{}
+}
+
+// ===== 4. Builder =====
+
+// ServerConfig builds complex server config step by step
+type ServerConfig struct {
+    Host      string
+    Port      int
+    Timeout   int
+    TLS       bool
+    CertFile  string
+    MaxConn   int
+    LogLevel  string
+}
+
+// ServerBuilder provides fluent API for building ServerConfig
+type ServerBuilder struct {
+    config *ServerConfig
+}
+
+func NewServerBuilder() *ServerBuilder {
+    return &amp;ServerBuilder{
+        config: &amp;ServerConfig{
+            Host:    &quot;localhost&quot;,
+            Port:    8080,
+            Timeout: 30,
+            MaxConn: 100,
+            LogLevel: &quot;info&quot;,
+        },
+    }
+}
+
+func (b *ServerBuilder) WithHost(host string) *ServerBuilder {
+    b.config.Host = host
+    return b
+}
+
+func (b *ServerBuilder) WithPort(port int) *ServerBuilder {
+    b.config.Port = port
+    return b
+}
+
+func (b *ServerBuilder) WithTLS(certFile string) *ServerBuilder {
+    b.config.TLS = true
+    b.config.CertFile = certFile
+    return b
+}
+
+func (b *ServerBuilder) WithMaxConn(n int) *ServerBuilder {
+    b.config.MaxConn = n
+    return b
+}
+
+// Build validates and returns the config
+func (b *ServerBuilder) Build() (*ServerConfig, error) {
+    if b.config.Port &lt; 1 || b.config.Port &gt; 65535 {
+        return nil, fmt.Errorf(&quot;invalid port: %d&quot;, b.config.Port)
+    }
+    if b.config.TLS &amp;&amp; b.config.CertFile == &quot;&quot; {
+        return nil, fmt.Errorf(&quot;TLS requires cert file&quot;)
+    }
+    return b.config, nil
+}
+
+// ===== 5. Prototype =====
+
+// Document supports cloning
+type Document struct {
+    Title   string
+    Content string
+    Tags    []string
+}
+
+// Clone creates a deep copy via JSON serialization
+func (d *Document) Clone() *Document {
+    data, _ := json.Marshal(d)
+    clone := &amp;Document{}
+    json.Unmarshal(data, clone)
+    return clone
+}
+
+// PrototypeManager manages reusable prototypes
+type PrototypeManager struct {
+    prototypes map[string]*Document
+}
+
+func NewPrototypeManager() *PrototypeManager {
+    return &amp;PrototypeManager{prototypes: make(map[string]*Document)}
+}
+
+func (m *PrototypeManager) Register(name string, doc *Document) {
+    m.prototypes[name] = doc
+}
+
+func (m *PrototypeManager) Create(name string) *Document {
+    if proto, ok := m.prototypes[name]; ok {
+        return proto.Clone()
+    }
+    return nil
+}
+
+// ===== Demo =====
+func main() {
+    fmt.Println(&quot;=== 1. Singleton ===&quot;)
+    c1 := GetConfig()
+    c2 := GetConfig()
+    fmt.Printf(&quot;Same: %v, Port: %d\n&quot;, c1 == c2, c1.Port)
+
+    fmt.Println(&quot;\n=== 2. Factory Method ===&quot;)
+    s := NewStorage(&quot;memory&quot;)
+    s.Save(&quot;key1&quot;, []byte(&quot;hello&quot;))
+    fmt.Println(&quot;Storage:&quot;, s)
+
+    fmt.Println(&quot;\n=== 3. Abstract Factory ===&quot;)
+    factory := GetUIFactory(&quot;linux&quot;)
+    btn := factory.CreateButton()
+    txt := factory.CreateTextBox()
+    fmt.Println(btn.Render(), txt.Render())
+
+    fmt.Println(&quot;\n=== 4. Builder ===&quot;)
+    cfg, err := NewServerBuilder().
+        WithHost(&quot;0.0.0.0&quot;).
+        WithPort(443).
+        WithTLS(&quot;/certs/server.pem&quot;).
+        WithMaxConn(1000).
+        Build()
+    if err != nil {
+        panic(err)
+    }
+    fmt.Printf(&quot;Config: %+v\n&quot;, cfg)
+
+    fmt.Println(&quot;\n=== 5. Prototype ===&quot;)
+    mgr := NewPrototypeManager()
+    mgr.Register(&quot;report&quot;, &amp;Document{Title: &quot;Monthly Report&quot;, Tags: []string{&quot;finance&quot;, &quot;monthly&quot;}})
+    doc := mgr.Create(&quot;report&quot;)
+    doc.Title = &quot;April Report&quot; // Modify clone
+    fmt.Printf(&quot;Clone: %+v\n&quot;, doc)
+}</code></pre>
+
+<h3>v3 生产级版本：泛型工厂 + 配置驱动</h3>
+
+<pre><code class="language-go">// v3_production.go - Generic factory with config-driven creation (Go 1.18+)
+package main
+
+import (
+    &quot;encoding/json&quot;
+    &quot;fmt&quot;
+    &quot;os&quot;
+    &quot;sync&quot;
+)
+
+// ===== Generic Factory with Go Generics =====
+
+// Factory registry using generics
+type Factory[T any] struct {
+    builders map[string]func() T
+    mu       sync.RWMutex
+}
+
+func NewFactory[T any]() *Factory[T] {
+    return &amp;Factory[T]{
+        builders: make(map[string]func() T),
+    }
+}
+
+func (f *Factory[T]) Register(name string, builder func() T) {
+    f.mu.Lock()
+    defer f.mu.Unlock()
+    f.builders[name] = builder
+}
+
+func (f *Factory[T]) Create(name string) (T, error) {
+    f.mu.RLock()
+    builder, ok := f.builders[name]
+    f.mu.RUnlock()
+    if !ok {
+        var zero T
+        return zero, fmt.Errorf(&quot;builder not found: %s&quot;, name)
+    }
+    return builder(), nil
+}
+
+// ===== Config-driven creation =====
+
+type CacheConfig struct {
+    Type string `json:&quot;type&quot;` // &quot;memory&quot; | &quot;redis&quot;
+    DSN  string `json:&quot;dsn&quot;`
+    TTL  int    `json:&quot;ttl&quot;`
+}
+
+type Cache interface {
+    Get(key string) (string, bool)
+    Set(key, value string)
+}
+
+type MemoryCache struct {
+    data map[string]string
+}
+
+func (m *MemoryCache) Get(key string) (string, bool) {
+    v, ok := m.data[key]
+    return v, ok
+}
+
+func (m *MemoryCache) Set(key, value string) { m.data[key] = value }
+
+type RedisCache struct {
+    dsn string
+}
+
+func (r *RedisCache) Get(key string) (string, bool) { return &quot;&quot;, false }
+func (r *RedisCache) Set(key, value string)          {}
+
+// Setup factory with config file
+func setupFactory() *Factory[Cache] {
+    f := NewFactory[Cache]()
+    f.Register(&quot;memory&quot;, func() Cache {
+        return &amp;MemoryCache{data: make(map[string]string)}
+    })
+    f.Register(&quot;redis&quot;, func() Cache {
+        return &amp;RedisCache{dsn: &quot;localhost:6379&quot;}
+    })
+    return f
+}
+
+func main() {
+    // Load config
+    config := CacheConfig{Type: &quot;memory&quot;, TTL: 300}
+
+    // Create via factory
+    factory := setupFactory()
+    cache, err := factory.Create(config.Type)
+    if err != nil {
+        fmt.Println(&quot;Error:&quot;, err)
+        os.Exit(1)
+    }
+
+    cache.Set(&quot;user:1&quot;, &quot;Alice&quot;)
+    val, ok := cache.Get(&quot;user:1&quot;)
+    fmt.Printf(&quot;Cache hit: %v = %s\n&quot;, ok, val)
+
+    // Demonstrate generic factory with different type
+    animalFactory := NewFactory[string]()
+    animalFactory.Register(&quot;dog&quot;, func() string { return &quot;Woof!&quot; })
+    animalFactory.Register(&quot;cat&quot;, func() string { return &quot;Meow!&quot; })
+
+    sound, _ := animalFactory.Create(&quot;dog&quot;)
+    fmt.Println(&quot;Dog says:&quot;, sound)
+}</code></pre>
+
+<h2>👀 执行预览</h2>
+
+<pre><code class="language-bash">$ go run v2_patterns.go
+=== 1. Singleton ===
+Config initialized (once)
+Same: true, Port: 8080
+
+=== 2. Factory Method ===
+Storage: MemoryStorage
+
+=== 3. Abstract Factory ===
+&lt;Linux Button&gt; &lt;Linux TextBox&gt;
+
+=== 4. Builder ===
+Config: &amp;{Host:0.0.0.0 Port:443 Timeout:30 TLS:true CertFile:/certs/server.pem MaxConn:1000 LogLevel:info}
+
+=== 5. Prototype ===
+Clone: &amp;{Title:April Report Content: Tags:[finance monthly]}</code></pre>
+
+<h2>⚠️ 注意事项</h2>
+
+<table><thead><tr>
+<th>事项</th>
+<th>说明</th>
+<th>严重度</th>
+</tr></thead><tbody>
+<tr>
+<td>sync.Once不可重置</td>
+<td>Once.Do只执行一次，测试时需用不同实例</td>
+<td>⚠️ 中</td>
+</tr>
+<tr>
+<td>工厂返回接口</td>
+<td>始终返回接口类型，不要返回具体类型</td>
+<td>⚠️ 中</td>
+</tr>
+<tr>
+<td>Builder校验</td>
+<td>Build()必须校验参数合法性，别信任调用者</td>
+<td>🔴 高</td>
+</tr>
+<tr>
+<td>Prototype深拷贝</td>
+<td>slice/map是指针类型，浅拷贝会共享底层数据</td>
+<td>🔴 高</td>
+</tr>
+<tr>
+<td>过度设计</td>
+<td>不是每个场景都需要工厂模式，简单new就够了</td>
+<td>⚠️ 中</td>
+</tr>
+</tbody></table>
+
+<h2>🚫→✅ 避坑指南</h2>
+
+<table><thead><tr>
+<th>❌ 错误做法</th>
+<th>✅ 正确做法</th>
+</tr></thead><tbody>
+<tr>
+<td>手写单例加锁 <code>if instance == nil { mu.Lock(); ... }</code></td>
+<td>使用 <code>sync.Once</code>，简洁且无竞态</td>
+</tr>
+<tr>
+<td>工厂函数返回具体类型 <code>*Dog</code></td>
+<td>返回接口类型 <code>Animal</code>，保持灵活性</td>
+</tr>
+<tr>
+<td>Builder不用指针接收者</td>
+<td>Builder方法用 <code>*Builder</code> 指针接收者支持链式调用</td>
+</tr>
+<tr>
+<td>原型模式浅拷贝slice/map</td>
+<td>用 <code>json.Marshal/Unmarshal</code> 或手动深拷贝</td>
+</tr>
+<tr>
+<td>一个工厂管所有类型</td>
+<td>按产品族拆分工厂，符合单一职责</td>
+</tr>
+<tr>
+<td>单例存储可变状态不加锁</td>
+<td>单例内部的可变数据必须加锁保护</td>
+</tr>
+</tbody></table>
+
+<h2>🏋️ 练习题</h2>
+
+<h3>🟢 初级</h3>
+<ol>
+<li>用 <code>sync.Once</code> 实现一个线程安全的日志管理器单例，支持 <code>Info(msg)</code> 和 <code>Error(msg)</code> 方法。</li>
+</ul>
+<ol>
+<li>实现一个简单工厂，根据文件扩展名（<code>.json</code>、<code>.yaml</code>、<code>.toml</code>）创建不同的解析器。</li>
+
+<h3>🟡 中级</h3>
+<ol>
+<li>用Builder模式实现一个 <code>HTTPRequestBuilder</code>，支持设置URL、Method、Headers、Body，最后 <code>Build()</code> 返回 <code>*http.Request</code>。</li>
+</ul>
+<ol>
+<li>实现抽象工厂模式创建不同主题（Dark/Light）的UI组件族（Button、Input、Modal）。</li>
+
+<h3>🔴 高级</h3>
+<ol>
+<li>用Go泛型实现一个通用的对象池 <code>Pool[T]</code>，结合 <code>sync.Pool</code> 和工厂函数，支持注册、获取、归还、重置。</li>
+</ul>
+<ol>
+<li>实现一个配置驱动的依赖注入容器：解析JSON配置文件，自动创建和注入依赖关系。</li>
+
+<h2>🌳 知识点总结</h2>
+
+<pre><code>创建型设计模式
+├── Singleton 单例
+│   ├── sync.Once → 标准实现
+│   ├── init() → 包级初始化
+│   └── 懒加载 → 按需创建
+├── Factory Method 工厂方法
+│   ├── 简单工厂 → switch/if
+│   ├── 工厂接口 → 策略模式配合
+│   └── 泛型工厂 → Go 1.18+
+├── Abstract Factory 抽象工厂
+│   ├── 产品族 → 一组相关对象
+│   └── 工厂选择 → 运行时切换
+├── Builder 建造者
+│   ├── 链式调用 → return *Builder
+│   ├── 参数校验 → Build() 校验
+│   └── 函数选项 → WithXxx 模式
+└── Prototype 原型
+    ├── 深拷贝 → JSON序列化
+    ├── 浅拷贝 → 结构体值拷贝
+    └── 管理器 → 注册+克隆</code></pre>
+
+<h2>🔄 举一反三</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>推荐模式</th>
+<th>示例</th>
+</tr></thead><tbody>
+<tr>
+<td>数据库连接池</td>
+<td>Singleton</td>
+<td><code>sync.Once</code> 保证唯一连接</td>
+</tr>
+<tr>
+<td>多存储后端切换</td>
+<td>Factory Method</td>
+<td>Memory/Redis/MySQL 按配置选择</td>
+</tr>
+<tr>
+<td>跨平台UI组件</td>
+<td>Abstract Factory</td>
+<td>Windows/Linux/Mac 各一套组件族</td>
+</tr>
+<tr>
+<td>复杂配置构建</td>
+<td>Builder</td>
+<td>HTTP请求、Server配置、Pipeline构建</td>
+</tr>
+<tr>
+<td>模板文档生成</td>
+<td>Prototype</td>
+<td>预定义模板，克隆后修改</td>
+</tr>
+<tr>
+<td>插件系统</td>
+<td>泛型Factory + 注册</td>
+<td>运行时注册新类型，按名创建</td>
+</tr>
+</tbody></table>
+
+<h2>📚 参考资料</h2>
+
+<ul>
+<li><a href="https://refactoring.guru/design-patterns/go">Go设计模式 - refactoring.guru</a></li>
+<li><a href="https://go.dev/blog/intro-generics">Go泛型工厂模式</a></li>
+<li>《设计模式：可复用面向对象软件的基础》- GoF</li>
+<li>《Head First设计模式》</li>
+<li><a href="https://gobyexample.com/interfaces">GoByExample - Interfaces</a></li>
+
+<h2>📈 代码演进总结</h2>
+
+<table><thead><tr>
+<th>版本</th>
+<th>核心改进</th>
+<th>特点</th>
+<th>适用场景</th>
+</tr></thead><tbody>
+<tr>
+<td>v1 基础版</td>
+<td>简单工厂+基础单例</td>
+<td>直观易懂，非并发安全</td>
+<td>学习、原型</td>
+</tr>
+<tr>
+<td>v2 完整版</td>
+<td>5种模式+sync.Once+Builder</td>
+<td>Go惯用写法，生产可用</td>
+<td>实际项目</td>
+</tr>
+<tr>
+<td>v3 泛型版</td>
+<td>Go 1.18泛型工厂+配置驱动</td>
+<td>类型安全、可扩展</td>
+<td>大型项目、插件系统</td>
+</tr>
+</tbody></table>
+
+<blockquote><p><strong>设计原则：</strong> 在Go中，优先用接口组合代替继承，用函数代替策略类，用闭包代替模板方法。Go的设计模式比Java/C++简洁得多，别过度设计。</p></blockquote>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

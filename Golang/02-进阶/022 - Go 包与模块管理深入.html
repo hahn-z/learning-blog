@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>022 - Go 包与模块管理深入</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Golang/index.html">Golang</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Golang/02-进阶/index.html">Golang进阶</a>
+</nav>
+<h1>022 - Go 包与模块管理深入</h1>
+<div class="meta">
+<span>📂 Golang进阶</span>
+<span>🏷️ Golang</span>
+</div>
+<article>
+
+
+<h1>052 - Go 包与模块管理深入</h1>
+
+<blockquote><p><strong>难度：⭐⭐⭐</strong> | 模块是 Go 项目的基石，理解 go.mod 每一行的含义是进阶必备。</p></blockquote>
+
+<h2>一、概念讲解</h2>
+
+<p>Go Modules 自 Go 1.11 引入，1.16 后成为默认模式。它解决了依赖版本管理、可重复构建、依赖隔离三大问题。</p>
+
+<p>核心文件：</p>
+<ul>
+<li><strong>go.mod</strong>：声明模块路径和依赖要求</li>
+<li><strong>go.sum</strong>：记录依赖的校验哈希，确保可重复构建</li>
+
+<h3>go.mod 四大指令</h3>
+
+<table><thead><tr>
+<th>指令</th>
+<th>作用</th>
+</tr></thead><tbody>
+<tr>
+<td><code>module</code></td>
+<td>声明模块路径</td>
+</tr>
+<tr>
+<td><code>go</code></td>
+<td>最低 Go 版本</td>
+</tr>
+<tr>
+<td><code>require</code></td>
+<td>声明依赖及版本</td>
+</tr>
+<tr>
+<td><code>replace</code></td>
+<td>替换依赖来源</td>
+</tr>
+<tr>
+<td><code>exclude</code></td>
+<td>排除特定版本</td>
+</tr>
+<tr>
+<td><code>retract</code></td>
+<td>撤回已发布版本</td>
+</tr>
+</tbody></table>
+
+<h2>二、脑图</h2>
+
+<pre><code>Go Modules
+├── go.mod
+│   ├── module 路径
+│   ├── go 版本
+│   ├── require 依赖声明
+│   ├── replace 替换
+│   ├── exclude 排除
+│   └── retract 撤回
+├── 版本管理
+│   ├── 语义版本 vMAJOR.MINOR.PATCH
+│   ├── 伪版本 v0.0.0-yyyymmddhhmmss-abcdef
+│   └── +incompatible (v2+ 未用 /vN 路径)
+├── go.sum
+│   ├── h1 哈希 (模块zip)
+│   └── h1:/go.mod 哈希
+├── GOPROXY
+│   ├── 默认 https://proxy.golang.org
+│   ├── GONOSUMCHECK / GONOSUMDB
+│   └── GOPRIVATE
+├── 工作区模式 (go.work)
+│   ├── use 指令
+│   └── replace 指令
+└── 私有模块
+    ├── GOPRIVATE 环境变量
+    ├── .netrc 认证
+    └── Git HTTPS/SSH</code></pre>
+
+<h2>三、代码演进</h2>
+
+<h3>v1：基础 go.mod 与依赖管理</h3>
+
+<pre><code class="language-go">// go.mod
+// module github.com/example/myapp
+//
+// go 1.22
+//
+// require (
+//     github.com/gin-gonic/gin v1.9.1
+//     gorm.io/gorm v1.25.5
+// )</code></pre>
+
+<pre><code class="language-go">// main.go
+package main
+
+import (
+	&quot;fmt&quot;
+	&quot;runtime/debug&quot;
+)
+
+func main() {
+	// Print module info at runtime
+	info, ok := debug.ReadBuildInfo()
+	if !ok {
+		fmt.Println(&quot;No build info available&quot;)
+		return
+	}
+	fmt.Printf(&quot;Module: %s\n&quot;, info.Main.Path)
+	fmt.Printf(&quot;Go version: %s\n&quot;, info.GoVersion)
+	for _, dep := range info.Deps {
+		fmt.Printf(&quot;  %s@%s\n&quot;, dep.Path, dep.Version)
+	}
+}</code></pre>
+
+<p><strong>执行预览：</strong></p>
+<pre><code>$ go run main.go
+Module: command-line-arguments
+Go version: go1.22.0
+  github.com/gin-gonic/gin@v1.9.1
+  gorm.io/gorm@v1.25.5</code></pre>
+
+<h3>v2：replace/exclude/retract 实战</h3>
+
+<pre><code class="language-go">// go.mod - Advanced directives demo
+// module github.com/example/myapp
+//
+// go 1.22
+//
+// require (
+//     github.com/gin-gonic/gin v1.9.1
+//     github.com/some-lib/something v1.2.3
+// )
+//
+// // Local development: point to local fork
+// replace github.com/some-lib/something =&gt; ../something-fork
+//
+// // Production: pin specific commit
+// // replace github.com/some-lib/something =&gt; github.com/myfork/something v0.0.0-20240101000000-abc123def456
+//
+// // Exclude broken version
+// exclude github.com/some-lib/something v1.1.0</code></pre>
+
+<pre><code class="language-go">// retract_example.go - demonstrates retract directive
+// In go.mod of a PUBLISHED library:
+//
+// retract (
+//     v1.1.0 // Contains breaking change, accidentally tagged
+//     [v0.9.0, v0.9.5] // Old pre-release versions
+// )
+//
+// Users running `go get` will see warnings for retracted versions
+// and the Go proxy will mark them as retracted.
+
+package main
+
+import &quot;fmt&quot;
+
+func main() {
+	fmt.Println(&quot;See go.mod comments for retract examples&quot;)
+	fmt.Println(&quot;retract only works in PUBLISHED module go.mod files&quot;)
+}</code></pre>
+
+<h3>v3：工作区模式 go.work + 私有模块</h3>
+
+<pre><code>// go.work - Monorepo workspace
+// go 1.22
+//
+// use (
+//     ./services/api
+//     ./services/worker
+//     ./pkg/shared
+// )
+//
+// replace (
+//     // Override for local development
+// )</code></pre>
+
+<pre><code class="language-go">// cmd/gomodtest/main.go - Module management utilities
+package main
+
+import (
+	&quot;fmt&quot;
+	&quot;os&quot;
+	&quot;os/exec&quot;
+	&quot;strings&quot;
+)
+
+func main() {
+	commands := []struct {
+		name string
+		cmd  string
+		desc string
+	}{
+		{&quot;Tidy&quot;, &quot;go mod tidy&quot;, &quot;Remove unused, add missing deps&quot;},
+		{&quot;Download&quot;, &quot;go mod download&quot;, &quot;Download deps to cache&quot;},
+		{&quot;Verify&quot;, &quot;go mod verify&quot;, &quot;Check checksums match go.sum&quot;},
+		{&quot;Graph&quot;, &quot;go mod graph&quot;, &quot;Print dependency graph&quot;},
+		{&quot;Why&quot;, &quot;go mod why github.com/gin-gonic/gin&quot;, &quot;Explain why dep is needed&quot;},
+		{&quot;Vendor&quot;, &quot;go mod vendor&quot;, &quot;Copy deps to vendor/&quot;},
+	}
+
+	for _, c := range commands {
+		fmt.Printf(&quot;=== %s: %s ===\n&quot;, c.name, c.desc)
+		parts := strings.Fields(c.cmd)
+		cmd := exec.Command(parts[0], parts[1:]...)
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+		cmd.Run()
+		fmt.Println()
+	}
+}</code></pre>
+
+<pre><code class="language-go">// private_module_setup.go - Guide for private modules
+package main
+
+import &quot;fmt&quot;
+
+func main() {
+	fmt.Println(&quot;=== Private Module Setup ===&quot;)
+	fmt.Println()
+	fmt.Println(&quot;1. Set GOPRIVATE:&quot;)
+	fmt.Println(&quot;   export GOPRIVATE=github.com/your-org/*&quot;)
+	fmt.Println()
+	fmt.Println(&quot;2. Configure Git authentication:&quot;)
+	fmt.Println(&quot;   git config --global url.\&quot;git@github.com:\&quot;.insteadOf \&quot;https://github.com/\&quot;&quot;)
+	fmt.Println()
+	fmt.Println(&quot;3. Or use .netrc for HTTPS:&quot;)
+	fmt.Println(&quot;   machine github.com login TOKEN password ghp_xxx&quot;)
+	fmt.Println()
+	fmt.Println(&quot;4. Set GOPROXY with fallback:&quot;)
+	fmt.Println(&quot;   export GOPROXY=https://goproxy.cn,https://proxy.golang.org,direct&quot;)
+	fmt.Println()
+	fmt.Println(&quot;5. For self-hosted GitLab:&quot;)
+	fmt.Println(&quot;   export GONOSUMCHECK=gitlab.your-company.com/*&quot;)
+	fmt.Println(&quot;   export GOINSECURE=gitlab.your-company.com/*&quot;)
+}</code></pre>
+
+<h2>四、注意事项</h2>
+
+<table><thead><tr>
+<th>项目</th>
+<th>说明</th>
+</tr></thead><tbody>
+<tr>
+<td>v2+ 必须用 <code>/v2</code> 路径</td>
+<td><code>module github.com/foo/bar/v2</code>，import 也要带 <code>/v2</code></td>
+</tr>
+<tr>
+<td><code>// indirect</code> 标记</td>
+<td>表示该依赖未被直接 import，是间接依赖</td>
+</tr>
+<tr>
+<td>go.sum 不要手动编辑</td>
+<td>用 <code>go mod tidy</code> 自动管理</td>
+</tr>
+<tr>
+<td>vendor 目录</td>
+<td>提交到 Git 可确保完全可重复构建，但增大仓库体积</td>
+</tr>
+<tr>
+<td>GOPROXY 顺序</td>
+<td><code>direct</code> 放最后，先走代理再直连</td>
+</tr>
+</tbody></table>
+
+<h2>五、避坑指南</h2>
+
+<table><thead><tr>
+<th>❌ 错误做法</th>
+<th>✅ 正确做法</th>
+</tr></thead><tbody>
+<tr>
+<td>v2+ 不改 module 路径</td>
+<td><code>module github.com/foo/bar/v2</code>，import 路径加 <code>/v2</code></td>
+</tr>
+<tr>
+<td>手动编辑 go.sum</td>
+<td><code>go mod tidy</code> 自动管理</td>
+</tr>
+<tr>
+<td>用 <code>latest</code> 版本号</td>
+<td>明确指定版本 <code>v1.2.3</code></td>
+</tr>
+<tr>
+<td>不理解伪版本</td>
+<td>用 <code>go list -m -versions</code> 查看可用版本</td>
+</tr>
+<tr>
+<td>replace 提交到生产</td>
+<td>replace 仅用于开发，CI/CD 前移除或用 go.work</td>
+</tr>
+<tr>
+<td><code>go get</code> 更新依赖</td>
+<td>Go 1.17+ 用 <code>go get</code> 安装工具，用 <code>go get</code> 管理依赖</td>
+</tr>
+</tbody></table>
+
+<h2>六、练习题</h2>
+
+<p>🟢 <strong>基础：</strong> 创建一个 Go 模块，添加 <code>github.com/fatih/color</code> 依赖，运行 <code>go mod tidy</code>，检查 go.sum 内容。</p>
+
+<p>🟡 <strong>进阶：</strong> 搭建一个包含 3 个子模块的 go.work 工作区，实现子模块间互相引用。</p>
+
+<p>🔴 <strong>挑战：</strong> 发布一个 v2 版本的 Go 模块到 GitHub（正确使用 <code>/v2</code> 路径），然后在另一个项目中引用它。</p>
+
+<h2>七、知识点总结</h2>
+
+<pre><code>Go Modules 体系
+├── go.mod 指令
+│   ├── module (模块路径)
+│   ├── go (版本)
+│   ├── require (依赖)
+│   ├── replace (替换)
+│   ├── exclude (排除)
+│   └── retract (撤回)
+├── 语义版本
+│   ├── vMAJOR.MINOR.PATCH
+│   ├── 伪版本 (commit-based)
+│   └── +incompatible
+├── 工具链
+│   ├── go mod tidy/download/verify
+│   ├── go list -m
+│   └── go work
+└── 代理与私有
+    ├── GOPROXY 链
+    ├── GOPRIVATE
+    └── GONOSUMCHECK</code></pre>
+
+<h2>八、举一反三</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>推荐方案</th>
+</tr></thead><tbody>
+<tr>
+<td>开源库发布</td>
+<td>严格 SemVer，v2+ 用 <code>/vN</code> 路径</td>
+</tr>
+<tr>
+<td>内部私有库</td>
+<td>GOPRIVATE + .netrc 或 SSH</td>
+</tr>
+<tr>
+<td>Monorepo 多模块</td>
+<td>go.work 工作区模式</td>
+</tr>
+<tr>
+<td>本地开发调试 fork</td>
+<td><code>replace</code> 指向本地路径</td>
+</tr>
+<tr>
+<td>CI/CD 可重复构建</td>
+<td>vendor 目录 + go.sum 校验</td>
+</tr>
+<tr>
+<td>中国大陆加速</td>
+<td><code>GOPROXY=https://goproxy.cn,direct</code></td>
+</tr>
+</tbody></table>
+
+<h2>九、参考资料</h2>
+
+<ul>
+<li><a href="https://go.dev/ref/mod">Go Modules 官方文档</a></li>
+<li><a href="https://github.com/golang/go/wiki/Modules">Go Modules Wiki</a></li>
+<li><a href="https://semver.org/">Semantic Versioning</a></li>
+<li><a href="https://proxy.golang.org/">Go Module Proxy</a></li>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

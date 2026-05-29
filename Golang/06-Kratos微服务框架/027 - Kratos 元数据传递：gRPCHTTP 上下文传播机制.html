@@ -1,0 +1,483 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>027 - Kratos 元数据传递：gRPC/HTTP 上下文传播机制</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Golang/index.html">Golang</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Golang/06-Kratos微服务框架/index.html">Kratos框架</a>
+</nav>
+<h1>027 - Kratos 元数据传递：gRPC/HTTP 上下文传播机制</h1>
+<div class="meta">
+<span>📂 Kratos框架</span>
+<span>🏷️ Golang</span>
+</div>
+<article>
+
+
+<h1>027 - Kratos 元数据传递</h1>
+
+<blockquote><p><strong>难度：⭐⭐⭐（中等）</strong><br>元数据（Metadata）是微服务间传递上下文信息的标准机制。本文详解 Kratos 中 gRPC/HTTP 元数据的注入、提取与跨服务传播。</p></blockquote>
+
+<hr>
+
+<h2>一、概念讲解</h2>
+
+<h3>什么是元数据？</h3>
+
+<p>元数据是附加在请求中的键值对信息，不属于业务数据本身，但对请求处理至关重要：</p>
+
+<ul>
+<li><strong>TraceID</strong>：分布式追踪标识</li>
+<li><strong>UserID</strong>：经过认证的用户身份</li>
+<li><strong>RequestID</strong>：请求唯一标识</li>
+<li><strong>TenantID</strong>：多租户场景下的租户标识</li>
+
+<h3>gRPC vs HTTP 元数据</h3>
+
+<table><thead><tr>
+<th>协议</th>
+<th>元数据载体</th>
+<th>包名</th>
+</tr></thead><tbody>
+<tr>
+<td>gRPC</td>
+<td>metadata（HTTP/2 headers）</td>
+<td><code>google.golang.org/grpc/metadata</code></td>
+</tr>
+<tr>
+<td>HTTP</td>
+<td>Headers</td>
+<td><code>net/http</code></td>
+</tr>
+</tbody></table>
+
+<p>Kratos 通过 <code>metadata</code> 包统一了两种协议的元数据操作。</p>
+
+<hr>
+
+<h2>二、脑图</h2>
+
+<pre><code>Kratos 元数据传递
+├── 核心概念
+│   ├── metadata.KeyValue
+│   ├── Client 端注入
+│   └── Server 端提取
+├── 传播机制
+│   ├── gRPC metadata
+│   ├── HTTP Header
+│   └── Kratos metadata 包统一
+├── 使用场景
+│   ├── TraceID 传播
+│   ├── UserID 传递
+│   ├── 多租户 TenantID
+│   └── 灰度发布标记
+├── 自定义中间件
+│   ├── Client Metadata Injector
+│   └── Server Metadata Extractor
+└── 注意事项
+    ├── Key 大小写
+    ├── 二进制元数据
+    └── 元数据大小限制</code></pre>
+
+<hr>
+
+<h2>三、完整代码示例</h2>
+
+<h3>v1：基础元数据注入与提取</h3>
+
+<pre><code class="language-go">package main
+
+import (
+    &quot;context&quot;
+    &quot;fmt&quot;
+    &quot;os&quot;
+
+    &quot;github.com/go-kratos/kratos/v2/log&quot;
+    &quot;github.com/go-kratos/kratos/v2/metadata&quot;
+    &quot;github.com/go-kratos/kratos/v2/transport&quot;
+)
+
+func main() {
+    logger := log.NewHelper(log.NewStdLogger(os.Stdout))
+
+    // Simulate client injecting metadata
+    ctx := context.Background()
+    ctx = metadata.AppendToClientContext(ctx,
+        &quot;x-trace-id&quot;, &quot;trace-abc-123&quot;,
+        &quot;x-user-id&quot;, &quot;user-456&quot;,
+    )
+
+    // Server side: extract metadata
+    if md, ok := metadata.FromServerContext(ctx); ok {
+        traceID := md.Get(&quot;x-trace-id&quot;)
+        userID := md.Get(&quot;x-user-id&quot;)
+        logger.Infow(&quot;trace_id&quot;, traceID, &quot;user_id&quot;, userID)
+    }
+    _ = fmt.Sprintf(&quot;done&quot;)
+}</code></pre>
+
+<h3>v2：中间件实现自动传播</h3>
+
+<pre><code class="language-go">package main
+
+import (
+    &quot;context&quot;
+
+    &quot;github.com/go-kratos/kratos/v2/log&quot;
+    &quot;github.com/go-kratos/kratos/v2/middleware&quot;
+    &quot;github.com/go-kratos/kratos/v2/metadata&quot;
+    &quot;github.com/go-kratos/kratos/v2/transport&quot;
+)
+
+// ClientMDInjector injects metadata into outgoing requests
+func ClientMDInjector() middleware.Middleware {
+    return func(handler middleware.Handler) middleware.Handler {
+        return func(ctx context.Context, req interface{}) (interface{}, error) {
+            // Propagate trace-id and user-id from incoming to outgoing
+            if tr, ok := transport.FromServerContext(ctx); ok {
+                traceID := tr.RequestHeader().Get(&quot;x-trace-id&quot;)
+                userID := tr.RequestHeader().Get(&quot;x-user-id&quot;)
+                if traceID != &quot;&quot; {
+                    ctx = metadata.AppendToClientContext(ctx, &quot;x-trace-id&quot;, traceID)
+                }
+                if userID != &quot;&quot; {
+                    ctx = metadata.AppendToClientContext(ctx, &quot;x-user-id&quot;, userID)
+                }
+            }
+            return handler(ctx, req)
+        }
+    }
+}
+
+// ServerMDExtractor extracts metadata and stores in context
+func ServerMDExtractor() middleware.Middleware {
+    return func(handler middleware.Handler) middleware.Handler {
+        return func(ctx context.Context, req interface{}) (interface{}, error) {
+            if md, ok := metadata.FromServerContext(ctx); ok {
+                traceID := md.Get(&quot;x-trace-id&quot;)
+                if traceID != &quot;&quot; {
+                    // Store in context for downstream use
+                    ctx = context.WithValue(ctx, &quot;trace_id&quot;, traceID)
+                }
+            }
+            return handler(ctx, req)
+        }
+    }
+}</code></pre>
+
+<h3>v3：完整服务间元数据传播</h3>
+
+<pre><code class="language-go">package main
+
+import (
+    &quot;context&quot;
+    &quot;os&quot;
+
+    &quot;github.com/go-kratos/kratos/v2&quot;
+    &quot;github.com/go-kratos/kratos/v2/log&quot;
+    &quot;github.com/go-kratos/kratos/v2/middleware&quot;
+    &quot;github.com/go-kratos/kratos/v2/middleware/logging&quot;
+    &quot;github.com/go-kratos/kratos/v2/middleware/recovery&quot;
+    &quot;github.com/go-kratos/kratos/v2/transport/grpc&quot;
+    &quot;github.com/go-kratos/kratos/v2/transport/http&quot;
+)
+
+// TracePropagationMiddleware auto-propagates trace metadata
+func TracePropagationMiddleware(logger log.Logger) middleware.Middleware {
+    helper := log.NewHelper(logger)
+    return func(handler middleware.MiddlewareFunc) middleware.MiddlewareFunc {
+        return func(ctx context.Context, req interface{}) (interface{}, error) {
+            // Extract from incoming request
+            if tr, ok := transport.FromServerContext(ctx); ok {
+                traceID := tr.RequestHeader().Get(&quot;x-trace-id&quot;)
+                if traceID == &quot;&quot; {
+                    traceID = generateTraceID()
+                }
+                // Inject into outgoing calls
+                ctx = metadata.AppendToClientContext(ctx, &quot;x-trace-id&quot;, traceID)
+                helper.Infow(&quot;trace_id&quot;, traceID, &quot;method&quot;, tr.Operation())
+            }
+            return handler(ctx, req)
+        }
+    }
+}
+
+func generateTraceID() string {
+    // In production, use UUID or snowflake ID
+    return &quot;trace-&quot; + &quot;generated&quot;
+}
+
+func main() {
+    logger := log.NewStdLogger(os.Stdout)
+
+    gs := grpc.NewServer(
+        grpc.Address(&quot;:9000&quot;),
+        grpc.Middleware(
+            recovery.Recovery(),
+            logging.Server(logger),
+        ),
+    )
+    hs := http.NewServer(
+        http.Address(&quot;:8000&quot;),
+        http.Middleware(
+            recovery.Recovery(),
+            logging.Server(logger),
+        ),
+    )
+
+    app := kratos.New(
+        kratos.Name(&quot;user-service&quot;),
+        kratos.Server(gs, hs),
+    )
+    app.Run()
+}</code></pre>
+
+<hr>
+
+<h2>四、执行预览</h2>
+
+<pre><code class="language-bash"># Client sends request with metadata
+$ curl -H &quot;x-trace-id: trace-abc-123&quot; -H &quot;x-user-id: user-456&quot; http://localhost:8000/api/v1/users/me
+
+# Server log shows extracted metadata
+INFO trace_id=trace-abc-123 user_id=user-456 method=/api.user.v1.UserService/GetUser</code></pre>
+
+<hr>
+
+<h2>五、注意事项</h2>
+
+<table><thead><tr>
+<th>项目</th>
+<th>说明</th>
+</tr></thead><tbody>
+<tr>
+<td>Key 规范</td>
+<td>统一使用小写 + 横线，如 <code>x-trace-id</code>，gRPC metadata key 会自动转小写</td>
+</tr>
+<tr>
+<td>大小限制</td>
+<td>HTTP Header 单个值建议 < 4KB，gRPC metadata 总量建议 < 8KB</td>
+</tr>
+<tr>
+<td>安全性</td>
+<td>不要通过 metadata 传递敏感信息（密码等），或做加密处理</td>
+</tr>
+<tr>
+<td>编码</td>
+<td>HTTP Header 只支持 ASCII，非 ASCII 值需要 Base64 编码</td>
+</tr>
+<tr>
+<td>可选性</td>
+<td>元数据是可选的，服务端不应因缺少元数据而崩溃</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>六、避坑指南</h2>
+
+<table><thead><tr>
+<th>❌ 错误做法</th>
+<th>✅ 正确做法</th>
+</tr></thead><tbody>
+<tr>
+<td>用 <code>context.Value</code> 直接传业务数据</td>
+<td>用 metadata 传上下文信息，业务数据放请求体</td>
+</tr>
+<tr>
+<td>gRPC metadata key 用大写</td>
+<td>统一小写，gRPC 会自动转换</td>
+</tr>
+<tr>
+<td>不处理 metadata 缺失的情况</td>
+<td>始终检查 <code>ok</code> 返回值，提供默认值</td>
+</tr>
+<tr>
+<td>手动在每个 service 传递 metadata</td>
+<td>用中间件自动注入和提取</td>
+</tr>
+<tr>
+<td>metadata 传递大 payload</td>
+<td>metadata 只传 ID 等轻量信息</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>七、练习题</h2>
+
+<h3>🟢 入门</h3>
+<ol>
+<li>实现一个 gRPC 客户端，注入 <code>x-request-id</code> metadata</li>
+</ul>
+<ol>
+<li>在服务端提取并打印该 metadata</li>
+
+<h3>🟡 进阶</h3>
+<ol>
+<li>编写中间件，自动从 HTTP Header 提取 Token 并转为 metadata 传递给下游 gRPC 服务</li>
+</ul>
+<ol>
+<li>实现多租户场景下的 TenantID 自动传播</li>
+
+<h3>🔴 挑战</h3>
+<ol>
+<li>结合 OpenTelemetry，将 TraceID 和 SpanID 自动注入 metadata 并跨服务传播</li>
+</ul>
+<ol>
+<li>实现元数据校验中间件，拒绝包含非法字符的 metadata 值</li>
+
+<hr>
+
+<h2>八、知识点总结</h2>
+
+<pre><code>元数据传递
+├── 核心包
+│   └── github.com/go-kratos/kratos/v2/metadata
+├── 操作
+│   ├── AppendToClientContext — 注入
+│   ├── FromServerContext — 提取
+│   └── md.Get(key) — 读取
+├── 传播模式
+│   ├── HTTP → gRPC (Header → Metadata)
+│   ├── gRPC → gRPC (Metadata → Metadata)
+│   └── 自动传播中间件
+└── 最佳实践
+    ├── Key 命名规范 (x-前缀)
+    ├── 必须处理缺失
+    └── 轻量级信息 only</code></pre>
+
+<hr>
+
+<h2>九、举一反三</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>元数据方案</th>
+<th>关键 Key</th>
+</tr></thead><tbody>
+<tr>
+<td>分布式追踪</td>
+<td>TraceID 自动传播</td>
+<td><code>x-trace-id</code>, <code>x-span-id</code></td>
+</tr>
+<tr>
+<td>用户认证</td>
+<td>Token → UserID 传递</td>
+<td><code>x-user-id</code>, <code>authorization</code></td>
+</tr>
+<tr>
+<td>多租户</td>
+<td>TenantID 隔离</td>
+<td><code>x-tenant-id</code></td>
+</tr>
+<tr>
+<td>灰度发布</td>
+<td>灰度标记传播</td>
+<td><code>x-gray-tag</code></td>
+</tr>
+<tr>
+<td>A/B 测试</td>
+<td>实验组标记</td>
+<td><code>x-experiment-id</code></td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>十、参考资料</h2>
+
+<ul>
+<li><a href="https://go-kratos.dev/docs/component/metadata">Kratos Metadata 文档</a></li>
+<li><a href="https://grpc.io/docs/guides/metadata/">gRPC Metadata 规范</a></li>
+<li><a href="https://opentelemetry.io/docs/concepts/context-propagation/">OpenTelemetry Propagation</a></li>
+
+<hr>
+
+<h2>十一、代码演进</h2>
+
+<table><thead><tr>
+<th>版本</th>
+<th>说明</th>
+<th>适用场景</th>
+</tr></thead><tbody>
+<tr>
+<td>v1</td>
+<td>手动注入/提取 metadata</td>
+<td>学习理解原理</td>
+</tr>
+<tr>
+<td>v2</td>
+<td>中间件自动传播</td>
+<td>一般项目</td>
+</tr>
+<tr>
+<td>v3</td>
+<td>完整服务集成 + Trace 传播</td>
+<td>生产环境</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<blockquote><p><strong>下篇预告：</strong> 028 - 消息队列 Kafka 集成，学习在 Kratos 中集成 Kafka 实现异步消息处理。</p></blockquote>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

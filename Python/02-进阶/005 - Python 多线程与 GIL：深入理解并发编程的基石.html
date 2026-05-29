@@ -1,0 +1,664 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>005 - Python 多线程与 GIL：深入理解并发编程的基石</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Python/index.html">其他</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Python/02-进阶/index.html">Python进阶</a>
+</nav>
+<h1>005 - Python 多线程与 GIL：深入理解并发编程的基石</h1>
+<div class="meta">
+<span>📂 Python进阶</span>
+<span>🏷️ 其他</span>
+</div>
+<article>
+
+
+<h1>Python 上下文管理器：资源管理的优雅之道</h1>
+
+<blockquote><p><strong>难度标注</strong>：⭐⭐⭐ 中级 | 预计阅读时间：15 分钟<br><br><strong>前置知识</strong>：Python 基础语法、类与对象、异常处理、文件操作</p></blockquote>
+
+<hr>
+
+<h2>一、概念讲解</h2>
+
+<h3>1.1 什么是上下文管理器？</h3>
+
+<p>上下文管理器是实现了上下文管理协议的对象，即定义了 <code>__enter__()</code> 和 <code>__exit__()</code> 方法。它确保资源的正确获取和释放，即使在发生异常的情况下。</p>
+
+<p><strong>核心价值：</strong></p>
+<ul>
+<li><strong>自动资源管理</strong>：无论是否发生异常，资源都能正确释放</li>
+<li><strong>代码更清晰</strong>：资源的使用范围一目了然</li>
+<li><strong>减少遗忘</strong>：不再需要手动 try/finally</li>
+
+<h3>1.2 with 语句的执行流程</h3>
+
+<pre><code class="language-python">with expression as variable:
+    # code block
+    pass</code></pre>
+
+<p>等价于：</p>
+
+<pre><code class="language-python">manager = expression
+variable = manager.__enter__()
+try:
+    # code block
+    pass
+finally:
+    manager.__exit__(exc_type, exc_val, exc_tb)</code></pre>
+
+<h3>1.3 <code>__exit__</code> 的三个参数</h3>
+
+<p>当 with 块中发生异常时，<code>__exit__</code> 接收：</p>
+<ul>
+<li><code>exc_type</code>：异常类型</li>
+<li><code>exc_val</code>：异常值</li>
+<li><code>exc_tb</code>：异常追溯</li>
+
+<p>返回 <code>True</code> 表示异常已处理（吞掉异常），返回 <code>False</code> 或 <code>None</code> 则继续传播异常。</p>
+
+<hr>
+
+<h2>二、知识脑图</h2>
+
+<pre><code>Python 上下文管理器
+├── 协议
+│   ├── __enter__() → 进入上下文
+│   └── __exit__(exc_type, exc_val, exc_tb) → 退出上下文
+├── 实现方式
+│   ├── 类实现（__enter__ / __exit__）
+│   ├── @contextmanager 装饰器
+│   ├── contextlib.suppress()
+│   ├── contextlib.closing()
+│   ├── contextlib.redirect_stdout()
+│   └── contextlib.nullcontext()
+├── 异步版本
+│   ├── __aenter__() / __aexit__()
+│   └── @asynccontextmanager
+└── 应用场景
+    ├── 文件操作
+    ├── 数据库连接
+    ├── 线程锁
+    ├── 计时器
+    ├── 临时修改状态
+    └── 网络连接</code></pre>
+
+<hr>
+
+<h2>三、代码演进</h2>
+
+<h3>v1：手动 try/finally</h3>
+
+<pre><code class="language-python"># Manual resource management - error prone
+f = None
+try:
+    f = open(&quot;example.txt&quot;, &quot;w&quot;)
+    f.write(&quot;Hello, World!&quot;)
+finally:
+    if f:
+        f.close()
+
+# Database connection
+conn = None
+try:
+    conn = create_connection()
+    cursor = conn.cursor()
+    cursor.execute(&quot;SELECT 1&quot;)
+finally:
+    if conn:
+        conn.close()</code></pre>
+
+<p><strong>问题</strong>：每次都要写 try/finally，容易遗漏，代码冗长。</p>
+
+<h3>v2：类实现上下文管理器</h3>
+
+<pre><code class="language-python">class Timer:
+    &quot;&quot;&quot;Measure execution time using context manager protocol.&quot;&quot;&quot;
+
+    def __enter__(self):
+        # Called when entering the with block
+        import time
+        self.start = time.perf_counter()
+        return self  # Bound to as variable
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        # Called when exiting the with block (even on exception)
+        import time
+        self.elapsed = time.perf_counter() - self.start
+        print(f&quot;Elapsed: {self.elapsed:.4f}s&quot;)
+        return False  # Propagate exceptions
+
+
+class DatabaseConnection:
+    &quot;&quot;&quot;Simulate a database connection with auto cleanup.&quot;&quot;&quot;
+
+    def __init__(self, db_url):
+        self.db_url = db_url
+        self.connected = False
+
+    def __enter__(self):
+        print(f&quot;Connecting to {self.db_url}...&quot;)
+        self.connected = True
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        if exc_type:
+            print(f&quot;Error occurred: {exc_val}&quot;)
+            print(&quot;Rolling back transaction...&quot;)
+        else:
+            print(&quot;Committing transaction...&quot;)
+        print(&quot;Closing connection...&quot;)
+        self.connected = False
+        return False
+
+    def execute(self, query):
+        if not self.connected:
+            raise RuntimeError(&quot;Not connected&quot;)
+        print(f&quot;Executing: {query}&quot;)
+
+
+# Usage
+with Timer():
+    sum(range(10_000_000))
+
+with DatabaseConnection(&quot;postgresql://localhost/mydb&quot;) as db:
+    db.execute(&quot;INSERT INTO users VALUES (1, &#x27;Alice&#x27;)&quot;)
+    db.execute(&quot;SELECT * FROM users&quot;)</code></pre>
+
+<p><strong>执行预览：</strong></p>
+<pre><code>Elapsed: 0.1234s
+Connecting to postgresql://localhost/mydb...
+Executing: INSERT INTO users VALUES (1, &#x27;Alice&#x27;)
+Executing: SELECT * FROM users
+Committing transaction...
+Closing connection...</code></pre>
+
+<h3>v3：contextlib 装饰器 + 高级用法</h3>
+
+<pre><code class="language-python">from contextlib import contextmanager, suppress, redirect_stdout, closing
+import io
+import time
+import os
+
+
+@contextmanager
+def timer(label=&quot;Block&quot;):
+    &quot;&quot;&quot;Simple timer using @contextmanager decorator.&quot;&quot;&quot;
+    start = time.perf_counter()
+    try:
+        yield  # Yield control to the with block
+    finally:
+        elapsed = time.perf_counter() - start
+        print(f&quot;[{label}] Elapsed: {elapsed:.4f}s&quot;)
+
+
+@contextmanager
+def temp_directory(path):
+    &quot;&quot;&quot;Create and cleanup a temporary directory.&quot;&quot;&quot;
+    import shutil
+    os.makedirs(path, exist_ok=True)
+    print(f&quot;Created: {path}&quot;)
+    try:
+        yield path
+    finally:
+        shutil.rmtree(path, ignore_errors=True)
+        print(f&quot;Cleaned: {path}&quot;)
+
+
+@contextmanager
+def change_working_dir(path):
+    &quot;&quot;&quot;Temporarily change working directory.&quot;&quot;&quot;
+    old_dir = os.getcwd()
+    os.chdir(path)
+    try:
+        yield path
+    finally:
+        os.chdir(old_dir)
+
+
+# Timer
+with timer(&quot;Data processing&quot;):
+    data = [x**2 for x in range(1_000_000)]
+
+# Suppress specific exceptions
+with suppress(FileNotFoundError):
+    os.remove(&quot;nonexistent_file.txt&quot;)  # No error raised
+print(&quot;Continues normally&quot;)
+
+# Redirect stdout
+buffer = io.StringIO()
+with redirect_stdout(buffer):
+    print(&quot;This goes to buffer, not console&quot;)
+captured = buffer.getvalue()
+print(f&quot;Captured: {repr(captured)}&quot;)
+
+# Closing - for objects with close() but no context manager
+class OldStyleResource:
+    def close(self):
+        print(&quot;Resource closed&quot;)
+
+with closing(OldStyleResource()) as r:
+    print(&quot;Using resource...&quot;)</code></pre>
+
+<p><strong>执行预览：</strong></p>
+<pre><code>[Data processing] Elapsed: 0.0567s
+Continues normally
+Captured: &#x27;This goes to buffer, not console\n&#x27;
+Using resource...
+Resource closed</code></pre>
+
+<hr>
+
+<h2>四、注意事项</h2>
+
+<table><thead><tr>
+<th>要点</th>
+<th>说明</th>
+<th>示例</th>
+</tr></thead><tbody>
+<tr>
+<td><code>__exit__</code> 必定执行</td>
+<td>即使 with 块中有异常、return、break</td>
+<td>类似 finally 的行为</td>
+</tr>
+<tr>
+<td>yield 前是 enter，yield 后是 exit</td>
+<td>@contextmanager 的分段逻辑</td>
+<td>yield 前=获取资源，yield 后=释放</td>
+</tr>
+<tr>
+<td>不要吞掉未知异常</td>
+<td><code>__exit__</code> 返回 True 会吞掉异常</td>
+<td>只对预期异常返回 True</td>
+</tr>
+<tr>
+<td>异步用 async with</td>
+<td>配合 <code>__aenter__</code> / <code>__aexit__</code></td>
+<td><code>async with session.post(url) as resp:</code></td>
+</tr>
+<tr>
+<td>多个上下文管理器可嵌套</td>
+<td><code>with A() as a, B() as b:</code></td>
+<td>Python 3.10+ 更推荐</td>
+</tr>
+<tr>
+<td>yield 只能出现一次</td>
+<td>@contextmanager 中只能有一个 yield</td>
+<td>否则 RuntimeError</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>五、避坑指南</h2>
+
+<h3>❌ 坑1：在 <code>__exit__</code> 中吞掉所有异常</h3>
+
+<pre><code class="language-python"># ❌ Wrong: silently swallowing all exceptions
+class BadManager:
+    def __enter__(self):
+        return self
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        return True  # All exceptions suppressed!
+
+# ✅ Correct: only suppress expected exceptions
+class GoodManager:
+    def __enter__(self):
+        return self
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        if exc_type is ValueError:
+            print(f&quot;Handled: {exc_val}&quot;)
+            return True  # Only suppress ValueError
+        return False  # Propagate everything else</code></pre>
+
+<h3>❌ 坑2：在 @contextmanager 中 yield 多次</h3>
+
+<pre><code class="language-python"># ❌ Wrong: multiple yields
+@contextmanager
+def bad():
+    yield 1
+    yield 2  # RuntimeError!
+
+# ✅ Correct: single yield
+@contextmanager
+def good():
+    setup()
+    try:
+        yield resource
+    finally:
+        cleanup()</code></pre>
+
+<h3>❌ 坑3：忘记处理 yield 后的异常</h3>
+
+<pre><code class="language-python"># ❌ Wrong: cleanup skipped on exception
+@contextmanager
+def bad():
+    conn = get_connection()
+    yield conn
+    conn.close()  # Skipped if exception in with block!
+
+# ✅ Correct: use try/finally around yield
+@contextmanager
+def good():
+    conn = get_connection()
+    try:
+        yield conn
+    finally:
+        conn.close()  # Always executed</code></pre>
+
+<h3>❌ 坑4：用 with 赋值但不使用</h3>
+
+<pre><code class="language-python"># ❌ Wrong: ignoring the context variable
+with open(&quot;file.txt&quot;) as _:
+    # Can not read the file!
+    pass
+
+# ✅ Correct: use the variable
+with open(&quot;file.txt&quot;) as f:
+    content = f.read()</code></pre>
+
+<hr>
+
+<h2>六、练习题</h2>
+
+<h3>🟢 初级</h3>
+
+<ol>
+<li>用类实现一个文件写入上下文管理器，自动在写入前后打印日志。</li>
+
+<pre><code class="language-python">class LoggedFileWriter:
+    def __init__(self, path, mode=&quot;w&quot;):
+        self.path = path
+        self.mode = mode
+
+    def __enter__(self):
+        self.file = open(self.path, self.mode)
+        print(f&quot;[LOG] Opened {self.path}&quot;)
+        return self.file
+
+    def __exit__(self, *args):
+        self.file.close()
+        print(f&quot;[LOG] Closed {self.path}&quot;)
+
+with LoggedFileWriter(&quot;test.txt&quot;) as f:
+    f.write(&quot;Hello!&quot;)</code></pre>
+
+<ol>
+<li>用 <code>@contextmanager</code> 实现 <code>suppress(KeyError)</code>。</li>
+
+<h3>🟡 中级</h3>
+
+<ol>
+<li>实现一个可嵌套的缩进打印上下文管理器：</li>
+
+<pre><code class="language-python">@contextmanager
+def indent(level=1):
+    # Each nested usage adds more indentation
+    pass
+
+with indent():
+    print(&quot;level 1&quot;)
+    with indent():
+        print(&quot;level 2&quot;)</code></pre>
+
+<ol>
+<li>实现一个数据库事务上下文管理器，异常时回滚，正常时提交。</li>
+
+<h3>🔴 高级</h3>
+
+<ol>
+<li>实现一个异步上下文管理器 <code>AsyncTimer</code>，支持 <code>async with</code>。</li>
+
+<ol>
+<li>实现一个可重入的上下文管理器（支持嵌套 with 同一个对象）。</li>
+
+<hr>
+
+<h2>七、知识点总结</h2>
+
+<pre><code>上下文管理器
+├── 协议实现
+│   ├── __enter__() → 返回资源对象
+│   ├── __exit__(type, val, tb) → 清理资源
+│   ├── 返回 True → 吞掉异常
+│   └── 返回 False/None → 传播异常
+├── contextlib 工具
+│   ├── @contextmanager → 生成器方式
+│   ├── suppress(*exceptions) → 忽略异常
+│   ├── closing(thing) → 自动 close()
+│   ├── redirect_stdout/stderr → 重定向输出
+│   └── nullcontext() → 空上下文
+├── 异步版本
+│   ├── __aenter__() / __aexit__()
+│   └── @asynccontextmanager
+└── 多上下文
+    ├── with A(), B(): → 同时管理多个
+    ├── ExitStack → 动态数量
+    └── AsyncExitStack → 异步版本</code></pre>
+
+<hr>
+
+<h2>八、举一反三</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>实现方式</th>
+<th>核心思路</th>
+</tr></thead><tbody>
+<tr>
+<td>计时代码</td>
+<td><code>@contextmanager</code> + <code>time.perf_counter</code></td>
+<td>yield 前后计时</td>
+</tr>
+<tr>
+<td>临时目录</td>
+<td><code>@contextmanager</code> + <code>tempfile.mkdtemp</code></td>
+<td>yield 前创建，finally 删除</td>
+</tr>
+<tr>
+<td>数据库事务</td>
+<td>类实现 <code>__enter__</code>/<code>__exit__</code></td>
+<td>异常时 rollback，正常 commit</td>
+</tr>
+<tr>
+<td>文件锁</td>
+<td><code>fcntl.flock</code> + contextmanager</td>
+<td>yield 前加锁，finally 释放</td>
+</tr>
+<tr>
+<td>临时环境变量</td>
+<td><code>@contextmanager</code> + <code>os.environ</code></td>
+<td>保存旧值，finally 恢复</td>
+</tr>
+<tr>
+<td>测试 mock</td>
+<td><code>@contextmanager</code> + <code>unittest.mock.patch</code></td>
+<td>yield 前打补丁，finally 恢复</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>九、参考资料</h2>
+
+<ol>
+<li><a href="https://docs.python.org/3/library/stdtypes.html#context-manager-types">Python 官方文档 - 上下文管理器类型</a></li>
+</ul>
+<ol>
+<li><a href="https://docs.python.org/3/library/contextlib.html">Python 官方文档 - contextlib</a></li>
+</ul>
+<ol>
+<li><a href="https://peps.python.org/pep-0343/">PEP 343 — The "with" Statement</a></li>
+</ul>
+<ol>
+<li>《Fluent Python》第二版，第18章</li>
+</ul>
+<ol>
+<li><a href="https://realpython.com/python-with-statement/">Real Python - Context Managers</a></li>
+
+<hr>
+
+<h2>十、完整示例代码</h2>
+
+<pre><code class="language-python">&quot;&quot;&quot;
+Complete demo: context managers in Python.
+Covers class-based, decorator-based, and contextlib utilities.
+&quot;&quot;&quot;
+
+from contextlib import contextmanager, suppress, redirect_stdout
+import io
+import time
+import os
+
+
+# === Class-based ===
+
+class Timer:
+    &quot;&quot;&quot;Measure execution time.&quot;&quot;&quot;
+
+    def __enter__(self):
+        self.start = time.perf_counter()
+        return self
+
+    def __exit__(self, *args):
+        self.elapsed = time.perf_counter() - self.start
+        print(f&quot;  ⏱ {self.elapsed:.6f}s&quot;)
+
+
+# === Decorator-based ===
+
+@contextmanager
+def temp_env(key, value):
+    &quot;&quot;&quot;Temporarily set an environment variable.&quot;&quot;&quot;
+    old = os.environ.get(key)
+    os.environ[key] = value
+    try:
+        yield
+    finally:
+        if old is None:
+            os.environ.pop(key, None)
+        else:
+            os.environ[key] = old
+
+
+@contextmanager
+def tag(name):
+    &quot;&quot;&quot;HTML tag generator (demonstrates yield usage).&quot;&quot;&quot;
+    print(f&quot;&lt;{name}&gt;&quot;, end=&quot;&quot;)
+    yield
+    print(f&quot;&lt;/{name}&gt;&quot;, end=&quot;&quot;)
+
+
+# === Demo ===
+
+if __name__ == &quot;__main__&quot;:
+    print(&quot;=== Timer ===&quot;)
+    with Timer():
+        total = sum(range(1_000_000))
+    print(f&quot;  Total: {total}&quot;)
+
+    print(&quot;\n=== Temp env ===&quot;)
+    with temp_env(&quot;MY_VAR&quot;, &quot;hello&quot;):
+        print(f&quot;  Inside: {os.environ[&#x27;MY_VAR&#x27;]}&quot;)
+    print(f&quot;  Outside: {os.environ.get(&#x27;MY_VAR&#x27;, &#x27;Not set&#x27;)}&quot;)
+
+    print(&quot;\n=== HTML tags ===&quot;)
+    with tag(&quot;div&quot;):
+        with tag(&quot;p&quot;):
+            print(&quot;Hello, World!&quot;, end=&quot;&quot;)
+    print()
+
+    print(&quot;\n=== Suppress ===&quot;)
+    with suppress(ZeroDivisionError):
+        result = 1 / 0
+        print(&quot;Won&#x27;t reach here&quot;)
+    print(&quot;  But we continue normally&quot;)
+
+    print(&quot;\n=== Redirect stdout ===&quot;)
+    buffer = io.StringIO()
+    with redirect_stdout(buffer):
+        print(&quot;captured!&quot;)
+    print(f&quot;  Buffer: {buffer.getvalue().strip()}&quot;)</code></pre>
+
+<p><strong>执行预览：</strong></p>
+<pre><code>=== Timer ===
+  ⏱ 0.034521s
+  Total: 499999500000
+
+=== Temp env ===
+  Inside: hello
+  Outside: Not set
+
+=== HTML tags ===
+&lt;div&gt;&lt;p&gt;Hello, World!&lt;/p&gt;&lt;/div&gt;
+
+=== Suppress ===
+  But we continue normally
+
+=== Redirect stdout ===
+  Buffer: captured!</code></pre>
+
+<hr>
+
+<blockquote><p>💡 <strong>一句话总结</strong>：上下文管理器用 <code>with</code> 一行代码取代了 try/finally 的样板代码，是 Python 资源管理的核心机制——数据库连接、文件操作、锁、事务，都该用它来保护。</p></blockquote>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

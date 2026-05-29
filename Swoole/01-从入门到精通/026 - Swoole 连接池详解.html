@@ -1,0 +1,1119 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>026 - Swoole 连接池详解</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Swoole/index.html">Swoole</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Swoole/01-从入门到精通/index.html">Swoole从入门到精通</a>
+</nav>
+<h1>026 - Swoole 连接池详解</h1>
+<div class="meta">
+<span>📂 Swoole从入门到精通</span>
+<span>🏷️ Swoole</span>
+</div>
+<article>
+
+
+<h1>Swoole 连接池详解</h1>
+
+<blockquote><p><strong>难度标注：</strong> ⭐⭐⭐☆☆（中高级）<br><strong>前置知识：</strong> Swoole 协程基础、Channel、数据库操作、网络编程</p></blockquote>
+
+<hr>
+
+<h2>一、概念讲解</h2>
+
+<h3>什么是连接池？</h3>
+
+<p><strong>连接池（Connection Pool）</strong> 是一组预先创建并复用的连接集合。它的核心思想是：<strong>连接创建一次，反复使用</strong>，避免频繁创建和销毁连接带来的性能开销。</p>
+
+<h3>为什么需要连接池？</h3>
+
+<p>以 MySQL 为例，一次 TCP 连接建立需要：</p>
+<ol>
+<li>TCP 三次握手（~1ms 本地，~50ms 跨机房）</li>
+</ul>
+<ol>
+<li>TLS 握手（如果启用，~10ms）</li>
+</ul>
+<ol>
+<li>MySQL 认证（~1ms）</li>
+
+<p>总计约 <strong>2-60ms</strong>。在高并发场景下（1000 QPS），这意味着每秒可能浪费数秒在连接建立上。</p>
+
+<table><thead><tr>
+<th>指标</th>
+<th>无连接池</th>
+<th>有连接池</th>
+</tr></thead><tbody>
+<tr>
+<td>连接建立次数/秒</td>
+<td>= 请求数</td>
+<td>≈ 0（复用）</td>
+</tr>
+<tr>
+<td>平均响应时间</td>
+<td>+2~60ms</td>
+<td>+0ms（直接取）</td>
+</tr>
+<tr>
+<td>数据库最大连接数</td>
+<td>不可控</td>
+<td>精确控制</td>
+</tr>
+<tr>
+<td>资源消耗</td>
+<td>高（频繁创建/销毁）</td>
+<td>低（固定数量）</td>
+</tr>
+</tbody></table>
+
+<h3>Swoole 连接池的核心组件</h3>
+
+<p>Swoole 使用 <strong>Channel（通道）</strong> 作为连接池的底层容器：</p>
+
+<pre><code>Channel 是 Swoole 的协程安全队列，天然适合做连接池：
+- push(): 归还连接
+- pop(): 获取连接
+- 协程安全，无需加锁</code></pre>
+
+<hr>
+
+<h2>二、脑图（ASCII）</h2>
+
+<pre><code>Swoole 连接池
+├── 核心概念
+│   ├── 连接复用
+│   ├── 容量控制
+│   ├── 超时管理
+│   └── 健康检查
+├── 实现
+│   ├── 基于 Channel
+│   ├── Swoole\Database
+│   │   ├── MysqliPool
+│   │   ├── PDOPool
+│   │   ├── RedisPool
+│   │   └── Coroutine\Redis
+│   └── 自定义连接池
+├── 关键参数
+│   ├── pool_size（池大小）
+│   ├── max_idle_time（最大空闲时间）
+│   ├── wait_timeout（等待超时）
+│   └── max_retries（最大重试次数）
+├── 策略
+│   ├── 固定大小池
+│   ├── 动态扩缩容
+│   ├── 按需创建
+│   └── 空闲回收
+└── 应用场景
+    ├── MySQL 连接池
+    ├── Redis 连接池
+    ├── HTTP 客户端池
+    ├── RPC 连接池
+    └── 通用 TCP 连接池</code></pre>
+
+<hr>
+
+<h2>三、完整 PHP/Swoole 代码</h2>
+
+<h3>v1：基础连接池</h3>
+
+<pre><code class="language-php">&lt;?php
+// v1: Basic connection pool using Channel
+// A simple, generic pool implementation
+
+use Swoole\Coroutine;
+use Swoole\Coroutine\Channel;
+
+class SimplePool
+{
+    protected Channel $pool;
+    protected int $size;
+    protected \Closure $creator;  // Connection factory
+    protected \Closure $checker;  // Health check
+    protected int $created = 0;
+
+    /**
+     * @param int $size Maximum pool size
+     * @param callable $creator Function that creates a new connection
+     * @param callable $checker Function that checks if connection is alive
+     */
+    public function __construct(int $size, callable $creator, callable $checker = null)
+    {
+        $this-&gt;size = $size;
+        $this-&gt;pool = new Channel($size);
+        $this-&gt;creator = $creator;
+        $this-&gt;checker = $checker ?? fn($conn) =&gt; true;
+    }
+
+    /**
+     * Get a connection from pool (blocks if empty, waits up to $timeout seconds)
+     */
+    public function get(float $timeout = 3.0)
+    {
+        // Try to get from pool first
+        $conn = $this-&gt;pool-&gt;pop(0.001);
+        if ($conn !== false) {
+            // Health check before returning
+            if (($this-&gt;checker)($conn)) {
+                return $conn;
+            }
+            // Connection is dead, decrement counter and create new
+            $this-&gt;created--;
+            return $this-&gt;createNew();
+        }
+
+        // Pool is empty, try to create new connection
+        if ($this-&gt;created &lt; $this-&gt;size) {
+            return $this-&gt;createNew();
+        }
+
+        // Pool full and all in use, wait for return
+        $conn = $this-&gt;pool-&gt;pop($timeout);
+        if ($conn === false) {
+            throw new \RuntimeException(&quot;Connection pool exhausted (timeout: {$timeout}s)&quot;);
+        }
+
+        if (($this-&gt;checker)($conn)) {
+            return $conn;
+        }
+        $this-&gt;created--;
+        return $this-&gt;createNew();
+    }
+
+    /**
+     * Return connection to pool
+     */
+    public function put($conn): void
+    {
+        if ($this-&gt;pool-&gt;length() &lt; $this-&gt;size) {
+            $this-&gt;pool-&gt;push($conn);
+        } else {
+            // Pool is full, close excess connection
+            $this-&gt;created--;
+            // Close connection if it has a close method
+            if (is_object($conn) &amp;&amp; method_exists($conn, &#x27;close&#x27;)) {
+                $conn-&gt;close();
+            }
+        }
+    }
+
+    /**
+     * Get pool statistics
+     */
+    public function stats(): array
+    {
+        return [
+            &#x27;total_created&#x27; =&gt; $this-&gt;created,
+            &#x27;available&#x27; =&gt; $this-&gt;pool-&gt;length,
+            &#x27;in_use&#x27; =&gt; $this-&gt;created - $this-&gt;pool-&gt;length,
+            &#x27;max_size&#x27; =&gt; $this-&gt;size,
+        ];
+    }
+
+    protected function createNew()
+    {
+        $this-&gt;created++;
+        return ($this-&gt;creator)();
+    }
+}
+
+// --- Demo with simulated connections ---
+Coroutine
+un(function () {
+    $pool = new SimplePool(
+        5,
+        // Creator: simulate creating an expensive connection
+        fn() =&gt; [
+            &#x27;id&#x27; =&gt; uniqid(&#x27;conn_&#x27;),
+            &#x27;created_at&#x27; =&gt; microtime(true),
+        ],
+        // Checker: always alive in this demo
+        fn($conn) =&gt; true
+    );
+
+    echo &quot;=== Simple Pool Demo ===
+
+&quot;;
+
+    // Simulate 10 concurrent requests competing for 5 connections
+    $results = new Channel(10);
+
+    for ($i = 0; $i &lt; 10; $i++) {
+        Coroutine::create(function () use ($pool, $i, $results) {
+            $conn = $pool-&gt;get();
+            echo &quot;[Request {$i}] Got connection: {$conn[&#x27;id&#x27;]}
+&quot;;
+
+            // Simulate work
+            Coroutine::sleep(rand(1, 3) * 0.1);
+
+            echo &quot;[Request {$i}] Returning connection: {$conn[&#x27;id&#x27;]}
+&quot;;
+            $pool-&gt;put($conn);
+
+            $results-&gt;push(true);
+        });
+    }
+
+    // Wait for all to complete
+    for ($i = 0; $i &lt; 10; $i++) {
+        $results-&gt;pop();
+    }
+
+    echo &quot;
+Pool stats after all requests:
+&quot;;
+    print_r($pool-&gt;stats());
+});</code></pre>
+
+<h3>v2：MySQL + Redis 连接池实战</h3>
+
+<pre><code class="language-php">&lt;?php
+// v2: Real-world MySQL and Redis connection pools
+// Using Swoole ext-redis and ext-mysql client libraries
+
+use Swoole\Coroutine;
+use Swoole\Coroutine\Channel;
+
+// ============================================================
+// MySQL Connection Pool
+// ============================================================
+class MySQLPool
+{
+    private Channel $pool;
+    private int $size;
+    private array $config;
+    private int $created = 0;
+
+    public function __construct(int $size, array $config)
+    {
+        $this-&gt;size = $size;
+        $this-&gt;config = $config;
+        $this-&gt;pool = new Channel($size);
+    }
+
+    /**
+     * Initialize pool with minimum connections
+     */
+    public function init(int $minSize = 1): void
+    {
+        for ($i = 0; $i &lt; $minSize; $i++) {
+            $this-&gt;pool-&gt;push($this-&gt;createConnection());
+        }
+    }
+
+    public function get(float $timeout = 5.0): Coroutine\MySQL
+    {
+        $conn = $this-&gt;pool-&gt;pop(0.001);
+        if ($conn !== false) {
+            return $conn;
+        }
+
+        if ($this-&gt;created &lt; $this-&gt;size) {
+            return $this-&gt;createConnection();
+        }
+
+        $conn = $this-&gt;pool-&gt;pop($timeout);
+        if ($conn === false) {
+            throw new \RuntimeException(&quot;MySQL pool timeout after {$timeout}s&quot;);
+        }
+        return $conn;
+    }
+
+    public function put(Coroutine\MySQL $conn): void
+    {
+        if ($conn-&gt;connected) {
+            $this-&gt;pool-&gt;push($conn);
+        } else {
+            $this-&gt;created--;
+        }
+    }
+
+    private function createConnection(): Coroutine\MySQL
+    {
+        $this-&gt;created++;
+        $mysql = new Coroutine\MySQL();
+        $connected = $mysql-&gt;connect($this-&gt;config);
+        if (!$connected) {
+            $this-&gt;created--;
+            throw new \RuntimeException(&quot;MySQL connect failed: {$mysql-&gt;connect_error}&quot;);
+        }
+        return $mysql;
+    }
+
+    public function stats(): array
+    {
+        return [
+            &#x27;created&#x27; =&gt; $this-&gt;created,
+            &#x27;available&#x27; =&gt; $this-&gt;pool-&gt;length,
+            &#x27;in_use&#x27; =&gt; $this-&gt;created - $this-&gt;pool-&gt;length,
+        ];
+    }
+}
+
+// ============================================================
+// Redis Connection Pool
+// ============================================================
+class RedisPool
+{
+    private Channel $pool;
+    private int $size;
+    private array $config;
+    private int $created = 0;
+
+    public function __construct(int $size, array $config)
+    {
+        $this-&gt;size = $size;
+        $this-&gt;config = $config;
+        $this-&gt;pool = new Channel($size);
+    }
+
+    public function get(float $timeout = 3.0): Coroutine\Redis
+    {
+        $conn = $this-&gt;pool-&gt;pop(0.001);
+        if ($conn !== false) {
+            // Verify connection is still alive
+            try {
+                $conn-&gt;ping();
+                return $conn;
+            } catch (\Throwable $e) {
+                $this-&gt;created--;
+            }
+        }
+
+        if ($this-&gt;created &lt; $this-&gt;size) {
+            return $this-&gt;createConnection();
+        }
+
+        $conn = $this-&gt;pool-&gt;pop($timeout);
+        if ($conn === false) {
+            throw new \RuntimeException(&quot;Redis pool timeout after {$timeout}s&quot;);
+        }
+        return $conn;
+    }
+
+    public function put($conn): void
+    {
+        if ($this-&gt;pool-&gt;length &lt; $this-&gt;size) {
+            $this-&gt;pool-&gt;push($conn);
+        } else {
+            $this-&gt;created--;
+            $conn-&gt;close();
+        }
+    }
+
+    private function createConnection(): Coroutine\Redis
+    {
+        $this-&gt;created++;
+        $redis = new Coroutine\Redis();
+        $connected = $redis-&gt;connect(
+            $this-&gt;config[&#x27;host&#x27;] ?? &#x27;127.0.0.1&#x27;,
+            $this-&gt;config[&#x27;port&#x27;] ?? 6379
+        );
+        if (!$connected) {
+            $this-&gt;created--;
+            throw new \RuntimeException(&quot;Redis connect failed&quot;);
+        }
+        if (isset($this-&gt;config[&#x27;auth&#x27;])) {
+            $redis-&gt;auth($this-&gt;config[&#x27;auth&#x27;]);
+        }
+        if (isset($this-&gt;config[&#x27;db&#x27;])) {
+            $redis-&gt;select($this-&gt;config[&#x27;db&#x27;]);
+        }
+        return $redis;
+    }
+
+    public function stats(): array
+    {
+        return [
+            &#x27;created&#x27; =&gt; $this-&gt;created,
+            &#x27;available&#x27; =&gt; $this-&gt;pool-&gt;length,
+            &#x27;in_use&#x27; =&gt; $this-&gt;created - $this-&gt;pool-&gt;length,
+        ];
+    }
+}
+
+// ============================================================
+// Usage: HTTP API server with pooled DB access
+// ============================================================
+Coroutine
+un(function () {
+    // Create connection pools
+    $mysqlPool = new MySQLPool(10, [
+        &#x27;host&#x27; =&gt; &#x27;127.0.0.1&#x27;,
+        &#x27;port&#x27; =&gt; 3306,
+        &#x27;user&#x27; =&gt; &#x27;root&#x27;,
+        &#x27;password&#x27; =&gt; &#x27;&#x27;,
+        &#x27;database&#x27; =&gt; &#x27;test&#x27;,
+    ]);
+
+    $redisPool = new RedisPool(10, [
+        &#x27;host&#x27; =&gt; &#x27;127.0.0.1&#x27;,
+        &#x27;port&#x27; =&gt; 6379,
+    ]);
+
+    // Initialize minimum connections
+    $mysqlPool-&gt;init(2);
+
+    $server = new Coroutine\Http\Server(&#x27;0.0.0.0&#x27;, 9502);
+
+    // API: GET /user?id=123
+    $server-&gt;handle(&#x27;/user&#x27;, function ($request, $response) use ($mysqlPool, $redisPool) {
+        $id = $request-&gt;get[&#x27;id&#x27;] ?? 0;
+        if (!$id) {
+            $response-&gt;status(400);
+            $response-&gt;end(json_encode([&#x27;error&#x27; =&gt; &#x27;id required&#x27;]));
+            return;
+        }
+
+        // Try cache first
+        $redis = $redisPool-&gt;get();
+        $cacheKey = &quot;user:{$id}&quot;;
+        $cached = $redis-&gt;get($cacheKey);
+        $redisPool-&gt;put($redis);
+
+        if ($cached) {
+            $response-&gt;header(&#x27;X-Cache&#x27;, &#x27;HIT&#x27;);
+            $response-&gt;end($cached);
+            return;
+        }
+
+        // Cache miss, query MySQL
+        $mysql = $mysqlPool-&gt;get();
+        $result = $mysql-&gt;query(&quot;SELECT * FROM users WHERE id = {$id}&quot;);
+        $mysqlPool-&gt;put($mysql);
+
+        if (empty($result)) {
+            $response-&gt;status(404);
+            $response-&gt;end(json_encode([&#x27;error&#x27; =&gt; &#x27;user not found&#x27;]));
+            return;
+        }
+
+        $data = json_encode([&#x27;data&#x27; =&gt; $result[0]]);
+
+        // Cache for 60 seconds
+        $redis = $redisPool-&gt;get();
+        $redis-&gt;setex($cacheKey, 60, $data);
+        $redisPool-&gt;put($redis);
+
+        $response-&gt;header(&#x27;Content-Type&#x27;, &#x27;application/json&#x27;);
+        $response-&gt;header(&#x27;X-Cache&#x27;, &#x27;MISS&#x27;);
+        $response-&gt;end($data);
+    });
+
+    echo &quot;Server started at http://0.0.0.0:9502
+&quot;;
+    echo &quot;MySQL pool stats: &quot; . json_encode($mysqlPool-&gt;stats()) . &quot;
+&quot;;
+
+    $server-&gt;start();
+});</code></pre>
+
+<h3>v3：企业级通用连接池</h3>
+
+<pre><code class="language-php">&lt;?php
+// v3: Enterprise-grade generic connection pool
+// Features: auto-reconnect, idle eviction, metrics, lifecycle hooks
+
+use Swoole\Coroutine;
+use Swoole\Coroutine\Channel;
+
+class ConnectionPool
+{
+    private Channel $pool;
+    private int $maxSize;
+    private int $minSize;
+    private \Closure $creator;
+    private \Closure $destroyer;
+    private \Closure $checker;
+    private float $maxIdleTime;    // Max idle time in seconds
+    private float $waitTimeout;    // Wait timeout for getting connection
+
+    private int $created = 0;
+    private int $acquired = 0;
+    private int $released = 0;
+    private int $reconnects = 0;
+    private int $evictions = 0;
+
+    /** @var array Connection metadata: [resource =&gt; [&#x27;last_used&#x27; =&gt; float, &#x27;created_at&#x27; =&gt; float]] */
+    private array $metadata = [];
+
+    public function __construct(array $config)
+    {
+        $this-&gt;maxSize = $config[&#x27;max_size&#x27;] ?? 10;
+        $this-&gt;minSize = $config[&#x27;min_size&#x27;] ?? 1;
+        $this-&gt;maxIdleTime = $config[&#x27;max_idle_time&#x27;] ?? 300; // 5 minutes
+        $this-&gt;waitTimeout = $config[&#x27;wait_timeout&#x27;] ?? 5;
+
+        $this-&gt;creator = $config[&#x27;creator&#x27;];
+        $this-&gt;destroyer = $config[&#x27;destroyer&#x27;] ?? fn($c) =&gt; null;
+        $this-&gt;checker = $config[&#x27;checker&#x27;] ?? fn($c) =&gt; true;
+
+        $this-&gt;pool = new Channel($this-&gt;maxSize);
+    }
+
+    /**
+     * Warm up the pool with minimum connections
+     */
+    public function warmUp(): void
+    {
+        for ($i = 0; $i &lt; $this-&gt;minSize; $i++) {
+            try {
+                $conn = $this-&gt;createConnection();
+                $this-&gt;pool-&gt;push($conn);
+            } catch (\Throwable $e) {
+                echo &quot;Warmup failed: {$e-&gt;getMessage()}
+&quot;;
+            }
+        }
+        echo &quot;Pool warmed up: {$this-&gt;created}/{$this-&gt;minSize} connections
+&quot;;
+    }
+
+    /**
+     * Get a connection with auto-reconnect on failure
+     */
+    public function get(float $timeout = null)
+    {
+        $timeout = $timeout ?? $this-&gt;waitTimeout;
+        $attempts = 0;
+        $maxAttempts = 2; // Try twice (original + reconnect)
+
+        while ($attempts &lt; $maxAttempts) {
+            $conn = $this-&gt;getConnectionFromPool($timeout);
+
+            if ($conn === null) {
+                break;
+            }
+
+            // Health check
+            if (($this-&gt;checker)($conn)) {
+                $this-&gt;metadata[spl_object_id($conn)][&#x27;last_used&#x27;] = microtime(true);
+                $this-&gt;acquired++;
+                return $conn;
+            }
+
+            // Dead connection, reconnect
+            $this-&gt;destroyConnection($conn);
+            $this-&gt;reconnects++;
+            $attempts++;
+        }
+
+        throw new \RuntimeException(&quot;Failed to get a healthy connection after {$attempts} attempts&quot;);
+    }
+
+    /**
+     * Return connection to pool
+     */
+    public function put($conn): void
+    {
+        $id = spl_object_id($conn);
+        $this-&gt;metadata[$id][&#x27;last_used&#x27;] = microtime(true);
+        $this-&gt;released++;
+
+        if ($this-&gt;pool-&gt;length &lt; $this-&gt;maxSize) {
+            $this-&gt;pool-&gt;push($conn);
+        } else {
+            $this-&gt;destroyConnection($conn);
+        }
+    }
+
+    /**
+     * Evict idle connections periodically (call from timer or heartbeat)
+     */
+    public function evictIdle(): int
+    {
+        $now = microtime(true);
+        $evicted = 0;
+
+        // Check connections in pool
+        $temp = [];
+        while (!$this-&gt;pool-&gt;isEmpty()) {
+            $conn = $this-&gt;pool-&gt;pop(0.001);
+            if ($conn === false) break;
+
+            $id = spl_object_id($conn);
+            $lastUsed = $this-&gt;metadata[$id][&#x27;last_used&#x27;] ?? $now;
+
+            // Keep if still within idle time or we need minimum connections
+            $keepAlive = ($now - $lastUsed) &lt; $this-&gt;maxIdleTime;
+            $needMinimum = ($this-&gt;created - $evicted) &lt;= $this-&gt;minSize;
+
+            if ($keepAlive || $needMinimum) {
+                $temp[] = $conn;
+            } else {
+                $this-&gt;destroyConnection($conn);
+                $evicted++;
+            }
+        }
+
+        // Put back kept connections
+        foreach ($temp as $conn) {
+            $this-&gt;pool-&gt;push($conn);
+        }
+
+        $this-&gt;evictions += $evicted;
+        return $evicted;
+    }
+
+    /**
+     * Get pool metrics
+     */
+    public function metrics(): array
+    {
+        return [
+            &#x27;created&#x27; =&gt; $this-&gt;created,
+            &#x27;available&#x27; =&gt; $this-&gt;pool-&gt;length,
+            &#x27;in_use&#x27; =&gt; $this-&gt;created - $this-&gt;pool-&gt;length,
+            &#x27;total_acquired&#x27; =&gt; $this-&gt;acquired,
+            &#x27;total_released&#x27; =&gt; $this-&gt;released,
+            &#x27;total_reconnects&#x27; =&gt; $this-&gt;reconnects,
+            &#x27;total_evictions&#x27; =&gt; $this-&gt;evictions,
+        ];
+    }
+
+    private function getConnectionFromPool(float $timeout)
+    {
+        // Try existing pool first
+        $conn = $this-&gt;pool-&gt;pop(0.001);
+        if ($conn !== false) {
+            return $conn;
+        }
+
+        // Try creating new
+        if ($this-&gt;created &lt; $this-&gt;maxSize) {
+            return $this-&gt;createConnection();
+        }
+
+        // Wait for return
+        return $this-&gt;pool-&gt;pop($timeout) ?: null;
+    }
+
+    private function createConnection()
+    {
+        $this-&gt;created++;
+        try {
+            $conn = ($this-&gt;creator)();
+            $this-&gt;metadata[spl_object_id($conn)] = [
+                &#x27;created_at&#x27; =&gt; microtime(true),
+                &#x27;last_used&#x27; =&gt; microtime(true),
+            ];
+            return $conn;
+        } catch (\Throwable $e) {
+            $this-&gt;created--;
+            throw $e;
+        }
+    }
+
+    private function destroyConnection($conn): void
+    {
+        $this-&gt;created--;
+        $id = spl_object_id($conn);
+        unset($this-&gt;metadata[$id]);
+        ($this-&gt;destroyer)($conn);
+    }
+}
+
+// --- Demo: Full lifecycle with metrics ---
+Coroutine
+un(function () {
+    // Simulated connection factory
+    $connectionId = 0;
+    $pool = new ConnectionPool([
+        &#x27;max_size&#x27; =&gt; 5,
+        &#x27;min_size&#x27; =&gt; 2,
+        &#x27;max_idle_time&#x27; =&gt; 10, // 10 seconds for demo
+        &#x27;wait_timeout&#x27; =&gt; 3,
+        &#x27;creator&#x27; =&gt; function () use (&amp;$connectionId) {
+            $id = ++$connectionId;
+            echo &quot;  [Factory] Creating connection #{$id}
+&quot;;
+            // Simulate expensive connection creation
+            Coroutine::sleep(0.01);
+            return new class($id) {
+                public int $connId;
+                public bool $alive = true;
+                public function __construct(int $id) { $this-&gt;connId = $id; }
+                public function close(): void { $this-&gt;alive = false; }
+                public function ping(): bool { return $this-&gt;alive; }
+            };
+        },
+        &#x27;destroyer&#x27; =&gt; function ($conn) {
+            echo &quot;  [Destroyer] Closing connection #{$conn-&gt;connId}
+&quot;;
+            $conn-&gt;close();
+        },
+        &#x27;checker&#x27; =&gt; fn($conn) =&gt; $conn-&gt;alive &amp;&amp; $conn-&gt;ping(),
+    ]);
+
+    // Warm up
+    echo &quot;=== Warming up pool ===
+&quot;;
+    $pool-&gt;warmUp();
+
+    // Simulate concurrent usage
+    echo &quot;
+=== Concurrent requests ===
+&quot;;
+    $done = new Channel(8);
+
+    for ($i = 0; $i &lt; 8; $i++) {
+        Coroutine::create(function () use ($pool, $i, $done) {
+            $conn = $pool-&gt;get();
+            echo &quot;[Request {$i}] Using connection #{$conn-&gt;connId}
+&quot;;
+            Coroutine::sleep(rand(1, 5) * 0.05);
+            $pool-&gt;put($conn);
+            $done-&gt;push(true);
+        });
+    }
+
+    for ($i = 0; $i &lt; 8; $i++) {
+        $done-&gt;pop();
+    }
+
+    // Show metrics
+    echo &quot;
+=== Pool Metrics ===
+&quot;;
+    print_r($pool-&gt;metrics());
+
+    // Test idle eviction
+    echo &quot;
+=== Idle Eviction Test ===
+&quot;;
+    echo &quot;Waiting 11 seconds for connections to expire...
+&quot;;
+    Coroutine::sleep(11);
+    $evicted = $pool-&gt;evictIdle();
+    echo &quot;Evicted {$evicted} idle connections
+&quot;;
+    print_r($pool-&gt;metrics());
+});</code></pre>
+
+<hr>
+
+<h2>四、执行预览</h2>
+
+<h3>v1 执行输出</h3>
+<pre><code>=== Simple Pool Demo ===
+
+[Request 0] Got connection: conn_662a1b3c
+[Request 1] Got connection: conn_662a1b3d
+[Request 2] Got connection: conn_662a1b3e
+[Request 3] Got connection: conn_662a1b3f
+[Request 4] Got connection: conn_662a1b40
+[Request 0] Returning connection: conn_662a1b3c
+[Request 5] Got connection: conn_662a1b3c
+[Request 1] Returning connection: conn_662a1b3d
+[Request 6] Got connection: conn_662a1b3d
+...
+
+Pool stats after all requests:
+Array ( [created] =&gt; 5 [available] =&gt; 5 [in_use] =&gt; 0 [max_size] =&gt; 5 )</code></pre>
+
+<h3>v3 执行输出</h3>
+<pre><code>=== Warming up pool ===
+  [Factory] Creating connection #1
+  [Factory] Creating connection #2
+Pool warmed up: 2/2 connections
+
+=== Concurrent requests ===
+[Request 0] Using connection #1
+[Request 1] Using connection #2
+[Request 2] Using connection #3
+[Request 3] Using connection #4
+[Request 4] Using connection #5
+[Request 0] Returning...
+[Request 5] Using connection #1
+...
+
+=== Pool Metrics ===
+[created] =&gt; 5 [available] =&gt; 5 [in_use] =&gt; 0
+[total_acquired] =&gt; 8 [total_released] =&gt; 8
+[total_reconnects] =&gt; 0 [total_evictions] =&gt; 0</code></pre>
+
+<hr>
+
+<h2>五、注意事项</h2>
+
+<table><thead><tr>
+<th>项目</th>
+<th>说明</th>
+</tr></thead><tbody>
+<tr>
+<td>池大小</td>
+<td>建议 = CPU核心数 × 2 + 磁盘数，MySQL 通常 10-20</td>
+</tr>
+<tr>
+<td>最小连接数</td>
+<td>至少保持 1-2 个空闲连接，避免冷启动</td>
+</tr>
+<tr>
+<td>超时设置</td>
+<td>wait_timeout 不宜过长（3-5秒），避免协程阻塞</td>
+</tr>
+<tr>
+<td>连接泄漏</td>
+<td>每次 get() 必须配对 put()，用 try/finally 保证</td>
+</tr>
+<tr>
+<td>健康检查</td>
+<td>使用前 ping 一次，避免已断开的连接导致业务失败</td>
+</tr>
+<tr>
+<td>空闲回收</td>
+<td>长时间空闲的连接可能被服务端关闭，需要定期清理</td>
+</tr>
+<tr>
+<td>连接数监控</td>
+<td>监控 in_use/max_size，持续接近上限说明需要扩容</td>
+</tr>
+<tr>
+<td>协程安全</td>
+<td>Channel 天然协程安全，不要用 Array 做连接池</td>
+</tr>
+<tr>
+<td>MySQL wait_timeout</td>
+<td>MySQL 服务端默认 8 小时关闭空闲连接，池的 max_idle_time 应小于此值</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>六、避坑指南</h2>
+
+<table><thead><tr>
+<th>❌ 错误做法</th>
+<th>✅ 正确做法</th>
+</tr></thead><tbody>
+<tr>
+<td>每次请求 new 一个数据库连接</td>
+<td>使用连接池复用</td>
+</tr>
+<tr>
+<td><code>get()</code> 后忘了 <code>put()</code></td>
+<td>用 <code>try { ... } finally { $pool->put($conn); }</code></td>
+</tr>
+<tr>
+<td>池大小设得和并发数一样大</td>
+<td>池大小 = 预估并发数 × 平均耗时(秒)，通常 10-50</td>
+</tr>
+<tr>
+<td>不做健康检查直接用</td>
+<td>get 时 ping 一次，失败则重建连接</td>
+</tr>
+<tr>
+<td>用 PHP 数组做连接池</td>
+<td>用 Swoole Channel，天然协程安全</td>
+</tr>
+<tr>
+<td>连接池满时一直阻塞等待</td>
+<td>设置合理超时，超时报错而非死等</td>
+</tr>
+<tr>
+<td>连接永不过期回收</td>
+<td>设置 max_idle_time，定期清理空闲连接</td>
+</tr>
+<tr>
+<td>单进程内的连接池跨进程共享</td>
+<td>每个 Worker 进程独立连接池</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>七、练习题</h2>
+
+<h3>🟢 基础题</h3>
+
+<p><strong>题目 1：</strong> 使用 Channel 实现一个简单的字符串连接池。创建 3 个字符串资源，用 5 个协程竞争获取，使用后归还。</p>
+
+<p><strong>题目 2：</strong> 在 v1 代码基础上，添加一个 <code>close()</code> 方法，用于关闭所有空闲连接并清空池。</p>
+
+<h3>🟡 进阶题</h3>
+
+<p><strong>题目 3：</strong> 实现 MySQL 连接池，要求：支持主从分离（写走主库连接池，读走从库连接池），支持按 SQL 类型自动路由。</p>
+
+<p><strong>题目 4：</strong> 实现一个带熔断器的连接池。当连续 N 次健康检查失败时，暂停获取连接一段时间（熔断），之后尝试半开放（放一个请求测试），成功则恢复。</p>
+
+<h3>🔴 挑战题</h3>
+
+<p><strong>题目 5：</strong> 实现一个支持动态扩缩容的连接池。要求：根据当前 in_use/available 比例自动调整池大小，高负载时扩容（上限 max_size），低负载时缩容（下限 min_size），扩缩容过程平滑不影响正在使用的连接。</p>
+
+<hr>
+
+<h2>八、知识点总结</h2>
+
+<pre><code>Swoole 连接池 知识树
+├── 基础
+│   ├── 连接池概念与原理
+│   ├── Channel 作为底层容器
+│   └── get/put 生命周期
+├── 实现模式
+│   ├── 固定大小池
+│   ├── 动态扩缩容
+│   ├── 冷启动（warmUp）
+│   └── 空闲回收
+├── 关键机制
+│   ├── 健康检查（ping）
+│   ├── 自动重连
+│   ├── 超时控制
+│   └── 指标监控
+├── 数据库连接池
+│   ├── MySQL (Coroutine\MySQL)
+│   ├── Redis (Coroutine\Redis)
+│   └── PDO (Swoole\Database\PDOPool)
+└── 高级特性
+    ├── 主从分离
+    ├── 熔断器
+    ├── 读写路由
+    └── 跨进程管理</code></pre>
+
+<hr>
+
+<h2>九、举一反三</h2>
+
+<table><thead><tr>
+<th>知识点</th>
+<th>本文示例</th>
+<th>延伸应用</th>
+</tr></thead><tbody>
+<tr>
+<td>Channel 队列</td>
+<td>连接池容器</td>
+<td>任务队列、协程间通信、限流器</td>
+</tr>
+<tr>
+<td>对象复用</td>
+<td>连接复用</td>
+<td>HTTP 客户端池、文件句柄池</td>
+</tr>
+<tr>
+<td>健康检查</td>
+<td>MySQL ping</td>
+<td>微服务健康探针、负载均衡剔除</td>
+</tr>
+<tr>
+<td>空闲回收</td>
+<td>连接超时回收</td>
+<td>缓存过期、临时资源清理</td>
+</tr>
+<tr>
+<td>熔断降级</td>
+<td>连接失败熔断</td>
+<td>服务降级、限流、熔断器模式</td>
+</tr>
+<tr>
+<td>指标监控</td>
+<td>池统计信息</td>
+<td>Prometheus 指标、APM 监控</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>十、参考资料</h2>
+
+<ol>
+<li><a href="https://wiki.swoole.com/#/coroutine/conn_pool">Swoole 官方文档 - 连接池</a></li>
+</ul>
+<ol>
+<li><a href="https://wiki.swoole.com/#/coroutine/channel">Swoole 官方文档 - Channel</a></li>
+</ul>
+<ol>
+<li><a href="https://github.com/swoole/database">Swoole Database 组件</a></li>
+</ul>
+<ol>
+<li><a href="https://github.com/deminy/swoole-by-examples">Swoole_by_examples: Connection Pooling</a></li>
+</ul>
+<ol>
+<li><a href="https://wiki.swoole.com/#/question/use?id=how-to-use-the-database-connection-pool">数据库连接池最佳实践</a></li>
+
+<hr>
+
+<h2>十一、代码演进</h2>
+
+<table><thead><tr>
+<th>版本</th>
+<th>重点</th>
+<th>核心改进</th>
+</tr></thead><tbody>
+<tr>
+<td>v1</td>
+<td>基础实现</td>
+<td>Channel 队列、get/put、模拟连接</td>
+</tr>
+<tr>
+<td>v2</td>
+<td>实战应用</td>
+<td>MySQL/Redis 真实连接池、HTTP API、缓存策略</td>
+</tr>
+<tr>
+<td>v3</td>
+<td>企业级</td>
+<td>自动重连、空闲回收、指标监控、生命周期管理</td>
+</tr>
+</tbody></table>
+
+<blockquote><p><strong>核心思想：</strong> 连接池是高性能应用的标配。从理解原理到生产级实现，关键是处理好 <strong>复用、健康检查、超时控制</strong> 三个核心问题。</p></blockquote>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

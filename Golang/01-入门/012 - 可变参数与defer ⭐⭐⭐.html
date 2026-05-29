@@ -1,0 +1,547 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>012 - 可变参数与defer ⭐⭐⭐</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/learning-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/learning-blog/Golang/index.html">Golang</a>
+<span class="sep">›</span>
+<a href="/learning-blog/Golang/01-入门/index.html">Golang入门</a>
+</nav>
+<h1>012 - 可变参数与defer ⭐⭐⭐</h1>
+<div class="meta">
+<span>📂 Golang入门</span>
+<span>🏷️ Golang</span>
+</div>
+<article>
+
+
+<h1>012 - 可变参数与 defer ⭐⭐⭐</h1>
+
+<h2>难度标注</h2>
+
+<blockquote><p>⭐⭐⭐ 中高难度 | 适合：已掌握函数基础，需要理解 Go 高级函数特性的开发者</p></blockquote>
+
+<h2>概念讲解</h2>
+
+<p>可变参数和 defer 是 Go 函数中两个重要的高级特性。可变参数让函数能接受任意数量的参数；defer 则提供了优雅的资源管理和清理机制。但这两个特性都有微妙的陷阱，需要深入理解。</p>
+
+<p><strong>核心要点：</strong></p>
+
+<ul>
+<li><strong>可变参数 <code>...T</code></strong>：函数接受零个或多个参数，在函数内部表现为 slice</li>
+<li><strong>slice 展开 <code>slice...</code></strong>：将 slice 传递给可变参数函数</li>
+<li><strong>defer 执行顺序</strong>：LIFO（后进先出），像栈一样</li>
+<li><strong>defer 闭包陷阱</strong>：defer 捕获变量的引用，不是值</li>
+<li><strong>defer 与 return 交互</strong>：defer 可以修改命名返回值</li>
+<li><strong>实战应用</strong>：资源释放、计时、日志</li>
+
+<h2>实时脑图</h2>
+
+<pre><code>可变参数与 defer
+├── 可变参数 ...T
+│   ├── 定义: func sum(nums ...int)
+│   ├── 内部类型: []int slice
+│   ├── 空调用: sum() → 空slice
+│   ├── 展开传递: sum(slice...)
+│   └── 与固定参数混用: func f(s string, nums ...int)
+├── defer 执行顺序
+│   ├── LIFO: 后注册先执行
+│   ├── 场景: 文件关闭、解锁、日志
+│   └── 注册时机: defer语句执行时确定参数
+├── defer 闭包陷阱
+│   ├── 捕获引用: loop var 被所有 defer 共享
+│   ├── 解决: 参数传递 defer fmt.Println(v)
+│   └── Go 1.22+ loop var 每次迭代新变量
+├── defer 与 return 交互
+│   ├── 执行顺序: return → defer → 返回
+│   ├── 命名返回值可被 defer 修改
+│   └── 匿名返回值 defer 无法修改
+└── 实战
+    ├── 资源释放: defer file.Close()
+    ├── 计时: defer 记录耗时
+    └── recover: defer recover() 捕获 panic</code></pre>
+
+<h2>完整 Go 代码</h2>
+
+<h3>v1：可变参数基础</h3>
+
+<pre><code class="language-go">package main
+
+import &quot;fmt&quot;
+
+// Variadic parameter: nums becomes []int inside the function
+func sum(nums ...int) int {
+	total := 0
+	for _, n := range nums {
+		total += n
+	}
+	return total
+}
+
+// Variadic with fixed parameters: fixed params come first
+func formatList(sep string, items ...string) string {
+	if len(items) == 0 {
+		return &quot;&quot;
+	}
+	result := items[0]
+	for _, item := range items[1:] {
+		result += sep + item
+	}
+	return result
+}
+
+// Pass a slice to variadic function using spread operator
+func main() {
+	// Direct arguments
+	fmt.Println(&quot;sum(1,2,3):&quot;, sum(1, 2, 3))
+	fmt.Println(&quot;sum():&quot;, sum()) // empty slice
+
+	// Spread a slice
+	numbers := []int{10, 20, 30, 40}
+	fmt.Println(&quot;sum(numbers...):&quot;, sum(numbers...))
+
+	// Mixed fixed + variadic
+	fmt.Println(formatList(&quot;, &quot;, &quot;apple&quot;, &quot;banana&quot;, &quot;cherry&quot;))
+	fmt.Println(formatList(&quot; | &quot;)) // empty items
+
+	// Modify the variadic slice? It&#x27;s a copy if spread from slice
+	// but be careful: it may share underlying array
+	original := []int{1, 2, 3}
+	_ = sum(original...)
+	fmt.Println(&quot;original after spread:&quot;, original)
+}</code></pre>
+
+<p><strong>执行预览：</strong></p>
+<pre><code>sum(1,2,3): 6
+sum(): 0
+sum(numbers...): 100
+apple, banana, cherry
+
+original after spread: [1 2 3]</code></pre>
+
+<h3>v2：defer 执行顺序与闭包陷阱</h3>
+
+<pre><code class="language-go">package main
+
+import &quot;fmt&quot;
+
+// LIFO order: last deferred is executed first
+func demoLIFO() {
+	defer fmt.Println(&quot;defer 1&quot;)
+	defer fmt.Println(&quot;defer 2&quot;)
+	defer fmt.Println(&quot;defer 3&quot;)
+	fmt.Println(&quot;function body&quot;)
+}
+
+// Closure trap: defer captures variable reference
+func closureTrap() {
+	for i := 0; i &lt; 3; i++ {
+		defer func() {
+			fmt.Println(&quot;closure trap:&quot;, i)
+		}()
+	}
+}
+
+// Fix 1: pass as defer parameter (evaluated at defer statement time)
+func closureFix1() {
+	for i := 0; i &lt; 3; i++ {
+		defer func(val int) {
+			fmt.Println(&quot;fix1 param:&quot;, val)
+		}(i)
+	}
+}
+
+// Fix 2: create new variable per iteration
+func closureFix2() {
+	for i := 0; i &lt; 3; i++ {
+		i := i // shadow: new variable per iteration
+		defer func() {
+			fmt.Println(&quot;fix2 shadow:&quot;, i)
+		}()
+	}
+}
+
+func main() {
+	fmt.Println(&quot;=== LIFO Demo ===&quot;)
+	demoLIFO()
+
+	fmt.Println(&quot;\n=== Closure Trap ===&quot;)
+	closureTrap() // prints 3, 3, 3!
+
+	fmt.Println(&quot;\n=== Fix 1: Parameter ===&quot;)
+	closureFix1() // prints 2, 1, 0
+
+	fmt.Println(&quot;\n=== Fix 2: Shadow ===&quot;)
+	closureFix2() // prints 2, 1, 0
+}</code></pre>
+
+<p><strong>执行预览：</strong></p>
+<pre><code>=== LIFO Demo ===
+function body
+defer 3
+defer 2
+defer 1
+
+=== Closure Trap ===
+closure trap: 3
+closure trap: 3
+closure trap: 3
+
+=== Fix 1: Parameter ===
+fix1 param: 2
+fix1 param: 1
+fix1 param: 0
+
+=== Fix 2: Shadow ===
+fix2 shadow: 2
+fix2 shadow: 1
+fix2 shadow: 0</code></pre>
+
+<h3>v3：defer 与 return 交互 + 实战模式</h3>
+
+<pre><code class="language-go">package main
+
+import (
+	&quot;fmt&quot;
+	&quot;time&quot;
+)
+
+// Defer can modify named return values!
+func deferModifyReturn() (result int) {
+	defer func() {
+		result++ // modifies the named return!
+	}()
+	return 10 // sets result=10, then defer runs: result becomes 11
+}
+
+// Anonymous return: defer CANNOT modify
+func deferCannotModify() int {
+	result := 10
+	defer func() {
+		result++ // this modifies local variable, not the return value!
+	}()
+	return result // return value is already determined as 10
+}
+
+// Practical: timing a function
+func timedOperation() (elapsed time.Duration) {
+	start := time.Now()
+	defer func() {
+		elapsed = time.Since(start)
+	}()
+
+	// Simulate work
+	time.Sleep(100 * time.Millisecond)
+	return
+}
+
+// Practical: resource cleanup simulation
+func processFile(filename string) (err error) {
+	fmt.Printf(&quot;opening %s\n&quot;, filename)
+	defer func() {
+		if err != nil {
+			fmt.Printf(&quot;closing %s (with error: %v)\n&quot;, filename, err)
+		} else {
+			fmt.Printf(&quot;closing %s (success)\n&quot;, filename)
+		}
+	}()
+
+	if filename == &quot;bad.txt&quot; {
+		err = fmt.Errorf(&quot;file not found: %s&quot;, filename)
+		return
+	}
+
+	fmt.Printf(&quot;processing %s\n&quot;, filename)
+	return nil
+}
+
+// Practical: recover from panic
+func safeDivide(a, b int) (result int, err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			err = fmt.Errorf(&quot;panic recovered: %v&quot;, r)
+		}
+	}()
+	result = a / b // panics if b == 0
+	return result, nil
+}
+
+func main() {
+	// --- Defer modifies named return ---
+	fmt.Println(&quot;deferModifyReturn:&quot;, deferModifyReturn()) // 11
+	fmt.Println(&quot;deferCannotModify:&quot;, deferCannotModify()) // 10
+
+	// --- Timing ---
+	elapsed := timedOperation()
+	fmt.Printf(&quot;operation took: %v\n&quot;, elapsed)
+
+	// --- Resource cleanup ---
+	fmt.Println(&quot;\n--- processFile ---&quot;)
+	processFile(&quot;good.txt&quot;)
+	processFile(&quot;bad.txt&quot;)
+
+	// --- Recover from panic ---
+	fmt.Println(&quot;\n--- safeDivide ---&quot;)
+	r, err := safeDivide(10, 2)
+	fmt.Printf(&quot;10/2 = %d, err=%v\n&quot;, r, err)
+
+	r, err = safeDivide(10, 0)
+	fmt.Printf(&quot;10/0 = %d, err=%v\n&quot;, r, err)
+}</code></pre>
+
+<p><strong>执行预览：</strong></p>
+<pre><code>deferModifyReturn: 11
+deferCannotModify: 10
+operation took: 100.x ms
+
+--- processFile ---
+opening good.txt
+processing good.txt
+closing good.txt (success)
+opening bad.txt
+closing bad.txt (with error: file not found: bad.txt)
+
+--- safeDivide ---
+10/2 = 5, err=&lt;nil&gt;
+10/0 = 0, err=panic recovered: runtime error: integer divide by zero</code></pre>
+
+<h2>注意事项</h2>
+
+<table><thead><tr>
+<th>项目</th>
+<th>说明</th>
+</tr></thead><tbody>
+<tr>
+<td>可变参数位置</td>
+<td>只能放在参数列表<strong>最后</strong>，且只能有一个</td>
+</tr>
+<tr>
+<td>可变参数类型</td>
+<td>内部是 slice，<code>nil</code> 也是合法的</td>
+</tr>
+<tr>
+<td>defer 参数求值</td>
+<td>defer 语句的参数在<strong>声明时</strong>求值，不是执行时</td>
+</tr>
+<tr>
+<td>defer 与 return</td>
+<td>执行顺序：赋值返回值 → 执行 defer → 函数返回</td>
+</tr>
+<tr>
+<td>命名 vs 匿名</td>
+<td>defer 只能修改<strong>命名返回值</strong>，匿名返回值无法修改</td>
+</tr>
+<tr>
+<td>defer 性能</td>
+<td>defer 有微小开销，热路径慎用（Go 1.14+ 已大幅优化）</td>
+</tr>
+</tbody></table>
+
+<h2>避坑指南</h2>
+
+<table><thead><tr>
+<th>❌ 错误做法</th>
+<th>✅ 正确做法</th>
+<th>说明</th>
+</tr></thead><tbody>
+<tr>
+<td>defer 在循环中忘记闭包陷阱</td>
+<td><code>defer func(v int) { }(i)</code> 或 <code>i := i</code></td>
+<td>循环变量被共享</td>
+</tr>
+<tr>
+<td>defer 修改匿名返回值期望生效</td>
+<td>使用命名返回值</td>
+<td>匿名返回值 defer 无法修改</td>
+</tr>
+<tr>
+<td><code>defer f.Close()</code> 不检查错误</td>
+<td><code>defer func() { _ = f.Close() }()</code></td>
+<td>生产环境应处理关闭错误</td>
+</tr>
+<tr>
+<td>可变参数直接传 slice</td>
+<td>使用 <code>slice...</code> 展开</td>
+<td>类型不匹配会编译错误</td>
+</tr>
+<tr>
+<td>在 defer 中做复杂业务逻辑</td>
+<td>defer 只做清理（释放、日志）</td>
+<td>defer 应保持简单</td>
+</tr>
+</tbody></table>
+
+<h2>练习题</h2>
+
+<h3>🟢 入门：可变参数最大值</h3>
+<p>编写 <code>max(nums ...int) int</code>，返回所有参数中的最大值。</p>
+
+<pre><code class="language-go">func max(nums ...int) int {
+    if len(nums) == 0 {
+        return 0
+    }
+    m := nums[0]
+    for _, n := range nums[1:] {
+        if n &gt; m { m = n }
+    }
+    return m
+}</code></pre>
+
+<h3>🟡 进阶：defer 追踪</h3>
+<p>编写函数 <code>trace(name string)</code>，利用 defer 打印函数进入和退出。</p>
+
+<pre><code class="language-go">func trace(name string) {
+    fmt.Println(&quot;entering:&quot;, name)
+    defer fmt.Println(&quot;leaving:&quot;, name)
+}
+
+func myFunc() {
+    trace(&quot;myFunc&quot;)
+    fmt.Println(&quot;doing work&quot;)
+}</code></pre>
+
+<h3>🔴 挑战：defer 实现计时包装器</h3>
+<p>编写 <code>measureTime(name string) func()</code>，返回一个函数，调用时记录开始时间，defer 调用返回的函数打印耗时。</p>
+
+<pre><code class="language-go">func measureTime(name string) func() {
+    start := time.Now()
+    return func() {
+        fmt.Printf(&quot;%s took %v\n&quot;, name, time.Since(start))
+    }
+}
+
+// Usage:
+func myTask() {
+    defer measureTime(&quot;myTask&quot;)()
+    time.Sleep(50 * time.Millisecond)
+}</code></pre>
+
+<h2>知识点总结</h2>
+
+<pre><code>可变参数与 defer
+├── 可变参数
+│   ├── ...T 语法
+│   ├── 内部为 slice
+│   ├── 展开 slice...
+│   └── 混合固定参数
+├── defer 执行模型
+│   ├── LIFO 顺序
+│   ├── 参数立即求值
+│   ├── return → defer → 返回
+│   └── 可修改命名返回值
+├── 闭包陷阱
+│   ├── 循环变量共享
+│   ├── 参数传递解决
+│   └── 变量 shadow 解决
+└── 实战模式
+    ├── 资源释放
+    ├── 函数计时
+    ├── panic recover
+    └── 日志追踪</code></pre>
+
+<h2>举一反三</h2>
+
+<table><thead><tr>
+<th>Go 特性</th>
+<th>其他语言等价</th>
+<th>说明</th>
+</tr></thead><tbody>
+<tr>
+<td><code>...T</code> 可变参数</td>
+<td>Python <code>*args</code>, JS <code>...args</code></td>
+<td>语法类似，Go 更严格</td>
+</tr>
+<tr>
+<td><code>slice...</code> 展开</td>
+<td>Python <code>func(*list)</code>, JS <code>func(...arr)</code></td>
+<td>将集合展开为参数</td>
+</tr>
+<tr>
+<td><code>defer</code></td>
+<td>Python <code>with</code>, C# <code>using</code>, C++ RAII</td>
+<td>资源管理，Go 用 defer</td>
+</tr>
+<tr>
+<td><code>defer</code> LIFO</td>
+<td>C++ 析构函数（反构造顺序）</td>
+<td>类似的栈式清理</td>
+</tr>
+<tr>
+<td><code>recover()</code></td>
+<td>Python <code>except</code>, Java <code>catch</code></td>
+<td>Go 用 recover 捕获 panic</td>
+</tr>
+</tbody></table>
+
+<h2>参考资料</h2>
+
+<ul>
+<li><a href="https://go.dev/doc/effective_go#defer">Effective Go - Defer</a></li>
+<li><a href="https://gobyexample.com/variadic-functions">Go by Example - Variadic Functions</a></li>
+<li><a href="https://gobyexample.com/defer">Go by Example - Defer</a></li>
+<li><a href="https://go.dev/doc/go1.14#runtime">Go 1.14 defer 优化</a></li>
+
+<h2>代码演进总结</h2>
+
+<pre><code>v1 → 可变参数基础：...T、展开slice、混合参数
+v2 → defer LIFO + 闭包陷阱：引用捕获、参数传递修复
+v3 → defer 与 return 交互 + 实战：命名返回值修改、计时、资源清理、recover</code></pre>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

@@ -1,0 +1,876 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>005-响应处理与渲染</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Golang/index.html">Golang</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Golang/05-Gin框架/index.html">Gin框架</a>
+</nav>
+<h1>005-响应处理与渲染</h1>
+<div class="meta">
+<span>📂 Gin框架</span>
+<span>🏷️ Golang</span>
+</div>
+<article>
+
+
+<h1>响应处理与渲染</h1>
+
+<blockquote><p><strong>难度：⭐⭐ 进阶级</strong> | 预计阅读：25分钟 | 适合：掌握参数绑定，需要规范输出响应、支持多种内容格式的开发者</p></blockquote>
+
+<h2>一、概念讲解</h2>
+
+<h3>1.1 Gin的响应体系</h3>
+
+<p>Gin提供了丰富的响应方法，覆盖常见的内容格式：</p>
+
+<pre><code>响应方法族
+├── c.JSON()       → application/json     (最常用)
+├── c.String()     → text/plain
+├── c.HTML()       → text/html            (模板渲染)
+├── c.XML()        → application/xml
+├── c.YAML()       → application/yaml
+├── c.File()       → 文件下载
+├── c.Data()       → 自定义二进制数据
+├── c.SSEvent()    → Server-Sent Events
+└── c.Redirect()   → HTTP重定向</code></pre>
+
+<h3>1.2 统一响应结构</h3>
+
+<p>REST API最佳实践：<strong>所有响应遵循统一格式</strong>。</p>
+
+<pre><code class="language-json">// Success
+{
+    &quot;code&quot;: 0,
+    &quot;message&quot;: &quot;success&quot;,
+    &quot;data&quot;: { ... }
+}
+
+// Error
+{
+    &quot;code&quot;: 40001,
+    &quot;message&quot;: &quot;Invalid parameter&quot;,
+    &quot;data&quot;: null
+}
+
+// List with pagination
+{
+    &quot;code&quot;: 0,
+    &quot;message&quot;: &quot;success&quot;,
+    &quot;data&quot;: {
+        &quot;items&quot;: [...],
+        &quot;total&quot;: 100,
+        &quot;page&quot;: 1,
+        &quot;page_size&quot;: 10
+    }
+}</code></pre>
+
+<h3>1.3 HTTP状态码选择</h3>
+
+<table><thead><tr>
+<th>场景</th>
+<th>状态码</th>
+<th>说明</th>
+</tr></thead><tbody>
+<tr>
+<td>创建成功</td>
+<td>201 Created</td>
+<td>POST成功</td>
+</tr>
+<tr>
+<td>查询成功</td>
+<td>200 OK</td>
+<td>GET成功</td>
+</tr>
+<tr>
+<td>更新成功</td>
+<td>200 OK</td>
+<td>PUT/PATCH成功</td>
+</tr>
+<tr>
+<td>删除成功</td>
+<td>200 OK / 204 No Content</td>
+<td>DELETE成功</td>
+</tr>
+<tr>
+<td>参数错误</td>
+<td>400 Bad Request</td>
+<td>验证失败</td>
+</tr>
+<tr>
+<td>未认证</td>
+<td>401 Unauthorized</td>
+<td>未登录</td>
+</tr>
+<tr>
+<td>无权限</td>
+<td>403 Forbidden</td>
+<td>权限不足</td>
+</tr>
+<tr>
+<td>资源不存在</td>
+<td>404 Not Found</td>
+<td>找不到</td>
+</tr>
+<tr>
+<td>重复创建</td>
+<td>409 Conflict</td>
+<td>资源已存在</td>
+</tr>
+<tr>
+<td>服务器错误</td>
+<td>500 Internal Server Error</td>
+<td>未捕获异常</td>
+</tr>
+</tbody></table>
+
+<h2>二、脑图</h2>
+
+<pre><code>Gin响应体系
+├── 响应方法
+│   ├── c.JSON(code, data)
+│   ├── c.String(code, format, args...)
+│   ├── c.HTML(code, template, data)
+│   ├── c.XML(code, data)
+│   ├── c.File(filePath)
+│   ├── c.Data(code, contentType, data)
+│   └── c.Redirect(code, url)
+├── 统一响应
+│   ├── 成功响应 Success()
+│   ├── 错误响应 Error()
+│   ├── 分页响应 PageResult()
+│   └── 响应中间件
+├── 模板渲染
+│   ├── gin.LoadHTMLGlob()
+│   ├── gin.LoadHTMLFiles()
+│   └── html/template语法
+├── 流式响应
+│   ├── SSE (Server-Sent Events)
+│   ├── c.Stream()
+│   └── Chunked transfer
+└── 特殊响应
+    ├── 文件下载 (Content-Disposition)
+    ├── 重定向 (301/302/307)
+    └── 空响应 (204 No Content)</code></pre>
+
+<h2>三、完整代码</h2>
+
+<h3>3.1 统一响应结构封装</h3>
+
+<pre><code class="language-go">package response
+
+import (
+    &quot;net/http&quot;
+    &quot;github.com/gin-gonic/gin&quot;
+)
+
+// Response is the unified API response structure
+type Response struct {
+    Code    int         `json:&quot;code&quot;`
+    Message string      `json:&quot;message&quot;`
+    Data    interface{} `json:&quot;data,omitempty&quot;`
+}
+
+// PageData wraps paginated list results
+type PageData struct {
+    Items    interface{} `json:&quot;items&quot;`
+    Total    int64       `json:&quot;total&quot;`
+    Page     int         `json:&quot;page&quot;`
+    PageSize int         `json:&quot;page_size&quot;`
+}
+
+// Success sends a successful response
+func Success(c *gin.Context, data interface{}) {
+    c.JSON(http.StatusOK, Response{
+        Code:    0,
+        Message: &quot;success&quot;,
+        Data:    data,
+    })
+}
+
+// Created sends a 201 response for resource creation
+func Created(c *gin.Context, data interface{}) {
+    c.JSON(http.StatusCreated, Response{
+        Code:    0,
+        Message: &quot;created&quot;,
+        Data:    data,
+    })
+}
+
+// Error sends an error response
+func Error(c *gin.Context, httpStatus int, code int, message string) {
+    c.JSON(httpStatus, Response{
+        Code:    code,
+        Message: message,
+    })
+}
+
+// PageResult sends a paginated list response
+func PageResult(c *gin.Context, items interface{}, total int64, page, pageSize int) {
+    Success(c, PageData{
+        Items:    items,
+        Total:    total,
+        Page:     page,
+        PageSize: pageSize,
+    })
+}</code></pre>
+
+<h3>3.2 多种响应格式</h3>
+
+<pre><code class="language-go">package main
+
+import (
+    &quot;net/http&quot;
+    &quot;github.com/gin-gonic/gin&quot;
+)
+
+type User struct {
+    ID   int    `json:&quot;id&quot; xml:&quot;id&quot;`
+    Name string `json:&quot;name&quot; xml:&quot;name&quot;`
+}
+
+func main() {
+    r := gin.Default()
+
+    // JSON response (most common)
+    r.GET(&quot;/json&quot;, func(c *gin.Context) {
+        c.JSON(http.StatusOK, gin.H{
+            &quot;framework&quot;: &quot;Gin&quot;,
+            &quot;version&quot;:   &quot;1.9&quot;,
+        })
+    })
+
+    // Pretty JSON (indented, for debugging)
+    r.GET(&quot;/json/pretty&quot;, func(c *gin.Context) {
+        c.IndentedJSON(http.StatusOK, gin.H{
+            &quot;framework&quot;: &quot;Gin&quot;,
+            &quot;features&quot;:  []string{&quot;fast&quot;, &quot;middleware&quot;, &quot;binding&quot;},
+        })
+    })
+
+    // String response
+    r.GET(&quot;/string&quot;, func(c *gin.Context) {
+        c.String(http.StatusOK, &quot;Hello, %s! You are visitor #%d&quot;, &quot;Gopher&quot;, 42)
+    })
+
+    // XML response
+    r.GET(&quot;/xml&quot;, func(c *gin.Context) {
+        user := User{ID: 1, Name: &quot;Alice&quot;}
+        c.XML(http.StatusOK, user)
+    })
+
+    // YAML response
+    r.GET(&quot;/yaml&quot;, func(c *gin.Context) {
+        c.YAML(http.StatusOK, gin.H{
+            &quot;name&quot;:    &quot;Gin&quot;,
+            &quot;version&quot;: &quot;1.9&quot;,
+        })
+    })
+
+    // File download
+    r.GET(&quot;/download&quot;, func(c *gin.Context) {
+        c.File(&quot;./files/report.pdf&quot;)
+    })
+
+    // File with custom filename
+    r.GET(&quot;/download/custom&quot;, func(c *gin.Context) {
+        c.Header(&quot;Content-Disposition&quot;, &quot;attachment; filename=report-2026.pdf&quot;)
+        c.File(&quot;./files/report.pdf&quot;)
+    })
+
+    // Redirect
+    r.GET(&quot;/redirect&quot;, func(c *gin.Context) {
+        c.Redirect(http.StatusMovedPermanently, &quot;/json&quot;)
+    })
+
+    // External redirect
+    r.GET(&quot;/external&quot;, func(c *gin.Context) {
+        c.Redirect(http.StatusFound, &quot;https://gin-gonic.com&quot;)
+    })
+
+    r.Run(&quot;:8080&quot;)
+}</code></pre>
+
+<h3>3.3 模板渲染</h3>
+
+<pre><code class="language-go">package main
+
+import (
+    &quot;net/http&quot;
+    &quot;github.com/gin-gonic/gin&quot;
+)
+
+func main() {
+    r := gin.Default()
+
+    // Load HTML templates
+    r.LoadHTMLGlob(&quot;templates/*&quot;)
+    // Or load specific files:
+    // r.LoadHTMLFiles(&quot;templates/index.html&quot;, &quot;templates/about.html&quot;)
+
+    // Render HTML template
+    r.GET(&quot;/&quot;, func(c *gin.Context) {
+        c.HTML(http.StatusOK, &quot;index.html&quot;, gin.H{
+            &quot;title&quot;:   &quot;Gin Blog&quot;,
+            &quot;content&quot;: &quot;Welcome to the Gin framework tutorial!&quot;,
+            &quot;posts&quot;: []struct {
+                Title string
+                Body  string
+            }{
+                {&quot;Getting Started&quot;, &quot;Learn the basics of Gin...&quot;},
+                {&quot;Routing&quot;, &quot;Master Gin&#x27;s routing system...&quot;},
+            },
+        })
+    })
+
+    r.Run(&quot;:8080&quot;)
+}</code></pre>
+
+<p>templates/index.html:</p>
+<pre><code class="language-html">&lt;!DOCTYPE html&gt;
+&lt;html&gt;
+&lt;head&gt;
+    &lt;title&gt;{{ .title }}&lt;/title&gt;
+&lt;/head&gt;
+&lt;body&gt;
+    &lt;h1&gt;{{ .title }}&lt;/h1&gt;
+    &lt;p&gt;{{ .content }}&lt;/p&gt;
+    &lt;h2&gt;Recent Posts&lt;/h2&gt;
+    {{ range .posts }}
+    &lt;div class=&quot;post&quot;&gt;
+        &lt;h3&gt;{{ .Title }}&lt;/h3&gt;
+        &lt;p&gt;{{ .Body }}&lt;/p&gt;
+    &lt;/div&gt;
+    {{ end }}
+&lt;/body&gt;
+&lt;/html&gt;</code></pre>
+
+<h3>3.4 Server-Sent Events (SSE) 流式响应</h3>
+
+<pre><code class="language-go">package main
+
+import (
+    &quot;fmt&quot;
+    &quot;math/rand&quot;
+    &quot;net/http&quot;
+    &quot;time&quot;
+    &quot;github.com/gin-gonic/gin&quot;
+)
+
+func main() {
+    r := gin.Default()
+
+    // SSE endpoint for real-time updates
+    r.GET(&quot;/stream&quot;, func(c *gin.Context) {
+        // Set SSE headers
+        c.Header(&quot;Content-Type&quot;, &quot;text/event-stream&quot;)
+        c.Header(&quot;Cache-Control&quot;, &quot;no-cache&quot;)
+        c.Header(&quot;Connection&quot;, &quot;keep-alive&quot;)
+
+        // Stream events
+        for i := 0; i &lt; 10; i++ {
+            // Use c.SSEvent for structured SSE
+            c.SSEvent(&quot;message&quot;, gin.H{
+                &quot;id&quot;:    i,
+                &quot;value&quot;: rand.Intn(100),
+                &quot;time&quot;:  time.Now().Format(&quot;15:04:05&quot;),
+            })
+            c.Writer.Flush() // Important: flush each event
+            
+            select {
+            case &lt;-time.After(time.Second):
+                // Wait 1 second between events
+            case &lt;-c.Request.Context().Done():
+                // Client disconnected
+                return
+            }
+        }
+    })
+
+    // Stream using c.Stream for more control
+    r.GET(&quot;/stream/custom&quot;, func(c *gin.Context) {
+        c.Header(&quot;Content-Type&quot;, &quot;text/event-stream&quot;)
+        c.Header(&quot;Cache-Control&quot;, &quot;no-cache&quot;)
+
+        c.Stream(func(w io.Writer) bool {
+            fmt.Fprintf(w, &quot;data: %s\n\n&quot;, time.Now().Format(&quot;15:04:05&quot;))
+            return true // return false to stop streaming
+        })
+    })
+
+    r.Run(&quot;:8080&quot;)
+}</code></pre>
+
+<h3>3.5 完整示例：统一响应+多种格式</h3>
+
+<pre><code class="language-go">package main
+
+import (
+    &quot;io&quot;
+    &quot;math/rand&quot;
+    &quot;net/http&quot;
+    &quot;time&quot;
+    &quot;github.com/gin-gonic/gin&quot;
+)
+
+// Unified response helpers
+func OK(c *gin.Context, data interface{}) {
+    c.JSON(http.StatusOK, gin.H{&quot;code&quot;: 0, &quot;message&quot;: &quot;success&quot;, &quot;data&quot;: data})
+}
+
+func Fail(c *gin.Context, code int, msg string) {
+    c.JSON(code, gin.H{&quot;code&quot;: code * 100, &quot;message&quot;: msg})
+}
+
+func main() {
+    r := gin.Default()
+    r.LoadHTMLGlob(&quot;templates/*&quot;)
+
+    // API routes with unified JSON responses
+    api := r.Group(&quot;/api&quot;)
+    {
+        api.GET(&quot;/users&quot;, func(c *gin.Context) {
+            users := []gin.H{
+                {&quot;id&quot;: 1, &quot;name&quot;: &quot;Alice&quot;},
+                {&quot;id&quot;: 2, &quot;name&quot;: &quot;Bob&quot;},
+            }
+            OK(c, gin.H{&quot;items&quot;: users, &quot;total&quot;: len(users)})
+        })
+
+        api.GET(&quot;/users/:id&quot;, func(c *gin.Context) {
+            // ... lookup user
+            OK(c, gin.H{&quot;id&quot;: 1, &quot;name&quot;: &quot;Alice&quot;})
+        })
+
+        api.POST(&quot;/users&quot;, func(c *gin.Context) {
+            var input struct {
+                Name string `json:&quot;name&quot; binding:&quot;required&quot;`
+            }
+            if err := c.ShouldBindJSON(&amp;input); err != nil {
+                Fail(c, http.StatusBadRequest, err.Error())
+                return
+            }
+            c.JSON(http.StatusCreated, gin.H{
+                &quot;code&quot;: 0, &quot;message&quot;: &quot;created&quot;,
+                &quot;data&quot;: gin.H{&quot;id&quot;: rand.Intn(1000), &quot;name&quot;: input.Name},
+            })
+        })
+
+        api.DELETE(&quot;/users/:id&quot;, func(c *gin.Context) {
+            c.Status(http.StatusNoContent) // 204, no body
+        })
+    }
+
+    // Page routes with HTML rendering
+    r.GET(&quot;/&quot;, func(c *gin.Context) {
+        c.HTML(http.StatusOK, &quot;index.html&quot;, gin.H{&quot;title&quot;: &quot;Home&quot;})
+    })
+
+    // SSE stream
+    r.GET(&quot;/events&quot;, func(c *gin.Context) {
+        c.Header(&quot;Content-Type&quot;, &quot;text/event-stream&quot;)
+        c.Header(&quot;Cache-Control&quot;, &quot;no-cache&quot;)
+        c.Header(&quot;Connection&quot;, &quot;keep-alive&quot;)
+        for i := 0; i &lt; 5; i++ {
+            c.SSEvent(&quot;tick&quot;, gin.H{&quot;count&quot;: i, &quot;ts&quot;: time.Now().Unix()})
+            c.Writer.Flush()
+            time.Sleep(time.Second)
+        }
+    })
+
+    r.Run(&quot;:8080&quot;)
+}</code></pre>
+
+<h2>四、执行预览</h2>
+
+<pre><code class="language-bash"># JSON response
+$ curl http://localhost:8080/api/users
+{&quot;code&quot;:0,&quot;data&quot;:{&quot;items&quot;:[{&quot;id&quot;:1,&quot;name&quot;:&quot;Alice&quot;},{&quot;id&quot;:2,&quot;name&quot;:&quot;Bob&quot;}],&quot;total&quot;:2},&quot;message&quot;:&quot;success&quot;}
+
+# Create user
+$ curl -X POST http://localhost:8080/api/users \
+  -H &quot;Content-Type: application/json&quot; \
+  -d &#x27;{&quot;name&quot;:&quot;Charlie&quot;}&#x27;
+{&quot;code&quot;:0,&quot;data&quot;:{&quot;id&quot;:547,&quot;name&quot;:&quot;Charlie&quot;},&quot;message&quot;:&quot;created&quot;}
+
+# Validation error with unified format
+$ curl -X POST http://localhost:8080/api/users \
+  -H &quot;Content-Type: application/json&quot; \
+  -d &#x27;{}&#x27;
+{&quot;code&quot;:40000,&quot;message&quot;:&quot;Key: ... &#x27;Name&#x27; Error: ... required&quot;,&quot;data&quot;:null}
+
+# SSE stream
+$ curl http://localhost:8080/events
+event: tick
+data: {&quot;count&quot;:0,&quot;ts&quot;:1745840000}
+
+event: tick
+data: {&quot;count&quot;:1,&quot;ts&quot;:1745840001}
+...
+
+# File download
+$ curl -O http://localhost:8080/download
+# Downloads report.pdf
+
+# HTML page
+$ curl http://localhost:8080/
+&lt;!DOCTYPE html&gt;&lt;html&gt;...&lt;h1&gt;Home&lt;/h1&gt;...&lt;/html&gt;</code></pre>
+
+<h2>五、注意事项</h2>
+
+<table><thead><tr>
+<th>事项</th>
+<th>说明</th>
+<th>建议</th>
+</tr></thead><tbody>
+<tr>
+<td>JSON序列化</td>
+<td>结构体字段必须导出(大写)</td>
+<td>使用json标签控制字段名</td>
+</tr>
+<tr>
+<td>模板热重载</td>
+<td>生产环境不要热重载</td>
+<td>开发用<code>LoadHTMLGlob</code>，生产用<code>LoadHTMLFiles</code></td>
+</tr>
+<tr>
+<td>SSE断开</td>
+<td>客户端可能随时断开</td>
+<td>监听<code>c.Request.Context().Done()</code></td>
+</tr>
+<tr>
+<td>204响应</td>
+<td>没有响应体</td>
+<td>用<code>c.Status(204)</code>而非<code>c.JSON(204, ...)</code></td>
+</tr>
+<tr>
+<td>中文编码</td>
+<td>String默认UTF-8</td>
+<td>XML需声明<code><?xml version="1.0" encoding="UTF-8"?></code></td>
+</tr>
+</tbody></table>
+
+<h2>六、避坑指南</h2>
+
+<h3>❌ 响应后继续操作</h3>
+<pre><code class="language-go">r.GET(&quot;/bad&quot;, func(c *gin.Context) {
+    c.JSON(200, gin.H{&quot;msg&quot;: &quot;ok&quot;})
+    // Continuing to write response after sending is dangerous
+    c.JSON(200, gin.H{&quot;msg&quot;: &quot;another&quot;}) // Ignored or corrupts response
+})</code></pre>
+<h3>✅ 响应后立即return</h3>
+<pre><code class="language-go">r.GET(&quot;/good&quot;, func(c *gin.Context) {
+    c.JSON(200, gin.H{&quot;msg&quot;: &quot;ok&quot;})
+    return // Clear exit after response
+})</code></pre>
+
+<h3>❌ 不统一的响应格式</h3>
+<pre><code class="language-go">// Sometimes {&quot;error&quot;: &quot;...&quot;}, sometimes {&quot;msg&quot;: &quot;...&quot;}, sometimes raw string
+r.GET(&quot;/a&quot;, func(c *gin.Context) { c.JSON(200, &quot;ok&quot;) })
+r.GET(&quot;/b&quot;, func(c *gin.Context) { c.JSON(400, gin.H{&quot;error&quot;: &quot;bad&quot;}) })
+r.GET(&quot;/c&quot;, func(c *gin.Context) { c.String(500, &quot;server error&quot;) })</code></pre>
+<h3>✅ 封装统一响应函数</h3>
+<pre><code class="language-go">func OK(c *gin.Context, data interface{}) {
+    c.JSON(200, gin.H{&quot;code&quot;: 0, &quot;message&quot;: &quot;success&quot;, &quot;data&quot;: data})
+}
+func Fail(c *gin.Context, code int, msg string) {
+    c.JSON(code, gin.H{&quot;code&quot;: code, &quot;message&quot;: msg})
+}</code></pre>
+
+<h3>❌ SSE不Flush</h3>
+<pre><code class="language-go">r.GET(&quot;/stream&quot;, func(c *gin.Context) {
+    c.SSEvent(&quot;msg&quot;, &quot;data&quot;)
+    // Without Flush, data stays in buffer, client sees nothing!
+})</code></pre>
+<h3>✅ 每次SSEvent后Flush</h3>
+<pre><code class="language-go">r.GET(&quot;/stream&quot;, func(c *gin.Context) {
+    c.SSEvent(&quot;msg&quot;, &quot;data&quot;)
+    c.Writer.Flush() // Push data to client immediately
+})</code></pre>
+
+<h2>七、练习题</h2>
+
+<h3>🟢 初级：基础响应</h3>
+<ol>
+<li>实现一个API，对JSON请求返回JSON响应，对查询参数<code>format=xml</code>返回XML响应</li>
+</ul>
+<ol>
+<li>创建一个文件下载接口，根据ID下载对应文件</li>
+
+<h3>🟡 中级：统一响应封装</h3>
+<ol>
+<li>封装完整的响应工具包：Success/Created/Error/PageResult，应用到CRUD接口</li>
+</ul>
+<ol>
+<li>实现一个HTML模板渲染页面，展示文章列表</li>
+
+<h3>🔴 高级：SSE实时推送</h3>
+<ol>
+<li>实现一个实时日志查看器：客户端通过SSE连接，服务端推送最新日志行（提示：监听文件变化用<code>fsnotify</code>）</li>
+
+<h2>八、知识点总结</h2>
+
+<pre><code>Gin响应知识树
+├── 响应方法
+│   ├── c.JSON / c.IndentedJSON / c.SecureJSON
+│   ├── c.String
+│   ├── c.HTML (需LoadHTMLGlob/Files)
+│   ├── c.XML / c.YAML
+│   ├── c.File / c.DataFromReader
+│   ├── c.Data (raw bytes)
+│   └── c.Status (仅状态码，无body)
+├── Header操作
+│   ├── c.Header(key, value)
+│   ├── c.SetCookie / c.Cookie
+│   └── c.Writer.Header()
+├── 重定向
+│   ├── 301 Moved Permanently
+│   ├── 302 Found (临时重定向)
+│   └── 307 Temporary Redirect
+├── 流式响应
+│   ├── c.SSEvent(name, data)
+│   ├── c.Stream(callback)
+│   └── c.Writer.Flush()
+└── 统一响应
+    ├── 封装Response结构体
+    ├── 成功/失败/分页函数
+    └── 项目级response包</code></pre>
+
+<h2>九、举一反三</h2>
+
+<table><thead><tr>
+<th>Gin响应</th>
+<th>其他框架/场景</th>
+<th>差异</th>
+</tr></thead><tbody>
+<tr>
+<td><code>c.JSON(200, data)</code></td>
+<td>Express: <code>res.json(data)</code></td>
+<td>Express自动设200，Gin需显式</td>
+</tr>
+<tr>
+<td><code>c.HTML(200, "tpl", data)</code></td>
+<td>Express: <code>res.render("tpl", data)</code></td>
+<td>概念相同</td>
+</tr>
+<tr>
+<td><code>c.File(path)</code></td>
+<td>Express: <code>res.download(path)</code></td>
+<td>Gin更底层</td>
+</tr>
+<tr>
+<td>SSEvent</td>
+<td>原生<code>text/event-stream</code></td>
+<td>Gin封装了SSEvent辅助方法</td>
+</tr>
+<tr>
+<td>统一响应封装</td>
+<td>NestJS Interceptor</td>
+<td>Go用工具函数更直接</td>
+</tr>
+</tbody></table>
+
+<h2>十、参考资料</h2>
+
+<ul>
+<li><a href="https://gin-gonic.com/docs/examples/bind-body-with-shouldbind/">Gin响应格式官方文档</a></li>
+<li><a href="https://www.rfc-editor.org/rfc/rfc9110#name-status-codes">HTTP状态码RFC</a></li>
+<li><a href="https://html.spec.whatwg.org/multipage/server-sent-events.html">Server-Sent Events规范</a></li>
+<li><a href="https://pkg.go.dev/html/template">Go html/template文档</a></li>
+
+<h2>十一、代码演进</h2>
+
+<h3>v1: 直接返回JSON</h3>
+<pre><code class="language-go">r.GET(&quot;/users&quot;, func(c *gin.Context) {
+    c.JSON(200, []map[string]string{
+        {&quot;id&quot;: &quot;1&quot;, &quot;name&quot;: &quot;Alice&quot;},
+    })
+})</code></pre>
+
+<h3>v2: 统一响应结构</h3>
+<pre><code class="language-go">r.GET(&quot;/users&quot;, func(c *gin.Context) {
+    users := []User{{ID: 1, Name: &quot;Alice&quot;}}
+    c.JSON(200, gin.H{
+        &quot;code&quot;:    0,
+        &quot;message&quot;: &quot;success&quot;,
+        &quot;data&quot;:    users,
+    })
+})</code></pre>
+
+<h3>v3: 封装响应工具+多格式+模板+SSE</h3>
+<pre><code class="language-go">package main
+
+import (
+    &quot;fmt&quot;
+    &quot;io&quot;
+    &quot;log&quot;
+    &quot;net/http&quot;
+    &quot;time&quot;
+    &quot;github.com/gin-gonic/gin&quot;
+)
+
+// --- Unified response package ---
+type R struct {
+    Code    int         `json:&quot;code&quot;`
+    Message string      `json:&quot;message&quot;`
+    Data    interface{} `json:&quot;data,omitempty&quot;`
+}
+
+func Ok(c *gin.Context, data interface{}) {
+    c.JSON(http.StatusOK, R{Code: 0, Message: &quot;success&quot;, Data: data})
+}
+
+func Created(c *gin.Context, data interface{}) {
+    c.JSON(http.StatusCreated, R{Code: 0, Message: &quot;created&quot;, Data: data})
+}
+
+func Err(c *gin.Context, status int, msg string) {
+    c.JSON(status, R{Code: status * 100, Message: msg})
+}
+
+func NoContent(c *gin.Context) {
+    c.Status(http.StatusNoContent)
+}
+
+// --- Application ---
+type User struct {
+    ID   int    `json:&quot;id&quot;`
+    Name string `json:&quot;name&quot;`
+}
+
+var users = []User{{1, &quot;Alice&quot;}, {2, &quot;Bob&quot;}}
+
+func main() {
+    gin.SetMode(gin.ReleaseMode)
+    r := gin.Default()
+    r.LoadHTMLGlob(&quot;templates/*&quot;)
+
+    // JSON API
+    api := r.Group(&quot;/api&quot;)
+    {
+        api.GET(&quot;/users&quot;, func(c *gin.Context) {
+            Ok(c, gin.H{&quot;items&quot;: users, &quot;total&quot;: len(users)})
+        })
+        api.GET(&quot;/users/:id&quot;, func(c *gin.Context) {
+            Ok(c, users[0])
+        })
+        api.POST(&quot;/users&quot;, func(c *gin.Context) {
+            var input struct {
+                Name string `json:&quot;name&quot; binding:&quot;required&quot;`
+            }
+            if err := c.ShouldBindJSON(&amp;input); err != nil {
+                Err(c, http.StatusBadRequest, err.Error())
+                return
+            }
+            Created(c, User{ID: 3, Name: input.Name})
+        })
+        api.DELETE(&quot;/users/:id&quot;, func(c *gin.Context) {
+            NoContent(c)
+        })
+
+        // XML format
+        api.GET(&quot;/users.xml&quot;, func(c *gin.Context) {
+            c.XML(http.StatusOK, gin.H{&quot;users&quot;: users})
+        })
+    }
+
+    // HTML page
+    r.GET(&quot;/&quot;, func(c *gin.Context) {
+        c.HTML(http.StatusOK, &quot;index.html&quot;, gin.H{
+            &quot;title&quot;: &quot;Gin Demo&quot;,
+            &quot;users&quot;: users,
+        })
+    })
+
+    // SSE stream
+    r.GET(&quot;/events&quot;, func(c *gin.Context) {
+        c.Header(&quot;Content-Type&quot;, &quot;text/event-stream&quot;)
+        c.Header(&quot;Cache-Control&quot;, &quot;no-cache&quot;)
+        c.Header(&quot;Connection&quot;, &quot;keep-alive&quot;)
+        
+        ctx := c.Request.Context()
+        for i := 0; i &lt; 20; i++ {
+            select {
+            case &lt;-ctx.Done():
+                log.Println(&quot;Client disconnected&quot;)
+                return
+            case &lt;-time.After(time.Second):
+                c.SSEvent(&quot;tick&quot;, fmt.Sprintf(&quot;event #%d at %s&quot;, i, time.Now().Format(&quot;15:04:05&quot;)))
+                c.Writer.Flush()
+            }
+        }
+    })
+
+    // File download with custom name
+    r.GET(&quot;/download/report&quot;, func(c *gin.Context) {
+        c.Header(&quot;Content-Disposition&quot;, &quot;attachment; filename=report.csv&quot;)
+        c.Data(http.StatusOK, &quot;text/csv&quot;, []byte(&quot;id,name\n1,Alice\n2,Bob\n&quot;))
+    })
+
+    log.Println(&quot;Server on :8080&quot;)
+    r.Run(&quot;:8080&quot;)
+}</code></pre>
+
+<hr>
+
+<p><em>上一篇：<a href="/posts/004-gin-binding">参数绑定与验证</a> ← | 🎉 Gin基础系列完结！</em></p>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

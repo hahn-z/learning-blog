@@ -1,0 +1,513 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>017 - Map字典详解</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/learning-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/learning-blog/Golang/index.html">Golang</a>
+<span class="sep">›</span>
+<a href="/learning-blog/Golang/01-入门/index.html">Golang入门</a>
+</nav>
+<h1>017 - Map字典详解</h1>
+<div class="meta">
+<span>📂 Golang入门</span>
+<span>🏷️ Golang</span>
+</div>
+<article>
+
+
+<h1>017-Map字典详解</h1>
+
+<blockquote><p><strong>难度：⭐⭐⭐</strong> | 适合掌握基础语法，想全面理解 map 机制的开发者</p></blockquote>
+
+<h2>一、概念讲解</h2>
+
+<p>Map 是 Go 内置的<strong>哈希表</strong>实现，提供键值对（key-value）存储。它的核心特点：</p>
+
+<ul>
+<li><strong>引用类型</strong>：map 变量本身是一个指针，指向底层的哈希表数据结构</li>
+<li><strong>无序遍历</strong>：每次 <code>range</code> 遍历的顺序是随机的（Go 故意设计）</li>
+<li><strong>零值为 nil</strong>：未初始化的 map 是 <code>nil</code>，写入会 panic</li>
+<li><strong>并发不安全</strong>：多个 goroutine 同时读写会触发 fatal error</li>
+
+<p>Go 的 map 底层使用<strong>哈希桶</strong>（buckets）实现，每个桶存 8 个键值对。当负载因子超过 6.5 时触发扩容（渐进式，不是一次完成）。</p>
+
+<h2>二、脑图（ASCII）</h2>
+
+<pre><code>                    Map 字典
+                       │
+      ┌────────────────┼────────────────┐
+      │                │                │
+   创建方式         核心操作         高级主题
+      │                │                │
+   ┌──┼──┐         ┌───┼───┐       ┌────┼────┐
+   │     │         │   │   │       │    │    │
+  make 字面量     CRUD 遍历 存在  零值 并发  sync.Map
+                    判断</code></pre>
+
+<h2>三、完整 Go 代码</h2>
+
+<pre><code class="language-go">package main
+
+import (
+	&quot;fmt&quot;
+	&quot;strconv&quot;
+	&quot;sync&quot;
+)
+
+// DemoCreateMap shows different ways to create a map
+func DemoCreateMap() {
+	// Method 1: make
+	m1 := make(map[string]int)
+	m1[&quot;go&quot;] = 1
+	fmt.Printf(&quot;make: %v\n&quot;, m1)
+
+	// Method 2: literal
+	m2 := map[string]int{
+		&quot;python&quot;: 2,
+		&quot;java&quot;:   3,
+	}
+	fmt.Printf(&quot;literal: %v\n&quot;, m2)
+
+	// Method 3: make with capacity hint (Go 1.11+)
+	m3 := make(map[string]int, 100) // hint for 100 entries
+	_ = m3
+	fmt.Println(&quot;capacity hint: helpful for large maps&quot;)
+}
+
+// DemoCRUD demonstrates Create, Read, Update, Delete operations
+func DemoCRUD() {
+	m := make(map[string]int)
+
+	// Create / Update
+	m[&quot;alice&quot;] = 90
+	m[&quot;bob&quot;] = 85
+	fmt.Printf(&quot;After set: %v\n&quot;, m)
+
+	// Read
+	score := m[&quot;alice&quot;]
+	fmt.Printf(&quot;alice&#x27;s score: %d\n&quot;, score)
+
+	// Read non-existent key (returns zero value)
+	unknown := m[&quot;charlie&quot;]
+	fmt.Printf(&quot;charlie&#x27;s score (not exist): %d\n&quot;, unknown)
+
+	// Delete
+	delete(m, &quot;bob&quot;)
+	fmt.Printf(&quot;After delete bob: %v\n&quot;, m)
+}
+
+// DemoCheckKeyExist shows how to check if a key exists
+func DemoCheckKeyExist() {
+	m := map[string]int{&quot;go&quot;: 2009, &quot;rust&quot;: 2010}
+
+	// Two-value assignment to check existence
+	if v, ok := m[&quot;go&quot;]; ok {
+		fmt.Printf(&quot;go exists: %d\n&quot;, v)
+	}
+
+	if _, ok := m[&quot;python&quot;]; !ok {
+		fmt.Println(&quot;python does not exist&quot;)
+	}
+}
+
+// DemoIteration shows that map iteration order is random
+func DemoIteration() {
+	m := map[string]int{
+		&quot;a&quot;: 1, &quot;b&quot;: 2, &quot;c&quot;: 3, &quot;d&quot;: 4, &quot;e&quot;: 5,
+	}
+	fmt.Print(&quot;Iteration order: &quot;)
+	for k, v := range m {
+		fmt.Printf(&quot;%s=%d &quot;, k, v)
+	}
+	fmt.Println()
+	// Run multiple times — order will differ!
+}
+
+// DemoMapAsParameter shows map is passed by reference
+func DemoMapAsParameter() {
+	m := map[string]int{&quot;x&quot;: 1}
+	modifyMap(m)
+	fmt.Printf(&quot;After function call: %v\n&quot;, m) // x is modified!
+}
+
+func modifyMap(m map[string]int) {
+	m[&quot;x&quot;] = 999
+}
+
+// DemoNilMapPanic shows nil map behavior
+func DemoNilMapPanic() {
+	var m map[string]int // nil map
+
+	// Reading from nil map is safe — returns zero value
+	fmt.Printf(&quot;Read nil map: %d\n&quot;, m[&quot;key&quot;])
+
+	// Writing to nil map panics!
+	// m[&quot;key&quot;] = 1 // ← would panic: assignment to entry in nil map
+
+	// Fix: always initialize before writing
+	m = make(map[string]int)
+	m[&quot;key&quot;] = 1
+	fmt.Printf(&quot;After init: %v\n&quot;, m)
+}
+
+// DemoConcurrentUnsafe shows that map is NOT concurrent-safe
+// This would panic if run concurrently without sync
+func DemoConcurrentUnsafe() {
+	m := make(map[int]string)
+	var wg sync.WaitGroup
+
+	// Use mutex to protect map access
+	var mu sync.Mutex
+
+	for i := 0; i &lt; 10; i++ {
+		wg.Add(1)
+		go func(n int) {
+			defer wg.Done()
+			mu.Lock()
+			m[n] = &quot;value&quot; + strconv.Itoa(n)
+			mu.Unlock()
+		}(i)
+	}
+	wg.Wait()
+	fmt.Printf(&quot;Concurrent safe with mutex: %d entries\n&quot;, len(m))
+}
+
+// DemoSyncMap shows sync.Map for concurrent access
+func DemoSyncMap() {
+	var sm sync.Map
+
+	// Store
+	sm.Store(&quot;go&quot;, 2009)
+	sm.Store(&quot;rust&quot;, 2010)
+
+	// Load
+	if v, ok := sm.Load(&quot;go&quot;); ok {
+		fmt.Printf(&quot;sync.Map load: go=%v\n&quot;, v)
+	}
+
+	// LoadOrStore
+	actual, loaded := sm.LoadOrStore(&quot;go&quot;, 9999)
+	fmt.Printf(&quot;LoadOrStore: actual=%v, loaded=%v\n&quot;, actual, loaded)
+
+	// Range
+	fmt.Print(&quot;sync.Map range: &quot;)
+	sm.Range(func(k, v any) bool {
+		fmt.Printf(&quot;%v=%v &quot;, k, v)
+		return true
+	})
+	fmt.Println()
+
+	// Delete
+	sm.Delete(&quot;rust&quot;)
+}
+
+func main() {
+	fmt.Println(&quot;=== Create Map ===&quot;)
+	DemoCreateMap()
+
+	fmt.Println(&quot;\n=== CRUD ===&quot;)
+	DemoCRUD()
+
+	fmt.Println(&quot;\n=== Check Key Exist ===&quot;)
+	DemoCheckKeyExist()
+
+	fmt.Println(&quot;\n=== Iteration (Random Order) ===&quot;)
+	DemoIteration()
+
+	fmt.Println(&quot;\n=== Map As Parameter ===&quot;)
+	DemoMapAsParameter()
+
+	fmt.Println(&quot;\n=== Nil Map ===&quot;)
+	DemoNilMapPanic()
+
+	fmt.Println(&quot;\n=== Concurrent Safe ===&quot;)
+	DemoConcurrentUnsafe()
+
+	fmt.Println(&quot;\n=== sync.Map ===&quot;)
+	DemoSyncMap()
+}</code></pre>
+
+<h2>四、执行预览</h2>
+
+<pre><code>=== Create Map ===
+make: map[go:1]
+literal: map[java:3 python:2]
+capacity hint: helpful for large maps
+
+=== CRUD ===
+After set: map[alice:90 bob:85]
+alice&#x27;s score: 90
+charlie&#x27;s score (not exist): 0
+After delete bob: map[alice:90]
+
+=== Check Key Exist ===
+go exists: 2009
+python does not exist
+
+=== Iteration (Random Order) ===
+Iteration order: c=3 a=1 e=5 b=2 d=4 
+
+=== Map As Parameter ===
+After function call: map[x:999]
+
+=== Nil Map ===
+Read nil map: 0
+After init: map[key:1]
+
+=== Concurrent Safe ===
+Concurrent safe with mutex: 10 entries
+
+=== sync.Map ===
+sync.Map load: go=2009
+LoadOrStore: actual=2009, loaded=true
+sync.Map range: go=2009 rust=2010 </code></pre>
+
+<h2>五、注意事项（表格）</h2>
+
+<table><thead><tr>
+<th>注意点</th>
+<th>说明</th>
+<th>后果</th>
+</tr></thead><tbody>
+<tr>
+<td>nil map 读取安全</td>
+<td>返回零值</td>
+<td>不会 panic</td>
+</tr>
+<tr>
+<td>nil map 写入 panic</td>
+<td>未初始化直接赋值</td>
+<td>运行时 panic</td>
+</tr>
+<tr>
+<td>遍历顺序随机</td>
+<td>Go 故意随机化</td>
+<td>不能依赖遍历顺序</td>
+</tr>
+<tr>
+<td>并发读写 fatal</td>
+<td>无锁保护</td>
+<td><code>concurrent map read and map write</code></td>
+</tr>
+<tr>
+<td>key 必须可比较</td>
+<td>支持 <code>==</code> 运算符的类型</td>
+<td>slice/map/func 不能做 key</td>
+</tr>
+<tr>
+<td>不可取地址</td>
+<td><code>&m["key"]</code> 编译不过</td>
+<td>map 扩容会迁移数据</td>
+</tr>
+</tbody></table>
+
+<h2>六、避坑指南</h2>
+
+<table><thead><tr>
+<th>❌ 错误写法</th>
+<th>✅ 正确写法</th>
+<th>说明</th>
+</tr></thead><tbody>
+<tr>
+<td><code>var m map[string]int; m["a"]=1</code></td>
+<td><code>m := make(map[string]int)</code></td>
+<td>nil map 写入 panic</td>
+</tr>
+<tr>
+<td>多协程直接读写 map</td>
+<td><code>sync.Mutex</code> 或 <code>sync.Map</code></td>
+<td>并发 fatal error</td>
+</tr>
+<tr>
+<td><code>for k := range m { ... }</code> 假设有序</td>
+<td>先收集 key 排序再遍历</td>
+<td>遍历顺序不确定</td>
+</tr>
+<tr>
+<td><code>if m["key"] != 0</code> 判断存在</td>
+<td><code>if v, ok := m["key"]; ok</code></td>
+<td>零值也可能是合法值</td>
+</tr>
+<tr>
+<td>用 float 做 key</td>
+<td>用 string 或 int</td>
+<td>浮点精度问题</td>
+</tr>
+</tbody></table>
+
+<h2>七、练习题</h2>
+
+<p>🟢 <strong>基础题：</strong> 编写函数 <code>WordCount(s string) map[string]int</code>，统计字符串中每个单词出现的次数。</p>
+
+<p>🟡 <strong>进阶题：</strong> 实现一个 <code>Set</code> 结构体（基于 map），支持 <code>Add</code>、<code>Remove</code>、<code>Contains</code>、<code>Size</code> 方法，要求并发安全。</p>
+
+<p>🔴 <strong>挑战题：</strong> 实现 LRU 缓存（基于 map + 双向链表），支持 <code>Get</code>、<code>Put</code> 操作，容量超出时淘汰最久未使用的条目。</p>
+
+<h2>八、知识点总结（树状）</h2>
+
+<pre><code>Map（字典）
+├── 创建
+│   ├── make(map[K]V)
+│   ├── make(map[K]V, hint)
+│   └── 字面量 map[K]V{...}
+├── 操作
+│   ├── 增/改 m[k] = v
+│   ├── 删 delete(m, k)
+│   ├── 查 m[k] / v, ok := m[k]
+│   └── 遍历 for range（随机顺序）
+├── 特性
+│   ├── 引用类型（传参不复制）
+│   ├── 零值 nil（读安全，写 panic）
+│   ├── key 必须可比较
+│   └── 不可取元素地址
+└── 并发
+    ├── 标准map + Mutex
+    └── sync.Map</code></pre>
+
+<h2>九、举一反三（表格）</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>方案</th>
+<th>关键点</th>
+</tr></thead><tbody>
+<tr>
+<td>统计频率</td>
+<td><code>map[string]int</code></td>
+<td><code>v, ok</code> 判断 + 自增</td>
+</tr>
+<tr>
+<td>去重</td>
+<td><code>map[T]struct{}</code></td>
+<td><code>struct{}</code> 不占内存</td>
+</tr>
+<tr>
+<td>缓存</td>
+<td>map + 过期时间字段</td>
+<td>需要并发保护</td>
+</tr>
+<tr>
+<td>配置映射</td>
+<td><code>map[string]any</code></td>
+<td>注意类型断言</td>
+</tr>
+<tr>
+<td>并发读写</td>
+<td><code>sync.Map</code> 或 <code>map + Mutex</code></td>
+<td>读多写少用 sync.Map</td>
+</tr>
+</tbody></table>
+
+<h2>十、参考资料</h2>
+
+<ul>
+<li><a href="https://go.dev/blog/maps">Go 官方 Blog - Go maps in action</a></li>
+<li><a href="https://github.com/golang/go/blob/master/src/runtime/map.go">Go 源码 runtime/map.go</a></li>
+<li><a href="https://go.dev/doc/effective_go#maps">Effective Go - Maps</a></li>
+<li>《Go 程序设计语言》第 4 章</li>
+
+<h2>十一、代码演进</h2>
+
+<h3>v1 — 基础频率统计</h3>
+
+<pre><code class="language-go">func WordCount(words []string) map[string]int {
+    m := make(map[string]int)
+    for _, w := range words {
+        m[w]++
+    }
+    return m
+}
+// 简单直接，但不是并发安全的</code></pre>
+
+<h3>v2 — 加锁的并发安全版本</h3>
+
+<pre><code class="language-go">type SafeCounter struct {
+    mu sync.Mutex
+    m  map[string]int
+}
+
+func (c *SafeCounter) Inc(key string) {
+    c.mu.Lock()
+    c.m[key]++
+    c.mu.Unlock()
+}
+// 改进：并发安全，适合读写字典都频繁的场景</code></pre>
+
+<h3>v3 — 使用 sync.Map 的泛型包装</h3>
+
+<pre><code class="language-go">type ConcurrentMap[K comparable, V any] struct {
+    data sync.Map
+}
+
+func (m *ConcurrentMap[K, V]) Store(key K, value V) {
+    m.data.Store(key, value)
+}
+
+func (m *ConcurrentMap[K, V]) Load(key K) (V, bool) {
+    v, ok := m.data.Load(key)
+    if !ok {
+        var zero V
+        return zero, false
+    }
+    return v.(V), true
+}
+// 改进：类型安全 + 泛型 + 并发安全</code></pre>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

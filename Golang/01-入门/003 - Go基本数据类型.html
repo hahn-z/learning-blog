@@ -1,0 +1,766 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>003 - Go基本数据类型</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/learning-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/learning-blog/Golang/index.html">Golang</a>
+<span class="sep">›</span>
+<a href="/learning-blog/Golang/01-入门/index.html">Golang入门</a>
+</nav>
+<h1>003 - Go基本数据类型</h1>
+<div class="meta">
+<span>📂 Golang入门</span>
+<span>🏷️ Golang</span>
+</div>
+<article>
+
+
+<h1>003 - Go 基本数据类型</h1>
+
+<blockquote><p><strong>难度：</strong> ⭐ | <strong>前置知识：</strong> Go 程序基本结构（002篇） | <strong>预估用时：</strong> 45分钟</p></blockquote>
+
+<hr>
+
+<h2>一句话定义</h2>
+
+<p>Go 是静态类型语言，每个变量在编译时就确定了类型——基本类型包括布尔、整数、浮点、复数、字符串等。</p>
+
+<p><strong>现实类比：</strong> 数据类型就像不同尺寸的收纳盒——装戒指用小盒（int8），装被子用大盒（int64），标签贴对了才能正确存放和取出。</p>
+
+<p><strong>技术场景：</strong> 选择正确的数据类型影响内存占用、计算精度和程序性能。</p>
+
+<hr>
+
+<h2>脑图</h2>
+
+<pre><code>                          ┌─────────────────┐
+                          │  Go 基本数据类型  │
+                          └────────┬────────┘
+          ┌────────────┬───────────┼───────────┬────────────┐
+          ▼            ▼           ▼           ▼            ▼
+     ┌────────┐  ┌──────────┐ ┌────────┐ ┌──────────┐ ┌───────┐
+     │  布尔型  │  │   整数型   │ │ 浮点型  │ │  复数型   │ │字符串  │
+     │  bool   │  └────┬─────┘ │float32 │ │ complex64│ │string │
+     └────────┘       │       │float64 │ │complex128│ └───┬───┘
+                 ┌────┼────┐  └────────┘ └──────────┘     │
+                 ▼    ▼    ▼                            ┌─┴─┐
+               int  uint byte                          │byte│
+              int8  uint8 rune                         │rune│
+             int16 uint16                             └───┘
+             int32 uint32
+             int64 uint64</code></pre>
+
+<hr>
+
+<h2>完整类型一览</h2>
+
+<pre><code class="language-go">// types_overview.go - All basic types in Go
+package main
+
+import (
+    &quot;fmt&quot;
+    &quot;math/cmplx&quot;
+    &quot;unsafe&quot;
+)
+
+func main() {
+    // === Boolean ===
+    var isActive bool = true
+    var isDeleted bool // zero value: false
+    fmt.Printf(&quot;bool: %v (%T), zero: %v\n&quot;, isActive, isActive, isDeleted)
+
+    // === Signed Integers ===
+    var i8 int8 = 127           // -128 to 127
+    var i16 int16 = 32767      // -32768 to 32767
+    var i32 int32 = 2147483647 // -2^31 to 2^31-1
+    var i64 int64 = 1&lt;&lt;62      // -2^63 to 2^63-1
+    var i int = 100            // platform dependent: 32 or 64 bit
+    fmt.Printf(&quot;int8: %d, int16: %d, int32: %d, int64: %d, int: %d\n&quot;, i8, i16, i32, i64, i)
+
+    // === Unsigned Integers ===
+    var u8 uint8 = 255         // 0 to 255
+    var u16 uint16 = 65535     // 0 to 65535
+    var u32 uint32 = 1&lt;&lt;31     // 0 to 2^32-1
+    var u64 uint64 = 1&lt;&lt;63     // 0 to 2^64-1
+    var u uint = 200           // platform dependent
+    fmt.Printf(&quot;uint8: %d, uint16: %d, uint32: %d, uint64: %d, uint: %d\n&quot;, u8, u16, u32, u64, u)
+
+    // === byte and rune (aliases) ===
+    var b byte = &#x27;A&#x27;    // alias for uint8
+    var r rune = &#x27;中&#x27;    // alias for int32, represents a Unicode code point
+    fmt.Printf(&quot;byte: %c(%d), rune: %c(%d)\n&quot;, b, b, r, r)
+
+    // === Floating Point ===
+    var f32 float32 = 3.141592653589793 // ~7 decimal digits precision
+    var f64 float64 = 3.141592653589793 // ~15 decimal digits precision
+    fmt.Printf(&quot;float32: %.15f\n&quot;, f32) // note the precision loss
+    fmt.Printf(&quot;float64: %.15f\n&quot;, f64)
+
+    // === Complex Numbers ===
+    var c64 complex64 = complex(1, 2)       // float32 real + imag
+    var c128 complex128 = complex(3.5, -4.2) // float64 real + imag
+    fmt.Printf(&quot;complex64: %v, real: %v, imag: %v\n&quot;, c64, real(c64), imag(c64))
+    fmt.Printf(&quot;complex128: %v, real: %v, imag: %v\n&quot;, c128, real(c128), imag(c128))
+    fmt.Printf(&quot;abs(c128): %v\n&quot;, cmplx.Abs(c128))
+
+    // === String ===
+    var s string = &quot;Hello, 世界&quot;
+    fmt.Printf(&quot;string: %s, len: %d bytes\n&quot;, s, len(s)) // len=12 (each Chinese char=3 bytes)
+
+    // === Size of types ===
+    fmt.Printf(&quot;\nType sizes:\n&quot;)
+    fmt.Printf(&quot;bool: %d bytes\n&quot;, unsafe.Sizeof(isActive))
+    fmt.Printf(&quot;int: %d bytes (platform)\n&quot;, unsafe.Sizeof(i))
+    fmt.Printf(&quot;int8: %d, int16: %d, int32: %d, int64: %d\n&quot;,
+        unsafe.Sizeof(i8), unsafe.Sizeof(i16), unsafe.Sizeof(i32), unsafe.Sizeof(i64))
+    fmt.Printf(&quot;float32: %d, float64: %d\n&quot;, unsafe.Sizeof(f32), unsafe.Sizeof(f64))
+}</code></pre>
+
+<hr>
+
+<h2>类型范围与大小</h2>
+
+<h3>整数类型</h3>
+
+<table><thead><tr>
+<th>类型</th>
+<th>大小</th>
+<th>范围</th>
+</tr></thead><tbody>
+<tr>
+<td><code>int8</code></td>
+<td>1 byte</td>
+<td>-128 ~ 127</td>
+</tr>
+<tr>
+<td><code>int16</code></td>
+<td>2 bytes</td>
+<td>-32768 ~ 32767</td>
+</tr>
+<tr>
+<td><code>int32</code></td>
+<td>4 bytes</td>
+<td>-2³¹ ~ 2³¹-1</td>
+</tr>
+<tr>
+<td><code>int64</code></td>
+<td>8 bytes</td>
+<td>-2⁶³ ~ 2⁶³-1</td>
+</tr>
+<tr>
+<td><code>int</code></td>
+<td>平台相关</td>
+<td>32 或 64 位</td>
+</tr>
+<tr>
+<td><code>uint8</code> (<code>byte</code>)</td>
+<td>1 byte</td>
+<td>0 ~ 255</td>
+</tr>
+<tr>
+<td><code>uint16</code></td>
+<td>2 bytes</td>
+<td>0 ~ 65535</td>
+</tr>
+<tr>
+<td><code>uint32</code></td>
+<td>4 bytes</td>
+<td>0 ~ 2³²-1</td>
+</tr>
+<tr>
+<td><code>uint64</code></td>
+<td>8 bytes</td>
+<td>0 ~ 2⁶⁴-1</td>
+</tr>
+<tr>
+<td><code>uint</code></td>
+<td>平台相关</td>
+<td>32 或 64 位</td>
+</tr>
+<tr>
+<td><code>uintptr</code></td>
+<td>平台相关</td>
+<td>存放指针</td>
+</tr>
+</tbody></table>
+
+<h3>浮点类型</h3>
+
+<table><thead><tr>
+<th>类型</th>
+<th>大小</th>
+<th>精度</th>
+</tr></thead><tbody>
+<tr>
+<td><code>float32</code></td>
+<td>4 bytes</td>
+<td>~7 位有效数字</td>
+</tr>
+<tr>
+<td><code>float64</code></td>
+<td>8 bytes</td>
+<td>~15 位有效数字</td>
+</tr>
+</tbody></table>
+
+<h3>字符串特殊说明</h3>
+
+<pre><code class="language-go">// string_details.go - String specifics
+package main
+
+import &quot;fmt&quot;
+
+func main() {
+    s := &quot;Hello, 世界&quot;
+
+    // len() returns byte count, not character count
+    fmt.Printf(&quot;Bytes: %d\n&quot;, len(s)) // 12
+
+    // To count characters (runes), convert to []rune
+    fmt.Printf(&quot;Characters: %d\n&quot;, len([]rune(s))) // 9
+
+    // Strings are immutable
+    // s[0] = &#x27;h&#x27; // Compile error!
+
+    // Access bytes by index
+    fmt.Printf(&quot;First byte: %c (%d)\n&quot;, s[0], s[0]) // H (72)
+
+    // Raw string literal (backtick, no escape processing)
+    raw := `C:\Users\name\file.txt
+Line 2
+    &quot;quoted&quot;`
+    fmt.Println(raw)
+
+    // Interpreted string literal (double quote, supports escapes)
+    interpreted := &quot;Line1\nLine2\tTabbed&quot;
+    fmt.Println(interpreted)
+}</code></pre>
+
+<hr>
+
+<h2>类型转换</h2>
+
+<p>Go <strong>没有隐式类型转换</strong>，所有转换必须显式声明。</p>
+
+<pre><code class="language-go">// conversion.go - Type conversions in Go
+package main
+
+import (
+    &quot;fmt&quot;
+    &quot;math&quot;
+    &quot;strconv&quot;
+)
+
+func main() {
+    // === Numeric to Numeric ===
+    var i int = 42
+    var f float64 = float64(i)    // int -&gt; float64
+    var u uint = uint(f)          // float64 -&gt; uint
+    var i8 int8 = int8(i)         // int -&gt; int8 (may overflow!)
+    fmt.Printf(&quot;int→float64: %v, float64→uint: %v, int→int8: %v\n&quot;, f, u, i8)
+
+    // === Numeric to String ===
+    // Method 1: strconv (recommended)
+    s := strconv.Itoa(42)           // int -&gt; string
+    fmt.Printf(&quot;Itoa: %q\n&quot;, s)
+
+    s2 := strconv.FormatFloat(3.14, &#x27;f&#x27;, 2, 64) // float -&gt; string
+    fmt.Printf(&quot;FormatFloat: %q\n&quot;, s2)
+
+    // Method 2: fmt.Sprintf (flexible but slower)
+    s3 := fmt.Sprintf(&quot;%d&quot;, 42)
+    fmt.Printf(&quot;Sprintf: %q\n&quot;, s3)
+
+    // === String to Numeric ===
+    n, err := strconv.Atoi(&quot;42&quot;)    // string -&gt; int
+    if err != nil {
+        fmt.Println(&quot;Parse error:&quot;, err)
+    }
+    fmt.Printf(&quot;Atoi: %v (%T)\n&quot;, n, n)
+
+    f, err := strconv.ParseFloat(&quot;3.14159&quot;, 64) // string -&gt; float64
+    if err != nil {
+        fmt.Println(&quot;Parse error:&quot;, err)
+    }
+    fmt.Printf(&quot;ParseFloat: %v\n&quot;, f)
+
+    // === byte/rune and string ===
+    // string from bytes
+    bytes := []byte(&quot;Hello&quot;)
+    fmt.Printf(&quot;bytes: %v → string: %s\n&quot;, bytes, string(bytes))
+
+    // string to runes
+    runes := []rune(&quot;Hello, 世界&quot;)
+    fmt.Printf(&quot;runes: %v\n&quot;, runes)
+    for i, r := range runes {
+        fmt.Printf(&quot;  [%d] %c (U+%04X)\n&quot;, i, r, r)
+    }
+
+    // === Overflow warning ===
+    big := math.MaxInt64
+    var small int8 = int8(big) // Overflow! Undefined behavior
+    fmt.Printf(&quot;Overflow: %d → %d (garbage!)\n&quot;, big%128, small)
+}</code></pre>
+
+<hr>
+
+<h2>零值机制</h2>
+
+<p>Go 的每个类型都有默认的零值，声明但不赋值的变量自动获得零值。</p>
+
+<pre><code class="language-go">// zero_values.go - Go zero value mechanism
+package main
+
+import &quot;fmt&quot;
+
+func main() {
+    var b bool        // false
+    var i int         // 0
+    var f float64     // 0
+    var s string      // &quot;&quot; (empty string)
+    var p *int        // nil
+    var sl []int      // nil (slice)
+    var m map[string]int // nil (map)
+
+    fmt.Printf(&quot;bool:        %v\n&quot;, b)
+    fmt.Printf(&quot;int:         %v\n&quot;, i)
+    fmt.Printf(&quot;float64:     %v\n&quot;, f)
+    fmt.Printf(&quot;string:      %q\n&quot;, s)
+    fmt.Printf(&quot;pointer:     %v\n&quot;, p)
+    fmt.Printf(&quot;slice:       %v, nil=%v\n&quot;, sl, sl == nil)
+    fmt.Printf(&quot;map:         %v, nil=%v\n&quot;, m, m == nil)
+
+    // Practical use: check if a string was set
+    name := &quot;&quot;
+    if name == &quot;&quot; {
+        fmt.Println(&quot;Name is not set (zero value)&quot;)
+    }
+}</code></pre>
+
+<p><strong>各类型零值汇总：</strong></p>
+
+<table><thead><tr>
+<th>类型</th>
+<th>零值</th>
+</tr></thead><tbody>
+<tr>
+<td><code>bool</code></td>
+<td><code>false</code></td>
+</tr>
+<tr>
+<td>所有整数类型</td>
+<td><code>0</code></td>
+</tr>
+<tr>
+<td>所有浮点类型</td>
+<td><code>0.0</code></td>
+</tr>
+<tr>
+<td>所有复数类型</td>
+<td><code>0+0i</code></td>
+</tr>
+<tr>
+<td><code>string</code></td>
+<td><code>""</code> (空字符串)</td>
+</tr>
+<tr>
+<td>指针、切片、映射、通道、接口、函数</td>
+<td><code>nil</code></td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>执行预览</h2>
+
+<pre><code class="language-bash">$ go run types_overview.go
+bool: true (bool), zero: false
+int8: 127, int16: 32767, int32: 2147483647, int64: 4611686018427387904, int: 100
+uint8: 255, uint16: 65535, uint32: 2147483648, uint64: 9223372036854775808, uint: 200
+byte: A(65), rune: 中(20013)
+float32: 3.141592741012573
+float64: 3.141592653589793
+complex64: (1+2i), real: 1, imag: 2
+complex128: (3.5-4.2i), real: 3.5, imag: -4.2
+abs(c128): 5.468089236423945
+
+Type sizes:
+bool: 1 bytes
+int: 8 bytes (platform)
+int8: 1, int16: 2, int32: 4, int64: 8
+float32: 4, float64: 8</code></pre>
+
+<hr>
+
+<h2>注意事项</h2>
+
+<table><thead><tr>
+<th>事项</th>
+<th>说明</th>
+</tr></thead><tbody>
+<tr>
+<td><code>int</code> 大小不确定</td>
+<td>32 位系统上是 32 位，64 位系统上是 64 位，需要确定大小时用 <code>int64</code></td>
+</tr>
+<tr>
+<td><code>float32</code> 精度不足</td>
+<td>科学计算、金额计算务必用 <code>float64</code></td>
+</tr>
+<tr>
+<td>字符串不可变</td>
+<td>Go 字符串是只读的，修改需转换为 <code>[]byte</code> 或 <code>[]rune</code></td>
+</tr>
+<tr>
+<td><code>len(string)</code> 返回字节数</td>
+<td>不是字符数，中文字符占 3 字节（UTF-8）</td>
+</tr>
+<tr>
+<td>溢出不会 panic</td>
+<td>整数溢出是未定义行为，不会报错但结果错误</td>
+</tr>
+<tr>
+<td>隐式转换不存在</td>
+<td><code>int</code> 和 <code>int32</code> 是不同类型，必须显式转换</td>
+</tr>
+<tr>
+<td><code>string(byte)</code> 有效范围</td>
+<td><code>byte</code> 范围 0-255，超出部分的 rune 转为 string 需要 <code>string(rune)</code></td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>避坑指南</h2>
+
+<table><thead><tr>
+<th>❌ 错误做法</th>
+<th>✅ 正确做法</th>
+</tr></thead><tbody>
+<tr>
+<td><code>var i int32 = 10; var j int64 = i</code></td>
+<td><code>var j int64 = int64(i)</code> 显式转换</td>
+</tr>
+<tr>
+<td><code>len("中文")</code> 认为返回 2</td>
+<td><code>utf8.RuneCountInString("中文")</code> 返回 2</td>
+</tr>
+<tr>
+<td>用 <code>float32</code> 做精确计算</td>
+<td>金额用整数（分），科学计算用 <code>float64</code></td>
+</tr>
+<tr>
+<td><code>int8(200)</code> 期望得到 200</td>
+<td>会溢出，200-256=-56</td>
+</tr>
+<tr>
+<td>字符串比较用 <code>==</code> 比较引用</td>
+<td>Go 的 <code>==</code> 比较值，字符串可直接 <code>==</code> 比较</td>
+</tr>
+<tr>
+<td><code>for i := 0; i < len(s); i++</code> 遍历中文</td>
+<td>用 <code>for i, r := range s</code> 正确遍历 rune</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>练习题</h2>
+
+<h3>🟢 基础</h3>
+
+<ol>
+<li>声明所有基本类型的变量并打印它们的零值</li>
+</ul>
+<ol>
+<li>编写程序，将字符串 <code>"12345"</code> 转换为 <code>int</code>、<code>int64</code>、<code>float64</code></li>
+</ul>
+<ol>
+<li>计算 <code>int32</code> 的最大值和最小值，并打印</li>
+
+<h3>🟡 进阶</h3>
+
+<ol>
+<li>编写程序，统计一个字符串中的中文字符数、英文字符数和空格数</li>
+</ul>
+<ol>
+<li>演示整数溢出：计算 <code>int8</code> 的 100 + 100，解释结果</li>
+</ul>
+<ol>
+<li>实现一个函数，接受任意整数类型参数，返回其占用的字节数</li>
+
+<h3>🔴 开放</h3>
+
+<ol>
+<li>研究 IEEE 754 浮点标准，解释为什么 <code>0.1 + 0.2 != 0.3</code></li>
+</ul>
+<ol>
+<li>设计一个类型安全的数据容器，支持 int/float/string 三种类型的存取</li>
+
+<hr>
+
+<h2>知识点总结</h2>
+
+<pre><code>Go 基本数据类型
+├── 布尔型
+│   └── bool (true/false, 零值: false)
+├── 整数型
+│   ├── 有符号: int8/int16/int32/int64/int
+│   ├── 无符号: uint8/uint16/uint32/uint64/uint
+│   ├── 别名: byte (=uint8), rune (=int32)
+│   └── 零值: 0
+├── 浮点型
+│   ├── float32 (~7位精度)
+│   ├── float64 (~15位精度)
+│   └── 零值: 0.0
+├── 复数型
+│   ├── complex64 (float32实虚部)
+│   ├── complex128 (float64实虚部)
+│   └── 操作: real() imag() cmplx.Abs()
+├── 字符串
+│   ├── string (UTF-8, 不可变)
+│   ├── len() 返回字节数
+│   ├── range 遍历 rune
+│   └── 零值: &quot;&quot;
+├── 类型转换
+│   ├── 显式转换: T(v)
+│   ├── strconv: Itoa/Atoi/FormatFloat/ParseFloat
+│   └── 无隐式转换
+└── 零值机制
+    ├── 数值类型 → 0
+    ├── bool → false
+    ├── string → &quot;&quot;
+    └── 引用类型 → nil</code></pre>
+
+<hr>
+
+<h2>举一反三</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>Go 做法</th>
+<th>其他语言对比</th>
+</tr></thead><tbody>
+<tr>
+<td>类型转换</td>
+<td><code>int(x)</code> 显式</td>
+<td>C 隐式提升 / Python 动态无转换</td>
+</tr>
+<tr>
+<td>字符串遍历</td>
+<td><code>for i, r := range s</code></td>
+<td>Python <code>for c in s</code> / JS <code>for...of</code></td>
+</tr>
+<tr>
+<td>金额计算</td>
+<td>用整数（分）或 decimal 库</td>
+<td>Java BigDecimal / Python Decimal</td>
+</tr>
+<tr>
+<td>未初始化变量</td>
+<td>自动零值</td>
+<td>C 随机值 / Java 默认值 / Python None</td>
+</tr>
+<tr>
+<td>获取类型</td>
+<td><code>fmt.Printf("%T", x)</code></td>
+<td>Python <code>type(x)</code> / JS <code>typeof x</code></td>
+</tr>
+<tr>
+<td>整数溢出</td>
+<td>静默溢出（配合 <code>math/bits</code> 检测）</td>
+<td>Rust panic / Python 无限精度</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>参考资料</h2>
+
+<ul>
+<li><a href="https://go.dev/ref/spec#Types">Go 语言规范 - 类型</a></li>
+<li><a href="https://pkg.go.dev/strconv">Go strconv 包</a></li>
+<li><a href="https://pkg.go.dev/unicode/utf8">Go unicode/utf8 包</a></li>
+<li><a href="https://pkg.go.dev/unsafe">Go unsafe 包</a></li>
+<li><a href="https://gobyexample.com/values">Go by Example - 类型</a></li>
+
+<hr>
+
+<h2>代码演进</h2>
+
+<h3>v1: 声明与打印基本类型</h3>
+
+<pre><code class="language-go">package main
+
+import &quot;fmt&quot;
+
+func main() {
+    var b bool = true
+    var i int = 42
+    var f float64 = 3.14
+    var s string = &quot;hello&quot;
+    fmt.Println(b, i, f, s)
+}</code></pre>
+
+<h3>v2: 完整类型展示 + 零值</h3>
+
+<pre><code class="language-go">// main.go - full type showcase with zero values
+package main
+
+import (
+    &quot;fmt&quot;
+    &quot;unsafe&quot;
+)
+
+func main() {
+    // Zero values
+    var b bool
+    var i int
+    var f float64
+    var s string
+    fmt.Printf(&quot;Zero values: bool=%v int=%v float=%v string=%q\n&quot;, b, i, f, s)
+
+    // Type sizes
+    fmt.Printf(&quot;Sizes: bool=%d int=%d float64=%d string_header=%d\n&quot;,
+        unsafe.Sizeof(b), unsafe.Sizeof(i), unsafe.Sizeof(f), unsafe.Sizeof(s))
+
+    // Short declaration with type inference
+    x := 42        // int
+    y := 3.14      // float64
+    z := &quot;hello&quot;   // string
+    c := &#x27;A&#x27;       // rune (int32)
+    fmt.Printf(&quot;Inferred: %T %T %T %T\n&quot;, x, y, z, c)
+}</code></pre>
+
+<h3>v3: 实用类型工具函数</h3>
+
+<pre><code class="language-go">// main.go - practical type utilities
+package main
+
+import (
+    &quot;fmt&quot;
+    &quot;strconv&quot;
+    &quot;unicode/utf8&quot;
+)
+
+// Safe integer parse with range check
+func safeParseInt(s string, bits int) (int64, bool) {
+    n, err := strconv.ParseInt(s, 10, bits)
+    return n, err == nil
+}
+
+// Count different character types in string
+func analyzeString(s string) (letters, digits, spaces, others int) {
+    for _, r := range s {
+        switch {
+        case r &gt;= &#x27;a&#x27; &amp;&amp; r &lt;= &#x27;z&#x27; || r &gt;= &#x27;A&#x27; &amp;&amp; r &lt;= &#x27;Z&#x27;:
+            letters++
+        case r &gt;= &#x27;0&#x27; &amp;&amp; r &lt;= &#x27;9&#x27;:
+            digits++
+        case r == &#x27; &#x27; || r == &#x27;\t&#x27;:
+            spaces++
+        default:
+            others++
+        }
+    }
+    return
+}
+
+func main() {
+    // Safe parsing
+    examples := []string{&quot;42&quot;, &quot;99999999999999999999&quot;, &quot;abc&quot;, &quot;-1&quot;}
+    for _, s := range examples {
+        if n, ok := safeParseInt(s, 32); ok {
+            fmt.Printf(&quot;Parsed %q → %d\n&quot;, s, n)
+        } else {
+            fmt.Printf(&quot;Failed to parse %q\n&quot;, s)
+        }
+    }
+
+    // String analysis
+    test := &quot;Hello 世界 123! @#$&quot;
+    l, d, sp, o := analyzeString(test)
+    fmt.Printf(&quot;\nString: %q\n&quot;, test)
+    fmt.Printf(&quot;Bytes: %d, Runes: %d\n&quot;, len(test), utf8.RuneCountInString(test))
+    fmt.Printf(&quot;Letters: %d, Digits: %d, Spaces: %d, Others: %d\n&quot;, l, d, sp, o)
+
+    // Type conversion chain
+    var i int = 100
+    f := float64(i)
+    s2 := strconv.FormatFloat(f, &#x27;f&#x27;, 2, 64)
+    fmt.Printf(&quot;\nConversion chain: int(%d) → float64(%v) → string(%q)\n&quot;, i, f, s2)
+}</code></pre>
+
+<pre><code class="language-bash">$ go run main.go
+Parsed &quot;42&quot; → 42
+Failed to parse &quot;99999999999999999999&quot;
+Failed to parse &quot;abc&quot;
+Parsed &quot;-1&quot; → -1
+
+String: &quot;Hello 世界 123! @#$&quot;
+Bytes: 23, Runes: 18
+Letters: 5, Digits: 3, Spaces: 4, Others: 6
+
+Conversion chain: int(100) → float64(100) → string(&quot;100.00&quot;)</code></pre>
+
+<hr>
+
+<p><em>上一篇：<a href="/posts/002-hello-world">002-第一个Go程序Hello World</a> | 下一篇：<a href="/posts/004-variables-constants">004-变量与常量</a> →</em></p>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

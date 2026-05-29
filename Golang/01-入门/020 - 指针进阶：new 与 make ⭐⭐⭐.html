@@ -1,0 +1,566 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>020 - 指针进阶：new 与 make ⭐⭐⭐</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/learning-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/learning-blog/Golang/index.html">Golang</a>
+<span class="sep">›</span>
+<a href="/learning-blog/Golang/01-入门/index.html">Golang入门</a>
+</nav>
+<h1>020 - 指针进阶：new 与 make ⭐⭐⭐</h1>
+<div class="meta">
+<span>📂 Golang入门</span>
+<span>🏷️ Golang</span>
+</div>
+<article>
+
+
+<h1>020 - 指针进阶：new 与 make ⭐⭐⭐</h1>
+
+<blockquote><p><strong>难度：</strong> ⭐⭐⭐（中等）<br><strong>适合人群：</strong> 理解指针基础，想掌握 Go 内存分配机制的读者<br><strong>阅读时间：</strong> 约 20 分钟</p></blockquote>
+
+<hr>
+
+<h2>一、概念讲解</h2>
+
+<h3>new(T)：分配零值内存</h3>
+
+<p><code>new(T)</code> 是一个内置函数，它：</p>
+<ol>
+<li><strong>分配一块内存</strong>，大小为类型 T 的零值大小</li>
+</ul>
+<ol>
+<li><strong>将内存初始化为零值</strong></li>
+</ul>
+<ol>
+<li><strong>返回指向这块内存的指针</strong> <code>*T</code></li>
+
+<pre><code class="language-go">p := new(int)    // *int, 值为 0
+s := new(string) // *string, 值为 &quot;&quot;</code></pre>
+
+<p>关键点：<strong>new 只分配并零值化，不做任何额外初始化</strong>。</p>
+
+<h3>make(T, ...)：初始化引用类型</h3>
+
+<p><code>make</code> 只用于三种类型：<strong>slice、map、channel</strong>。它返回的是<strong>已初始化的值</strong>（不是指针），可以直接使用。</p>
+
+<pre><code class="language-go">s := make([]int, 5)       // 长度5的切片，已分配底层数组
+m := make(map[string]int) // 空map，已初始化，可写入
+c := make(chan int)       // 无缓冲channel</code></pre>
+
+<h3>为什么需要 make？</h3>
+
+<p>因为这三种类型在使用前<strong>必须初始化内部数据结构</strong>：</p>
+
+<table><thead><tr>
+<th>类型</th>
+<th>内部结构</th>
+<th>零值状态</th>
+</tr></thead><tbody>
+<tr>
+<td>slice</td>
+<td>指向底层数组的指针 + len + cap</td>
+<td>nil，不能 append</td>
+</tr>
+<tr>
+<td>map</td>
+<td>哈希表</td>
+<td>nil，不能写入</td>
+</tr>
+<tr>
+<td>channel</td>
+<td>环形队列 + 锁</td>
+<td>nil，收发阻塞</td>
+</tr>
+</tbody></table>
+
+<p><code>new</code> 只给你一个 <code>nil</code> 的指针，<code>make</code> 才会真正构建内部结构。</p>
+
+<h3>逃逸分析入门</h3>
+
+<p>Go 编译器会决定变量分配在<strong>栈</strong>还是<strong>堆</strong>上：</p>
+
+<ul>
+<li><strong>栈分配</strong>：快，函数返回自动回收</li>
+<li><strong>堆分配</strong>：需要 GC 回收，有额外开销</li>
+
+<pre><code class="language-go">func createOnStack() int {
+    x := 42    // 可能分配在栈上
+    return x   // 返回值，不是指针，不逃逸
+}
+
+func createOnHeap() *int {
+    x := 42    // 逃逸到堆上
+    return &amp;x  // 返回指针，编译器必须保证 x 存活
+}</code></pre>
+
+<p>用 <code>go build -gcflags="-m"</code> 可以查看逃逸分析结果。</p>
+
+<hr>
+
+<h2>二、脑图（ASCII）</h2>
+
+<pre><code>new 与 make
+├── new(T)
+│   ├── 分配零值内存
+│   ├── 返回 *T（指针）
+│   ├── 适用所有类型
+│   └── 用得少（一般用 &amp;T{} 代替）
+├── make(T, size...)
+│   ├── 初始化内部结构
+│   ├── 返回 T（值，非指针）
+│   ├── 只适用 slice/map/chan
+│   └── 用得多
+├── 对比
+│   ├── new → *T, 零值
+│   └── make → T, 已初始化
+└── 逃逸分析
+    ├── 栈 vs 堆
+    ├── go build -gcflags=&quot;-m&quot;
+    └── 返回指针 → 逃逸到堆</code></pre>
+
+<hr>
+
+<h2>三、完整 Go 代码</h2>
+
+<pre><code class="language-go">package main
+
+import &quot;fmt&quot;
+
+// Demo: new with different types
+func newBasics() {
+    // new(int) returns *int with zero value 0
+    pInt := new(int)
+    fmt.Printf(&quot;new(int): %d, type: %T\n&quot;, *pInt, pInt)
+
+    // new(string) returns *string with zero value &quot;&quot;
+    pStr := new(string)
+    fmt.Printf(&quot;new(string): %q, type: %T\n&quot;, *pStr, pStr)
+
+    // new(bool) returns *bool with zero value false
+    pBool := new(bool)
+    fmt.Printf(&quot;new(bool): %v, type: %T\n&quot;, *pBool, pBool)
+
+    // new with struct
+    type Point struct{ X, Y int }
+    pPoint := new(Point)
+    fmt.Printf(&quot;new(Point): %+v\n&quot;, pPoint) // &amp;{X:0 Y:0}
+}
+
+// Demo: make with slice, map, channel
+func makeBasics() {
+    // make slice: type, len, cap
+    s := make([]int, 3, 10)
+    fmt.Printf(&quot;make([]int,3,10): len=%d cap=%d %v\n&quot;, len(s), cap(s), s)
+
+    // make map
+    m := make(map[string]int)
+    m[&quot;go&quot;] = 1
+    fmt.Printf(&quot;make(map): %v\n&quot;, m)
+
+    // make channel
+    ch := make(chan int, 3) // buffered channel
+    ch &lt;- 42
+    fmt.Printf(&quot;make(chan): %d\n&quot;, &lt;-ch)
+}
+
+// Demo: why new doesn&#x27;t work well for slice/map/chan
+func newVsMakeProblem() {
+    // new gives a pointer to nil slice — NOT usable
+    ps := new([]int)
+    fmt.Printf(&quot;new([]int): %v, isNil=%v\n&quot;, *ps, *ps == nil)
+    // *ps = append(*ps, 1) // Works but awkward — first dereference
+
+    // make gives ready-to-use slice
+    ms := make([]int, 0)
+    ms = append(ms, 1)
+    fmt.Printf(&quot;make([]int): %v\n&quot;, ms)
+
+    // new gives a pointer to nil map — NOT writable
+    pm := new(map[string]int)
+    fmt.Printf(&quot;new(map): %v\n&quot;, *pm) // map[]
+    // (*pm)[&quot;key&quot;] = 1 // panic! assignment to entry in nil map
+
+    // make gives ready-to-use map
+    mm := make(map[string]int)
+    mm[&quot;key&quot;] = 1
+    fmt.Printf(&quot;make(map): %v\n&quot;, mm)
+}
+
+// Demo: when to use &amp; instead of new
+func ampersandVsNew() {
+    // These are equivalent:
+    p1 := new(int)
+    *p1 = 42
+
+    v := 42
+    p2 := &amp;v
+
+    // But &amp; is more flexible — can initialize with value
+    type Config struct {
+        Host string
+        Port int
+    }
+
+    // new — then set fields
+    c1 := new(Config)
+    c1.Host = &quot;localhost&quot;
+    c1.Port = 8080
+
+    // &amp; with composite literal — cleaner
+    c2 := &amp;Config{Host: &quot;localhost&quot;, Port: 8080}
+
+    fmt.Printf(&quot;new: %+v\n&quot;, c1)
+    fmt.Printf(&quot;&amp;composite: %+v\n&quot;, c2)
+}
+
+// Demo: escape analysis
+func escapeAnalysis() *int {
+    // x will escape to heap because we return its address
+    x := 42
+    return &amp;x
+}
+
+func noEscape() int {
+    // x stays on stack — no pointer escapes
+    x := 42
+    return x
+}
+
+// Demo: practical patterns
+func practicalNew() {
+    // Pattern 1: new for zero-value struct pointer
+    type Counter struct{ count int }
+    c := new(Counter) // *Counter, count=0
+    c.count++
+    fmt.Printf(&quot;Counter: %+v\n&quot;, c)
+
+    // Pattern 2: new for atomic pointer (sync/atomic)
+    // (conceptual — real usage with atomic.Pointer[T])
+
+    // Pattern 3: new bool for &quot;flag set&quot; pattern
+    visited := new(bool)
+    fmt.Printf(&quot;visited: %v\n&quot;, *visited) // false
+}
+
+func main() {
+    fmt.Println(&quot;=== new 基础 ===&quot;)
+    newBasics()
+
+    fmt.Println(&quot;\n=== make 基础 ===&quot;)
+    makeBasics()
+
+    fmt.Println(&quot;\n=== new vs make 对比 ===&quot;)
+    newVsMakeProblem()
+
+    fmt.Println(&quot;\n=== &amp; vs new ===&quot;)
+    ampersandVsNew()
+
+    fmt.Println(&quot;\n=== 实用模式 ===&quot;)
+    practicalNew()
+}</code></pre>
+
+<hr>
+
+<h2>四、执行预览</h2>
+
+<pre><code>=== new 基础 ===
+new(int): 0, type: *int
+new(string): &quot;&quot;, type: *string
+new(bool): false, type: *bool
+new(Point): &amp;{X:0 Y:0}
+
+=== make 基础 ===
+make([]int,3,10): len=3 cap=10 [0 0 0]
+make(map): map[go:1]
+make(chan): 42
+
+=== new vs make 对比 ===
+new([]int): [], isNil=true
+make([]int): [1]
+new(map): map[]
+make(map): map[key:1]
+
+=== &amp; vs new ===
+new: &amp;{Host:localhost Port:8080}
+&amp;composite: &amp;{Host:localhost Port:8080}
+
+=== 实用模式 ===
+Counter: &amp;{count:1}
+visited: false</code></pre>
+
+<hr>
+
+<h2>五、注意事项</h2>
+
+<table><thead><tr>
+<th>项目</th>
+<th>new</th>
+<th>make</th>
+</tr></thead><tbody>
+<tr>
+<td>适用类型</td>
+<td>所有类型 T</td>
+<td>slice、map、channel</td>
+</tr>
+<tr>
+<td>返回值</td>
+<td><code>*T</code>（指针）</td>
+<td><code>T</code>（值）</td>
+</tr>
+<tr>
+<td>初始化</td>
+<td>零值</td>
+<td>完整初始化（可用）</td>
+</tr>
+<tr>
+<td>使用频率</td>
+<td>较少</td>
+<td>非常频繁</td>
+</tr>
+<tr>
+<td>等价写法</td>
+<td><code>new(T)</code> ≈ <code>&T{}</code></td>
+<td>无等价写法</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>六、避坑指南</h2>
+
+<h3>❌ 用 new 创建 map 然后写入</h3>
+<pre><code class="language-go">// ❌ new 返回 *map，底层是 nil map
+m := new(map[string]int)
+(*m)[&quot;key&quot;] = 1 // panic!
+
+// ✅ 用 make 初始化
+m := make(map[string]int)
+m[&quot;key&quot;] = 1</code></pre>
+
+<h3>❌ 混淆 new 和 make 的返回类型</h3>
+<pre><code class="language-go">// ❌ make 返回值类型，不是指针
+var p *[]int = make([]int, 5)  // 编译错误！
+
+// ✅ make 返回 []int
+var s []int = make([]int, 5)   // 正确
+
+// ✅ 如果需要指针，取地址
+var p *[]int = &amp;[]int{1, 2, 3}</code></pre>
+
+<h3>❌ 用 new 初始化 slice 后直接用</h3>
+<pre><code class="language-go">// ❌ new([]int) 返回的是 nil slice 的指针
+s := new([]int)
+s[0] = 1  // panic! index out of range
+
+// ✅ 用 make 或字面量
+s := make([]int, 1)
+s[0] = 1  // OK</code></pre>
+
+<h3>❌ 过度关注逃逸分析</h3>
+<pre><code class="language-go">// ❌ 为了&quot;优化&quot;到处避免指针
+// ✅ 先写正确的代码，有性能问题再用 -gcflags=&quot;-m&quot; 分析
+
+// 实用建议：Profile first, optimize second</code></pre>
+
+<hr>
+
+<h2>七、练习题</h2>
+
+<h3>🟢 入门：用 new 创建结构体指针</h3>
+<p>用 <code>new</code> 创建一个 <code>Student</code> 结构体指针，设置字段并打印。</p>
+
+<pre><code class="language-go">type Student struct {
+    Name string
+    Age  int
+}
+// 用 new 创建，设置 Name=&quot;Tom&quot;, Age=18</code></pre>
+
+<h3>🟡 进阶：实现一个用 make 初始化的缓存</h3>
+<p>实现一个简单的内存缓存，用 <code>make</code> 创建 map，支持 Get/Set 操作。</p>
+
+<pre><code class="language-go">type Cache struct {
+    data map[string]string
+}
+func NewCache() *Cache {
+    // 用 make 初始化 data
+}
+func (c *Cache) Set(key, val string) { /* ... */ }
+func (c *Cache) Get(key string) (string, bool) { /* ... */ }</code></pre>
+
+<h3>🔴 挑战：分析逃逸行为</h3>
+<p>写一个程序，包含 3 个函数：一个变量留在栈上，一个逃逸到堆，一个边界情况。用 <code>go build -gcflags="-m"</code> 验证你的判断。</p>
+
+<hr>
+
+<h2>八、知识点总结</h2>
+
+<pre><code>new 与 make
+├── new(T)
+│   ├── 返回 *T
+│   ├── 零值初始化
+│   ├── 适用所有类型
+│   └── 少用，一般用 &amp;T{}
+├── make(T)
+│   ├── 返回 T
+│   ├── 完整初始化
+│   ├── 只适用 slice/map/chan
+│   └── 常用
+├── 核心区别
+│   ├── new → 指针 + 零值
+│   └── make → 值 + 可用
+└── 逃逸分析
+    ├── go build -gcflags=&quot;-m&quot;
+    ├── 返回指针 → 可能逃逸
+    └── 接口赋值 → 可能逃逸</code></pre>
+
+<hr>
+
+<h2>九、举一反三</h2>
+
+<table><thead><tr>
+<th>需求</th>
+<th>用 new</th>
+<th>用 make</th>
+<th>用 &T{}</th>
+</tr></thead><tbody>
+<tr>
+<td>创建 int 指针</td>
+<td>✅ <code>new(int)</code></td>
+<td>❌</td>
+<td>✅ <code>v:=0; &v</code></td>
+</tr>
+<tr>
+<td>创建空 slice</td>
+<td>❌</td>
+<td>✅ <code>make([]T,0)</code></td>
+<td>✅ <code>[]T{}</code></td>
+</tr>
+<tr>
+<td>创建空 map</td>
+<td>❌</td>
+<td>✅ <code>make(map[K]V)</code></td>
+<td>✅ <code>map[K]V{}</code></td>
+</tr>
+<tr>
+<td>创建 channel</td>
+<td>❌</td>
+<td>✅ <code>make(chan T)</code></td>
+<td>❌</td>
+</tr>
+<tr>
+<td>创建结构体指针</td>
+<td>✅ <code>new(Struct)</code></td>
+<td>❌</td>
+<td>✅ <code>&Struct{}</code></td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>十、参考资料</h2>
+
+<ol>
+<li><a href="https://go.dev/doc/effective_go#allocation_new">Go 官方文档 - Allocation with new</a></li>
+</ul>
+<ol>
+<li><a href="https://go.dev/doc/effective_go#composite_literals">Go 官方文档 - Constructors and composite literals</a></li>
+</ul>
+<ol>
+<li><a href="https://go.dev/ref/spec#Making_slices_maps_and_channels">Go 语言规范 - Making slices, maps, channels</a></li>
+</ul>
+<ol>
+<li><a href="https://go.dev/blog/ismmkeynote">Go Blog - Escape Analysis</a></li>
+
+<hr>
+
+<h2>十一、代码演进</h2>
+
+<h3>v1 — 用 new 分配基本类型</h3>
+<pre><code class="language-go">p := new(int)
+*p = 42
+fmt.Println(*p)</code></pre>
+
+<h3>v2 — new vs make 对比</h3>
+<pre><code class="language-go">// new: pointer to nil slice (not usable)
+ps := new([]int)
+
+// make: initialized slice (usable)
+ms := make([]int, 3)</code></pre>
+
+<h3>v3 — 实战：构造函数模式</h3>
+<pre><code class="language-go">type Server struct {
+    Host string
+    Port int
+}
+
+// Constructor using composite literal (preferred over new)
+func NewServer(host string, port int) *Server {
+    return &amp;Server{Host: host, Port: port}
+}
+
+s := NewServer(&quot;localhost&quot;, 8080)</code></pre>
+
+<hr>
+
+<p><strong>上一篇：</strong> <a href="/posts/019-pointers">019 - 指针基础</a></p>
+<p><strong>下一篇：</strong> <a href="/posts/021-struct">021 - 结构体 Struct</a></p>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

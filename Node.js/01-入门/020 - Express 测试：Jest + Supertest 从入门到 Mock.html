@@ -1,0 +1,836 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>020 - Express 测试：Jest + Supertest 从入门到 Mock</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Node.js/index.html">Node.js</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Node.js/01-入门/index.html">Node.js入门</a>
+</nav>
+<h1>020 - Express 测试：Jest + Supertest 从入门到 Mock</h1>
+<div class="meta">
+<span>📂 Node.js入门</span>
+<span>🏷️ Node.js</span>
+</div>
+<article>
+
+
+<h2>难度标注</h2>
+
+<blockquote><p>🟡 <strong>中级难度</strong> | 需要掌握 Express 基础和 JavaScript 异步概念</p></blockquote>
+
+<h2>概念讲解</h2>
+
+<h3>为什么要测试？</h3>
+
+<p>没有测试的代码就像没有安全网的走钢丝——看起来没问题，直到某天改了一个小东西，整个应用崩了。测试是代码的<strong>安全网</strong>，确保改动不会破坏已有功能。</p>
+
+<h3>测试金字塔</h3>
+
+<pre><code>          /\
+         /  \        E2E 测试 (少量)
+        /────\       启动真实服务器，模拟用户操作
+       /      \
+      / 集成测试 \    测试路由 + 中间件 + 数据库协作
+     /────────────\
+    /   单元测试     \  测试单个函数/模块 (最多)
+   /──────────────────\</code></pre>
+
+<ul>
+<li><strong>单元测试</strong>：数量最多，速度最快，测试单个函数</li>
+<li><strong>集成测试</strong>：测试多个模块协作，比如 API 请求到响应的完整流程</li>
+<li><strong>E2E 测试</strong>：数量最少，速度最慢，模拟真实用户操作</li>
+
+<h3>测试工具选择</h3>
+
+<table><thead><tr>
+<th>工具</th>
+<th>用途</th>
+<th>特点</th>
+</tr></thead><tbody>
+<tr>
+<td><strong>Jest</strong></td>
+<td>测试框架</td>
+<td>零配置，内置断言和 mock</td>
+</tr>
+<tr>
+<td><strong>Supertest</strong></td>
+<td>HTTP 测试</td>
+<td>不需要真正启动服务器</td>
+</tr>
+<tr>
+<td><strong>Mocha</strong></td>
+<td>测试框架</td>
+<td>灵活，需配合 chai 使用</td>
+</tr>
+</tbody></table>
+
+<p>本篇使用 <strong>Jest + Supertest</strong>，这是 Express 项目中最主流的测试组合。</p>
+
+<h2>脑图</h2>
+
+<pre><code>Express 测试
+├── 测试类型
+│   ├── 单元测试 (函数级别)
+│   ├── 集成测试 (API 级别)
+│   └── E2E 测试 (用户级别)
+├── 工具链
+│   ├── Jest — 测试框架
+│   ├── Supertest — HTTP 请求模拟
+│   └── jest.mock — 依赖模拟
+├── 测试结构
+│   ├── describe — 分组
+│   ├── it/test — 测试用例
+│   ├── beforeAll/afterAll — 生命周期
+│   └── beforeEach/afterEach — 每个用例前后
+├── 断言方法
+│   ├── toBe / toEqual
+│   ├── toHaveProperty
+│   ├── expect(res.status).toBe(200)
+│   └── expect(res.body).toMatchObject()
+└── Mock 技术
+    ├── jest.fn() — 模拟函数
+    ├── jest.mock() — 模拟模块
+    └── jest.spyOn() — 监视函数调用</code></pre>
+
+<h2>完整代码</h2>
+
+<h3>v1：基础 API 测试</h3>
+
+<pre><code class="language-js">// app.js — Application factory: exports app without listening
+const express = require(&#x27;express&#x27;);
+const app = express();
+
+app.use(express.json());
+
+// In-memory data store
+let todos = [
+  { id: 1, title: &#x27;Learn Express&#x27;, done: false },
+  { id: 2, title: &#x27;Write tests&#x27;, done: false }
+];
+
+// Routes
+app.get(&#x27;/todos&#x27;, (req, res) =&gt; {
+  res.json(todos);
+});
+
+app.get(&#x27;/todos/:id&#x27;, (req, res) =&gt; {
+  const todo = todos.find(t =&gt; t.id === Number(req.params.id));
+  if (!todo) return res.status(404).json({ error: &#x27;Not found&#x27; });
+  res.json(todo);
+});
+
+app.post(&#x27;/todos&#x27;, (req, res) =&gt; {
+  const { title } = req.body;
+  if (!title) return res.status(400).json({ error: &#x27;Title is required&#x27; });
+  const todo = { id: Date.now(), title, done: false };
+  todos.push(todo);
+  res.status(201).json(todo);
+});
+
+app.put(&#x27;/todos/:id&#x27;, (req, res) =&gt; {
+  const todo = todos.find(t =&gt; t.id === Number(req.params.id));
+  if (!todo) return res.status(404).json({ error: &#x27;Not found&#x27; });
+  Object.assign(todo, req.body);
+  res.json(todo);
+});
+
+app.delete(&#x27;/todos/:id&#x27;, (req, res) =&gt; {
+  const index = todos.findIndex(t =&gt; t.id === Number(req.params.id));
+  if (index === -1) return res.status(404).json({ error: &#x27;Not found&#x27; });
+  todos.splice(index, 1);
+  res.status(204).send();
+});
+
+// Export app for testing (do NOT listen here)
+module.exports = app;</code></pre>
+
+<pre><code class="language-js">// server.js — Entry point: imports app and starts listening
+const app = require(&#x27;./app&#x27;);
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () =&gt; console.log(`Server running on :${PORT}`));</code></pre>
+
+<pre><code class="language-js">// app.test.js — Basic API tests using Jest + Supertest
+const request = require(&#x27;supertest&#x27;);
+const app = require(&#x27;./app&#x27;);
+
+describe(&#x27;Todo API&#x27;, () =&gt; {
+
+  // GET /todos — should return all todos
+  test(&#x27;GET /todos returns todo list&#x27;, async () =&gt; {
+    const res = await request(app).get(&#x27;/todos&#x27;);
+    expect(res.status).toBe(200);
+    expect(res.body).toBeInstanceOf(Array);
+    expect(res.body.length).toBeGreaterThan(0);
+  });
+
+  // GET /todos/:id — should return a single todo
+  test(&#x27;GET /todos/1 returns the first todo&#x27;, async () =&gt; {
+    const res = await request(app).get(&#x27;/todos/1&#x27;);
+    expect(res.status).toBe(200);
+    expect(res.body).toHaveProperty(&#x27;id&#x27;, 1);
+    expect(res.body).toHaveProperty(&#x27;title&#x27;);
+  });
+
+  // GET /todos/:id — 404 for non-existent todo
+  test(&#x27;GET /todos/999 returns 404&#x27;, async () =&gt; {
+    const res = await request(app).get(&#x27;/todos/999&#x27;);
+    expect(res.status).toBe(404);
+    expect(res.body).toHaveProperty(&#x27;error&#x27;);
+  });
+
+  // POST /todos — should create a new todo
+  test(&#x27;POST /todos creates a new todo&#x27;, async () =&gt; {
+    const res = await request(app)
+      .post(&#x27;/todos&#x27;)
+      .send({ title: &#x27;Test todo&#x27; });
+    expect(res.status).toBe(201);
+    expect(res.body).toHaveProperty(&#x27;title&#x27;, &#x27;Test todo&#x27;);
+    expect(res.body).toHaveProperty(&#x27;done&#x27;, false);
+  });
+
+  // POST /todos — 400 without title
+  test(&#x27;POST /todos returns 400 without title&#x27;, async () =&gt; {
+    const res = await request(app)
+      .post(&#x27;/todos&#x27;)
+      .send({});
+    expect(res.status).toBe(400);
+  });
+
+  // DELETE /todos/:id — should remove a todo
+  test(&#x27;DELETE /todos/2 returns 204&#x27;, async () =&gt; {
+    const res = await request(app).delete(&#x27;/todos/2&#x27;);
+    expect(res.status).toBe(204);
+  });
+});</code></pre>
+
+<h3>v2：结构化测试 + 生命周期 + 覆盖率</h3>
+
+<pre><code class="language-js">// app.v2.js — Enhanced app with service layer
+const express = require(&#x27;express&#x27;);
+const app = express();
+app.use(express.json());
+
+// Service layer (separated for testability)
+const TodoService = {
+  _todos: [],
+  _nextId: 1,
+
+  // Reset state (used in tests)
+  reset() {
+    this._todos = [];
+    this._nextId = 1;
+  },
+
+  getAll() { return this._todos; },
+
+  getById(id) {
+    return this._todos.find(t =&gt; t.id === id) || null;
+  },
+
+  create(data) {
+    if (!data.title) throw new Error(&#x27;Title is required&#x27;);
+    const todo = { id: this._nextId++, ...data, done: false };
+    this._todos.push(todo);
+    return todo;
+  },
+
+  update(id, data) {
+    const todo = this.getById(id);
+    if (!todo) return null;
+    Object.assign(todo, data);
+    return todo;
+  },
+
+  delete(id) {
+    const index = this._todos.findIndex(t =&gt; t.id === id);
+    if (index === -1) return false;
+    this._todos.splice(index, 1);
+    return true;
+  }
+};
+
+// Routes use the service
+app.get(&#x27;/todos&#x27;, (req, res) =&gt; res.json(TodoService.getAll()));
+
+app.get(&#x27;/todos/:id&#x27;, (req, res) =&gt; {
+  const todo = TodoService.getById(Number(req.params.id));
+  if (!todo) return res.status(404).json({ error: &#x27;Not found&#x27; });
+  res.json(todo);
+});
+
+app.post(&#x27;/todos&#x27;, (req, res) =&gt; {
+  try {
+    const todo = TodoService.create(req.body);
+    res.status(201).json(todo);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+app.put(&#x27;/todos/:id&#x27;, (req, res) =&gt; {
+  const todo = TodoService.update(Number(req.params.id), req.body);
+  if (!todo) return res.status(404).json({ error: &#x27;Not found&#x27; });
+  res.json(todo);
+});
+
+app.delete(&#x27;/todos/:id&#x27;, (req, res) =&gt; {
+  const ok = TodoService.delete(Number(req.params.id));
+  if (!ok) return res.status(404).json({ error: &#x27;Not found&#x27; });
+  res.status(204).send();
+});
+
+module.exports = { app, TodoService };</code></pre>
+
+<pre><code class="language-js">// app.v2.test.js — Structured tests with lifecycle hooks
+const request = require(&#x27;supertest&#x27;);
+const { app, TodoService } = require(&#x27;./app.v2&#x27;);
+
+describe(&#x27;Todo API v2&#x27;, () =&gt; {
+
+  // Reset data before each test for isolation
+  beforeEach(() =&gt; {
+    TodoService.reset();
+  });
+
+  describe(&#x27;GET /todos&#x27;, () =&gt; {
+    test(&#x27;returns empty array when no todos&#x27;, async () =&gt; {
+      const res = await request(app).get(&#x27;/todos&#x27;);
+      expect(res.status).toBe(200);
+      expect(res.body).toEqual([]);
+    });
+
+    test(&#x27;returns todos after creation&#x27;, async () =&gt; {
+      TodoService.create({ title: &#x27;Buy milk&#x27; });
+      const res = await request(app).get(&#x27;/todos&#x27;);
+      expect(res.body).toHaveLength(1);
+      expect(res.body[0].title).toBe(&#x27;Buy milk&#x27;);
+    });
+  });
+
+  describe(&#x27;POST /todos&#x27;, () =&gt; {
+    test(&#x27;creates todo with valid data&#x27;, async () =&gt; {
+      const res = await request(app)
+        .post(&#x27;/todos&#x27;)
+        .send({ title: &#x27;Write code&#x27; });
+      expect(res.status).toBe(201);
+      expect(res.body).toMatchObject({
+        id: 1,
+        title: &#x27;Write code&#x27;,
+        done: false
+      });
+    });
+
+    test(&#x27;rejects empty title&#x27;, async () =&gt; {
+      const res = await request(app)
+        .post(&#x27;/todos&#x27;)
+        .send({});
+      expect(res.status).toBe(400);
+      expect(res.body.error).toMatch(/title/i);
+    });
+  });
+
+  describe(&#x27;PUT /todos/:id&#x27;, () =&gt; {
+    test(&#x27;updates an existing todo&#x27;, async () =&gt; {
+      TodoService.create({ title: &#x27;Old title&#x27; });
+      const res = await request(app)
+        .put(&#x27;/todos/1&#x27;)
+        .send({ title: &#x27;New title&#x27;, done: true });
+      expect(res.status).toBe(200);
+      expect(res.body.title).toBe(&#x27;New title&#x27;);
+      expect(res.body.done).toBe(true);
+    });
+  });
+
+  describe(&#x27;DELETE /todos/:id&#x27;, () =&gt; {
+    test(&#x27;deletes an existing todo&#x27;, async () =&gt; {
+      TodoService.create({ title: &#x27;To delete&#x27; });
+      const res = await request(app).delete(&#x27;/todos/1&#x27;);
+      expect(res.status).toBe(204);
+    });
+
+    test(&#x27;returns 404 for non-existent todo&#x27;, async () =&gt; {
+      const res = await request(app).delete(&#x27;/todos/999&#x27;);
+      expect(res.status).toBe(404);
+    });
+  });
+});
+
+// Unit tests for TodoService
+describe(&#x27;TodoService (unit)&#x27;, () =&gt; {
+  beforeEach(() =&gt; TodoService.reset());
+
+  test(&#x27;create() assigns incremental IDs&#x27;, () =&gt; {
+    const t1 = TodoService.create({ title: &#x27;First&#x27; });
+    const t2 = TodoService.create({ title: &#x27;Second&#x27; });
+    expect(t1.id).toBe(1);
+    expect(t2.id).toBe(2);
+  });
+
+  test(&#x27;getById() returns null for missing ID&#x27;, () =&gt; {
+    expect(TodoService.getById(999)).toBeNull();
+  });
+
+  test(&#x27;delete() returns false for missing ID&#x27;, () =&gt; {
+    expect(TodoService.delete(999)).toBe(false);
+  });
+});</code></pre>
+
+<h3>v3：Mock + 异步数据库 + 完整覆盖</h3>
+
+<pre><code class="language-js">// user.service.js — Async service with database dependency
+const db = require(&#x27;./db&#x27;); // Database module to be mocked
+
+class UserService {
+  async getAll() {
+    return db.query(&#x27;SELECT * FROM users&#x27;);
+  }
+
+  async getById(id) {
+    const users = await db.query(&#x27;SELECT * FROM users WHERE id = ?&#x27;, [id]);
+    if (!users.length) throw new Error(&#x27;User not found&#x27;);
+    return users[0];
+  }
+
+  async create(data) {
+    if (!data.name || !data.email) {
+      throw new Error(&#x27;Name and email are required&#x27;);
+    }
+    const result = await db.query(&#x27;INSERT INTO users SET ?&#x27;, data);
+    return { id: result.insertId, ...data };
+  }
+}
+
+module.exports = new UserService();</code></pre>
+
+<pre><code class="language-js">// app.v3.js — Express app using async service
+const express = require(&#x27;express&#x27;);
+const userService = require(&#x27;./user.service&#x27;);
+const app = express();
+app.use(express.json());
+
+// Async handler wrapper
+const asyncHandler = (fn) =&gt; (req, res, next) =&gt; {
+  Promise.resolve(fn(req, res, next)).catch(next);
+};
+
+app.get(&#x27;/users&#x27;, asyncHandler(async (req, res) =&gt; {
+  const users = await userService.getAll();
+  res.json(users);
+}));
+
+app.get(&#x27;/users/:id&#x27;, asyncHandler(async (req, res) =&gt; {
+  const user = await userService.getById(Number(req.params.id));
+  res.json(user);
+}));
+
+app.post(&#x27;/users&#x27;, asyncHandler(async (req, res) =&gt; {
+  const user = await userService.create(req.body);
+  res.status(201).json(user);
+}));
+
+// Error handler
+app.use((err, req, res, next) =&gt; {
+  const status = err.message.includes(&#x27;not found&#x27;) ? 404
+    : err.message.includes(&#x27;required&#x27;) ? 400 : 500;
+  res.status(status).json({ error: err.message });
+});
+
+module.exports = app;</code></pre>
+
+<pre><code class="language-js">// app.v3.test.js — Tests with mocked database
+const request = require(&#x27;supertest&#x27;);
+
+// Mock db module before importing app
+jest.mock(&#x27;./db&#x27;, () =&gt; ({
+  query: jest.fn()
+}));
+
+const db = require(&#x27;./db&#x27;);
+const app = require(&#x27;./app.v3&#x27;);
+
+// Sample data
+const mockUsers = [
+  { id: 1, name: &#x27;Alice&#x27;, email: &#x27;alice@test.com&#x27; },
+  { id: 2, name: &#x27;Bob&#x27;, email: &#x27;bob@test.com&#x27; }
+];
+
+describe(&#x27;User API v3&#x27;, () =&gt; {
+  afterEach(() =&gt; {
+    jest.clearAllMocks();
+  });
+
+  describe(&#x27;GET /users&#x27;, () =&gt; {
+    test(&#x27;returns all users&#x27;, async () =&gt; {
+      db.query.mockResolvedValue(mockUsers);
+
+      const res = await request(app).get(&#x27;/users&#x27;);
+      expect(res.status).toBe(200);
+      expect(res.body).toHaveLength(2);
+      expect(res.body[0].name).toBe(&#x27;Alice&#x27;);
+    });
+
+    test(&#x27;handles database error&#x27;, async () =&gt; {
+      db.query.mockRejectedValue(new Error(&#x27;DB connection failed&#x27;));
+
+      const res = await request(app).get(&#x27;/users&#x27;);
+      expect(res.status).toBe(500);
+      expect(res.body.error).toBe(&#x27;DB connection failed&#x27;);
+    });
+  });
+
+  describe(&#x27;GET /users/:id&#x27;, () =&gt; {
+    test(&#x27;returns a single user&#x27;, async () =&gt; {
+      db.query.mockResolvedValue([mockUsers[0]]);
+
+      const res = await request(app).get(&#x27;/users/1&#x27;);
+      expect(res.status).toBe(200);
+      expect(res.body.name).toBe(&#x27;Alice&#x27;);
+    });
+
+    test(&#x27;returns 404 for non-existent user&#x27;, async () =&gt; {
+      db.query.mockResolvedValue([]);
+
+      const res = await request(app).get(&#x27;/users/999&#x27;);
+      expect(res.status).toBe(404);
+    });
+  });
+
+  describe(&#x27;POST /users&#x27;, () =&gt; {
+    test(&#x27;creates a user successfully&#x27;, async () =&gt; {
+      db.query.mockResolvedValue({ insertId: 3 });
+
+      const res = await request(app)
+        .post(&#x27;/users&#x27;)
+        .send({ name: &#x27;Charlie&#x27;, email: &#x27;charlie@test.com&#x27; });
+      expect(res.status).toBe(201);
+      expect(res.body.id).toBe(3);
+      expect(res.body.name).toBe(&#x27;Charlie&#x27;);
+    });
+
+    test(&#x27;rejects missing name&#x27;, async () =&gt; {
+      const res = await request(app)
+        .post(&#x27;/users&#x27;)
+        .send({ email: &#x27;no-name@test.com&#x27; });
+      expect(res.status).toBe(400);
+    });
+  });
+});</code></pre>
+
+<pre><code class="language-json">// package.json — Add Jest config
+{
+  &quot;scripts&quot;: {
+    &quot;test&quot;: &quot;jest --coverage&quot;,
+    &quot;test:watch&quot;: &quot;jest --watch&quot;
+  },
+  &quot;jest&quot;: {
+    &quot;testEnvironment&quot;: &quot;node&quot;,
+    &quot;coverageDirectory&quot;: &quot;coverage&quot;,
+    &quot;collectCoverageFrom&quot;: [&quot;*.js&quot;, &quot;!*.test.js&quot;, &quot;!coverage/**&quot;]
+  },
+  &quot;devDependencies&quot;: {
+    &quot;jest&quot;: &quot;^29.0.0&quot;,
+    &quot;supertest&quot;: &quot;^6.3.0&quot;
+  }
+}</code></pre>
+
+<h2>执行预览</h2>
+
+<pre><code class="language-bash"># 安装依赖
+$ npm install --save-dev jest supertest
+
+# 运行测试
+$ npx jest
+ PASS  ./app.test.js
+  Todo API
+    ✓ GET /todos returns todo list (15 ms)
+    ✓ GET /todos/1 returns the first todo (3 ms)
+    ✓ GET /todos/999 returns 404 (2 ms)
+    ✓ POST /todos creates a new todo (4 ms)
+    ✓ POST /todos returns 400 without title (2 ms)
+    ✓ DELETE /todos/2 returns 204 (3 ms)
+
+Test Suites: 1 passed, 1 total
+Tests:       6 passed, 6 total
+
+# 带覆盖率
+$ npx jest --coverage
+---------------------|---------|----------|---------|---------|
+File                 | % Stmts | % Branch | % Funcs | % Lines |
+---------------------|---------|----------|---------|---------|
+All files            |     100 |      100 |     100 |     100 |
+ app.js              |     100 |      100 |     100 |     100 |
+---------------------|---------|----------|---------|---------|</code></pre>
+
+<h2>注意事项</h2>
+
+<table><thead><tr>
+<th>事项</th>
+<th>说明</th>
+<th>严重度</th>
+</tr></thead><tbody>
+<tr>
+<td>导出 app 而非 listen</td>
+<td>Supertest 直接调用 app，不需要启动服务器</td>
+<td>🔴 高</td>
+</tr>
+<tr>
+<td>测试之间相互独立</td>
+<td>每个测试不应依赖其他测试的数据</td>
+<td>🔴 高</td>
+</tr>
+<tr>
+<td>jest.mock 在 import 前</td>
+<td>mock 声明必须在 require 之前</td>
+<td>🔴 高</td>
+</tr>
+<tr>
+<td>清理 mock 状态</td>
+<td>afterEach 中 clearAllMocks</td>
+<td>🟡 中</td>
+</tr>
+<tr>
+<td>测试环境变量</td>
+<td>设置 NODE_ENV=test</td>
+<td>🟡 中</td>
+</tr>
+<tr>
+<td>测试文件命名</td>
+<td>*.test.js 或放 __tests__ 目录</td>
+<td>🟢 建议</td>
+</tr>
+<tr>
+<td>覆盖率目标</td>
+<td>核心代码 >80%，不必追求 100%</td>
+<td>🟢 建议</td>
+</tr>
+</tbody></table>
+
+<h2>避坑指南</h2>
+
+<table><thead><tr>
+<th>❌ 错误做法</th>
+<th>✅ 正确做法</th>
+</tr></thead><tbody>
+<tr>
+<td>在 <code>app.js</code> 中直接 <code>app.listen()</code></td>
+<td>导出 app，在 <code>server.js</code> 中 listen</td>
+</tr>
+<tr>
+<td>测试共享可变状态</td>
+<td><code>beforeEach</code> 重置数据，保证测试独立</td>
+</tr>
+<tr>
+<td><code>jest.mock()</code> 写在 require 后面</td>
+<td>mock 必须在导入模块之前声明</td>
+</tr>
+<tr>
+<td>测试只测 happy path</td>
+<td>同时测试正常流程和错误情况</td>
+</tr>
+<tr>
+<td><code>setTimeout</code> 等待异步操作</td>
+<td>用 <code>async/await</code> 或 return Promise</td>
+</tr>
+<tr>
+<td>忽略测试失败继续部署</td>
+<td>CI 中测试失败必须阻断部署</td>
+</tr>
+<tr>
+<td>所有测试放一个文件</td>
+<td>按 describe 分组，每个资源一个测试文件</td>
+</tr>
+</tbody></table>
+
+<h2>练习题</h2>
+
+<h3>🟢 入门题</h3>
+
+<ol>
+<li>为一个 <code>GET /health</code> 路由编写测试，验证返回 <code>{ status: 'ok' }</code> 和 200 状态码</li>
+</ul>
+<ol>
+<li>编写测试验证 <code>POST /items</code> 在缺少必填字段时返回 400</li>
+
+<h3>🟡 进阶题</h3>
+
+<ol>
+<li>重构现有代码：将业务逻辑抽到 Service 层，分别编写单元测试和集成测试</li>
+</ul>
+<ol>
+<li>使用 <code>jest.mock</code> 模拟一个发送邮件的模块，验证它被正确调用</li>
+
+<h3>🔴 挑战题</h3>
+
+<ol>
+<li>搭建完整的测试体系：Service 层 + 路由层 + Mock 数据库 + 覆盖率 >90% + GitHub Actions CI 自动运行测试</li>
+
+<h2>知识点总结</h2>
+
+<pre><code>Express 测试
+├── Jest 基础
+│   ├── test/it — 定义测试用例
+│   ├── describe — 分组
+│   ├── expect — 断言
+│   └── beforeAll/afterEach — 生命周期钩子
+├── Supertest
+│   ├── request(app).get/post/put/delete
+│   ├── .send() 发送请求体
+│   ├── .set() 设置请求头
+│   └── 不需要真正启动服务器
+├── Mock 技术
+│   ├── jest.fn() — 创建 mock 函数
+│   ├── jest.mock() — 替换整个模块
+│   ├── mockResolvedValue — 模拟成功
+│   └── mockRejectedValue — 模拟失败
+├── 测试组织
+│   ├── 单元测试 — 测试函数
+│   ├── 集成测试 — 测试 API
+│   ├── 测试隔离 — beforeEach 重置
+│   └── 命名规范 — *.test.js
+└── 覆盖率
+    ├── --coverage 标志
+    ├── Stmts / Branch / Funcs / Lines
+    └── 目标: 核心代码 &gt;80%</code></pre>
+
+<h2>举一反三</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>测试方式</th>
+<th>关键点</th>
+</tr></thead><tbody>
+<tr>
+<td>REST API CRUD</td>
+<td>Supertest + Jest</td>
+<td>测试每个状态码</td>
+</tr>
+<tr>
+<td>认证中间件</td>
+<td>Mock JWT，测试 401/403</td>
+<td>验证 token 过期</td>
+</tr>
+<tr>
+<td>文件上传</td>
+<td>.attach() 发送文件</td>
+<td>测试大小限制和类型</td>
+</tr>
+<tr>
+<td>分页接口</td>
+<td>多组参数测试</td>
+<td>测试边界值</td>
+</tr>
+<tr>
+<td>数据库操作</td>
+<td>jest.mock 模拟 db</td>
+<td>不依赖真实数据库</td>
+</tr>
+<tr>
+<td>第三方 API</td>
+<td>nock 或 jest.mock</td>
+<td>模拟外部响应</td>
+</tr>
+<tr>
+<td>WebSocket</td>
+<td>socket.io-client 测试</td>
+<td>模拟连接和事件</td>
+</tr>
+<tr>
+<td>定时任务</td>
+<td>jest.useFakeTimers</td>
+<td>控制时间流逝</td>
+</tr>
+</tbody></table>
+
+<h2>参考资料</h2>
+
+<ul>
+<li><a href="https://jestjs.io/docs/getting-started">Jest 官方文档</a></li>
+<li><a href="https://github.com/visionmedia/supertest">Supertest GitHub</a></li>
+<li><a href="https://www.robinwieruch.de/node-testing-jest">Testing Express.js — ReactP</a></li>
+<li><a href="https://jestjs.io/docs/mock-functions">Jest Mock 详解</a></li>
+
+<h2>代码演进</h2>
+
+<pre><code>v1: 基础 API 测试
+├── app.js 导出 app（不 listen）
+├── supertest 直接请求 app
+├── 测试 CRUD 的 happy path
+└── 问题: 测试共享数据，不够独立
+
+        ↓ 改进
+
+v2: 结构化测试 + Service 层
+├── 业务逻辑抽到 TodoService
+├── beforeEach 重置数据
+├── describe 分组组织测试
+├── 单元测试 + 集成测试分离
+└── 问题: 数据还是内存模拟
+
+        ↓ 改进
+
+v3: Mock + 异步数据库 + 完整覆盖
+├── jest.mock 替换数据库模块
+├── mockResolvedValue/rejectedValue
+├── 测试数据库错误场景
+├── 覆盖率报告
+└── CI 集成就绪</code></pre>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

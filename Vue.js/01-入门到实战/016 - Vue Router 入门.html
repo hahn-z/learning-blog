@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>016 - Vue Router 入门</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Vue.js/index.html">Vue.js</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Vue.js/01-入门到实战/index.html">Vue.js入门到实战</a>
+</nav>
+<h1>016 - Vue Router 入门</h1>
+<div class="meta">
+<span>📂 Vue.js入门到实战</span>
+<span>🏷️ Vue.js</span>
+</div>
+<article>
+
+
+<h1>054-Vue Router 入门</h1>
+
+<blockquote><p><strong>难度标注：</strong> 🟢 初级 | <strong>前置知识：</strong> Vue 3 基础、SPA 概念</p></blockquote>
+
+<hr>
+
+<h2>一、概念讲解</h2>
+
+<p>Vue Router 是 Vue.js 的官方路由管理器。它让单页应用（SPA）能够根据 URL 显示不同的"页面"，而无需刷新浏览器。</p>
+
+<p>核心概念：</p>
+<ul>
+<li><strong>Router</strong>——路由器实例，管理所有路由规则</li>
+<li><strong>Route</strong>——当前路由信息对象</li>
+<li><strong>RouterView</strong>——路由组件的渲染出口</li>
+<li><strong>RouterLink</strong>——声明式导航组件</li>
+
+<hr>
+
+<h2>二、脑图（ASCII）</h2>
+
+<pre><code>Vue Router
+├── 基础配置
+│   ├── createRouter()
+│   ├── createWebHistory()
+│   ├── routes 数组
+│   └── app.use(router)
+├── 路由定义
+│   ├── path + component
+│   ├── name（命名路由）
+│   ├── redirect / alias
+│   └── children（嵌套路由）
+├── 导航组件
+│   ├── &lt;RouterView /&gt; 渲染出口
+│   ├── &lt;RouterLink to=&quot;&quot;&gt; 导航
+│   └── 编程式导航
+│       ├── router.push()
+│       ├── router.replace()
+│       └── router.go()
+├── 路由信息
+│   ├── useRoute().params
+│   ├── useRoute().query
+│   └── useRouter()
+└── 模式
+    ├── History（推荐）
+    └── Hash</code></pre>
+
+<hr>
+
+<h2>三、完整代码示例</h2>
+
+<pre><code class="language-javascript">// router/index.js
+import { createRouter, createWebHistory } from &#x27;vue-router&#x27;
+
+const Home = () =&gt; import(&#x27;../views/Home.vue&#x27;)
+const About = () =&gt; import(&#x27;../views/About.vue&#x27;)
+const User = () =&gt; import(&#x27;../views/User.vue&#x27;)
+const NotFound = () =&gt; import(&#x27;../views/NotFound.vue&#x27;)
+
+const routes = [
+  { path: &#x27;/&#x27;, name: &#x27;home&#x27;, component: Home },
+  { path: &#x27;/about&#x27;, name: &#x27;about&#x27;, component: About },
+  {
+    path: &#x27;/user/:id&#x27;,
+    name: &#x27;user&#x27;,
+    component: User,
+    props: true // Pass route params as component props
+  },
+  { path: &#x27;/:pathMatch(.*)*&#x27;, name: &#x27;not-found&#x27;, component: NotFound }
+]
+
+const router = createRouter({
+  history: createWebHistory(),
+  routes,
+  scrollBehavior(to, from, savedPosition) {
+    return savedPosition || { top: 0 }
+  }
+})
+
+export default router</code></pre>
+
+<pre><code class="language-javascript">// main.js
+import { createApp } from &#x27;vue&#x27;
+import App from &#x27;./App.vue&#x27;
+import router from &#x27;./router&#x27;
+
+createApp(App).use(router).mount(&#x27;#app&#x27;)</code></pre>
+
+<pre><code class="language-vue">&lt;!-- App.vue --&gt;
+&lt;template&gt;
+  &lt;div id=&quot;app&quot;&gt;
+    &lt;nav class=&quot;navbar&quot;&gt;
+      &lt;RouterLink to=&quot;/&quot; class=&quot;brand&quot;&gt;My App&lt;/RouterLink&gt;
+      &lt;div class=&quot;nav-links&quot;&gt;
+        &lt;RouterLink to=&quot;/&quot;&gt;Home&lt;/RouterLink&gt;
+        &lt;RouterLink to=&quot;/about&quot;&gt;About&lt;/RouterLink&gt;
+        &lt;RouterLink :to=&quot;{ name: &#x27;user&#x27;, params: { id: 1 }}&quot;&gt;User 1&lt;/RouterLink&gt;
+      &lt;/div&gt;
+    &lt;/nav&gt;
+    &lt;main class=&quot;content&quot;&gt;
+      &lt;RouterView /&gt;
+    &lt;/main&gt;
+  &lt;/div&gt;
+&lt;/template&gt;
+
+&lt;style&gt;
+.navbar { display: flex; gap: 16px; padding: 12px; background: #42b883; }
+.navbar a { color: white; text-decoration: none; padding: 8px; border-radius: 4px; }
+.navbar a.router-link-active { background: rgba(255,255,255,0.2); }
+&lt;/style&gt;</code></pre>
+
+<pre><code class="language-vue">&lt;!-- views/User.vue --&gt;
+&lt;template&gt;
+  &lt;div&gt;
+    &lt;h2&gt;User Profile&lt;/h2&gt;
+    &lt;p&gt;User ID: {{ id }}&lt;/p&gt;
+    &lt;RouterLink :to=&quot;{ name: &#x27;user&#x27;, params: { id: Number(id) + 1 }}&quot;&gt;Next User&lt;/RouterLink&gt;
+  &lt;/div&gt;
+&lt;/template&gt;
+
+&lt;script setup&gt;
+defineProps({ id: String })
+&lt;/script&gt;</code></pre>
+
+<hr>
+
+<h2>四、执行预览</h2>
+
+<pre><code>┌─────────────────────────────────────┐
+│ My App  [Home] [About] [User 1]     │
+├─────────────────────────────────────┤
+│  Welcome to Home Page               │
+└─────────────────────────────────────┘
+
+(Navigate to /user/1)
+
+┌─────────────────────────────────────┐
+│ My App  [Home] [About] [User 1]     │
+├─────────────────────────────────────┤
+│  User Profile                       │
+│  User ID: 1                         │
+│  [Next User]                        │
+└─────────────────────────────────────┘</code></pre>
+
+<hr>
+
+<h2>五、注意事项</h2>
+
+<table><thead><tr>
+<th>事项</th>
+<th>说明</th>
+<th>建议</th>
+</tr></thead><tbody>
+<tr>
+<td>History 模式</td>
+<td>需要服务器配置 fallback</td>
+<td>Nginx: <code>try_files $uri $uri/ /index.html</code></td>
+</tr>
+<tr>
+<td>懒加载</td>
+<td><code>() => import()</code> 代码分割</td>
+<td>大型应用必须</td>
+</tr>
+<tr>
+<td>RouterLink active</td>
+<td>自动添加 active 类</td>
+<td>可自定义 <code>active-class</code></td>
+</tr>
+<tr>
+<td>props: true</td>
+<td>route.params 传为 props</td>
+<td>解耦路由和组件</td>
+</tr>
+<tr>
+<td>404 路由</td>
+<td>最后加通配</td>
+<td><code>/:pathMatch(.<em>)</em></code></td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>六、避坑指南</h2>
+
+<table><thead><tr>
+<th>❌ 错误做法</th>
+<th>✅ 正确做法</th>
+</tr></thead><tbody>
+<tr>
+<td>用 <code><a href></code> 内部导航</td>
+<td><code><RouterLink></code> 避免刷新</td>
+</tr>
+<tr>
+<td>组件直接读 route.params</td>
+<td><code>props: true</code> 解耦</td>
+</tr>
+<tr>
+<td>不配 404 路由</td>
+<td>通配兜底</td>
+</tr>
+<tr>
+<td>History 模式不配服务器</td>
+<td>Nginx try_files</td>
+</tr>
+<tr>
+<td>硬编码路径导航</td>
+<td>命名路由导航</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>七、练习题</h2>
+
+<h3>🟢 基础</h3>
+<ol>
+<li>创建 3 页面路由：首页、关于、联系。</li>
+</ul>
+<ol>
+<li>用 <code>router.push()</code> 编程式导航。</li>
+
+<h3>🟡 进阶</h3>
+<ol>
+<li>搜索页 <code>/search?q=vue</code> 查询参数。</li>
+</ul>
+<ol>
+<li>配置 <code>scrollBehavior</code>。</li>
+
+<h3>🔴 挑战</h3>
+<ol>
+<li><code><Transition></code> 包裹 <code><RouterView></code> 过渡动画。</li>
+
+<hr>
+
+<h2>八、知识点总结</h2>
+
+<pre><code>Vue Router 入门
+├── createRouter({ history, routes })
+├── routes 配置
+│   ├── path, name, component
+│   ├── redirect, alias, children
+│   └── props: true
+├── 导航
+│   ├── &lt;RouterLink&gt;
+│   └── router.push/replace/go
+├── 路由信息
+│   ├── useRoute().params/.query
+│   └── useRouter()
+└── 高级
+    ├── 懒加载
+    └── scrollBehavior</code></pre>
+
+<hr>
+
+<h2>九、举一反三</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>配置</th>
+<th>关键点</th>
+</tr></thead><tbody>
+<tr>
+<td>博客</td>
+<td><code>/post/:slug</code></td>
+<td>动态参数+props</td>
+</tr>
+<tr>
+<td>搜索</td>
+<td><code>/search?q=keyword</code></td>
+<td>query 参数</td>
+</tr>
+<tr>
+<td>后台</td>
+<td><code>/admin/users</code></td>
+<td>嵌套路由</td>
+</tr>
+<tr>
+<td>重定向</td>
+<td><code>/old</code> → <code>/new</code></td>
+<td>redirect</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>十、参考资料</h2>
+
+<ul>
+<li><a href="https://router.vuejs.org/">Vue Router 官方文档</a></li>
+
+<hr>
+
+<h2>十一、代码演进</h2>
+
+<h3>v1 - 最简路由</h3>
+<pre><code class="language-javascript">createRouter({
+  history: createWebHistory(),
+  routes: [
+    { path: &#x27;/&#x27;, component: Home },
+    { path: &#x27;/about&#x27;, component: About }
+  ]
+})</code></pre>
+
+<h3>v2 - 命名+懒加载+props</h3>
+<pre><code class="language-javascript">routes: [
+  { path: &#x27;/&#x27;, name: &#x27;home&#x27;, component: () =&gt; import(&#x27;./views/Home.vue&#x27;) },
+  { path: &#x27;/user/:id&#x27;, name: &#x27;user&#x27;, component: () =&gt; import(&#x27;./views/User.vue&#x27;), props: true },
+  { path: &#x27;/:pathMatch(.*)*&#x27;, component: () =&gt; import(&#x27;./views/NotFound.vue&#x27;) }
+]</code></pre>
+
+<h3>v3 - 完整配置+TS</h3>
+<pre><code class="language-typescript">const router = createRouter({
+  history: createWebHistory(import.meta.env.BASE_URL),
+  routes: typedRoutes,
+  scrollBehavior(to, from, savedPosition) {
+    if (to.hash) return { el: to.hash }
+    return savedPosition || { top: 0 }
+  }
+})</code></pre>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

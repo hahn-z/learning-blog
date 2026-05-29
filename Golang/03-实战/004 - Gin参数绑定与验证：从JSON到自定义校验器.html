@@ -1,0 +1,514 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>004 - Gin参数绑定与验证：从JSON到自定义校验器</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Golang/index.html">Golang</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Golang/03-实战/index.html">Golang实战</a>
+</nav>
+<h1>004 - Gin参数绑定与验证：从JSON到自定义校验器</h1>
+<div class="meta">
+<span>📂 Golang实战</span>
+<span>🏷️ Golang</span>
+</div>
+<article>
+
+
+<h2>难度标注</h2>
+
+<blockquote><p>🟡 中级 | 需要了解 Go 结构体标签、反射基础、HTTP 请求处理</p></blockquote>
+
+<h2>概念讲解</h2>
+
+<p>参数绑定（Binding）是 Gin 的核心功能之一，自动将 HTTP 请求数据映射到 Go 结构体。</p>
+
+<p><strong>绑定来源：</strong></p>
+<ul>
+<li><strong>JSON Body</strong>：<code>ShouldBindJSON</code> / <code>BindJSON</code></li>
+<li><strong>Query 参数</strong>：<code>ShouldBindQuery</code> / <code>BindQuery</code></li>
+<li><strong>URI 参数</strong>：<code>ShouldBindUri</code> / <code>BindUri</code></li>
+<li><strong>Form 表单</strong>：<code>ShouldBind</code> (Content-Type 自动判断)</li>
+<li><strong>Header</strong>：<code>ShouldBindHeader</code></li>
+
+<p><strong>验证标签（基于 <code>validator</code> 库）：</strong></p>
+<ul>
+<li><code>required</code> — 必填</li>
+<li><code>min</code> / <code>max</code> — 数值范围</li>
+<li><code>len</code> — 字符串长度</li>
+<li><code>email</code> — 邮箱格式</li>
+<li><code>oneof</code> — 枚举值</li>
+<li><code>gte</code> / <code>lte</code> — 大于等于 / 小于等于</li>
+
+<p><strong>ShouldBind vs Bind：</strong></p>
+<ul>
+<li><code>ShouldBindXXX</code> — 验证失败返回 error，<strong>不自动写响应</strong></li>
+<li><code>BindXXX</code> — 验证失败<strong>自动写 400 响应</strong>，使用 <code>gin.H{"error": ...}</code></li>
+
+<blockquote><p>推荐使用 <code>ShouldBindXXX</code>，手动处理错误以控制响应格式。</p></blockquote>
+
+<h2>脑图</h2>
+
+<pre><code>参数绑定与验证
+├── 绑定来源
+│   ├── JSON Body (ShouldBindJSON)
+│   ├── Query String (ShouldBindQuery)
+│   ├── URI 参数 (ShouldBindUri)
+│   ├── Form 表单 (ShouldBind)
+│   └── Header (ShouldBindHeader)
+├── 验证标签
+│   ├── required
+│   ├── min / max
+│   ├── gte / lte
+│   ├── email / url
+│   ├── oneof
+│   ├── len / min / max (string)
+│   └── dive (slice/map 元素)
+├── 自定义验证
+│   ├── validator.RegisterValidation
+│   └── 自定义错误消息
+└── 错误处理
+    ├── ShouldBind → error
+    ├── Bind → 自动写响应
+    └── 自定义 ValidationError 格式</code></pre>
+
+<h2>完整 Go 代码</h2>
+
+<pre><code class="language-go">package main
+
+import (
+	&quot;fmt&quot;
+	&quot;net/http&quot;
+	&quot;regexp&quot;
+	&quot;time&quot;
+
+	&quot;github.com/gin-gonic/gin&quot;
+	&quot;github.com/gin-gonic/gin/binding&quot;
+	&quot;github.com/go-playground/validator/v10&quot;
+)
+
+// ============================================
+// Request/Response structs
+// ============================================
+
+// CreateUserRequest represents the JSON body for creating a user.
+type CreateUserRequest struct {
+	Name     string `json:&quot;name&quot; binding:&quot;required,min=2,max=50&quot;`
+	Email    string `json:&quot;email&quot; binding:&quot;required,email&quot;`
+	Age      int    `json:&quot;age&quot; binding:&quot;required,gte=1,lte=150&quot;`
+	Password string `json:&quot;password&quot; binding:&quot;required,min=8&quot;`
+	Role     string `json:&quot;role&quot; binding:&quot;omitempty,oneof=admin user guest&quot;`
+}
+
+// ListUsersQuery represents query parameters for listing users.
+type ListUsersQuery struct {
+	Page     int    `form:&quot;page&quot; binding:&quot;omitempty,min=1&quot;`
+	PageSize int    `form:&quot;page_size&quot; binding:&quot;omitempty,min=1,max=100&quot;`
+	Search   string `form:&quot;search&quot; binding:&quot;omitempty,max=100&quot;`
+	Sort     string `form:&quot;sort&quot; binding:&quot;omitempty,oneof=asc desc&quot;`
+}
+
+// UserURI represents URI path parameters.
+type UserURI struct {
+	ID int `uri:&quot;id&quot; binding:&quot;required,min=1&quot;`
+}
+
+// UpdateProfileRequest with custom validation.
+type UpdateProfileRequest struct {
+	Nickname string `json:&quot;nickname&quot; binding:&quot;required,nospace&quot;`
+	Bio      string `json:&quot;bio&quot; binding:&quot;max=200&quot;`
+	Website  string `json:&quot;website&quot; binding:&quot;omitempty,url&quot;`
+}
+
+// ErrorResponse represents a structured error response.
+type ErrorResponse struct {
+	Error   string            `json:&quot;error&quot;`
+	Details map[string]string `json:&quot;details,omitempty&quot;`
+}
+
+func main() {
+	r := gin.Default()
+
+	// Register custom validators
+	if v, ok := binding.Validator.Engine().(*validator.Validate); ok {
+		v.RegisterValidation(&quot;nospace&quot;, noSpaceValidator)
+	}
+
+	// ============================================
+	// 1. JSON body binding with validation
+	// ============================================
+	r.POST(&quot;/users&quot;, func(c *gin.Context) {
+		var req CreateUserRequest
+		if err := c.ShouldBindJSON(&amp;req); err != nil {
+			c.JSON(http.StatusBadRequest, ErrorResponse{
+				Error:   &quot;validation failed&quot;,
+				Details: formatValidationError(err),
+			})
+			return
+		}
+		// Business logic here...
+		c.JSON(http.StatusCreated, gin.H{
+			&quot;data&quot;: gin.H{
+				&quot;name&quot;:  req.Name,
+				&quot;email&quot;: req.Email,
+				&quot;age&quot;:   req.Age,
+				&quot;role&quot;:  req.Role,
+			},
+		})
+	})
+
+	// ============================================
+	// 2. Query string binding
+	// ============================================
+	r.GET(&quot;/users&quot;, func(c *gin.Context) {
+		var query ListUsersQuery
+		// Set defaults before binding
+		query.Page = 1
+		query.PageSize = 10
+		query.Sort = &quot;asc&quot;
+
+		if err := c.ShouldBindQuery(&amp;query); err != nil {
+			c.JSON(http.StatusBadRequest, ErrorResponse{
+				Error:   &quot;invalid query parameters&quot;,
+				Details: formatValidationError(err),
+			})
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{
+			&quot;page&quot;:      query.Page,
+			&quot;page_size&quot;: query.PageSize,
+			&quot;search&quot;:    query.Search,
+			&quot;sort&quot;:      query.Sort,
+		})
+	})
+
+	// ============================================
+	// 3. URI parameter binding
+	// ============================================
+	r.GET(&quot;/users/:id&quot;, func(c *gin.Context) {
+		var uri UserURI
+		if err := c.ShouldBindUri(&amp;uri); err != nil {
+			c.JSON(http.StatusBadRequest, ErrorResponse{
+				Error: &quot;invalid user ID&quot;,
+			})
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{
+			&quot;user_id&quot;: uri.ID,
+		})
+	})
+
+	// ============================================
+	// 4. Custom validator
+	// ============================================
+	r.PUT(&quot;/profile&quot;, func(c *gin.Context) {
+		var req UpdateProfileRequest
+		if err := c.ShouldBindJSON(&amp;req); err != nil {
+			c.JSON(http.StatusBadRequest, ErrorResponse{
+				Error:   &quot;validation failed&quot;,
+				Details: formatValidationError(err),
+			})
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{
+			&quot;nickname&quot;: req.Nickname,
+			&quot;bio&quot;:      req.Bio,
+			&quot;website&quot;:  req.Website,
+		})
+	})
+
+	r.Run(&quot;:8080&quot;)
+}
+
+// noSpaceValidator checks that a string contains no spaces.
+func noSpaceValidator(fl validator.FieldLevel) bool {
+	value := fl.Field().String()
+	matched, _ := regexp.MatchString(`^\S+$`, value)
+	return matched
+}
+
+// formatValidationError converts validator errors to a readable map.
+func formatValidationError(err error) map[string]string {
+	details := make(map[string]string)
+	if errs, ok := err.(validator.ValidationErrors); ok {
+		for _, e := range errs {
+			field := e.Field()
+			switch e.Tag() {
+			case &quot;required&quot;:
+				details[field] = fmt.Sprintf(&quot;%s is required&quot;, field)
+			case &quot;email&quot;:
+				details[field] = fmt.Sprintf(&quot;%s must be a valid email&quot;, field)
+			case &quot;min&quot;:
+				details[field] = fmt.Sprintf(&quot;%s must be at least %s characters&quot;, field, e.Param())
+			case &quot;max&quot;:
+				details[field] = fmt.Sprintf(&quot;%s must be at most %s characters&quot;, field, e.Param())
+			case &quot;gte&quot;:
+				details[field] = fmt.Sprintf(&quot;%s must be &gt;= %s&quot;, field, e.Param())
+			case &quot;lte&quot;:
+				details[field] = fmt.Sprintf(&quot;%s must be &lt;= %s&quot;, field, e.Param())
+			case &quot;oneof&quot;:
+				details[field] = fmt.Sprintf(&quot;%s must be one of: %s&quot;, field, e.Param())
+			case &quot;nospace&quot;:
+				details[field] = fmt.Sprintf(&quot;%s must not contain spaces&quot;, field)
+			default:
+				details[field] = fmt.Sprintf(&quot;%s failed %s validation&quot;, field, e.Tag())
+			}
+		}
+	} else {
+		details[&quot;error&quot;] = err.Error()
+	}
+	return details
+}</code></pre>
+
+<h2>执行预览</h2>
+
+<pre><code class="language-bash">$ go run main.go
+
+# 创建用户 - 成功
+$ curl -X POST localhost:8080/users \
+  -H &quot;Content-Type: application/json&quot; \
+  -d &#x27;{&quot;name&quot;:&quot;Alice&quot;,&quot;email&quot;:&quot;alice@test.com&quot;,&quot;age&quot;:25,&quot;password&quot;:&quot;secure123&quot;,&quot;role&quot;:&quot;admin&quot;}&#x27;
+{&quot;data&quot;:{&quot;age&quot;:25,&quot;email&quot;:&quot;alice@test.com&quot;,&quot;name&quot;:&quot;Alice&quot;,&quot;role&quot;:&quot;admin&quot;}}
+
+# 创建用户 - 验证失败
+$ curl -X POST localhost:8080/users \
+  -H &quot;Content-Type: application/json&quot; \
+  -d &#x27;{&quot;name&quot;:&quot;A&quot;,&quot;email&quot;:&quot;not-email&quot;,&quot;age&quot;:0,&quot;password&quot;:&quot;123&quot;}&#x27;
+{
+  &quot;error&quot;: &quot;validation failed&quot;,
+  &quot;details&quot;: {
+    &quot;Age&quot;: &quot;Age must be &gt;= 1&quot;,
+    &quot;Email&quot;: &quot;Email must be a valid email&quot;,
+    &quot;Name&quot;: &quot;Name must be at least 2 characters&quot;,
+    &quot;Password&quot;: &quot;Password must be at least 8 characters&quot;
+  }
+}
+
+# 查询参数
+$ curl &quot;localhost:8080/users?page=2&amp;page_size=20&amp;search=alice&amp;sort=desc&quot;
+{&quot;page&quot;:2,&quot;page_size&quot;:20,&quot;search&quot;:&quot;alice&quot;,&quot;sort&quot;:&quot;desc&quot;}
+
+# URI 绑定
+$ curl localhost:8080/users/42
+{&quot;user_id&quot;:42}
+
+$ curl localhost:8080/users/abc
+{&quot;error&quot;:&quot;invalid user ID&quot;}
+
+# 自定义验证（nospace）
+$ curl -X PUT localhost:8080/profile \
+  -H &quot;Content-Type: application/json&quot; \
+  -d &#x27;{&quot;nickname&quot;:&quot;hello world&quot;,&quot;bio&quot;:&quot;ok&quot;}&#x27;
+{&quot;error&quot;:&quot;validation failed&quot;,&quot;details&quot;:{&quot;Nickname&quot;:&quot;Nickname must not contain spaces&quot;}}
+
+$ curl -X PUT localhost:8080/profile \
+  -H &quot;Content-Type: application/json&quot; \
+  -d &#x27;{&quot;nickname&quot;:&quot;hello&quot;,&quot;bio&quot;:&quot;ok&quot;}&#x27;
+{&quot;bio&quot;:&quot;ok&quot;,&quot;nickname&quot;:&quot;hello&quot;}</code></pre>
+
+<h2>注意事项</h2>
+
+<table><thead><tr>
+<th>项目</th>
+<th>说明</th>
+</tr></thead><tbody>
+<tr>
+<td><code>binding</code> vs <code>json</code> 标签</td>
+<td><code>json</code> 控制 JSON 序列化，<code>binding</code>/<code>form</code> 控制绑定来源</td>
+</tr>
+<tr>
+<td>ShouldBind vs Bind</td>
+<td><code>ShouldBind</code> 返回 error 不自动响应；<code>Bind</code> 自动写 400</td>
+</tr>
+<tr>
+<td>默认值</td>
+<td>Go 零值即为默认值，int→0, string→""；复杂默认值需手动处理</td>
+</tr>
+<tr>
+<td>嵌套结构体</td>
+<td>支持嵌套绑定，内层也需加 binding 标签</td>
+</tr>
+<tr>
+<td><code>dive</code> 标签</td>
+<td>用于验证 slice/map 内部元素</td>
+</tr>
+<tr>
+<td>validator 版本</td>
+<td>Gin v1.9+ 使用 <code>validator/v10</code></td>
+</tr>
+</tbody></table>
+
+<h2>避坑指南</h2>
+
+<ul>
+<li>❌ <code>binding:"required"</code> 加在指针字段上，零值和 nil 都不通过</li>
+<li>✅ 区分 <code>omitempty</code>（零值跳过）和 <code>required</code>（必须非零值）</li>
+
+<ul>
+<li>❌ 直接用 <code>err.Error()</code> 返回给前端</li>
+<li>✅ 转换 <code>validator.ValidationErrors</code> 为用户友好的消息</li>
+
+<ul>
+<li>❌ 忘记设置 <code>Content-Type: application/json</code></li>
+<li>✅ <code>ShouldBindJSON</code> 要求请求有正确的 Content-Type</li>
+
+<ul>
+<li>❌ URI 参数绑定的 struct tag 用了 <code>json</code> 而不是 <code>uri</code></li>
+<li>✅ URI 绑定必须用 <code>uri</code> tag，如 `<code> </code>uri:"id"<code> </code>`</li>
+
+<h2>练习题</h2>
+
+<p>🟢 <strong>基础：</strong> 创建一个 <code>LoginRequest</code> 结构体，要求 <code>username</code>（min=3）和 <code>password</code>（min=6）。</p>
+
+<p>🟡 <strong>进阶：</strong> 实现一个 <code>CreateArticleRequest</code>，支持嵌套的 <code>Tags []string</code>（每个 tag min=2, max=20），并添加自定义验证器检查 tag 不含特殊字符。</p>
+
+<p>🔴 <strong>挑战：</strong> 实现一个通用的错误翻译器，支持中英文两种语言的验证错误消息，通过 <code>Accept-Language</code> Header 自动切换。</p>
+
+<h2>知识点总结</h2>
+
+<pre><code>参数绑定知识树
+├── 绑定方法
+│   ├── ShouldBindJSON → JSON body
+│   ├── ShouldBindQuery → URL query params
+│   ├── ShouldBindUri → 路径参数
+│   ├── ShouldBind → auto (form/JSON)
+│   └── ShouldBindHeader → 请求头
+├── 常用验证标签
+│   ├── required / omitempty
+│   ├── min / max (数值和字符串)
+│   ├── gte / lte
+│   ├── email / url
+│   ├── oneof (枚举)
+│   └── dive (嵌套验证)
+├── 自定义验证
+│   ├── v.RegisterValidation(name, fn)
+│   └── validator.FieldLevel 接口
+├── 错误处理
+│   ├── err.(validator.ValidationErrors)
+│   ├── e.Field() / e.Tag() / e.Param()
+│   └── 自定义 formatValidationError
+└── 注意事项
+    ├── ShouldBind vs Bind
+    ├── 零值与默认值
+    └── Content-Type 匹配</code></pre>
+
+<h2>举一反三</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>绑定方式</th>
+<th>结构体标签</th>
+</tr></thead><tbody>
+<tr>
+<td>REST 创建资源</td>
+<td>JSON Body</td>
+<td><code>json</code> + <code>binding</code></td>
+</tr>
+<tr>
+<td>列表查询</td>
+<td>Query String</td>
+<td><code>form</code> + <code>binding</code></td>
+</tr>
+<tr>
+<td>资源操作</td>
+<td>URI 参数</td>
+<td><code>uri</code> + <code>binding</code></td>
+</tr>
+<tr>
+<td>文件上传</td>
+<td>Form Data</td>
+<td><code>form:"file"</code></td>
+</tr>
+<tr>
+<td>条件查询组合</td>
+<td>Query + 可选</td>
+<td><code>omitempty</code> 标签</td>
+</tr>
+</tbody></table>
+
+<h2>参考资料</h2>
+
+<ul>
+<li><a href="https://gin-gonic.com/docs/examples/binding-and-validation/">Gin Model Binding 文档</a></li>
+<li><a href="https://pkg.go.dev/github.com/go-playground/validator/v10">validator v10 文档</a></li>
+<li><a href="https://go.dev/ref/spec#Tag">Go struct tag 详解</a></li>
+<li><a href="https://restfulapi.net/http-methods/">RESTful API 参数设计</a></li>
+
+<h2>代码演进</h2>
+
+<p><strong>v1 — 基础 JSON 绑定：</strong></p>
+<pre><code class="language-go">type Req struct {
+    Name  string `json:&quot;name&quot; binding:&quot;required&quot;`
+    Email string `json:&quot;email&quot; binding:&quot;required,email&quot;`
+}
+c.ShouldBindJSON(&amp;req)</code></pre>
+
+<p><strong>v2 — 多来源绑定 + 错误格式化：</strong></p>
+<pre><code class="language-go">// JSON + Query + URI 三种绑定
+// formatValidationError() 统一错误格式</code></pre>
+
+<p><strong>v3 — 完整方案（如上方代码）：</strong></p>
+<ul>
+<li>自定义验证器</li>
+<li>结构化错误响应</li>
+<li>默认值处理</li>
+<li>生产级错误消息</li>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

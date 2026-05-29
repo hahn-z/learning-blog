@@ -1,0 +1,810 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>009 - 用户信息 CRUD 与 RESTful API 设计</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Hyperf/index.html">Hyperf</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Hyperf/01-微服务实战/index.html">Hyperf微服务实战</a>
+</nav>
+<h1>009 - 用户信息 CRUD 与 RESTful API 设计</h1>
+<div class="meta">
+<span>📂 Hyperf微服务实战</span>
+<span>🏷️ Hyperf</span>
+</div>
+<article>
+
+
+<h1>用户信息 CRUD 与 RESTful API 设计</h1>
+
+<blockquote><p><strong>难度：</strong> ⭐⭐⭐<br><strong>前置知识：</strong> JWT 认证（008）、数据库模型（006）、HTTP 方法语义<br><strong>预估用时：</strong> 65 分钟</p></blockquote>
+
+<hr>
+
+<h2>一、概念讲解</h2>
+
+<p><strong>一句话定义：</strong> CRUD（Create、Read、Update、Delete）是数据操作的标准模式，RESTful API 用 HTTP 动词映射 CRUD 操作，构建语义化的资源接口。</p>
+
+<p><strong>现实类比：</strong> 管理用户资料像图书馆借书——借书（Create）、查书（Read）、更新借阅状态（Update）、还书（Delete）。RESTful API 把每种操作映射到 HTTP 方法，用 URL 资源路径表达操作对象，清晰易懂。</p>
+
+<p><strong>技术场景：</strong> 用户服务需要提供完整的用户信息管理 API：创建用户（POST）、获取用户详情（GET）、更新用户资料（PUT）、删除用户（DELETE）。遵循 RESTful 规范让 API 接口语义清晰，便于前端调用和第三方集成。</p>
+
+<hr>
+
+<h2>二、实时脑图</h2>
+
+<pre><code>RESTful API 设计
+┌──────────────────────────────────────────────┐
+│              HTTP 方法 → CRUD                │
+├──────────────────────────────────────────────┤
+│ GET    /users          → List   (分页查询)   │
+│ GET    /users/{id}     → Read   (获取详情)   │
+│ POST   /users          → Create (创建用户)   │
+│ PUT    /users/{id}     → Update (全量更新)   │
+│ PATCH  /users/{id}     → Update (部分更新)   │
+│ DELETE /users/{id}     → Delete (删除用户)   │
+└──────────────────────────────────────────────┘
+
+参数过滤与分页:
+GET /users?status=active&amp;page=1&amp;size=20&amp;sort=created_at:desc</code></pre>
+
+<hr>
+
+<h2>三、完整代码</h2>
+
+<h3>3.1 用户 Controller（完整 CRUD）</h3>
+
+<pre><code class="language-php">&lt;?php
+// ✅ app/Controller/UserController.php
+
+declare(strict_types=1);
+
+namespace App\Controller;
+
+use App\Service\UserService;
+use Hyperf\Context\Context;
+use Hyperf\HttpServer\Annotation\AutoController;
+use Hyperf\HttpServer\Contract\RequestInterface;
+use Hyperf\Di\Annotation\Inject;
+use Psr\Http\Message\ResponseInterface;
+
+#[AutoController(prefix: &quot;users&quot;)]
+class UserController
+{
+    #[Inject]
+    private UserService $userService;
+
+    // ✅ GET /users - List users (paginated, filtered)
+    public function index(RequestInterface $request): array
+    {
+        $page = (int) $request-&gt;input(&#x27;page&#x27;, 1);
+        $size = (int) $request-&gt;input(&#x27;size&#x27;, 20);
+        $status = $request-&gt;input(&#x27;status&#x27;);
+        $keyword = $request-&gt;input(&#x27;keyword&#x27;);
+
+        if ($size &gt; 100) {
+            return [&#x27;code&#x27; =&gt; 400, &#x27;message&#x27; =&gt; &#x27;Size cannot exceed 100&#x27;];
+        }
+
+        return $this-&gt;userService-&gt;listUsers($page, $size, $status, $keyword);
+    }
+
+    // ✅ GET /users/{id} - Get user by ID
+    public function show(RequestInterface $request): array
+    {
+        $id = (int) $request-&gt;input(&#x27;id&#x27;, 0);
+
+        if ($id &lt;= 0) {
+            return [&#x27;code&#x27; =&gt; 400, &#x27;message&#x27; =&gt; &#x27;Invalid user ID&#x27;];
+        }
+
+        return $this-&gt;userService-&gt;getUser($id);
+    }
+
+    // ✅ POST /users - Create new user (admin only)
+    public function store(RequestInterface $request): array
+    {
+        $data = $request-&gt;all();
+
+        return $this-&gt;userService-&gt;createUser($data);
+    }
+
+    // ✅ PUT /users/{id} - Update user (full update)
+    public function update(RequestInterface $request): array
+    {
+        $id = (int) $request-&gt;input(&#x27;id&#x27;, 0);
+        $data = $request-&gt;all();
+
+        if ($id &lt;= 0) {
+            return [&#x27;code&#x27; =&gt; 400, &#x27;message&#x27; =&gt; &#x27;Invalid user ID&#x27;];
+        }
+
+        return $this-&gt;userService-&gt;updateUser($id, $data);
+    }
+
+    // ✅ PATCH /users/{id} - Partial update user
+    public function patch(RequestInterface $request): array
+    {
+        $id = (int) $request-&gt;input(&#x27;id&#x27;, 0);
+        $data = $request-&gt;all();
+
+        if ($id &lt;= 0) {
+            return [&#x27;code&#x27; =&gt; 400, &#x27;message&#x27; =&gt; &#x27;Invalid user ID&#x27;];
+        }
+
+        return $this-&gt;userService-&gt;updateUser($id, $data, true);
+    }
+
+    // ✅ DELETE /users/{id} - Delete user (soft delete)
+    public function destroy(RequestInterface $request): array
+    {
+        $id = (int) $request-&gt;input(&#x27;id&#x27;, 0);
+
+        if ($id &lt;= 0) {
+            return [&#x27;code&#x27; =&gt; 400, &#x27;message&#x27; =&gt; &#x27;Invalid user ID&#x27;];
+        }
+
+        return $this-&gt;userService-&gt;deleteUser($id);
+    }
+
+    // ✅ GET /users/me - Get current user profile
+    public function me(RequestInterface $request): array
+    {
+        $userId = Context::get(&#x27;user_id&#x27;, 0);
+
+        if ($userId === 0) {
+            return [&#x27;code&#x27; =&gt; 401, &#x27;message&#x27; =&gt; &#x27;Unauthorized&#x27;];
+        }
+
+        return $this-&gt;userService-&gt;getUser($userId);
+    }
+
+    // ✅ PUT /users/me - Update current user profile
+    public function updateMe(RequestInterface $request): array
+    {
+        $userId = Context::get(&#x27;user_id&#x27;, 0);
+
+        if ($userId === 0) {
+            return [&#x27;code&#x27; =&gt; 401, &#x27;message&#x27; =&gt; &#x27;Unauthorized&#x27;];
+        }
+
+        $data = $request-&gt;only([&#x27;nickname&#x27;, &#x27;avatar&#x27;, &#x27;bio&#x27;, &#x27;gender&#x27;, &#x27;birthday&#x27;]);
+
+        return $this-&gt;userService-&gt;updateUserProfile($userId, $data);
+    }
+}</code></pre>
+
+<h3>3.2 UserService（CRUD 业务逻辑）</h3>
+
+<pre><code class="language-php">&lt;?php
+// ✅ app/Service/UserService.php
+
+declare(strict_types=1);
+
+namespace App\Service;
+
+use App\Model\User;
+use App\Model\UserProfile;
+use App\Validator\UserValidator;
+use Hyperf\DbConnection\Db;
+use Hyperf\Paginator\LengthAwarePaginator;
+use Hyperf\Di\Annotation\Inject;
+use Psr\Log\LoggerInterface;
+
+class UserService
+{
+    #[Inject]
+    private LoggerInterface $logger;
+
+    // ✅ List users with pagination and filtering
+    public function listUsers(
+        int $page = 1,
+        int $size = 20,
+        ?string $status = null,
+        ?string $keyword = null
+    ): array {
+        $query = User::query();
+
+        // 🟢 Filter by status
+        if ($status !== null &amp;&amp; in_array($status, [&#x27;active&#x27;, &#x27;inactive&#x27;, &#x27;banned&#x27;])) {
+            $query-&gt;where(&#x27;status&#x27;, $status);
+        }
+
+        // 🟢 Search by keyword (username or email)
+        if ($keyword !== null) {
+            $query-&gt;where(function ($q) use ($keyword) {
+                $q-&gt;where(&#x27;username&#x27;, &#x27;like&#x27;, &quot;%{$keyword}%&quot;)
+                  -&gt;orWhere(&#x27;email&#x27;, &#x27;like&#x27;, &quot;%{$keyword}%&quot;);
+            });
+        }
+
+        // 🟢 Pagination
+        $paginator = $query-&gt;with(&#x27;profile&#x27;)
+            -&gt;orderBy(&#x27;created_at&#x27;, &#x27;desc&#x27;)
+            -&gt;paginate($size, [&#x27;*&#x27;], &#x27;page&#x27;, $page);
+
+        return [
+            &#x27;code&#x27; =&gt; 0,
+            &#x27;data&#x27; =&gt; $paginator-&gt;items(),
+            &#x27;pagination&#x27; =&gt; [
+                &#x27;page&#x27; =&gt; $paginator-&gt;currentPage(),
+                &#x27;size&#x27; =&gt; $paginator-&gt;perPage(),
+                &#x27;total&#x27; =&gt; $paginator-&gt;total(),
+                &#x27;pages&#x27; =&gt; $paginator-&gt;lastPage(),
+            ],
+        ];
+    }
+
+    // ✅ Get user by ID with profile
+    public function getUser(int $id): array
+    {
+        $user = User::with(&#x27;profile&#x27;)-&gt;find($id);
+
+        if (!$user) {
+            return [&#x27;code&#x27; =&gt; 404, &#x27;message&#x27; =&gt; &#x27;User not found&#x27;];
+        }
+
+        return [
+            &#x27;code&#x27; =&gt; 0,
+            &#x27;data&#x27; =&gt; [
+                &#x27;id&#x27; =&gt; $user-&gt;id,
+                &#x27;username&#x27; =&gt; $user-&gt;username,
+                &#x27;email&#x27; =&gt; $user-&gt;email,
+                &#x27;phone&#x27; =&gt; $user-&gt;phone,
+                &#x27;status&#x27; =&gt; $user-&gt;status,
+                &#x27;created_at&#x27; =&gt; $user-&gt;created_at-&gt;toDateTimeString(),
+                &#x27;profile&#x27; =&gt; $user-&gt;profile ? [
+                    &#x27;nickname&#x27; =&gt; $user-&gt;profile-&gt;nickname,
+                    &#x27;avatar&#x27; =&gt; $user-&gt;profile-&gt;avatar,
+                    &#x27;bio&#x27; =&gt; $user-&gt;profile-&gt;bio,
+                    &#x27;gender&#x27; =&gt; $user-&gt;profile-&gt;gender,
+                    &#x27;birthday&#x27; =&gt; $user-&gt;profile-&gt;birthday?-&gt;toDateString(),
+                ] : null,
+            ],
+        ];
+    }
+
+    // ✅ Create new user (admin operation)
+    public function createUser(array $data): array
+    {
+        // 🟢 Validate input
+        $errors = UserValidator::validateCreate($data);
+        if (!empty($errors)) {
+            return [&#x27;code&#x27; =&gt; 400, &#x27;message&#x27; =&gt; &#x27;Validation failed&#x27;, &#x27;errors&#x27; =&gt; $errors];
+        }
+
+        try {
+            return Db::transaction(function () use ($data) {
+                // Check duplicate
+                $exists = User::where(&#x27;email&#x27;, $data[&#x27;email&#x27;] ?? null)
+                    -&gt;orWhere(&#x27;phone&#x27;, $data[&#x27;phone&#x27;] ?? null)
+                    -&gt;exists();
+
+                if ($exists) {
+                    return [&#x27;code&#x27; =&gt; 409, &#x27;message&#x27; =&gt; &#x27;Email or phone already exists&#x27;];
+                }
+
+                // Create user
+                $user = User::create([
+                    &#x27;email&#x27; =&gt; $data[&#x27;email&#x27;] ?? null,
+                    &#x27;phone&#x27; =&gt; $data[&#x27;phone&#x27;] ?? null,
+                    &#x27;username&#x27; =&gt; $data[&#x27;username&#x27;],
+                    &#x27;password&#x27; =&gt; $data[&#x27;password&#x27;] ?? &#x27;Password123&#x27;,  // Default password
+                    &#x27;status&#x27; =&gt; $data[&#x27;status&#x27;] ?? &#x27;active&#x27;,
+                ]);
+
+                // Create profile
+                UserProfile::create([
+                    &#x27;user_id&#x27; =&gt; $user-&gt;id,
+                    &#x27;nickname&#x27; =&gt; $data[&#x27;nickname&#x27;] ?? $user-&gt;username,
+                ]);
+
+                $this-&gt;logger-&gt;info(&#x27;User created by admin&#x27;, [&#x27;user_id&#x27; =&gt; $user-&gt;id]);
+
+                return [&#x27;code&#x27; =&gt; 0, &#x27;data&#x27; =&gt; [&#x27;user_id&#x27; =&gt; $user-&gt;id]];
+            });
+        } catch (\Throwable $e) {
+            $this-&gt;logger-&gt;error(&#x27;Create user failed&#x27;, [&#x27;error&#x27; =&gt; $e-&gt;getMessage()]);
+            return [&#x27;code&#x27; =&gt; 500, &#x27;message&#x27; =&gt; &#x27;Create user failed&#x27;];
+        }
+    }
+
+    // ✅ Update user (admin operation)
+    public function updateUser(int $id, array $data, bool $partial = false): array
+    {
+        $user = User::find($id);
+
+        if (!$user) {
+            return [&#x27;code&#x27; =&gt; 404, &#x27;message&#x27; =&gt; &#x27;User not found&#x27;];
+        }
+
+        try {
+            // 🟢 Prepare update data
+            $updateData = $partial ? $data : array_filter($data, fn($v) =&gt; $v !== null);
+
+            // Validate if updating sensitive fields
+            if (isset($updateData[&#x27;email&#x27;]) || isset($updateData[&#x27;phone&#x27;])) {
+                $duplicate = User::where(function ($q) use ($updateData, $id) {
+                    if (isset($updateData[&#x27;email&#x27;])) {
+                        $q-&gt;orWhere(&#x27;email&#x27;, $updateData[&#x27;email&#x27;]);
+                    }
+                    if (isset($updateData[&#x27;phone&#x27;])) {
+                        $q-&gt;orWhere(&#x27;phone&#x27;, $updateData[&#x27;phone&#x27;]);
+                    }
+                })-&gt;where(&#x27;id&#x27;, &#x27;!=&#x27;, $id)-&gt;exists();
+
+                if ($duplicate) {
+                    return [&#x27;code&#x27; =&gt; 409, &#x27;message&#x27; =&gt; &#x27;Email or phone already exists&#x27;];
+                }
+            }
+
+            // Update user
+            $user-&gt;update($updateData);
+
+            $this-&gt;logger-&gt;info(&#x27;User updated&#x27;, [&#x27;user_id&#x27; =&gt; $id]);
+
+            return [&#x27;code&#x27; =&gt; 0, &#x27;message&#x27; =&gt; &#x27;User updated&#x27;];
+        } catch (\Throwable $e) {
+            $this-&gt;logger-&gt;error(&#x27;Update user failed&#x27;, [&#x27;error&#x27; =&gt; $e-&gt;getMessage()]);
+            return [&#x27;code&#x27; =&gt; 500, &#x27;message&#x27; =&gt; &#x27;Update user failed&#x27;];
+        }
+    }
+
+    // ✅ Update user profile (user self)
+    public function updateUserProfile(int $userId, array $data): array
+    {
+        $profile = UserProfile::where(&#x27;user_id&#x27;, $userId)-&gt;first();
+
+        if (!$profile) {
+            // Create profile if not exists
+            $profile = UserProfile::create([&#x27;user_id&#x27; =&gt; $userId] + $data);
+        } else {
+            // Update profile
+            $profile-&gt;update($data);
+        }
+
+        $this-&gt;logger-&gt;info(&#x27;User profile updated&#x27;, [&#x27;user_id&#x27; =&gt; $userId]);
+
+        return [&#x27;code&#x27; =&gt; 0, &#x27;message&#x27; =&gt; &#x27;Profile updated&#x27;];
+    }
+
+    // ✅ Delete user (soft delete)
+    public function deleteUser(int $id): array
+    {
+        $user = User::find($id);
+
+        if (!$user) {
+            return [&#x27;code&#x27; =&gt; 404, &#x27;message&#x27; =&gt; &#x27;User not found&#x27;];
+        }
+
+        try {
+            // 🔴 Soft delete
+            $user-&gt;delete();
+
+            $this-&gt;logger-&gt;info(&#x27;User deleted&#x27;, [&#x27;user_id&#x27; =&gt; $id]);
+
+            return [&#x27;code&#x27; =&gt; 0, &#x27;message&#x27; =&gt; &#x27;User deleted&#x27;];
+        } catch (\Throwable $e) {
+            $this-&gt;logger-&gt;error(&#x27;Delete user failed&#x27;, [&#x27;error&#x27; =&gt; $e-&gt;getMessage()]);
+            return [&#x27;code&#x27; =&gt; 500, &#x27;message&#x27; =&gt; &#x27;Delete user failed&#x27;];
+        }
+    }
+
+    // ✅ Restore deleted user
+    public function restoreUser(int $id): array
+    {
+        $user = User::withTrashed()-&gt;find($id);
+
+        if (!$user) {
+            return [&#x27;code&#x27; =&gt; 404, &#x27;message&#x27; =&gt; &#x27;User not found&#x27;];
+        }
+
+        if (!$user-&gt;trashed()) {
+            return [&#x27;code&#x27; =&gt; 400, &#x27;message&#x27; =&gt; &#x27;User is not deleted&#x27;];
+        }
+
+        $user-&gt;restore();
+
+        $this-&gt;logger-&gt;info(&#x27;User restored&#x27;, [&#x27;user_id&#x27; =&gt; $id]);
+
+        return [&#x27;code&#x27; =&gt; 0, &#x27;message&#x27; =&gt; &#x27;User restored&#x27;];
+    }
+}</code></pre>
+
+<h3>3.3 路由配置（RESTful）</h3>
+
+<pre><code class="language-php">&lt;?php
+// ✅ config/routes.php
+
+use Hyperf\HttpServer\Router\Router;
+
+// 🟢 Public routes (no auth required)
+Router::addGroup(&#x27;/users&#x27;, function () {
+    Router::post(&#x27;/&#x27;, &#x27;App\Controller\UserController@store&#x27;);    // Admin only in practice
+});
+
+// 🟢 Protected routes (JWT auth required)
+Router::addGroup(&#x27;/users&#x27;, function () {
+    Router::get(&#x27;/&#x27;, &#x27;App\Controller\UserController@index&#x27;);
+    Router::get(&#x27;/{id}&#x27;, &#x27;App\Controller\UserController@show&#x27;);
+    Router::put(&#x27;/{id}&#x27;, &#x27;App\Controller\UserController@update&#x27;);
+    Router::patch(&#x27;/{id}&#x27;, &#x27;App\Controller\UserController@patch&#x27;);
+    Router::delete(&#x27;/{id}&#x27;, &#x27;App\Controller\UserController@destroy&#x27;);
+    
+    // Current user
+    Router::get(&#x27;/me&#x27;, &#x27;App\Controller\UserController@me&#x27;);
+    Router::put(&#x27;/me&#x27;, &#x27;App\Controller\UserController@updateMe&#x27;);
+}, [&#x27;middleware&#x27; =&gt; [\App\Middleware\JwtAuthMiddleware::class]]);</code></pre>
+
+<hr>
+
+<h2>四、执行预览</h2>
+
+<pre><code class="language-bash"># ✅ List users (paginated)
+$ curl &quot;http://127.0.0.1:9501/users?page=1&amp;size=10&amp;status=active&quot; \
+  -H &quot;Authorization: Bearer &lt;token&gt;&quot;
+{
+  &quot;code&quot;: 0,
+  &quot;data&quot;: [
+    {&quot;id&quot;: 1, &quot;username&quot;: &quot;hahn&quot;, &quot;email&quot;: &quot;hahn@example.com&quot;, &quot;status&quot;: &quot;active&quot;},
+    {&quot;id&quot;: 2, &quot;username&quot;: &quot;test&quot;, &quot;email&quot;: &quot;test@example.com&quot;, &quot;status&quot;: &quot;active&quot;}
+  ],
+  &quot;pagination&quot;: {
+    &quot;page&quot;: 1,
+    &quot;size&quot;: 10,
+    &quot;total&quot;: 2,
+    &quot;pages&quot;: 1
+  }
+}
+
+# ✅ Get user by ID
+$ curl &quot;http://127.0.0.1:9501/users/1&quot; \
+  -H &quot;Authorization: Bearer &lt;token&gt;&quot;
+{
+  &quot;code&quot;: 0,
+  &quot;data&quot;: {
+    &quot;id&quot;: 1,
+    &quot;username&quot;: &quot;hahn&quot;,
+    &quot;email&quot;: &quot;hahn@example.com&quot;,
+    &quot;profile&quot;: {&quot;nickname&quot;: &quot;hahn&quot;, &quot;avatar&quot;: null, &quot;bio&quot;: null}
+  }
+}
+
+# ✅ Update user profile (PATCH)
+$ curl -X PATCH &quot;http://127.0.0.1:9501/users/1&quot; \
+  -H &quot;Authorization: Bearer &lt;token&gt;&quot; \
+  -H &quot;Content-Type: application/json&quot; \
+  -d &#x27;{&quot;nickname&quot;:&quot;铁蛋&quot;,&quot;bio&quot;:&quot;全栈开发工程师&quot;}&#x27;
+{
+  &quot;code&quot;: 0,
+  &quot;message&quot;: &quot;User updated&quot;
+}
+
+# ✅ Delete user
+$ curl -X DELETE &quot;http://127.0.0.1:9501/users/1&quot; \
+  -H &quot;Authorization: Bearer &lt;token&gt;&quot;
+{
+  &quot;code&quot;: 0,
+  &quot;message&quot;: &quot;User deleted&quot;
+}
+
+# ✅ Update current user profile
+$ curl -X PUT &quot;http://127.0.0.1:9501/users/me&quot; \
+  -H &quot;Authorization: Bearer &lt;token&gt;&quot; \
+  -H &quot;Content-Type: application/json&quot; \
+  -d &#x27;{&quot;avatar&quot;:&quot;https://example.com/avatar.jpg&quot;,&quot;bio&quot;:&quot;Hello world&quot;}&#x27;
+{
+  &quot;code&quot;: 0,
+  &quot;message&quot;: &quot;Profile updated&quot;
+}</code></pre>
+
+<hr>
+
+<h2>五、注意事项</h2>
+
+<table><thead><tr>
+<th>约束</th>
+<th>说明</th>
+<th>违反后果</th>
+</tr></thead><tbody>
+<tr>
+<td>HTTP 方法语义正确</td>
+<td>GET 查询、POST 创建、PUT 更新、DELETE 删除</td>
+<td>API 语义混乱，难以维护</td>
+</tr>
+<tr>
+<td>资源路径用复数</td>
+<td><code>/users</code> 而非 <code>/user</code></td>
+<td>不符合 RESTful 规范</td>
+</tr>
+<tr>
+<td>软删除代替硬删除</td>
+<td>用 <code>deleted_at</code> 标记删除</td>
+<td>数据永久丢失</td>
+</tr>
+<tr>
+<td>分页参数限制</td>
+<td>最大 size 100</td>
+<td>恶意请求导致数据库压力</td>
+</tr>
+<tr>
+<td>鉴权中间件保护</td>
+<td>敏感操作需要认证</td>
+<td>未授权访问</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>六、避坑指南</h2>
+
+<table><thead><tr>
+<th>典型错误</th>
+<th>现象</th>
+<th>正确做法</th>
+</tr></thead><tbody>
+<tr>
+<td>❌ 用 GET 请求修改数据</td>
+<td>不安全，可能被浏览器预取</td>
+<td>用 POST/PUT/PATCH 修改数据</td>
+</tr>
+<tr>
+<td>❌ 忘记返回 HTTP 状态码</td>
+<td>统一返回 200，前端无法判断</td>
+<td>成功 200/201，失败 400/404/500</td>
+</tr>
+<tr>
+<td>❌ 硬删除用户</td>
+<td>无法恢复数据</td>
+<td>软删除 + restore 接口</td>
+</tr>
+<tr>
+<td>❌ 列表接口不限制 size</td>
+<td>可能导致全表扫描</td>
+<td>最大 size 100</td>
+</tr>
+<tr>
+<td>❌ 返回敏感信息（密码）</td>
+<td>安全风险</td>
+<td>Model <code>hidden</code> 屏蔽字段</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>七、练习题</h2>
+
+<p>🟢 <strong>基础题 1：</strong> 实现 <code>GET /users/search</code> 接口，支持按 <code>username</code> 或 <code>email</code> 精确搜索。</p>
+
+<p>🟢 <strong>基础题 2：</strong> 添加用户列表排序功能：<code>?sort=username:asc</code> 或 <code>?sort=created_at:desc</code>。</p>
+
+<p>🟡 <strong>进阶题：</strong> 实现批量更新接口 <code>PUT /users/batch</code>，支持批量修改用户状态（active/inactive/banned）。</p>
+
+<p>🔴 <strong>开放题：</strong> 设计用户权限系统：给用户分配角色（admin/user），角色分配权限，接口层验证权限。</p>
+
+<hr>
+
+<h2>八、知识点总结</h2>
+
+<pre><code>RESTful API
+├── HTTP 方法映射
+│   ├── GET → Read (查询)
+│   ├── POST → Create (创建)
+│   ├── PUT → Update (全量更新)
+│   ├── PATCH → Update (部分更新)
+│   └── DELETE → Delete (删除)
+├── 资源设计
+│   ├── 复数名词 /users
+│   ├── 层级嵌套 /users/{id}/orders
+│   └── 版本号 /v1/users
+├── 分页过滤排序
+│   ├── ?page=1&amp;size=20
+│   ├── ?status=active
+│   └── ?sort=created_at:desc
+└── 响应规范
+    ├── 统一响应格式 {code, message, data}
+    ├── HTTP 状态码对应业务状态
+    └── 软删除支持恢复</code></pre>
+
+<hr>
+
+<h2>九、举一反三</h2>
+
+<table><thead><tr>
+<th>变种场景</th>
+<th>关键差异</th>
+<th>适配方式</th>
+</tr></thead><tbody>
+<tr>
+<td>HATEOAS 响应</td>
+<td>返回关联资源的链接</td>
+<td><code>_links</code> 字段包含 API 路径</td>
+</tr>
+<tr>
+<td>GraphQL</td>
+<td>查询语言，按需返回字段</td>
+<td>前端自定义返回字段</td>
+</tr>
+<tr>
+<td>gRPC</td>
+<td>Protocol Buffers，高性能</td>
+<td>微服务间 RPC 通信</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>十、参考资料</h2>
+
+<table><thead><tr>
+<th>资料</th>
+<th>权威等级</th>
+<th>链接</th>
+</tr></thead><tbody>
+<tr>
+<td>REST API 设计指南</td>
+<td>⭐⭐⭐⭐⭐</td>
+<td>https://restfulapi.net</td>
+</tr>
+<tr>
+<td>HTTP 方法语义</td>
+<td>⭐⭐⭐⭐</td>
+<td>RFC 9110</td>
+</tr>
+<tr>
+<td>Laravel RESTful 资源控制器</td>
+<td>⭐⭐⭐⭐⭐</td>
+<td>https://laravel.com/docs/controllers</td>
+</tr>
+<tr>
+<td>API 版本控制最佳实践</td>
+<td>⭐⭐⭐⭐</td>
+<td>社区博文</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>十一、代码演进</h2>
+
+<h3>v1 ❌ 非结构化 API</h3>
+
+<pre><code class="language-php">&lt;?php
+// ❌ No RESTful patterns, mixed methods
+Router::get(&#x27;/getUser&#x27;, &#x27;UserController@getUser&#x27;);
+Router::post(&#x27;/updateUser&#x27;, &#x27;UserController@updateUser&#x27;);
+Router::post(&#x27;/deleteUser&#x27;, &#x27;UserController@deleteUser&#x27;);
+
+class UserController {
+    public function getUser($id) {
+        return User::find($id);
+    }
+}</code></pre>
+
+<h3>v2 ✅ RESTful API 结构</h3>
+
+<pre><code class="language-php">&lt;?php
+// ✅ Proper RESTful routing
+Router::get(&#x27;/users&#x27;, &#x27;UserController@index&#x27;);
+Router::get(&#x27;/users/{id}&#x27;, &#x27;UserController@show&#x27;);
+Router::post(&#x27;/users&#x27;, &#x27;UserController@store&#x27;);
+Router::put(&#x27;/users/{id}&#x27;, &#x27;UserController@update&#x27;);
+Router::delete(&#x27;/users/{id}&#x27;, &#x27;UserController@destroy&#x27;);</code></pre>
+
+<h3>v3 🟢 生产级 RESTful API</h3>
+
+<pre><code class="language-php">&lt;?php
+// 🟢 Full RESTful with pagination, filtering, and soft delete
+class UserService {
+    public function listUsers(int $page, int $size, ?string $status, ?string $keyword): array {
+        $query = User::query();
+
+        // Filtering
+        if ($status !== null) {
+            $query-&gt;where(&#x27;status&#x27;, $status);
+        }
+
+        // Search
+        if ($keyword !== null) {
+            $query-&gt;where(function ($q) use ($keyword) {
+                $q-&gt;where(&#x27;username&#x27;, &#x27;like&#x27;, &quot;%{$keyword}%&quot;)
+                  -&gt;orWhere(&#x27;email&#x27;, &#x27;like&#x27;, &quot;%{$keyword}%&quot;);
+            });
+        }
+
+        // Pagination with size limit
+        $size = min($size, 100);
+        $paginator = $query-&gt;with(&#x27;profile&#x27;)
+            -&gt;orderBy(&#x27;created_at&#x27;, &#x27;desc&#x27;)
+            -&gt;paginate($size, [&#x27;*&#x27;], &#x27;page&#x27;, $page);
+
+        return [
+            &#x27;code&#x27; =&gt; 0,
+            &#x27;data&#x27; =&gt; $paginator-&gt;items(),
+            &#x27;pagination&#x27; =&gt; [
+                &#x27;page&#x27; =&gt; $paginator-&gt;currentPage(),
+                &#x27;size&#x27; =&gt; $paginator-&gt;perPage(),
+                &#x27;total&#x27; =&gt; $paginator-&gt;total(),
+                &#x27;pages&#x27; =&gt; $paginator-&gt;lastPage(),
+            ],
+        ];
+    }
+
+    public function deleteUser(int $id): array {
+        $user = User::find($id);
+        if (!$user) {
+            return [&#x27;code&#x27; =&gt; 404, &#x27;message&#x27; =&gt; &#x27;User not found&#x27;];
+        }
+
+        // Soft delete
+        $user-&gt;delete();
+
+        $this-&gt;logger-&gt;info(&#x27;User deleted&#x27;, [&#x27;user_id&#x27; =&gt; $id]);
+
+        return [&#x27;code&#x27; =&gt; 0, &#x27;message&#x27; =&gt; &#x27;User deleted&#x27;];
+    }
+}</code></pre>
+
+<hr>
+
+<p><strong>上一篇：</strong> <a href="/post/008-user-login-jwt">008 - 用户登录与 JWT 认证体系</a></p>
+<p><strong>下一篇：</strong> <a href="/post/010-user-service-testing">010 - 用户服务单元测试与集成测试</a></p>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

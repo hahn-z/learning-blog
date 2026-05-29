@@ -1,0 +1,528 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>001 - Vue 3组合式API核心概念</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Vue.js/index.html">Vue.js</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Vue.js/01-入门到实战/index.html">Vue.js入门到实战</a>
+</nav>
+<h1>001 - Vue 3组合式API核心概念</h1>
+<div class="meta">
+<span>📂 Vue.js入门到实战</span>
+<span>🏷️ Vue.js</span>
+</div>
+<article>
+
+
+<h1>Vue 3组合式API核心概念</h1>
+
+<blockquote><p>📊 <strong>难度：中级</strong> | 🏷️ Vue.js 3.x | ⏱️ 阅读约 25 分钟</p></blockquote>
+
+<hr>
+
+<h2>📖 概念讲解</h2>
+
+<p>Composition API是Vue 3最重要的新特性，它提供了一种基于函数的API来组织组件逻辑。</p>
+
+<p><strong>为什么需要Composition API？</strong></p>
+
+<p>Options API按选项类型组织代码（data、methods、computed分开放），当组件复杂时，一个功能的代码散布在各处。Composition API按功能组织代码，相关逻辑放在一起。</p>
+
+<p><strong>核心API：</strong></p>
+
+<table><thead><tr>
+<th>API</th>
+<th>用途</th>
+<th>返回值</th>
+</tr></thead><tbody>
+<tr>
+<td><code>ref()</code></td>
+<td>创建响应式基本值</td>
+<td><code>{ value: T }</code></td>
+</tr>
+<tr>
+<td><code>reactive()</code></td>
+<td>创建响应式对象</td>
+<td>Proxy代理对象</td>
+</tr>
+<tr>
+<td><code>computed()</code></td>
+<td>创建计算属性</td>
+<td><code>{ value: T }</code>（只读ref）</td>
+</tr>
+<tr>
+<td><code>watch()</code></td>
+<td>监听特定数据源</td>
+<td>停止函数</td>
+</tr>
+<tr>
+<td><code>watchEffect()</code></td>
+<td>自动追踪依赖并监听</td>
+<td>停止函数</td>
+</tr>
+<tr>
+<td><code>toRef()</code></td>
+<td>从reactive对象创建ref</td>
+<td>ref</td>
+</tr>
+<tr>
+<td><code>toRefs()</code></td>
+<td>将reactive转为refs对象</td>
+<td><code>{ key: ref }</code></td>
+</tr>
+<tr>
+<td><code>toValue()</code></td>
+<td>将ref/getter规范化为值</td>
+<td>原始值</td>
+</tr>
+</tbody></table>
+
+<p><strong>ref vs reactive：</strong></p>
+
+<table><thead><tr>
+<th>特性</th>
+<th>ref</th>
+<th>reactive</th>
+</tr></thead><tbody>
+<tr>
+<td>适用类型</td>
+<td>任意类型</td>
+<td>对象/数组</td>
+</tr>
+<tr>
+<td>访问方式</td>
+<td><code>.value</code></td>
+<td>直接访问</td>
+</tr>
+<tr>
+<td>解构</td>
+<td>安全（保持响应性）</td>
+<td>失去响应性（需toRefs）</td>
+</tr>
+<tr>
+<td>重新赋值</td>
+<td>可以</td>
+<td>不可以（丢失代理）</td>
+</tr>
+<tr>
+<td>模板中</td>
+<td>自动解包</td>
+<td>直接使用</td>
+</tr>
+</tbody></table>
+
+<p><strong>逻辑复用 - Composables：</strong></p>
+
+<p>Composition API最大的优势是逻辑复用。将相关逻辑提取为独立的composable函数：</p>
+<pre><code class="language-js">// useCounter.js
+export function useCounter(initial = 0) {
+  const count = ref(initial)
+  const increment = () =&gt; count.value++
+  const decrement = () =&gt; count.value--
+  const reset = () =&gt; count.value = initial
+  return { count, increment, decrement, reset }
+}</code></pre>
+
+
+<h2>🧠 知识脑图</h2>
+
+<pre><code>Composition API
+├── 核心API
+│   ├── ref() → 基本类型响应式
+│   ├── reactive() → 对象响应式
+│   ├── computed() → 派生计算
+│   ├── watch() → 显式监听
+│   └── watchEffect() → 自动追踪
+├── ref vs reactive
+│   ├── ref: .value, 可重新赋值
+│   └── reactive: 直接访问, 不可重新赋值
+├── 辅助API
+│   ├── toRef() → 单个属性转ref
+│   ├── toRefs() → 整个对象转refs
+│   ├── isRef() → 判断是否ref
+│   ├── unref() → 获取值
+│   └── shallowRef() → 浅层响应
+├── 生命周期
+│   ├── onMounted
+│   ├── onUpdated
+│   ├── onUnmounted
+│   └── ...
+└── Composables（逻辑复用）
+    ├── use* 命名约定
+    ├── 提取可复用逻辑
+    └── 返回响应式状态和方法</code></pre>
+
+<h2>💻 完整代码</h2>
+
+<pre><code class="language-vue">&lt;!-- CompositionAPIDemo.vue --&gt;
+&lt;template&gt;
+  &lt;div class=&quot;demo&quot;&gt;
+    &lt;h2&gt;ref vs reactive&lt;/h2&gt;
+    &lt;!-- ref: accessed without .value in template --&gt;
+    &lt;p&gt;Ref count: {{ count }} &lt;button @click=&quot;count++&quot;&gt;+1&lt;/button&gt;&lt;/p&gt;
+    &lt;!-- reactive: direct access --&gt;
+    &lt;p&gt;Reactive user: {{ user.name }}, {{ user.age }} years old&lt;/p&gt;
+    &lt;button @click=&quot;user.age++&quot;&gt;Grow older&lt;/button&gt;
+
+    &lt;h2&gt;Computed&lt;/h2&gt;
+    &lt;input v-model.number=&quot;radius&quot; type=&quot;number&quot; placeholder=&quot;Radius&quot; /&gt;
+    &lt;p&gt;Area = π×r² = {{ area }}&lt;/p&gt;
+    &lt;p&gt;Circumference = 2πr = {{ circumference }}&lt;/p&gt;
+
+    &lt;h2&gt;toRefs - Deconstruct reactive&lt;/h2&gt;
+    &lt;p&gt;Name: {{ name }}, Age: {{ age }}&lt;/p&gt;
+
+    &lt;h2&gt;Composable: useMouse&lt;/h2&gt;
+    &lt;p&gt;Mouse position: ({{ mouse.x }}, {{ mouse.y }})&lt;/p&gt;
+
+    &lt;h2&gt;Composable: useCounter&lt;/h2&gt;
+    &lt;p&gt;Counter: {{ counter.count }}&lt;/p&gt;
+    &lt;button @click=&quot;counter.increment()&quot;&gt;+&lt;/button&gt;
+    &lt;button @click=&quot;counter.decrement()&quot;&gt;-&lt;/button&gt;
+    &lt;button @click=&quot;counter.reset()&quot;&gt;Reset&lt;/button&gt;
+    &lt;p&gt;Double: {{ counter.doubleCount }}&lt;/p&gt;
+
+    &lt;h2&gt;Lifecycle&lt;/h2&gt;
+    &lt;p&gt;Mount count: {{ mountCount }}&lt;/p&gt;
+    &lt;p&gt;Time alive: {{ timeAlive }}s&lt;/p&gt;
+  &lt;/div&gt;
+&lt;/template&gt;
+
+&lt;script setup&gt;
+import { ref, reactive, computed, toRefs, onMounted, onUnmounted } from &#x27;vue&#x27;
+
+// === ref vs reactive ===
+const count = ref(0)
+const user = reactive({ name: &#x27;Alice&#x27;, age: 25 })
+
+// === Computed ===
+const radius = ref(5)
+const area = computed(() =&gt; Math.PI * radius.value ** 2)
+const circumference = computed(() =&gt; 2 * Math.PI * radius.value)
+
+// === toRefs: destructure reactive safely ===
+const { name, age } = toRefs(user)
+
+// === Composable: useMouse ===
+function useMouse() {
+  const x = ref(0)
+  const y = ref(0)
+
+  function update(event) {
+    x.value = event.clientX
+    y.value = event.clientY
+  }
+
+  onMounted(() =&gt; window.addEventListener(&#x27;mousemove&#x27;, update))
+  onUnmounted(() =&gt; window.removeEventListener(&#x27;mousemove&#x27;, update))
+
+  return { x, y }
+}
+const mouse = reactive(useMouse())
+
+// === Composable: useCounter ===
+function useCounter(initial = 0) {
+  const count = ref(initial)
+  const increment = () =&gt; count.value++
+  const decrement = () =&gt; count.value--
+  const reset = () =&gt; count.value = initial
+  const doubleCount = computed(() =&gt; count.value * 2)
+  return { count, increment, decrement, reset, doubleCount }
+}
+const counter = reactive(useCounter(10))
+
+// === Lifecycle ===
+const mountCount = ref(0)
+const timeAlive = ref(0)
+let timer
+
+onMounted(() =&gt; {
+  mountCount.value++
+  timer = setInterval(() =&gt; timeAlive.value++, 1000)
+})
+onUnmounted(() =&gt; clearInterval(timer))
+&lt;/script&gt;</code></pre>
+
+<h2>👀 执行预览</h2>
+
+<p><strong>页面渲染效果：</strong></p>
+
+<pre><code>ref vs reactive
+Ref count: 5 [+1]
+Reactive user: Alice, 25 years old
+[Grow older]
+
+Computed
+Radius: [5]
+Area = π×r² = 78.54
+Circumference = 2πr = 31.42
+
+toRefs - Deconstruct reactive
+Name: Alice, Age: 25
+
+Composable: useMouse
+Mouse position: (420, 380)  ← 随鼠标实时更新
+
+Composable: useCounter
+Counter: 10
+[+] [-] [Reset]
+Double: 20
+
+Lifecycle
+Mount count: 1
+Time alive: 42s  ← 每秒递增</code></pre>
+
+
+<h2>⚠️ 注意事项</h2>
+
+<table><thead><tr>
+<th>注意点</th>
+<th>说明</th>
+<th>建议</th>
+</tr></thead><tbody>
+<tr>
+<td>ref的.value</td>
+<td>script中需要.value，模板中自动解包</td>
+<td>养成习惯，ref用.value</td>
+</tr>
+<tr>
+<td>reactive解构</td>
+<td>解构后失去响应性</td>
+<td>用toRefs解构</td>
+</tr>
+<tr>
+<td>reactive重新赋值</td>
+<td>整体替换会丢失代理</td>
+<td>用ref替代或用Object.assign</td>
+</tr>
+<tr>
+<td>watch监听reactive</td>
+<td>默认深度监听</td>
+<td>监听getter可以浅层</td>
+</tr>
+<tr>
+<td>composable命名</td>
+<td>以use开头</td>
+<td>如useMouse、useCounter</td>
+</tr>
+<tr>
+<td>异步composable</td>
+<td>可以在setup中使用async/await</td>
+<td>配合Suspense使用</td>
+</tr>
+</tbody></table>
+
+<h2>🚫 避坑指南</h2>
+
+<h3>1. reactive解构丢失响应性</h3>
+<p>❌ <strong>错误：</strong> <code>const { name } = reactive({ name: 'Alice' })</code></p>
+<p>✅ <strong>正确：</strong> <code>const { name } = toRefs(reactive({ name: 'Alice' }))</code></p>
+
+<h3>2. 直接替换reactive对象</h3>
+<p>❌ <strong>错误：</strong> <code>state = newState</code>（丢失响应式代理）</p>
+<p>✅ <strong>正确：</strong> <code>Object.assign(state, newState)</code> 或用<code>ref</code></p>
+
+<h3>3. 在watch中监听reactive的属性</h3>
+<p>❌ <strong>错误：</strong> <code>watch(state.count, cb)</code>（得到的只是当前值）</p>
+<p>✅ <strong>正确：</strong> <code>watch(() => state.count, cb)</code>（用getter函数）</p>
+
+<h3>4. 忘记return composable的值</h3>
+<p>❌ <strong>错误：</strong> composable函数不return需要的值</p>
+<p>✅ <strong>正确：</strong> <code>return { count, increment, ... }</code> 暴露所有需要的状态</p>
+
+<h3>5. 在非setup中调用生命周期钩子</h3>
+<p>❌ <strong>错误：</strong> 在setTimeout里调用onMounted</p>
+<p>✅ <strong>正确：</strong> 生命周期钩子必须在setup同步调用</p>
+
+<h2>🧪 练习题</h2>
+
+<h3>🟢 基础题</h3>
+<ol>
+<li>用ref创建一个计时器，显示秒数，支持开始/暂停/重置。</li>
+</ul>
+<ol>
+<li>用reactive创建一个用户profile对象，用computed计算用户全名。</li>
+
+<h3>🟡 进阶题</h3>
+<ol>
+<li>编写一个<code>useLocalStorage</code> composable，自动同步ref值到localStorage。</li>
+</ul>
+<ol>
+<li>编写一个<code>useFetch</code> composable，传入URL返回{data, loading, error}。</li>
+
+<h3>🔴 挑战题</h3>
+<ol>
+<li>编写一个<code>useForm</code> composable，支持字段验证规则、错误提示、表单提交，并带TypeScript类型。</li>
+
+<h2>📝 知识点总结</h2>
+
+<pre><code>Composition API核心
+├── 响应式
+│   ├── ref → .value访问，任意类型
+│   ├── reactive → 直接访问，对象类型
+│   └── toRefs → 解构reactive
+├── 计算/监听
+│   ├── computed → 缓存派生值
+│   ├── watch → 显式监听
+│   └── watchEffect → 自动追踪
+├── 生命周期
+│   ├── onMounted / onUnmounted
+│   ├── onUpdated
+│   └── 必须setup同步调用
+├── Composables
+│   ├── use*命名约定
+│   ├── 封装可复用逻辑
+│   └── 返回响应式状态+方法
+└── 原则
+    ├── 按功能组织代码
+    ├── ref优先（推荐）
+    └── 单一职责</code></pre>
+
+
+<h2>🔄 举一反三</h2>
+
+<table><thead><tr>
+<th>概念</th>
+<th>生活类比</th>
+<th>说明</th>
+</tr></thead><tbody>
+<tr>
+<td>Composition API</td>
+<td>积木</td>
+<td>按功能自由组合，而非按颜色分类</td>
+</tr>
+<tr>
+<td>Options API</td>
+<td>文件柜</td>
+<td>按类型分抽屉（data抽屉、methods抽屉）</td>
+</tr>
+<tr>
+<td>ref</td>
+<td>保鲜盒</td>
+<td>装任何东西，通过盖子（.value）存取</td>
+</tr>
+<tr>
+<td>reactive</td>
+<td>智能容器</td>
+<td>内部自动保鲜，但不能换容器</td>
+</tr>
+<tr>
+<td>composable</td>
+<td>工具箱</td>
+<td>提炼出来的可复用工具集</td>
+</tr>
+<tr>
+<td>toRefs</td>
+<td>分装</td>
+<td>大罐分装成小瓶，保持新鲜</td>
+</tr>
+</tbody></table>
+
+<h2>📚 参考资料</h2>
+
+<ol>
+<li><a href="https://vuejs.org/guide/extras/composition-api-faq.html">Vue 3 Composition API FAQ</a></li>
+</ul>
+<ol>
+<li><a href="https://vuejs.org/guide/essentials/reactivity-fundamentals.html">Vue 3 Reactivity Fundamentals</a></li>
+</ul>
+<ol>
+<li><a href="https://vuejs.org/guide/reusability/composables.html">Vue 3 Composables</a></li>
+</ul>
+<ol>
+<li><a href="https://vueuse.org/">VueUse - Collection of Composables</a></li>
+
+<h2>🚀 代码演进</h2>
+
+<h3>v1 - Options API（Vue 2风格）</h3>
+
+<pre><code class="language-vue">&lt;script&gt;
+export default {
+  data() { return { count: 0 } },
+  computed: { double() { return this.count * 2 } },
+  methods: { increment() { this.count++ } },
+  mounted() { console.log(&#x27;mounted&#x27;) }
+}
+&lt;/script&gt;</code></pre>
+
+<h3>v2 - Composition API setup函数</h3>
+
+<pre><code class="language-vue">&lt;script&gt;
+import { ref, computed, onMounted } from &#x27;vue&#x27;
+export default {
+  setup() {
+    const count = ref(0)
+    const double = computed(() =&gt; count.value * 2)
+    const increment = () =&gt; count.value++
+    onMounted(() =&gt; console.log(&#x27;mounted&#x27;))
+    return { count, double, increment }
+  }
+}
+&lt;/script&gt;</code></pre>
+
+<h3>v3 - script setup + Composables（推荐）</h3>
+
+<pre><code class="language-vue">&lt;script setup&gt;
+import { useCounter } from &#x27;./composables/useCounter&#x27;
+const { count, doubleCount: double, increment } = useCounter()
+&lt;/script&gt;
+&lt;!-- useCounter.js exported composable, reusable across components --&gt;</code></pre>
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

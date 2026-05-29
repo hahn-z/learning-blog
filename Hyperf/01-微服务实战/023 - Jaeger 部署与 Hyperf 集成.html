@@ -1,0 +1,582 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>023 - Jaeger 部署与 Hyperf 集成</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Hyperf/index.html">Hyperf</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Hyperf/01-微服务实战/index.html">Hyperf微服务实战</a>
+</nav>
+<h1>023 - Jaeger 部署与 Hyperf 集成</h1>
+<div class="meta">
+<span>📂 Hyperf微服务实战</span>
+<span>🏷️ Hyperf</span>
+</div>
+<article>
+
+
+<h1>Jaeger 部署与 Hyperf 集成</h1>
+
+<h2>难度标注</h2>
+
+<p>⭐⭐⭐（中级）</p>
+
+<p><strong>前置知识：</strong> Docker 基础、分布式链路追踪概念、Hyperf 3.x</p>
+
+<p><strong>预估用时：</strong> 50-60 分钟</p>
+
+<hr>
+
+<h2>概念讲解</h2>
+
+<p><strong>Jaeger</strong> 是一款开源的端到端分布式链路追踪系统，由 Uber 开发并捐赠给 CNCF。它负责收集、存储和可视化微服务的调用链路数据，是 OpenTelemetry 数据的常见后端之一。</p>
+
+<p><strong>现实类比：</strong> 如果说链路追踪是物流追踪系统，那 Jaeger 就是顺丰的物流管理平台——它不仅记录每个包裹的流转信息，还提供查询界面让你可视化查看，并支持按运单号、时间、目的地等条件搜索。Jaeger 把分散在各服务的 Span 数据汇聚到一起，形成完整的调用图。</p>
+
+<p><strong>技术场景：</strong> 用户微服务已经通过 OpenTelemetry 产生了 Span 数据，现在需要把这些数据发送到一个集中的存储后端。Jaeger 提供了完整的收集→存储→查询→可视化链路，是 Hyperf 项目最常用的追踪后端。</p>
+
+<hr>
+
+<h2>实时脑图</h2>
+
+<pre><code>  Hyperf User Service          Jaeger Infrastructure
+  ┌──────────────┐            ┌─────────────────────┐
+  │ PHP App      │            │                     │
+  │ ┌──────────┐ │  OTLP/HTTP │  ┌───────────────┐  │
+  │ │ OTel SDK │ ├───────────►│  │ Jaeger Agent  │  │
+  │ └──────────┘ │            │  └───────┬───────┘  │
+  │ ┌──────────┐ │            │          │           │
+  │ │ Tracer   │ │            │  ┌───────▼───────┐  │
+  │ │ Provider │ │            │  │ Jaeger Collector│ │
+  │ └──────────┘ │            │  └───────┬───────┘  │
+  └──────────────┘            │          │           │
+                              │  ┌───────▼───────┐  │
+                              │  │    Storage     │  │
+                              │  │  (Badger/ES)   │  │
+                              │  └───────┬───────┘  │
+                              │          │           │
+                              │  ┌───────▼───────┐  │
+                              │  │     Jaeger     │  │
+                              │  │      UI        │  │
+                              │  │  :16686        │  │
+                              │  └───────────────┘  │
+                              └─────────────────────┘</code></pre>
+
+<hr>
+
+<h2>完整代码</h2>
+
+<h3>1. Docker Compose 部署 Jaeger</h3>
+
+<pre><code class="language-yaml"># docker-compose.jaeger.yml
+# ✅ All-in-One mode for development, use production mode for production
+
+version: &#x27;3.8&#x27;
+
+services:
+  jaeger:
+    image: jaegertracing/all-in-one:1.54
+    container_name: jaeger
+    restart: unless-stopped
+    ports:
+      # ✅ Jaeger UI
+      - &quot;16686:16686&quot;
+      # ✅ OTLP HTTP receiver (for OpenTelemetry SDK)
+      - &quot;4318:4318&quot;
+      # 🟡 gRPC receiver (alternative)
+      - &quot;4317:4317&quot;
+      # 🟡 Jaeger native protocols (legacy)
+      - &quot;6831:6831/udp&quot;
+      - &quot;14268:14268&quot;
+    environment:
+      - COLLECTOR_OTLP_ENABLED=true
+      - LOG_LEVEL=info
+    networks:
+      - microservices
+
+networks:
+  microservices:
+    external: true</code></pre>
+
+<h3>2. Hyperf 安装追踪组件</h3>
+
+<pre><code class="language-bash"># ✅ Install OpenTelemetry integration for Hyperf
+composer require hyperf/tracer
+
+# 🟢 Optional: install OpenTelemetry auto-instrumentation
+composer require open-telemetry/opentelemetry-auto-hyperf</code></pre>
+
+<h3>3. Hyperf 追踪配置</h3>
+
+<pre><code class="language-php">&lt;?php
+// config/autoload/opentracing.php
+
+declare(strict_types=1);
+
+return [
+    &#x27;enable&#x27; =&gt; env(&#x27;TRACER_ENABLE&#x27;, true),
+    
+    // ✅ Use Jaeger as tracing backend via OTLP
+    &#x27;driver&#x27; =&gt; \Hyperf\Tracer\Adapter\JaegerTracerFactory::class,
+    
+    &#x27;driver_config&#x27; =&gt; [
+        &#x27;name&#x27; =&gt; env(&#x27;APP_NAME&#x27;, &#x27;user-service&#x27;),
+        &#x27;endpoint&#x27; =&gt; env(&#x27;JAEGER_ENDPOINT&#x27;, &#x27;http://jaeger:4318/v1/traces&#x27;),
+        &#x27;sampler&#x27; =&gt; [
+            &#x27;type&#x27; =&gt; &#x27;probabilistic&#x27;,
+            // 🟢 10% sampling rate for production, adjust as needed
+            &#x27;param&#x27; =&gt; env(&#x27;TRACER_SAMPLE_RATE&#x27;, 0.1),
+        ],
+        // ✅ Tags to identify this service in Jaeger UI
+        &#x27;tags&#x27; =&gt; [
+            &#x27;service.version&#x27; =&gt; env(&#x27;APP_VERSION&#x27;, &#x27;1.0.0&#x27;),
+            &#x27;service.env&#x27; =&gt; env(&#x27;APP_ENV&#x27;, &#x27;development&#x27;),
+        ],
+    ],
+
+    // ✅ Auto-trace these components
+    &#x27;middleware&#x27; =&gt; [
+        // Trace HTTP requests
+        \Hyperf\Tracer\Middleware\TraceMiddleware::class,
+    ],
+
+    // 🟢 Trace specific method calls via annotation
+    &#x27;aspect&#x27; =&gt; [
+        \Hyperf\Tracer\Aspect\MethodAspect::class,
+    ],
+
+    // ✅ Propagation format: W3C Trace Context
+    &#x27;propagation&#x27; =&gt; [
+        &#x27;format&#x27; =&gt; &#x27;tracecontext&#x27;,
+    ],
+];</code></pre>
+
+<h3>4. 用户服务追踪集成</h3>
+
+<pre><code class="language-php">&lt;?php
+// app/Controller/UserController.php
+
+declare(strict_types=1);
+
+namespace App\Controller;
+
+use App\Service\UserService;
+use Hyperf\Di\Annotation\Inject;
+use Hyperf\HttpServer\Annotation\Controller;
+use Hyperf\HttpServer\Annotation\GetMapping;
+use Hyperf\Tracer\Annotation\Tag;
+use Hyperf\Tracer\Annotation\Trace;
+
+#[Controller(prefix: &#x27;/api/users&#x27;)]
+class UserController
+{
+    #[Inject]
+    private UserService $userService;
+
+    #[GetMapping(path: &#x27;/{id}&#x27;)]
+    public function getUser(int $id): array
+    {
+        // ✅ TraceMiddleware automatically creates root span
+        // Additional business spans via @Trace annotation
+        return $this-&gt;userService-&gt;getUserDetail($id);
+    }
+}
+
+// app/Service/UserService.php
+&lt;?php
+
+declare(strict_types=1);
+
+namespace App\Service;
+
+use App\Model\User;
+use Hyperf\Tracer\Annotation\Trace;
+use Hyperf\Tracer\Annotation\Tag;
+
+class UserService
+{
+    /**
+     * ✅ @Trace creates a child span automatically
+     * ✅ @Tag adds key-value tags to the span
+     */
+    #[Trace]
+    #[Tag(key: &#x27;user.id&#x27;, value: &#x27;#{id}&#x27;)]
+    public function getUserDetail(int $id): array
+    {
+        $user = User::find($id);
+        
+        if ($user === null) {
+            return [&#x27;error&#x27; =&gt; &#x27;User not found&#x27;, &#x27;code&#x27; =&gt; 404];
+        }
+
+        return [
+            &#x27;id&#x27; =&gt; $user-&gt;id,
+            &#x27;name&#x27; =&gt; $user-&gt;name,
+            &#x27;email&#x27; =&gt; $user-&gt;email,
+            &#x27;status&#x27; =&gt; $user-&gt;status,
+        ];
+    }
+}</code></pre>
+
+<h3>5. 自定义 Span（手动埋点）</h3>
+
+<pre><code class="language-php">&lt;?php
+// app/Service/OrderClientService.php
+
+declare(strict_types=1);
+
+namespace App\Service;
+
+use Hyperf\Context\Context;
+use OpenTelemetry\API\Trace\SpanInterface;
+use OpenTelemetry\API\Trace\StatusCode;
+
+class OrderClientService
+{
+    public function getUserOrders(int $userId): array
+    {
+        // ✅ Get current span from context
+        $tracer = \OpenTelemetry\API\Globals::tracerProvider()
+            -&gt;getTracer(&#x27;user-service&#x27;, &#x27;1.0.0&#x27;);
+
+        // ✅ Create child span for external call
+        $span = $tracer-&gt;spanBuilder(&#x27;OrderClient.getUserOrders&#x27;)
+            -&gt;setAttribute(&#x27;rpc.system&#x27;, &#x27;http&#x27;)
+            -&gt;setAttribute(&#x27;rpc.service&#x27;, &#x27;order-service&#x27;)
+            -&gt;setAttribute(&#x27;user.id&#x27;, $userId)
+            -&gt;startSpan();
+
+        $scope = $span-&gt;activate();
+
+        try {
+            $orders = $this-&gt;callOrderService($userId);
+            $span-&gt;setStatus(StatusCode::STATUS_OK);
+            return $orders;
+        } catch (\Throwable $e) {
+            // 🔴 Record exception in span
+            $span-&gt;setStatus(StatusCode::STATUS_ERROR, $e-&gt;getMessage());
+            $span-&gt;recordException($e);
+            throw $e;
+        } finally {
+            // ✅ Always end span and detach scope
+            $scope-&gt;detach();
+            $span-&gt;end();
+        }
+    }
+
+    private function callOrderService(int $userId): array
+    {
+        // Simulate HTTP call
+        return [
+            [&#x27;order_id&#x27; =&gt; 101, &#x27;amount&#x27; =&gt; 99.90],
+            [&#x27;order_id&#x27; =&gt; 102, &#x27;amount&#x27; =&gt; 199.00],
+        ];
+    }
+}</code></pre>
+
+<hr>
+
+<h2>执行预览</h2>
+
+<pre><code class="language-bash"># Start Jaeger
+$ docker compose -f docker-compose.jaeger.yml up -d
+[+] Running 1/1
+ ✔ Container jaeger  Started
+
+# Start Hyperf user service
+$ php bin/hyperf.php start
+
+# Make a request
+$ curl http://localhost:9501/api/users/1
+{&quot;id&quot;:1,&quot;name&quot;:&quot;Hahn&quot;,&quot;email&quot;:&quot;hahn@example.com&quot;,&quot;status&quot;:&quot;active&quot;}
+
+# Open Jaeger UI → http://localhost:16686
+# Select service: &quot;user-service&quot;
+# Find traces, click to see span details:
+# ┌─ GET /api/users/1 (45ms)
+# │  └─ UserService.getUserDetail (30ms)
+# │     └─ MySQL Query (15ms)
+
+# Check Jaeger health
+$ curl http://localhost:16686/api/services
+{&quot;data&quot;:[&quot;user-service&quot;],&quot;total&quot;:1,&quot;limit&quot;:0,&quot;offset&quot;:0,&quot;errors&quot;:null}</code></pre>
+
+<hr>
+
+<h2>注意事项</h2>
+
+<table><thead><tr>
+<th>约束</th>
+<th>说明</th>
+<th>违反后果</th>
+</tr></thead><tbody>
+<tr>
+<td>采样率不要设 100%</td>
+<td>生产环境会产生大量数据</td>
+<td>存储爆满，服务性能下降</td>
+</tr>
+<tr>
+<td>Span 必须配对 end()</td>
+<td>每个startSpan必须有end</td>
+<td>内存泄漏，不完整的 Span</td>
+</tr>
+<tr>
+<td>All-in-One 不适合生产</td>
+<td>单点故障，无持久化</td>
+<td>数据丢失，服务不可用</td>
+</tr>
+<tr>
+<td>OTLP 端口要一致</td>
+<td>Hyperf 配置的端口要匹配 Jaeger</td>
+<td>数据发不出去，无追踪</td>
+</tr>
+<tr>
+<td>Docker 网络要通</td>
+<td>服务和 Jaeger 在同一网络</td>
+<td>连接超时</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>避坑指南</h2>
+
+<table><thead><tr>
+<th>典型错误</th>
+<th>现象</th>
+<th>正确做法</th>
+</tr></thead><tbody>
+<tr>
+<td>用旧版 Jaeger Client 直接上报</td>
+<td>已废弃，不支持 OTel</td>
+<td>用 OTLP 协议 + OTel SDK</td>
+</tr>
+<tr>
+<td>Span scope 不 detach</td>
+<td>上下文混乱</td>
+<td>finally 块中 detach + end</td>
+</tr>
+<tr>
+<td>采样率为 0</td>
+<td>追踪完全不工作</td>
+<td>至少设 0.01（1%）</td>
+</tr>
+<tr>
+<td>Jaeger 容器 OOM</td>
+<td>大流量下崩溃</td>
+<td>调整内存限制或用 Elasticsearch 存储</td>
+</tr>
+<tr>
+<td>时区不一致</td>
+<td>Jaeger UI 时间显示错误</td>
+<td>统一 UTC 或配置时区</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>练习题</h2>
+
+<h3>🟢 基础题</h3>
+
+<ol>
+<li><strong>部署 Jaeger 并验证</strong>：用 Docker 部署 Jaeger All-in-One，通过 UI 创建并查询一条测试追踪。</li>
+
+<ol>
+<li><strong>添加 @Trace 注解</strong>：在 UserService 的三个方法上添加 <code>@Trace</code> 和 <code>@Tag</code> 注解，观察 Jaeger UI 中的 Span 层级。</li>
+
+<h3>🟡 进阶题</h3>
+
+<ol>
+<li><strong>多服务追踪</strong>：部署两个 Hyperf 服务，通过 HTTP 相互调用，在 Jaeger 中看到跨服务的完整链路。</li>
+
+<h3>🔴 开放题</h3>
+
+<ol>
+<li><strong>生产级 Jaeger 架构</strong>：设计一个使用 Elasticsearch 作为存储后端、Collector 独立部署、支持采集器水平扩展的 Jaeger 生产架构。</li>
+
+<hr>
+
+<h2>知识点总结</h2>
+
+<pre><code>Jaeger 部署与 Hyperf 集成
+├── Jaeger 架构
+│   ├── Agent（Sidecar 模式）
+│   ├── Collector（数据处理与存储）
+│   ├── Query（查询 API）
+│   ├── UI（可视化界面）
+│   └── Storage（内存/Badger/Elasticsearch/Cassandra）
+├── 部署模式
+│   ├── All-in-One（开发环境）
+│   ├── Production（组件独立部署）
+│   └── Kubernetes（DaemonSet + Collector）
+├── Hyperf 集成
+│   ├── hyperf/tracer 组件
+│   ├── TraceMiddleware（HTTP 自动追踪）
+│   ├── @Trace + @Tag 注解
+│   ├── 手动埋点（Tracer API）
+│   └── 配置项（采样率、端点、标签）
+└── OTLP 协议
+    ├── HTTP 传输（4318）
+    ├── gRPC 传输（4317）
+    └── W3C Trace Context 传播</code></pre>
+
+<hr>
+
+<h2>举一反三</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>变种说明</th>
+<th>关键差异</th>
+</tr></thead><tbody>
+<tr>
+<td>Jaeger → Zipkin</td>
+<td>另一个流行的追踪后端</td>
+<td>API 和数据模型不同，Zipkin 更轻量</td>
+</tr>
+<tr>
+<td>OTLP HTTP → gRPC</td>
+<td>传输协议选择</td>
+<td>gRPC 更高效但需要额外端口</td>
+</tr>
+<tr>
+<td>Docker → Kubernetes 部署</td>
+<td>容器编排平台不同</td>
+<td>K8s 用 Sidecar 或 DaemonSet 注入 Agent</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>参考资料</h2>
+
+<table><thead><tr>
+<th>资料</th>
+<th>链接</th>
+<th>权威等级</th>
+</tr></thead><tbody>
+<tr>
+<td>Jaeger 官方文档</td>
+<td>https://www.jaegertracing.io/docs/</td>
+<td>⭐⭐⭐⭐⭐</td>
+</tr>
+<tr>
+<td>Hyperf Tracer 组件</td>
+<td>https://hyperf.wiki/3.0/#/zh-cn/tracer</td>
+<td>⭐⭐⭐⭐</td>
+</tr>
+<tr>
+<td>OpenTelemetry PHP SDK</td>
+<td>https://github.com/open-telemetry/opentelemetry-php</td>
+<td>⭐⭐⭐⭐</td>
+</tr>
+<tr>
+<td>OTLP 规范</td>
+<td>https://opentelemetry.io/docs/specs/otlp/</td>
+<td>⭐⭐⭐⭐⭐</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>代码演进</h2>
+
+<h3>v1 ❌ 直接使用 Jaeger Client（已废弃）</h3>
+
+<pre><code class="language-php">// ❌ Old Jaeger client, no longer maintained
+$tracer = new Jaeger\Tracer(
+    &#x27;user-service&#x27;,
+    new Jaeger\Transport\UdpTransport(&#x27;jaeger:6831&#x27;)
+);</code></pre>
+
+<h3>v2 ✅ 使用 Hyperf Tracer 组件 + OTLP</h3>
+
+<pre><code class="language-php">// config/autoload/opentracing.php
+return [
+    &#x27;enable&#x27; =&gt; true,
+    &#x27;driver&#x27; =&gt; \Hyperf\Tracer\Adapter\JaegerTracerFactory::class,
+    &#x27;driver_config&#x27; =&gt; [
+        &#x27;endpoint&#x27; =&gt; &#x27;http://jaeger:4318/v1/traces&#x27;,
+    ],
+];
+// ✅ Automatic HTTP tracing via middleware</code></pre>
+
+<h3>v3 🟢 手动 Span + 异常追踪 + 自定义属性</h3>
+
+<pre><code class="language-php">$span = $tracer-&gt;spanBuilder(&#x27;UserService.getDetail&#x27;)
+    -&gt;setAttribute(&#x27;db.system&#x27;, &#x27;mysql&#x27;)
+    -&gt;setAttribute(&#x27;db.operation&#x27;, &#x27;SELECT&#x27;)
+    -&gt;startSpan();
+
+$scope = $span-&gt;activate();
+try {
+    $result = $this-&gt;repository-&gt;find($id);
+    $span-&gt;setAttribute(&#x27;result.count&#x27;, count($result));
+    return $result;
+} catch (\Throwable $e) {
+    $span-&gt;recordException($e);
+    throw $e;
+} finally {
+    $scope-&gt;detach();
+    $span-&gt;end();
+}</code></pre>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

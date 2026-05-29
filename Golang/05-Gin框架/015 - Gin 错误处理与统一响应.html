@@ -1,0 +1,885 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>015 - Gin 错误处理与统一响应</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Golang/index.html">Golang</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Golang/05-Gin框架/index.html">Gin框架</a>
+</nav>
+<h1>015 - Gin 错误处理与统一响应</h1>
+<div class="meta">
+<span>📂 Gin框架</span>
+<span>🏷️ Golang</span>
+</div>
+<article>
+
+
+<h1>015 - Gin 错误处理与统一响应 ⭐⭐⭐</h1>
+
+<h2>难度标注</h2>
+
+<table><thead><tr>
+<th>维度</th>
+<th>等级</th>
+<th>说明</th>
+</tr></thead><tbody>
+<tr>
+<td>理解难度</td>
+<td>⭐⭐</td>
+<td>统一响应概念简单</td>
+</tr>
+<tr>
+<td>实现难度</td>
+<td>⭐⭐⭐</td>
+<td>全局错误恢复 + 错误码体系需设计</td>
+</tr>
+<tr>
+<td>生产就绪</td>
+<td>⭐⭐⭐⭐</td>
+<td>错误追踪、日志关联是生产级要求</td>
+</tr>
+</tbody></table>
+
+<h2>概念讲解</h2>
+
+<h3>为什么需要统一响应？</h3>
+
+<p>没有统一响应的 API，前端开发者不知道：</p>
+<ul>
+<li>成功时数据在哪个字段？</li>
+<li>失败时错误信息在哪？</li>
+<li>HTTP 状态码和业务状态码是什么关系？</li>
+
+<p><strong>统一响应</strong>让所有 API 返回一致的结构：</p>
+
+<pre><code class="language-json">// 成功
+{&quot;code&quot;: 0, &quot;message&quot;: &quot;success&quot;, &quot;data&quot;: {...}}
+
+// 业务错误
+{&quot;code&quot;: 40001, &quot;message&quot;: &quot;用户名已存在&quot;, &quot;data&quot;: null}
+
+// 系统错误
+{&quot;code&quot;: 50000, &quot;message&quot;: &quot;内部服务器错误&quot;, &quot;data&quot;: null}</code></pre>
+
+<h3>错误分类</h3>
+
+<pre><code>错误
+├── 业务错误 (Business Error)
+│   ├── 参数验证失败 → 400
+│   ├── 未认证       → 401
+│   ├── 无权限       → 403
+│   ├── 资源不存在   → 404
+│   └── 业务规则冲突 → 409
+└── 系统错误 (System Error)
+    ├── 数据库错误   → 500
+    ├── 第三方服务   → 502
+    └── 未知异常     → 500</code></pre>
+
+<h3>HTTP 状态码 vs 业务状态码</h3>
+
+<table><thead><tr>
+<th>维度</th>
+<th>HTTP 状态码</th>
+<th>业务状态码</th>
+</tr></thead><tbody>
+<tr>
+<td>范围</td>
+<td>标准协议（200-599）</td>
+<td>自定义（40001, 50000）</td>
+</tr>
+<tr>
+<td>粒度</td>
+<td>粗（只有几十个）</td>
+<td>细（按业务定义）</td>
+</tr>
+<tr>
+<td>用途</td>
+<td>网关/代理/CDN 判断</td>
+<td>前端业务逻辑判断</td>
+</tr>
+<tr>
+<td>推荐</td>
+<td>反映大致类别</td>
+<td>反映具体原因</td>
+</tr>
+</tbody></table>
+
+<p><strong>最佳实践：</strong> HTTP 状态码反映大致类别，业务状态码反映具体原因。两者配合使用。</p>
+
+<h2>脑图</h2>
+
+<pre><code>错误处理与统一响应
+├── 统一响应结构
+│   ├── code (业务状态码)
+│   ├── message (描述)
+│   ├── data (数据)
+│   └── meta (可选: 分页、追踪ID)
+├── 错误码体系
+│   ├── 0       → 成功
+│   ├── 400xx   → 客户端错误
+│   ├── 401xx   → 认证错误
+│   ├── 403xx   → 权限错误
+│   ├── 404xx   → 资源不存在
+│   ├── 409xx   → 冲突
+│   └── 500xx   → 服务器错误
+├── 错误类型
+│   ├── AppError (业务错误)
+│   │   ├── Code, Message, HTTPStatus
+│   │   └── 可预期、可处理
+│   └── 系统错误
+│       ├── 不可预期
+│       └── 全局 Recover 捕获
+├── 全局错误恢复
+│   ├── gin.Recovery() 基础版
+│   ├── 自定义 Recovery 中间件
+│   ├── panic → 统一 JSON 响应
+│   └── 错误日志 + 追踪
+├── 中间件集成
+│   ├── 全局 Recovery
+│   ├── 错误日志中间件
+│   └── 请求追踪 (Request ID)
+└── 最佳实践
+    ├── Handler 返回 error
+    ├── 统一错误包装
+    ├── 不暴露内部错误
+    └── 结构化错误日志</code></pre>
+
+<h2>完整 Go 代码</h2>
+
+<h3>项目结构</h3>
+
+<pre><code>gin-error-demo/
+├── main.go
+├── core/
+│   ├── response.go    # 统一响应
+│   ├── errors.go      # 错误定义
+│   └── middleware.go   # 错误中间件
+├── handlers/
+│   └── demo.go
+└── logger/
+    └── logger.go</code></pre>
+
+<h3>core/errors.go - 错误码与自定义错误</h3>
+
+<pre><code class="language-go">package core
+
+import (
+    &quot;fmt&quot;
+    &quot;net/http&quot;
+)
+
+// Error codes - organized by category
+const (
+    // Success
+    CodeSuccess = 0
+
+    // Client errors (40000-40999)
+    CodeBadRequest   = 40000
+    CodeUnauthorized = 40100
+    CodeForbidden    = 40300
+    CodeNotFound     = 40400
+    CodeConflict     = 40900
+    CodeValidation   = 40001
+    CodeInvalidParam = 40002
+
+    // Auth errors (40100-40199)
+    CodeTokenExpired = 40101
+    CodeTokenInvalid = 40102
+
+    // Server errors (50000-50999)
+    CodeInternal    = 50000
+    CodeDatabase    = 50001
+    CodeThirdParty  = 50002
+)
+
+// AppError is a structured business error
+type AppError struct {
+    Code       int    `json:&quot;code&quot;`
+    Message    string `json:&quot;message&quot;`
+    HTTPStatus int    `json:&quot;-&quot;`
+    Detail     string `json:&quot;detail,omitempty&quot;` // Only for debug mode
+}
+
+func (e *AppError) Error() string {
+    return fmt.Sprintf(&quot;[%d] %s&quot;, e.Code, e.Message)
+}
+
+// NewAppError creates a new application error
+func NewAppError(code int, message string, httpStatus int) *AppError {
+    return &amp;AppError{
+        Code:       code,
+        Message:    message,
+        HTTPStatus: httpStatus,
+    }
+}
+
+// Predefined errors for common cases
+var (
+    ErrBadRequest   = NewAppError(CodeBadRequest, &quot;Bad request&quot;, http.StatusBadRequest)
+    ErrUnauthorized = NewAppError(CodeUnauthorized, &quot;Unauthorized&quot;, http.StatusUnauthorized)
+    ErrForbidden    = NewAppError(CodeForbidden, &quot;Forbidden&quot;, http.StatusForbidden)
+    ErrNotFound     = NewAppError(CodeNotFound, &quot;Resource not found&quot;, http.StatusNotFound)
+    ErrInternal     = NewAppError(CodeInternal, &quot;Internal server error&quot;, http.StatusInternalServerError)
+)
+
+// WithMessage creates a new error with a custom message based on existing error
+func WithMessage(base *AppError, message string) *AppError {
+    return &amp;AppError{
+        Code:       base.Code,
+        Message:    message,
+        HTTPStatus: base.HTTPStatus,
+    }
+}
+
+// WithDetail adds detail information for debugging
+func WithDetail(base *AppError, message, detail string) *AppError {
+    return &amp;AppError{
+        Code:       base.Code,
+        Message:    message,
+        HTTPStatus: base.HTTPStatus,
+        Detail:     detail,
+    }
+}</code></pre>
+
+<h3>core/response.go - 统一响应</h3>
+
+<pre><code class="language-go">package core
+
+import (
+    &quot;github.com/gin-gonic/gin&quot;
+)
+
+// APIResponse is the standard response structure
+type APIResponse struct {
+    Code    int         `json:&quot;code&quot;`
+    Message string      `json:&quot;message&quot;`
+    Data    interface{} `json:&quot;data,omitempty&quot;`
+    Meta    interface{} `json:&quot;meta,omitempty&quot;`
+}
+
+// PaginatedMeta holds pagination metadata
+type PaginatedMeta struct {
+    Page  int `json:&quot;page&quot;`
+    Size  int `json:&quot;size&quot;`
+    Total int `json:&quot;total&quot;`
+}
+
+// Success sends a successful response with data
+func Success(c *gin.Context, data interface{}) {
+    c.JSON(200, APIResponse{
+        Code:    CodeSuccess,
+        Message: &quot;success&quot;,
+        Data:    data,
+    })
+}
+
+// SuccessWithMeta sends a successful response with pagination info
+func SuccessWithMeta(c *gin.Context, data interface{}, meta interface{}) {
+    c.JSON(200, APIResponse{
+        Code:    CodeSuccess,
+        Message: &quot;success&quot;,
+        Data:    data,
+        Meta:    meta,
+    })
+}
+
+// SuccessMessage sends a successful response with only a message
+func SuccessMessage(c *gin.Context, message string) {
+    c.JSON(200, APIResponse{
+        Code:    CodeSuccess,
+        Message: message,
+    })
+}
+
+// Created sends a 201 response for resource creation
+func Created(c *gin.Context, data interface{}) {
+    c.JSON(201, APIResponse{
+        Code:    CodeSuccess,
+        Message: &quot;created&quot;,
+        Data:    data,
+    })
+}
+
+// HandleError handles both AppError and generic errors
+func HandleError(c *gin.Context, err error) {
+    if appErr, ok := err.(*AppError); ok {
+        c.JSON(appErr.HTTPStatus, APIResponse{
+            Code:    appErr.Code,
+            Message: appErr.Message,
+        })
+        return
+    }
+
+    // Unknown error → treat as internal server error
+    c.JSON(500, APIResponse{
+        Code:    CodeInternal,
+        Message: &quot;Internal server error&quot;,
+    })
+}</code></pre>
+
+<h3>core/middleware.go - 错误处理中间件</h3>
+
+<pre><code class="language-go">package core
+
+import (
+    &quot;fmt&quot;
+    &quot;log&quot;
+    &quot;runtime/debug&quot;
+    &quot;time&quot;
+
+    &quot;github.com/gin-gonic/gin&quot;
+    &quot;github.com/google/uuid&quot;
+)
+
+// RequestID injects a unique request ID into context
+func RequestID() gin.HandlerFunc {
+    return func(c *gin.Context) {
+        requestID := c.GetHeader(&quot;X-Request-ID&quot;)
+        if requestID == &quot;&quot; {
+            requestID = uuid.New().String()
+        }
+        c.Set(&quot;request_id&quot;, requestID)
+        c.Header(&quot;X-Request-ID&quot;, requestID)
+        c.Next()
+    }
+}
+
+// Recovery is a custom recovery middleware that returns JSON on panic
+func Recovery() gin.HandlerFunc {
+    return func(c *gin.Context) {
+        defer func() {
+            if r := recover(); r != nil {
+                requestID, _ := c.Get(&quot;request_id&quot;)
+
+                // Log the panic with stack trace
+                log.Printf(&quot;[PANIC] request_id=%s error=%v\n%s&quot;,
+                    requestID, r, debug.Stack())
+
+                // Return unified error response
+                c.AbortWithStatusJSON(500, APIResponse{
+                    Code:    CodeInternal,
+                    Message: &quot;Internal server error&quot;,
+                })
+            }
+        }()
+        c.Next()
+    }
+}
+
+// ErrorLogger logs errors that occur during request processing
+func ErrorLogger() gin.HandlerFunc {
+    return func(c *gin.Context) {
+        start := time.Now()
+        path := c.Request.URL.Path
+        method := c.Request.Method
+
+        c.Next()
+
+        // Log if there were errors
+        if len(c.Errors) &gt; 0 {
+            requestID, _ := c.Get(&quot;request_id&quot;)
+            for _, err := range c.Errors {
+                log.Printf(&quot;[ERROR] request_id=%s method=%s path=%s latency=%v error=%v&quot;,
+                    requestID, method, path, time.Since(start), err.Err)
+            }
+        }
+    }
+}
+
+// Cors adds basic CORS headers
+func Cors() gin.HandlerFunc {
+    return func(c *gin.Context) {
+        c.Header(&quot;Access-Control-Allow-Origin&quot;, &quot;*&quot;)
+        c.Header(&quot;Access-Control-Allow-Methods&quot;, &quot;GET,POST,PUT,DELETE,PATCH,OPTIONS&quot;)
+        c.Header(&quot;Access-Control-Allow-Headers&quot;, &quot;Content-Type,Authorization&quot;)
+        if c.Request.Method == &quot;OPTIONS&quot; {
+            c.AbortWithStatus(204)
+            return
+        }
+        c.Next()
+    }
+}</code></pre>
+
+<h3>handlers/demo.go - 演示各种错误场景</h3>
+
+<pre><code class="language-go">package handlers
+
+import (
+    &quot;errors&quot;
+    &quot;strconv&quot;
+
+    &quot;gin-error-demo/core&quot;
+
+    &quot;github.com/gin-gonic/gin&quot;
+)
+
+// User represents a demo user
+type User struct {
+    ID       uint   `json:&quot;id&quot;`
+    Username string `json:&quot;username&quot;`
+    Email    string `json:&quot;email&quot;`
+}
+
+// Mock database
+var users = map[uint]*User{
+    1: {ID: 1, Username: &quot;admin&quot;, Email: &quot;admin@example.com&quot;},
+    2: {ID: 2, Username: &quot;editor&quot;, Email: &quot;editor@example.com&quot;},
+}
+
+// GetUser demonstrates successful response
+// GET /api/users/:id
+func GetUser(c *gin.Context) {
+    id, err := strconv.ParseUint(c.Param(&quot;id&quot;), 10, 32)
+    if err != nil {
+        core.HandleError(c, core.WithMessage(core.ErrBadRequest, &quot;Invalid user ID&quot;))
+        return
+    }
+
+    user, ok := users[uint(id)]
+    if !ok {
+        core.HandleError(c, core.WithMessage(core.ErrNotFound, &quot;User not found&quot;))
+        return
+    }
+
+    core.Success(c, user)
+}
+
+// CreateUser demonstrates validation and creation response
+// POST /api/users
+func CreateUser(c *gin.Context) {
+    var req struct {
+        Username string `json:&quot;username&quot; binding:&quot;required,min=3&quot;`
+        Email    string `json:&quot;email&quot; binding:&quot;required,email&quot;`
+    }
+
+    if err := c.ShouldBindJSON(&amp;req); err != nil {
+        core.HandleError(c, core.WithDetail(
+            core.NewAppError(core.CodeValidation, &quot;Validation failed&quot;, 400),
+            err.Error(),
+            &quot;Check required fields and formats&quot;,
+        ))
+        return
+    }
+
+    // Check uniqueness
+    for _, u := range users {
+        if u.Username == req.Username {
+            core.HandleError(c, core.NewAppError(
+                core.CodeConflict,
+                &quot;Username already exists&quot;,
+                409,
+            ))
+            return
+        }
+    }
+
+    user := &amp;User{
+        ID:       uint(len(users) + 1),
+        Username: req.Username,
+        Email:    req.Email,
+    }
+    users[user.ID] = user
+
+    core.Created(c, user)
+}
+
+// ListUsers demonstrates paginated response
+// GET /api/users?page=1&amp;size=10
+func ListUsers(c *gin.Context) {
+    page, _ := strconv.Atoi(c.DefaultQuery(&quot;page&quot;, &quot;1&quot;))
+    size, _ := strconv.Atoi(c.DefaultQuery(&quot;size&quot;, &quot;10&quot;))
+
+    var list []User
+    for _, u := range users {
+        list = append(list, *u)
+    }
+
+    core.SuccessWithMeta(c, list, core.PaginatedMeta{
+        Page:  page,
+        Size:  size,
+        Total: len(list),
+    })
+}
+
+// TriggerPanic demonstrates panic recovery
+// GET /api/panic
+func TriggerPanic(c *gin.Context) {
+    // This will be caught by Recovery middleware
+    panic(&quot;something went terribly wrong!&quot;)
+}
+
+// TriggerError demonstrates generic error handling
+// GET /api/error
+func TriggerError(c *gin.Context) {
+    err := errors.New(&quot;database connection lost&quot;)
+    core.HandleError(c, err) // Generic error → 500
+}
+
+// DeleteMessage demonstrates simple message response
+// DELETE /api/users/:id
+func DeleteUser(c *gin.Context) {
+    id, _ := strconv.ParseUint(c.Param(&quot;id&quot;), 10, 32)
+    delete(users, uint(id))
+    core.SuccessMessage(c, &quot;User deleted&quot;)
+}</code></pre>
+
+<h3>main.go</h3>
+
+<pre><code class="language-go">package main
+
+import (
+    &quot;gin-error-demo/core&quot;
+    &quot;gin-error-demo/handlers&quot;
+
+    &quot;github.com/gin-gonic/gin&quot;
+)
+
+func main() {
+    r := gin.New() // Use gin.New() instead of Default() for custom middleware
+
+    // Global middleware chain
+    r.Use(
+        core.RequestID(),  // Inject request ID
+        core.Cors(),       // CORS headers
+        core.ErrorLogger(),// Log errors
+        core.Recovery(),   // Panic recovery → JSON
+        gin.Logger(),      // Access log
+    )
+
+    api := r.Group(&quot;/api&quot;)
+    {
+        api.GET(&quot;/users&quot;, handlers.ListUsers)
+        api.GET(&quot;/users/:id&quot;, handlers.GetUser)
+        api.POST(&quot;/users&quot;, handlers.CreateUser)
+        api.DELETE(&quot;/users/:id&quot;, handlers.DeleteUser)
+
+        // Demo routes
+        api.GET(&quot;/panic&quot;, handlers.TriggerPanic)
+        api.GET(&quot;/error&quot;, handlers.TriggerError)
+    }
+
+    r.Run(&quot;:8080&quot;)
+}</code></pre>
+
+<h2>执行预览</h2>
+
+<pre><code class="language-bash"># 1. 成功获取用户
+curl http://localhost:8080/api/users/1
+# {&quot;code&quot;:0,&quot;message&quot;:&quot;success&quot;,&quot;data&quot;:{&quot;id&quot;:1,&quot;username&quot;:&quot;admin&quot;,&quot;email&quot;:&quot;admin@example.com&quot;}}
+
+# 2. 用户不存在
+curl http://localhost:8080/api/users/999
+# {&quot;code&quot;:40400,&quot;message&quot;:&quot;User not found&quot;}
+
+# 3. 参数验证失败
+curl -X POST http://localhost:8080/api/users \
+  -H &quot;Content-Type: application/json&quot; \
+  -d &#x27;{&quot;username&quot;:&quot;ab&quot;}&#x27;
+# {&quot;code&quot;:40001,&quot;message&quot;:&quot;Validation failed&quot;,&quot;detail&quot;:&quot;Check required fields and formats&quot;}
+
+# 4. 创建成功
+curl -X POST http://localhost:8080/api/users \
+  -H &quot;Content-Type: application/json&quot; \
+  -d &#x27;{&quot;username&quot;:&quot;testuser&quot;,&quot;email&quot;:&quot;test@example.com&quot;}&#x27;
+# {&quot;code&quot;:0,&quot;message&quot;:&quot;created&quot;,&quot;data&quot;:{&quot;id&quot;:3,&quot;username&quot;:&quot;testuser&quot;,&quot;email&quot;:&quot;test@example.com&quot;}}
+
+# 5. 重复创建（冲突）
+# {&quot;code&quot;:40900,&quot;message&quot;:&quot;Username already exists&quot;}
+
+# 6. 分页列表
+curl &quot;http://localhost:8080/api/users?page=1&amp;size=10&quot;
+# {&quot;code&quot;:0,&quot;message&quot;:&quot;success&quot;,&quot;data&quot;:[...],&quot;meta&quot;:{&quot;page&quot;:1,&quot;size&quot;:10,&quot;total&quot;:3}}
+
+# 7. Panic 恢复（返回 JSON 而不是 HTML）
+curl http://localhost:8080/api/panic
+# {&quot;code&quot;:50000,&quot;message&quot;:&quot;Internal server error&quot;}
+
+# 8. 注意 Response Headers
+# X-Request-ID: 550e8400-e29b-41d4-a716-446655440000</code></pre>
+
+<h2>注意事项</h2>
+
+<table><thead><tr>
+<th>事项</th>
+<th>说明</th>
+<th>严重度</th>
+</tr></thead><tbody>
+<tr>
+<td>不暴露堆栈</td>
+<td>生产环境不返回 stack trace</td>
+<td>🔴 严重</td>
+</tr>
+<tr>
+<td>请求追踪</td>
+<td>每个请求有唯一 ID，方便日志排查</td>
+<td>🟡 重要</td>
+</tr>
+<tr>
+<td>错误日志</td>
+<td>记录完整上下文（请求ID、路径、参数）</td>
+<td>🟡 重要</td>
+</tr>
+<tr>
+<td>错误码文档</td>
+<td>维护错误码清单，前后端共享</td>
+<td>🟡 重要</td>
+</tr>
+<tr>
+<td>panic 处理</td>
+<td>必须有 Recovery 中间件，否则进程崩溃</td>
+<td>🔴 严重</td>
+</tr>
+<tr>
+<td>一致性</td>
+<td>所有接口统一用 <code>HandleError</code>，不要 <code>c.JSON(500, ...)</code> 散落各处</td>
+<td>🟡 重要</td>
+</tr>
+</tbody></table>
+
+<h2>避坑指南</h2>
+
+<h3>❌ 直接用 c.JSON 返回错误</h3>
+<pre><code class="language-go">// BAD: Inconsistent error responses across handlers
+func GetUser(c *gin.Context) {
+    if user == nil {
+        c.JSON(404, gin.H{&quot;error&quot;: &quot;not found&quot;}) // One format
+    }
+}
+func CreateUser(c *gin.Context) {
+    if err != nil {
+        c.JSON(400, map[string]string{&quot;msg&quot;: err.Error()}) // Different format!
+    }
+}</code></pre>
+<p>✅ <strong>正确做法：</strong> 统一用 <code>core.HandleError(c, err)</code> 或 <code>core.Success(c, data)</code>。</p>
+
+<h3>❌ 向客户端暴露内部错误</h3>
+<pre><code class="language-go">// BAD: Leaks database error details
+c.JSON(500, gin.H{&quot;error&quot;: err.Error()})
+// &quot;pq: duplicate key value violates unique constraint \&quot;users_username_key\&quot;&quot;</code></pre>
+<p>✅ <strong>正确做法：</strong> 返回通用消息，详细错误只记日志。</p>
+
+<h3>❌ 不处理 panic</h3>
+<pre><code class="language-go">// BAD: No recovery middleware, panic crashes the server
+r := gin.New()
+r.GET(&quot;/api&quot;, func(c *gin.Context) {
+    panic(&quot;boom&quot;) // Server crashes!
+})</code></pre>
+<p>✅ <strong>正确做法：</strong> 使用 <code>gin.Recovery()</code> 或自定义 Recovery 中间件。</p>
+
+<h3>❌ HTTP 状态码当业务码</h3>
+<pre><code class="language-go">// BAD: Only HTTP status code, no business code
+c.JSON(404, gin.H{&quot;error&quot;: &quot;not found&quot;})
+// Frontend can&#x27;t distinguish: user not found vs article not found</code></pre>
+<p>✅ <strong>正确做法：</strong> HTTP 状态码 + 业务状态码双重标识。</p>
+
+<h3>❌ gin.Default() 不够用</h3>
+<pre><code class="language-go">// BAD: Default() doesn&#x27;t give you control over middleware order
+r := gin.Default() // Logger + Recovery only</code></pre>
+<p>✅ <strong>正确做法：</strong> 用 <code>gin.New()</code> + 手动注册中间件，控制顺序和自定义行为。</p>
+
+<h2>练习题</h2>
+
+<h3>🟢 基础题</h3>
+
+<ol>
+<li><strong>统一响应封装：</strong> 创建 <code>Success()</code> 和 <code>Error()</code> 函数，让所有 handler 返回统一 JSON 格式。</li>
+
+<ol>
+<li><strong>自定义 404：</strong> 替换 Gin 默认的 404 响应为 JSON 格式。</li>
+
+<h3>🟡 进阶题</h3>
+
+<ol>
+<li><strong>错误码管理：</strong> 设计一套完整的错误码体系（至少 20 个），包含客户端错误、认证错误、服务端错误，并生成文档。</li>
+
+<ol>
+<li><strong>请求追踪：</strong> 实现 Request-ID 中间件，错误日志中包含请求 ID，能通过 ID 追踪完整请求链路。</li>
+
+<h3>🔴 挑战题</h3>
+
+<ol>
+<li><strong>Sentry 集成：</strong> 将系统错误（panic、5xx）自动上报到 Sentry，包含请求上下文、用户信息、堆栈信息。</li>
+
+<h2>知识点总结</h2>
+
+<pre><code>错误处理与统一响应
+├── 统一响应
+│   ├── APIResponse{code, message, data, meta}
+│   ├── Success / Created / SuccessMessage
+│   └── HandleError (AppError vs generic)
+├── 错误码体系
+│   ├── 0       成功
+│   ├── 400xx   客户端错误
+│   ├── 401xx   认证错误
+│   ├── 404xx   资源不存在
+│   ├── 409xx   冲突
+│   └── 500xx   服务器错误
+├── AppError
+│   ├── Code + Message + HTTPStatus
+│   ├── WithMessage() 自定义消息
+│   ├── WithDetail() 调试详情
+│   └── 预定义错误常量
+├── 中间件
+│   ├── RequestID → 唯一追踪
+│   ├── Recovery → panic 捕获
+│   ├── ErrorLogger → 错误日志
+│   └── CORS → 跨域
+└── 最佳实践
+    ├── 不暴露内部错误
+    ├── 结构化日志
+    ├── 错误码文档化
+    └── 请求追踪链路</code></pre>
+
+<h2>举一反三</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>方案</th>
+<th>关键点</th>
+</tr></thead><tbody>
+<tr>
+<td>多语言错误</td>
+<td>错误码 → i18n 映射</td>
+<td>返回 code，前端按语言显示</td>
+</tr>
+<tr>
+<td>微服务错误</td>
+<td>错误码前缀 + 服务标识</td>
+<td>service_code: 10001</td>
+</tr>
+<tr>
+<td>前端错误处理</td>
+<td>axios interceptor 统一处理</td>
+<td>按业务码分类处理</td>
+</tr>
+<tr>
+<td>日志聚合</td>
+<td>JSON 格式日志 + ELK</td>
+<td>request_id 关联</td>
+</tr>
+<tr>
+<td>错误监控</td>
+<td>Sentry / Prometheus</td>
+<td>自动告警</td>
+</tr>
+</tbody></table>
+
+<h2>参考资料</h2>
+
+<ul>
+<li><a href="https://gin-gonic.com/docs/examples/custom-middleware/">Gin 自定义中间件</a></li>
+<li><a href="https://go.dev/blog/error-handling-and-go">Go 错误处理最佳实践</a></li>
+<li><a href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Status">HTTP 状态码</a></li>
+<li><a href="https://tools.ietf.org/html/rfc7807">Problem Details for HTTP APIs (RFC 7807)</a></li>
+<li><a href="https://go.dev/blog/slog">Structured Logging in Go</a></li>
+
+<h2>代码演进</h2>
+
+<h3>v1 - 直接在 handler 里写响应</h3>
+
+<pre><code class="language-go">// v1: Inline error responses, inconsistent formats
+func GetUser(c *gin.Context) {
+    id := c.Param(&quot;id&quot;)
+    user := findUser(id)
+    if user == nil {
+        c.JSON(404, gin.H{&quot;error&quot;: &quot;not found&quot;})
+        return
+    }
+    c.JSON(200, user) // No wrapper
+}</code></pre>
+
+<h3>v2 - 统一响应函数</h3>
+
+<pre><code class="language-go">// v2: Centralized response functions
+func GetUser(c *gin.Context) {
+    user, err := userService.Find(id)
+    if err != nil {
+        RespondError(c, err) // Unified error handling
+        return
+    }
+    RespondSuccess(c, user) // Unified success format
+}</code></pre>
+
+<h3>v3 - 类型安全错误 + 中间件链</h3>
+
+<pre><code class="language-go">// v3: AppError type, middleware chain, request tracking
+func GetUser(c *gin.Context) error {
+    user, err := userService.Find(id)
+    if err != nil {
+        return core.NotFound(&quot;User not found&quot;) // Typed error
+    }
+    core.Success(c, user)
+    return nil
+}
+
+// Middleware handles the returned error
+func ErrorHandler() gin.HandlerFunc {
+    return func(c *gin.Context) {
+        c.Next()
+        if len(c.Errors) &gt; 0 {
+            core.HandleError(c, c.Errors.Last().Err)
+        }
+    }
+}</code></pre>
+
+<p><strong>演进总结：</strong> v1 零散响应 → v2 统一函数 → v3 类型安全 + 中间件自动化 + 请求追踪。</p>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

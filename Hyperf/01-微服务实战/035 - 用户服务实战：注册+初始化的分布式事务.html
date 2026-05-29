@@ -1,0 +1,471 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>035 - 用户服务实战：注册+初始化的分布式事务</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Hyperf/index.html">Hyperf</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Hyperf/01-微服务实战/index.html">Hyperf微服务实战</a>
+</nav>
+<h1>035 - 用户服务实战：注册+初始化的分布式事务</h1>
+<div class="meta">
+<span>📂 Hyperf微服务实战</span>
+<span>🏷️ Hyperf</span>
+</div>
+<article>
+
+
+<h1>用户服务实战：注册+初始化的分布式事务</h1>
+
+<blockquote><p><strong>难度：</strong> ⭐⭐⭐⭐⭐<br><strong>前置知识：</strong> Saga 模式（033/034篇）、Hyperf 路由和控制器、Kafka<br><strong>预估用时：</strong> 60-90 分钟</p></blockquote>
+
+<h2>1. 概念讲解</h2>
+
+<p>本篇将分布式事务理论落地到真实场景：<strong>用户注册</strong>。在微服务架构中，注册涉及多个服务：用户服务创建账号、积分服务初始化、通知服务发邮件。任何环节失败都需要回滚已完成的操作。</p>
+
+<p>类比理解：就像开银行卡——填表（创建用户）、开户（初始化积分）、送礼品（欢迎邮件）。如果礼品送不了，柜员会把表撕了、户销了，不留半成品。</p>
+
+<h2>2. 实时脑图</h2>
+
+<pre><code>┌─────────────────────────────────────────────────────┐
+│      User Registration Saga - Full Flow              │
+├─────────────────────────────────────────────────────┤
+│                                                      │
+│  POST /api/users/register                            │
+│           |                                          │
+│           v                                          │
+│  [Validation] -- invalid -&gt; 400                      │
+│           |                                          │
+│           v valid                                    │
+│  [Saga: user_registration]                           │
+│    |-- Step1: CreateUser (local DB tx)               │
+│    |   +-- compensate: soft-delete                   │
+│    |-- Step2: InitPoints (local DB tx)               │
+│    |   +-- compensate: delete points record          │
+│    +-- Step3: PublishEvent (Kafka send)              │
+│        +-- compensate: send cancel event             │
+│           |                                          │
+│           v                                          │
+│  [Kafka: user.registered]                            │
+│    |-- EmailConsumer -&gt; send welcome email           │
+│    +-- StatsConsumer -&gt; record registration stats    │
+│                                                      │
+│  State Flow:                                         │
+│  RUNNING -&gt; COMPLETED -&gt; user.status = &#x27;active&#x27;     │
+│  RUNNING -&gt; COMPENSATING -&gt; user.status = &#x27;cancelled&#x27;│
+└─────────────────────────────────────────────────────┘</code></pre>
+
+<h2>3. 完整代码</h2>
+
+<h3>3.1 注册请求 DTO <code>app/Dto/RegisterRequest.php</code></h3>
+
+<pre><code class="language-php">&lt;?php
+declare(strict_types=1);
+
+namespace App\Dto;
+
+class RegisterRequest
+{
+    public function __construct(
+        public readonly string $username,
+        public readonly string $email,
+        public readonly string $password,
+    ) {}
+
+    /** ✅ Validate input */
+    public function validate(): array
+    {
+        $errors = [];
+        if (strlen($this-&gt;username) &lt; 3 || strlen($this-&gt;username) &gt; 50) {
+            $errors[] = &#x27;Username must be 3-50 characters&#x27;;
+        }
+        if (!filter_var($this-&gt;email, FILTER_VALIDATE_EMAIL)) {
+            $errors[] = &#x27;Invalid email format&#x27;;
+        }
+        if (strlen($this-&gt;password) &lt; 8) {
+            $errors[] = &#x27;Password must be at least 8 characters&#x27;;
+        }
+        return $errors;
+    }
+
+    public static function fromArray(array $data): self
+    {
+        return new self(
+            username: $data[&#x27;username&#x27;] ?? &#x27;&#x27;,
+            email: $data[&#x27;email&#x27;] ?? &#x27;&#x27;,
+            password: $data[&#x27;password&#x27;] ?? &#x27;&#x27;,
+        );
+    }
+
+    public function toContext(): array
+    {
+        return [&#x27;username&#x27; =&gt; $this-&gt;username, &#x27;email&#x27; =&gt; $this-&gt;email, &#x27;password&#x27; =&gt; $this-&gt;password];
+    }
+}</code></pre>
+
+<h3>3.2 注册控制器 <code>app/Controller/RegisterController.php</code></h3>
+
+<pre><code class="language-php">&lt;?php
+declare(strict_types=1);
+
+namespace App\Controller;
+
+use App\Dto\RegisterRequest;
+use App\Saga\SagaOrchestrator;
+use App\Saga\Steps\CreateUserStep;
+use App\Saga\Steps\InitPointsStep;
+use App\Saga\Steps\PublishRegistrationEventStep;
+use App\Repository\UserRepository;
+use Hyperf\Di\Annotation\Inject;
+use Hyperf\HttpServer\Annotation\Controller;
+use Hyperf\HttpServer\Annotation\PostMapping;
+use Hyperf\HttpServer\Contract\RequestInterface;
+
+#[Controller(prefix: &#x27;/api&#x27;)]
+class RegisterController
+{
+    #[Inject] private SagaOrchestrator $sagaOrchestrator;
+    #[Inject] private CreateUserStep $createUserStep;
+    #[Inject] private InitPointsStep $initPointsStep;
+    #[Inject] private PublishRegistrationEventStep $publishEventStep;
+    #[Inject] private UserRepository $userRepository;
+
+    #[PostMapping(&#x27;/register&#x27;)]
+    public function register(RequestInterface $request): array
+    {
+        $dto = RegisterRequest::fromArray($request-&gt;all());
+
+        // ✅ Input validation
+        $errors = $dto-&gt;validate();
+        if (!empty($errors)) {
+            return [&#x27;code&#x27; =&gt; 400, &#x27;message&#x27; =&gt; &#x27;Validation failed&#x27;, &#x27;errors&#x27; =&gt; $errors];
+        }
+
+        // ✅ Check duplicate
+        if ($this-&gt;userRepository-&gt;existsByEmail($dto-&gt;email)) {
+            return [&#x27;code&#x27; =&gt; 409, &#x27;message&#x27; =&gt; &#x27;Email already registered&#x27;];
+        }
+
+        // ✅ Execute registration saga
+        $result = $this-&gt;sagaOrchestrator-&gt;execute(&#x27;user_registration&#x27;, [
+            $this-&gt;createUserStep,
+            $this-&gt;initPointsStep,
+            $this-&gt;publishEventStep,
+        ], $dto-&gt;toContext());
+
+        if ($result-&gt;success) {
+            $this-&gt;userRepository-&gt;activate($result-&gt;data[&#x27;user_id&#x27;]);
+            return [&#x27;code&#x27; =&gt; 0, &#x27;message&#x27; =&gt; &#x27;Registration successful&#x27;,
+                &#x27;data&#x27; =&gt; [&#x27;user_id&#x27; =&gt; $result-&gt;data[&#x27;user_id&#x27;], &#x27;username&#x27; =&gt; $dto-&gt;username]];
+        }
+
+        return [&#x27;code&#x27; =&gt; 500, &#x27;message&#x27; =&gt; &#x27;Registration failed, please try again&#x27;];
+    }
+}</code></pre>
+
+<h3>3.3 Kafka 事件发布步骤 <code>app/Saga/Steps/PublishRegistrationEventStep.php</code></h3>
+
+<pre><code class="language-php">&lt;?php
+declare(strict_types=1);
+
+namespace App\Saga\Steps;
+
+use App\Kafka\Producer\ReliableProducer;
+use App\Saga\SagaStepInterface;
+use Hyperf\Di\Annotation\Inject;
+
+class PublishRegistrationEventStep implements SagaStepInterface
+{
+    #[Inject] private ReliableProducer $producer;
+
+    public function getName(): string { return &#x27;publish_registration_event&#x27;; }
+
+    public function execute(array $context): array
+    {
+        // ✅ Publish user.registered event
+        $this-&gt;producer-&gt;reliableSend(&#x27;user.registered&#x27;, [
+            &#x27;user_id&#x27; =&gt; $context[&#x27;user_id&#x27;],
+            &#x27;email&#x27; =&gt; $context[&#x27;email&#x27;],
+            &#x27;username&#x27; =&gt; $context[&#x27;username&#x27;],
+            &#x27;registered_at&#x27; =&gt; date(&#x27;c&#x27;),
+        ], (string) $context[&#x27;user_id&#x27;]);
+        return $context;
+    }
+
+    public function compensate(array $context): void
+    {
+        // ✅ Publish cancellation event for downstream consumers
+        if (isset($context[&#x27;user_id&#x27;])) {
+            $this-&gt;producer-&gt;reliableSend(&#x27;user.registration.cancelled&#x27;, [
+                &#x27;user_id&#x27; =&gt; $context[&#x27;user_id&#x27;],
+                &#x27;cancelled_at&#x27; =&gt; date(&#x27;c&#x27;),
+            ], (string) $context[&#x27;user_id&#x27;]);
+        }
+    }
+}</code></pre>
+
+<h3>3.4 数据库迁移</h3>
+
+<pre><code class="language-php">&lt;?php
+use Hyperf\Database\Schema\Schema;
+use Hyperf\Database\Schema\Blueprint;
+use Hyperf\Database\Migrations\Migration;
+
+class CreateUsersAndSagaTables extends Migration
+{
+    public function up(): void
+    {
+        Schema::create(&#x27;users&#x27;, function (Blueprint $table) {
+            $table-&gt;id();
+            $table-&gt;string(&#x27;username&#x27;, 50);
+            $table-&gt;string(&#x27;email&#x27;)-&gt;unique(); // ✅ Unique email constraint
+            $table-&gt;string(&#x27;password&#x27;);
+            $table-&gt;string(&#x27;status&#x27;, 20)-&gt;default(&#x27;pending&#x27;);
+            $table-&gt;timestamps();
+            $table-&gt;index(&#x27;status&#x27;);
+        });
+
+        Schema::create(&#x27;user_points&#x27;, function (Blueprint $table) {
+            $table-&gt;id();
+            $table-&gt;unsignedBigInteger(&#x27;user_id&#x27;)-&gt;unique();
+            $table-&gt;integer(&#x27;points&#x27;)-&gt;default(0);
+            $table-&gt;timestamps();
+        });
+
+        Schema::create(&#x27;saga_instances&#x27;, function (Blueprint $table) {
+            $table-&gt;id();
+            $table-&gt;string(&#x27;saga_id&#x27;, 64)-&gt;unique();
+            $table-&gt;string(&#x27;type&#x27;, 50);
+            $table-&gt;string(&#x27;state&#x27;, 20);
+            $table-&gt;json(&#x27;context&#x27;)-&gt;nullable();
+            $table-&gt;timestamps();
+        });
+
+        Schema::create(&#x27;saga_steps&#x27;, function (Blueprint $table) {
+            $table-&gt;id();
+            $table-&gt;string(&#x27;saga_id&#x27;, 64);
+            $table-&gt;string(&#x27;step_name&#x27;, 50);
+            $table-&gt;string(&#x27;state&#x27;, 20);
+            $table-&gt;timestamps();
+            $table-&gt;unique([&#x27;saga_id&#x27;, &#x27;step_name&#x27;]);
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::dropIfExists(&#x27;saga_steps&#x27;);
+        Schema::dropIfExists(&#x27;saga_instances&#x27;);
+        Schema::dropIfExists(&#x27;user_points&#x27;);
+        Schema::dropIfExists(&#x27;users&#x27;);
+    }
+}</code></pre>
+
+<h2>4. 执行预览</h2>
+
+<pre><code class="language-bash"># Success
+$ curl -X POST http://localhost:9501/api/register -H &quot;Content-Type: application/json&quot; \
+  -d &#x27;{&quot;username&quot;:&quot;zhangsan&quot;,&quot;email&quot;:&quot;zhang@example.com&quot;,&quot;password&quot;:&quot;12345678&quot;}&#x27;
+{&quot;code&quot;:0,&quot;message&quot;:&quot;Registration successful&quot;,&quot;data&quot;:{&quot;user_id&quot;:1001,&quot;username&quot;:&quot;zhangsan&quot;}}
+
+# Duplicate
+{&quot;code&quot;:409,&quot;message&quot;:&quot;Email already registered&quot;}
+
+# Validation error
+{&quot;code&quot;:400,&quot;message&quot;:&quot;Validation failed&quot;,&quot;errors&quot;:[&quot;Username must be 3-50 characters&quot;]}</code></pre>
+
+<h2>5. 注意事项</h2>
+
+<table><thead><tr>
+<th>约束</th>
+<th>说明</th>
+<th>违反后果</th>
+</tr></thead><tbody>
+<tr>
+<td>email 唯一索引</td>
+<td>防止重复注册</td>
+<td>同一邮箱注册多个账号</td>
+</tr>
+<tr>
+<td>用户状态生命周期</td>
+<td>pending -> active -> cancelled</td>
+<td>状态混乱</td>
+</tr>
+<tr>
+<td>context 不传密码明文</td>
+<td>安全风险</td>
+<td>密码泄露到日志</td>
+</tr>
+<tr>
+<td>补偿考虑并发</td>
+<td>同 email 可能并发注册</td>
+<td>误删其他请求的数据</td>
+</tr>
+<tr>
+<td>注册接口限流</td>
+<td>防止批量注册</td>
+<td>系统被刷</td>
+</tr>
+</tbody></table>
+
+<h2>6. 避坑指南</h2>
+
+<table><thead><tr>
+<th>错误</th>
+<th>现象</th>
+<th>正确做法</th>
+</tr></thead><tbody>
+<tr>
+<td>不检查 email 重复</td>
+<td>同一邮箱注册两次</td>
+<td>先查后插 + 唯一索引</td>
+</tr>
+<tr>
+<td>密码明文存 context</td>
+<td>日志泄露密码</td>
+<td>只传必要字段</td>
+</tr>
+<tr>
+<td>不激活用户</td>
+<td>status 还是 pending</td>
+<td>Saga 成功后显式 activate</td>
+</tr>
+<tr>
+<td>补偿硬删除</td>
+<td>审计丢失</td>
+<td>软删除 status=cancelled</td>
+</tr>
+<tr>
+<td>没有请求限流</td>
+<td>接口被刷爆</td>
+<td>Redis 限流</td>
+</tr>
+</tbody></table>
+
+<h2>7. 练习题</h2>
+
+<p>🟢 <strong>基础题 1：</strong> 添加手机号字段到注册流程。</p>
+
+<p>🟢 <strong>基础题 2：</strong> 实现 Redis 限流中间件。</p>
+
+<p>🟡 <strong>进阶题：</strong> 实现注册 Saga 的重试机制。</p>
+
+<p>🔴 <strong>开放题：</strong> 设计端到端测试方案，覆盖正常/重复/部分失败三种场景。</p>
+
+<h2>8. 知识点总结</h2>
+
+<pre><code>User Registration Saga
+├── Input: RegisterRequest DTO + validation
+├── Steps: CreateUser -&gt; InitPoints -&gt; PublishEvent
+├── Post-Saga: activate user
+├── Failure: auto-compensation + cancel event
+└── DB: users, user_points, saga_instances, saga_steps</code></pre>
+
+<h2>9. 举一反三</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>Saga 步骤</th>
+<th>关键差异</th>
+</tr></thead><tbody>
+<tr>
+<td>用户注销</td>
+<td>标记注销->清积分->发通知</td>
+<td>需冷却期</td>
+</tr>
+<tr>
+<td>密码重置</td>
+<td>验证token->改密码->清缓存</td>
+<td>Token 有效期</td>
+</tr>
+<tr>
+<td>升级VIP</td>
+<td>扣费->更新等级->开通特权</td>
+<td>涉及支付需强一致</td>
+</tr>
+</tbody></table>
+
+<h2>10. 参考资料</h2>
+
+<ul>
+<li>🏆 <a href="https://hyperf.wiki/3.1/#/zh-cn/http-server">Hyperf HTTP Server 文档</a></li>
+<li>🏆 <a href="https://hyperf.wiki/3.1/#/zh-cn/db/migration">Hyperf 数据库迁移</a></li>
+<li>⭐ <a href="https://microservices.io/patterns/data/saga.html">Microservices.io - Saga Pattern</a></li>
+
+<h2>11. 代码演进</h2>
+
+<h3>v1 ❌ 裸写</h3>
+<pre><code class="language-php">$user = User::create($data);
+Points::create([&#x27;user_id&#x27; =&gt; $user-&gt;id]);
+// Any step fails -&gt; orphaned data</code></pre>
+
+<h3>v2 ✅ Try-Catch</h3>
+<pre><code class="language-php">$user = User::create($data);
+try {
+    Points::create([&#x27;user_id&#x27; =&gt; $user-&gt;id]);
+} catch (\Throwable $e) {
+    User::destroy($user-&gt;id);
+    throw $e;
+}</code></pre>
+
+<h3>v3 🟢 Saga</h3>
+<pre><code class="language-php">$result = $this-&gt;saga-&gt;execute(&#x27;user_registration&#x27;, $steps, $dto-&gt;toContext());
+// Auto-compensation, state machine, audit trail</code></pre>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

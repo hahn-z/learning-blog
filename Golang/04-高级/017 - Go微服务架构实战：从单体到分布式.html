@@ -1,0 +1,566 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>017 - Go微服务架构实战：从单体到分布式</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Golang/index.html">Golang</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Golang/04-高级/index.html">Golang高级</a>
+</nav>
+<h1>017 - Go微服务架构实战：从单体到分布式</h1>
+<div class="meta">
+<span>📂 Golang高级</span>
+<span>🏷️ Golang</span>
+</div>
+<article>
+
+
+<h1>Go微服务架构实战：从单体到分布式</h1>
+
+<blockquote><p><strong>难度标注：</strong> ⭐⭐⭐⭐⭐ 高级<br><strong>前置知识：</strong> Go并发、HTTP、数据库、Docker基础<br><strong>预计用时：</strong> 90分钟</p></blockquote>
+
+<hr>
+
+<h2>一、概念讲解</h2>
+
+<p>微服务不是目的，而是解决规模问题的手段。本文从实际出发，展示如何将一个单体Go应用逐步拆分为微服务。</p>
+
+<h3>何时拆分？</h3>
+
+<table><thead><tr>
+<th>信号</th>
+<th>描述</th>
+</tr></thead><tbody>
+<tr>
+<td>团队 > 8人</td>
+<td>代码冲突频繁，沟通成本高</td>
+</tr>
+<tr>
+<td>模块独立部署需求</td>
+<td>用户模块要一天更新3次，订单模块要稳定</td>
+</tr>
+<tr>
+<td>不同模块性能需求不同</td>
+<td>搜索要Elasticsearch，支付要强一致</td>
+</tr>
+<tr>
+<td>单库瓶颈</td>
+<td>数据量或QPS超过单机上限</td>
+</tr>
+</tbody></table>
+
+<h3>核心组件</h3>
+
+<pre><code>单体应用 → API网关 + 用户服务 + 订单服务 + 通知服务
+              ↓           ↓          ↓          ↓
+           gRPC       gRPC       gRPC      消息队列</code></pre>
+
+<hr>
+
+<h2>二、脑图（ASCII）</h2>
+
+<pre><code>                ┌─────────────┐
+                │  API Gateway │
+                │  (HTTP/gRPC) │
+                └──────┬───────┘
+                       │
+          ┌────────────┼────────────┐
+          │            │            │
+   ┌──────┴──────┐ ┌──┴───────┐ ┌─┴─────────┐
+   │ User Service │ │ Order Svc │ │ Notify Svc│
+   │  gRPC :50051│ │gRPC:50052 │ │ Async/Nats│
+   └──────┬──────┘ └──┬───────┘ └────────────┘
+          │           │
+     ┌────┴────┐ ┌───┴────┐
+     │ MySQL   │ │ MySQL  │
+     │ users   │ │ orders │
+     └─────────┘ └────────┘</code></pre>
+
+<hr>
+
+<h2>三、完整Go代码</h2>
+
+<h3>v1 单体应用</h3>
+
+<pre><code class="language-go">package main
+
+import (
+	&quot;database/sql&quot;
+	&quot;encoding/json&quot;
+	&quot;fmt&quot;
+	&quot;log&quot;
+	&quot;net/http&quot;
+
+	_ &quot;github.com/go-sql-driver/mysql&quot;
+)
+
+// User represents a user entity
+type User struct {
+	ID    int    `json:&quot;id&quot;`
+	Name  string `json:&quot;name&quot;`
+	Email string `json:&quot;email&quot;`
+}
+
+// Order represents an order entity
+type Order struct {
+	ID     int     `json:&quot;id&quot;`
+	UserID int     `json:&quot;user_id&quot;`
+	Amount float64 `json:&quot;amount&quot;`
+	Status string  `json:&quot;status&quot;`
+}
+
+// MonolithApp holds all dependencies
+type MonolithApp struct {
+	db *sql.DB
+}
+
+// GetUser fetches a user by ID
+func (app *MonolithApp) GetUser(w http.ResponseWriter, r *http.Request) {
+	id := r.URL.Query().Get(&quot;id&quot;)
+	var u User
+	err := app.db.QueryRow(&quot;SELECT id, name, email FROM users WHERE id = ?&quot;, id).Scan(&amp;u.ID, &amp;u.Name, &amp;u.Email)
+	if err != nil {
+		http.Error(w, &quot;user not found&quot;, 404)
+		return
+	}
+	json.NewEncoder(w).Encode(u)
+}
+
+// CreateOrder creates a new order
+func (app *MonolithApp) CreateOrder(w http.ResponseWriter, r *http.Request) {
+	var o Order
+	if err := json.NewDecoder(r.Body).Decode(&amp;o); err != nil {
+		http.Error(w, &quot;bad request&quot;, 400)
+		return
+	}
+	result, err := app.db.Exec(&quot;INSERT INTO orders (user_id, amount, status) VALUES (?, ?, ?)&quot;, o.UserID, o.Amount, &quot;pending&quot;)
+	if err != nil {
+		http.Error(w, &quot;db error&quot;, 500)
+		return
+	}
+	o.ID, _ = result.LastInsertId()
+	o.Status = &quot;pending&quot;
+	// Send notification inline (tight coupling!)
+	log.Printf(&quot;Sending email to user %d: order %d created&quot;, o.UserID, o.ID)
+	json.NewEncoder(w).Encode(o)
+}
+
+func main() {
+	db, err := sql.Open(&quot;mysql&quot;, &quot;blog:password@tcp(127.0.0.1:3306)/monolith&quot;)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer db.Close()
+
+	app := &amp;MonolithApp{db: db}
+	http.HandleFunc(&quot;/user&quot;, app.GetUser)
+	http.HandleFunc(&quot;/order&quot;, app.CreateOrder)
+	log.Fatal(http.ListenAndServe(&quot;:8080&quot;, nil))
+}</code></pre>
+
+<h3>v2 微服务拆分：gRPC服务</h3>
+
+<p><strong>用户服务 proto（user.proto）：</strong></p>
+
+<pre><code class="language-protobuf">syntax = &quot;proto3&quot;;
+package user;
+option go_package = &quot;./pb&quot;;
+
+service UserService {
+  rpc GetUser(GetUserRequest) returns (GetUserResponse);
+}
+
+message GetUserRequest { int32 id = 1; }
+message GetUserResponse {
+  int32 id = 1;
+  string name = 2;
+  string email = 3;
+}</code></pre>
+
+<p><strong>用户服务实现：</strong></p>
+
+<pre><code class="language-go">package main
+
+import (
+	&quot;context&quot;
+	&quot;database/sql&quot;
+	&quot;log&quot;
+	&quot;net&quot;
+
+	_ &quot;github.com/go-sql-driver/mysql&quot;
+	&quot;google.golang.org/grpc&quot;
+	pb &quot;user-service/pb&quot;
+)
+
+type server struct {
+	pb.UnimplementedUserServiceServer
+	db *sql.DB
+}
+
+// GetUser returns user info by ID
+func (s *server) GetUser(ctx context.Context, req *pb.GetUserRequest) (*pb.GetUserResponse, error) {
+	var resp pb.GetUserResponse
+	err := s.db.QueryRow(&quot;SELECT id, name, email FROM users WHERE id = ?&quot;, req.Id).
+		Scan(&amp;resp.Id, &amp;resp.Name, &amp;resp.Email)
+	if err != nil {
+		return nil, err
+	}
+	return &amp;resp, nil
+}
+
+func main() {
+	db, _ := sql.Open(&quot;mysql&quot;, &quot;blog:password@tcp(127.0.0.1:3306)/users&quot;)
+	defer db.Close()
+
+	lis, _ := net.Listen(&quot;tcp&quot;, &quot;:50051&quot;)
+	s := grpc.NewServer()
+	pb.RegisterUserServiceServer(s, &amp;server{db: db})
+	log.Println(&quot;User service on :50051&quot;)
+	s.Serve(lis)
+}</code></pre>
+
+<p><strong>API网关：</strong></p>
+
+<pre><code class="language-go">package main
+
+import (
+	&quot;context&quot;
+	&quot;encoding/json&quot;
+	&quot;log&quot;
+	&quot;net/http&quot;
+	&quot;time&quot;
+
+	pb &quot;user-service/pb&quot;
+	&quot;google.golang.org/grpc&quot;
+	&quot;google.golang.org/grpc/credentials/insecure&quot;
+)
+
+// Gateway routes HTTP to gRPC services
+type Gateway struct {
+	userClient pb.UserServiceClient
+}
+
+func (g *Gateway) HandleGetUser(w http.ResponseWriter, r *http.Request) {
+	ctx, cancel := context.WithTimeout(r.Context(), 3*time.Second)
+	defer cancel()
+
+	id := r.URL.Query().Get(&quot;id&quot;)
+	var idInt int32
+	fmt.Sscanf(id, &quot;%d&quot;, &amp;idInt)
+
+	resp, err := g.userClient.GetUser(ctx, &amp;pb.GetUserRequest{Id: idInt})
+	if err != nil {
+		http.Error(w, &quot;user service error&quot;, 502)
+		return
+	}
+	json.NewEncoder(w).Encode(resp)
+}
+
+func main() {
+	conn, err := grpc.Dial(&quot;localhost:50051&quot;, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer conn.Close()
+
+	gw := &amp;Gateway{userClient: pb.NewUserServiceClient(conn)}
+	http.HandleFunc(&quot;/user&quot;, gw.HandleGetUser)
+	log.Println(&quot;Gateway on :8080&quot;)
+	log.Fatal(http.ListenAndServe(&quot;:8080&quot;, nil))
+}</code></pre>
+
+<h3>v3 生产版本：服务发现 + 健康检查 + 重试</h3>
+
+<pre><code class="language-go">// Service registry with TTL-based health checking
+type Registry struct {
+	mu      sync.RWMutex
+	services map[string][]string // serviceName -&gt; []addr
+}
+
+func (r *Registry) Register(name, addr string) {
+	r.mu.Lock()
+	r.services[name] = append(r.services[name], addr)
+	r.mu.Unlock()
+}
+
+func (r *Registry) Discover(name string) (string, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	addrs := r.services[name]
+	if len(addrs) == 0 {
+		return &quot;&quot;, fmt.Errorf(&quot;service not found: %s&quot;, name)
+	}
+	return addrs[0], nil // simple round-robin in production
+}
+
+// Retry wrapper for gRPC calls
+func withRetry(fn func() error, maxRetries int) error {
+	var err error
+	for i := 0; i &lt; maxRetries; i++ {
+		if err = fn(); err == nil {
+			return nil
+		}
+		time.Sleep(time.Duration(i+1) * 100 * time.Millisecond)
+	}
+	return err
+}</code></pre>
+
+<hr>
+
+<h2>四、执行预览</h2>
+
+<pre><code class="language-bash"># Start user service
+$ go run user-service/main.go
+User service on :50051
+
+# Start gateway
+$ go run gateway/main.go
+Gateway on :8080
+
+# Test
+$ curl http://localhost:8080/user?id=1
+{&quot;id&quot;:1,&quot;name&quot;:&quot;Alice&quot;,&quot;email&quot;:&quot;alice@example.com&quot;}</code></pre>
+
+<hr>
+
+<h2>五、注意事项</h2>
+
+<table><thead><tr>
+<th>注意点</th>
+<th>说明</th>
+</tr></thead><tbody>
+<tr>
+<td>数据一致性</td>
+<td>跨服务事务用Saga模式，不要分布式锁</td>
+</tr>
+<tr>
+<td>服务粒度</td>
+<td>先粗后细，不要过度拆分</td>
+</tr>
+<tr>
+<td>gRPC版本</td>
+<td>proto定义要向后兼容</td>
+</tr>
+<tr>
+<td>超时设置</td>
+<td>每层都要设超时，避免级联阻塞</td>
+</tr>
+<tr>
+<td>日志追踪</td>
+<td>用traceID串联跨服务请求</td>
+</tr>
+<tr>
+<td>网络分区</td>
+<td>考虑服务不可用时的降级策略</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>六、避坑指南</h2>
+
+<table><thead><tr>
+<th>❌ 错误做法</th>
+<th>✅ 正确做法</th>
+</tr></thead><tbody>
+<tr>
+<td>一上来就微服务</td>
+<td>先单体后拆分，有明确需求再拆</td>
+</tr>
+<tr>
+<td>共享数据库</td>
+<td>每个服务独立数据库</td>
+</tr>
+<tr>
+<td>同步调用一切</td>
+<td>非核心路径用消息队列异步</td>
+</tr>
+<tr>
+<td>忽略服务发现</td>
+<td>引入Consul/etcd或自建注册中心</td>
+</tr>
+<tr>
+<td>不设超时</td>
+<td>每个gRPC/HTTP调用都要设超时</td>
+</tr>
+<tr>
+<td>微服务=Kubernetes</td>
+<td>小团队用Docker Compose就够了</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>七、练习题</h2>
+
+<h3>🟢 基础题</h3>
+<ol>
+<li>为订单服务编写proto定义和gRPC实现</li>
+</ul>
+<ol>
+<li>网关添加订单服务的路由</li>
+
+<h3>🟡 进阶题</h3>
+<ol>
+<li>实现一个简单的服务注册中心（基于HTTP的心跳机制）</li>
+</ul>
+<ol>
+<li>为gRPC调用添加拦截器实现日志和链路追踪</li>
+
+<h3>🔴 挑战题</h3>
+<ol>
+<li>实现Saga编排器：下单 → 扣库存 → 扣余额，任一失败自动补偿</li>
+
+<hr>
+
+<h2>八、知识点总结</h2>
+
+<pre><code>微服务架构
+├── 服务拆分
+│   ├── 按业务域拆分
+│   ├── DDD限界上下文
+│   └── 数据库独立
+├── 服务通信
+│   ├── gRPC（同步）
+│   ├── 消息队列（异步）
+│   └── HTTP/REST（外部）
+├── 基础设施
+│   ├── API网关
+│   ├── 服务发现
+│   └── 配置中心
+└── 可靠性
+    ├── 超时与重试
+    ├── 熔断降级
+    └── 分布式追踪</code></pre>
+
+<hr>
+
+<h2>九、举一反三</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>推荐方案</th>
+<th>Go技术栈</th>
+</tr></thead><tbody>
+<tr>
+<td>电商系统</td>
+<td>按领域拆分</td>
+<td>gRPC + NATS</td>
+</tr>
+<tr>
+<td>内容平台</td>
+<td>读写分离</td>
+<td>CQRS + Redis</td>
+</tr>
+<tr>
+<td>IoT平台</td>
+<td>事件驱动</td>
+<td>MQTT + Go channels</td>
+</tr>
+<tr>
+<td>金融系统</td>
+<td>强一致性</td>
+<td>Saga + 2PC</td>
+</tr>
+<tr>
+<td>SaaS多租户</td>
+<td>按租户隔离</td>
+<td>分库分表 + 中间件</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>十、参考资料</h2>
+
+<ul>
+<li><a href="https://github.com/micro/micro">Go Micro Services (GitHub)</a></li>
+<li><a href="https://grpc.io/docs/languages/go/quickstart/">gRPC-Go Quick Start</a></li>
+<li><a href="https://www.oreilly.com/library/view/building-microservices-2nd/9781492034018/">Building Microservices (Sam Newman)</a></li>
+
+<hr>
+
+<h2>十一、代码演进总结</h2>
+
+<table><thead><tr>
+<th>版本</th>
+<th>内容</th>
+<th>适用场景</th>
+</tr></thead><tbody>
+<tr>
+<td>v1</td>
+<td>单体应用</td>
+<td>初创期，快速验证</td>
+</tr>
+<tr>
+<td>v2</td>
+<td>gRPC微服务 + 网关</td>
+<td>成长期，团队分工</td>
+</tr>
+<tr>
+<td>v3</td>
+<td>服务发现 + 重试 + 健康检查</td>
+<td>成熟期，高可用</td>
+</tr>
+</tbody></table>
+
+<blockquote><p><strong>核心思想：</strong> 微服务是演进而非设计出来的。先让单体跑起来，有了明确的拆分理由再动手。</p></blockquote>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

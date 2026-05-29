@@ -1,0 +1,521 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>019 - Python 类型系统深入：泛型、Protocol、TypeGuard、overload、ParamSpec</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Python/index.html">其他</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Python/02-进阶/index.html">Python进阶</a>
+</nav>
+<h1>019 - Python 类型系统深入：泛型、Protocol、TypeGuard、overload、ParamSpec</h1>
+<div class="meta">
+<span>📂 Python进阶</span>
+<span>🏷️ 其他</span>
+</div>
+<article>
+
+
+<h1>Python 类型系统深入</h1>
+
+<blockquote><p><strong>难度：★★★★☆ 高级</strong><br>深入 Python 类型系统：泛型、Protocol、类型体操、TypeVar、overload、TypeGuard 等高级特性。</p></blockquote>
+
+<h2>一、概念讲解</h2>
+
+<p>Python 3.12+ 的类型系统已经非常强大，结合 <code>mypy</code> 或 <code>pyright</code> 可以在编译期捕获大量错误，同时保持 Python 的灵活性。</p>
+
+<p><strong>类型系统层级：</strong></p>
+
+<table><thead><tr>
+<th>层级</th>
+<th>特性</th>
+<th>示例</th>
+</tr></thead><tbody>
+<tr>
+<td>基础</td>
+<td>内置类型注解</td>
+<td><code>int</code>, <code>str</code>, <code>list[int]</code></td>
+</tr>
+<tr>
+<td>中级</td>
+<td>Optional, Union, TypeVar</td>
+<td>`int</td>
+<td>None<code>, </code>T`</td>
+</tr>
+<tr>
+<td>高级</td>
+<td>Generic, Protocol, overload</td>
+<td><code>class Stack(Generic[T])</code></td>
+</tr>
+<tr>
+<td>专家</td>
+<td>TypeGuard, TypeVarTuple, ParamSpec</td>
+<td>类型缩小、高阶函数类型</td>
+</tr>
+</tbody></table>
+
+<h2>二、脑图</h2>
+
+<pre><code>类型系统
+├── 基础注解
+│   ├── 变量注解
+│   ├── 函数注解
+│   └── ClassVar
+├── 泛型
+│   ├── TypeVar
+│   ├── Generic[T]
+│   └── TypeVarTuple
+├── 结构化类型
+│   ├── Protocol
+│   └── @runtime_checkable
+├── 高级特性
+│   ├── overload
+│   ├── TypeGuard / TypeIs
+│   ├── Literal
+│   ├── Callable
+│   └── ParamSpec
+└── 工具链
+    ├── mypy
+    ├── pyright
+    └── py.typed</code></pre>
+
+<h2>三、完整代码</h2>
+
+<h3>3.1 泛型与 TypeVar</h3>
+
+<pre><code class="language-python">&quot;&quot;&quot;Generics and TypeVar - reusable typed containers.&quot;&quot;&quot;
+
+from typing import TypeVar, Generic, Iterable
+from collections.abc import Iterator
+
+T = TypeVar(&quot;T&quot;)
+K = TypeVar(&quot;K&quot;)
+V = TypeVar(&quot;V&quot;)
+
+
+class Stack(Generic[T]):
+    &quot;&quot;&quot;Type-safe stack implementation.&quot;&quot;&quot;
+
+    def __init__(self) -&gt; None:
+        self._items: list[T] = []
+
+    def push(self, item: T) -&gt; None:
+        self._items.append(item)
+
+    def pop(self) -&gt; T:
+        if not self._items:
+            raise IndexError(&quot;Stack is empty&quot;)
+        return self._items.pop()
+
+    def peek(self) -&gt; T | None:
+        return self._items[-1] if self._items else None
+
+    def __len__(self) -&gt; int:
+        return len(self._items)
+
+    def __iter__(self) -&gt; Iterator[T]:
+        return reversed(self._items).__iter__()
+
+
+def first(items: Iterable[T]) -&gt; T | None:
+    &quot;&quot;&quot;Get first item from any iterable, return None if empty.&quot;&quot;&quot;
+    for item in items:
+        return item
+    return None</code></pre>
+
+<h3>3.2 Protocol（结构化子类型）</h3>
+
+<pre><code class="language-python">&quot;&quot;&quot;Protocol - structural subtyping (duck typing for type checkers).&quot;&quot;&quot;
+
+from typing import Protocol, runtime_checkable
+
+
+@runtime_checkable
+class Drawable(Protocol):
+    &quot;&quot;&quot;Any object with a draw() method satisfies this protocol.&quot;&quot;&quot;
+    def draw(self) -&gt; str: ...
+
+
+class Circle:
+    def draw(self) -&gt; str:
+        return &quot;Drawing circle&quot;
+
+
+class Rectangle:
+    def draw(self) -&gt; str:
+        return &quot;Drawing rectangle&quot;
+
+
+def render_all(shapes: list[Drawable]) -&gt; list[str]:
+    &quot;&quot;&quot;Works with any object that has draw().&quot;&quot;&quot;
+    return [s.draw() for s in shapes]
+
+
+# Runtime check with isinstance
+def check_drawable(obj) -&gt; None:
+    if isinstance(obj, Drawable):
+        print(f&quot;{obj.__class__.__name__} is Drawable&quot;)</code></pre>
+
+<h3>3.3 函数重载与 TypeGuard</h3>
+
+<pre><code class="language-python">&quot;&quot;&quot;overload and TypeGuard - precise type narrowing.&quot;&quot;&quot;
+
+from typing import overload, TypeGuard
+
+
+@overload
+def parse_value(raw: str) -&gt; str: ...
+
+
+@overload
+def parse_value(raw: int) -&gt; int: ...
+
+
+@overload
+def parse_value(raw: None) -&gt; None: ...
+
+
+def parse_value(raw: str | int | None) -&gt; str | int | None:
+    &quot;&quot;&quot;Parse input with type-specific behavior.&quot;&quot;&quot;
+    if raw is None:
+        return None
+    if isinstance(raw, int):
+        return raw * 2
+    return raw.strip().upper()
+
+
+# TypeGuard: custom type narrowing
+def is_list_of_strings(val: list) -&gt; TypeGuard[list[str]]:
+    &quot;&quot;&quot;Narrow list to list[str] at runtime.&quot;&quot;&quot;
+    return all(isinstance(x, str) for x in val)
+
+
+def process(items: list):
+    if is_list_of_strings(items):
+        # Type checker now knows items is list[str]
+        return &quot;-&quot;.join(items)
+    return str(len(items))</code></pre>
+
+<h3>3.4 高级：ParamSpec</h3>
+
+<pre><code class="language-python">&quot;&quot;&quot;ParamSpec - type-safe decorator signatures.&quot;&quot;&quot;
+
+from typing import ParamSpec, TypeVar, Callable
+
+P = ParamSpec(&quot;P&quot;)
+R = TypeVar(&quot;R&quot;)
+
+
+def log_calls(func: Callable[P, R]) -&gt; Callable[P, R]:
+    &quot;&quot;&quot;Decorator that preserves the original function signature.&quot;&quot;&quot;
+
+    def wrapper(*args: P.args, **kwargs: P.kwargs) -&gt; R:
+        print(f&quot;Calling {func.__name__}({args}, {kwargs})&quot;)
+        return func(*args, **kwargs)
+
+    return wrapper
+
+
+@log_calls
+def add(a: int, b: int) -&gt; int:
+    return a + b
+
+
+@log_calls
+def greet(name: str, greeting: str = &quot;Hello&quot;) -&gt; str:
+    return f&quot;{greeting}, {name}!&quot;</code></pre>
+
+<h3>3.5 dataclass 与类型系统结合</h3>
+
+<pre><code class="language-python">&quot;&quot;&quot;Typed dataclass patterns.&quot;&quot;&quot;
+
+from dataclasses import dataclass, field
+from typing import Literal, ClassVar
+
+
+@dataclass(frozen=True, slots=True)
+class Point:
+    &quot;&quot;&quot;Immutable point with slots for memory efficiency.&quot;&quot;&quot;
+    x: float
+    y: float
+    dimensions: ClassVar[int] = 2
+
+    def distance_to(self, other: &quot;Point&quot;) -&gt; float:
+        return ((self.x - other.x) ** 2 + (self.y - other.y) ** 2) ** 0.5
+
+
+@dataclass
+class APIResponse:
+    &quot;&quot;&quot;Typed API response with Literal for status.&quot;&quot;&quot;
+    status: Literal[&quot;success&quot;, &quot;error&quot;, &quot;pending&quot;]
+    data: dict | None = None
+    error: str | None = None
+
+    @property
+    def is_ok(self) -&gt; bool:
+        return self.status == &quot;success&quot;
+
+
+# Type alias for complex types (Python 3.12+)
+type Vector = list[float]
+type Matrix = list[Vector]
+type JSON = str | int | float | bool | None | list[&quot;JSON&quot;] | dict[str, &quot;JSON&quot;]</code></pre>
+
+<h2>四、执行预览</h2>
+
+<pre><code class="language-text"># Generics
+&gt;&gt;&gt; s = Stack[int]()
+&gt;&gt;&gt; s.push(1); s.push(2); s.pop()
+2
+
+# Protocol
+&gt;&gt;&gt; render_all([Circle(), Rectangle()])
+[&#x27;Drawing circle&#x27;, &#x27;Drawing rectangle&#x27;]
+&gt;&gt;&gt; isinstance(Circle(), Drawable)
+True
+
+# overload
+&gt;&gt;&gt; parse_value(&quot;  hello  &quot;)
+&#x27;HELLO&#x27;
+&gt;&gt;&gt; parse_value(5)
+10
+&gt;&gt;&gt; parse_value(None) is None
+True
+
+# ParamSpec decorator
+&gt;&gt;&gt; add(3, 4)
+Calling add((3, 4), {})
+7
+
+# Frozen dataclass
+&gt;&gt;&gt; p = Point(1.0, 2.0)
+&gt;&gt;&gt; p.distance_to(Point(4.0, 6.0))
+5.0</code></pre>
+
+<h2>五、注意事项</h2>
+
+<table><thead><tr>
+<th>要点</th>
+<th>说明</th>
+</tr></thead><tbody>
+<tr>
+<td>类型注解不强制</td>
+<td>运行时不检查，需 mypy/pyright</td>
+</tr>
+<tr>
+<td>performance</td>
+<td>类型注解不影响运行时性能</td>
+</tr>
+<tr>
+<td>版本差异</td>
+<td>Python 3.9+ 才能用 <code>list[int]</code>，3.10+ 才有 `T \</td>
+<td>None`</td>
+</tr>
+<tr>
+<td>Protocol vs ABC</td>
+<td>Protocol 是隐式接口（结构化），ABC 是显式（规范化）</td>
+</tr>
+<tr>
+<td>TypeGuard vs TypeIs</td>
+<td>TypeIs 更严格，保证输入输出类型一致</td>
+</tr>
+</tbody></table>
+
+<h2>六、避坑指南</h2>
+
+<table><thead><tr>
+<th>❌ 错误做法</th>
+<th>✅ 正确做法</th>
+</tr></thead><tbody>
+<tr>
+<td><code>List[int]</code> (from typing)</td>
+<td><code>list[int]</code> (Python 3.9+ 内建)</td>
+</tr>
+<tr>
+<td><code>Optional[int]</code></td>
+<td>`int \</td>
+<td>None` (Python 3.10+ 更清晰)</td>
+</tr>
+<tr>
+<td>用 ABC 限制接口</td>
+<td>用 Protocol 实现结构化类型</td>
+</tr>
+<tr>
+<td><code>Any</code> 到处用</td>
+<td>用 <code>TypeVar</code> 或 <code>object</code></td>
+</tr>
+<tr>
+<td>忘记 <code>from __future__ import annotations</code></td>
+<td>前置导入避免前向引用问题</td>
+</tr>
+</tbody></table>
+
+<h2>七、练习题</h2>
+
+<h3>🟢 入门</h3>
+<ol>
+<li>为一个 <code>Queue[T]</code> 泛型类添加完整类型注解</li>
+</ul>
+<ol>
+<li>定义一个 <code>Comparable</code> Protocol，要求实现 <code>__lt__</code></li>
+
+<h3>🟡 进阶</h3>
+<ol>
+<li>用 <code>overload</code> 实现一个 <code>getattr_safe</code> 函数，有属性时返回该类型，无则返回默认类型</li>
+</ul>
+<ol>
+<li>实现一个 <code>typed_curry</code> 装饰器，用 ParamSpec 保持类型签名</li>
+
+<h3>🔴 挑战</h3>
+<ol>
+<li>实现一个递归类型：嵌套字典的 JSON 类型别名</li>
+</ul>
+<ol>
+<li>用 TypeGuard 实现一个运行时类型验证器，支持 <code>list[int]</code>、<code>dict[str, float]</code> 等复合类型</li>
+
+<h2>八、知识点总结</h2>
+
+<pre><code>类型系统
+├── 基础
+│   ├── 变量注解 x: int
+│   ├── 函数注解 def f(x: int) -&gt; str
+│   └── list[int], dict[str, int]
+├── 泛型
+│   ├── TypeVar T
+│   ├── Generic[T]
+│   └── bound T: Comparable
+├── 结构化
+│   └── Protocol ✓ 鸭子类型
+├── 高级
+│   ├── overload ✓ 多态签名
+│   ├── TypeGuard / TypeIs
+│   ├── Literal
+│   ├── ParamSpec
+│   └── TypeVarTuple (3.11+)
+└── 工具
+    ├── mypy --strict
+    └── pyright</code></pre>
+
+<h2>九、举一反三</h2>
+
+<table><thead><tr>
+<th>特性</th>
+<th>标准库实例</th>
+<th>实际应用</th>
+</tr></thead><tbody>
+<tr>
+<td>TypeVar</td>
+<td><code>random.sample(population: Sequence[T])</code></td>
+<td>泛型容器、工具函数</td>
+</tr>
+<tr>
+<td>Protocol</td>
+<td><code>typing.SupportsInt</code></td>
+<td>插件接口、适配器约束</td>
+</tr>
+<tr>
+<td>overload</td>
+<td><code>builtins.open</code></td>
+<td>兼容多种参数组合的API</td>
+</tr>
+<tr>
+<td>TypeGuard</td>
+<td><code>typing.cast</code> 的安全替代</td>
+<td>表单验证、配置校验</td>
+</tr>
+<tr>
+<td>ParamSpec</td>
+<td><code>functools.wraps</code></td>
+<td>装饰器、中间件类型保持</td>
+</tr>
+</tbody></table>
+
+<h2>十、参考资料</h2>
+
+<ul>
+<li><a href="https://peps.python.org/pep-0544/">PEP 544 - Protocols</a></li>
+<li><a href="https://peps.python.org/pep-0612/">PEP 612 - ParamSpec</a></li>
+<li><a href="https://peps.python.org/pep-0646/">PEP 646 - TypeVarTuple</a></li>
+<li><a href="https://mypy.readthedocs.io/">mypy documentation</a></li>
+<li>《Robust Python》- Patrick Viafore</li>
+
+<h2>十一、代码演进：类型注解的进化</h2>
+
+<pre><code class="language-python"># v1: No annotations (Python 2 style)
+def process(data):
+    result = []
+    for item in data:
+        result.append(item.upper())
+    return result
+
+
+# v2: Basic annotations
+from typing import List
+
+def process(data: List[str]) -&gt; List[str]:
+    return [item.upper() for item in data]
+
+
+# v3: Modern Python 3.12+ with type alias
+type StrList = list[str]
+
+def process(data: StrList) -&gt; StrList:
+    return [item.upper() for item in data]</code></pre>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

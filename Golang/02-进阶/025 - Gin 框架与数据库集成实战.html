@@ -1,0 +1,771 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>025 - Gin 框架与数据库集成实战</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Golang/index.html">Golang</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Golang/02-进阶/index.html">Golang进阶</a>
+</nav>
+<h1>025 - Gin 框架与数据库集成实战</h1>
+<div class="meta">
+<span>📂 Golang进阶</span>
+<span>🏷️ Golang</span>
+</div>
+<article>
+
+
+<h1>055 - Gin 框架与数据库集成实战</h1>
+
+<blockquote><p><strong>难度：⭐⭐⭐</strong> | 将前面学到的知识串联成一个完整的 RESTful API 项目。</p></blockquote>
+
+<h2>一、概念讲解</h2>
+
+<p>本篇是进阶系列的收官之作，我们将：</p>
+<ol>
+<li>用 <strong>Gin</strong> 构建 RESTful API</li>
+</ul>
+<ol>
+<li>用 <strong>GORM</strong> 操作数据库</li>
+</ul>
+<ol>
+<li>用 <strong>Viper</strong> 管理配置</li>
+</ul>
+<ol>
+<li>用 <strong>DI 思想</strong> 组织代码结构</li>
+</ul>
+<ol>
+<li>遵循 <strong>包设计原则</strong> 拆分模块</li>
+
+<h3>项目结构</h3>
+
+<pre><code>myapp/
+├── cmd/
+│   └── server/
+│       └── main.go          # Entry point (DI assembly)
+├── internal/
+│   ├── config/
+│   │   └── config.go        # Configuration loading
+│   ├── handler/
+│   │   └── user.go          # HTTP handlers (Gin)
+│   ├── model/
+│   │   └── user.go          # Domain model
+│   ├── repository/
+│   │   └── user.go          # Data access (GORM)
+│   └── service/
+│       └── user.go          # Business logic
+├── config/
+│   └── config.yaml          # Configuration file
+├── go.mod
+└── go.sum</code></pre>
+
+<h2>二、脑图</h2>
+
+<pre><code>Gin + GORM 实战
+├── 项目结构
+│   ├── cmd/server (入口)
+│   ├── internal/ (封装)
+│   └── config/ (配置)
+├── Gin 框架
+│   ├── router / group
+│   ├── middleware
+│   ├── binding / validation
+│   └── response
+├── GORM 集成
+│   ├── 模型定义
+│   ├── CRUD 操作
+│   ├── 迁移 (AutoMigrate)
+│   └── 事务
+├── RESTful API
+│   ├── GET /users (列表)
+│   ├── GET /users/:id (详情)
+│   ├── POST /users (创建)
+│   ├── PUT /users/:id (更新)
+│   └── DELETE /users/:id (删除)
+└── 串联知识
+    ├── Viper 配置
+    ├── DI 组装
+    ├── 包设计原则
+    └── 错误处理</code></pre>
+
+<h2>三、代码演进</h2>
+
+<h3>v1：单文件最小可运行版本</h3>
+
+<pre><code class="language-go">// main.go - Minimum viable Gin + GORM app (single file)
+package main
+
+import (
+	&quot;net/http&quot;
+	&quot;strconv&quot;
+	&quot;time&quot;
+
+	&quot;github.com/gin-gonic/gin&quot;
+	&quot;gorm.io/driver/sqlite&quot;
+	&quot;gorm.io/gorm&quot;
+)
+
+// User model maps to users table
+type User struct {
+	ID        uint      `gorm:&quot;primaryKey&quot; json:&quot;id&quot;`
+	Name      string    `json:&quot;name&quot; binding:&quot;required&quot;`
+	Email     string    `json:&quot;email&quot; binding:&quot;required,email&quot;`
+	CreatedAt time.Time `json:&quot;created_at&quot;`
+	UpdatedAt time.Time `json:&quot;updated_at&quot;`
+}
+
+var db *gorm.DB
+
+func main() {
+	var err error
+	db, err = gorm.Open(sqlite.Open(&quot;test.db&quot;), &amp;gorm.Config{})
+	if err != nil {
+		panic(&quot;failed to connect database&quot;)
+	}
+	db.AutoMigrate(&amp;User{})
+
+	r := gin.Default()
+
+	r.GET(&quot;/users&quot;, listUsers)
+	r.GET(&quot;/users/:id&quot;, getUser)
+	r.POST(&quot;/users&quot;, createUser)
+	r.PUT(&quot;/users/:id&quot;, updateUser)
+	r.DELETE(&quot;/users/:id&quot;, deleteUser)
+
+	r.Run(&quot;:8080&quot;)
+}
+
+func listUsers(c *gin.Context) {
+	var users []User
+	if err := db.Find(&amp;users).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{&quot;error&quot;: err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{&quot;data&quot;: users})
+}
+
+func getUser(c *gin.Context) {
+	id, _ := strconv.Atoi(c.Param(&quot;id&quot;))
+	var user User
+	if err := db.First(&amp;user, id).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{&quot;error&quot;: &quot;user not found&quot;})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{&quot;data&quot;: user})
+}
+
+type CreateUserReq struct {
+	Name  string `json:&quot;name&quot; binding:&quot;required&quot;`
+	Email string `json:&quot;email&quot; binding:&quot;required,email&quot;`
+}
+
+func createUser(c *gin.Context) {
+	var req CreateUserReq
+	if err := c.ShouldBindJSON(&amp;req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{&quot;error&quot;: err.Error()})
+		return
+	}
+	user := User{Name: req.Name, Email: req.Email}
+	if err := db.Create(&amp;user).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{&quot;error&quot;: err.Error()})
+		return
+	}
+	c.JSON(http.StatusCreated, gin.H{&quot;data&quot;: user})
+}
+
+func updateUser(c *gin.Context) {
+	id, _ := strconv.Atoi(c.Param(&quot;id&quot;))
+	var user User
+	if err := db.First(&amp;user, id).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{&quot;error&quot;: &quot;user not found&quot;})
+		return
+	}
+	var req CreateUserReq
+	if err := c.ShouldBindJSON(&amp;req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{&quot;error&quot;: err.Error()})
+		return
+	}
+	db.Model(&amp;user).Updates(User{Name: req.Name, Email: req.Email})
+	c.JSON(http.StatusOK, gin.H{&quot;data&quot;: user})
+}
+
+func deleteUser(c *gin.Context) {
+	id, _ := strconv.Atoi(c.Param(&quot;id&quot;))
+	db.Delete(&amp;User{}, id)
+	c.JSON(http.StatusOK, gin.H{&quot;message&quot;: &quot;deleted&quot;})
+}</code></pre>
+
+<p><strong>执行预览：</strong></p>
+<pre><code>$ go run main.go
+# In another terminal:
+$ curl -X POST localhost:8080/users -d &#x27;{&quot;name&quot;:&quot;Alice&quot;,&quot;email&quot;:&quot;alice@test.com&quot;}&#x27;
+{&quot;data&quot;:{&quot;id&quot;:1,&quot;name&quot;:&quot;Alice&quot;,&quot;email&quot;:&quot;alice@test.com&quot;,...}}
+
+$ curl localhost:8080/users
+{&quot;data&quot;:[{&quot;id&quot;:1,&quot;name&quot;:&quot;Alice&quot;,&quot;email&quot;:&quot;alice@test.com&quot;,...}]}
+
+$ curl -X PUT localhost:8080/users/1 -d &#x27;{&quot;name&quot;:&quot;Bob&quot;,&quot;email&quot;:&quot;bob@test.com&quot;}&#x27;
+{&quot;data&quot;:{&quot;id&quot;:1,&quot;name&quot;:&quot;Bob&quot;,&quot;email&quot;:&quot;bob@test.com&quot;,...}}
+
+$ curl -X DELETE localhost:8080/users/1
+{&quot;message&quot;:&quot;deleted&quot;}</code></pre>
+
+<h3>v2：分层架构（Handler → Service → Repository）</h3>
+
+<pre><code class="language-go">// internal/model/user.go
+package model
+
+import &quot;time&quot;
+
+// User represents a user entity.
+type User struct {
+	ID        uint      `gorm:&quot;primaryKey&quot; json:&quot;id&quot;`
+	Name      string    `json:&quot;name&quot;`
+	Email     string    `json:&quot;email&quot;`
+	CreatedAt time.Time `json:&quot;created_at&quot;`
+	UpdatedAt time.Time `json:&quot;updated_at&quot;`
+}
+
+// CreateUserInput validates user creation request.
+type CreateUserInput struct {
+	Name  string `json:&quot;name&quot; binding:&quot;required,min=2,max=100&quot;`
+	Email string `json:&quot;email&quot; binding:&quot;required,email&quot;`
+}
+
+// UpdateUserInput validates user update request.
+type UpdateUserInput struct {
+	Name  string `json:&quot;name&quot; binding:&quot;omitempty,min=2,max=100&quot;`
+	Email string `json:&quot;email&quot; binding:&quot;omitempty,email&quot;`
+}</code></pre>
+
+<pre><code class="language-go">// internal/repository/user.go
+package repository
+
+import (
+	&quot;context&quot;
+	&quot;myapp/internal/model&quot;
+
+	&quot;gorm.io/gorm&quot;
+)
+
+// UserRepo handles database operations for users.
+type UserRepo interface {
+	List(ctx context.Context) ([]model.User, error)
+	GetByID(ctx context.Context, id uint) (*model.User, error)
+	Create(ctx context.Context, user *model.User) error
+	Update(ctx context.Context, user *model.User) error
+	Delete(ctx context.Context, id uint) error
+}
+
+// gormUserRepo implements UserRepo using GORM.
+type gormUserRepo struct {
+	db *gorm.DB
+}
+
+// NewUserRepo creates a new GORM-backed user repository.
+func NewUserRepo(db *gorm.DB) UserRepo {
+	return &amp;gormUserRepo{db: db}
+}
+
+func (r *gormUserRepo) List(ctx context.Context) ([]model.User, error) {
+	var users []model.User
+	err := r.db.WithContext(ctx).Find(&amp;users).Error
+	return users, err
+}
+
+func (r *gormUserRepo) GetByID(ctx context.Context, id uint) (*model.User, error) {
+	var user model.User
+	err := r.db.WithContext(ctx).First(&amp;user, id).Error
+	if err != nil {
+		return nil, err
+	}
+	return &amp;user, nil
+}
+
+func (r *gormUserRepo) Create(ctx context.Context, user *model.User) error {
+	return r.db.WithContext(ctx).Create(user).Error
+}
+
+func (r *gormUserRepo) Update(ctx context.Context, user *model.User) error {
+	return r.db.WithContext(ctx).Save(user).Error
+}
+
+func (r *gormUserRepo) Delete(ctx context.Context, id uint) error {
+	return r.db.WithContext(ctx).Delete(&amp;model.User{}, id).Error
+}</code></pre>
+
+<pre><code class="language-go">// internal/service/user.go
+package service
+
+import (
+	&quot;context&quot;
+	&quot;fmt&quot;
+	&quot;myapp/internal/model&quot;
+	&quot;myapp/internal/repository&quot;
+)
+
+// UserService handles user business logic.
+type UserService struct {
+	repo repository.UserRepo
+}
+
+// NewUserService creates a new user service.
+func NewUserService(repo repository.UserRepo) *UserService {
+	return &amp;UserService{repo: repo}
+}
+
+// List returns all users.
+func (s *UserService) List(ctx context.Context) ([]model.User, error) {
+	return s.repo.List(ctx)
+}
+
+// Get returns a single user by ID.
+func (s *UserService) Get(ctx context.Context, id uint) (*model.User, error) {
+	user, err := s.repo.GetByID(ctx, id)
+	if err != nil {
+		return nil, fmt.Errorf(&quot;user %d not found: %w&quot;, id, err)
+	}
+	return user, nil
+}
+
+// Create validates and creates a new user.
+func (s *UserService) Create(ctx context.Context, input model.CreateUserInput) (*model.User, error) {
+	user := &amp;model.User{
+		Name:  input.Name,
+		Email: input.Email,
+	}
+	if err := s.repo.Create(ctx, user); err != nil {
+		return nil, fmt.Errorf(&quot;create user: %w&quot;, err)
+	}
+	return user, nil
+}
+
+// Update modifies an existing user.
+func (s *UserService) Update(ctx context.Context, id uint, input model.UpdateUserInput) (*model.User, error) {
+	user, err := s.repo.GetByID(ctx, id)
+	if err != nil {
+		return nil, fmt.Errorf(&quot;user %d not found: %w&quot;, id, err)
+	}
+	if input.Name != &quot;&quot; {
+		user.Name = input.Name
+	}
+	if input.Email != &quot;&quot; {
+		user.Email = input.Email
+	}
+	if err := s.repo.Update(ctx, user); err != nil {
+		return nil, fmt.Errorf(&quot;update user: %w&quot;, err)
+	}
+	return user, nil
+}
+
+// Delete removes a user.
+func (s *UserService) Delete(ctx context.Context, id uint) error {
+	return s.repo.Delete(ctx, id)
+}</code></pre>
+
+<pre><code class="language-go">// internal/handler/user.go
+package handler
+
+import (
+	&quot;myapp/internal/model&quot;
+	&quot;myapp/internal/service&quot;
+	&quot;net/http&quot;
+	&quot;strconv&quot;
+
+	&quot;github.com/gin-gonic/gin&quot;
+)
+
+// UserHandler handles HTTP requests for users.
+type UserHandler struct {
+	svc *service.UserService
+}
+
+// NewUserHandler creates a new user handler.
+func NewUserHandler(svc *service.UserService) *UserHandler {
+	return &amp;UserHandler{svc: svc}
+}
+
+// RegisterRoutes registers user routes on the given router group.
+func (h *UserHandler) RegisterRoutes(rg *gin.RouterGroup) {
+	users := rg.Group(&quot;/users&quot;)
+	users.GET(&quot;&quot;, h.List)
+	users.GET(&quot;/:id&quot;, h.Get)
+	users.POST(&quot;&quot;, h.Create)
+	users.PUT(&quot;/:id&quot;, h.Update)
+	users.DELETE(&quot;/:id&quot;, h.Delete)
+}
+
+func (h *UserHandler) List(c *gin.Context) {
+	users, err := h.svc.List(c.Request.Context())
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{&quot;error&quot;: err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{&quot;data&quot;: users})
+}
+
+func (h *UserHandler) Get(c *gin.Context) {
+	id, err := strconv.ParseUint(c.Param(&quot;id&quot;), 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{&quot;error&quot;: &quot;invalid id&quot;})
+		return
+	}
+	user, err := h.svc.Get(c.Request.Context(), uint(id))
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{&quot;error&quot;: err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{&quot;data&quot;: user})
+}
+
+func (h *UserHandler) Create(c *gin.Context) {
+	var input model.CreateUserInput
+	if err := c.ShouldBindJSON(&amp;input); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{&quot;error&quot;: err.Error()})
+		return
+	}
+	user, err := h.svc.Create(c.Request.Context(), input)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{&quot;error&quot;: err.Error()})
+		return
+	}
+	c.JSON(http.StatusCreated, gin.H{&quot;data&quot;: user})
+}
+
+func (h *UserHandler) Update(c *gin.Context) {
+	id, _ := strconv.ParseUint(c.Param(&quot;id&quot;), 10, 64)
+	var input model.UpdateUserInput
+	if err := c.ShouldBindJSON(&amp;input); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{&quot;error&quot;: err.Error()})
+		return
+	}
+	user, err := h.svc.Update(c.Request.Context(), uint(id), input)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{&quot;error&quot;: err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{&quot;data&quot;: user})
+}
+
+func (h *UserHandler) Delete(c *gin.Context) {
+	id, _ := strconv.ParseUint(c.Param(&quot;id&quot;), 10, 64)
+	if err := h.svc.Delete(c.Request.Context(), uint(id)); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{&quot;error&quot;: err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{&quot;message&quot;: &quot;deleted&quot;})
+}</code></pre>
+
+<h3>v3：完整入口 + 配置 + 错误处理中间件</h3>
+
+<pre><code class="language-go">// cmd/server/main.go - Application entry point with DI
+package main
+
+import (
+	&quot;fmt&quot;
+	&quot;log&quot;
+	&quot;myapp/internal/config&quot;
+	&quot;myapp/internal/handler&quot;
+	&quot;myapp/internal/model&quot;
+	&quot;myapp/internal/repository&quot;
+	&quot;myapp/internal/service&quot;
+
+	&quot;github.com/gin-gonic/gin&quot;
+	&quot;gorm.io/driver/sqlite&quot;
+	&quot;gorm.io/gorm&quot;
+)
+
+func main() {
+	// 1. Load configuration
+	cfg, err := config.Load()
+	if err != nil {
+		log.Fatalf(&quot;load config: %v&quot;, err)
+	}
+
+	// 2. Connect database
+	db, err := gorm.Open(sqlite.Open(cfg.DBPath), &amp;gorm.Config{})
+	if err != nil {
+		log.Fatalf(&quot;connect database: %v&quot;, err)
+	}
+	db.AutoMigrate(&amp;model.User{})
+
+	// 3. Manual DI: assemble dependency graph
+	userRepo := repository.NewUserRepo(db)
+	userSvc := service.NewUserService(userRepo)
+	userHandler := handler.NewUserHandler(userSvc)
+
+	// 4. Setup Gin
+	if cfg.Env == &quot;production&quot; {
+		gin.SetMode(gin.ReleaseMode)
+	}
+	r := gin.Default()
+
+	// Error handling middleware
+	r.Use(func(c *gin.Context) {
+		c.Next()
+		if len(c.Errors) &gt; 0 {
+			c.JSON(-1, gin.H{&quot;errors&quot;: c.Errors})
+		}
+	})
+
+	// Health check
+	r.GET(&quot;/health&quot;, func(c *gin.Context) {
+		c.JSON(200, gin.H{&quot;status&quot;: &quot;ok&quot;})
+	})
+
+	// Register routes
+	api := r.Group(&quot;/api/v1&quot;)
+	userHandler.RegisterRoutes(api)
+
+	// 5. Run
+	addr := fmt.Sprintf(&quot;:%d&quot;, cfg.Port)
+	log.Printf(&quot;Server starting on %s (env=%s)&quot;, addr, cfg.Env)
+	if err := r.Run(addr); err != nil {
+		log.Fatalf(&quot;server failed: %v&quot;, err)
+	}
+}</code></pre>
+
+<pre><code class="language-go">// internal/config/config.go
+package config
+
+import (
+	&quot;fmt&quot;
+	&quot;os&quot;
+
+	&quot;github.com/spf13/viper&quot;
+)
+
+// Config holds application configuration.
+type Config struct {
+	Port   int    `mapstructure:&quot;port&quot;`
+	Env    string `mapstructure:&quot;env&quot;`
+	DBPath string `mapstructure:&quot;db_path&quot;`
+}
+
+// Load reads configuration from file and environment.
+func Load() (*Config, error) {
+	v := viper.New()
+	v.SetDefault(&quot;port&quot;, 8080)
+	v.SetDefault(&quot;env&quot;, &quot;development&quot;)
+	v.SetDefault(&quot;db_path&quot;, &quot;myapp.db&quot;)
+
+	v.SetConfigName(&quot;config&quot;)
+	v.SetConfigType(&quot;yaml&quot;)
+	v.AddConfigPath(&quot;./config&quot;)
+	v.AddConfigPath(&quot;.&quot;)
+
+	// Read config file (optional)
+	_ = v.ReadInConfig()
+
+	// Environment variable overrides
+	v.SetEnvPrefix(&quot;MYAPP&quot;)
+	v.AutomaticEnv()
+
+	var cfg Config
+	if err := v.Unmarshal(&amp;cfg); err != nil {
+		return nil, fmt.Errorf(&quot;unmarshal config: %w&quot;, err)
+	}
+	return &amp;cfg, nil
+}</code></pre>
+
+<pre><code class="language-yaml"># config/config.yaml
+port: 8080
+env: development
+db_path: myapp.db</code></pre>
+
+<h2>四、注意事项</h2>
+
+<table><thead><tr>
+<th>项目</th>
+<th>说明</th>
+</tr></thead><tbody>
+<tr>
+<td>GORM 的 <code>WithContext</code></td>
+<td>每个操作都传 context，支持超时和取消</td>
+</tr>
+<tr>
+<td>Gin 的 <code>ShouldBindJSON</code></td>
+<td>自动校验 binding tag，失败返回错误</td>
+</tr>
+<tr>
+<td><code>AutoMigrate</code> 仅开发用</td>
+<td>生产环境用 migration 工具（golang-migrate）</td>
+</tr>
+<tr>
+<td>分层不要跳层</td>
+<td>Handler 不直接调 Repository</td>
+</tr>
+<tr>
+<td>错误包装</td>
+<td>用 <code>fmt.Errorf("context: %w", err)</code> 保留堆栈</td>
+</tr>
+</tbody></table>
+
+<h2>五、避坑指南</h2>
+
+<table><thead><tr>
+<th>❌ 错误做法</th>
+<th>✅ 正确做法</th>
+</tr></thead><tbody>
+<tr>
+<td>Handler 里写 SQL / GORM 调用</td>
+<td>Handler → Service → Repository 三层</td>
+</tr>
+<tr>
+<td>用 <code>gin.H{"error": ...}</code> 散落各处</td>
+<td>统一错误响应函数</td>
+</tr>
+<tr>
+<td>忽略 <code>c.Request.Context()</code></td>
+<td>传递 context 到 GORM 操作</td>
+</tr>
+<tr>
+<td>GORM 用 <code>Delete(&User{})</code> 不带条件</td>
+<td>必须指定条件，防止全表删除</td>
+</tr>
+<tr>
+<td>配置硬编码在 main 里</td>
+<td>用 Viper + 配置文件</td>
+</tr>
+<tr>
+<td>不做请求参数校验</td>
+<td>Gin binding tag + <code>ShouldBindJSON</code></td>
+</tr>
+</tbody></table>
+
+<h2>六、练习题</h2>
+
+<p>🟢 <strong>基础：</strong> 在 v1 基础上添加一个 <code>GET /users/:id/posts</code> 接口，返回用户关联的文章列表。</p>
+
+<p>🟡 <strong>进阶：</strong> 在 v2 基础上添加 JWT 认证中间件，保护除 POST /users 以外的所有接口。</p>
+
+<p>🔴 <strong>挑战：</strong> 将 v3 项目部署到 Docker，添加 Dockerfile + docker-compose.yml，数据库切换为 PostgreSQL。</p>
+
+<h2>七、知识点总结</h2>
+
+<pre><code>Gin + GORM 实战
+├── 项目架构
+│   ├── cmd/server (入口 + DI 组装)
+│   ├── internal/handler (HTTP 层)
+│   ├── internal/service (业务层)
+│   ├── internal/repository (数据层)
+│   ├── internal/model (领域模型)
+│   └── internal/config (配置)
+├── Gin 核心
+│   ├── Router / Group
+│   ├── Middleware (认证/日志/错误)
+│   ├── Binding &amp; Validation
+│   └── JSON Response
+├── GORM 核心
+│   ├── Model 定义 + Tag
+│   ├── CRUD
+│   ├── AutoMigrate
+│   └── WithContext
+├── RESTful 规范
+│   ├── 资源命名 /users
+│   ├── HTTP 方法语义
+│   └── 状态码规范
+└── 串联知识
+    ├── Viper 配置 (051)
+    ├── 模块管理 (052)
+    ├── 包设计 (053)
+    └── DI 思想 (054)</code></pre>
+
+<h2>八、举一反三</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>扩展方向</th>
+</tr></thead><tbody>
+<tr>
+<td>需要认证</td>
+<td>添加 JWT 中间件 + 登录接口</td>
+</tr>
+<tr>
+<td>需要分页</td>
+<td>Repository 添加 <code>Limit</code> / <code>Offset</code> 参数</td>
+</tr>
+<tr>
+<td>需要缓存</td>
+<td>Service 层注入 Cache 接口</td>
+</tr>
+<tr>
+<td>需要日志</td>
+<td>注入 Logger 接口，替换 <code>log.Printf</code></td>
+</tr>
+<tr>
+<td>需要测试</td>
+<td>用 Mock Repository + <code>httptest</code> 测试 Handler</td>
+</tr>
+<tr>
+<td>需要部署</td>
+<td>Dockerfile + docker-compose + 环境变量</td>
+</tr>
+</tbody></table>
+
+<h2>九、参考资料</h2>
+
+<ul>
+<li><a href="https://gin-gonic.com/docs/">Gin 官方文档</a></li>
+<li><a href="https://gorm.io/docs/">GORM 官方文档</a></li>
+<li><a href="https://github.com/golang-standards/project-layout">Standard Go Project Layout</a></li>
+<li><a href="https://restfulapi.net/">RESTful API 设计指南</a></li>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

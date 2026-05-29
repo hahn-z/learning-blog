@@ -1,0 +1,536 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>029 - 标准库time</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/learning-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/learning-blog/Golang/index.html">Golang</a>
+<span class="sep">›</span>
+<a href="/learning-blog/Golang/01-入门/index.html">Golang入门</a>
+</nav>
+<h1>029 - 标准库time</h1>
+<div class="meta">
+<span>📂 Golang入门</span>
+<span>🏷️ Golang</span>
+</div>
+<article>
+
+
+
+<h1>029 - 标准库 time</h1>
+
+<blockquote><p>难度：⭐⭐⭐（中高级）<br><br>掌握 Go 时间处理的完整体系：创建、解析、格式化、运算、定时器与时区处理。</p></blockquote>
+
+<hr>
+
+<h2>一、概念讲解</h2>
+
+<p>Go 的 <code>time</code> 包是标准库中最常用也最容易踩坑的包之一。Go 采用了独特的时间格式化方式——<strong>用参考时间 <code>Mon Jan 2 15:04:05 MST 2006</code> 来定义布局</strong>，而不是传统的 <code>%Y-%m-%d</code>。</p>
+
+<p><strong>核心概念：</strong></p>
+
+<ul>
+<li><strong>Time 类型</strong>：表示一个时间瞬间，包含日期和时刻</li>
+<li><strong>Duration</strong>：表示时间间隔，单位纳秒（<code>time.Second</code> = 1e9 ns）</li>
+<li><strong>Location</strong>：时区信息</li>
+<li><strong>Timer/Ticker</strong>：定时器和周期触发器</li>
+
+<hr>
+
+<h2>二、脑图</h2>
+
+<pre><code>                  time 包
+                    │
+      ┌─────────────┼─────────────┐
+      │             │             │
+   创建/获取      格式化/解析     运算/定时
+      │             │             │
+  ┌───┼───┐    ┌────┼────┐   ┌───┼───┐
+  │   │   │    │    │    │   │   │   │
+ Now Date Unix Format Parse  Add Sub Ticker
+      │          │          │   │
+  UnixMilli   布局2006   Duration Sleep
+      │       Location     Equal
+   ParseInLocation           Before
+                              After</code></pre>
+
+<hr>
+
+<h2>三、完整代码</h2>
+
+<pre><code class="language-go">package main
+
+import (
+	&quot;fmt&quot;
+	&quot;time&quot;
+)
+
+func main() {
+	// ========== Getting current time ==========
+	now := time.Now()
+	fmt.Printf(&quot;Now:          %v\n&quot;, now)
+	fmt.Printf(&quot;Type:         %T\n&quot;, now)
+
+	// ========== time.Date: construct a specific time ==========
+	birthday := time.Date(2000, 1, 15, 10, 30, 0, 0, time.Local)
+	fmt.Printf(&quot;Birthday:     %v\n&quot;, birthday)
+	fmt.Printf(&quot;Year: %d, Month: %d, Day: %d\n&quot;,
+		birthday.Year(), birthday.Month(), birthday.Day())
+	fmt.Printf(&quot;Hour: %d, Minute: %d, Second: %d\n&quot;,
+		birthday.Hour(), birthday.Minute(), birthday.Second())
+	fmt.Printf(&quot;Weekday:      %v\n&quot;, birthday.Weekday())
+
+	// ========== Unix timestamps ==========
+	fmt.Printf(&quot;Unix (sec):   %d\n&quot;, now.Unix())
+	fmt.Printf(&quot;UnixMilli:    %d\n&quot;, now.UnixMilli())
+	fmt.Printf(&quot;UnixMicro:    %d\n&quot;, now.UnixMicro())
+	fmt.Printf(&quot;UnixNano:     %d\n&quot;, now.UnixNano())
+
+	// From timestamp back to Time
+	fromUnix := time.Unix(1700000000, 0)
+	fmt.Printf(&quot;From Unix:    %v\n&quot;, fromUnix)
+
+	// ========== Format: time → string ==========
+	// Go reference time: Mon Jan 2 15:04:05 MST 2006
+	fmt.Printf(&quot;Date only:    %s\n&quot;, now.Format(&quot;2006-01-02&quot;))
+	fmt.Printf(&quot;Time only:    %s\n&quot;, now.Format(&quot;15:04:05&quot;))
+	fmt.Printf(&quot;DateTime:     %s\n&quot;, now.Format(&quot;2006-01-02 15:04:05&quot;))
+	fmt.Printf(&quot;ISO 8601:     %s\n&quot;, now.Format(time.RFC3339))
+	fmt.Printf(&quot;Custom:       %s\n&quot;, now.Format(&quot;2006/01/02 03:04 PM&quot;))
+
+	// ========== Parse: string → time ==========
+	t1, err := time.Parse(&quot;2006-01-02&quot;, &quot;2024-06-15&quot;)
+	if err != nil {
+		fmt.Println(&quot;Parse error:&quot;, err)
+	} else {
+		fmt.Printf(&quot;Parsed date:  %v\n&quot;, t1)
+	}
+
+	t2, _ := time.Parse(time.RFC3339, &quot;2024-06-15T08:30:00Z&quot;)
+	fmt.Printf(&quot;Parsed RFC:   %v\n&quot;, t2)
+
+	// ParseInLocation: parse with timezone
+	loc, _ := time.LoadLocation(&quot;Asia/Shanghai&quot;)
+	t3, _ := time.ParseInLocation(&quot;2006-01-02 15:04:05&quot;, &quot;2024-06-15 08:30:00&quot;, loc)
+	fmt.Printf(&quot;Shanghai:     %v\n&quot;, t3)
+
+	locNY, _ := time.LoadLocation(&quot;America/New_York&quot;)
+	fmt.Printf(&quot;Same in NY:   %v\n&quot;, t3.In(locNY))
+
+	// ========== Duration ==========
+	d1 := 2*time.Hour + 30*time.Minute
+	fmt.Printf(&quot;Duration:     %v\n&quot;, d1)
+	fmt.Printf(&quot;Hours:        %.2f\n&quot;, d1.Hours())
+	fmt.Printf(&quot;Minutes:      %.2f\n&quot;, d1.Minutes())
+	fmt.Printf(&quot;Seconds:      %.2f\n&quot;, d1.Seconds())
+
+	// ========== Time arithmetic: Add / Sub ==========
+	later := now.Add(24 * time.Hour)
+	fmt.Printf(&quot;Tomorrow:     %v\n&quot;, later.Format(&quot;2006-01-02&quot;))
+
+	ago := now.Add(-7 * 24 * time.Hour)
+	fmt.Printf(&quot;Last week:    %v\n&quot;, ago.Format(&quot;2006-01-02&quot;))
+
+	diff := later.Sub(now)
+	fmt.Printf(&quot;Diff:         %v (%.0f hours)\n&quot;, diff, diff.Hours())
+
+	// ========== Comparison: Before / After / Equal ==========
+	fmt.Printf(&quot;Before:       %v\n&quot;, now.Before(later))
+	fmt.Printf(&quot;After:        %v\n&quot;, later.After(now))
+
+	// Equal compares both time and location
+	tUTC := time.Date(2024, 1, 1, 8, 0, 0, 0, time.UTC)
+	tLocal := time.Date(2024, 1, 1, 8, 0, 0, 0, time.Local)
+	fmt.Printf(&quot;Equal:        %v\n&quot;, tUTC.Equal(tLocal)) // may differ by timezone
+
+	// ========== Timer: one-shot ==========
+	timer := time.NewTimer(100 * time.Millisecond)
+	&lt;-timer.C
+	fmt.Println(&quot;Timer fired!&quot;)
+
+	// Stop a timer
+	timer2 := time.NewTimer(5 * time.Second)
+	stopped := timer2.Stop()
+	fmt.Printf(&quot;Timer stopped: %v\n&quot;, stopped)
+
+	// ========== Ticker: periodic ==========
+	ticker := time.NewTicker(50 * time.Millisecond)
+	done := make(chan bool)
+	go func() {
+		count := 0
+		for {
+			select {
+			case &lt;-ticker.C:
+				count++
+				if count &gt;= 3 {
+					done &lt;- true
+					return
+				}
+			}
+		}
+	}()
+	&lt;-done
+	ticker.Stop()
+	fmt.Println(&quot;Ticker completed 3 ticks&quot;)
+
+	// ========== time.After / time.Sleep ==========
+	// time.After returns a channel that fires after duration
+	select {
+	case &lt;-time.After(50 * time.Millisecond):
+		fmt.Println(&quot;After fired&quot;)
+	}
+
+	// ========== Performance measurement ==========
+	start := time.Now()
+
+	// Simulate work
+	sum := 0
+	for i := 0; i &lt; 1000000; i++ {
+		sum += i
+	}
+
+	elapsed := time.Since(start)
+	fmt.Printf(&quot;Elapsed:      %v\n&quot;, elapsed)
+	_ = sum
+
+	// ========== Truncate / Round ==========
+	t4 := time.Date(2024, 6, 15, 10, 37, 23, 0, time.UTC)
+	fmt.Printf(&quot;Truncate(1h): %v\n&quot;, t4.Truncate(time.Hour).Format(&quot;15:04:05&quot;))
+	fmt.Printf(&quot;Round(30m):   %v\n&quot;, t4.Round(30*time.Minute).Format(&quot;15:04:05&quot;))
+
+	// ========== Common date operations ==========
+	// Get start of today
+	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+	fmt.Printf(&quot;Start of day: %v\n&quot;, today.Format(&quot;2006-01-02 15:04:05&quot;))
+
+	// Get start of month
+	startOfMonth := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, now.Location())
+	fmt.Printf(&quot;Start month:  %v\n&quot;, startOfMonth.Format(&quot;2006-01-02&quot;))
+}</code></pre>
+
+<h3>执行预览</h3>
+
+<pre><code>Now:          2024-06-15 14:30:45.123456789 +0800 CST
+Type:         time.Time
+Birthday:     2000-01-15 10:30:00 +0800 CST
+Year: 2000, Month: 1, Day: 15
+Hour: 10, Minute: 30, Second: 0
+Weekday:      Saturday
+Unix (sec):   1718433045
+UnixMilli:    1718433045123
+UnixMicro:    1718433045123456
+UnixNano:     1718433045123456789
+From Unix:    2023-11-14 22:13:20 +0800 CST
+Date only:    2024-06-15
+Time only:    14:30:45
+DateTime:     2024-06-15 14:30:45
+ISO 8601:     2024-06-15T14:30:45+08:00
+Custom:       2024/06/15 02:30 PM
+Parsed date:  2024-06-15 00:00:00 +0000 UTC
+Parsed RFC:   2024-06-15 08:30:00 +0000 UTC
+Shanghai:     2024-06-15 08:30:00 +0800 CST
+Same in NY:   2024-06-14 20:30:00 -0400 EDT
+Duration:     2h30m0s
+Hours:        2.50
+Minutes:      150.00
+Seconds:      9000.00
+Tomorrow:     2024-06-16
+Last week:    2024-06-08
+Diff:         24h0m0s (24 hours)
+Before:       true
+After:        true
+Timer fired!
+Timer stopped: true
+Ticker completed 3 ticks
+After fired
+Elapsed:      1.234ms
+Truncate(1h): 10:00:00
+Round(30m):   10:30:00
+Start of day: 2024-06-15 00:00:00
+Start month:  2024-06-01</code></pre>
+
+<hr>
+
+<h2>四、注意事项</h2>
+
+<table><thead><tr>
+<th>项目</th>
+<th>说明</th>
+</tr></thead><tbody>
+<tr>
+<td>格式化布局不是 <code>YYYY-MM-DD</code></td>
+<td>Go 使用参考时间 <code>2006-01-02 15:04:05</code> 定义布局</td>
+</tr>
+<tr>
+<td><code>time.Parse</code> 默认 UTC</td>
+<td>不指定 Location 时解析结果为 UTC，用 <code>ParseInLocation</code> 指定时区</td>
+</tr>
+<tr>
+<td><code>Month</code> 是类型不是 int</td>
+<td><code>time.January</code> 类型是 <code>time.Month</code>，打印时自动转字符串</td>
+</tr>
+<tr>
+<td><code>Sub</code> 不是绝对差</td>
+<td><code>a.Sub(b)</code> 可能为负数，用 <code>.Abs()</code> (Go 1.22+) 取绝对值</td>
+</tr>
+<tr>
+<td>Timer 的 <code>Stop</code> 可能返回 false</td>
+<td>如果 timer 已经触发或被 stop 过</td>
+</tr>
+<tr>
+<td>Ticker 需要手动 Stop</td>
+<td>否则 goroutine 泄漏</td>
+</tr>
+<tr>
+<td><code>time.Sleep</code> 不受 context 取消</td>
+<td>需要可取消的等待用 <code>select + time.After</code></td>
+</tr>
+<tr>
+<td><code>time.Now()</code> 单调时钟</td>
+<td>Go 内部使用单调时钟，<code>Sub</code> 不受时区跳变影响</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>五、避坑指南</h2>
+
+<p>❌ <strong>用 <code>YYYY-MM-DD</code> 格式化</strong></p>
+<pre><code class="language-go">// Bad: this is NOT how Go formats time
+now.Format(&quot;YYYY-MM-DD&quot;)
+// Output: &quot;2024-06-15&quot; only if you&#x27;re extremely lucky... actually outputs garbage</code></pre>
+
+<p>✅ <strong>用 Go 的参考时间布局</strong></p>
+<pre><code class="language-go">// Good: 2006-01-02 is the reference date
+now.Format(&quot;2006-01-02&quot;)</code></pre>
+
+<hr>
+
+<p>❌ <strong>Parse 不带时区得到 UTC，当本地时间用</strong></p>
+<pre><code class="language-go">t, _ := time.Parse(&quot;2006-01-02 15:04:05&quot;, &quot;2024-06-15 08:30:00&quot;)
+// t is UTC, not local! Will cause off-by-8h bugs in China</code></pre>
+
+<p>✅ <strong>使用 ParseInLocation</strong></p>
+<pre><code class="language-go">loc, _ := time.LoadLocation(&quot;Asia/Shanghai&quot;)
+t, _ := time.ParseInLocation(&quot;2006-01-02 15:04:05&quot;, &quot;2024-06-15 08:30:00&quot;, loc)</code></pre>
+
+<hr>
+
+<p>❌ <strong>用 <code>==</code> 比较时间</strong></p>
+<pre><code class="language-go">// Bad: == compares both wall clock and monotonic clock, may not work as expected
+if t1 == t2 { ... }</code></pre>
+
+<p>✅ <strong>用 Equal/Before/After</strong></p>
+<pre><code class="language-go">if t1.Equal(t2) { ... }
+if t1.Before(t2) { ... }</code></pre>
+
+<hr>
+
+<h2>六、练习题</h2>
+
+<h3>🟢 初级</h3>
+<ol>
+<li>打印当前时间的格式 <code>2024年06月15日 星期六 14:30:45</code></li>
+</ul>
+<ol>
+<li>计算 <code>1990-01-01</code> 到今天经过了多少天</li>
+
+<h3>🟡 中级</h3>
+<ol>
+<li>实现一个函数 <code>isWorkday(t time.Time) bool</code>，判断给定时间是否为工作日（周一到周五）</li>
+</ul>
+<ol>
+<li>使用 Ticker 每秒打印一次当前时间，5 次后退出</li>
+
+<h3>🔴 高级</h3>
+<ol>
+<li>实现一个简易 cron：接受 <code>@every 5s</code> 或 <code>@hourly</code> 格式，周期性执行函数，支持 context 取消</li>
+
+<hr>
+
+<h2>七、知识点总结</h2>
+
+<pre><code>time 包
+├── 创建
+│   ├── Now()           — 当前时间
+│   ├── Date(y,m,d,...) — 构造时间
+│   └── Unix(sec, nsec) — 从时间戳创建
+├── 格式化
+│   ├── Format(layout)  — time → string
+│   ├── Parse(layout, s)— string → time (UTC)
+│   └── ParseInLocation — 带时区解析
+├── 运算
+│   ├── Add(d)          — 加 Duration
+│   ├── Sub(t)          — 差值 Duration
+│   ├── AddDate(y,m,d)  — 加年月日
+│   ├── Truncate(d)     — 向下截断
+│   └── Round(d)        — 四舍五入
+├── 比较
+│   ├── Before(t)       — 是否在 t 之前
+│   ├── After(t)        — 是否在 t 之后
+│   └── Equal(t)        — 是否相等
+├── Duration
+│   ├── time.Second/Minute/Hour
+│   ├── Hours()/Minutes()/Seconds()
+│   └── time.Since(t) = Now().Sub(t)
+├── 定时
+│   ├── NewTimer(d)     — 一次性定时器
+│   ├── NewTicker(d)    — 周期定时器
+│   ├── After(d)        — 返回 channel
+│   └── Sleep(d)        — 阻塞等待
+└── 时区
+    ├── time.UTC
+    ├── time.Local
+    ├── LoadLocation(name)
+    └── t.In(loc)        — 转换时区显示</code></pre>
+
+<hr>
+
+<h2>八、举一反三</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>函数/方法</th>
+<th>说明</th>
+</tr></thead><tbody>
+<tr>
+<td>接口耗时统计</td>
+<td><code>time.Since(start)</code></td>
+<td>最常用性能测量</td>
+</tr>
+<tr>
+<td>定时任务</td>
+<td><code>NewTicker</code> + goroutine</td>
+<td>周期性执行</td>
+</tr>
+<tr>
+<td>超时控制</td>
+<td><code>select + time.After</code></td>
+<td>配合 channel 使用</td>
+</tr>
+<tr>
+<td>日志时间戳</td>
+<td><code>Format(time.RFC3339)</code></td>
+<td>标准格式</td>
+</tr>
+<tr>
+<td>缓存过期</td>
+<td><code>time.Now().Add(ttl)</code></td>
+<td>计算过期时间点</td>
+</tr>
+<tr>
+<td>用户友好显示</td>
+<td><code>Sub</code> 计算相对时间</td>
+<td>"3 分钟前"</td>
+</tr>
+<tr>
+<td>跨时区业务</td>
+<td><code>LoadLocation + In</code></td>
+<td>国际化必备</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>九、参考资料</h2>
+
+<ul>
+<li><a href="https://pkg.go.dev/time">time 官方文档</a></li>
+<li><a href="https://go.dev/src/time/format.go">Go 时间格式化揭秘</a></li>
+<li><a href="https://go.dev/design/exp/monotonic-clock">Go 1.9 单调时钟</a></li>
+
+<hr>
+
+<h2>十、代码演进</h2>
+
+<h3>v1：基础时间获取与格式化</h3>
+<pre><code class="language-go">package main
+
+import (
+    &quot;fmt&quot;
+    &quot;time&quot;
+)
+
+func main() {
+    now := time.Now()
+    fmt.Println(now.Format(&quot;2006-01-02 15:04:05&quot;))
+}</code></pre>
+
+<h3>v2：时间运算与解析</h3>
+<pre><code class="language-go">package main
+
+import (
+    &quot;fmt&quot;
+    &quot;time&quot;
+)
+
+func main() {
+    now := time.Now()
+    tomorrow := now.Add(24 * time.Hour)
+    fmt.Println(&quot;Tomorrow:&quot;, tomorrow.Format(&quot;2006-01-02&quot;))
+
+    t, _ := time.Parse(&quot;2006-01-02&quot;, &quot;2024-12-25&quot;)
+    days := t.Sub(now).Hours() / 24
+    fmt.Printf(&quot;Days to Christmas: %.0f\n&quot;, days)
+}</code></pre>
+
+<h3>v3：完整时间工具集（定时器、时区、性能测量）</h3>
+<p>（即上方完整代码，涵盖创建、解析、格式化、运算、定时器、时区、性能测量）</p>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

@@ -1,0 +1,524 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>019 - 指针基础 ⭐⭐⭐</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/learning-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/learning-blog/Golang/index.html">Golang</a>
+<span class="sep">›</span>
+<a href="/learning-blog/Golang/01-入门/index.html">Golang入门</a>
+</nav>
+<h1>019 - 指针基础 ⭐⭐⭐</h1>
+<div class="meta">
+<span>📂 Golang入门</span>
+<span>🏷️ Golang</span>
+</div>
+<article>
+
+
+<h1>019 - 指针基础 ⭐⭐⭐</h1>
+
+<blockquote><p><strong>难度：</strong> ⭐⭐⭐（中等偏上）<br><strong>适合人群：</strong> 有 Go 基础语法经验，想深入理解内存管理的开发者<br><strong>阅读时间：</strong> 约 20 分钟</p></blockquote>
+
+<hr>
+
+<h2>一、概念讲解</h2>
+
+<h3>什么是指针？</h3>
+
+<p>指针是一个变量，它存储的值是<strong>另一个变量的内存地址</strong>。</p>
+
+<p>想象一下：你家有一个门牌号（地址），快递员不需要知道你家里面长什么样，只需要知道门牌号就能找到你。指针就是那个"门牌号"。</p>
+
+<pre><code>普通变量：  值 → [42]
+指针变量：  地址 → [0xc0000b2008] → [42]</code></pre>
+
+<h3>两个核心操作符</h3>
+
+<table><thead><tr>
+<th>操作符</th>
+<th>名称</th>
+<th>作用</th>
+<th>示例</th>
+</tr></thead><tbody>
+<tr>
+<td><code>&</code></td>
+<td>取地址</td>
+<td>获取变量的内存地址</td>
+<td><code>&x</code> 返回 x 的地址</td>
+</tr>
+<tr>
+<td><code>*</code></td>
+<td>解引用</td>
+<td>获取指针指向的值</td>
+<td><code>*p</code> 返回 p 指向的值</td>
+</tr>
+</tbody></table>
+
+<h3>零值 nil</h3>
+
+<p>指针的零值是 <code>nil</code>，表示"不指向任何地址"。</p>
+
+<pre><code class="language-go">var p *int   // p == nil, 类型是 *int</code></pre>
+
+<h3>指针传参：避免大拷贝</h3>
+
+<p>当一个结构体很大时，传值会复制整个结构体，传指针只复制一个地址（8字节）。</p>
+
+<h3>Go 不支持指针运算</h3>
+
+<p>与 C 语言不同，Go <strong>不支持</strong>指针加减运算。这是为了安全——你无法通过指针越界访问内存。</p>
+
+<hr>
+
+<h2>二、脑图（ASCII）</h2>
+
+<pre><code>指针基础
+├── 基本概念
+│   ├── 变量 = 内存中的值
+│   ├── 指针 = 内存地址
+│   └── 零值 = nil
+├── 操作符
+│   ├── &amp; (取地址)
+│   └── * (解引用)
+├── 使用场景
+│   ├── 传参避免拷贝
+│   ├── 修改外部变量
+│   └── 结构体指针
+├── new 函数
+│   └── new(T) → *T (零值指针)
+└── 注意事项
+    ├── 不支持指针运算
+    ├── 空指针解引用 panic
+    └── 函数返回局部变量指针是安全的</code></pre>
+
+<hr>
+
+<h2>三、完整 Go 代码</h2>
+
+<pre><code class="language-go">package main
+
+import &quot;fmt&quot;
+
+// Demo: basic pointer operations
+func basicPointer() {
+    x := 42
+    p := &amp;x // p is a pointer to x
+
+    fmt.Printf(&quot;x 的值: %d\n&quot;, x)
+    fmt.Printf(&quot;x 的地址: %p\n&quot;, &amp;x)
+    fmt.Printf(&quot;p 的值(地址): %p\n&quot;, p)
+    fmt.Printf(&quot;p 指向的值: %d\n&quot;, *p)
+
+    // Modify value through pointer
+    *p = 100
+    fmt.Printf(&quot;修改后 x = %d\n&quot;, x) // x is now 100
+}
+
+// Demo: pointer as function parameter
+func doubleValue(val int) {
+    val *= 2 // Only modifies the copy, original unchanged
+}
+
+func doublePointer(p *int) {
+    *p *= 2 // Modifies the original value
+}
+
+func pointerParam() {
+    x := 5
+    doubleValue(x)
+    fmt.Printf(&quot;doubleValue 后 x = %d\n&quot;, x) // Still 5
+
+    doublePointer(&amp;x)
+    fmt.Printf(&quot;doublePointer 后 x = %d\n&quot;, x) // Now 10
+}
+
+// Demo: pointer with struct
+type User struct {
+    Name string
+    Age  int
+}
+
+func updateAge(u *User, newAge int) {
+    u.Age = newAge // No need to write (*u).Age in Go
+}
+
+func structPointer() {
+    u := User{Name: &quot;Alice&quot;, Age: 25}
+    fmt.Printf(&quot;更新前: %+v\n&quot;, u)
+
+    updateAge(&amp;u, 30)
+    fmt.Printf(&quot;更新后: %+v\n&quot;, u)
+}
+
+// Demo: new function
+func newDemo() {
+    // new(T) allocates zero-valued memory and returns *T
+    p := new(int)
+    fmt.Printf(&quot;new(int): value=%d, isNil=%v\n&quot;, *p, p == nil) // 0, false
+
+    *p = 42
+    fmt.Printf(&quot;赋值后: %d\n&quot;, *p)
+}
+
+// Demo: nil pointer
+func nilPointer() {
+    var p *int // nil pointer
+    fmt.Printf(&quot;nil 指针: %v\n&quot;, p)
+
+    // Uncommenting this will cause panic
+    // fmt.Println(*p) // panic: runtime error: invalid memory address
+}
+
+// Demo: returning pointer to local variable is SAFE in Go
+func createPointer() *int {
+    x := 42
+    return &amp;x // Safe! Go compiler does escape analysis
+}
+
+func returnPointerDemo() {
+    p := createPointer()
+    fmt.Printf(&quot;返回的局部变量指针: %d\n&quot;, *p) // Works fine
+}
+
+// Demo: pointer to pointer
+func doublePointerDemo() {
+    x := 42
+    p := &amp;x
+    pp := &amp;p // **int
+
+    fmt.Printf(&quot;x=%d, *p=%d, **pp=%d\n&quot;, x, *p, **pp)
+    **pp = 999
+    fmt.Printf(&quot;修改后 x=%d\n&quot;, x)
+}
+
+func main() {
+    fmt.Println(&quot;=== 基本指针操作 ===&quot;)
+    basicPointer()
+
+    fmt.Println(&quot;\n=== 指针传参 ===&quot;)
+    pointerParam()
+
+    fmt.Println(&quot;\n=== 结构体指针 ===&quot;)
+    structPointer()
+
+    fmt.Println(&quot;\n=== new 函数 ===&quot;)
+    newDemo()
+
+    fmt.Println(&quot;\n=== nil 指针 ===&quot;)
+    nilPointer()
+
+    fmt.Println(&quot;\n=== 返回局部变量指针 ===&quot;)
+    returnPointerDemo()
+
+    fmt.Println(&quot;\n=== 指针的指针 ===&quot;)
+    doublePointerDemo()
+}</code></pre>
+
+<hr>
+
+<h2>四、执行预览</h2>
+
+<pre><code>=== 基本指针操作 ===
+x 的值: 42
+x 的地址: 0xc0000b2008
+p 的值(地址): 0xc0000b2008
+p 指向的值: 42
+修改后 x = 100
+
+=== 指针传参 ===
+doubleValue 后 x = 5
+doublePointer 后 x = 10
+
+=== 结构体指针 ===
+更新前: {Name:Alice Age:25}
+更新后: {Name:Alice Age:30}
+
+=== new 函数 ===
+new(int): value=0, isNil=false
+赋值后: 42
+
+=== nil 指针 ===
+nil 指针: &lt;nil&gt;
+
+=== 返回局部变量指针 ===
+返回的局部变量指针: 42
+
+=== 指针的指针 ===
+x=42, *p=42, **pp=42
+修改后 x=999</code></pre>
+
+<hr>
+
+<h2>五、注意事项</h2>
+
+<table><thead><tr>
+<th>项目</th>
+<th>说明</th>
+<th>示例</th>
+</tr></thead><tbody>
+<tr>
+<td>空指针解引用</td>
+<td>对 nil 指针解引用会 panic</td>
+<td><code>var p <em>int; </em>p</code> → panic</td>
+</tr>
+<tr>
+<td>指针零值</td>
+<td>指针的零值是 nil，不是 0</td>
+<td><code>var p *int</code> → nil</td>
+</tr>
+<tr>
+<td>函数返回局部指针</td>
+<td>Go 中安全（逃逸分析）</td>
+<td><code>return &x</code> 合法</td>
+</tr>
+<tr>
+<td>结构体指针访问字段</td>
+<td>Go 自动解引用</td>
+<td><code>p.Name</code> 等价 <code>(*p).Name</code></td>
+</tr>
+<tr>
+<td>指针比较</td>
+<td>可用 == 比较（含 nil）</td>
+<td><code>p == nil</code> 合法</td>
+</tr>
+<tr>
+<td>不支持运算</td>
+<td>不能 p++ 或 p+1</td>
+<td>编译错误</td>
+</tr>
+<tr>
+<td>指针默认值</td>
+<td>new 返回的是零值的指针</td>
+<td><code>new(int)</code> → *int, 值为 0</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>六、避坑指南</h2>
+
+<h3>❌ 空指针解引用</h3>
+<pre><code class="language-go">// ❌ 直接解引用 nil 指针
+var p *int
+fmt.Println(*p) // panic!
+
+// ✅ 先检查 nil
+var p *int
+if p != nil {
+    fmt.Println(*p)
+}</code></pre>
+
+<h3>❌ 传值期望修改原值</h3>
+<pre><code class="language-go">// ❌ 传值无法修改原值
+func modify(x int) { x = 10 }
+
+// ✅ 传指针才能修改
+func modify(x *int) { *x = 10 }</code></pre>
+
+<h3>❌ 用 new 创建切片/映射</h3>
+<pre><code class="language-go">// ❌ new 返回的是零值指针，不是已初始化的切片
+s := *new([]int) // s is nil slice, not ready to use
+
+// ✅ 用 make 初始化
+s := make([]int, 0)</code></pre>
+
+<h3>❌ 迷信指针一定更快</h3>
+<pre><code class="language-go">// ❌ 小类型（int等）传指针不一定更快（指针本身有间接访问开销）
+func add(a, b *int) int { return *a + *b }
+
+// ✅ 小类型直接传值
+func add(a, b int) int { return a + b }</code></pre>
+
+<hr>
+
+<h2>七、练习题</h2>
+
+<h3>🟢 入门：交换两个变量</h3>
+<p>编写函数 <code>swap(a, b *int)</code> 交换两个变量的值。</p>
+
+<pre><code class="language-go">func swap(a, b *int) {
+    // 你的代码
+}</code></pre>
+
+<h3>🟡 进阶：链表节点</h3>
+<p>用指针实现一个简单的单链表节点，并实现插入操作。</p>
+
+<pre><code class="language-go">type Node struct {
+    Val  int
+    Next *Node
+}
+
+func insert(head *Node, val int) *Node {
+    // 你的代码：在头部插入
+}</code></pre>
+
+<h3>🔴 挑战：安全的指针工具函数</h3>
+<p>实现一个泛型指针工具 <code>DerefOrDefault</code>：如果指针为 nil 返回零值，否则返回指向的值。</p>
+
+<pre><code class="language-go">func DerefOrDefault[T any](p *T) T {
+    // 你的代码
+}</code></pre>
+
+<hr>
+
+<h2>八、知识点总结</h2>
+
+<pre><code>指针基础
+├── 核心概念
+│   ├── &amp; → 取地址
+│   ├── * → 解引用
+│   └── nil → 零值
+├── 指针传参
+│   ├── 值传递 vs 指针传递
+│   └── 大结构体用指针
+├── 结构体指针
+│   ├── 自动解引用
+│   └── 方法接收者用指针
+├── new(T)
+│   ├── 分配零值内存
+│   └── 返回 *T
+└── 安全性
+    ├── 不支持指针运算
+    ├── 逃逸分析保护
+    └── 空指针必须检查</code></pre>
+
+<hr>
+
+<h2>九、举一反三</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>值传递</th>
+<th>指针传递</th>
+</tr></thead><tbody>
+<tr>
+<td>修改调用方变量</td>
+<td>❌ 不行</td>
+<td>✅ 可以</td>
+</tr>
+<tr>
+<td>大结构体传参</td>
+<td>🐌 复制开销大</td>
+<td>⚡ 只传地址</td>
+</tr>
+<tr>
+<td>小类型(int等)</td>
+<td>✅ 推荐</td>
+<td>❌ 反而慢</td>
+</tr>
+<tr>
+<td>并发安全</td>
+<td>✅ 自带副本安全</td>
+<td>⚠️ 需加锁保护</td>
+</tr>
+<tr>
+<td>map/slice/chan</td>
+<td>⚠️ 本身是引用类型</td>
+<td>❌ 多此一举</td>
+</tr>
+<tr>
+<td>函数返回值</td>
+<td>✅ 安全</td>
+<td>✅ Go 中安全</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>十、参考资料</h2>
+
+<ol>
+<li><a href="https://go.dev/doc/effective_go#pointers">Go 官方文档 - Effective Go: Pointers</a></li>
+</ul>
+<ol>
+<li><a href="https://gobyexample.com/pointers">Go by Example: Pointers</a></li>
+</ul>
+<ol>
+<li><a href="https://go.dev/ref/spec#Pointer_types">Go 语言规范 - Pointer types</a></li>
+</ul>
+<ol>
+<li><a href="https://go.dev/blog/ismmkeynote">逃逸分析详解 (Go Blog)</a></li>
+
+<hr>
+
+<h2>十一、代码演进</h2>
+
+<h3>v1 — 基本指针操作</h3>
+<pre><code class="language-go">x := 42
+p := &amp;x
+fmt.Println(*p) // 42</code></pre>
+
+<h3>v2 — 指针传参修改值</h3>
+<pre><code class="language-go">func double(p *int) { *p *= 2 }
+x := 5
+double(&amp;x) // x == 10</code></pre>
+
+<h3>v3 — 结构体指针 + 方法</h3>
+<pre><code class="language-go">type User struct { Name string; Age int }
+func (u *User) Birthday() { u.Age++ }
+
+user := &amp;User{Name: &quot;Alice&quot;, Age: 25}
+user.Birthday() // Age: 26</code></pre>
+
+<hr>
+
+<p><strong>下一篇：</strong> <a href="/posts/020-new-make">020 - 指针进阶：new 与 make</a></p>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

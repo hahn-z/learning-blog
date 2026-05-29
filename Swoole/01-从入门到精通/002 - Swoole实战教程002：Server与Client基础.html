@@ -1,0 +1,613 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>002 - Swoole实战教程002：Server与Client基础</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Swoole/index.html">Swoole</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Swoole/01-从入门到精通/index.html">Swoole从入门到精通</a>
+</nav>
+<h1>002 - Swoole实战教程002：Server与Client基础</h1>
+<div class="meta">
+<span>📂 Swoole从入门到精通</span>
+<span>🏷️ Swoole</span>
+</div>
+<article>
+
+
+<h1>Swoole实战教程002：Server与Client基础</h1>
+
+<blockquote><p><strong>难度标注：</strong> 🟡 中级 | 预计学习时间：45分钟</p></blockquote>
+
+<h2>一、概念讲解</h2>
+
+<h3>Server核心概念</h3>
+
+<p>Swoole Server是所有网络服务的基础。它采用<strong>事件驱动</strong>模型，通过注册回调函数来处理各种网络事件。</p>
+
+<p><strong>核心事件生命周期：</strong></p>
+
+<pre><code>启动 → onStart → 监听端口
+                → onManagerStart
+                → onWorkerStart
+         → 等待连接
+         → onConnect (新连接)
+         → onReceive (收到数据)
+         → onClose (连接关闭)
+关闭 → onShutdown</code></pre>
+
+<p><strong>Server类型常量：</strong></p>
+
+<table><thead><tr>
+<th>常量</th>
+<th>值</th>
+<th>说明</th>
+</tr></thead><tbody>
+<tr>
+<td>SWOOLE_TCP</td>
+<td>1</td>
+<td>TCP服务器</td>
+</tr>
+<tr>
+<td>SWOOLE_UDP</td>
+<td>2</td>
+<td>UDP服务器</td>
+</tr>
+<tr>
+<td>SWOOLE_HTTP</td>
+<td>3</td>
+<td>HTTP服务器</td>
+</tr>
+<tr>
+<td>SWOOLE_WS</td>
+<td>4</td>
+<td>WebSocket服务器</td>
+</tr>
+</tbody></table>
+
+<h3>Client核心概念</h3>
+
+<p>Swoole Client支持同步和异步两种模式：</p>
+
+<ul>
+<li><strong>同步客户端</strong>：<code>new Swoole\Client(SWOOLE_SOCK_TCP)</code> — 简单直接</li>
+<li><strong>协程客户端</strong>：<code>Swoole\Coroutine\Client</code> — 推荐方式，以同步写法实现异步效果</li>
+
+<h3>进程模型详解</h3>
+
+<pre><code>                    Master Process (主进程)
+                         │
+                    Reactor Threads (I/O线程)
+                    ┌────┼────┐
+                    R0   R1   R2  (默认CPU核数)
+                         │
+                    Manager Process (管理进程)
+                    ┌────┼────┐
+                    W0   W1   W2  Worker进程
+                    │    │    │
+                  Task Task Task (可选Task Worker)</code></pre>
+
+<ul>
+<li><strong>Reactor</strong>：负责接收连接、处理I/O，投递到Worker</li>
+<li><strong>Worker</strong>：处理业务逻辑，同步阻塞也没关系</li>
+<li><strong>Task Worker</strong>：处理耗时任务（如发送邮件、文件处理）</li>
+
+<h2>二、脑图</h2>
+
+<pre><code>Server与Client基础
+├── Server
+│   ├── 创建 new Swoole\Server(host, port)
+│   ├── 配置 set($config)
+│   ├── 事件回调 on(event, callback)
+│   │   ├── onStart / onShutdown
+│   │   ├── onManagerStart
+│   │   ├── onWorkerStart / onWorkerStop
+│   │   ├── onConnect / onClose
+│   │   ├── onReceive
+│   │   └── onTask / onFinish
+│   └── 启动 start()
+├── Client
+│   ├── 同步客户端 Swoole\Client
+│   ├── 协程客户端 Coroutine\Client
+│   └── 连接管理 connect/send/recv/close
+├── 进程模型
+│   ├── Master → Reactor → I/O
+│   ├── Manager → Worker管理
+│   └── Worker → 业务处理
+└── 核心配置
+    ├── worker_num
+    ├── task_worker_num
+    ├── daemonize
+    ├── log_file
+    └── heartbeat_check_interval</code></pre>
+
+<h2>三、完整代码</h2>
+
+<h3>基础TCP Server</h3>
+
+<pre><code class="language-php">&lt;?php
+// basic_server.php - Basic TCP Server with all core events
+
+$server = new Swoole\Server(&#x27;0.0.0.0&#x27;, 9501, SWOOLE_PROCESS);
+
+// Server configuration
+$server-&gt;set([
+    &#x27;worker_num&#x27;         =&gt; 2,           // Number of worker processes
+    &#x27;task_worker_num&#x27;    =&gt; 1,           // Number of task workers
+    &#x27;daemonize&#x27;          =&gt; false,       // Run in foreground
+    &#x27;log_file&#x27;           =&gt; &#x27;/tmp/swoole.log&#x27;,
+    &#x27;heartbeat_check_interval&#x27; =&gt; 30,    // Check every 30s
+    &#x27;heartbeat_idle_time&#x27;     =&gt; 60,    // Close idle connections after 60s
+]);
+
+// Server start event
+$server-&gt;on(&#x27;start&#x27;, function (Swoole\Server $server) {
+    echo &quot;[Master] Server started at 0.0.0.0:9501\n&quot;;
+    echo &quot;[Master] PID: &quot; . $server-&gt;master_pid . &quot;\n&quot;;
+});
+
+// Manager start event
+$server-&gt;on(&#x27;managerStart&#x27;, function (Swoole\Server $server) {
+    echo &quot;[Manager] Manager process started, PID: &quot; . $server-&gt;manager_pid . &quot;\n&quot;;
+});
+
+// Worker start event
+$server-&gt;on(&#x27;workerStart&#x27;, function (Swoole\Server $server, int $workerId) {
+    echo &quot;[Worker] Worker #{$workerId} started\n&quot;;
+});
+
+// New connection event
+$server-&gt;on(&#x27;connect&#x27;, function (Swoole\Server $server, int $fd) {
+    echo &quot;[Connect] New connection fd={$fd}\n&quot;;
+    $server-&gt;send($fd, &quot;Welcome! Your fd is {$fd}\n&quot;);
+});
+
+// Receive data event
+$server-&gt;on(&#x27;receive&#x27;, function (Swoole\Server $server, int $fd, int $reactorId, string $data) {
+    $data = trim($data);
+    echo &quot;[Receive] fd={$fd} reactor={$reactorId} data={$data}\n&quot;;
+
+    // Handle special commands
+    switch ($data) {
+        case &#x27;stats&#x27;:
+            $stats = $server-&gt;stats();
+            $server-&gt;send($fd, json_encode($stats, JSON_PRETTY_PRINT) . &quot;\n&quot;);
+            break;
+        case &#x27;task&#x27;:
+            // Dispatch async task
+            $server-&gt;task([&#x27;action&#x27; =&gt; &#x27;heavy_work&#x27;, &#x27;fd&#x27; =&gt; $fd]);
+            $server-&gt;send($fd, &quot;Task dispatched, please wait...\n&quot;);
+            break;
+        case &#x27;close&#x27;:
+            $server-&gt;send($fd, &quot;Goodbye!\n&quot;);
+            $server-&gt;close($fd);
+            break;
+        case &#x27;workers&#x27;:
+            $info = &quot;Workers: {$server-&gt;setting[&#x27;worker_num&#x27;]}, &quot;
+                  . &quot;Tasks: {$server-&gt;setting[&#x27;task_worker_num&#x27;]}\n&quot;;
+            $server-&gt;send($fd, $info);
+            break;
+        default:
+            $server-&gt;send($fd, &quot;Echo: {$data}\n&quot;);
+            break;
+    }
+});
+
+// Connection close event
+$server-&gt;on(&#x27;close&#x27;, function (Swoole\Server $server, int $fd) {
+    echo &quot;[Close] fd={$fd} disconnected\n&quot;;
+});
+
+// Async task handler
+$server-&gt;on(&#x27;task&#x27;, function (Swoole\Server $server, int $taskId, int $srcWorkerId, $data) {
+    echo &quot;[Task] taskId={$taskId} data=&quot; . json_encode($data) . &quot;\n&quot;;
+    // Simulate heavy work
+    sleep(2);
+    return [&#x27;result&#x27; =&gt; &#x27;Task completed&#x27;, &#x27;fd&#x27; =&gt; $data[&#x27;fd&#x27;]];
+});
+
+// Task result handler
+$server-&gt;on(&#x27;finish&#x27;, function (Swoole\Server $server, int $taskId, $data) {
+    echo &quot;[Finish] taskId={$taskId} result=&quot; . json_encode($data) . &quot;\n&quot;;
+    if (isset($data[&#x27;fd&#x27;]) &amp;&amp; $server-&gt;exists($data[&#x27;fd&#x27;])) {
+        $server-&gt;send($data[&#x27;fd&#x27;], &quot;Task #{$taskId} done!\n&quot;);
+    }
+});
+
+$server-&gt;start();</code></pre>
+
+<h3>协程Client</h3>
+
+<pre><code class="language-php">&lt;?php
+// coroutine_client.php - Coroutine-based TCP client
+
+Swoole\Coroutine\run(function () {
+    $client = new Swoole\Coroutine\Client(SWOOLE_SOCK_TCP);
+
+    // Connect to server
+    if (!$client-&gt;connect(&#x27;127.0.0.1&#x27;, 9501, 5)) {
+        echo &quot;Connection failed: {$client-&gt;errMsg}\n&quot;;
+        return;
+    }
+
+    // Read welcome message
+    $welcome = $client-&gt;recv();
+    echo &quot;Server: {$welcome}&quot;;
+
+    // Send commands and receive responses
+    $commands = [&#x27;hello&#x27;, &#x27;stats&#x27;, &#x27;task&#x27;, &#x27;workers&#x27;, &#x27;close&#x27;];
+    foreach ($commands as $cmd) {
+        if ($cmd === &#x27;close&#x27;) {
+            $client-&gt;send($cmd . &quot;\n&quot;);
+            $resp = $client-&gt;recv();
+            if ($resp) echo &quot;Server: {$resp}&quot;;
+            break;
+        }
+
+        $client-&gt;send($cmd . &quot;\n&quot;);
+        $resp = $client-&gt;recv();
+        if ($resp === false) {
+            echo &quot;Recv failed: {$client-&gt;errMsg}\n&quot;;
+            break;
+        }
+        echo &quot;Server: {$resp}&quot;;
+        sleep(1); // Pause between commands
+    }
+
+    $client-&gt;close();
+    echo &quot;Connection closed\n&quot;;
+});</code></pre>
+
+<h3>多端口监听</h3>
+
+<pre><code class="language-php">&lt;?php
+// multi_port_server.php - Server listening on multiple ports
+
+$server = new Swoole\Server(&#x27;0.0.0.0&#x27;, 9501);
+
+// Add additional port
+$udpPort = $server-&gt;listen(&#x27;0.0.0.0&#x27;, 9502, SWOOLE_UDP);
+
+$udpPort-&gt;on(&#x27;packet&#x27;, function (Swoole\Server $server, string $data, array $clientInfo) {
+    $addr = $clientInfo[&#x27;address&#x27;];
+    $port = $clientInfo[&#x27;port&#x27;];
+    echo &quot;[UDP] From {$addr}:{$port} → {$data}\n&quot;;
+    $server-&gt;sendto($addr, $port, &quot;UDP Echo: {$data}&quot;);
+});
+
+$server-&gt;on(&#x27;receive&#x27;, function ($server, $fd, $reactorId, $data) {
+    $server-&gt;send($fd, &quot;TCP Echo: &quot; . trim($data) . &quot;\n&quot;);
+});
+
+$server-&gt;start();</code></pre>
+
+<h2>四、执行预览</h2>
+
+<p><strong>终端1：启动服务器</strong></p>
+<pre><code class="language-bash">$ php basic_server.php
+[Master] Server started at 0.0.0.0:9501
+[Master] PID: 12345
+[Manager] Manager process started, PID: 12346
+[Worker] Worker #0 started
+[Worker] Worker #1 started</code></pre>
+
+<p><strong>终端2：用telnet连接</strong></p>
+<pre><code class="language-bash">$ telnet 127.0.0.1 9501
+Welcome! Your fd is 1
+hello
+Echo: hello
+stats
+{
+    &quot;start_time&quot;: 1745856000,
+    &quot;connection_num&quot;: 1,
+    &quot;accept_count&quot;: 1,
+    &quot;close_count&quot;: 0,
+    &quot;worker_num&quot;: 2,
+    &quot;task_worker_num&quot;: 1,
+    &quot;request_count&quot;: 3
+}
+task
+Task dispatched, please wait...
+Task #0 done!
+close
+Goodbye!
+Connection closed by foreign host.</code></pre>
+
+<p><strong>终端3：用协程Client</strong></p>
+<pre><code class="language-bash">$ php coroutine_client.php
+Server: Welcome! Your fd is 1
+Server: Echo: hello
+Server: {&quot;start_time&quot;:...}
+Server: Task dispatched, please wait...
+Server: Task #0 done!
+Server: Workers: 2, Tasks: 1
+Server: Goodbye!
+Connection closed</code></pre>
+
+<h2>五、注意事项</h2>
+
+<table><thead><tr>
+<th>事项</th>
+<th>说明</th>
+<th>建议</th>
+</tr></thead><tbody>
+<tr>
+<td>onReceive中的$reactorId</td>
+<td>来自哪个Reactor线程</td>
+<td>用于调试，一般不关注</td>
+</tr>
+<tr>
+<td>$fd文件描述符</td>
+<td>每个连接唯一，但会复用</td>
+<td>不要在业务中做fd的长期映射</td>
+</tr>
+<tr>
+<td>send()可能失败</td>
+<td>连接可能已关闭</td>
+<td>先用exists()检查</td>
+</tr>
+<tr>
+<td>task()投递</td>
+<td>只能投递给Task Worker</td>
+<td>需要配置task_worker_num</td>
+</tr>
+<tr>
+<td>进程隔离</td>
+<td>Worker间内存不共享</td>
+<td>使用Table或Redis共享</td>
+</tr>
+<tr>
+<td>守护进程</td>
+<td>daemonize=true后终端无输出</td>
+<td>配置log_file记录日志</td>
+</tr>
+</tbody></table>
+
+<h2>六、避坑指南</h2>
+
+<h3>❌ 坑1：在onStart中初始化数据库连接</h3>
+<pre><code class="language-php">&lt;?php
+// ❌ Wrong: onStart runs in Master process, DB conn not shared to Workers
+$server-&gt;on(&#x27;start&#x27;, function ($server) {
+    $db = new PDO(&#x27;mysql:host=127.0.0.1;dbname=test&#x27;, &#x27;root&#x27;, &#x27;&#x27;);
+});</code></pre>
+
+<pre><code class="language-php">&lt;?php
+// ✅ Correct: Initialize in onWorkerStart (per worker process)
+$server-&gt;on(&#x27;workerStart&#x27;, function ($server, $workerId) {
+    $server-&gt;db = new PDO(&#x27;mysql:host=127.0.0.1;dbname=test&#x27;, &#x27;root&#x27;, &#x27;&#x27;);
+});</code></pre>
+
+<h3>❌ 坑2：阻塞Worker进程</h3>
+<pre><code class="language-php">&lt;?php
+// ❌ Wrong: sleep() blocks the entire worker process
+$server-&gt;on(&#x27;receive&#x27;, function ($server, $fd, $rid, $data) {
+    sleep(10); // All other connections on this worker are blocked!
+    $server-&gt;send($fd, &quot;Done after 10s\n&quot;);
+});</code></pre>
+
+<pre><code class="language-php">&lt;?php
+// ✅ Correct: Use Task Worker for heavy work
+$server-&gt;on(&#x27;receive&#x27;, function ($server, $fd, $rid, $data) {
+    $server-&gt;task([&#x27;fd&#x27; =&gt; $fd, &#x27;data&#x27; =&gt; $data]);
+    $server-&gt;send($fd, &quot;Processing...\n&quot;);
+});
+
+$server-&gt;on(&#x27;task&#x27;, function ($server, $taskId, $srcWorkerId, $data) {
+    sleep(10); // This runs in a separate Task Worker
+    return $data;
+});</code></pre>
+
+<h3>❌ 坑3：忘记检查连接是否存在就send</h3>
+<pre><code class="language-php">&lt;?php
+// ❌ Wrong: Connection may have already closed
+$server-&gt;on(&#x27;finish&#x27;, function ($server, $taskId, $data) {
+    $server-&gt;send($data[&#x27;fd&#x27;], &quot;Result: ...&quot;); // May throw warning
+});</code></pre>
+
+<pre><code class="language-php">&lt;?php
+// ✅ Correct: Check connection existence first
+$server-&gt;on(&#x27;finish&#x27;, function ($server, $taskId, $data) {
+    if ($server-&gt;exists($data[&#x27;fd&#x27;])) {
+        $server-&gt;send($data[&#x27;fd&#x27;], &quot;Result: ...&quot;);
+    }
+});</code></pre>
+
+<h2>七、练习题</h2>
+
+<h3>🟢 基础题</h3>
+<ol>
+<li>创建一个TCP Server，监听9502端口，实现简单的聊天echo功能</li>
+</ul>
+<ol>
+<li>编写一个协程Client，连续发送5条消息并打印服务器的响应</li>
+
+<h3>🟡 进阶题</h3>
+<ol>
+<li>实现一个多端口Server，TCP(9501)+UDP(9502)同时监听</li>
+</ul>
+<ol>
+<li>使用Task Worker实现异步日志写入：收到消息后投递给Task Worker，Task Worker将日志写入文件</li>
+
+<h3>🔴 挑战题</h3>
+<ol>
+<li>实现一个简单的连接管理器：用Swoole\Table记录所有在线连接的fd和连接时间，支持广播消息</li>
+
+<p><details></p>
+<p><summary>参考答案（基础题1）</summary></p>
+
+<pre><code class="language-php">&lt;?php
+$server = new Swoole\Server(&#x27;0.0.0.0&#x27;, 9502);
+$server-&gt;on(&#x27;connect&#x27;, function ($server, $fd) {
+    echo &quot;Client {$fd} connected\n&quot;;
+});
+$server-&gt;on(&#x27;receive&#x27;, function ($server, $fd, $rid, $data) {
+    $server-&gt;send($fd, &quot;[Echo] &quot; . trim($data) . &quot;\n&quot;);
+});
+$server-&gt;on(&#x27;close&#x27;, function ($server, $fd) {
+    echo &quot;Client {$fd} closed\n&quot;;
+});
+$server-&gt;start();</code></pre>
+<p></details></p>
+
+<h2>八、知识点总结</h2>
+
+<pre><code>Server与Client知识树
+├── Server生命周期
+│   ├── start → onStart → ManagerStart → WorkerStart
+│   ├── 运行中 → Connect → Receive → Task → Finish
+│   └── 关闭 → onShutdown
+├── Client类型
+│   ├── 同步Client (Swoole\Client)
+│   └── 协程Client (Coroutine\Client) ★推荐
+├── 核心方法
+│   ├── Server::send(fd, data)
+│   ├── Server::close(fd)
+│   ├── Server::exist(fd)
+│   ├── Server::stats()
+│   └── Server::task(data)
+└── 配置项
+    ├── worker_num (默认CPU核数)
+    ├── task_worker_num
+    ├── daemonize
+    └── heartbeat_*</code></pre>
+
+<h2>九、举一反三</h2>
+
+<table><thead><tr>
+<th>功能</th>
+<th>事件/方法</th>
+<th>适用场景</th>
+</tr></thead><tbody>
+<tr>
+<td>新连接处理</td>
+<td>onConnect</td>
+<td>身份验证、欢迎消息</td>
+</tr>
+<tr>
+<td>数据处理</td>
+<td>onReceive</td>
+<td>业务逻辑核心</td>
+</tr>
+<tr>
+<td>耗时任务</td>
+<td>onTask + task()</td>
+<td>邮件发送、文件处理</td>
+</tr>
+<tr>
+<td>连接断开</td>
+<td>onClose</td>
+<td>资源清理、状态更新</td>
+</tr>
+<tr>
+<td>状态查询</td>
+<td>stats()</td>
+<td>监控面板</td>
+</tr>
+<tr>
+<td>定时任务</td>
+<td>tick()/after()</td>
+<td>心跳、超时检查</td>
+</tr>
+</tbody></table>
+
+<h2>十、参考资料</h2>
+
+<ul>
+<li><a href="https://wiki.swoole.com/#/server/tcp">Swoole Server文档</a></li>
+<li><a href="https://wiki.swoole.com/#/client">Swoole Client文档</a></li>
+<li><a href="https://wiki.swoole.com/#/learn?id=swoole-process-model">Swoole进程模型</a></li>
+<li><a href="https://wiki.swoole.com/#/server/events">Swoole事件回调</a></li>
+
+<h2>十一、代码演进</h2>
+
+<h3>v1：最简Server</h3>
+<pre><code class="language-php">&lt;?php
+// v1: Minimal TCP echo server
+$server = new Swoole\Server(&#x27;0.0.0.0&#x27;, 9501);
+$server-&gt;on(&#x27;receive&#x27;, function ($server, $fd, $rid, $data) {
+    $server-&gt;send($fd, &quot;Echo: {$data}&quot;);
+});
+$server-&gt;start();</code></pre>
+
+<h3>v2：增加连接管理和日志</h3>
+<pre><code class="language-php">&lt;?php
+// v2: Add connection events and logging
+$server = new Swoole\Server(&#x27;0.0.0.0&#x27;, 9501);
+$server-&gt;on(&#x27;connect&#x27;, function ($server, $fd) {
+    echo &quot;[+] fd={$fd} connected\n&quot;;
+});
+$server-&gt;on(&#x27;receive&#x27;, function ($server, $fd, $rid, $data) {
+    echo &quot;[R] fd={$fd}: &quot; . trim($data) . &quot;\n&quot;;
+    $server-&gt;send($fd, &quot;Echo: &quot; . trim($data) . &quot;\n&quot;);
+});
+$server-&gt;on(&#x27;close&#x27;, function ($server, $fd) {
+    echo &quot;[-] fd={$fd} closed\n&quot;;
+});
+$server-&gt;start();</code></pre>
+
+<h3>v3：完整Server（含Task Worker、配置、命令处理）</h3>
+<p>见上方「基础TCP Server」完整代码。</p>
+
+<hr>
+
+<p><strong>下期预告：</strong> 003-TCP服务器，将深入讲解TCP服务器的粘包处理、协议设计、连接池等高级话题。</p>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

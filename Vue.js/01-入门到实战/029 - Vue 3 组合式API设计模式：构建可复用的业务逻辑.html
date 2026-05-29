@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>029 - Vue 3 组合式API设计模式：构建可复用的业务逻辑</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Vue.js/index.html">Vue.js</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Vue.js/01-入门到实战/index.html">Vue.js入门到实战</a>
+</nav>
+<h1>029 - Vue 3 组合式API设计模式：构建可复用的业务逻辑</h1>
+<div class="meta">
+<span>📂 Vue.js入门到实战</span>
+<span>🏷️ Vue.js</span>
+</div>
+<article>
+
+
+<h2>难度标注</h2>
+
+<blockquote><p><strong>难度：⭐⭐⭐⭐（中高级）</strong><br>前置知识：Composition API精通、TypeScript基础、响应式原理<br>适合人群：想设计高质量组合函数、构建企业级Vue应用的架构师和高级开发者</p></blockquote>
+
+<hr>
+
+<h2>概念讲解</h2>
+
+<h3>什么是Composable（组合函数）？</h3>
+
+<p>Composable是一个以 <code>use</code> 开头的函数，封装了可复用的<strong>有状态逻辑</strong>。</p>
+
+<h3>设计原则</h3>
+
+<ol>
+<li><strong>单一职责</strong> — 一个组合函数只做一件事</li>
+</ul>
+<ol>
+<li><strong>输入输出清晰</strong> — 参数和返回值类型明确</li>
+</ul>
+<ol>
+<li><strong>副作用自理</strong> — 自己注册的钩子和监听器自己清理</li>
+</ul>
+<ol>
+<li><strong>无副作用的返回值</strong> — 返回的响应式数据可以被解构而不丢失响应性</li>
+
+<hr>
+
+<h2>脑图</h2>
+
+<pre><code>Composable 设计模式
+├── 基础模式
+│   ├── 状态封装 (useState)
+│   └── 方法定义
+├── 异步模式
+│   ├── useFetch (请求+状态)
+│   └── 竞态处理 (AbortController)
+├── 生命周期模式
+│   ├── 自动注册+清理
+│   └── 共享实例 (单例)
+└── 高级模式
+    ├── 泛型Composable
+    └── Composable组合</code></pre>
+
+<hr>
+
+<h2>完整代码示例</h2>
+
+<pre><code class="language-javascript">// composables/useCounter.js
+import { ref, computed } from &#x27;vue&#x27;
+
+export function useCounter(initialValue = 0, { min, max } = {}) {
+  const count = ref(initialValue)
+
+  const isMin = computed(() =&gt; min !== undefined &amp;&amp; count.value &lt;= min)
+  const isMax = computed(() =&gt; max !== undefined &amp;&amp; count.value &gt;= max)
+
+  function increment() {
+    if (!isMax.value) count.value++
+  }
+  function decrement() {
+    if (!isMin.value) count.value--
+  }
+  function reset() {
+    count.value = initialValue
+  }
+
+  return { count, isMin, isMax, increment, decrement, reset }
+}
+
+// composables/useFetch.js
+import { ref, shallowRef, toValue, onScopeDispose } from &#x27;vue&#x27;
+
+export function useFetch(url, options = {}) {
+  const data = shallowRef(null)
+  const error = ref(null)
+  const loading = ref(false)
+
+  let controller = null
+
+  async function execute() {
+    if (controller) controller.abort()
+    controller = new AbortController()
+
+    error.value = null
+    loading.value = true
+
+    try {
+      const response = await fetch(toValue(url), {
+        ...options,
+        signal: controller.signal
+      })
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`)
+      }
+      data.value = await response.json()
+    } catch (err) {
+      if (err.name !== &#x27;AbortError&#x27;) {
+        error.value = err.message
+      }
+    } finally {
+      loading.value = false
+    }
+  }
+
+  execute()
+  onScopeDispose(() =&gt; {
+    if (controller) controller.abort()
+  })
+
+  return { data, error, loading, refresh: execute }
+}</code></pre>
+
+<hr>
+
+<h2>执行预览</h2>
+
+<pre><code>使用组合函数简化组件逻辑</code></pre>
+
+<hr>
+
+<h2>注意事项</h2>
+
+<table><thead><tr>
+<th>原则</th>
+<th>说明</th>
+<th>违反后果</th>
+</tr></thead><tbody>
+<tr>
+<td>输入用ref/getter</td>
+<td>支持 <code>ref</code>、<code>computed</code>、<code>getter函数</code>、<code>原始值</code></td>
+<td>限制灵活性</td>
+</tr>
+<tr>
+<td>返回值用ref</td>
+<td>返回 <code>ref</code> 而非 <code>reactive</code>，支持解构</td>
+<td>解构丢失响应性</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>避坑指南</h2>
+
+<h3>❌ 返回reactive对象</h3>
+<pre><code class="language-javascript">// ❌ 解构后丢失响应性
+export function useBad() {
+  const state = reactive({ count: 0 })
+  return state
+}</code></pre>
+
+<hr>
+
+<h2>练习题</h2>
+
+<h3>🟢 初级</h3>
+<ol>
+<li><strong>选择题</strong>：组合函数的命名约定是？</li>
+<li>A. <code>get</code> 前缀</li>
+<li>B. <code>create</code> 前缀</li>
+<li>C. <code>use</code> 前缀</li>
+
+<p><details><summary>答案</summary>C</details></p>
+
+<hr>
+
+<h2>知识点总结</h2>
+
+<pre><code>Composable 设计知识树
+├── 设计原则
+│   ├── use前缀命名
+│   ├── 输入：ref/getter/value
+│   ├── 输出：ref/readonly
+│   └── 副作用自清理
+├── 常见模式
+│   ├── 状态封装 (useCounter)
+│   ├── 异步操作 (useFetch)
+│   └── 工厂 (createStore)
+└── 反模式
+    └── 返回reactive</code></pre>
+
+<hr>
+
+<h2>举一反三</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>Composable</th>
+<th>核心机制</th>
+</tr></thead><tbody>
+<tr>
+<td>表单管理</td>
+<td><code>useForm</code></td>
+<td>reactive + validate</td>
+</tr>
+<tr>
+<td>分页</td>
+<td><code>usePagination</code></td>
+<td>computed + ref</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>参考资料</h2>
+
+<ul>
+<li><a href="https://cn.vuejs.org/guide/reusability/composables.html">Vue 3 官方文档 - 组合式函数</a></li>
+<li><a href="https://vueuse.org/">VueUse - Vue组合函数集合</a></li>
+
+<hr>
+
+<h2>代码演进</h2>
+
+<h3>v1：简单组合函数</h3>
+<pre><code class="language-javascript">export function useCounter() {
+  const count = ref(0)
+  const increment = () =&gt; count.value++
+  return { count, increment }
+}</code></pre>
+
+<h3>v2：带配置和类型</h3>
+<pre><code class="language-typescript">export function useCounter(initial = 0, options: { min?: number; max?: number } = {}) {
+  const count = ref(initial)
+  const increment = () =&gt; { if (!options.max || count.value &lt; options.max) count.value++ }
+  return { count, increment }
+}</code></pre>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

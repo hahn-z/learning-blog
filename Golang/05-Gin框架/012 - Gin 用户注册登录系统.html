@@ -1,0 +1,952 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>012 - Gin 用户注册登录系统</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Golang/index.html">Golang</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Golang/05-Gin框架/index.html">Gin框架</a>
+</nav>
+<h1>012 - Gin 用户注册登录系统</h1>
+<div class="meta">
+<span>📂 Gin框架</span>
+<span>🏷️ Golang</span>
+</div>
+<article>
+
+
+<h1>012 - Gin 用户注册登录系统 ⭐⭐⭐</h1>
+
+<h2>难度标注</h2>
+
+<table><thead><tr>
+<th>维度</th>
+<th>等级</th>
+<th>说明</th>
+</tr></thead><tbody>
+<tr>
+<td>理解难度</td>
+<td>⭐⭐</td>
+<td>注册登录流程直观</td>
+</tr>
+<tr>
+<td>实现难度</td>
+<td>⭐⭐⭐</td>
+<td>密码哈希、Token 管理、输入验证</td>
+</tr>
+<tr>
+<td>生产就绪</td>
+<td>⭐⭐⭐</td>
+<td>需要加验证码、限流等</td>
+</tr>
+</tbody></table>
+
+<h2>概念讲解</h2>
+
+<h3>为什么密码不能明文存储？</h3>
+
+<p>明文存储密码意味着一旦数据库泄露，所有用户密码暴露。<strong>bcrypt</strong> 是密码哈希的行业标准：</p>
+
+<ul>
+<li>自动加盐（salt），相同密码生成不同哈希</li>
+<li>可调成本因子（cost），抵御暴力破解</li>
+<li>单向哈希，不可逆</li>
+
+<h3>完整认证系统架构</h3>
+
+<pre><code>┌─────────┐    ┌──────────┐    ┌─────────┐
+│  Client  │───&gt;│  Gin API │───&gt;│ Database│
+└─────────┘    └──────────┘    └─────────┘
+                    │
+               ┌────┴────┐
+               │ JWT Auth│
+               │ bcrypt  │
+               │ 中间件   │
+               └─────────┘</code></pre>
+
+<h3>注册登录流程</h3>
+
+<p><strong>注册流程：</strong></p>
+<ol>
+<li>用户提交 username + email + password</li>
+</ul>
+<ol>
+<li>后端验证输入（格式、唯一性）</li>
+</ul>
+<ol>
+<li>bcrypt 哈希密码</li>
+</ul>
+<ol>
+<li>存储到数据库</li>
+</ul>
+<ol>
+<li>返回成功（可选自动登录）</li>
+
+<p><strong>登录流程：</strong></p>
+<ol>
+<li>用户提交 username + password</li>
+</ul>
+<ol>
+<li>查询数据库获取用户记录</li>
+</ul>
+<ol>
+<li>bcrypt 对比密码</li>
+</ul>
+<ol>
+<li>生成 JWT Token</li>
+</ul>
+<ol>
+<li>返回 Token 给客户端</li>
+
+<h2>脑图</h2>
+
+<pre><code>用户注册登录系统
+├── 数据模型
+│   ├── User 结构体
+│   │   ├── ID, Username, Email
+│   │   ├── PasswordHash (bcrypt)
+│   │   ├── Role, Status
+│   │   └── CreatedAt, UpdatedAt
+│   └── 数据库表设计
+├── 注册流程
+│   ├── 输入验证 (binding tags)
+│   ├── 唯一性检查 (username/email)
+│   ├── 密码哈希 (bcrypt)
+│   └── 数据持久化
+├── 登录流程
+│   ├── 凭证验证
+│   ├── bcrypt.CompareHashAndPassword
+│   ├── JWT Token 生成
+│   └── 返回 Token Pair
+├── 中间件
+│   ├── JWT 认证中间件
+│   └── 用户信息注入
+├── 用户接口
+│   ├── GET /api/profile  用户信息
+│   ├── PUT /api/profile  更新信息
+│   └── POST /auth/logout 登出
+└── 安全加固
+    ├── 密码强度验证
+    ├── 登录限流
+    └── 输入净化</code></pre>
+
+<h2>完整 Go 代码</h2>
+
+<h3>项目结构</h3>
+
+<pre><code>gin-auth-demo/
+├── main.go
+├── config/
+│   └── config.go
+├── models/
+│   └── user.go
+├── handlers/
+│   └── auth.go
+├── middleware/
+│   └── auth.go
+├── database/
+│   └── database.go
+└── utils/
+    ├── jwt.go
+    └── validator.go</code></pre>
+
+<h3>config/config.go</h3>
+
+<pre><code class="language-go">package config
+
+import &quot;os&quot;
+
+type Config struct {
+    DBHost     string
+    DBPort     string
+    DBUser     string
+    DBPassword string
+    DBName     string
+    JWTSecret  string
+    ServerPort string
+}
+
+func Load() *Config {
+    return &amp;Config{
+        DBHost:     getEnv(&quot;DB_HOST&quot;, &quot;localhost&quot;),
+        DBPort:     getEnv(&quot;DB_PORT&quot;, &quot;5432&quot;),
+        DBUser:     getEnv(&quot;DB_USER&quot;, &quot;postgres&quot;),
+        DBPassword: getEnv(&quot;DB_PASSWORD&quot;, &quot;postgres&quot;),
+        DBName:     getEnv(&quot;DB_NAME&quot;, &quot;gindemo&quot;),
+        JWTSecret:  getEnv(&quot;JWT_SECRET&quot;, &quot;dev-secret-change-in-production&quot;),
+        ServerPort: getEnv(&quot;SERVER_PORT&quot;, &quot;8080&quot;),
+    }
+}
+
+func getEnv(key, fallback string) string {
+    if v := os.Getenv(key); v != &quot;&quot; {
+        return v
+    }
+    return fallback
+}</code></pre>
+
+<h3>models/user.go</h3>
+
+<pre><code class="language-go">package models
+
+import (
+    &quot;time&quot;
+
+    &quot;gorm.io/gorm&quot;
+)
+
+// User represents a system user
+type User struct {
+    ID           uint           `gorm:&quot;primaryKey&quot; json:&quot;id&quot;`
+    Username     string         `gorm:&quot;uniqueIndex;size:50;not null&quot; json:&quot;username&quot;`
+    Email        string         `gorm:&quot;uniqueIndex;size:100;not null&quot; json:&quot;email&quot;`
+    PasswordHash string         `gorm:&quot;size:255;not null&quot; json:&quot;-&quot;` // Never expose in JSON
+    Nickname     string         `gorm:&quot;size:50&quot; json:&quot;nickname&quot;`
+    Avatar       string         `gorm:&quot;size:255&quot; json:&quot;avatar&quot;`
+    Role         string         `gorm:&quot;size:20;default:user&quot; json:&quot;role&quot;`
+    Status       int            `gorm:&quot;default:1&quot; json:&quot;status&quot;` // 1=active, 0=disabled
+    LastLoginAt  *time.Time     `json:&quot;last_login_at&quot;`
+    CreatedAt    time.Time      `json:&quot;created_at&quot;`
+    UpdatedAt    time.Time      `json:&quot;updated_at&quot;`
+    DeletedAt    gorm.DeletedAt `gorm:&quot;index&quot; json:&quot;-&quot;`
+}
+
+// TableName specifies the database table name
+func (User) TableName() string {
+    return &quot;users&quot;
+}
+
+// RegisterRequest for user registration
+type RegisterRequest struct {
+    Username string `json:&quot;username&quot; binding:&quot;required,min=3,max=50&quot;`
+    Email    string `json:&quot;email&quot; binding:&quot;required,email&quot;`
+    Password string `json:&quot;password&quot; binding:&quot;required,min=6,max=128&quot;`
+    Nickname string `json:&quot;nickname&quot; binding:&quot;max=50&quot;`
+}
+
+// LoginRequest for user login
+type LoginRequest struct {
+    Username string `json:&quot;username&quot; binding:&quot;required&quot;`
+    Password string `json:&quot;password&quot; binding:&quot;required&quot;`
+}
+
+// UpdateProfileRequest for updating user profile
+type UpdateProfileRequest struct {
+    Nickname string `json:&quot;nickname&quot; binding:&quot;max=50&quot;`
+    Avatar   string `json:&quot;avatar&quot; binding:&quot;max=255&quot;`
+}
+
+// UserResponse is the safe user data returned to clients
+type UserResponse struct {
+    ID        uint      `json:&quot;id&quot;`
+    Username  string    `json:&quot;username&quot;`
+    Email     string    `json:&quot;email&quot;`
+    Nickname  string    `json:&quot;nickname&quot;`
+    Avatar    string    `json:&quot;avatar&quot;`
+    Role      string    `json:&quot;role&quot;`
+    CreatedAt time.Time `json:&quot;created_at&quot;`
+}</code></pre>
+
+<h3>database/database.go</h3>
+
+<pre><code class="language-go">package database
+
+import (
+    &quot;fmt&quot;
+    &quot;log&quot;
+
+    &quot;gin-auth-demo/config&quot;
+    &quot;gin-auth-demo/models&quot;
+
+    &quot;gorm.io/driver/postgres&quot;
+    &quot;gorm.io/gorm&quot;
+)
+
+var DB *gorm.DB
+
+func Connect(cfg *config.Config) {
+    dsn := fmt.Sprintf(
+        &quot;host=%s port=%s user=%s password=%s dbname=%s sslmode=disable&quot;,
+        cfg.DBHost, cfg.DBPort, cfg.DBUser, cfg.DBPassword, cfg.DBName,
+    )
+
+    var err error
+    DB, err = gorm.Open(postgres.Open(dsn), &amp;gorm.Config{})
+    if err != nil {
+        log.Fatalf(&quot;Failed to connect database: %v&quot;, err)
+    }
+
+    // Auto migrate schemas
+    DB.AutoMigrate(&amp;models.User{})
+    log.Println(&quot;Database connected and migrated&quot;)
+}</code></pre>
+
+<h3>utils/validator.go</h3>
+
+<pre><code class="language-go">package utils
+
+import &quot;regexp&quot;
+
+// IsStrongPassword checks password strength
+func IsStrongPassword(password string) bool {
+    if len(password) &lt; 6 {
+        return false
+    }
+    // At least one letter and one number
+    hasLetter := regexp.MustCompile(`[a-zA-Z]`).MatchString
+    hasNumber := regexp.MustCompile(`[0-9]`).MatchString
+    return hasLetter(password) &amp;&amp; hasNumber(password)
+}</code></pre>
+
+<h3>utils/jwt.go</h3>
+
+<pre><code class="language-go">package utils
+
+import (
+    &quot;time&quot;
+
+    &quot;github.com/golang-jwt/jwt/v5&quot;
+)
+
+var jwtSecret []byte
+
+// InitJWT sets the secret key
+func InitJWT(secret string) {
+    jwtSecret = []byte(secret)
+}
+
+type JWTClaims struct {
+    UserID   uint   `json:&quot;user_id&quot;`
+    Username string `json:&quot;username&quot;`
+    Role     string `json:&quot;role&quot;`
+    jwt.RegisteredClaims
+}
+
+// GenerateToken creates a signed JWT token
+func GenerateToken(userID uint, username, role string) (string, error) {
+    claims := JWTClaims{
+        UserID:   userID,
+        Username: username,
+        Role:     role,
+        RegisteredClaims: jwt.RegisteredClaims{
+            ExpiresAt: jwt.NewNumericDate(time.Now().Add(24 * time.Hour)),
+            IssuedAt:  jwt.NewNumericDate(time.Now()),
+            Issuer:    &quot;gin-auth-demo&quot;,
+        },
+    }
+    token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+    return token.SignedString(jwtSecret)
+}
+
+// ParseToken validates and extracts claims
+func ParseToken(tokenString string) (*JWTClaims, error) {
+    claims := &amp;JWTClaims{}
+    _, err := jwt.ParseWithClaims(tokenString, claims, func(token *jwt.Token) (interface{}, error) {
+        return jwtSecret, nil
+    })
+    return claims, err
+}</code></pre>
+
+<h3>middleware/auth.go</h3>
+
+<pre><code class="language-go">package middleware
+
+import (
+    &quot;net/http&quot;
+    &quot;strings&quot;
+
+    &quot;gin-auth-demo/utils&quot;
+
+    &quot;github.com/gin-gonic/gin&quot;
+)
+
+// AuthRequired is JWT authentication middleware
+func AuthRequired() gin.HandlerFunc {
+    return func(c *gin.Context) {
+        authHeader := c.GetHeader(&quot;Authorization&quot;)
+        if authHeader == &quot;&quot; {
+            c.JSON(http.StatusUnauthorized, gin.H{&quot;error&quot;: &quot;Missing authorization header&quot;})
+            c.Abort()
+            return
+        }
+
+        parts := strings.SplitN(authHeader, &quot; &quot;, 2)
+        if len(parts) != 2 || parts[0] != &quot;Bearer&quot; {
+            c.JSON(http.StatusUnauthorized, gin.H{&quot;error&quot;: &quot;Invalid authorization format&quot;})
+            c.Abort()
+            return
+        }
+
+        claims, err := utils.ParseToken(parts[1])
+        if err != nil {
+            c.JSON(http.StatusUnauthorized, gin.H{&quot;error&quot;: &quot;Invalid or expired token&quot;})
+            c.Abort()
+            return
+        }
+
+        c.Set(&quot;userID&quot;, claims.UserID)
+        c.Set(&quot;username&quot;, claims.Username)
+        c.Set(&quot;role&quot;, claims.Role)
+        c.Next()
+    }
+}</code></pre>
+
+<h3>handlers/auth.go</h3>
+
+<pre><code class="language-go">package handlers
+
+import (
+    &quot;errors&quot;
+    &quot;net/http&quot;
+    &quot;time&quot;
+
+    &quot;gin-auth-demo/database&quot;
+    &quot;gin-auth-demo/models&quot;
+    &quot;gin-auth-demo/utils&quot;
+
+    &quot;github.com/gin-gonic/gin&quot;
+    &quot;golang.org/x/crypto/bcrypt&quot;
+    &quot;gorm.io/gorm&quot;
+)
+
+// Register handles user registration
+// POST /auth/register
+func Register(c *gin.Context) {
+    var req models.RegisterRequest
+    if err := c.ShouldBindJSON(&amp;req); err != nil {
+        c.JSON(http.StatusBadRequest, gin.H{&quot;error&quot;: err.Error()})
+        return
+    }
+
+    // Check username uniqueness
+    var existingUser models.User
+    if err := database.DB.Where(&quot;username = ?&quot;, req.Username).First(&amp;existingUser).Error; err == nil {
+        c.JSON(http.StatusConflict, gin.H{&quot;error&quot;: &quot;Username already exists&quot;})
+        return
+    }
+
+    // Check email uniqueness
+    if err := database.DB.Where(&quot;email = ?&quot;, req.Email).First(&amp;existingUser).Error; err == nil {
+        c.JSON(http.StatusConflict, gin.H{&quot;error&quot;: &quot;Email already registered&quot;})
+        return
+    }
+
+    // Hash password with bcrypt
+    hash, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
+    if err != nil {
+        c.JSON(http.StatusInternalServerError, gin.H{&quot;error&quot;: &quot;Failed to hash password&quot;})
+        return
+    }
+
+    // Create user record
+    nickname := req.Nickname
+    if nickname == &quot;&quot; {
+        nickname = req.Username
+    }
+
+    user := models.User{
+        Username:     req.Username,
+        Email:        req.Email,
+        PasswordHash: string(hash),
+        Nickname:     nickname,
+        Role:         &quot;user&quot;,
+        Status:       1,
+    }
+
+    if err := database.DB.Create(&amp;user).Error; err != nil {
+        c.JSON(http.StatusInternalServerError, gin.H{&quot;error&quot;: &quot;Failed to create user&quot;})
+        return
+    }
+
+    c.JSON(http.StatusCreated, gin.H{
+        &quot;message&quot;: &quot;Registration successful&quot;,
+        &quot;data&quot;: models.UserResponse{
+            ID:       user.ID,
+            Username: user.Username,
+            Email:    user.Email,
+            Nickname: user.Nickname,
+            Role:     user.Role,
+        },
+    })
+}
+
+// Login handles user authentication
+// POST /auth/login
+func Login(c *gin.Context) {
+    var req models.LoginRequest
+    if err := c.ShouldBindJSON(&amp;req); err != nil {
+        c.JSON(http.StatusBadRequest, gin.H{&quot;error&quot;: err.Error()})
+        return
+    }
+
+    // Find user by username
+    var user models.User
+    if err := database.DB.Where(&quot;username = ?&quot;, req.Username).First(&amp;user).Error; err != nil {
+        if errors.Is(err, gorm.ErrRecordNotFound) {
+            c.JSON(http.StatusUnauthorized, gin.H{&quot;error&quot;: &quot;Invalid credentials&quot;})
+            return
+        }
+        c.JSON(http.StatusInternalServerError, gin.H{&quot;error&quot;: &quot;Database error&quot;})
+        return
+    }
+
+    // Check user status
+    if user.Status != 1 {
+        c.JSON(http.StatusForbidden, gin.H{&quot;error&quot;: &quot;Account is disabled&quot;})
+        return
+    }
+
+    // Compare password hash
+    if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(req.Password)); err != nil {
+        c.JSON(http.StatusUnauthorized, gin.H{&quot;error&quot;: &quot;Invalid credentials&quot;})
+        return
+    }
+
+    // Update last login time
+    now := time.Now()
+    database.DB.Model(&amp;user).Update(&quot;last_login_at&quot;, now)
+
+    // Generate JWT token
+    token, err := utils.GenerateToken(user.ID, user.Username, user.Role)
+    if err != nil {
+        c.JSON(http.StatusInternalServerError, gin.H{&quot;error&quot;: &quot;Failed to generate token&quot;})
+        return
+    }
+
+    c.JSON(http.StatusOK, gin.H{
+        &quot;message&quot;: &quot;Login successful&quot;,
+        &quot;data&quot;: gin.H{
+            &quot;token&quot;: token,
+            &quot;user&quot;: models.UserResponse{
+                ID:        user.ID,
+                Username:  user.Username,
+                Email:     user.Email,
+                Nickname:  user.Nickname,
+                Avatar:    user.Avatar,
+                Role:      user.Role,
+                CreatedAt: user.CreatedAt,
+            },
+        },
+    })
+}
+
+// GetProfile returns current user info
+// GET /api/profile
+func GetProfile(c *gin.Context) {
+    userID := c.GetUint(&quot;userID&quot;)
+
+    var user models.User
+    if err := database.DB.First(&amp;user, userID).Error; err != nil {
+        c.JSON(http.StatusNotFound, gin.H{&quot;error&quot;: &quot;User not found&quot;})
+        return
+    }
+
+    c.JSON(http.StatusOK, gin.H{
+        &quot;data&quot;: models.UserResponse{
+            ID:        user.ID,
+            Username:  user.Username,
+            Email:     user.Email,
+            Nickname:  user.Nickname,
+            Avatar:    user.Avatar,
+            Role:      user.Role,
+            CreatedAt: user.CreatedAt,
+        },
+    })
+}
+
+// UpdateProfile updates current user info
+// PUT /api/profile
+func UpdateProfile(c *gin.Context) {
+    userID := c.GetUint(&quot;userID&quot;)
+    var req models.UpdateProfileRequest
+    if err := c.ShouldBindJSON(&amp;req); err != nil {
+        c.JSON(http.StatusBadRequest, gin.H{&quot;error&quot;: err.Error()})
+        return
+    }
+
+    if err := database.DB.Model(&amp;models.User{}).Where(&quot;id = ?&quot;, userID).Updates(req).Error; err != nil {
+        c.JSON(http.StatusInternalServerError, gin.H{&quot;error&quot;: &quot;Failed to update profile&quot;})
+        return
+    }
+
+    c.JSON(http.StatusOK, gin.H{&quot;message&quot;: &quot;Profile updated&quot;})
+}
+
+// Logout handles user logout
+// POST /auth/logout
+func Logout(c *gin.Context) {
+    // In a simple implementation, just tell client to delete token.
+    // Production: add token to blacklist (Redis) with TTL matching expiry.
+    c.JSON(http.StatusOK, gin.H{&quot;message&quot;: &quot;Logged out successfully&quot;})
+}</code></pre>
+
+<h3>main.go</h3>
+
+<pre><code class="language-go">package main
+
+import (
+    &quot;log&quot;
+
+    &quot;gin-auth-demo/config&quot;
+    &quot;gin-auth-demo/database&quot;
+    &quot;gin-auth-demo/handlers&quot;
+    &quot;gin-auth-demo/middleware&quot;
+    &quot;gin-auth-demo/utils&quot;
+
+    &quot;github.com/gin-gonic/gin&quot;
+)
+
+func main() {
+    cfg := config.Load()
+    database.Connect(cfg)
+    utils.InitJWT(cfg.JWTSecret)
+
+    r := gin.Default()
+
+    // Public auth routes
+    auth := r.Group(&quot;/auth&quot;)
+    {
+        auth.POST(&quot;/register&quot;, handlers.Register)
+        auth.POST(&quot;/login&quot;, handlers.Login)
+        auth.POST(&quot;/logout&quot;, handlers.Logout)
+    }
+
+    // Protected API routes
+    api := r.Group(&quot;/api&quot;)
+    api.Use(middleware.AuthRequired())
+    {
+        api.GET(&quot;/profile&quot;, handlers.GetProfile)
+        api.PUT(&quot;/profile&quot;, handlers.UpdateProfile)
+    }
+
+    log.Printf(&quot;Server starting on :%s&quot;, cfg.ServerPort)
+    r.Run(&quot;:&quot; + cfg.ServerPort)
+}</code></pre>
+
+<h2>执行预览</h2>
+
+<pre><code class="language-bash"># 1. 注册新用户
+curl -X POST http://localhost:8080/auth/register \
+  -H &quot;Content-Type: application/json&quot; \
+  -d &#x27;{
+    &quot;username&quot;: &quot;zhangsan&quot;,
+    &quot;email&quot;: &quot;zhangsan@example.com&quot;,
+    &quot;password&quot;: &quot;abc123&quot;,
+    &quot;nickname&quot;: &quot;张三&quot;
+  }&#x27;
+# {&quot;message&quot;:&quot;Registration successful&quot;,&quot;data&quot;:{&quot;id&quot;:1,&quot;username&quot;:&quot;zhangsan&quot;,...}}
+
+# 2. 重复注册（失败）
+# {&quot;error&quot;:&quot;Username already exists&quot;}
+
+# 3. 登录
+curl -X POST http://localhost:8080/auth/login \
+  -H &quot;Content-Type: application/json&quot; \
+  -d &#x27;{&quot;username&quot;:&quot;zhangsan&quot;,&quot;password&quot;:&quot;abc123&quot;}&#x27;
+# {&quot;message&quot;:&quot;Login successful&quot;,&quot;data&quot;:{&quot;token&quot;:&quot;eyJ...&quot;,&quot;user&quot;:{...}}}
+
+# 4. 获取个人信息
+curl http://localhost:8080/api/profile \
+  -H &quot;Authorization: Bearer eyJ...&quot;
+# {&quot;data&quot;:{&quot;id&quot;:1,&quot;username&quot;:&quot;zhangsan&quot;,&quot;email&quot;:&quot;zhangsan@example.com&quot;,...}}
+
+# 5. 更新昵称
+curl -X PUT http://localhost:8080/api/profile \
+  -H &quot;Authorization: Bearer eyJ...&quot; \
+  -H &quot;Content-Type: application/json&quot; \
+  -d &#x27;{&quot;nickname&quot;:&quot;张三丰&quot;}&#x27;
+# {&quot;message&quot;:&quot;Profile updated&quot;}
+
+# 6. 错误密码（失败）
+# {&quot;error&quot;:&quot;Invalid credentials&quot;}</code></pre>
+
+<h2>注意事项</h2>
+
+<table><thead><tr>
+<th>事项</th>
+<th>说明</th>
+<th>严重度</th>
+</tr></thead><tbody>
+<tr>
+<td>bcrypt Cost</td>
+<td>DefaultCost(10) 足够，太高影响性能</td>
+<td>🟡 重要</td>
+</tr>
+<tr>
+<td>登录限流</td>
+<td>防止暴力破解，建议 5 次/分钟/IP</td>
+<td>🔴 严重</td>
+</tr>
+<tr>
+<td>HTTPS Only</td>
+<td>密码和 Token 必须加密传输</td>
+<td>🔴 严重</td>
+</tr>
+<tr>
+<td>软删除</td>
+<td>GORM DeletedAt 实现软删除，保留数据</td>
+<td>🟢 建议</td>
+</tr>
+<tr>
+<td>日志脱敏</td>
+<td>日志中不要记录密码明文</td>
+<td>🔴 严重</td>
+</tr>
+<tr>
+<td>并发注册</td>
+<td>同一用户名并发注册需数据库唯一索引保障</td>
+<td>🟡 重要</td>
+</tr>
+</tbody></table>
+
+<h2>避坑指南</h2>
+
+<h3>❌ 明文存储密码</h3>
+<pre><code class="language-go">// BAD: Storing plain text password
+user.PasswordHash = req.Password</code></pre>
+<p>✅ <strong>正确做法：</strong> 使用 <code>bcrypt.GenerateFromPassword()</code> 哈希存储。</p>
+
+<h3>❌ 登录时提示"用户不存在"</h3>
+<pre><code class="language-go">// BAD: Reveals whether username exists
+if user == nil {
+    return &quot;User not found&quot;  // Attacker can enumerate users
+}</code></pre>
+<p>✅ <strong>正确做法：</strong> 统一返回 "用户名或密码错误"，不透露具体原因。</p>
+
+<h3>❌ 密码比较用字符串相等</h3>
+<pre><code class="language-go">// BAD: String comparison
+if user.PasswordHash != req.Password { ... }</code></pre>
+<p>✅ <strong>正确做法：</strong> 使用 <code>bcrypt.CompareHashAndPassword()</code>。</p>
+
+<h3>❌ 注册不检查唯一性</h3>
+<pre><code class="language-go">// BAD: Direct insert without uniqueness check
+db.Create(&amp;user) // May fail with DB error or create duplicates</code></pre>
+<p>✅ <strong>正确做法：</strong> 先查询 + 数据库唯一索引双重保障。</p>
+
+<h3>❌ JSON 返回密码哈希</h3>
+<pre><code class="language-go">// BAD: Password hash in API response
+type User struct {
+    Password string `json:&quot;password&quot;` // Leaked!
+}</code></pre>
+<p>✅ <strong>正确做法：</strong> 使用 <code>json:"-"</code> 标签忽略字段，用专门的 Response 结构体。</p>
+
+<h2>练习题</h2>
+
+<h3>🟢 基础题</h3>
+
+<ol>
+<li><strong>最小注册系统：</strong> 实现只含 username + password 的注册和登录，使用 SQLite + GORM。</li>
+
+<ol>
+<li><strong>密码修改：</strong> 添加 <code>PUT /api/password</code> 接口，验证旧密码后更新新密码。</li>
+
+<h3>🟡 进阶题</h3>
+
+<ol>
+<li><strong>邮箱验证：</strong> 注册后发送验证邮件（可用模拟），用户点击链接激活账号，未激活不可登录。</li>
+
+<ol>
+<li><strong>登录限流：</strong> 实现 IP + 用户名维度的登录限流，5 次失败后锁定 15 分钟。</li>
+
+<h3>🔴 挑战题</h3>
+
+<ol>
+<li><strong>OAuth2 集成：</strong> 接入 GitHub/Google 第三方登录，实现绑定已有账号和自动注册新账号。</li>
+
+<h2>知识点总结</h2>
+
+<pre><code>用户注册登录系统
+├── 密码安全
+│   ├── bcrypt 哈希 (GenerateFromPassword)
+│   ├── bcrypt 验证 (CompareHashAndPassword)
+│   ├── Cost 因子 (DefaultCost=10)
+│   └── 密码强度验证
+├── 数据模型
+│   ├── User 结构体设计
+│   ├── json:&quot;-&quot; 隐藏敏感字段
+│   ├── 唯一索引 (username, email)
+│   └── 软删除 (gorm.DeletedAt)
+├── 注册流程
+│   ├── 输入验证 (binding tags)
+│   ├── 唯一性检查
+│   ├── 密码哈希
+│   └── 自动填充默认值
+├── 登录流程
+│   ├── 查询用户记录
+│   ├── 状态检查 (disabled?)
+│   ├── 密码比对
+│   ├── 更新登录时间
+│   └── JWT Token 生成
+├── 用户接口
+│   ├── GET /api/profile
+│   ├── PUT /api/profile
+│   └── POST /auth/logout
+└── 安全实践
+    ├── 统一错误提示
+    ├── 日志脱敏
+    ├── 登录限流
+    └── HTTPS</code></pre>
+
+<h2>举一反三</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>方案</th>
+<th>关键点</th>
+</tr></thead><tbody>
+<tr>
+<td>手机号注册</td>
+<td>短信验证码 + 手机号唯一索引</td>
+<td>验证码有效期 + 频率限制</td>
+</tr>
+<tr>
+<td>管理后台</td>
+<td>额外 admin 角色 + 独立登录页</td>
+<td>区分前后台认证</td>
+</tr>
+<tr>
+<td>多端登录</td>
+<td>设备指纹 + Token 绑定</td>
+<td>可管理已登录设备</td>
+</tr>
+<tr>
+<td>密码找回</td>
+<td>邮箱验证码 + 限时重置链接</td>
+<td>重置链接一次性使用</td>
+</tr>
+<tr>
+<td>社交登录</td>
+<td>OAuth2 + 绑定表</td>
+<td>第三方 ID 与本地用户关联</td>
+</tr>
+</tbody></table>
+
+<h2>参考资料</h2>
+
+<ul>
+<li><a href="https://en.wikipedia.org/wiki/Bcrypt">bcrypt Wikipedia</a></li>
+<li><a href="https://pkg.go.dev/golang.org/x/crypto/bcrypt">golang.org/x/crypto/bcrypt</a></li>
+<li><a href="https://gorm.io/docs/">GORM 官方文档</a></li>
+<li><a href="https://gin-gonic.com/docs/examples/binding-and-validation/">Gin Binding 文档</a></li>
+<li><a href="https://cheatsheetseries.owasp.org/cheatsheets/Authentication_Cheat_Sheet.html">OWASP Authentication Cheat Sheet</a></li>
+
+<h2>代码演进</h2>
+
+<h3>v1 - 硬编码内存存储</h3>
+
+<pre><code class="language-go">// v1: In-memory user store, no database
+var users = map[string]*User{}
+
+func Register(c *gin.Context) {
+    var req RegisterRequest
+    c.ShouldBindJSON(&amp;req)
+    users[req.Username] = &amp;User{
+        Username: req.Username,
+        Password: req.Password, // Plaintext!
+    }
+    c.JSON(200, gin.H{&quot;message&quot;: &quot;registered&quot;})
+}</code></pre>
+
+<h3>v2 - 数据库 + bcrypt</h3>
+
+<pre><code class="language-go">// v2: GORM + bcrypt, proper validation
+func Register(c *gin.Context) {
+    var req RegisterRequest
+    if err := c.ShouldBindJSON(&amp;req); err != nil {
+        c.JSON(400, gin.H{&quot;error&quot;: err.Error()})
+        return
+    }
+    // Uniqueness check
+    var existing User
+    if db.Where(&quot;username = ?&quot;, req.Username).First(&amp;existing).Error == nil {
+        c.JSON(409, gin.H{&quot;error&quot;: &quot;Username taken&quot;})
+        return
+    }
+    // bcrypt hash
+    hash, _ := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
+    user := User{Username: req.Username, PasswordHash: string(hash)}
+    db.Create(&amp;user)
+    c.JSON(201, gin.H{&quot;message&quot;: &quot;registered&quot;})
+}</code></pre>
+
+<h3>v3 - 完整生产级</h3>
+
+<pre><code class="language-go">// v3: Config-driven, separate response models, logging, rate limiting
+func Register(c *gin.Context) {
+    req, err := validateRegisterRequest(c)
+    if err != nil { respondValidationError(c, err); return }
+    
+    // Rate limit check
+    if isRateLimited(c.ClientIP(), &quot;register&quot;) {
+        respondError(c, 429, &quot;Too many requests&quot;); return
+    }
+    
+    user, err := userService.Register(req)
+    if err != nil {
+        handleError(c, err); return
+    }
+    
+    logger.Info(&quot;User registered&quot;, &quot;username&quot;, user.Username, &quot;ip&quot;, c.ClientIP())
+    respondSuccess(c, 201, toUserResponse(user))
+}</code></pre>
+
+<p><strong>演进总结：</strong> v1 能跑但极不安全 → v2 引入数据库和密码哈希 → v3 完善验证、限流、日志和错误处理。</p>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

@@ -1,0 +1,765 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>009-Data数据层与GORM集成</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Golang/index.html">Golang</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Golang/06-Kratos微服务框架/index.html">Kratos框架</a>
+</nav>
+<h1>009-Data数据层与GORM集成</h1>
+<div class="meta">
+<span>📂 Kratos框架</span>
+<span>🏷️ Golang</span>
+</div>
+<article>
+
+
+<h1>009-Data数据层与GORM集成</h1>
+
+<blockquote><p>难度：⭐⭐⭐⭐（高级）<br>前置知识：GORM基础、数据库连接池、Redis缓存、Kratos biz层</p></blockquote>
+
+<h2>一、概念讲解</h2>
+
+<h3>data 层的职责</h3>
+
+<p>data 层是 Kratos 项目中<strong>数据访问</strong>的唯一层，负责：</p>
+
+<ol>
+<li><strong>实现 biz 层定义的 Repository 接口</strong></li>
+</ul>
+<ol>
+<li><strong>管理数据库连接和生命周期</strong></li>
+</ul>
+<ol>
+<li><strong>处理数据转换</strong>：DO（Data Object）↔ BO（Business Object）</li>
+</ul>
+<ol>
+<li><strong>管理缓存策略</strong></li>
+</ul>
+<ol>
+<li><strong>管理数据库迁移</strong></li>
+
+<p>data 层<strong>不应该</strong>包含任何业务逻辑，它只是数据的"搬运工"。</p>
+
+<h3>DO 与 BO 的区别</h3>
+
+<table><thead><tr>
+<th>概念</th>
+<th>全称</th>
+<th>所在层</th>
+<th>特点</th>
+</tr></thead><tbody>
+<tr>
+<td>BO</td>
+<td>Business Object</td>
+<td>biz 层</td>
+<td>纯业务模型，无 ORM 标签</td>
+</tr>
+<tr>
+<td>DO</td>
+<td>Data Object</td>
+<td>data 层</td>
+<td>数据库映射模型，有 ORM 标签</td>
+</tr>
+</tbody></table>
+
+<h2>二、脑图</h2>
+
+<pre><code>Data 数据层
+├── 核心职责
+│   ├── 实现 Repository 接口
+│   ├── 管理数据库连接
+│   ├── DO ↔ BO 转换
+│   └── 缓存管理
+├── GORM 集成
+│   ├── 连接配置
+│   ├── 连接池参数
+│   ├── 日志集成
+│   └── GORM 插件
+├── Repository 实现
+│   ├── CRUD 操作
+│   ├── 复杂查询构建
+│   ├── 分页封装
+│   └── 软删除
+├── 事务管理
+│   ├── Transaction 接口实现
+│   ├── Context 传递 *gorm.DB
+│   └── 嵌套事务（SavePoint）
+├── 缓存策略
+│   ├── Cache-Aside 模式
+│   ├── Redis 集成
+│   ├── 缓存 Key 设计
+│   └── 缓存失效策略
+├── 数据转换
+│   ├── DO → BO (toEntity)
+│   ├── BO → DO (toModel)
+│   └── 转换函数集中管理
+└── 迁移管理
+    ├── AutoMigrate
+    ├── golang-migrate
+    └── 版本化迁移文件</code></pre>
+
+<h2>三、完整代码示例</h2>
+
+<h3>3.1 数据对象（DO）</h3>
+
+<pre><code class="language-go">// internal/data/model/order.go
+package model
+
+import (
+    &quot;time&quot;
+    &quot;gorm.io/gorm&quot;
+)
+
+// OrderDO is the database model for orders (Data Object)
+type OrderDO struct {
+    ID              int64          `gorm:&quot;primaryKey;autoIncrement&quot;`
+    UserID          int64          `gorm:&quot;index;not null&quot;`
+    Status          string         `gorm:&quot;type:varchar(20);not null;default:&#x27;pending&#x27;&quot;`
+    TotalAmount     float64        `gorm:&quot;type:decimal(10,2);not null&quot;`
+    Remark          string         `gorm:&quot;type:varchar(500)&quot;`
+    ReceiverName    string         `gorm:&quot;type:varchar(50);not null&quot;`
+    ReceiverPhone   string         `gorm:&quot;type:varchar(20);not null&quot;`
+    ReceiverAddress string         `gorm:&quot;type:varchar(200);not null&quot;`
+    PaidAt          *time.Time     `gorm:&quot;index&quot;`
+    ShippedAt       *time.Time
+    DeletedAt       gorm.DeletedAt `gorm:&quot;index&quot;`
+    CreatedAt       time.Time
+    UpdatedAt       time.Time
+}
+
+// OrderItemDO is the database model for order items
+type OrderItemDO struct {
+    ID          int64   `gorm:&quot;primaryKey;autoIncrement&quot;`
+    OrderID     int64   `gorm:&quot;index;not null&quot;`
+    ProductID   int64   `gorm:&quot;not null&quot;`
+    ProductName string  `gorm:&quot;type:varchar(100);not null&quot;`
+    Quantity    int32   `gorm:&quot;not null&quot;`
+    UnitPrice   float64 `gorm:&quot;type:decimal(10,2);not null&quot;`
+}
+
+// TableName overrides the table name
+func (OrderDO) TableName() string {
+    return &quot;orders&quot;
+}
+
+func (OrderItemDO) TableName() string {
+    return &quot;order_items&quot;
+}</code></pre>
+
+<h3>3.2 Data 初始化（GORM + Redis）</h3>
+
+<pre><code class="language-go">// internal/data/data.go
+package data
+
+import (
+    &quot;context&quot;
+    &quot;fmt&quot;
+    &quot;time&quot;
+
+    &quot;github.com/go-kratos/kratos/v2/log&quot;
+    &quot;github.com/redis/go-redis/v9&quot;
+    &quot;gorm.io/driver/mysql&quot;
+    &quot;gorm.io/gorm&quot;
+    &quot;gorm.io/gorm/logger&quot;
+
+    &quot;myapp/internal/biz&quot;
+    &quot;myapp/internal/conf&quot;
+    &quot;myapp/internal/data/model&quot;
+
+    &quot;github.com/google/wire&quot;
+)
+
+// ProviderSet is data layer providers
+var ProviderSet = wire.NewSet(
+    NewData,
+    NewTransaction,
+    NewOrderRepo,
+    wire.Bind(new(biz.OrderRepo), new(*orderRepo)),
+    wire.Bind(new(biz.Transaction), new(*contextTransaction)),
+)
+
+// Data holds database and cache connections
+type Data struct {
+    db  *gorm.DB
+    rdb *redis.Client
+    log *log.Helper
+}
+
+// NewData creates a new Data instance with GORM and Redis
+func NewData(c *conf.Data, logger log.Logger) (*Data, func(), error) {
+    helper := log.NewHelper(logger)
+
+    // Initialize GORM with MySQL
+    gormLogger := logger.NewGormLogger(logger)
+    db, err := gorm.Open(mysql.Open(c.Database.Source), &amp;gorm.Config{
+        Logger: gormLogger,
+    })
+    if err != nil {
+        return nil, nil, fmt.Errorf(&quot;failed to connect database: %w&quot;, err)
+    }
+
+    // Configure connection pool
+    sqlDB, _ := db.DB()
+    sqlDB.SetMaxIdleConns(int(c.Database.GetMaxIdleConns()))   // default: 10
+    sqlDB.SetMaxOpenConns(int(c.Database.GetMaxOpenConns()))   // default: 100
+    sqlDB.SetConnMaxLifetime(time.Duration(c.Database.GetConnMaxLifetime())) // default: 1h
+
+    // Auto-migrate (dev only, use migrations in production)
+    if err := db.AutoMigrate(&amp;model.OrderDO{}, &amp;model.OrderItemDO{}); err != nil {
+        return nil, nil, fmt.Errorf(&quot;failed to migrate: %w&quot;, err)
+    }
+
+    // Initialize Redis
+    rdb := redis.NewClient(&amp;redis.Options{
+        Addr:     c.Redis.GetAddr(),
+        Password: c.Redis.GetPassword(),
+        DB:       int(c.Redis.GetDb()),
+    })
+
+    // Verify Redis connection
+    if err := rdb.Ping(context.Background()).Err(); err != nil {
+        return nil, nil, fmt.Errorf(&quot;failed to connect redis: %w&quot;, err)
+    }
+
+    cleanup := func() {
+        helper.Info(&quot;closing data connections&quot;)
+        sqlDB.Close()
+        rdb.Close()
+    }
+
+    return &amp;Data{db: db, rdb: rdb, log: helper}, cleanup, nil
+}
+
+// DB returns the gorm.DB instance, respecting transaction context
+func (d *Data) DB(ctx context.Context) *gorm.DB {
+    tx, ok := ctx.Value(txKey{}).(*gorm.DB)
+    if ok {
+        return tx
+    }
+    return d.db.WithContext(ctx)
+}</code></pre>
+
+<h3>3.3 事务管理</h3>
+
+<pre><code class="language-go">// internal/data/transaction.go
+package data
+
+import (
+    &quot;context&quot;
+
+    &quot;gorm.io/gorm&quot;
+)
+
+type txKey struct{}
+
+// contextTransaction implements biz.Transaction
+type contextTransaction struct {
+    data *Data
+}
+
+// NewTransaction creates a new transaction manager
+func NewTransaction(data *Data) *contextTransaction {
+    return &amp;contextTransaction{data: data}
+}
+
+// ExecTx executes fn within a database transaction
+func (t *contextTransaction) ExecTx(ctx context.Context, fn func(ctx context.Context) error) error {
+    return t.data.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+        // Inject transaction DB into context
+        txCtx := context.WithValue(ctx, txKey{}, tx)
+        return fn(txCtx)
+    })
+}</code></pre>
+
+<h3>3.4 Repository 实现</h3>
+
+<pre><code class="language-go">// internal/data/order.go
+package data
+
+import (
+    &quot;context&quot;
+    &quot;encoding/json&quot;
+    &quot;fmt&quot;
+    &quot;time&quot;
+
+    &quot;github.com/go-kratos/kratos/v2/log&quot;
+    &quot;gorm.io/gorm&quot;
+
+    &quot;myapp/internal/biz&quot;
+    &quot;myapp/internal/data/model&quot;
+)
+
+type orderRepo struct {
+    data *Data
+    log  *log.Helper
+}
+
+// NewOrderRepo creates a new order repository
+func NewOrderRepo(data *Data, logger log.Logger) *orderRepo {
+    return &amp;orderRepo{data: data, log: log.NewHelper(logger)}
+}
+
+// Save creates or updates an order
+func (r *orderRepo) Save(ctx context.Context, order *biz.Order) (*biz.Order, error) {
+    orderDO := toOrderDO(order)
+
+    // Create order with items in a single transaction (caller manages tx)
+    if err := r.data.DB(ctx).Create(orderDO).Error; err != nil {
+        return nil, fmt.Errorf(&quot;save order failed: %w&quot;, err)
+    }
+
+    // Create order items
+    itemDOs := toItemDOs(order.Items, orderDO.ID)
+    if err := r.data.DB(ctx).Create(&amp;itemDOs).Error; err != nil {
+        return nil, fmt.Errorf(&quot;save order items failed: %w&quot;, err)
+    }
+
+    // Cache the new order
+    r.cacheOrder(ctx, orderDO)
+
+    return toOrderBO(orderDO, itemDOs), nil
+}
+
+// FindByID retrieves an order by ID with cache-aside pattern
+func (r *orderRepo) FindByID(ctx context.Context, id int64) (*biz.Order, error) {
+    // Step 1: Try cache first
+    cached, err := r.getCachedOrder(ctx, id)
+    if err == nil &amp;&amp; cached != nil {
+        return cached, nil
+    }
+
+    // Step 2: Query database
+    var orderDO model.OrderDO
+    err = r.data.DB(ctx).First(&amp;orderDO, id).Error
+    if err != nil {
+        if err == gorm.ErrRecordNotFound {
+            return nil, nil
+        }
+        return nil, fmt.Errorf(&quot;find order failed: %w&quot;, err)
+    }
+
+    // Query order items
+    var itemDOs []model.OrderItemDO
+    if err := r.data.DB(ctx).Where(&quot;order_id = ?&quot;, id).Find(&amp;itemDOs).Error; err != nil {
+        return nil, fmt.Errorf(&quot;find order items failed: %w&quot;, err)
+    }
+
+    // Step 3: Cache the result
+    result := toOrderBO(&amp;orderDO, itemDOs)
+    r.cacheOrder(ctx, &amp;orderDO)
+
+    return result, nil
+}
+
+// FindByUser retrieves orders by user ID with pagination
+func (r *orderRepo) FindByUser(ctx context.Context, userID int64, page, size int) ([]*biz.Order, int64, error) {
+    var orders []model.OrderDO
+    var total int64
+
+    db := r.data.DB(ctx).Model(&amp;model.OrderDO{}).Where(&quot;user_id = ?&quot;, userID)
+
+    // Count total
+    if err := db.Count(&amp;total).Error; err != nil {
+        return nil, 0, fmt.Errorf(&quot;count orders failed: %w&quot;, err)
+    }
+
+    // Paginated query
+    offset := (page - 1) * size
+    if err := db.Order(&quot;created_at DESC&quot;).Offset(offset).Limit(size).Find(&amp;orders).Error; err != nil {
+        return nil, 0, fmt.Errorf(&quot;list orders failed: %w&quot;, err)
+    }
+
+    // Convert to BO
+    result := make([]*biz.Order, 0, len(orders))
+    for _, o := range orders {
+        result = append(result, toOrderBO(&amp;o, nil)) // Items not loaded in list view
+    }
+
+    return result, total, nil
+}
+
+// UpdateStatus updates order status
+func (r *orderRepo) UpdateStatus(ctx context.Context, id int64, status biz.OrderStatus) error {
+    updates := map[string]interface{}{
+        &quot;status&quot;: string(status),
+    }
+    if status == biz.StatusPaid {
+        now := time.Now()
+        updates[&quot;paid_at&quot;] = &amp;now
+    }
+
+    err := r.data.DB(ctx).Model(&amp;model.OrderDO{}).Where(&quot;id = ?&quot;, id).Updates(updates).Error
+    if err != nil {
+        return fmt.Errorf(&quot;update status failed: %w&quot;, err)
+    }
+
+    // Invalidate cache
+    r.invalidateCache(ctx, id)
+    return nil
+}
+
+// ========== Cache helpers ==========
+
+func (r *orderRepo) cacheOrder(ctx context.Context, order *model.OrderDO) {
+    key := fmt.Sprintf(&quot;order:%d&quot;, order.ID)
+    data, _ := json.Marshal(order)
+    r.data.rdb.Set(ctx, key, data, 30*time.Minute)
+}
+
+func (r *orderRepo) getCachedOrder(ctx context.Context, id int64) (*biz.Order, error) {
+    key := fmt.Sprintf(&quot;order:%d&quot;, id)
+    data, err := r.data.rdb.Get(ctx, key).Bytes()
+    if err != nil {
+        return nil, err
+    }
+    var orderDO model.OrderDO
+    if err := json.Unmarshal(data, &amp;orderDO); err != nil {
+        return nil, err
+    }
+    return toOrderBO(&amp;orderDO, nil), nil
+}
+
+func (r *orderRepo) invalidateCache(ctx context.Context, id int64) {
+    key := fmt.Sprintf(&quot;order:%d&quot;, id)
+    r.data.rdb.Del(ctx, key)
+}
+
+// ========== DO ↔ BO conversion ==========
+
+func toOrderDO(o *biz.Order) *model.OrderDO {
+    return &amp;model.OrderDO{
+        ID:              o.ID,
+        UserID:          o.UserID,
+        Status:          string(o.Status),
+        TotalAmount:     o.TotalAmount,
+        Remark:          o.Remark,
+        ReceiverName:    o.ShippingAddress.Name,
+        ReceiverPhone:   o.ShippingAddress.Phone,
+        ReceiverAddress: o.ShippingAddress.FullAddr,
+        PaidAt:          o.PaidAt,
+        ShippedAt:       o.ShippedAt,
+    }
+}
+
+func toOrderBO(o *model.OrderDO, items []model.OrderItemDO) *biz.Order {
+    order := &amp;biz.Order{
+        ID:          o.ID,
+        UserID:      o.UserID,
+        Status:      biz.OrderStatus(o.Status),
+        TotalAmount: o.TotalAmount,
+        Remark:      o.Remark,
+        ShippingAddress: &amp;biz.Address{
+            Name:     o.ReceiverName,
+            Phone:    o.ReceiverPhone,
+            FullAddr: o.ReceiverAddress,
+        },
+        PaidAt:    o.PaidAt,
+        ShippedAt: o.ShippedAt,
+        CreatedAt: o.CreatedAt,
+        UpdatedAt: o.UpdatedAt,
+    }
+    for _, item := range items {
+        order.Items = append(order.Items, &amp;biz.OrderItem{
+            ID:          item.ID,
+            ProductID:   item.ProductID,
+            ProductName: item.ProductName,
+            Quantity:    item.Quantity,
+            UnitPrice:   item.UnitPrice,
+        })
+    }
+    return order
+}
+
+func toItemDOs(items []*biz.OrderItem, orderID int64) []model.OrderItemDO {
+    result := make([]model.OrderItemDO, 0, len(items))
+    for _, item := range items {
+        result = append(result, model.OrderItemDO{
+            OrderID:     orderID,
+            ProductID:   item.ProductID,
+            ProductName: item.ProductName,
+            Quantity:    item.Quantity,
+            UnitPrice:   item.UnitPrice,
+        })
+    }
+    return result
+}</code></pre>
+
+<h2>四、执行预览</h2>
+
+<pre><code class="language-bash"># Run data layer tests (requires testcontainers or real DB)
+$ go test ./internal/data/... -v
+
+# Check database migration
+$ mysql -u root -e &quot;SHOW TABLES; DESCRIBE orders; DESCRIBE order_items;&quot; myapp
+
+# +------------+--------------+------+-----+---------+
+# | Field      | Type         | Null | Key | Default |
+# +------------+--------------+------+-----+---------+
+# | id         | bigint       | NO   | PRI | NULL    |
+# | user_id    | bigint       | NO   | MUL | NULL    |
+# | status     | varchar(20)  | NO   |     | pending |
+# | total_amount| decimal(10,2)| NO  |     | NULL    |
+# +------------+--------------+------+-----+---------+
+
+# Test Redis cache
+$ redis-cli GET order:1
+# &quot;{\&quot;id\&quot;:1,\&quot;user_id\&quot;:1,\&quot;status\&quot;:\&quot;pending\&quot;,...}&quot;</code></pre>
+
+<h2>五、注意事项</h2>
+
+<table><thead><tr>
+<th>事项</th>
+<th>说明</th>
+<th>建议</th>
+</tr></thead><tbody>
+<tr>
+<td>DO/BO 转换必须完整</td>
+<td>不要跳过字段</td>
+<td>写完转换函数后逐字段核对</td>
+</tr>
+<tr>
+<td>连接池参数要调优</td>
+<td>默认值不一定合适</td>
+<td>根据并发量调整</td>
+</tr>
+<tr>
+<td>缓存过期时间</td>
+<td>不能太长也不能太短</td>
+<td>热点数据 30min，冷数据 5min</td>
+</tr>
+<tr>
+<td>软删除一致性</td>
+<td>GORM 软删除影响查询</td>
+<td>列表查询注意过滤条件</td>
+</tr>
+<tr>
+<td>事务不要嵌套</td>
+<td>避免在事务中再开事务</td>
+<td>用 SavePoint 或设计好边界</td>
+</tr>
+<tr>
+<td>N+1 查询</td>
+<td>列表查询关联数据</td>
+<td>用 Preload 或 JOIN</td>
+</tr>
+</tbody></table>
+
+<h2>六、避坑指南</h2>
+
+<table><thead><tr>
+<th>❌ 错误做法</th>
+<th>✅ 正确做法</th>
+</tr></thead><tbody>
+<tr>
+<td>Repository 直接返回 DO 给 biz 层</td>
+<td>用 toBO() 转换后再返回</td>
+</tr>
+<tr>
+<td>在 Repository 里写业务逻辑</td>
+<td>Repository 只做数据存取</td>
+</tr>
+<tr>
+<td>每个 Repository 自己管理连接</td>
+<td>统一在 Data 层管理，通过 Context 传递</td>
+</tr>
+<tr>
+<td>缓存和数据库更新不一致</td>
+<td>先更新数据库，再删除缓存</td>
+</tr>
+<tr>
+<td>用 AutoMigrate 上生产</td>
+<td>生产用版本化迁移工具</td>
+</tr>
+<tr>
+<td>不处理 gorm.ErrRecordNotFound</td>
+<td>区分"不存在"和"查询失败"</td>
+</tr>
+</tbody></table>
+
+<h2>七、练习题</h2>
+
+<h3>🟢 初级</h3>
+<ol>
+<li>为 <code>OrderItemDO</code> 添加一个 <code>Discount</code> 字段，并更新 DO↔BO 转换函数。</li>
+</ul>
+<ol>
+<li>修改 <code>FindByUser</code> 方法，增加按状态过滤的条件。</li>
+
+<h3>🟡 中级</h3>
+<ol>
+<li>实现一个通用分页函数 <code>Paginate(db <em>gorm.DB, page, size int) </em>gorm.DB</code>。</li>
+</ul>
+<ol>
+<li>为 Repository 添加批量操作方法：<code>BatchCreate</code> 和 <code>BatchUpdateStatus</code>。</li>
+
+<h3>🔴 高级</h3>
+<ol>
+<li>实现多级缓存（本地缓存 + Redis），使用 <code>singleflight</code> 防止缓存击穿。</li>
+</ul>
+<ol>
+<li>设计一个基于 <code>gorm.Plugin</code> 的数据变更审计日志，自动记录修改前后差异。</li>
+
+<h2>八、知识点总结</h2>
+
+<pre><code>Data 数据层
+├── 数据对象（DO）
+│   ├── ORM 标签映射
+│   ├── TableName 覆盖
+│   └── 软删除支持
+├── GORM 集成
+│   ├── 连接配置 (MySQL/PostgreSQL)
+│   ├── 连接池 (MaxIdle/MaxOpen/MaxLifetime)
+│   └── 日志集成
+├── Repository 实现
+│   ├── CRUD 操作
+│   ├── 分页查询
+│   ├── 条件构建
+│   └── 预加载关联
+├── 事务管理
+│   ├── Context 传递 *gorm.DB
+│   ├── Transaction 方法
+│   └── 嵌套事务 SavePoint
+├── 缓存策略
+│   ├── Cache-Aside 模式
+│   ├── Redis GET/SET/DEL
+│   └── 过期时间设置
+├── 数据转换
+│   ├── toBO (DO → BO)
+│   ├── toDO (BO → DO)
+│   └── 集中管理
+└── 迁移管理
+    ├── AutoMigrate (开发)
+    └── golang-migrate (生产)</code></pre>
+
+<h2>九、举一反三</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>方案</th>
+<th>关键点</th>
+</tr></thead><tbody>
+<tr>
+<td>读写分离</td>
+<td>GORM DB Resolver 插件</td>
+<td>配置主从数据源</td>
+</tr>
+<tr>
+<td>分库分表</td>
+<td>Sharding 中间件</td>
+<td>路由键选择</td>
+</tr>
+<tr>
+<td>多租户</td>
+<td>Context 传递 TenantID</td>
+<td>全局 Scope 过滤</td>
+</tr>
+<tr>
+<td>数据加密</td>
+<td>GORM Serializer</td>
+<td>敏感字段透明加解密</td>
+</tr>
+<tr>
+<td>审计日志</td>
+<td>GORM Callback</td>
+<td>BeforeUpdate/AfterCreate</td>
+</tr>
+</tbody></table>
+
+<h2>十、参考资料</h2>
+
+<ul>
+<li><a href="https://gorm.io/docs/">GORM 官方文档</a></li>
+<li><a href="https://go-kratos.dev/docs/getting-started/usage">Kratos Data 层规范</a></li>
+<li><a href="https://redis.uptrace.dev/">go-redis 文档</a></li>
+<li><a href="https://github.com/golang-migrate/migrate">golang-migrate</a></li>
+
+<h2>十一、代码演进</h2>
+
+<h3>v1: 直接在 biz 层操作 GORM</h3>
+
+<pre><code class="language-go">// biz/order.go - BAD: biz directly uses GORM
+func (uc *OrderUsecase) CreateOrder(ctx context.Context, order *Order) (*Order, error) {
+    result := uc.db.Create(&amp;order) // biz 层耦合 GORM
+    return order, result.Error
+}</code></pre>
+
+<p><strong>问题</strong>：biz 层耦合 ORM，无法替换、无法测试。</p>
+
+<h3>v2: 引入 Repository 模式</h3>
+
+<pre><code class="language-go">// data/order.go
+func (r *orderRepo) Save(ctx context.Context, order *biz.Order) (*biz.Order, error) {
+    orderDO := toOrderDO(order)
+    r.data.db.Create(orderDO)
+    return toOrderBO(orderDO, nil), nil
+}</code></pre>
+
+<p><strong>改进</strong>：biz 层通过接口解耦。<strong>但</strong>没有缓存、没有事务传递。</p>
+
+<h3>v3: 生产级（缓存 + 事务 + 连接池 + 转换）</h3>
+
+<pre><code class="language-go">// 完整的 Cache-Aside、Context 事务传递、连接池配置、DO↔BO 转换
+// 如本文完整代码所示</code></pre>
+
+<p><strong>最终形态</strong>：生产级 data 层，缓存命中率高、事务安全、代码清晰。</p>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

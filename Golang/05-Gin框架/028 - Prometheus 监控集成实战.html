@@ -1,0 +1,524 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>028 - Prometheus 监控集成实战</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Golang/index.html">Golang</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Golang/05-Gin框架/index.html">Gin框架</a>
+</nav>
+<h1>028 - Prometheus 监控集成实战</h1>
+<div class="meta">
+<span>📂 Gin框架</span>
+<span>🏷️ Golang</span>
+</div>
+<article>
+
+
+<h1>Prometheus 监控集成实战</h1>
+
+<blockquote><p>难度：⭐⭐⭐（中级）<br>前置知识：Gin 基础、HTTP 中间件概念</p></blockquote>
+
+<h2>一、概念讲解</h2>
+
+<p>Prometheus 是开源监控告警系统，通过 <strong>拉取（Pull）</strong> 模式采集指标。Gin 应用集成 Prometheus 后，可以实时监控 QPS、延迟、错误率等关键指标。</p>
+
+<p><strong>四种指标类型：</strong></p>
+
+<table><thead><tr>
+<th>类型</th>
+<th>用途</th>
+<th>示例</th>
+</tr></thead><tbody>
+<tr>
+<td>Counter</td>
+<td>只增不减的计数器</td>
+<td>请求总数、错误总数</td>
+</tr>
+<tr>
+<td>Gauge</td>
+<td>可增可减的仪表盘</td>
+<td>当前在线用户、goroutine 数</td>
+</tr>
+<tr>
+<td>Histogram</td>
+<td>分布统计（分位数）</td>
+<td>请求延迟分布、响应大小</td>
+</tr>
+<tr>
+<td>Summary</td>
+<td>客户端计算分位数</td>
+<td>精确延迟 P50/P99</td>
+</tr>
+</tbody></table>
+
+<p><strong>Histogram vs Summary：</strong></p>
+<ul>
+<li>Histogram：服务端计算分位数，可聚合，占用资源少 → <strong>推荐</strong></li>
+<li>Summary：客户端计算分位数，不可聚合 → 特殊场景用</li>
+
+<h2>二、脑图</h2>
+
+<pre><code>Prometheus + Gin
+├── 指标类型
+│   ├── Counter (计数)
+│   ├── Gauge (仪表)
+│   ├── Histogram (直方图)
+│   └── Summary (摘要)
+├── 集成方式
+│   ├── gin-prometheus 库
+│   ├── 手动中间件
+│   └── 自定义业务指标
+├── 可视化
+│   ├── Grafana 看板
+│   ├── PromQL 查询
+│   └── 常用面板模板
+├── 告警
+│   ├── AlertManager
+│   ├── 告警规则
+│   └── 通知渠道
+└── 最佳实践
+    ├── 指标命名规范
+    ├── 标签设计
+    └── 采集间隔</code></pre>
+
+<h2>三、完整代码</h2>
+
+<h3>v1：快速集成 gin-prometheus</h3>
+
+<pre><code class="language-go">// main.go - Quick Prometheus integration
+package main
+
+import (
+	&quot;github.com/gin-gonic/gin&quot;
+	&quot;github.com/zeitlinger/gin-prometheus&quot;
+)
+
+func main() {
+	r := gin.Default()
+
+	// Add Prometheus middleware - auto-instrumented!
+	p := ginprometheus.NewPrometheus(&quot;gin&quot;)
+	p.Use(r)
+
+	// Your routes
+	r.GET(&quot;/api/users&quot;, func(c *gin.Context) {
+		c.JSON(200, gin.H{&quot;users&quot;: []string{&quot;Alice&quot;, &quot;Bob&quot;}})
+	})
+
+	r.GET(&quot;/api/posts&quot;, func(c *gin.Context) {
+		c.JSON(200, gin.H{&quot;posts&quot;: []string{&quot;Post 1&quot;, &quot;Post 2&quot;}})
+	})
+
+	r.Run(&quot;:8080&quot;)
+}
+// Metrics available at :8080/metrics</code></pre>
+
+<h3>v2：自定义业务指标</h3>
+
+<pre><code class="language-go">// metrics/metrics.go - Custom business metrics
+package metrics
+
+import (
+	&quot;github.com/prometheus/client_golang/prometheus&quot;
+	&quot;github.com/prometheus/client_golang/prometheus/promauto&quot;
+)
+
+var (
+	// Business metrics
+	UsersRegistered = promauto.NewCounter(prometheus.CounterOpts{
+		Name: &quot;app_users_registered_total&quot;,
+		Help: &quot;Total number of registered users&quot;,
+	})
+
+	ActiveUsers = promauto.NewGauge(prometheus.GaugeOpts{
+		Name: &quot;app_active_users&quot;,
+		Help: &quot;Current number of active users&quot;,
+	})
+
+	RequestDuration = promauto.NewHistogram(prometheus.HistogramOpts{
+		Name:    &quot;app_request_duration_seconds&quot;,
+		Help:    &quot;Request duration distribution&quot;,
+		Buckets: []float64{0.01, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10},
+	})
+
+	OrdersTotal = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: &quot;app_orders_total&quot;,
+		Help: &quot;Total orders by status&quot;,
+	}, []string{&quot;status&quot;}) // status: success, failed, cancelled
+)
+
+// TrackRequest is a helper to track request timing
+func TrackRequest() func() {
+	timer := prometheus.NewTimer(RequestDuration)
+	return func() {
+		timer.ObserveDuration()
+	}
+}</code></pre>
+
+<pre><code class="language-go">// main.go - Using custom metrics
+package main
+
+import (
+	&quot;net/http&quot;
+	&quot;strconv&quot;
+
+	&quot;github.com/gin-gonic/gin&quot;
+	&quot;github.com/prometheus/client_golang/prometheus/promhttp&quot;
+	&quot;myapp/metrics&quot;
+)
+
+func main() {
+	r := gin.Default()
+
+	// Expose Prometheus metrics endpoint
+	r.GET(&quot;/metrics&quot;, gin.WrapH(promhttp.Handler()))
+
+	// Business routes with metrics
+	r.POST(&quot;/api/register&quot;, func(c *gin.Context) {
+		// ... register logic ...
+		metrics.UsersRegistered.Inc()
+		c.JSON(http.StatusCreated, gin.H{&quot;status&quot;: &quot;ok&quot;})
+	})
+
+	r.GET(&quot;/api/feed&quot;, func(c *gin.Context) {
+		done := metrics.TrackRequest()
+		defer done()
+
+		// ... feed logic ...
+		metrics.ActiveUsers.Set(42) // Update gauge
+		c.JSON(http.StatusOK, gin.H{&quot;feed&quot;: []string{}})
+	})
+
+	r.POST(&quot;/api/orders&quot;, func(c *gin.Context) {
+		// ... order logic ...
+		success := true // or false
+		status := &quot;success&quot;
+		if !success {
+			status = &quot;failed&quot;
+		}
+		metrics.OrdersTotal.WithLabelValues(status).Inc()
+		c.JSON(http.StatusOK, gin.H{&quot;order_id&quot;: &quot;123&quot;})
+	})
+
+	r.Run(&quot;:8080&quot;)
+}</code></pre>
+
+<h3>v3：中间件 + 优雅封装</h3>
+
+<pre><code class="language-go">// middleware/prometheus.go - Custom metrics middleware
+package middleware
+
+import (
+	&quot;strconv&quot;
+	&quot;time&quot;
+
+	&quot;github.com/gin-gonic/gin&quot;
+	&quot;github.com/prometheus/client_golang/prometheus&quot;
+)
+
+var (
+	httpRequestsTotal = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: &quot;http_requests_total&quot;,
+			Help: &quot;Total HTTP requests&quot;,
+		},
+		[]string{&quot;method&quot;, &quot;path&quot;, &quot;status&quot;},
+	)
+
+	httpRequestDuration = prometheus.NewHistogramVec(
+		prometheus.HistogramOpts{
+			Name:    &quot;http_request_duration_seconds&quot;,
+			Help:    &quot;HTTP request duration&quot;,
+			Buckets: prometheus.DefBuckets,
+		},
+		[]string{&quot;method&quot;, &quot;path&quot;},
+	)
+)
+
+func init() {
+	prometheus.MustRegister(httpRequestsTotal, httpRequestDuration)
+}
+
+// PrometheusMiddleware records metrics for each request
+func PrometheusMiddleware() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		start := time.Now()
+		path := c.FullPath() // Use route pattern, not actual path
+		if path == &quot;&quot; {
+			path = &quot;unknown&quot;
+		}
+
+		c.Next()
+
+		duration := time.Since(start).Seconds()
+		status := strconv.Itoa(c.Writer.Status())
+
+		httpRequestsTotal.WithLabelValues(c.Request.Method, path, status).Inc()
+		httpRequestDuration.WithLabelValues(c.Request.Method, path).Observe(duration)
+	}
+}</code></pre>
+
+<pre><code class="language-go">// main.go - Production setup
+package main
+
+import (
+	&quot;github.com/gin-gonic/gin&quot;
+	&quot;github.com/prometheus/client_golang/prometheus/promhttp&quot;
+	&quot;myapp/middleware&quot;
+)
+
+func main() {
+	r := gin.New()
+	r.Use(gin.Recovery())
+	r.Use(middleware.PrometheusMiddleware())
+
+	// Metrics on separate port for security
+	go func() {
+		metricsRouter := gin.New()
+		metricsRouter.GET(&quot;/metrics&quot;, gin.WrapH(promhttp.Handler()))
+		metricsRouter.Run(&quot;:9090&quot;) // Internal metrics port
+	}()
+
+	// Business routes on main port
+	r.GET(&quot;/api/users&quot;, userHandler)
+	r.Run(&quot;:8080&quot;)
+}</code></pre>
+
+<h2>四、执行预览</h2>
+
+<pre><code class="language-bash"># Start server
+go run main.go
+
+# Generate some traffic
+for i in $(seq 1 100); do
+  curl -s http://localhost:8080/api/users &gt; /dev/null
+done
+
+# Check metrics
+curl http://localhost:9090/metrics | grep http_requests_total
+# http_requests_total{method=&quot;GET&quot;,path=&quot;/api/users&quot;,status=&quot;200&quot;} 100
+
+# Prometheus config (prometheus.yml)
+scrape_configs:
+  - job_name: &#x27;gin-app&#x27;
+    static_configs:
+      - targets: [&#x27;localhost:9090&#x27;]
+
+# Useful PromQL queries
+# QPS by path
+rate(http_requests_total[5m])
+
+# P99 latency
+histogram_quantile(0.99, rate(http_request_duration_seconds_bucket[5m]))
+
+# Error rate
+rate(http_requests_total{status=~&quot;5..&quot;}[5m]) / rate(http_requests_total[5m])</code></pre>
+
+<h2>五、注意事项</h2>
+
+<table><thead><tr>
+<th>事项</th>
+<th>说明</th>
+</tr></thead><tbody>
+<tr>
+<td>指标命名</td>
+<td>用 <code>snake_case</code>，带 namespace 前缀如 <code>myapp_</code></td>
+</tr>
+<tr>
+<td>标签基数</td>
+<td>不要用 user_id 等高基数标签，会炸内存</td>
+</tr>
+<tr>
+<td>采集端口</td>
+<td>生产环境指标端口与业务端口分离</td>
+</tr>
+<tr>
+<td>Histogram buckets</td>
+<td>根据实际延迟范围调整，默认可能不合适</td>
+</tr>
+<tr>
+<td>指标路径</td>
+<td>用 <code>c.FullPath()</code> 而非 <code>c.Request.URL.Path</code>，避免高基数</td>
+</tr>
+<tr>
+<td>初始化</td>
+<td><code>promauto</code> 自动注册，<code>prometheus.NewXxx</code> 需手动 <code>MustRegister</code></td>
+</tr>
+</tbody></table>
+
+<h2>六、避坑指南</h2>
+
+<table><thead><tr>
+<th>❌ 常见错误</th>
+<th>✅ 正确做法</th>
+</tr></thead><tbody>
+<tr>
+<td>用 URL 做标签（含 ID）</td>
+<td>用路由模板 <code>/users/:id</code> 做标签</td>
+</tr>
+<tr>
+<td>所有指标塞一个 Counter</td>
+<td>按维度拆分 CounterVec</td>
+</tr>
+<tr>
+<td>忘记 <code>promhttp.Handler()</code></td>
+<td>必须暴露 <code>/metrics</code> 给 Prometheus 拉取</td>
+</tr>
+<tr>
+<td>指标端口暴露公网</td>
+<td>指标端口仅内网可访问</td>
+</tr>
+<tr>
+<td>用 Summary 代替 Histogram</td>
+<td>优先 Histogram，可聚合计算</td>
+</tr>
+</tbody></table>
+
+<h2>七、练习题</h2>
+
+<p>🟢 <strong>初级：</strong> 添加一个 Gauge 指标 <code>app_goroutines</code>，在 <code>/metrics</code> 中展示当前 goroutine 数量</p>
+
+<p>🟡 <strong>中级：</strong> 实现按 HTTP method+path+status 的请求大小（request body bytes）Histogram</p>
+
+<p>🔴 <strong>高级：</strong> 编写 Grafana dashboard JSON，包含 QPS、P99 延迟、错误率三个面板，并配置 AlertManager 告警规则</p>
+
+<h2>八、知识点总结</h2>
+
+<pre><code>Prometheus + Gin
+├── 指标类型
+│   ├── Counter → 请求计数
+│   ├── Gauge → 实时状态
+│   ├── Histogram → 延迟分布
+│   └── Summary → 精确分位数
+├── 集成
+│   ├── gin-prometheus (开箱即用)
+│   ├── 自定义中间件 (灵活)
+│   └── 业务指标 (Domain-specific)
+├── 查询 (PromQL)
+│   ├── rate() 求速率
+│   ├── histogram_quantile() 分位数
+│   └── 聚合 sum/by/avg
+└── 运维
+    ├── 分端口部署
+    ├── 标签设计
+    └── 采集间隔调优</code></pre>
+
+<h2>九、举一反三</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>方案</th>
+</tr></thead><tbody>
+<tr>
+<td>多实例聚合</td>
+<td>Prometheus + <code>sum by (instance)</code></td>
+</tr>
+<tr>
+<td>长期存储</td>
+<td>Prometheus → Thanos / VictoriaMetrics</td>
+</tr>
+<tr>
+<td>APM 链路追踪</td>
+<td>Prometheus (指标) + Jaeger (链路)</td>
+</tr>
+<tr>
+<td>自适应限流</td>
+<td>Prometheus 指标 → 限流中间件动态调整</td>
+</tr>
+</tbody></table>
+
+<h2>十、参考资料</h2>
+
+<ul>
+<li><a href="https://prometheus.io/docs/">Prometheus 官方文档</a></li>
+<li><a href="https://github.com/zeitlinger/gin-prometheus">gin-prometheus</a></li>
+<li><a href="https://github.com/prometheus/client_golang">Prometheus Go Client</a></li>
+<li><a href="https://grafana.com/grafana/dashboards/">Grafana Dashboard 模板</a></li>
+
+<h2>十一、代码演进总结</h2>
+
+<table><thead><tr>
+<th>版本</th>
+<th>特点</th>
+<th>适用场景</th>
+</tr></thead><tbody>
+<tr>
+<td>v1</td>
+<td>gin-prometheus 库，开箱即用</td>
+<td>快速接入</td>
+</tr>
+<tr>
+<td>v2</td>
+<td>自定义业务指标，Counter/Gauge/Histogram</td>
+<td>业务监控</td>
+</tr>
+<tr>
+<td>v3</td>
+<td>自定义中间件、分端口、生产部署</td>
+<td>生产环境</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<p><em>没有监控的系统就是盲人开车。</em> 📊</p>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

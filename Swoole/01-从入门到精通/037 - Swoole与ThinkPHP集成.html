@@ -1,0 +1,591 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>037 - Swoole与ThinkPHP集成</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Swoole/index.html">Swoole</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Swoole/01-从入门到精通/index.html">Swoole从入门到精通</a>
+</nav>
+<h1>037 - Swoole与ThinkPHP集成</h1>
+<div class="meta">
+<span>📂 Swoole从入门到精通</span>
+<span>🏷️ Swoole</span>
+</div>
+<article>
+
+
+<hr>
+<p>slug: 037-thinkphp-integration</p>
+<p>title: Swoole与ThinkPHP集成</p>
+<p>category: Swoole深度实战</p>
+<p>difficulty: ⭐⭐⭐中级</p>
+<p>tags: [Swoole, ThinkPHP, 框架集成, 性能优化, topthink/think-swoole]</p>
+<hr>
+
+<h1>Swoole与ThinkPHP集成</h1>
+
+<blockquote><p><strong>难度：⭐⭐⭐中级</strong> | 预计阅读时间：18分钟</p></blockquote>
+
+<h2>一、概念讲解</h2>
+
+<p>ThinkPHP从5.1版本开始官方支持Swoole，通过<code>topthink/think-swoole</code>扩展包可以无缝集成。与Laravel Octane不同，ThinkPHP的Swoole集成更加深度，支持HTTP、WebSocket、RPC等多种协议。</p>
+
+<h3>ThinkPHP Swoole vs 传统运行</h3>
+
+<table><thead><tr>
+<th>维度</th>
+<th>PHP-FPM</th>
+<th>think-swoole</th>
+</tr></thead><tbody>
+<tr>
+<td>启动方式</td>
+<td>每次请求加载框架</td>
+<td>框架常驻内存</td>
+</tr>
+<tr>
+<td>QPS（Hello World）</td>
+<td>~500</td>
+<td>~5000</td>
+</tr>
+<tr>
+<td>内存占用</td>
+<td>低（请求结束释放）</td>
+<td>持续占用</td>
+</tr>
+<tr>
+<td>热更新</td>
+<td>天然支持</td>
+<td>需要额外配置</td>
+</tr>
+<tr>
+<td>WebSocket</td>
+<td>不支持</td>
+<td>原生支持</td>
+</tr>
+<tr>
+<td>协程</td>
+<td>不支持</td>
+<td>完整支持</td>
+</tr>
+</tbody></table>
+
+<h2>二、脑图</h2>
+
+<pre><code>ThinkPHP + Swoole
+├── 基础集成
+│   ├── think-swoole安装
+│   ├── HTTP Server模式
+│   ├── 配置文件
+│   └── 启动与管理
+├── 进阶功能
+│   ├── WebSocket支持
+│   ├── RPC服务
+│   ├── 定时任务
+│   └── 事件监听
+├── 适配要点
+│   ├── 全局状态管理
+│   ├── 数据库重连
+│   ├── 文件监听热更新
+│   └── 日志处理
+└── 性能优化
+    ├── Worker配置
+    ├── 连接池
+    ├── 缓存策略
+    └── 静态资源处理</code></pre>
+
+<h2>三、代码演进</h2>
+
+<h3>v1: 基础安装与配置</h3>
+
+<pre><code class="language-bash"># Install think-swoole
+composer require topthink/think-swoole
+
+# The package will publish config/swoole.php automatically</code></pre>
+
+<pre><code class="language-php">&lt;?php
+// config/swoole.php - Swoole configuration for ThinkPHP
+
+return [
+    // Server type: http, websocket, socket, rpc
+    &#x27;server_type&#x27; =&gt; &#x27;http&#x27;,
+    
+    // Server options
+    &#x27;host&#x27; =&gt; &#x27;0.0.0.0&#x27;,
+    &#x27;port&#x27; =&gt; 9501,
+    &#x27;options&#x27; =&gt; [
+        &#x27;worker_num&#x27; =&gt; 4,
+        &#x27;task_worker_num&#x27; =&gt; 2,
+        &#x27;max_request&#x27; =&gt; 1000,
+        &#x27;daemonize&#x27; =&gt; false,
+        &#x27;pid_file&#x27; =&gt; runtime_path() . &#x27;swoole.pid&#x27;,
+        &#x27;log_file&#x27; =&gt; runtime_path() . &#x27;swoole.log&#x27;,
+        &#x27;document_root&#x27; =&gt; public_path(),
+        &#x27;enable_static_handler&#x27; =&gt; true,
+        &#x27;static_handler_locations&#x27; =&gt; [&#x27;/static&#x27;],
+        &#x27;package_max_length&#x27; =&gt; 5 * 1024 * 1024,
+        &#x27;heartbeat_check_interval&#x27; =&gt; 30,
+        &#x27;heartbeat_idle_time&#x27; =&gt; 60,
+    ],
+    
+    // Hot reload (development only!)
+    &#x27;hot_update&#x27; =&gt; [
+        &#x27;enable&#x27; =&gt; env(&#x27;APP_DEBUG&#x27;, false),
+        &#x27;name&#x27; =&gt; [&#x27;*.php&#x27;],
+        &#x27;include&#x27; =&gt; [app_path()],
+        &#x27;exclude&#x27; =&gt; [],
+        &#x27;delay&#x27; =&gt; 3000, // ms
+    ],
+    
+    // Tables for shared memory
+    &#x27;tables&#x27; =&gt; [],
+];</code></pre>
+
+<pre><code class="language-bash"># Start the server
+php think swoole
+
+# Start with custom options
+php think swoole --host=0.0.0.0 --port=9501 --daemonize
+
+# Stop the server
+php think swoole:stop
+
+# Reload workers
+php think swoole:reload</code></pre>
+
+<h3>v2: WebSocket与事件监听</h3>
+
+<pre><code class="language-php">&lt;?php
+// config/swoole.php - Enable WebSocket
+return [
+    &#x27;server_type&#x27; =&gt; &#x27;websocket&#x27;,
+    // ... other config
+];</code></pre>
+
+<pre><code class="language-php">&lt;?php
+// app/event.php - Register WebSocket event listeners
+
+return [
+    &#x27;bind&#x27; =&gt; [
+        // Map Swoole events to listener classes
+        &#x27;swoole.websocket.Open&#x27; =&gt; &#x27;app\listener\WebSocketOpen&#x27;,
+        &#x27;swoole.websocket.Message&#x27; =&gt; &#x27;app\listener\WebSocketMessage&#x27;,
+        &#x27;swoole.websocket.Close&#x27; =&gt; &#x27;app\listener\WebSocketClose&#x27;,
+    ],
+];</code></pre>
+
+<pre><code class="language-php">&lt;?php
+// app/listener/WebSocketMessage.php
+
+namespace app\listener;
+
+use think\facade\Log;
+use think\swoole\Manager;
+
+class WebSocketMessage
+{
+    public function __construct(protected Manager $manager) {}
+    
+    public function handle($event)
+    {
+        [$server, $frame] = $event;
+        $data = json_decode($frame-&gt;data, true);
+        
+        if (!$data) {
+            $server-&gt;push($frame-&gt;fd, json_encode([&#x27;error&#x27; =&gt; &#x27;Invalid JSON&#x27;]));
+            return;
+        }
+        
+        $type = $data[&#x27;type&#x27;] ?? &#x27;unknown&#x27;;
+        
+        match ($type) {
+            &#x27;chat&#x27; =&gt; $this-&gt;handleChat($server, $frame, $data),
+            &#x27;join&#x27; =&gt; $this-&gt;handleJoin($server, $frame, $data),
+            &#x27;typing&#x27; =&gt; $this-&gt;handleTyping($server, $frame, $data),
+            default =&gt; $server-&gt;push($frame-&gt;fd, json_encode([&#x27;error&#x27; =&gt; &#x27;Unknown type&#x27;])),
+        };
+    }
+    
+    private function handleChat($server, $frame, array $data): void
+    {
+        $message = [
+            &#x27;type&#x27; =&gt; &#x27;chat&#x27;,
+            &#x27;from&#x27; =&gt; $data[&#x27;user&#x27;] ?? &#x27;anonymous&#x27;,
+            &#x27;content&#x27; =&gt; $data[&#x27;content&#x27;] ?? &#x27;&#x27;,
+            &#x27;room&#x27; =&gt; $data[&#x27;room&#x27;] ?? &#x27;default&#x27;,
+            &#x27;time&#x27; =&gt; date(&#x27;H:i:s&#x27;),
+        ];
+        
+        // Broadcast to all connections in the same room
+        foreach ($server-&gt;connections as $fd) {
+            if ($server-&gt;isEstablished($fd)) {
+                $server-&gt;push($fd, json_encode($message));
+            }
+        }
+    }
+    
+    private function handleJoin($server, $frame, array $data): void
+    {
+        $user = $data[&#x27;user&#x27;] ?? &#x27;anonymous&#x27;;
+        $server-&gt;push($frame-&gt;fd, json_encode([
+            &#x27;type&#x27; =&gt; &#x27;system&#x27;,
+            &#x27;content&#x27; =&gt; &quot;Welcome, {$user}!&quot;,
+        ]));
+    }
+    
+    private function handleTyping($server, $frame, array $data): void
+    {
+        // Broadcast typing indicator
+        foreach ($server-&gt;connections as $fd) {
+            if ($fd !== $frame-&gt;fd &amp;&amp; $server-&gt;isEstablished($fd)) {
+                $server-&gt;push($fd, json_encode([
+                    &#x27;type&#x27; =&gt; &#x27;typing&#x27;,
+                    &#x27;user&#x27; =&gt; $data[&#x27;user&#x27;] ?? &#x27;someone&#x27;,
+                ]));
+            }
+        }
+    }
+}</code></pre>
+
+<h3>v3: RPC服务与协程优化</h3>
+
+<pre><code class="language-php">&lt;?php
+// app/service/UserService.php - RPC service
+
+namespace app\service;
+
+class UserService
+{
+    /**
+     * Get user info - can be called via RPC
+     */
+    public function getInfo(int $userId): array
+    {
+        return \app\model\User::cache(true, 60)-&gt;findOrEmpty($userId)-&gt;toArray()
+            ?: [&#x27;error&#x27; =&gt; &#x27;User not found&#x27;];
+    }
+    
+    /**
+     * Batch get users using coroutines
+     */
+    public function batchGetInfo(array $userIds): array
+    {
+        $results = [];
+        $chan = new \Swoole\Coroutine\Channel(count($userIds));
+        
+        foreach ($userIds as $id) {
+            go(function () use ($id, $chan) {
+                $user = \app\model\User::cache(true, 60)-&gt;findOrEmpty($id);
+                $chan-&gt;push([$id =&gt; $user-&gt;toArray()]);
+            });
+        }
+        
+        for ($i = 0; $i &lt; count($userIds); $i++) {
+            $result = $chan-&gt;pop(5.0);
+            if ($result) {
+                $results = array_merge($results, $result);
+            }
+        }
+        
+        return $results;
+    }
+}</code></pre>
+
+<pre><code class="language-php">&lt;?php
+// app/controller/Api.php - API controller with coroutine optimization
+
+namespace app\controller;
+
+use app\service\UserService;
+use think\App;
+use think\facade\Cache;
+
+class Api
+{
+    protected UserService $userService;
+    
+    public function __construct(UserService $userService)
+    {
+        $this-&gt;userService = $userService;
+    }
+    
+    /**
+     * Dashboard with concurrent data loading
+     */
+    public function dashboard()
+    {
+        // Load multiple data sources concurrently
+        $chan = new \Swoole\Coroutine\Channel(3);
+        
+        go(function () use ($chan) {
+            $chan-&gt;push([&#x27;users&#x27; =&gt; \app\model\User::count()]);
+        });
+        
+        go(function () use ($chan) {
+            $chan-&gt;push([&#x27;orders&#x27; =&gt; \app\model\Order::whereDay(&#x27;created_at&#x27;)-&gt;count()]);
+        });
+        
+        go(function () use ($chan) {
+            $chan-&gt;push([&#x27;revenue&#x27; =&gt; \app\model\Order::whereDay(&#x27;created_at&#x27;)-&gt;sum(&#x27;amount&#x27;)]);
+        });
+        
+        $data = [];
+        for ($i = 0; $i &lt; 3; $i++) {
+            $data = array_merge($data, $chan-&gt;pop(3.0));
+        }
+        
+        return json($data);
+    }
+}</code></pre>
+
+<p><strong>执行预览：</strong></p>
+<pre><code>$ php think swoole
+ThinkPHP/Swoole Server started
+Listen: 0.0.0.0:9501
+Workers: 4
+Type: websocket
+
+[2024-01-15 10:00:00] Worker #1 started
+[2024-01-15 10:00:00] Worker #2 started
+[2024-01-15 10:00:01] WebSocket client #1 connected
+[2024-01-15 10:00:02] Message from #1: {&quot;type&quot;:&quot;join&quot;,&quot;user&quot;:&quot;Alice&quot;}</code></pre>
+
+<h2>四、注意事项</h2>
+
+<table><thead><tr>
+<th>项目</th>
+<th>说明</th>
+</tr></thead><tbody>
+<tr>
+<td>热更新</td>
+<td>仅在开发环境开启，生产必须关闭</td>
+</tr>
+<tr>
+<td>数据库断线</td>
+<td>MySQL wait_timeout会导致连接断开，配置自动重连</td>
+</tr>
+<tr>
+<td>文件监听</td>
+<td><code>hot_update</code>的<code>include</code>路径要精确，避免监听日志目录</td>
+</tr>
+<tr>
+<td>Session</td>
+<td>建议使用Redis Session驱动</td>
+</tr>
+<tr>
+<td>全局变量</td>
+<td>Worker进程内全局变量跨请求共享，需注意清理</td>
+</tr>
+<tr>
+<td>静态资源</td>
+<td>开启<code>enable_static_handler</code>由Swoole直接处理静态文件</td>
+</tr>
+</tbody></table>
+
+<h2>五、避坑指南</h2>
+
+<table><thead><tr>
+<th>❌ 错误做法</th>
+<th>✅ 正确做法</th>
+</tr></thead><tbody>
+<tr>
+<td>生产环境开<code>hot_update</code></td>
+<td>仅开发环境启用，生产关闭</td>
+</tr>
+<tr>
+<td>用默认MySQL配置不设重连</td>
+<td>配置<code>break_reconnect</code>为true</td>
+</tr>
+<tr>
+<td>控制器中用<code>$_GET</code>/<code>$_POST</code></td>
+<td>使用ThinkPHP Request对象</td>
+</tr>
+<tr>
+<td>忽略模型缓存的内存占用</td>
+<td>设置合理TTL，控制缓存数量</td>
+</tr>
+<tr>
+<td>WebSocket不做心跳</td>
+<td>配置heartbeat参数，客户端发ping</td>
+</tr>
+<tr>
+<td>不设置<code>max_request</code></td>
+<td>设置500-2000防止内存泄漏</td>
+</tr>
+</tbody></table>
+
+<h2>六、练习题</h2>
+
+<h3>🟢 入门</h3>
+<ol>
+<li>在ThinkPHP项目中安装think-swoole，启动HTTP服务并测试</li>
+</ul>
+<ol>
+<li>配置热更新，验证修改PHP文件后自动生效</li>
+
+<h3>🟡 进阶</h3>
+<ol>
+<li>实现WebSocket聊天室（加入房间、发送消息、离开通知）</li>
+</ul>
+<ol>
+<li>用协程Channel实现并发数据加载的仪表盘接口</li>
+
+<h3>🔴 挑战</h3>
+<ol>
+<li>实现ThinkRPC：用think-swoole的RPC模式实现跨服务调用</li>
+</ul>
+<ol>
+<li>实现Swoole Table + WebSocket的在线用户列表实时同步</li>
+
+<h2>七、知识点总结</h2>
+
+<pre><code>ThinkPHP + Swoole
+├── 集成方式
+│   ├── think-swoole扩展包
+│   ├── HTTP Server模式
+│   ├── WebSocket模式
+│   └── RPC模式
+├── 核心配置
+│   ├── worker_num / task_worker_num
+│   ├── hot_update（热更新）
+│   ├── enable_static_handler
+│   └── daemonize（守护进程）
+├── 事件系统
+│   ├── WorkerStart / WorkerStop
+│   ├── WebSocket Open/Message/Close
+│   └── 自定义事件监听
+└── 协程优化
+    ├── 并发数据加载
+    ├── Channel数据聚合
+    ├── 协程Redis客户端
+    └── 连接池管理</code></pre>
+
+<h2>八、举一反三</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>方案</th>
+<th>关键点</th>
+</tr></thead><tbody>
+<tr>
+<td>实时通知</td>
+<td>WebSocket + Redis Pub/Sub</td>
+<td>跨Worker消息推送</td>
+</tr>
+<tr>
+<td>在线统计</td>
+<td>Swoole Table + 定时器</td>
+<td>高性能计数器</td>
+</tr>
+<tr>
+<td>文件上传</td>
+<td>Swoole处理 + OSS存储</td>
+<td>大文件分片</td>
+</tr>
+<tr>
+<td>SSE推送</td>
+<td>HTTP长连接 + EventStream</td>
+<td>轻量级实时方案</td>
+</tr>
+<tr>
+<td>定时任务</td>
+<td>WorkerStart + Timer::tick</td>
+<td>替代系统crontab</td>
+</tr>
+<tr>
+<td>队列消费</td>
+<td>Task Worker处理</td>
+<td>异步任务执行</td>
+</tr>
+</tbody></table>
+
+<h2>九、参考资料</h2>
+
+<ul>
+<li><a href="https://github.com/top-think/think-swoole">think-swoole GitHub</a></li>
+<li><a href="https://www.kancloud.cn/manual/thinkphp6_0/">ThinkPHP6 完全开发手册</a></li>
+<li><a href="https://wiki.swoole.com/">Swoole官方文档</a></li>
+<li><a href="https://www.kancloud.cn/thinkphp/think-swoole">ThinkPHP Swoole最佳实践</a></li>
+
+<h2>十、代码演进总结</h2>
+
+<table><thead><tr>
+<th>版本</th>
+<th>特点</th>
+<th>适用场景</th>
+</tr></thead><tbody>
+<tr>
+<td>v1 基础配置</td>
+<td>安装、HTTP模式、热更新</td>
+<td>项目接入</td>
+</tr>
+<tr>
+<td>v2 WebSocket</td>
+<td>聊天室、事件监听</td>
+<td>实时应用</td>
+</tr>
+<tr>
+<td>v3 协程优化</td>
+<td>RPC、并发加载</td>
+<td>高性能API</td>
+</tr>
+</tbody></table>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

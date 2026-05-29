@@ -1,0 +1,966 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>009 - Service 层架构设计</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Golang/index.html">Golang</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Golang/05-Gin框架/index.html">Gin框架</a>
+</nav>
+<h1>009 - Service 层架构设计</h1>
+<div class="meta">
+<span>📂 Gin框架</span>
+<span>🏷️ Golang</span>
+</div>
+<article>
+
+
+<h1>009 - Service 层架构设计</h1>
+
+<blockquote><p><strong>难度标注：</strong> ⭐⭐⭐（中级）<br><br><strong>前置知识：</strong> Go 接口、Gin Handler、GORM 基础<br><br><strong>学习目标：</strong> 掌握 Handler-Service-Repository 三层架构、依赖注入、接口定义与业务逻辑封装</p></blockquote>
+
+<hr>
+
+<h2>一、概念讲解</h2>
+
+<p>当项目从"一个 main.go 搞定"进化到"几十个功能"时，代码组织就成了关键问题。<strong>三层架构</strong>是最经典的解决方案。</p>
+
+<h3>为什么要分层？</h3>
+
+<table><thead><tr>
+<th>问题</th>
+<th>不分层</th>
+<th>分层后</th>
+</tr></thead><tbody>
+<tr>
+<td>一个 Handler 500 行</td>
+<td>所有逻辑混在一起</td>
+<td>Handler 只有 20 行</td>
+</tr>
+<tr>
+<td>换数据库</td>
+<td>改几十个 Handler</td>
+<td>只改 Repository</td>
+</tr>
+<tr>
+<td>单元测试</td>
+<td>需要 HTTP 请求+数据库</td>
+<td>Mock 接口即可</td>
+</tr>
+<tr>
+<td>代码复用</td>
+<td>复制粘贴</td>
+<td>调用 Service 方法</td>
+</tr>
+</tbody></table>
+
+<h3>三层职责</h3>
+
+<pre><code>┌─────────────────────────────────┐
+│  Handler 层（控制器）              │  ← 处理 HTTP 请求/响应
+│  - 参数绑定、验证                  │
+│  - 调用 Service                   │
+│  - 返回响应                       │
+├─────────────────────────────────┤
+│  Service 层（业务逻辑）            │  ← 核心业务规则
+│  - 业务规则校验                    │
+│  - 数据组装                       │
+│  - 调用 Repository                │
+├─────────────────────────────────┤
+│  Repository 层（数据访问）         │  ← 只管数据库操作
+│  - CRUD 封装                      │
+│  - 查询构建                       │
+│  - 数据库交互                     │
+└─────────────────────────────────┘</code></pre>
+
+<hr>
+
+<h2>二、脑图（ASCII）</h2>
+
+<pre><code>                  三层架构设计
+                       │
+        ┌──────────────┼──────────────┐
+        │              │              │
+     目录结构       依赖注入       接口设计
+        │              │              │
+   ┌────┴────┐    ┌────┴────┐   ┌────┴────┐
+   │         │    │         │   │         │
+ handlers/ service/ 构造函数 Service接口 Repo接口
+ models/  repository/ Wire/Dig  业务方法  数据方法
+ config/  middleware/</code></pre>
+
+<hr>
+
+<h2>三、完整 Go 代码</h2>
+
+<h3>v1：基础三层架构（手动依赖注入）</h3>
+
+<p><strong>项目结构：</strong></p>
+
+<pre><code>todo-app/
+├── main.go
+├── config/
+│   └── config.go
+├── models/
+│   └── todo.go
+├── repository/
+│   └── todo_repository.go
+├── service/
+│   └── todo_service.go
+├── handler/
+│   └── todo_handler.go
+└── response/
+    └── response.go</code></pre>
+
+<pre><code class="language-go">// models/todo.go
+package models
+
+import &quot;time&quot;
+
+type Todo struct {
+	ID          uint       `gorm:&quot;primaryKey&quot; json:&quot;id&quot;`
+	Title       string     `gorm:&quot;size:200;not null&quot; json:&quot;title&quot;`
+	Description string     `gorm:&quot;type:text&quot; json:&quot;description&quot;`
+	Completed   bool       `gorm:&quot;default:false&quot; json:&quot;completed&quot;`
+	Priority    string     `gorm:&quot;size:20;default:medium&quot; json:&quot;priority&quot;`
+	DueDate     *time.Time `json:&quot;due_date,omitempty&quot;`
+	CreatedAt   time.Time  `json:&quot;created_at&quot;`
+	UpdatedAt   time.Time  `json:&quot;updated_at&quot;`
+}
+
+// DTOs (Data Transfer Objects)
+type CreateTodoInput struct {
+	Title       string     `json:&quot;title&quot; binding:&quot;required,min=1,max=200&quot;`
+	Description string     `json:&quot;description&quot; binding:&quot;max=1000&quot;`
+	Priority    string     `json:&quot;priority&quot; binding:&quot;omitempty,oneof=low medium high&quot;`
+	DueDate     *time.Time `json:&quot;due_date&quot;`
+}
+
+type UpdateTodoInput struct {
+	Title       *string    `json:&quot;title&quot; binding:&quot;omitempty,min=1,max=200&quot;`
+	Description *string    `json:&quot;description&quot; binding:&quot;omitempty,max=1000&quot;`
+	Completed   *bool      `json:&quot;completed&quot;`
+	Priority    *string    `json:&quot;priority&quot; binding:&quot;omitempty,oneof=low medium high&quot;`
+	DueDate     *time.Time `json:&quot;due_date&quot;`
+}
+
+type ListQuery struct {
+	Page      int    `form:&quot;page&quot; binding:&quot;omitempty,min=1&quot;`
+	PageSize  int    `form:&quot;page_size&quot; binding:&quot;omitempty,min=1,max=100&quot;`
+	Completed *bool  `form:&quot;completed&quot;`
+	Priority  string `form:&quot;priority&quot; binding:&quot;omitempty,oneof=low medium high&quot;`
+	Search    string `form:&quot;search&quot;`
+}</code></pre>
+
+<pre><code class="language-go">// response/response.go - Unified response helpers
+package response
+
+import (
+	&quot;net/http&quot;
+
+	&quot;github.com/gin-gonic/gin&quot;
+)
+
+type Response struct {
+	Code    int         `json:&quot;code&quot;`
+	Message string      `json:&quot;message&quot;`
+	Data    interface{} `json:&quot;data&quot;`
+}
+
+func OK(c *gin.Context, data interface{}) {
+	c.JSON(http.StatusOK, Response{Code: 0, Message: &quot;success&quot;, Data: data})
+}
+
+func Created(c *gin.Context, data interface{}) {
+	c.JSON(http.StatusCreated, Response{Code: 0, Message: &quot;created&quot;, Data: data})
+}
+
+func BadRequest(c *gin.Context, msg string) {
+	c.JSON(http.StatusBadRequest, Response{Code: 40001, Message: msg, Data: nil})
+}
+
+func NotFound(c *gin.Context, msg string) {
+	c.JSON(http.StatusNotFound, Response{Code: 40401, Message: msg, Data: nil})
+}
+
+func InternalError(c *gin.Context, msg string) {
+	c.JSON(http.StatusInternalServerError, Response{Code: 50001, Message: msg, Data: nil})
+}</code></pre>
+
+<pre><code class="language-go">// repository/todo_repository.go - Data access layer
+package repository
+
+import (
+	&quot;myapp/models&quot;
+
+	&quot;gorm.io/gorm&quot;
+)
+
+// Interface - defines what the repository can do
+type TodoRepository interface {
+	Create(todo *models.Todo) error
+	FindByID(id uint) (*models.Todo, error)
+	FindAll(query models.ListQuery) ([]models.Todo, int64, error)
+	Update(todo *models.Todo, updates map[string]interface{}) error
+	Delete(id uint) error
+}
+
+// Implementation
+type todoRepository struct {
+	db *gorm.DB
+}
+
+// Constructor with dependency injection
+func NewTodoRepository(db *gorm.DB) TodoRepository {
+	return &amp;todoRepository{db: db}
+}
+
+func (r *todoRepository) Create(todo *models.Todo) error {
+	return r.db.Create(todo).Error
+}
+
+func (r *todoRepository) FindByID(id uint) (*models.Todo, error) {
+	var todo models.Todo
+	if err := r.db.First(&amp;todo, id).Error; err != nil {
+		return nil, err
+	}
+	return &amp;todo, nil
+}
+
+func (r *todoRepository) FindAll(query models.ListQuery) ([]models.Todo, int64, error) {
+	var todos []models.Todo
+	var total int64
+
+	q := r.db.Model(&amp;models.Todo{})
+
+	// Filters
+	if query.Completed != nil {
+		q = q.Where(&quot;completed = ?&quot;, *query.Completed)
+	}
+	if query.Priority != &quot;&quot; {
+		q = q.Where(&quot;priority = ?&quot;, query.Priority)
+	}
+	if query.Search != &quot;&quot; {
+		q = q.Where(&quot;title LIKE ?&quot;, &quot;%&quot;+query.Search+&quot;%&quot;)
+	}
+
+	q.Count(&amp;total)
+
+	// Pagination defaults
+	page := query.Page
+	pageSize := query.PageSize
+	if page &lt; 1 {
+		page = 1
+	}
+	if pageSize &lt; 1 {
+		pageSize = 10
+	}
+
+	offset := (page - 1) * pageSize
+	if err := q.Order(&quot;created_at DESC&quot;).Offset(offset).Limit(pageSize).Find(&amp;todos).Error; err != nil {
+		return nil, 0, err
+	}
+
+	return todos, total, nil
+}
+
+func (r *todoRepository) Update(todo *models.Todo, updates map[string]interface{}) error {
+	return r.db.Model(todo).Updates(updates).Error
+}
+
+func (r *todoRepository) Delete(id uint) error {
+	return r.db.Delete(&amp;models.Todo{}, id).Error
+}</code></pre>
+
+<pre><code class="language-go">// service/todo_service.go - Business logic layer
+package service
+
+import (
+	&quot;errors&quot;
+	&quot;fmt&quot;
+	&quot;time&quot;
+
+	&quot;myapp/models&quot;
+	&quot;myapp/repository&quot;
+)
+
+// Interface
+type TodoService interface {
+	Create(input models.CreateTodoInput) (*models.Todo, error)
+	GetByID(id uint) (*models.Todo, error)
+	List(query models.ListQuery) ([]models.Todo, int64, error)
+	Update(id uint, input models.UpdateTodoInput) (*models.Todo, error)
+	Delete(id uint) error
+}
+
+type todoService struct {
+	repo repository.TodoRepository
+}
+
+// Constructor - depends on interface, not concrete type
+func NewTodoService(repo repository.TodoRepository) TodoService {
+	return &amp;todoService{repo: repo}
+}
+
+func (s *todoService) Create(input models.CreateTodoInput) (*models.Todo, error) {
+	todo := &amp;models.Todo{
+		Title:       input.Title,
+		Description: input.Description,
+		Priority:    input.Priority,
+		DueDate:     input.DueDate,
+	}
+	if todo.Priority == &quot;&quot; {
+		todo.Priority = &quot;medium&quot;
+	}
+
+	// Business rule: high priority tasks must have due date
+	if todo.Priority == &quot;high&quot; &amp;&amp; todo.DueDate == nil {
+		return nil, errors.New(&quot;high priority tasks must have a due date&quot;)
+	}
+
+	if err := s.repo.Create(todo); err != nil {
+		return nil, fmt.Errorf(&quot;failed to create todo: %w&quot;, err)
+	}
+	return todo, nil
+}
+
+func (s *todoService) GetByID(id uint) (*models.Todo, error) {
+	todo, err := s.repo.FindByID(id)
+	if err != nil {
+		return nil, errors.New(&quot;todo not found&quot;)
+	}
+	return todo, nil
+}
+
+func (s *todoService) List(query models.ListQuery) ([]models.Todo, int64, error) {
+	return s.repo.FindAll(query)
+}
+
+func (s *todoService) Update(id uint, input models.UpdateTodoInput) (*models.Todo, error) {
+	// Verify exists
+	todo, err := s.repo.FindByID(id)
+	if err != nil {
+		return nil, errors.New(&quot;todo not found&quot;)
+	}
+
+	// Build updates map
+	updates := map[string]interface{}{}
+	if input.Title != nil {
+		updates[&quot;title&quot;] = *input.Title
+	}
+	if input.Description != nil {
+		updates[&quot;description&quot;] = *input.Description
+	}
+	if input.Completed != nil {
+		updates[&quot;completed&quot;] = *input.Completed
+	}
+	if input.Priority != nil {
+		updates[&quot;priority&quot;] = *input.Priority
+	}
+	if input.DueDate != nil {
+		updates[&quot;due_date&quot;] = input.DueDate
+	}
+
+	// Business rule: completing a task records the time
+	if input.Completed != nil &amp;&amp; *input.Completed {
+		now := time.Now()
+		updates[&quot;completed_at&quot;] = &amp;now
+	}
+
+	if len(updates) == 0 {
+		return todo, nil // Nothing to update
+	}
+
+	if err := s.repo.Update(todo, updates); err != nil {
+		return nil, fmt.Errorf(&quot;failed to update todo: %w&quot;, err)
+	}
+
+	// Reload
+	return s.repo.FindByID(id)
+}
+
+func (s *todoService) Delete(id uint) error {
+	if _, err := s.repo.FindByID(id); err != nil {
+		return errors.New(&quot;todo not found&quot;)
+	}
+	return s.repo.Delete(id)
+}</code></pre>
+
+<pre><code class="language-go">// handler/todo_handler.go - HTTP handler layer
+package handler
+
+import (
+	&quot;net/http&quot;
+	&quot;strconv&quot;
+
+	&quot;myapp/models&quot;
+	&quot;myapp/response&quot;
+	&quot;myapp/service&quot;
+
+	&quot;github.com/gin-gonic/gin&quot;
+)
+
+type TodoHandler struct {
+	svc service.TodoService
+}
+
+func NewTodoHandler(svc service.TodoService) *TodoHandler {
+	return &amp;TodoHandler{svc: svc}
+}
+
+// RegisterRoutes registers all todo routes
+func (h *TodoHandler) RegisterRoutes(rg *gin.RouterGroup) {
+	todos := rg.Group(&quot;/todos&quot;)
+	{
+		todos.GET(&quot;&quot;, h.List)
+		todos.GET(&quot;/:id&quot;, h.GetByID)
+		todos.POST(&quot;&quot;, h.Create)
+		todos.PUT(&quot;/:id&quot;, h.Update)
+		todos.DELETE(&quot;/:id&quot;, h.Delete)
+	}
+}
+
+func (h *TodoHandler) Create(c *gin.Context) {
+	var input models.CreateTodoInput
+	if err := c.ShouldBindJSON(&amp;input); err != nil {
+		response.BadRequest(c, err.Error())
+		return
+	}
+
+	todo, err := h.svc.Create(input)
+	if err != nil {
+		response.BadRequest(c, err.Error())
+		return
+	}
+
+	response.Created(c, todo)
+}
+
+func (h *TodoHandler) GetByID(c *gin.Context) {
+	id, err := strconv.ParseUint(c.Param(&quot;id&quot;), 10, 32)
+	if err != nil {
+		response.BadRequest(c, &quot;Invalid ID&quot;)
+		return
+	}
+
+	todo, err := h.svc.GetByID(uint(id))
+	if err != nil {
+		response.NotFound(c, err.Error())
+		return
+	}
+
+	response.OK(c, todo)
+}
+
+func (h *TodoHandler) List(c *gin.Context) {
+	var query models.ListQuery
+	if err := c.ShouldBindQuery(&amp;query); err != nil {
+		response.BadRequest(c, err.Error())
+		return
+	}
+
+	todos, total, err := h.svc.List(query)
+	if err != nil {
+		response.InternalError(c, err.Error())
+		return
+	}
+
+	response.OK(c, gin.H{
+		&quot;items&quot;:     todos,
+		&quot;total&quot;:     total,
+		&quot;page&quot;:      query.Page,
+		&quot;page_size&quot;: query.PageSize,
+	})
+}
+
+func (h *TodoHandler) Update(c *gin.Context) {
+	id, _ := strconv.ParseUint(c.Param(&quot;id&quot;), 10, 32)
+
+	var input models.UpdateTodoInput
+	if err := c.ShouldBindJSON(&amp;input); err != nil {
+		response.BadRequest(c, err.Error())
+		return
+	}
+
+	todo, err := h.svc.Update(uint(id), input)
+	if err != nil {
+		response.NotFound(c, err.Error())
+		return
+	}
+
+	response.OK(c, todo)
+}
+
+func (h *TodoHandler) Delete(c *gin.Context) {
+	id, _ := strconv.ParseUint(c.Param(&quot;id&quot;), 10, 32)
+
+	if err := h.svc.Delete(uint(id)); err != nil {
+		response.NotFound(c, err.Error())
+		return
+	}
+
+	response.OK(c, gin.H{&quot;deleted&quot;: true})
+}</code></pre>
+
+<pre><code class="language-go">// main.go - Wire everything together
+package main
+
+import (
+	&quot;log&quot;
+
+	&quot;myapp/handler&quot;
+	&quot;myapp/models&quot;
+	&quot;myapp/repository&quot;
+	&quot;myapp/service&quot;
+
+	&quot;github.com/gin-gonic/gin&quot;
+	&quot;gorm.io/driver/sqlite&quot;
+	&quot;gorm.io/gorm&quot;
+)
+
+func main() {
+	// 1. Database
+	db, err := gorm.Open(sqlite.Open(&quot;todos.db&quot;), &amp;gorm.Config{})
+	if err != nil {
+		log.Fatal(err)
+	}
+	db.AutoMigrate(&amp;models.Todo{})
+
+	// 2. Dependency injection (manual)
+	todoRepo := repository.NewTodoRepository(db)          // Repository depends on DB
+	todoSvc := service.NewTodoService(todoRepo)            // Service depends on Repository interface
+	todoHandler := handler.NewTodoHandler(todoSvc)         // Handler depends on Service interface
+
+	// 3. Router
+	r := gin.Default()
+	todoHandler.RegisterRoutes(r.Group(&quot;/api&quot;))
+
+	log.Println(&quot;Server starting on :8080&quot;)
+	r.Run(&quot;:8080&quot;)
+}</code></pre>
+
+<p><strong>执行预览：</strong></p>
+
+<pre><code class="language-bash">$ go run main.go
+Server starting on :8080
+
+# Create todo
+$ curl -X POST http://localhost:8080/api/todos \
+  -H &quot;Content-Type: application/json&quot; \
+  -d &#x27;{&quot;title&quot;:&quot;Learn layered architecture&quot;,&quot;priority&quot;:&quot;high&quot;}&#x27;
+{&quot;code&quot;:40001,&quot;message&quot;:&quot;high priority tasks must have a due date&quot;,&quot;data&quot;:null}
+
+# With due date
+$ curl -X POST http://localhost:8080/api/todos \
+  -d &#x27;{&quot;title&quot;:&quot;Learn layered architecture&quot;,&quot;priority&quot;:&quot;high&quot;,&quot;due_date&quot;:&quot;2025-12-31T00:00:00Z&quot;}&#x27;
+{&quot;code&quot;:0,&quot;message&quot;:&quot;created&quot;,&quot;data&quot;:{&quot;id&quot;:1,...}}</code></pre>
+
+<h3>v2：使用接口 Mock 进行单元测试</h3>
+
+<pre><code class="language-go">// service/todo_service_test.go
+package service
+
+import (
+	&quot;errors&quot;
+	&quot;testing&quot;
+	&quot;time&quot;
+
+	&quot;myapp/models&quot;
+)
+
+// Mock repository
+type mockTodoRepo struct {
+	todos map[uint]*models.Todo
+	nextID uint
+}
+
+func newMockRepo() *mockTodoRepo {
+	return &amp;mockTodoRepo{
+		todos:  make(map[uint]*models.Todo),
+		nextID: 1,
+	}
+}
+
+func (m *mockTodoRepo) Create(todo *models.Todo) error {
+	todo.ID = m.nextID
+	m.nextID++
+	m.todos[todo.ID] = todo
+	return nil
+}
+
+func (m *mockTodoRepo) FindByID(id uint) (*models.Todo, error) {
+	todo, ok := m.todos[id]
+	if !ok {
+		return nil, errors.New(&quot;not found&quot;)
+	}
+	return todo, nil
+}
+
+func (m *mockTodoRepo) FindAll(query models.ListQuery) ([]models.Todo, int64, error) {
+	var result []models.Todo
+	for _, t := range m.todos {
+		result = append(result, *t)
+	}
+	return result, int64(len(result)), nil
+}
+
+func (m *mockTodoRepo) Update(todo *models.Todo, updates map[string]interface{}) error {
+	for k, v := range updates {
+		switch k {
+		case &quot;title&quot;:
+			todo.Title = v.(string)
+		case &quot;completed&quot;:
+			todo.Completed = v.(bool)
+		}
+	}
+	m.todos[todo.ID] = todo
+	return nil
+}
+
+func (m *mockTodoRepo) Delete(id uint) error {
+	delete(m.todos, id)
+	return nil
+}
+
+// Tests
+func TestCreate_Success(t *testing.T) {
+	svc := NewTodoService(newMockRepo())
+	input := models.CreateTodoInput{Title: &quot;Test&quot;, Priority: &quot;medium&quot;}
+
+	todo, err := svc.Create(input)
+	if err != nil {
+		t.Fatalf(&quot;expected no error, got %v&quot;, err)
+	}
+	if todo.ID != 1 {
+		t.Errorf(&quot;expected ID=1, got %d&quot;, todo.ID)
+	}
+}
+
+func TestCreate_HighPriorityNoDueDate(t *testing.T) {
+	svc := NewTodoService(newMockRepo())
+	input := models.CreateTodoInput{Title: &quot;Urgent&quot;, Priority: &quot;high&quot;}
+
+	_, err := svc.Create(input)
+	if err == nil {
+		t.Fatal(&quot;expected error for high priority without due date&quot;)
+	}
+}
+
+func TestDelete_NotFound(t *testing.T) {
+	svc := NewTodoService(newMockRepo())
+	err := svc.Delete(999)
+	if err == nil {
+		t.Fatal(&quot;expected error for non-existent todo&quot;)
+	}
+}</code></pre>
+
+<h3>v3：多 Service 协作 + 事务传播</h3>
+
+<pre><code class="language-go">// service/stats_service.go - A second service that depends on TodoService
+package service
+
+type StatsService interface {
+	GetTodoStats() (map[string]interface{}, error)
+}
+
+type statsService struct {
+	todoSvc TodoService
+}
+
+func NewStatsService(todoSvc TodoService) StatsService {
+	return &amp;statsService{todoSvc: todoSvc}
+}
+
+func (s *statsService) GetTodoStats() (map[string]interface{}, error) {
+	all, total, err := s.todoSvc.List(models.ListQuery{PageSize: 10000})
+	if err != nil {
+		return nil, err
+	}
+
+	completed := 0
+	priorityCount := map[string]int{&quot;low&quot;: 0, &quot;medium&quot;: 0, &quot;high&quot;: 0}
+
+	for _, t := range all {
+		if t.Completed {
+			completed++
+		}
+		priorityCount[t.Priority]++
+	}
+
+	return map[string]interface{}{
+		&quot;total&quot;:     total,
+		&quot;completed&quot;: completed,
+		&quot;pending&quot;:   int(total) - completed,
+		&quot;by_priority&quot;: priorityCount,
+	}, nil
+}</code></pre>
+
+<hr>
+
+<h2>四、注意事项</h2>
+
+<table><thead><tr>
+<th>项目</th>
+<th>说明</th>
+<th>建议</th>
+</tr></thead><tbody>
+<tr>
+<td>接口 vs 具体类型</td>
+<td>Service 依赖接口而非实现</td>
+<td>便于测试和替换实现</td>
+</tr>
+<tr>
+<td>构造函数</td>
+<td>返回接口类型</td>
+<td><code>func NewXxxService(repo Repo) Service</code></td>
+</tr>
+<tr>
+<td>Handler 职责</td>
+<td>只做参数绑定和响应</td>
+<td>业务逻辑放 Service</td>
+</tr>
+<tr>
+<td>Repository 职责</td>
+<td>只做数据库操作</td>
+<td>不含业务判断</td>
+</tr>
+<tr>
+<td>错误包装</td>
+<td>用 <code>fmt.Errorf("...: %w", err)</code></td>
+<td>保留错误链</td>
+</tr>
+<tr>
+<td>循环依赖</td>
+<td>Service A 依赖 Service B，反之亦然</td>
+<td>提取公共逻辑到第三个 Service</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>五、避坑指南</h2>
+
+<h3>❌ Handler 里写业务逻辑</h3>
+<pre><code class="language-go">func (h *Handler) Create(c *gin.Context) {
+    // 100 lines of business logic here...
+    if input.Priority == &quot;high&quot; &amp;&amp; input.DueDate == nil {
+        c.JSON(400, ...)
+        return
+    }
+}</code></pre>
+<h3>✅ Handler 只做参数绑定+调用 Service</h3>
+<pre><code class="language-go">func (h *Handler) Create(c *gin.Context) {
+    var input CreateInput
+    if err := c.ShouldBindJSON(&amp;input); err != nil {
+        response.BadRequest(c, err.Error())
+        return
+    }
+    result, err := h.svc.Create(input) // All logic in service
+    if err != nil {
+        response.BadRequest(c, err.Error())
+        return
+    }
+    response.Created(c, result)
+}</code></pre>
+
+<h3>❌ Service 直接用 *gorm.DB</h3>
+<pre><code class="language-go">type TodoService struct {
+    db *gorm.DB // Tightly coupled to GORM!
+}</code></pre>
+<h3>✅ Service 依赖 Repository 接口</h3>
+<pre><code class="language-go">type TodoService struct {
+    repo TodoRepository // Can swap to MongoDB, Redis, etc.
+}</code></pre>
+
+<h3>❌ 不写测试</h3>
+<pre><code class="language-go">// &quot;It works on my machine&quot; is not a test strategy</code></pre>
+<h3>✅ 用 Mock Repository 写单元测试</h3>
+<pre><code class="language-go">func TestCreate(t *testing.T) {
+    svc := NewTodoService(newMockRepo())
+    _, err := svc.Create(input)
+    assert.NoError(t, err)
+}</code></pre>
+
+<hr>
+
+<h2>六、练习题</h2>
+
+<h3>🟢 初级</h3>
+<ol>
+<li>创建一个 <code>UserService</code> 接口及其实现，包含 Register 和 Login 方法。</li>
+</ul>
+<ol>
+<li>为 <code>TodoHandler</code> 添加一个 <code>GET /todos/stats</code> 路由。</li>
+
+<h3>🟡 中级</h3>
+<ol>
+<li>实现 <code>UserService</code> 的单元测试，Mock <code>UserRepository</code> 接口。</li>
+</ul>
+<ol>
+<li>添加日志中间件，在 Service 层记录每个方法的执行时间。</li>
+
+<h3>🔴 高级</h3>
+<ol>
+<li>使用 Wire 或 Dig 实现自动依赖注入，替代手动组装。</li>
+</ul>
+<ol>
+<li>设计一个事件系统：Service 操作后发布事件，其他 Service 订阅处理。</li>
+
+<hr>
+
+<h2>七、知识点总结</h2>
+
+<pre><code>Service 层架构设计
+├── 三层架构
+│   ├── Handler: HTTP 处理（绑定、验证、响应）
+│   ├── Service: 业务逻辑（规则、组装）
+│   └── Repository: 数据访问（CRUD、查询）
+├── 依赖注入
+│   ├── 构造函数注入（推荐）
+│   ├── 接口依赖（解耦）
+│   └── 手动 vs 自动（Wire/Dig）
+├── 接口设计
+│   ├── Repository 接口: Create/Find/Update/Delete
+│   ├── Service 接口: 业务方法
+│   └── 面向接口编程
+├── 单元测试
+│   ├── Mock 实现 Repository
+│   ├── 测试业务逻辑
+│   └── 不依赖数据库
+└── 项目结构
+    ├── models/ - 数据模型 + DTO
+    ├── repository/ - 数据访问
+    ├── service/ - 业务逻辑
+    ├── handler/ - HTTP 处理
+    └── response/ - 统一响应</code></pre>
+
+<hr>
+
+<h2>八、举一反三</h2>
+
+<table><thead><tr>
+<th>本文学到</th>
+<th>可应用到</th>
+<th>示例</th>
+</tr></thead><tbody>
+<tr>
+<td>三层架构</td>
+<td>任何后端项目</td>
+<td>Node.js、Java Spring、Python Django</td>
+</tr>
+<tr>
+<td>接口依赖注入</td>
+<td>微服务设计</td>
+<td>替换外部服务实现（支付、通知）</td>
+</tr>
+<tr>
+<td>Mock 测试</td>
+<td>所有业务逻辑测试</td>
+<td>用户注册、订单处理、权限校验</td>
+</tr>
+<tr>
+<td>DTO 模式</td>
+<td>前后端数据隔离</td>
+<td>请求输入、API 响应、内部传输</td>
+</tr>
+<tr>
+<td>RegisterRoutes</td>
+<td>路由注册模式</td>
+<td>版本化 API、模块化路由</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>九、参考资料</h2>
+
+<ul>
+<li><a href="https://go.dev/doc/modules/layout">Go 依赖注入</a></li>
+<li><a href="https://github.com/google/wire">Google Wire</a></li>
+<li><a href="https://github.com/uber-go/dig">Uber Dig</a></li>
+<li><a href="https://blog.cleancoder.com/uncle-bob/2012/08/08/the-clean-architecture.html">Clean Architecture in Go</a></li>
+
+<hr>
+
+<h2>十、代码演进</h2>
+
+<table><thead><tr>
+<th>版本</th>
+<th>特点</th>
+<th>适用场景</th>
+</tr></thead><tbody>
+<tr>
+<td><strong>v1</strong></td>
+<td>手动 DI + 三层分离 + 接口定义</td>
+<td>中小型项目</td>
+</tr>
+<tr>
+<td><strong>v2</strong></td>
+<td>Mock 测试 + 单元测试覆盖</td>
+<td>追求代码质量的项目</td>
+</tr>
+<tr>
+<td><strong>v3</strong></td>
+<td>多 Service 协作 + 事件系统</td>
+<td>大型项目、微服务</td>
+</tr>
+</tbody></table>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

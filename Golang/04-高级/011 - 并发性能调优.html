@@ -1,0 +1,497 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>011 - 并发性能调优</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Golang/index.html">Golang</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Golang/04-高级/index.html">Golang高级</a>
+</nav>
+<h1>011 - 并发性能调优</h1>
+<div class="meta">
+<span>📂 Golang高级</span>
+<span>🏷️ Golang</span>
+</div>
+<article>
+
+
+<h1>091-并发性能调优</h1>
+
+<blockquote><p><strong>难度：🔴 高级</strong> | 预计阅读：25 分钟 | 2024 年更新</p></blockquote>
+
+<h2>一、概念讲解</h2>
+
+<p>Go 语言的并发模型基于 <strong>CSP（Communicating Sequential Processes）</strong>，goroutine + channel 是其核心原语。但"能跑"不等于"跑得快"——并发性能调优需要理解调度器原理、内存分配、锁竞争、GC 压力等多个维度。</p>
+
+<p><strong>核心问题：</strong></p>
+<ul>
+<li>Goroutine 泄漏导致内存持续增长</li>
+<li>Channel 使用不当引发死锁或低吞吐</li>
+<li>锁竞争成为瓶颈</li>
+<li>GC 压力过大影响延迟</li>
+
+<p><strong>调优方法论：</strong></p>
+<ol>
+<li><strong>Measure First</strong> — 先用 pprof/benchmark 量化问题</li>
+</ul>
+<ol>
+<li><strong>Identify Bottleneck</strong> — CPU? Memory? Lock contention?</li>
+</ul>
+<ol>
+<li><strong>Optimize Incrementally</strong> — 一次改一个变量</li>
+</ul>
+<ol>
+<li><strong>Validate</strong> — benchmark 对比，确认改善</li>
+
+<h2>二、脑图</h2>
+
+<pre><code>并发性能调优
+├── 调度器
+│   ├── GMP 模型
+│   ├── Work Stealing
+│   └── sysmon 抢占
+├── Goroutine 管理
+│   ├── 池化 (ants)
+│   ├── 生命周期控制 (context)
+│   └── 泄漏检测
+├── Channel 优化
+│   ├── 带缓冲 vs 无缓冲
+│   ├── 扇入扇出
+│   └── 背压控制
+├── 锁优化
+│   ├── sync.Mutex vs sync.RWMutex
+│   ├── sync.Map
+│   ├── 分段锁
+│   └── atomic 操作
+├── 内存优化
+│   ├── sync.Pool
+│   ├── 预分配 slice/map
+│   └── 减少逃逸
+└── 工具链
+    ├── go tool pprof
+    ├── go test -bench
+    ├── race detector
+    └── trace</code></pre>
+
+<h2>三、完整 Go 代码</h2>
+
+<pre><code class="language-go">package main
+
+import (
+	&quot;context&quot;
+	&quot;fmt&quot;
+	&quot;runtime&quot;
+	&quot;sync&quot;
+	&quot;sync/atomic&quot;
+	&quot;time&quot;
+)
+
+// ============================================
+// V1: Naive goroutine spawning — resource leak
+// ============================================
+
+func processNaive(tasks []int) []int {
+	results := make([]int, len(tasks))
+	for i, t := range tasks {
+		go func(idx, val int) {
+			results[idx] = val * 2
+		}(i, t)
+	}
+	return results // BUG: race condition, no synchronization
+}
+
+// ============================================
+// V2: Worker pool with bounded concurrency
+// ============================================
+
+func processWithPool(ctx context.Context, tasks []int, workers int) ([]int, error) {
+	results := make([]int, len(tasks))
+	taskCh := make(chan int, len(tasks))
+	resultCh := make(chan struct{}, len(tasks))
+
+	// Start worker pool
+	var wg sync.WaitGroup
+	for w := 0; w &lt; workers; w++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for {
+				select {
+				case idx, ok := &lt;-taskCh:
+					if !ok {
+						return
+					}
+					results[idx] = tasks[idx] * 2
+					resultCh &lt;- struct{}{}
+				case &lt;-ctx.Done():
+					return
+				}
+			}
+		}()
+	}
+
+	// Send tasks
+	for i := range tasks {
+		taskCh &lt;- i
+	}
+	close(taskCh)
+
+	// Wait for completion or timeout
+	for i := 0; i &lt; len(tasks); i++ {
+		select {
+		case &lt;-resultCh:
+		case &lt;-ctx.Done():
+			wg.Wait()
+			return nil, ctx.Err()
+		}
+	}
+	wg.Wait()
+	return results, nil
+}
+
+// ============================================
+// V3: Optimized — sync.Pool + atomic counter
+// ============================================
+
+var bufPool = sync.Pool{
+	New: func() interface{} {
+		buf := make([]byte, 1024)
+		return &amp;buf
+	},
+}
+
+type Processor struct {
+	workers  int
+	processed atomic.Int64
+}
+
+func NewProcessor(workers int) *Processor {
+	return &amp;Processor{workers: workers}
+}
+
+func (p *Processor) Process(ctx context.Context, tasks []int) ([]int, error) {
+	results := make([]int, len(tasks))
+	taskCh := make(chan int, len(tasks))
+
+	var wg sync.WaitGroup
+	for w := 0; w &lt; p.workers; w++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			// Reuse buffer from pool
+			_ = bufPool.Get().(*[]byte)
+			defer bufPool.Put(bufPool.Get())
+
+			for {
+				select {
+				case idx, ok := &lt;-taskCh:
+					if !ok {
+						return
+					}
+					// Simulate CPU work
+					results[idx] = tasks[idx] * 2
+					p.processed.Add(1)
+				case &lt;-ctx.Done():
+					return
+				}
+			}
+		}()
+	}
+
+	for i := range tasks {
+		select {
+		case taskCh &lt;- i:
+		case &lt;-ctx.Done():
+			close(taskCh)
+			wg.Wait()
+			return nil, ctx.Err()
+		}
+	}
+	close(taskCh)
+	wg.Wait()
+	return results, nil
+}
+
+func (p *Processor) Stats() int64 {
+	return p.processed.Load()
+}
+
+// ============================================
+// Benchmark helper
+// ============================================
+
+func main() {
+	tasks := make([]int, 10000)
+	for i := range tasks {
+		tasks[i] = i
+	}
+
+	// V2: Worker pool
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	fmt.Printf(&quot;GOMAXPROCS: %d\n&quot;, runtime.GOMAXPROCS(0))
+
+	start := time.Now()
+	res, err := processWithPool(ctx, tasks, runtime.NumCPU())
+	if err != nil {
+		fmt.Println(&quot;Error:&quot;, err)
+		return
+	}
+	fmt.Printf(&quot;V2 Worker Pool: processed %d tasks in %v\n&quot;, len(res), time.Since(start))
+
+	// V3: Optimized processor
+	proc := NewProcessor(runtime.NumCPU() * 2)
+	start = time.Now()
+	res2, err := proc.Process(ctx, tasks)
+	if err != nil {
+		fmt.Println(&quot;Error:&quot;, err)
+		return
+	}
+	fmt.Printf(&quot;V3 Optimized:   processed %d tasks in %v, total=%d\n&quot;,
+		len(res2), time.Since(start), proc.Stats())
+}</code></pre>
+
+<h2>四、执行预览</h2>
+
+<pre><code>$ go run main.go
+GOMAXPROCS: 8
+V2 Worker Pool: processed 10000 tasks in 1.2ms
+V3 Optimized:   processed 10000 tasks in 0.8ms, total=10000</code></pre>
+
+<h2>五、注意事项</h2>
+
+<table><thead><tr>
+<th>维度</th>
+<th>注意点</th>
+<th>说明</th>
+</tr></thead><tbody>
+<tr>
+<td>Goroutine 数量</td>
+<td>不要无限制创建</td>
+<td>10w+ goroutine 会吃掉大量内存</td>
+</tr>
+<tr>
+<td>Channel 方向</td>
+<td>区分发送/接收 channel</td>
+<td>编译期类型安全</td>
+</tr>
+<tr>
+<td>Context 超时</td>
+<td>务必设置合理超时</td>
+<td>防止 goroutine 泄漏</td>
+</tr>
+<tr>
+<td>sync.Pool</td>
+<td>适合短生命周期对象</td>
+<td>GC 前会被回收，不保证持久</td>
+</tr>
+<tr>
+<td>Race Detector</td>
+<td>开发阶段始终开启</td>
+<td><code>go run -race</code> 或 <code>go test -race</code></td>
+</tr>
+<tr>
+<td>GOMAXPROCS</td>
+<td>默认等于 CPU 核心数</td>
+<td>容器环境可能需要手动设置</td>
+</tr>
+</tbody></table>
+
+<h2>六、避坑指南</h2>
+
+<table><thead><tr>
+<th>❌ 错误做法</th>
+<th>✅ 正确做法</th>
+</tr></thead><tbody>
+<tr>
+<td><code>go func()</code> 不加 WaitGroup</td>
+<td>用 <code>sync.WaitGroup</code> 或 channel 等待完成</td>
+</tr>
+<tr>
+<td>无缓冲 channel 在同一 goroutine 收发</td>
+<td>分离发送方和接收方</td>
+</tr>
+<tr>
+<td><code>runtime.GOMAXPROCS(1)</code> 假设单线程</td>
+<td>Go 调度器是并发的，需要正确的同步</td>
+</tr>
+<tr>
+<td>用 <code>time.Sleep</code> 等待 goroutine 完成</td>
+<td>用 <code>sync.WaitGroup</code> 或 <code>context</code></td>
+</tr>
+<tr>
+<td>每次请求 <code>make</code> 大 buffer</td>
+<td>用 <code>sync.Pool</code> 复用</td>
+</tr>
+<tr>
+<td>Mutex 嵌套锁定顺序不一致</td>
+<td>统一锁定顺序，避免死锁</td>
+</tr>
+</tbody></table>
+
+<h2>七、练习题</h2>
+
+<p><strong>🟢 初级：</strong> 写一个带缓冲 channel 的生产者-消费者模型，限制并发数为 10。</p>
+
+<p><strong>🟡 中级：</strong> 使用 <code>sync.Pool</code> 优化一个 JSON 序列化函数的内存分配，对比 benchmark 结果。</p>
+
+<p><strong>🔴 高级：</strong> 实现一个自适应 worker pool：当队列积压超过阈值时自动扩容，空闲超时后自动缩容。</p>
+
+<h2>八、知识点总结</h2>
+
+<pre><code>并发调优知识树
+├── 基础
+│   ├── goroutine 轻量级线程（2KB 栈初始）
+│   ├── channel 类型安全管道
+│   └── select 多路复用
+├── 同步原语
+│   ├── sync.Mutex / RWMutex
+│   ├── sync.WaitGroup
+│   ├── sync.Once
+│   ├── sync.Map（读多写少）
+│   ├── sync.Pool（对象复用）
+│   └── sync/atomic（无锁计数）
+├── 调度器
+│   ├── G(goroutine)-M(machine)-P(processor)
+│   ├── Work Stealing 偷任务
+│   ├── Hand Off 阻塞时交接
+│   └── sysmon 抢占长时间运行的 G
+├── 调优手段
+│   ├── 控制并发数（semaphore / pool）
+│   ├── 减少 CGO 调用
+│   ├── 预分配内存
+│   ├── 减小 GC 压力
+│   └── 调整 GOGC
+└── 工具
+    ├── go tool pprof（cpu/mem/block）
+    ├── go test -bench -benchmem
+    ├── go test -race
+    └── go tool trace</code></pre>
+
+<h2>九、举一反三</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>优化前</th>
+<th>优化后</th>
+<th>收益</th>
+</tr></thead><tbody>
+<tr>
+<td>HTTP 请求处理</td>
+<td>每请求一个 goroutine</td>
+<td>Worker pool + 限流</td>
+<td>内存降 80%，延迟稳定</td>
+</tr>
+<tr>
+<td>日志批量写入</td>
+<td>逐条写文件</td>
+<td>Channel 聚合 + 批量刷盘</td>
+<td>吞吐提升 5x</td>
+</tr>
+<tr>
+<td>缓存查询</td>
+<td>每次加锁</td>
+<td>sync.Map / 分段锁</td>
+<td>QPS 提升 3x</td>
+</tr>
+<tr>
+<td>大对象频繁创建</td>
+<td><code>new</code> + GC</td>
+<td>sync.Pool 复用</td>
+<td>GC 暂停降 60%</td>
+</tr>
+<tr>
+<td>Pipeline 处理</td>
+<td>串行处理</td>
+<td>Fan-out/Fan-in 并行</td>
+<td>耗时降 70%</td>
+</tr>
+</tbody></table>
+
+<h2>十、参考资料</h2>
+
+<ul>
+<li><a href="https://docs.google.com/document/d/1TTj4T2JO42uD5ID9e89oa0sLKhJYD0Y_kqxDv3I3XMw">Go 调度器设计文档（Dmitry Vyukov）</a></li>
+<li><a href="https://book.douban.com/subject/30397736/">Go 并发编程实战（第2版）</a></li>
+<li><a href="https://github.com/google/pprof/blob/main/doc/README.md">pprof 用户手册</a></li>
+<li><a href="https://go.dev/ref/mem">Go Memory Model</a></li>
+
+<h2>十一、代码演进</h2>
+
+<p><strong>V1 — 裸启动 goroutine（有竞态）：</strong></p>
+<ul>
+<li>直接 <code>go func()</code> 启动，无同步机制</li>
+<li>存在 data race，结果不可预测</li>
+
+<p><strong>V2 — Worker Pool + Context：</strong></p>
+<ul>
+<li>固定 worker 数量，通过 channel 分发任务</li>
+<li>支持 context 取消和超时</li>
+<li>用 WaitGroup 确保所有 worker 完成</li>
+
+<p><strong>V3 — sync.Pool + atomic + 自定义 Processor：</strong></p>
+<ul>
+<li>对象复用减少 GC 压力</li>
+<li>atomic 计数器替代 Mutex，减少锁竞争</li>
+<li>封装为可复用的 Processor 结构体</li>
+<li>支持统计和监控</li>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

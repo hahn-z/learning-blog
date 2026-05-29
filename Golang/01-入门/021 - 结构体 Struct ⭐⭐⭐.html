@@ -1,0 +1,671 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>021 - 结构体 Struct ⭐⭐⭐</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/learning-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/learning-blog/Golang/index.html">Golang</a>
+<span class="sep">›</span>
+<a href="/learning-blog/Golang/01-入门/index.html">Golang入门</a>
+</nav>
+<h1>021 - 结构体 Struct ⭐⭐⭐</h1>
+<div class="meta">
+<span>📂 Golang入门</span>
+<span>🏷️ Golang</span>
+</div>
+<article>
+
+
+<h1>021 - 结构体 Struct ⭐⭐⭐</h1>
+
+<blockquote><p><strong>难度：</strong> ⭐⭐⭐（中等）<br><strong>适合人群：</strong> 有 Go 基础语法经验，准备学习面向对象设计的开发者<br><strong>阅读时间：</strong> 约 25 分钟</p></blockquote>
+
+<hr>
+
+<h2>一、概念讲解</h2>
+
+<h3>什么是结构体？</h3>
+
+<p>结构体是 Go 中<strong>组织数据的基本方式</strong>——把多个字段打包成一个整体。它是 Go 实现"面向对象"的基石（Go 没有 class，用 struct + method 代替）。</p>
+
+<pre><code class="language-go">type User struct {
+    Name string
+    Age  int
+}</code></pre>
+
+<h3>四种初始化方式</h3>
+
+<pre><code class="language-go">// 1. 字面量（推荐）
+u1 := User{Name: &quot;Alice&quot;, Age: 25}
+
+// 2. 顺序赋值（不推荐，维护性差）
+u2 := User{&quot;Bob&quot;, 30}
+
+// 3. new 函数（返回指针）
+u3 := new(User) // *User, 零值
+
+// 4. 取地址 + 字面量
+u4 := &amp;User{Name: &quot;Charlie&quot;, Age: 35}</code></pre>
+
+<h3>字段标签（Field Tags）</h3>
+
+<p>字段标签是附加在字段上的元数据，运行时可通过反射读取。最常见的用途是 JSON 序列化：</p>
+
+<pre><code class="language-go">type User struct {
+    Name string `json:&quot;name&quot;`
+    Age  int    `json:&quot;age,omitempty&quot;`
+    Pass string `json:&quot;-&quot;`
+}</code></pre>
+
+<h3>匿名字段 / 嵌入（Embedding）</h3>
+
+<p>Go 通过结构体嵌入实现类似"继承"的效果：</p>
+
+<pre><code class="language-go">type Animal struct {
+    Name string
+}
+
+func (a Animal) Speak() string { return a.Name + &quot; speaks&quot; }
+
+type Dog struct {
+    Animal  // 匿名嵌入，Dog &quot;继承&quot; Animal 的字段和方法
+    Breed string
+}</code></pre>
+
+<h3>结构体比较</h3>
+
+<p>如果所有字段都是<strong>可比较的</strong>，结构体就可以用 <code>==</code> 比较：</p>
+
+<pre><code class="language-go">p1 := Point{X: 1, Y: 2}
+p2 := Point{X: 1, Y: 2}
+fmt.Println(p1 == p2) // true</code></pre>
+
+<p>包含不可比较字段（slice、map、function）的结构体不能用 <code>==</code>。</p>
+
+<h3>构造函数模式</h3>
+
+<p>Go 没有构造函数，但约定 <code>NewXxx</code> 函数作为构造器：</p>
+
+<pre><code class="language-go">func NewUser(name string, age int) *User {
+    return &amp;User{Name: name, Age: age}
+}</code></pre>
+
+<h3>内存对齐</h3>
+
+<p>Go 编译器会自动进行内存对齐优化。字段排列顺序影响结构体大小：</p>
+
+<pre><code class="language-go">// 24 bytes (poor alignment)
+type Bad struct {
+    A bool   // 1 byte + 7 padding
+    B int64  // 8 bytes
+    C int32  // 4 bytes + 4 padding
+}
+
+// 16 bytes (good alignment)
+type Good struct {
+    B int64  // 8 bytes
+    C int32  // 4 bytes
+    A bool   // 1 byte + 3 padding
+}</code></pre>
+
+<hr>
+
+<h2>二、脑图（ASCII）</h2>
+
+<pre><code>结构体 Struct
+├── 定义与初始化
+│   ├── type Name struct { ... }
+│   ├── 4种初始化方式
+│   └── 零值可用
+├── 字段标签
+│   ├── json:&quot;name&quot;
+│   ├── json:&quot;-,omitempty&quot;
+│   └── 反射读取 reflect
+├── 匿名嵌入
+│   ├── 字段提升
+│   ├── 方法提升
+│   └── 不是继承！是组合
+├── 比较与哈希
+│   ├── 可比较字段 → == 可用
+│   └── 含 slice/map → == 不可用
+├── 指针接收者
+│   ├── 修改自身用 *T
+│   └── 只读可用 T
+├── 构造函数
+│   └── NewXxx() *Xxx
+└── 内存对齐
+    ├── unsafe.Sizeof()
+    └── 字段排列优化</code></pre>
+
+<hr>
+
+<h2>三、完整 Go 代码</h2>
+
+<pre><code class="language-go">package main
+
+import (
+    &quot;encoding/json&quot;
+    &quot;fmt&quot;
+    &quot;unsafe&quot;
+)
+
+// Demo: struct definition and 4 initialization methods
+type User struct {
+    Name string
+    Age  int
+}
+
+func initMethods() {
+    // Method 1: Named fields (recommended)
+    u1 := User{Name: &quot;Alice&quot;, Age: 25}
+    fmt.Printf(&quot;命名初始化: %+v\n&quot;, u1)
+
+    // Method 2: Positional (fragile, avoid)
+    u2 := User{&quot;Bob&quot;, 30}
+    fmt.Printf(&quot;顺序初始化: %+v\n&quot;, u2)
+
+    // Method 3: new() returns pointer
+    u3 := new(User) // *User, zero-valued
+    u3.Name = &quot;Charlie&quot;
+    fmt.Printf(&quot;new 初始化: %+v\n&quot;, u3)
+
+    // Method 4: &amp; with literal
+    u4 := &amp;User{Name: &quot;Diana&quot;, Age: 28}
+    fmt.Printf(&quot;&amp;字面量: %+v\n&quot;, u4)
+}
+
+// Demo: field tags for JSON
+type Product struct {
+    ID    int     `json:&quot;id&quot;`
+    Name  string  `json:&quot;name&quot;`
+    Price float64 `json:&quot;price,omitempty&quot;` // omit if zero
+    Internal string `json:&quot;-&quot;`             // excluded from JSON
+}
+
+func fieldTags() {
+    p := Product{ID: 1, Name: &quot;Go Book&quot;, Price: 0, Internal: &quot;secret&quot;}
+    data, _ := json.Marshal(p)
+    fmt.Printf(&quot;JSON: %s\n&quot;, data) // no price (omitempty+zero), no internal
+
+    p.Price = 29.9
+    data, _ = json.Marshal(p)
+    fmt.Printf(&quot;JSON with price: %s\n&quot;, data)
+}
+
+// Demo: anonymous embedding
+type Animal struct {
+    Name string
+}
+
+func (a Animal) Speak() string {
+    return a.Name + &quot; makes a sound&quot;
+}
+
+type Dog struct {
+    Animal        // embedded (not inherited!)
+    Breed  string
+}
+
+func (d Dog) Bark() string {
+    return d.Name + &quot; barks!&quot;
+}
+
+func embedding() {
+    d := Dog{
+        Animal: Animal{Name: &quot;Rex&quot;},
+        Breed:  &quot;Labrador&quot;,
+    }
+    // Name field is promoted from Animal
+    fmt.Printf(&quot;Dog name: %s, breed: %s\n&quot;, d.Name, d.Breed)
+    // Speak method is promoted from Animal
+    fmt.Printf(&quot;Speak: %s\n&quot;, d.Speak())
+    fmt.Printf(&quot;Bark: %s\n&quot;, d.Bark())
+}
+
+// Demo: struct comparison
+type Point struct {
+    X, Y int
+}
+
+func comparison() {
+    p1 := Point{X: 1, Y: 2}
+    p2 := Point{X: 1, Y: 2}
+    p3 := Point{X: 1, Y: 3}
+
+    fmt.Printf(&quot;p1 == p2: %v\n&quot;, p1 == p2) // true
+    fmt.Printf(&quot;p1 == p3: %v\n&quot;, p1 == p3) // false
+
+    // Structs with maps/slices are NOT comparable
+    // type Bad struct { M map[string]int }
+    // _ = Bad{} == Bad{} // compile error!
+}
+
+// Demo: constructor pattern
+type Server struct {
+    Host string
+    Port int
+}
+
+// Constructor: returns pointer, can validate
+func NewServer(host string, port int) *Server {
+    if port &lt; 0 || port &gt; 65535 {
+        panic(fmt.Sprintf(&quot;invalid port: %d&quot;, port))
+    }
+    return &amp;Server{Host: host, Port: port}
+}
+
+func (s *Server) Address() string {
+    return fmt.Sprintf(&quot;%s:%d&quot;, s.Host, s.Port)
+}
+
+func constructorPattern() {
+    s := NewServer(&quot;localhost&quot;, 8080)
+    fmt.Printf(&quot;Server address: %s\n&quot;, s.Address())
+}
+
+// Demo: memory alignment
+type BadAlign struct {
+    A bool   // 1 byte
+    B int64  // 8 bytes (needs 8-byte alignment → 7 bytes padding before)
+    C int32  // 4 bytes
+    // Total: 1 + 7(pad) + 8 + 4 + 4(pad) = 24 bytes
+}
+
+type GoodAlign struct {
+    B int64  // 8 bytes
+    C int32  // 4 bytes
+    A bool   // 1 byte + 3(pad)
+    // Total: 8 + 4 + 1 + 3(pad) = 16 bytes
+}
+
+func memoryAlignment() {
+    fmt.Printf(&quot;BadAlign size: %d bytes\n&quot;, unsafe.Sizeof(BadAlign{}))   // 24
+    fmt.Printf(&quot;GoodAlign size: %d bytes\n&quot;, unsafe.Sizeof(GoodAlign{})) // 16
+    fmt.Printf(&quot;节省了 %d bytes (33%%)\n&quot;,
+        unsafe.Sizeof(BadAlign{})-unsafe.Sizeof(GoodAlign{}))
+}
+
+// Demo: struct with methods (pointer vs value receiver)
+type Counter struct {
+    count int
+}
+
+// Value receiver: works on copy, cannot modify original
+func (c Counter) ValueRead() int {
+    return c.count
+}
+
+// Pointer receiver: can modify original
+func (c *Counter) Increment() {
+    c.count++
+}
+
+func methodReceivers() {
+    c := &amp;Counter{}
+    c.Increment()
+    c.Increment()
+    fmt.Printf(&quot;Counter value: %d\n&quot;, c.ValueRead())
+}
+
+func main() {
+    fmt.Println(&quot;=== 四种初始化方式 ===&quot;)
+    initMethods()
+
+    fmt.Println(&quot;\n=== 字段标签 JSON ===&quot;)
+    fieldTags()
+
+    fmt.Println(&quot;\n=== 匿名嵌入 ===&quot;)
+    embedding()
+
+    fmt.Println(&quot;\n=== 结构体比较 ===&quot;)
+    comparison()
+
+    fmt.Println(&quot;\n=== 构造函数模式 ===&quot;)
+    constructorPattern()
+
+    fmt.Println(&quot;\n=== 内存对齐 ===&quot;)
+    memoryAlignment()
+
+    fmt.Println(&quot;\n=== 方法接收者 ===&quot;)
+    methodReceivers()
+}</code></pre>
+
+<hr>
+
+<h2>四、执行预览</h2>
+
+<pre><code>=== 四种初始化方式 ===
+命名初始化: {Name:Alice Age:25}
+顺序初始化: {Name:Bob Age:30}
+new 初始化: &amp;{Name:Charlie Age:0}
+&amp;字面量: &amp;{Name:Diana Age:28}
+
+=== 字段标签 JSON ===
+JSON: {&quot;id&quot;:1,&quot;name&quot;:&quot;Go Book&quot;}
+JSON with price: {&quot;id&quot;:1,&quot;name&quot;:&quot;Go Book&quot;,&quot;price&quot;:29.9}
+
+=== 匿名嵌入 ===
+Dog name: Rex, breed: Labrador
+Speak: Rex makes a sound
+Bark: Rex barks!
+
+=== 结构体比较 ===
+p1 == p2: true
+p1 == p3: false
+
+=== 构造函数模式 ===
+Server address: localhost:8080
+
+=== 内存对齐 ===
+BadAlign size: 24 bytes
+GoodAlign size: 16 bytes
+节省了 8 bytes (33%)
+
+=== 方法接收者 ===
+Counter value: 2</code></pre>
+
+<hr>
+
+<h2>五、注意事项</h2>
+
+<table><thead><tr>
+<th>项目</th>
+<th>说明</th>
+<th>建议</th>
+</tr></thead><tbody>
+<tr>
+<td>零值可用</td>
+<td>设计结构体时让零值有意义</td>
+<td><code>sync.Mutex</code> 零值即可用</td>
+</tr>
+<tr>
+<td>字段顺序</td>
+<td>影响 JSON 序列化和内存大小</td>
+<td>紧凑排列节省内存</td>
+</tr>
+<tr>
+<td>可比较性</td>
+<td>含 slice/map/func 不可比较</td>
+<td>需比较时用 <code>reflect.DeepEqual</code></td>
+</tr>
+<tr>
+<td>嵌入 vs 继承</td>
+<td>Go 是组合，不是继承</td>
+<td>不要当继承用</td>
+</tr>
+<tr>
+<td>指针接收者一致性</td>
+<td>混用值/指针接收者易混乱</td>
+<td>选一个，保持一致</td>
+</tr>
+<tr>
+<td>构造函数</td>
+<td>Go 没有 class 构造器</td>
+<td>用 <code>NewXxx</code> 函数约定</td>
+</tr>
+<tr>
+<td>可见性</td>
+<td>大写 = 导出，小写 = 未导出</td>
+<td>遵循包级封装</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>六、避坑指南</h2>
+
+<h3>❌ 顺序初始化</h3>
+<pre><code class="language-go">// ❌ 字段顺序变了就出 bug
+u := User{&quot;Alice&quot;, 25}
+
+// ✅ 用命名初始化
+u := User{Name: &quot;Alice&quot;, Age: 25}</code></pre>
+
+<h3>❌ 值接收者修改自身</h3>
+<pre><code class="language-go">// ❌ 值接收者修改的是副本，原值不变
+func (c Counter) Increment() { c.count++ }
+
+// ✅ 指针接收者才能修改
+func (c *Counter) Increment() { c.count++ }</code></pre>
+
+<h3>❌ 用继承思维理解嵌入</h3>
+<pre><code class="language-go">// ❌ 嵌入不是继承，Dog 不是 Animal 的子类型
+// Dog 和 Animal 是 has-a 关系
+
+// ✅ 理解为&quot;组合 + 字段/方法提升&quot;
+// Dog has an Animal, and can use its methods directly</code></pre>
+
+<h3>❌ 忽略内存对齐</h3>
+<pre><code class="language-go">// ❌ 随意排列字段，浪费内存
+type Waste struct {
+    A bool
+    B int64
+    C bool
+    D int64
+} // 32 bytes!
+
+// ✅ 按大小降序排列
+type Compact struct {
+    B int64
+    D int64
+    C bool
+    A bool
+} // 18 bytes (+6 padding = 24, still better than 32)</code></pre>
+
+<hr>
+
+<h2>七、练习题</h2>
+
+<h3>🟢 入门：定义 Student 结构体</h3>
+<p>定义 <code>Student</code> 结构体（Name、Age、Grade），包含 JSON 标签，实现 <code>String()</code> 方法。</p>
+
+<h3>🟡 进阶：用嵌入实现"多态"</h3>
+<p>定义 <code>Shape</code> 接口（Area 方法），<code>Circle</code> 和 <code>Rectangle</code> 结构体实现该接口。用切片存储不同形状并计算总面积。</p>
+
+<pre><code class="language-go">type Shape interface {
+    Area() float64
+}
+// 实现 Circle 和 Rectangle</code></pre>
+
+<h3>🔴 挑战：实现 Option 模式</h3>
+<p>用 Functional Options 模式实现结构体配置：</p>
+
+<pre><code class="language-go">type Server struct {
+    Host string
+    Port int
+    TLS  bool
+}
+
+type Option func(*Server)
+
+func WithTLS() Option {
+    return func(s *Server) { s.TLS = true }
+}
+
+func NewServer(opts ...Option) *Server {
+    // 初始化 + 应用 options
+}</code></pre>
+
+<hr>
+
+<h2>八、知识点总结</h2>
+
+<pre><code>结构体 Struct
+├── 定义 type T struct { ... }
+├── 初始化 4 种方式
+│   ├── 命名字面量 ✅
+│   ├── 顺序字面量 ❌
+│   ├── new(T) → *T
+│   └── &amp;T{} → *T
+├── 字段标签
+│   ├── json/xml/db
+│   └── 反射读取
+├── 匿名嵌入
+│   ├── 字段提升
+│   ├── 方法提升
+│   └── 方法覆盖
+├── 方法接收者
+│   ├── 值接收者 T（只读）
+│   └── 指针接收者 *T（可修改）
+├── 构造函数
+│   └── NewXxx() 模式
+└── 内存对齐
+    ├── unsafe.Sizeof
+    └── 字段排列优化</code></pre>
+
+<hr>
+
+<h2>九、举一反三</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>值类型 struct</th>
+<th>指针 *struct</th>
+</tr></thead><tbody>
+<tr>
+<td>小结构体 (<64B)</td>
+<td>✅ 传值</td>
+<td>视情况</td>
+</tr>
+<tr>
+<td>大结构体</td>
+<td>❌ 复制开销</td>
+<td>✅ 传指针</td>
+</tr>
+<tr>
+<td>需要修改</td>
+<td>❌</td>
+<td>✅</td>
+</tr>
+<tr>
+<td>并发安全</td>
+<td>⚠️ 各副本独立</td>
+<td>❌ 需加锁</td>
+</tr>
+<tr>
+<td>map/slice 元素</td>
+<td>✅ 可寻址</td>
+<td>用指针元素</td>
+</tr>
+<tr>
+<td>方法接收者</td>
+<td>只读用值</td>
+<td>修改用指针</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>十、参考资料</h2>
+
+<ol>
+<li><a href="https://go.dev/tour/moretypes/2">Go 官方文档 - Structs</a></li>
+</ul>
+<ol>
+<li><a href="https://go.dev/doc/effective_go#interfaces">Effective Go - Structs and interfaces</a></li>
+</ul>
+<ol>
+<li><a href="https://gobyexample.com/structs">Go by Example: Structs</a></li>
+</ul>
+<ol>
+<li><a href="https://github.com/golang/go/wiki/CodeReviewComments#receiver-type">Go Wiki: Method receiver type</a></li>
+</ul>
+<ol>
+<li><a href="https://www.ardanlabs.com/blog/2016/10/ultimate-struct-type-analysis.html">Ultimate Go - Memory Layout</a></li>
+
+<hr>
+
+<h2>十一、代码演进</h2>
+
+<h3>v1 — 基本结构体</h3>
+<pre><code class="language-go">type User struct {
+    Name string
+    Age  int
+}
+u := User{Name: &quot;Alice&quot;, Age: 25}
+fmt.Println(u.Name)</code></pre>
+
+<h3>v2 — 方法 + 指针接收者</h3>
+<pre><code class="language-go">func (u *User) Birthday() { u.Age++ }
+u := &amp;User{Name: &quot;Alice&quot;, Age: 25}
+u.Birthday()</code></pre>
+
+<h3>v3 — 构造函数 + 嵌入 + JSON</h3>
+<pre><code class="language-go">type BaseEntity struct {
+    ID        int       `json:&quot;id&quot;`
+    CreatedAt time.Time `json:&quot;created_at&quot;`
+}
+
+type User struct {
+    BaseEntity
+    Name string `json:&quot;name&quot;`
+}
+
+func NewUser(name string) *User {
+    return &amp;User{
+        BaseEntity: BaseEntity{ID: generateID(), CreatedAt: time.Now()},
+        Name:       name,
+    }
+}</code></pre>
+
+<hr>
+
+<p><strong>上一篇：</strong> <a href="/posts/020-new-make">020 - 指针进阶：new 与 make</a></p>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

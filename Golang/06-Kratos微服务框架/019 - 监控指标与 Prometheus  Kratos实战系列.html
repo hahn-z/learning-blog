@@ -1,0 +1,609 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>019 - 监控指标与 Prometheus | Kratos实战系列</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Golang/index.html">Golang</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Golang/06-Kratos微服务框架/index.html">Kratos框架</a>
+</nav>
+<h1>019 - 监控指标与 Prometheus | Kratos实战系列</h1>
+<div class="meta">
+<span>📂 Kratos框架</span>
+<span>🏷️ Golang</span>
+</div>
+<article>
+
+
+<h1>监控指标与 Prometheus</h1>
+
+<blockquote><p><strong>难度：</strong> ⭐⭐⭐ | <strong>预计阅读：</strong> 16 分钟<br><br>在 Kratos 微服务中集成 Prometheus 监控：指标暴露、自定义业务指标、Grafana 可视化看板、告警规则和 SLI/SLO 设计。</p></blockquote>
+
+<hr>
+
+<h2>1. 概念讲解</h2>
+
+<h3>可观测性三支柱</h3>
+
+<table><thead><tr>
+<th>支柱</th>
+<th>工具</th>
+<th>关注点</th>
+</tr></thead><tbody>
+<tr>
+<td>Metrics（指标）</td>
+<td>Prometheus</td>
+<td>系统健康、性能趋势</td>
+</tr>
+<tr>
+<td>Traces（追踪）</td>
+<td>Jaeger</td>
+<td>请求链路、瓶颈定位</td>
+</tr>
+<tr>
+<td>Logs（日志）</td>
+<td>Loki/ELK</td>
+<td>事件记录、故障排查</td>
+</tr>
+</tbody></table>
+
+<p>本文聚焦 <strong>Metrics</strong>。</p>
+
+<h3>Prometheus 指标类型</h3>
+
+<table><thead><tr>
+<th>类型</th>
+<th>说明</th>
+<th>示例</th>
+</tr></thead><tbody>
+<tr>
+<td>Counter</td>
+<td>单调递增计数器</td>
+<td>请求总数、错误总数</td>
+</tr>
+<tr>
+<td>Gauge</td>
+<td>可增可减的仪表盘</td>
+<td>当前在线用户、CPU 使用率</td>
+</tr>
+<tr>
+<td>Histogram</td>
+<td>分布统计（分位数）</td>
+<td>请求延迟分布</td>
+</tr>
+<tr>
+<td>Summary</td>
+<td>客户端计算分位数</td>
+<td>请求延迟（精确但不可聚合）</td>
+</tr>
+</tbody></table>
+
+<h3>Kratos metrics 集成</h3>
+
+<p>Kratos 提供 <code>metrics</code> 中间件接口，默认支持 Prometheus。核心流程：</p>
+
+<pre><code>Request → metrics Middleware → Handler → Record metrics (latency, status, etc.)
+                                        → /metrics endpoint for Prometheus scrape</code></pre>
+
+<hr>
+
+<h2>2. 脑图</h2>
+
+<pre><code>Prometheus 监控
+├── 指标类型
+│   ├── Counter (递增计数)
+│   ├── Gauge (仪表盘)
+│   ├── Histogram (分布直方图)
+│   └── Summary (客户端分位数)
+├── Kratos 集成
+│   ├── metrics 中间件
+│   ├── prometheus Provider
+│   └── /metrics 暴露端点
+├── 自定义业务指标
+│   ├── 注册指标
+│   ├── 在 Service 层埋点
+│   └── 标签设计 (Labels)
+├── Grafana 可视化
+│   ├── 数据源配置
+│   ├── Dashboard 模板
+│   └── 变量/过滤
+├── 告警规则
+│   ├── Prometheus AlertManager
+│   ├── 告警规则编写
+│   └── 告警路由/收敛
+└── SLI/SLO
+    ├── 可用性 SLI
+    ├── 延迟 SLI
+    └── 错误率 SLI</code></pre>
+
+<hr>
+
+<h2>3. 完整 Go 代码</h2>
+
+<h3>v1 — Kratos + Prometheus 基础集成</h3>
+
+<pre><code class="language-go">// cmd/server/main.go
+package main
+
+import (
+	&quot;github.com/go-kratos/kratos/v2&quot;
+	&quot;github.com/go-kratos/kratos/v2/middleware/metrics&quot;
+	&quot;github.com/go-kratos/kratos/v2/transport/http&quot;
+	promMetrics &quot;github.com/go-kratos/kratos/v2/middleware/metrics/prometheus&quot;
+	&quot;github.com/prometheus/client_golang/prometheus&quot;
+	&quot;github.com/prometheus/client_golang/prometheus/promhttp&quot;
+)
+
+func main() {
+	// Create Prometheus registry
+	registry := prometheus.NewRegistry()
+
+	// Create metrics middleware
+	m, err := promMetrics.NewMetrics(
+		promMetrics.WithRegistry(registry),
+	)
+	if err != nil {
+		panic(err)
+	}
+
+	// Business HTTP server with metrics middleware
+	httpSrv := http.NewServer(
+		http.Address(&quot;:8000&quot;),
+		http.Middleware(
+			metrics.Server(
+				metrics.WithSeconds(m.Histogram(&quot;kratos_http_seconds&quot;)),
+				metrics.WithRequests(m.Counter(&quot;kratos_http_requests_total&quot;)),
+			),
+		),
+	)
+
+	// Separate metrics server for Prometheus scrape
+	metricsMux := http.NewServeMux()
+	metricsMux.Handle(&quot;/metrics&quot;, promhttp.HandlerFor(
+		registry,
+		promhttp.HandlerOpts{},
+	))
+	metricsSrv := &amp;http.Server{Addr: &quot;:9000&quot;, Handler: metricsMux}
+	go metricsSrv.ListenAndServe()
+
+	app := kratos.New(kratos.Server(httpSrv))
+	app.Run()
+}</code></pre>
+
+<h3>v2 — 自定义业务指标</h3>
+
+<pre><code class="language-go">// internal/pkg/metrics/business.go
+package metrics
+
+import (
+	&quot;github.com/prometheus/client_golang/prometheus&quot;
+)
+
+var (
+	// Order metrics
+	OrdersCreated = prometheus.NewCounterVec(prometheus.CounterOpts{
+		Name: &quot;business_orders_created_total&quot;,
+		Help: &quot;Total number of orders created&quot;,
+	}, []string{&quot;product_type&quot;, &quot;channel&quot;})
+
+	OrderAmount = prometheus.NewHistogramVec(prometheus.HistogramOpts{
+		Name:    &quot;business_order_amount&quot;,
+		Help:    &quot;Order amount distribution&quot;,
+		Buckets: []float64{10, 50, 100, 500, 1000, 5000},
+	}, []string{&quot;product_type&quot;})
+
+	// User metrics
+	ActiveUsers = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Name: &quot;business_active_users&quot;,
+		Help: &quot;Current number of active users&quot;,
+	}, []string{&quot;platform&quot;})
+
+	// Payment metrics
+	PaymentDuration = prometheus.NewHistogramVec(prometheus.HistogramOpts{
+		Name:    &quot;business_payment_duration_seconds&quot;,
+		Help:    &quot;Payment processing duration&quot;,
+		Buckets: prometheus.DefBuckets,
+	}, []string{&quot;payment_method&quot;})
+)
+
+func RegisterBusinessMetrics(reg prometheus.Registerer) {
+	reg.MustRegister(
+		OrdersCreated,
+		OrderAmount,
+		ActiveUsers,
+		PaymentDuration,
+	)
+}</code></pre>
+
+<pre><code class="language-go">// internal/service/order.go — record business metrics
+package service
+
+import (
+	&quot;time&quot;
+
+	&quot;your-project/internal/pkg/metrics&quot;
+)
+
+func (s *OrderService) CreateOrder(ctx context.Context, req *v1.CreateOrderReq) (*v1.CreateOrderReply, error) {
+	// ... business logic
+
+	// Record metrics
+	metrics.OrdersCreated.WithLabelValues(req.ProductType, req.Channel).Inc()
+	metrics.OrderAmount.WithLabelValues(req.ProductType).Observe(float64(req.Amount))
+
+	return reply, nil
+}
+
+func (s *OrderService) ProcessPayment(ctx context.Context, req *v1.PaymentReq) (*v1.PaymentReply, error) {
+	start := time.Now()
+	defer func() {
+		duration := time.Since(start).Seconds()
+		metrics.PaymentDuration.WithLabelValues(req.Method).Observe(duration)
+	}()
+
+	// ... payment logic
+	return reply, nil
+}</code></pre>
+
+<h3>v3 — Grafana 看板 + 告警规则</h3>
+
+<pre><code class="language-yaml"># docker-compose.yml — full monitoring stack
+version: &#x27;3.8&#x27;
+services:
+  prometheus:
+    image: prom/prometheus:v2.48.0
+    ports:
+      - &quot;9090:9090&quot;
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+
+  grafana:
+    image: grafana/grafana:10.2.0
+    ports:
+      - &quot;3000:3000&quot;
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+
+  alertmanager:
+    image: prom/alertmanager:v0.26.0
+    ports:
+      - &quot;9093:9093&quot;
+    volumes:
+      - ./alertmanager.yml:/etc/alertmanager/alertmanager.yml</code></pre>
+
+<pre><code class="language-yaml"># prometheus.yml
+global:
+  scrape_interval: 15s
+
+scrape_configs:
+  - job_name: &#x27;user-service&#x27;
+    static_configs:
+      - targets: [&#x27;host.docker.internal:9000&#x27;]
+        labels:
+          service: &#x27;user-service&#x27;
+
+# Alert rules
+rule_files:
+  - &#x27;alert_rules.yml&#x27;</code></pre>
+
+<pre><code class="language-yaml"># alert_rules.yml — SLI/SLO based alerting
+groups:
+  - name: slo-alerts
+    rules:
+      # Availability: error rate &gt; 1% in 5 min
+      - alert: HighErrorRate
+        expr: |
+          sum(rate(kratos_http_requests_total{code=~&quot;5..&quot;}[5m]))
+          /
+          sum(rate(kratos_http_requests_total[5m]))
+          &gt; 0.01
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: &quot;Error rate exceeds 1% SLO&quot;
+          description: &quot;Current error rate: {{ $value | humanizePercentage }}&quot;
+
+      # Latency: P99 &gt; 500ms in 5 min
+      - alert: HighLatency
+        expr: |
+          histogram_quantile(0.99,
+            sum(rate(kratos_http_seconds_bucket[5m])) by (le)
+          ) &gt; 0.5
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: &quot;P99 latency exceeds 500ms SLO&quot;</code></pre>
+
+<pre><code class="language-json">// Grafana Dashboard JSON (simplified)
+{
+  &quot;dashboard&quot;: {
+    &quot;title&quot;: &quot;Kratos Service Overview&quot;,
+    &quot;panels&quot;: [
+      {
+        &quot;title&quot;: &quot;Request Rate&quot;,
+        &quot;targets&quot;: [{&quot;expr&quot;: &quot;sum(rate(kratos_http_requests_total[5m])) by (method)&quot;}]
+      },
+      {
+        &quot;title&quot;: &quot;P95/P99 Latency&quot;,
+        &quot;targets&quot;: [
+          {&quot;expr&quot;: &quot;histogram_quantile(0.95, sum(rate(kratos_http_seconds_bucket[5m])) by (le))&quot;},
+          {&quot;expr&quot;: &quot;histogram_quantile(0.99, sum(rate(kratos_http_seconds_bucket[5m])) by (le))&quot;}
+        ]
+      },
+      {
+        &quot;title&quot;: &quot;Error Rate&quot;,
+        &quot;targets&quot;: [{&quot;expr&quot;: &quot;sum(rate(kratos_http_requests_total{code=~\&quot;5..\&quot;}[5m])) / sum(rate(kratos_http_requests_total[5m]))&quot;}]
+      }
+    ]
+  }
+}</code></pre>
+
+<hr>
+
+<h2>4. 执行预览</h2>
+
+<pre><code class="language-bash"># Start monitoring stack
+$ docker compose up -d
+
+# Start service
+$ go run cmd/server/main.go
+INFO msg=metrics server addr=:9000
+
+# Generate traffic
+$ for i in $(seq 100); do curl -s http://localhost:8000/user/1 &gt; /dev/null; done
+
+# Check metrics
+$ curl http://localhost:9000/metrics | grep kratos_http
+kratos_http_requests_total{method=&quot;GET&quot;,path=&quot;/user/1&quot;,code=&quot;200&quot;} 100
+kratos_http_seconds_bucket{method=&quot;GET&quot;,path=&quot;/user/1&quot;,le=&quot;0.005&quot;} 85
+kratos_http_seconds_bucket{method=&quot;GET&quot;,path=&quot;/user/1&quot;,le=&quot;0.01&quot;} 95
+
+# Grafana → http://localhost:3000 (admin/admin)
+# Prometheus → http://localhost:9090</code></pre>
+
+<hr>
+
+<h2>5. 注意事项</h2>
+
+<table><thead><tr>
+<th>项目</th>
+<th>说明</th>
+</tr></thead><tbody>
+<tr>
+<td>指标端口分离</td>
+<td>业务端口和 metrics 端口分开，避免暴露内部数据</td>
+</tr>
+<tr>
+<td>Histogram Buckets</td>
+<td>根据实际延迟分布调整，默认桶未必合适</td>
+</tr>
+<tr>
+<td>Label 基数</td>
+<td>Label 值不能是高基数的（如 user_id），否则内存爆炸</td>
+</tr>
+<tr>
+<td>命名规范</td>
+<td><code>namespace_subsystem_name_unit</code>（如 <code>kratos_http_requests_total</code>）</td>
+</tr>
+<tr>
+<td>scrape 间隔</td>
+<td>15s-30s 合适，太短增加 Prometheus 压力</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>6. 避坑指南</h2>
+
+<table><thead><tr>
+<th>❌ 错误做法</th>
+<th>✅ 正确做法</th>
+</tr></thead><tbody>
+<tr>
+<td>Label 用 user_id 等 <code>高</code> 基数值</td>
+<td>Label 用低基数值（method/status/path）</td>
+</tr>
+<tr>
+<td>用 Summary 代替 Histogram</td>
+<td>用 Histogram（可在服务端聚合分位数）</td>
+</tr>
+<tr>
+<td>把 metrics 暴露在业务端口</td>
+<td>分离端口，业务 8000，metrics 9000</td>
+</tr>
+<tr>
+<td>Counter 值会减少？</td>
+<td>Counter 只能递增，波动值用 Gauge</td>
+</tr>
+<tr>
+<td>不设告警静默时间</td>
+<td>告警要加 <code>for</code> 持续时间，避免抖动误报</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>7. 练习题</h2>
+
+<h3>🟢 Easy</h3>
+<ol>
+<li>在 Kratos 服务中添加 Prometheus metrics 中间件</li>
+</ul>
+<ol>
+<li>用 <code>curl /metrics</code> 查看默认指标</li>
+
+<h3>🟡 Medium</h3>
+<ol>
+<li>实现自定义业务指标（订单数、支付金额分布）</li>
+</ul>
+<ol>
+<li>配置 Grafana Dashboard 展示 QPS/P95/P99</li>
+
+<h3>🔴 Hard</h3>
+<ol>
+<li>设计 SLI/SLO 并实现基于错误率的自动告警</li>
+</ul>
+<ol>
+<li>实现 RED 方法（Rate/Errors/Duration）的完整监控体系</li>
+
+<hr>
+
+<h2>8. 知识点总结</h2>
+
+<pre><code>Prometheus 监控
+├── 指标类型
+│   ├── Counter (请求总数)
+│   ├── Gauge (实时状态)
+│   ├── Histogram (延迟分布)
+│   └── Summary (客户端分位数)
+├── Kratos 集成
+│   ├── metrics 中间件
+│   ├── /metrics 端点
+│   └── 分离 metrics 端口
+├── 自定义指标
+│   ├── 注册到 Registry
+│   ├── Service 层埋点
+│   └── Label 设计原则
+├── 可视化
+│   ├── Grafana Dashboard
+│   ├── PromQL 查询
+│   └── 变量/模板
+├── 告警
+│   ├── AlertManager
+│   ├── 规则编写
+│   └── 路由/收敛
+└── SLI/SLO
+    ├── 可用性 (成功率)
+    ├── 延迟 (P99 &lt; Xms)
+    └── 吞吐量 (QPS)</code></pre>
+
+<hr>
+
+<h2>9. 举一反三</h2>
+
+<table><thead><tr>
+<th>本文学到的</th>
+<th>可应用到</th>
+</tr></thead><tbody>
+<tr>
+<td>Prometheus 指标埋点</td>
+<td>任何 Go/Java/Python 服务</td>
+</tr>
+<tr>
+<td>Histogram 分位数</td>
+<td>任何延迟/大小分布统计</td>
+</tr>
+<tr>
+<td>告警规则</td>
+<td>所有生产服务</td>
+</tr>
+<tr>
+<td>SLI/SLO 设计</td>
+<td>SRE 实践的核心方法论</td>
+</tr>
+<tr>
+<td>分离 metrics 端口</td>
+<td>内部监控与外部 API 隔离</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>10. 参考资料</h2>
+
+<ul>
+<li><a href="https://prometheus.io/docs/">Prometheus 官方文档</a></li>
+<li><a href="https://github.com/go-kratos/kratos/tree/main/middleware/metrics">Kratos metrics 中间件</a></li>
+<li><a href="https://grafana.com/docs/grafana/latest/dashboards/">Grafana Dashboard 最佳实践</a></li>
+<li><a href="https://sre.google/sre-book/service-level-objectives/">Google SRE — SLI/SLO</a></li>
+
+<hr>
+
+<h2>11. 代码演进</h2>
+
+<table><thead><tr>
+<th>版本</th>
+<th>内容</th>
+<th>适用场景</th>
+</tr></thead><tbody>
+<tr>
+<td>v1</td>
+<td>Kratos + Prometheus 中间件 + /metrics 端点</td>
+<td>快速接入监控</td>
+</tr>
+<tr>
+<td>v2</td>
+<td>自定义业务指标 + Service 层埋点</td>
+<td>业务监控需求</td>
+</tr>
+<tr>
+<td>v3</td>
+<td>Grafana 看板 + 告警规则 + SLI/SLO</td>
+<td>生产运维体系</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<p>_没有监控的服务，就是盲人开夜车。_ 📊</p>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

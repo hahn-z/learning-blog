@@ -1,0 +1,526 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>016 - Celery 任务队列：从入门到生产级部署</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Python/index.html">Python</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Python/03-实战/index.html">Python实战</a>
+</nav>
+<h1>016 - Celery 任务队列：从入门到生产级部署</h1>
+<div class="meta">
+<span>📂 Python实战</span>
+<span>🏷️ Python</span>
+</div>
+<article>
+
+
+<h1>Celery 任务队列：从入门到生产级部署</h1>
+
+<blockquote><p><strong>难度：⭐⭐⭐ 中高级</strong> | <strong>预计阅读：20 分钟</strong> | <strong>Python 3.8+</strong></p></blockquote>
+
+<h2>一、概念讲解</h2>
+
+<p>Celery 是 Python 生态中最流行的分布式任务队列框架。它解决了什么问题？</p>
+
+<p><strong>场景</strong>：用户上传了一个 500MB 的视频，你的 Web 服务器需要花 3 分钟来转码。你不可能让用户等 3 分钟才看到响应——这就需要异步任务队列。</p>
+
+<p><strong>核心概念</strong>：</p>
+
+<table><thead><tr>
+<th>概念</th>
+<th>作用</th>
+<th>类比</th>
+</tr></thead><tbody>
+<tr>
+<td><strong>Producer</strong></td>
+<td>发送任务的程序</td>
+<td>寄件人</td>
+</tr>
+<tr>
+<td><strong>Broker</strong></td>
+<td>任务消息中间件</td>
+<td>快递分拣中心</td>
+</tr>
+<tr>
+<td><strong>Worker</strong></td>
+<td>执行任务的进程</td>
+<td>快递员</td>
+</tr>
+<tr>
+<td><strong>Backend</strong></td>
+<td>存储任务结果</td>
+<td>签收记录</td>
+</tr>
+<tr>
+<td><strong>Task</strong></td>
+<td>一个异步函数</td>
+<td>一个包裹</td>
+</tr>
+</tbody></table>
+
+<p><strong>工作流程</strong>：Producer -> Broker（Redis/RabbitMQ）-> Worker -> Backend（存储结果）</p>
+
+<h2>二、脑图（ASCII）</h2>
+
+<pre><code>                    Celery 架构
+                        |
+        +---------------+---------------+
+        |               |               |
+     Producer        Broker          Worker
+        |               |               |
+   +----+----+    +----+----+    +----+----+
+   | Web请求 |    | Redis   |    | 进程池  |
+   | 定时任务 |    | RabbitMQ|    | 协程    |
+   | 手动触发 |    | SQS     |    |gevent   |
+   +---------+    +---------+    +---------+
+                        |
+                  +-----+-----+
+                  |  Backend  |
+                  | RPC/Redis |
+                  | Django DB |
+                  +-----------+</code></pre>
+
+<h2>三、完整代码</h2>
+
+<h3>v1：最简 Celery 应用</h3>
+
+<pre><code class="language-python"># tasks.py - Minimal Celery setup
+from celery import Celery
+
+# Use Redis as broker and backend
+app = Celery(&#x27;myapp&#x27;, broker=&#x27;redis://localhost:6379/0&#x27;,
+             backend=&#x27;redis://localhost:6379/1&#x27;)
+
+@app.task
+def add(x, y):
+    # Simple addition task for testing
+    return x + y
+
+@app.task
+def slow_operation(seconds):
+    # Simulate a long-running task
+    import time
+    time.sleep(seconds)
+    return f&quot;Done after {seconds}s&quot;</code></pre>
+
+<pre><code class="language-python"># producer.py - Send tasks
+from tasks import add, slow_operation
+
+# Send task and get AsyncResult
+result = add.delay(4, 9)
+print(f&quot;Task ID: {result.id}&quot;)
+print(f&quot;Result: {result.get(timeout=10)}&quot;)  # Blocks until done
+
+# Send with countdown (delayed execution)
+slow_operation.apply_async(args=[5], countdown=10)  # Run after 10s</code></pre>
+
+<p>启动 Worker：</p>
+<pre><code class="language-bash">celery -A tasks worker --loglevel=info</code></pre>
+
+<h3>v2：项目结构 + 配置文件 + 重试机制</h3>
+
+<pre><code class="language-python"># proj/celery_app.py
+from celery import Celery
+
+app = Celery(&#x27;proj&#x27;)
+app.config_from_object(&#x27;proj.celeryconfig&#x27;)
+app.autodiscover_tasks([&#x27;proj&#x27;])</code></pre>
+
+<pre><code class="language-python"># proj/celeryconfig.py
+broker_url = &#x27;redis://localhost:6379/0&#x27;
+result_backend = &#x27;redis://localhost:6379/1&#x27;
+
+task_serializer = &#x27;json&#x27;
+result_serializer = &#x27;json&#x27;
+accept_content = [&#x27;json&#x27;]
+
+worker_concurrency = 4
+worker_prefetch_multiplier = 2
+
+task_track_started = True
+task_time_limit = 300          # Hard limit: 5 min
+task_soft_time_limit = 240     # Soft limit: 4 min
+
+task_default_retry_delay = 60
+task_default_max_retries = 3
+
+task_annotations = {
+    &#x27;proj.tasks.send_email&#x27;: {&#x27;rate_limit&#x27;: &#x27;10/m&#x27;},
+}
+
+result_expires = 3600
+timezone = &#x27;Asia/Shanghai&#x27;
+enable_utc = True</code></pre>
+
+<pre><code class="language-python"># proj/tasks/email_tasks.py
+from proj.celery_app import app
+import smtplib
+from email.mime.text import MIMEText
+
+@app.task(bind=True, max_retries=3, default_retry_delay=30)
+def send_email(self, to, subject, body):
+    # Send email with automatic retry on failure
+    try:
+        msg = MIMEText(body)
+        msg[&#x27;Subject&#x27;] = subject
+        msg[&#x27;From&#x27;] = &#x27;noreply@example.com&#x27;
+        msg[&#x27;To&#x27;] = to
+
+        with smtplib.SMTP(&#x27;smtp.example.com&#x27;, 587) as server:
+            server.starttls()
+            server.login(&#x27;user&#x27;, &#x27;password&#x27;)
+            server.send_message(msg)
+
+        return {&#x27;status&#x27;: &#x27;sent&#x27;, &#x27;to&#x27;: to}
+    except (smtplib.SMTPException, ConnectionError) as exc:
+        raise self.retry(exc=exc, countdown=60 * (2 ** self.request.retries))</code></pre>
+
+<h3>v3：生产级部署 + Canvas 工作流 + 定时任务</h3>
+
+<pre><code class="language-python"># proj/tasks/pipeline.py
+from celery import chain, group, chord
+from proj.celery_app import app
+
+@app.task
+def validate_file(file_id):
+    # Step 1: Validate uploaded file
+    return {&#x27;file_id&#x27;: file_id, &#x27;valid&#x27;: True}
+
+@app.task
+def process_chunk(chunk_info):
+    # Process a single chunk of data
+    import time
+    time.sleep(1)
+    return {&#x27;chunk&#x27;: chunk_info, &#x27;status&#x27;: &#x27;done&#x27;}
+
+@app.task
+def merge_results(results):
+    # Merge all chunk results into final output
+    return {&#x27;total_chunks&#x27;: len(results), &#x27;merged&#x27;: True}
+
+@app.task
+def notify_user(result):
+    # Send notification to user about completion
+    return {&#x27;notified&#x27;: True, &#x27;result&#x27;: result}
+
+def run_pipeline(file_id, num_chunks):
+    # Execute: validate -&gt; process chunks in parallel -&gt; merge -&gt; notify
+    workflow = chain(
+        validate_file.s(file_id),
+        group(process_chunk.s(i) for i in range(num_chunks)),
+        merge_results.s(),
+        notify_user.s()
+    )
+    return workflow.apply_async()</code></pre>
+
+<pre><code class="language-python"># proj/celeryconfig.py (add beat schedule)
+from celery.schedules import crontab
+
+beat_schedule = {
+    &#x27;cleanup-every-night&#x27;: {
+        &#x27;task&#x27;: &#x27;proj.tasks.maintenance.cleanup_temp_files&#x27;,
+        &#x27;schedule&#x27;: crontab(hour=3, minute=0),
+    },
+    &#x27;health-check&#x27;: {
+        &#x27;task&#x27;: &#x27;proj.tasks.maintenance.health_check&#x27;,
+        &#x27;schedule&#x27;: 30.0,
+    },
+}</code></pre>
+
+<pre><code class="language-python"># proj/tasks/maintenance.py
+from proj.celery_app import app
+import os
+from datetime import datetime
+
+@app.task
+def cleanup_temp_files():
+    # Remove temporary files older than 24 hours
+    temp_dir = &#x27;/tmp/uploads&#x27;
+    if not os.path.exists(temp_dir):
+        return {&#x27;cleaned&#x27;: 0}
+    cleaned = 0
+    now = datetime.now().timestamp()
+    for f in os.listdir(temp_dir):
+        fp = os.path.join(temp_dir, f)
+        if os.path.getmtime(fp) &lt; now - 86400:
+            os.remove(fp)
+            cleaned += 1
+    return {&#x27;cleaned&#x27;: cleaned}
+
+@app.task
+def health_check():
+    # Verify all services are reachable
+    import redis
+    try:
+        r = redis.Redis(&#x27;localhost&#x27;, 6379)
+        r.ping()
+        return {&#x27;status&#x27;: &#x27;healthy&#x27;}
+    except Exception as e:
+        return {&#x27;status&#x27;: &#x27;unhealthy&#x27;, &#x27;error&#x27;: str(e)}</code></pre>
+
+<h2>四、执行预览</h2>
+
+<pre><code>$ celery -A proj worker --loglevel=info
+
+ -------------- celery@myserver v5.3.6
+--- ***** -----
+-- ******* ---- Linux-6.1.0 2026-04-29 07:00:00
+- *** --- * ---
+- ** ---------- [config]
+- ** ---------- .&gt; app:         proj:0x7f...
+- ** ---------- .&gt; transport:   redis://localhost:6379/0
+- ** ---------- .&gt; results:     redis://localhost:6379/1
+- *** --- * --- .&gt; concurrency: 4 (prefork)
+ -------------- [queues]
+                .&gt; celery           exchange=celery(direct) key=celery
+
+[tasks]
+  . proj.tasks.email_tasks.send_email
+  . proj.tasks.maintenance.cleanup_temp_files
+  . proj.tasks.pipeline.validate_file
+
+[2026-04-29 07:00:05] Received task: proj.tasks.email_tasks.send_email[a1b2c3]
+[2026-04-29 07:00:06] Task succeeded in 0.8s: {&#x27;status&#x27;: &#x27;sent&#x27;, &#x27;to&#x27;: &#x27;user@example.com&#x27;}</code></pre>
+
+<h2>五、注意事项</h2>
+
+<table><thead><tr>
+<th>事项</th>
+<th>说明</th>
+<th>建议</th>
+</tr></thead><tbody>
+<tr>
+<td>Broker 选择</td>
+<td>Redis 适合中小项目，RabbitMQ 适合大型项目</td>
+<td>生产推荐 RabbitMQ</td>
+</tr>
+<tr>
+<td>序列化</td>
+<td>默认 pickle 有安全风险</td>
+<td>使用 JSON 序列化</td>
+</tr>
+<tr>
+<td>并发模型</td>
+<td>prefork(默认)、gevent、eventlet</td>
+<td>CPU 密集用 prefork，IO 密集用 gevent</td>
+</tr>
+<tr>
+<td>任务幂等性</td>
+<td>任务可能重复执行</td>
+<td>设计任务为幂等操作</td>
+</tr>
+<tr>
+<td>结果后端</td>
+<td>不需要结果就别配置</td>
+<td>减少不必要的存储开销</td>
+</tr>
+<tr>
+<td>时区</td>
+<td>定时任务对时区敏感</td>
+<td>统一使用 UTC，显示时转换</td>
+</tr>
+<tr>
+<td>内存泄漏</td>
+<td>Worker 长时间运行可能泄漏</td>
+<td>配置 worker_max_tasks_per_child</td>
+</tr>
+<tr>
+<td>大任务</td>
+<td>超大任务可能超时</td>
+<td>拆分为小任务 + chain</td>
+</tr>
+</tbody></table>
+
+<h2>六、避坑指南</h2>
+
+<table><thead><tr>
+<th>❌ 错误做法</th>
+<th>✅ 正确做法</th>
+<th>原因</th>
+</tr></thead><tbody>
+<tr>
+<td><code>result.get()</code> 在 Web 请求中同步等待</td>
+<td>用 <code>result.id</code> 轮询或 WebSocket 推送</td>
+<td>阻塞 Web 服务器</td>
+</tr>
+<tr>
+<td>在任务中访问 Django ORM 闭包对象</td>
+<td>传 ID，在任务中重新查询</td>
+<td>序列化失败/连接泄漏</td>
+</tr>
+<tr>
+<td>不设 <code>task_time_limit</code></td>
+<td>必须设置硬超时</td>
+<td>僵尸任务堆积</td>
+</tr>
+<tr>
+<td>Worker 和代码版本不一致</td>
+<td>用 Docker 统一部署版本</td>
+<td>任务签名不匹配</td>
+</tr>
+<tr>
+<td>用 <code>@task</code> 不传 <code>bind=True</code></td>
+<td>需要重试时用 <code>bind=True</code></td>
+<td>无法访问重试上下文</td>
+</tr>
+<tr>
+<td>Broker 和 Backend 用同一个 Redis DB</td>
+<td>分开使用不同 DB</td>
+<td>避免键冲突</td>
+</tr>
+</tbody></table>
+
+<h2>七、练习题</h2>
+
+<p>🟢 <strong>基础题</strong>：创建一个 Celery 任务，接收文件路径参数，计算文件的 MD5 值并返回。</p>
+
+<pre><code class="language-python">import hashlib
+@app.task
+def calc_md5(filepath):
+    h = hashlib.md5()
+    with open(filepath, &#x27;rb&#x27;) as f:
+        for chunk in iter(lambda: f.read(8192), b&#x27;&#x27;):
+            h.update(chunk)
+    return h.hexdigest()</code></pre>
+
+<p>🟡 <strong>进阶题</strong>：实现一个图片处理流水线：上传验证 -> 生成缩略图 -> 上传 CDN -> 通知用户，使用 Celery Canvas 编排。</p>
+
+<p>🔴 <strong>挑战题</strong>：设计一个可水平扩展的分布式爬虫，要求：(1) URL 去重 (2) 失败重试 (3) 速率限制 (4) 结果聚合，使用 Celery + Redis 实现。</p>
+
+<h2>八、知识点总结</h2>
+
+<pre><code>Celery 知识树
+├── 核心概念
+│   ├── Producer（生产者）
+│   ├── Broker（消息代理）
+│   ├── Worker（消费者）
+│   └── Backend（结果存储）
+├── 配置
+│   ├── 序列化方式
+│   ├── 并发模型
+│   ├── 超时与重试
+│   └── 速率限制
+├── Canvas 工作流
+│   ├── chain（串行）
+│   ├── group（并行）
+│   ├── chord（并行+聚合）
+│   └── chunks（分块）
+├── 定时任务
+│   ├── Beat 调度器
+│   └── crontab 表达式
+└── 运维
+    ├── Flower 监控
+    ├── Worker 管理
+    └── 日志与告警</code></pre>
+
+<h2>九、举一反三</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>Celery 方案</th>
+<th>关键组件</th>
+</tr></thead><tbody>
+<tr>
+<td>批量发邮件</td>
+<td>group + rate_limit</td>
+<td>并行但限速</td>
+</tr>
+<tr>
+<td>视频转码流水线</td>
+<td>chain + chord</td>
+<td>串行验证，并行转码</td>
+</tr>
+<tr>
+<td>每日数据报表</td>
+<td>Beat + chain</td>
+<td>定时触发串行流程</td>
+</tr>
+<tr>
+<td>实时通知推送</td>
+<td>WebSocket + task</td>
+<td>异步处理+推送结果</td>
+</tr>
+<tr>
+<td>分布式 ML 训练</td>
+<td>group + chord</td>
+<td>数据分片+结果聚合</td>
+</tr>
+</tbody></table>
+
+<h2>十、参考资料</h2>
+
+<ul>
+<li><a href="https://docs.celeryq.dev/">Celery 官方文档</a></li>
+<li><a href="https://docs.celeryq.dev/en/stable/userguide/canvas.html">Celery Canvas 文档</a></li>
+<li><a href="https://github.com/mher/flower">Flower 监控工具</a></li>
+<li><a href="https://docs.celeryq.dev/en/stable/getting-started/brokers/redis.html">Redis 作为 Broker 最佳实践</a></li>
+
+<h2>十一、代码演进路线</h2>
+
+<pre><code>v1 (入门)  -&gt;  v2 (工程化)  -&gt;  v3 (生产级)
+-----------------------------------------
+单文件          配置分离         Canvas 工作流
+无重试          重试+限速        定时任务 Beat
+硬编码          模块化           Docker 部署
+print调试       结构化日志       Flower 监控
+单 Worker       多队列           水平扩展</code></pre>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

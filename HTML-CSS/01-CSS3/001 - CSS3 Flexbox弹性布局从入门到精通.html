@@ -1,0 +1,659 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>001 - CSS3 Flexbox弹性布局从入门到精通</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/HTML-CSS/index.html">HTML-CSS</a>
+<span class="sep">›</span>
+<a href="/tech-blog/HTML-CSS/01-CSS3/index.html">CSS3</a>
+</nav>
+<h1>001 - CSS3 Flexbox弹性布局从入门到精通</h1>
+<div class="meta">
+<span>📂 CSS3</span>
+<span>🏷️ HTML-CSS</span>
+</div>
+<article>
+
+
+<h2>难度标注</h2>
+
+<blockquote><p><strong>难度等级：</strong> ⭐⭐（初级→中级）<br><strong>前置知识：</strong> HTML基础、CSS选择器与盒模型<br><strong>预计学习时间：</strong> 60-90分钟<br><strong>适用场景：</strong> 导航栏、卡片列表、居中布局、侧边栏、圣杯布局等一维排列场景</p></blockquote>
+
+<hr>
+
+<h2>概念讲解</h2>
+
+<h3>什么是Flexbox？</h3>
+
+<p>Flexbox（Flexible Box Layout，弹性盒布局）是CSS3引入的一种<strong>一维布局模型</strong>，专门解决以下痛点：</p>
+
+<ul>
+<li><strong>垂直居中</strong>：不再需要各种hack（line-height、table-cell、负margin）</li>
+<li><strong>等分空间</strong>：容器内项目自动分配剩余空间</li>
+<li><strong>顺序控制</strong>：不改变DOM顺序即可调整视觉排列</li>
+<li><strong>弹性伸缩</strong>：项目根据可用空间自动放大或缩小</li>
+
+<h3>核心概念：容器与项目</h3>
+
+<p>采用Flex布局的元素称为<strong>Flex容器（Container）</strong>，其<strong>直接子元素</strong>称为<strong>Flex项目（Item）</strong>。</p>
+
+<pre><code>┌─────────── Flex Container ───────────┐
+│  ┌─────┐  ┌─────┐  ┌─────┐  ┌─────┐ │
+│  │Item1│  │Item2│  │Item3│  │Item4│ │
+│  └─────┘  └─────┘  └─────┘  └─────┘ │
+└──────────────────────────────────────┘</code></pre>
+
+<h3>主轴与交叉轴</h3>
+
+<p>Flex布局有两条轴：</p>
+
+<ul>
+<li><strong>主轴（Main Axis）</strong>：项目排列的方向，默认水平从左到右</li>
+<li><strong>交叉轴（Cross Axis）</strong>：垂直于主轴的方向</li>
+
+<pre><code>         Main Axis (flex-direction: row) →
+    ┌──────────────────────────────────┐ ↑
+    │   [Item1] [Item2] [Item3]       │ │ Cross Axis
+    │                                  │ │
+    └──────────────────────────────────┘ ↓</code></pre>
+
+<hr>
+
+<h2>脑图（ASCII）</h2>
+
+<pre><code>Flexbox 弹性布局
+├── 容器属性 (Container)
+│   ├── display: flex | inline-flex
+│   ├── flex-direction: row | column | row-reverse | column-reverse
+│   ├── flex-wrap: nowrap | wrap | wrap-reverse
+│   ├── justify-content: flex-start | center | space-between | space-around | space-evenly
+│   ├── align-items: stretch | flex-start | flex-end | center | baseline
+│   ├── align-content: flex-start | center | space-between | stretch
+│   └── gap: &lt;length&gt;
+├── 项目属性 (Item)
+│   ├── order: &lt;integer&gt;
+│   ├── flex-grow: &lt;number&gt;
+│   ├── flex-shrink: &lt;number&gt;
+│   ├── flex-basis: &lt;length&gt; | auto
+│   ├── flex: grow shrink basis (shorthand)
+│   └── align-self: auto | flex-start | flex-end | center | stretch
+└── 经典布局
+    ├── 完美居中
+    ├── 等分导航
+    ├── 侧边栏布局
+    ├── 圣杯布局
+    └── 粘性页脚</code></pre>
+
+<hr>
+
+<h2>完整CSS代码</h2>
+
+<h3>基础示例：Flex容器与项目</h3>
+
+<pre><code class="language-html">&lt;!-- Basic flex container with items --&gt;
+&lt;div class=&quot;flex-basic&quot;&gt;
+  &lt;div class=&quot;item&quot;&gt;A&lt;/div&gt;
+  &lt;div class=&quot;item&quot;&gt;B&lt;/div&gt;
+  &lt;div class=&quot;item&quot;&gt;C&lt;/div&gt;
+&lt;/div&gt;</code></pre>
+
+<pre><code class="language-css">/* Enable flex layout */
+.flex-basic {
+  display: flex;           /* children become flex items */
+  flex-direction: row;     /* left to right (default) */
+  gap: 12px;               /* space between items */
+  padding: 16px;
+  background: #f8fafc;
+  border-radius: 8px;
+}
+
+/* Base item style */
+.flex-basic .item {
+  padding: 20px 32px;
+  background: #3b82f6;
+  color: white;
+  border-radius: 6px;
+  font-weight: 600;
+}</code></pre>
+
+<h3>实战案例1：完美居中</h3>
+
+<pre><code class="language-css">/* Perfect centering — the classic Flexbox use case */
+.perfect-center {
+  display: flex;
+  justify-content: center;   /* horizontal center */
+  align-items: center;       /* vertical center */
+  height: 100vh;             /* full viewport height */
+}
+
+.perfect-center .box {
+  padding: 40px 60px;
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.1);
+}</code></pre>
+
+<h3>实战案例2：响应式卡片网格</h3>
+
+<pre><code class="language-css">/* Responsive card grid using flex-wrap */
+.card-grid {
+  display: flex;
+  flex-wrap: wrap;           /* allow items to wrap */
+  gap: 24px;
+  padding: 24px;
+}
+
+.card {
+  flex: 1 1 300px;           /* grow, shrink, min 300px */
+  max-width: calc(33.333% - 16px); /* limit to ~1/3 */
+  background: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  overflow: hidden;
+  transition: box-shadow 0.2s;
+}
+
+.card:hover {
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+}
+
+/* Card image fills width */
+.card img {
+  width: 100%;
+  height: 200px;
+  object-fit: cover;         /* crop to fill */
+}
+
+.card-body {
+  padding: 16px;
+}
+
+.card-title {
+  margin: 0 0 8px;
+  font-size: 1.125rem;
+  font-weight: 600;
+}
+
+.card-text {
+  color: #64748b;
+  font-size: 0.875rem;
+  line-height: 1.5;
+}</code></pre>
+
+<h3>实战案例3：圣杯布局（Holy Grail）</h3>
+
+<pre><code class="language-css">/* Full page layout: header + 3 columns + footer */
+.holy-grail {
+  display: flex;
+  flex-direction: column;    /* stack rows vertically */
+  min-height: 100vh;
+}
+
+.hg-header {
+  flex: 0 0 auto;            /* don&#x27;t grow or shrink */
+  padding: 16px 24px;
+  background: #1e293b;
+  color: white;
+}
+
+.hg-body {
+  display: flex;             /* body is a flex row */
+  flex: 1;                   /* take remaining space */
+}
+
+.hg-nav {
+  flex: 0 0 220px;           /* fixed width sidebar */
+  background: #f1f5f9;
+  padding: 20px;
+}
+
+.hg-main {
+  flex: 1;                   /* fill remaining width */
+  padding: 20px;
+}
+
+.hg-aside {
+  flex: 0 0 180px;           /* fixed width aside */
+  background: #f1f5f9;
+  padding: 20px;
+}
+
+.hg-footer {
+  flex: 0 0 auto;
+  padding: 16px 24px;
+  background: #1e293b;
+  color: white;
+}
+
+/* Mobile: stack everything vertically */
+@media (max-width: 768px) {
+  .hg-body {
+    flex-direction: column;
+  }
+  .hg-nav,
+  .hg-aside {
+    flex: 0 0 auto;          /* auto height on mobile */
+  }
+}</code></pre>
+
+<hr>
+
+<h2>执行预览</h2>
+
+<h3>flex-direction 对比</h3>
+
+<pre><code>row (默认):          column:
+[A] [B] [C]          [A]
+                      [B]
+                      [C]</code></pre>
+
+<h3>justify-content 对比</h3>
+
+<pre><code>flex-start:    [A][B][C]__________
+center:        _____[A][B][C]_____
+space-between: [A]____[B]____[C]
+space-around:  __[A]__[B]__[C]__
+space-evenly:  ___[A]___[B]___[C]___</code></pre>
+
+<h3>圣杯布局效果</h3>
+
+<pre><code>┌──────────────────────────────────┐
+│            Header                │
+├──────┬───────────────────┬───────┤
+│      │                   │       │
+│ Nav  │    Main Content   │ Aside │
+│220px │     (flex: 1)     │180px  │
+│      │                   │       │
+├──────┴───────────────────┴───────┤
+│            Footer                │
+└──────────────────────────────────┘</code></pre>
+
+<hr>
+
+<h2>注意事项</h2>
+
+<table><thead><tr>
+<th>属性</th>
+<th>注意点</th>
+<th>建议</th>
+</tr></thead><tbody>
+<tr>
+<td><code>display: flex</code></td>
+<td>只影响直接子元素</td>
+<td>嵌套flex需在子元素再次设置</td>
+</tr>
+<tr>
+<td><code>flex-grow</code></td>
+<td>默认为0（不放大）</td>
+<td>等分空间用 <code>flex: 1</code></td>
+</tr>
+<tr>
+<td><code>flex-shrink</code></td>
+<td>默认为1（会缩小）</td>
+<td>固定尺寸项目设 <code>flex-shrink: 0</code></td>
+</tr>
+<tr>
+<td><code>flex-basis</code></td>
+<td>优先级高于width</td>
+<td>理解 <code>flex: 1</code> 等于 <code>1 1 0%</code></td>
+</tr>
+<tr>
+<td><code>gap</code></td>
+<td>IE不支持</td>
+<td>旧项目用margin替代</td>
+</tr>
+<tr>
+<td><code>flex-wrap</code></td>
+<td>默认nowrap（不换行）</td>
+<td>卡片布局务必设置 <code>wrap</code></td>
+</tr>
+<tr>
+<td><code>min-width</code></td>
+<td>flex项目默认不会缩小到内容以下</td>
+<td>文本截断需设 <code>min-width: 0</code></td>
+</tr>
+<tr>
+<td><code>order</code></td>
+<td>仅改变视觉顺序</td>
+<td>不影响DOM和Tab顺序，注意无障碍</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>避坑指南</h2>
+
+<h3>❌ 用margin实现项目间距</h3>
+
+<pre><code class="language-css">/* ❌ Bad: manual margins are fragile */
+.item { margin-right: 16px; }
+.item:last-child { margin-right: 0; }</code></pre>
+
+<pre><code class="language-css">/* ✅ Good: use gap for consistent spacing */
+.container {
+  display: flex;
+  gap: 16px;
+}</code></pre>
+
+<h3>❌ flex项目内容溢出</h3>
+
+<pre><code class="language-css">/* ❌ Bad: long text breaks layout */
+.item {
+  flex: 1;
+  /* text overflows container */
+}</code></pre>
+
+<pre><code class="language-css">/* ✅ Good: allow shrinking below content size */
+.item {
+  flex: 1;
+  min-width: 0;              /* key fix! */
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}</code></pre>
+
+<h3>❌ 用float或inline-block做布局</h3>
+
+<pre><code class="language-css">/* ❌ Bad: legacy approaches */
+.container { overflow: hidden; }
+.item { float: left; width: 33.33%; }</code></pre>
+
+<pre><code class="language-css">/* ✅ Good: Flexbox is the modern standard */
+.container {
+  display: flex;
+  gap: 16px;
+}
+.item { flex: 1; }</code></pre>
+
+<h3>❌ 所有项目都设 flex: 1 导致固定宽度失效</h3>
+
+<pre><code class="language-css">/* ❌ Bad: sidebar should not grow */
+.sidebar { flex: 1; }
+.content { flex: 1; }</code></pre>
+
+<pre><code class="language-css">/* ✅ Good: fix sidebar, let content grow */
+.sidebar { flex: 0 0 250px; }
+.content { flex: 1; }</code></pre>
+
+<hr>
+
+<h2>练习题</h2>
+
+<h3>🟢 初级</h3>
+
+<p><strong>1. 实现水平居中的导航栏</strong></p>
+
+<p>要求：导航链接水平排列，整体居中，间距16px。</p>
+
+<pre><code class="language-html">&lt;nav class=&quot;navbar&quot;&gt;
+  &lt;a href=&quot;#&quot;&gt;首页&lt;/a&gt;
+  &lt;a href=&quot;#&quot;&gt;产品&lt;/a&gt;
+  &lt;a href=&quot;#&quot;&gt;关于&lt;/a&gt;
+  &lt;a href=&quot;#&quot;&gt;联系&lt;/a&gt;
+&lt;/nav&gt;</code></pre>
+
+<p><details></p>
+<p><summary>参考答案</summary></p>
+
+<pre><code class="language-css">.navbar {
+  display: flex;
+  justify-content: center;
+  gap: 16px;
+  padding: 16px;
+  background: #1e293b;
+}
+.navbar a {
+  color: white;
+  text-decoration: none;
+  padding: 8px 16px;
+  border-radius: 4px;
+}
+.navbar a:hover {
+  background: rgba(255, 255, 255, 0.1);
+}</code></pre>
+<p></details></p>
+
+<p><strong>2. 垂直居中一个元素</strong></p>
+
+<p>要求：在一个300x300的容器中，将一个按钮垂直水平居中。</p>
+
+<p><details></p>
+<p><summary>参考答案</summary></p>
+
+<pre><code class="language-css">.container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 300px;
+  height: 300px;
+  background: #f1f5f9;
+}</code></pre>
+<p></details></p>
+
+<h3>🟡 中级</h3>
+
+<p><strong>3. 实现粘性页脚布局</strong></p>
+
+<p>要求：页头和页脚固定高度，中间内容区域自动撑满剩余空间。</p>
+
+<p><details></p>
+<p><summary>参考答案</summary></p>
+
+<pre><code class="language-css">.page {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+.page-header { flex: 0 0 64px; }
+.page-content { flex: 1; }
+.page-footer { flex: 0 0 48px; }</code></pre>
+<p></details></p>
+
+<p><strong>4. 实现等宽卡片自动换行布局</strong></p>
+
+<p>要求：每张卡片最小宽度280px，自动换行，间距20px。</p>
+
+<p><details></p>
+<p><summary>参考答案</summary></p>
+
+<pre><code class="language-css">.card-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px;
+}
+.card {
+  flex: 1 1 280px;
+}</code></pre>
+<p></details></p>
+
+<h3>🔴 高级</h3>
+
+<p><strong>5. 实现响应式圣杯布局</strong></p>
+
+<p>要求：桌面端三栏（导航220px + 弹性主内容 + 侧边栏180px），移动端（≤768px）变为单栏堆叠。</p>
+
+<p><details></p>
+<p><summary>参考答案</summary></p>
+
+<p>参考上方"实战案例3：圣杯布局"完整代码。</p>
+<p></details></p>
+
+<hr>
+
+<h2>知识点总结</h2>
+
+<pre><code>Flexbox 知识体系
+├── 1. 启用: display: flex / inline-flex
+├── 2. 轴线: flex-direction → 决定主轴方向
+├── 3. 换行: flex-wrap → 控制是否换行
+├── 4. 对齐
+│   ├── justify-content → 主轴对齐
+│   ├── align-items → 交叉轴单行对齐
+│   └── align-content → 交叉轴多行对齐
+├── 5. 弹性
+│   ├── flex-grow → 放大比例
+│   ├── flex-shrink → 缩小比例
+│   ├── flex-basis → 初始大小
+│   └── flex (shorthand) → 推荐写法
+├── 6. 间距: gap → 替代margin
+├── 7. 排序: order → 视觉顺序调整
+└── 8. 单独控制: align-self → 单项目交叉轴对齐</code></pre>
+
+<hr>
+
+<h2>举一反三</h2>
+
+<table><thead><tr>
+<th>需求场景</th>
+<th>推荐方案</th>
+<th>关键属性</th>
+</tr></thead><tbody>
+<tr>
+<td>水平导航栏</td>
+<td><code>display: flex</code></td>
+<td><code>justify-content</code>, <code>gap</code></td>
+</tr>
+<tr>
+<td>垂直居中</td>
+<td><code>display: flex</code></td>
+<td><code>justify-content: center</code> + <code>align-items: center</code></td>
+</tr>
+<tr>
+<td>等分空间</td>
+<td><code>flex: 1</code> on items</td>
+<td><code>flex-grow</code>, <code>flex-basis: 0</code></td>
+</tr>
+<tr>
+<td>固定+弹性</td>
+<td>一侧固定，一侧flex:1</td>
+<td><code>flex: 0 0 240px</code> + <code>flex: 1</code></td>
+</tr>
+<tr>
+<td>自动换行卡片</td>
+<td><code>flex-wrap: wrap</code></td>
+<td><code>flex: 1 1 280px</code>, <code>gap</code></td>
+</tr>
+<tr>
+<td>粘性页脚</td>
+<td><code>flex-direction: column</code></td>
+<td>容器 <code>min-height: 100vh</code>, 内容 <code>flex: 1</code></td>
+</tr>
+<tr>
+<td>底部对齐按钮</td>
+<td>卡片用flex column</td>
+<td><code>margin-top: auto</code> on button</td>
+</tr>
+<tr>
+<td>反向排列</td>
+<td><code>flex-direction: row-reverse</code></td>
+<td>或用 <code>order</code> 属性</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>参考资料</h2>
+
+<ul>
+<li><a href="https://developer.mozilla.org/zh-CN/docs/Web/CSS/CSS_flexible_box_layout">MDN - CSS Flexible Box Layout</a></li>
+<li><a href="https://css-tricks.com/snippets/css/a-guide-to-flexbox/">CSS Tricks - A Complete Guide to Flexbox</a></li>
+<li><a href="https://flexboxfroggy.com/">Flexbox Froggy</a> — 交互式学习游戏</li>
+<li><a href="https://caniuse.com/flexbox">Can I Use - Flexbox</a> — 浏览器兼容性查询</li>
+
+<hr>
+
+<h2>代码演进</h2>
+
+<h3>v1 — 最简居中（入门）</h3>
+
+<pre><code class="language-css">/* v1: Just center something, nothing fancy */
+.box {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+}</code></pre>
+
+<h3>v2 — 侧边栏布局（进阶）</h3>
+
+<pre><code class="language-css">/* v2: Sidebar + main content */
+.layout {
+  display: flex;
+  gap: 24px;
+  min-height: 100vh;
+}
+.sidebar { flex: 0 0 250px; }
+.main { flex: 1; }</code></pre>
+
+<h3>v3 — 完整圣杯布局（实战）</h3>
+
+<pre><code class="language-css">/* v3: Full page with header, footer, responsive */
+.page { display: flex; flex-direction: column; min-height: 100vh; }
+.page-header, .page-footer { flex: 0 0 auto; }
+.page-body { display: flex; flex: 1; }
+.page-nav { flex: 0 0 220px; }
+.page-main { flex: 1; }
+.page-aside { flex: 0 0 180px; }
+@media (max-width: 768px) {
+  .page-body { flex-direction: column; }
+  .page-nav, .page-aside { flex: 0 0 auto; }
+}</code></pre>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

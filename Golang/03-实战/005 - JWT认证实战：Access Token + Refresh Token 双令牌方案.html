@@ -1,0 +1,654 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>005 - JWT认证实战：Access Token + Refresh Token 双令牌方案</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Golang/index.html">Golang</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Golang/03-实战/index.html">Golang实战</a>
+</nav>
+<h1>005 - JWT认证实战：Access Token + Refresh Token 双令牌方案</h1>
+<div class="meta">
+<span>📂 Golang实战</span>
+<span>🏷️ Golang</span>
+</div>
+<article>
+
+
+<h2>难度标注</h2>
+
+<blockquote><p>🔴 高级 | 需要理解 JWT 原理、Gin 中间件、Go 加密库</p></blockquote>
+
+<h2>概念讲解</h2>
+
+<p><strong>JWT（JSON Web Token）</strong> 是一种开放标准（RFC 7519），用于在各方之间安全地传输信息。JWT 由三部分组成，用 <code>.</code> 分隔：</p>
+
+<pre><code>Header.Payload.Signature</code></pre>
+
+<p><strong>三部分详解：</strong></p>
+<ol>
+<li><strong>Header</strong>：算法和类型 <code>{ "alg": "HS256", "typ": "JWT" }</code></li>
+</ul>
+<ol>
+<li><strong>Payload</strong>：声明（Claims）— 用户ID、角色、过期时间等</li>
+</ul>
+<ol>
+<li><strong>Signature</strong>：用密钥对 Header + Payload 签名，防篡改</li>
+
+<p><strong>认证流程：</strong></p>
+<pre><code>1. 用户登录 → 服务器验证凭据
+2. 服务器生成 JWT → 返回给客户端
+3. 客户端存储 JWT（localStorage/Cookie）
+4. 后续请求携带 JWT（Authorization: Bearer &lt;token&gt;）
+5. 服务器中间件验证 JWT → 放行或拒绝</code></pre>
+
+<p><strong>Access Token vs Refresh Token：</strong></p>
+<ul>
+<li><strong>Access Token</strong>：短期有效（15-30分钟），用于 API 访问</li>
+<li><strong>Refresh Token</strong>：长期有效（7-30天），用于刷新 Access Token</li>
+
+<p><strong>Go 生态常用库：</strong> <code>github.com/golang-jwt/jwt/v5</code></p>
+
+<h2>脑图</h2>
+
+<pre><code>JWT 认证实现
+├── JWT 原理
+│   ├── Header (算法)
+│   ├── Payload (Claims)
+│   ├── Signature (签名)
+│   └── Base64Url 编码
+├── 认证流程
+│   ├── 登录 → 颁发 Token
+│   ├── 请求 → 携带 Token
+│   ├── 中间件 → 验证 Token
+│   └── 刷新 → Renew Token
+├── Go 实现
+│   ├── jwt/v5 库
+│   ├── SignedString() 签名
+│   ├── ParseWithClaims() 验证
+│   └── 自定义 Claims 结构体
+├── 安全措施
+│   ├── 密钥管理
+│   ├── Token 过期
+│   ├── 黑名单机制
+│   └── HTTPS 传输
+└── 实战要点
+    ├── Access + Refresh 双 Token
+    ├── 中间件集成
+    └── 错误处理</code></pre>
+
+<h2>完整 Go 代码</h2>
+
+<pre><code class="language-go">package main
+
+import (
+	&quot;errors&quot;
+	&quot;fmt&quot;
+	&quot;net/http&quot;
+	&quot;strings&quot;
+	&quot;time&quot;
+
+	&quot;github.com/gin-gonic/gin&quot;
+	&quot;github.com/golang-jwt/jwt/v5&quot;
+)
+
+// ============================================
+// Configuration
+// ============================================
+
+const (
+	accessTokenSecret  = &quot;your-access-secret-key-change-in-production&quot;
+	refreshTokenSecret = &quot;your-refresh-secret-key-change-in-production&quot;
+	accessTokenExpiry  = 15 * time.Minute
+	refreshTokenExpiry = 7 * 24 * time.Hour
+	issuer             = &quot;myapp&quot;
+)
+
+// ============================================
+// Custom Claims
+// ============================================
+
+// CustomClaims extends the standard JWT claims with user info.
+type CustomClaims struct {
+	UserID int    `json:&quot;user_id&quot;`
+	Role   string `json:&quot;role&quot;`
+	jwt.RegisteredClaims
+}
+
+// ============================================
+// User model (simplified)
+// ============================================
+
+type User struct {
+	ID       int    `json:&quot;id&quot;`
+	Username string `json:&quot;username&quot;`
+	Password string `json:&quot;-&quot;` // Never expose in JSON
+	Role     string `json:&quot;role&quot;`
+}
+
+// Mock database
+var users = map[string]User{
+	&quot;admin&quot;: {ID: 1, Username: &quot;admin&quot;, Password: &quot;admin123&quot;, Role: &quot;admin&quot;},
+	&quot;user&quot;:  {ID: 2, Username: &quot;user&quot;, Password: &quot;user123&quot;, Role: &quot;user&quot;},
+}
+
+// Token blacklist (in production, use Redis)
+var tokenBlacklist = make(map[string]time.Time)
+
+// ============================================
+// Token generation
+// ============================================
+
+// TokenPair holds access and refresh tokens.
+type TokenPair struct {
+	AccessToken  string `json:&quot;access_token&quot;`
+	RefreshToken string `json:&quot;refresh_token&quot;`
+	ExpiresIn    int64  `json:&quot;expires_in&quot;` // seconds
+}
+
+// generateTokenPair creates both access and refresh tokens.
+func generateTokenPair(user User) (*TokenPair, error) {
+	now := time.Now()
+
+	// Access token
+	accessClaims := CustomClaims{
+		UserID: user.ID,
+		Role:   user.Role,
+		RegisteredClaims: jwt.RegisteredClaims{
+			Issuer:    issuer,
+			Subject:   fmt.Sprintf(&quot;%d&quot;, user.ID),
+			ExpiresAt: jwt.NewNumericDate(now.Add(accessTokenExpiry)),
+			IssuedAt:  jwt.NewNumericDate(now),
+		},
+	}
+	accessToken := jwt.NewWithClaims(jwt.SigningMethodHS256, accessClaims)
+	accessStr, err := accessToken.SignedString([]byte(accessTokenSecret))
+	if err != nil {
+		return nil, fmt.Errorf(&quot;failed to sign access token: %w&quot;, err)
+	}
+
+	// Refresh token
+	refreshClaims := CustomClaims{
+		UserID: user.ID,
+		Role:   user.Role,
+		RegisteredClaims: jwt.RegisteredClaims{
+			Issuer:    issuer,
+			Subject:   fmt.Sprintf(&quot;%d&quot;, user.ID),
+			ExpiresAt: jwt.NewNumericDate(now.Add(refreshTokenExpiry)),
+			IssuedAt:  jwt.NewNumericDate(now),
+			ID:        fmt.Sprintf(&quot;refresh-%d-%d&quot;, user.ID, now.Unix()), // jti for blacklist
+		},
+	}
+	refreshToken := jwt.NewWithClaims(jwt.SigningMethodHS256, refreshClaims)
+	refreshStr, err := refreshToken.SignedString([]byte(refreshTokenSecret))
+	if err != nil {
+		return nil, fmt.Errorf(&quot;failed to sign refresh token: %w&quot;, err)
+	}
+
+	return &amp;TokenPair{
+		AccessToken:  accessStr,
+		RefreshToken: refreshStr,
+		ExpiresIn:    int64(accessTokenExpiry.Seconds()),
+	}, nil
+}
+
+// ============================================
+// Token validation
+// ============================================
+
+// parseToken validates a token string and returns the claims.
+func parseToken(tokenStr string, secret string) (*CustomClaims, error) {
+	token, err := jwt.ParseWithClaims(tokenStr, &amp;CustomClaims{}, func(t *jwt.Token) (any, error) {
+		// Verify signing method
+		if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, fmt.Errorf(&quot;unexpected signing method: %v&quot;, t.Header[&quot;alg&quot;])
+		}
+		return []byte(secret), nil
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	claims, ok := token.Claims.(*CustomClaims)
+	if !ok || !token.Valid {
+		return nil, errors.New(&quot;invalid token&quot;)
+	}
+
+	return claims, nil
+}
+
+// ============================================
+// Middleware
+// ============================================
+
+// AuthRequired is a middleware that validates the access token.
+func AuthRequired() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		authHeader := c.GetHeader(&quot;Authorization&quot;)
+		if authHeader == &quot;&quot; {
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
+				&quot;error&quot;: &quot;missing authorization header&quot;,
+			})
+			return
+		}
+
+		// Extract Bearer token
+		parts := strings.SplitN(authHeader, &quot; &quot;, 2)
+		if len(parts) != 2 || parts[0] != &quot;Bearer&quot; {
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
+				&quot;error&quot;: &quot;invalid authorization format, expected: Bearer &lt;token&gt;&quot;,
+			})
+			return
+		}
+
+		tokenStr := parts[1]
+
+		// Check blacklist
+		if _, blacklisted := tokenBlacklist[tokenStr]; blacklisted {
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
+				&quot;error&quot;: &quot;token has been revoked&quot;,
+			})
+			return
+		}
+
+		// Parse and validate
+		claims, err := parseToken(tokenStr, accessTokenSecret)
+		if err != nil {
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
+				&quot;error&quot;:   &quot;invalid or expired token&quot;,
+				&quot;details&quot;: err.Error(),
+			})
+			return
+		}
+
+		// Store claims in context for downstream handlers
+		c.Set(&quot;user_id&quot;, claims.UserID)
+		c.Set(&quot;user_role&quot;, claims.Role)
+		c.Next()
+	}
+}
+
+// AdminRequired is a middleware that requires admin role.
+func AdminRequired() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		role, _ := c.Get(&quot;user_role&quot;)
+		if role != &quot;admin&quot; {
+			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{
+				&quot;error&quot;: &quot;admin access required&quot;,
+			})
+			return
+		}
+		c.Next()
+	}
+}
+
+// ============================================
+// Routes
+// ============================================
+
+func main() {
+	r := gin.Default()
+
+	// Public routes
+	r.POST(&quot;/login&quot;, loginHandler)
+	r.POST(&quot;/refresh&quot;, refreshHandler)
+
+	// Protected routes
+	auth := r.Group(&quot;/api&quot;)
+	auth.Use(AuthRequired())
+	{
+		auth.GET(&quot;/profile&quot;, getProfileHandler)
+		auth.POST(&quot;/logout&quot;, logoutHandler)
+
+		// Admin only
+		admin := auth.Group(&quot;/admin&quot;)
+		admin.Use(AdminRequired())
+		{
+			admin.GET(&quot;/users&quot;, func(c *gin.Context) {
+				c.JSON(http.StatusOK, gin.H{&quot;users&quot;: users})
+			})
+		}
+	}
+
+	r.Run(&quot;:8080&quot;)
+}
+
+// loginHandler authenticates user and returns token pair.
+func loginHandler(c *gin.Context) {
+	var req struct {
+		Username string `json:&quot;username&quot; binding:&quot;required&quot;`
+		Password string `json:&quot;password&quot; binding:&quot;required&quot;`
+	}
+	if err := c.ShouldBindJSON(&amp;req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{&quot;error&quot;: &quot;username and password required&quot;})
+		return
+	}
+
+	user, exists := users[req.Username]
+	if !exists || user.Password != req.Password {
+		c.JSON(http.StatusUnauthorized, gin.H{&quot;error&quot;: &quot;invalid credentials&quot;})
+		return
+	}
+
+	tokens, err := generateTokenPair(user)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{&quot;error&quot;: &quot;failed to generate tokens&quot;})
+		return
+	}
+
+	c.JSON(http.StatusOK, tokens)
+}
+
+// refreshHandler renews the access token using a refresh token.
+func refreshHandler(c *gin.Context) {
+	var req struct {
+		RefreshToken string `json:&quot;refresh_token&quot; binding:&quot;required&quot;`
+	}
+	if err := c.ShouldBindJSON(&amp;req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{&quot;error&quot;: &quot;refresh_token required&quot;})
+		return
+	}
+
+	claims, err := parseToken(req.RefreshToken, refreshTokenSecret)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{&quot;error&quot;: &quot;invalid or expired refresh token&quot;})
+		return
+	}
+
+	// Find user and generate new token pair
+	for _, user := range users {
+		if user.ID == claims.UserID {
+			tokens, err := generateTokenPair(user)
+			if err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{&quot;error&quot;: &quot;failed to generate tokens&quot;})
+				return
+			}
+			c.JSON(http.StatusOK, tokens)
+			return
+		}
+	}
+
+	c.JSON(http.StatusUnauthorized, gin.H{&quot;error&quot;: &quot;user not found&quot;})
+}
+
+// getProfileHandler returns the current user&#x27;s profile.
+func getProfileHandler(c *gin.Context) {
+	userID, _ := c.Get(&quot;user_id&quot;)
+	userRole, _ := c.Get(&quot;user_role&quot;)
+	c.JSON(http.StatusOK, gin.H{
+		&quot;user_id&quot;: userID,
+		&quot;role&quot;:    userRole,
+	})
+}
+
+// logoutHandler invalidates the current token.
+func logoutHandler(c *gin.Context) {
+	authHeader := c.GetHeader(&quot;Authorization&quot;)
+	parts := strings.SplitN(authHeader, &quot; &quot;, 2)
+	if len(parts) == 2 {
+		tokenBlacklist[parts[1]] = time.Now()
+	}
+	c.JSON(http.StatusOK, gin.H{&quot;message&quot;: &quot;logged out successfully&quot;})
+}</code></pre>
+
+<h2>执行预览</h2>
+
+<pre><code class="language-bash">$ go run main.go
+
+# 登录获取 Token
+$ curl -X POST localhost:8080/login \
+  -H &quot;Content-Type: application/json&quot; \
+  -d &#x27;{&quot;username&quot;:&quot;admin&quot;,&quot;password&quot;:&quot;admin123&quot;}&#x27;
+{
+  &quot;access_token&quot;: &quot;eyJhbGciOiJIUzI1NiIs...&quot;,
+  &quot;refresh_token&quot;: &quot;eyJhbGciOiJIUzI1NiIs...&quot;,
+  &quot;expires_in&quot;: 900
+}
+
+# 使用 Access Token 访问受保护资源
+$ curl -H &quot;Authorization: Bearer eyJhbGciOiJIUzI1NiIs...&quot; \
+  localhost:8080/api/profile
+{&quot;role&quot;:&quot;admin&quot;,&quot;user_id&quot;:1}
+
+# 无 Token 访问
+$ curl localhost:8080/api/profile
+{&quot;error&quot;:&quot;missing authorization header&quot;}
+
+# 错误的 Token
+$ curl -H &quot;Authorization: Bearer invalid-token&quot; localhost:8080/api/profile
+{&quot;details&quot;:&quot;...&quot;,&quot;error&quot;:&quot;invalid or expired token&quot;}
+
+# Admin 专属接口
+$ curl -H &quot;Authorization: Bearer &lt;admin-token&gt;&quot; localhost:8080/api/admin/users
+{&quot;users&quot;:{...}}
+
+# 普通用户访问 Admin 接口
+$ curl -H &quot;Authorization: Bearer &lt;user-token&gt;&quot; localhost:8080/api/admin/users
+{&quot;error&quot;:&quot;admin access required&quot;}
+
+# 刷新 Token
+$ curl -X POST localhost:8080/refresh \
+  -H &quot;Content-Type: application/json&quot; \
+  -d &#x27;{&quot;refresh_token&quot;:&quot;eyJhbGci...&quot;}&#x27;
+{&quot;access_token&quot;:&quot;new-token...&quot;,&quot;refresh_token&quot;:&quot;new-refresh...&quot;,&quot;expires_in&quot;:900}
+
+# 登出（Token 加入黑名单）
+$ curl -X POST -H &quot;Authorization: Bearer &lt;token&gt;&quot; localhost:8080/api/logout
+{&quot;message&quot;:&quot;logged out successfully&quot;}</code></pre>
+
+<h2>注意事项</h2>
+
+<table><thead><tr>
+<th>项目</th>
+<th>说明</th>
+</tr></thead><tbody>
+<tr>
+<td>密钥管理</td>
+<td>生产环境密钥应从环境变量/密钥管理服务读取，不硬编码</td>
+</tr>
+<tr>
+<td>HTTPS</td>
+<td>JWT 必须通过 HTTPS 传输，防止中间人攻击</td>
+</tr>
+<tr>
+<td>Token 存储</td>
+<td>前端建议 HttpOnly Cookie，避免 XSS 窃取</td>
+</tr>
+<tr>
+<td>过期时间</td>
+<td>Access Token 短（15min），Refresh Token 长（7d）</td>
+</tr>
+<tr>
+<td>签名算法</td>
+<td>推荐 HS256 或 RS256，避免 <code>none</code> 算法</td>
+</tr>
+<tr>
+<td>黑名单</td>
+<td>生产环境用 Redis，设置 TTL 自动过期清理</td>
+</tr>
+</tbody></table>
+
+<h2>避坑指南</h2>
+
+<ul>
+<li>❌ 把敏感信息（密码、手机号）放在 JWT Payload 中</li>
+<li>✅ Payload 只放用户 ID 和角色，敏感信息查数据库</li>
+
+<ul>
+<li>❌ JWT 密钥硬编码在源代码中</li>
+<li>✅ 使用环境变量 <code>os.Getenv("JWT_SECRET")</code> 或配置中心</li>
+
+<ul>
+<li>❌ Token 不过期或过期时间太长（数天）</li>
+<li>✅ Access Token 15-30 分钟，配合 Refresh Token</li>
+
+<ul>
+<li>❌ 忽略签名算法验证（alg:none 攻击）</li>
+<li>✅ <code>jwt.ParseWithClaims</code> 中显式校验 <code>SigningMethodHMAC</code></li>
+
+<ul>
+<li>❌ 登出后 Token 仍可使用</li>
+<li>✅ 实现 Token 黑名单（短期 token 影响有限，但仍推荐）</li>
+
+<h2>练习题</h2>
+
+<p>🟢 <strong>基础：</strong> 实现一个简单的 JWT 生成和验证，只有一个 <code>user_id</code> claim，过期时间 1 小时。</p>
+
+<p>🟡 <strong>进阶：</strong> 实现基于 RS256（非对称加密）的 JWT 认证，私钥签名、公钥验证。</p>
+
+<p>🔴 <strong>挑战：</strong> 实现完整的 OAuth2 Authorization Code Flow，包括授权码生成、state 参数防 CSRF、code 换 token、token 撤销。</p>
+
+<h2>知识点总结</h2>
+
+<pre><code>JWT 认证知识树
+├── JWT 组成
+│   ├── Header → {&quot;alg&quot;:&quot;HS256&quot;,&quot;typ&quot;:&quot;JWT&quot;}
+│   ├── Payload → Claims (用户数据)
+│   └── Signature → HMAC(Header.Payload, secret)
+├── Go 实现 (golang-jwt/jwt/v5)
+│   ├── jwt.NewWithClaims(method, claims)
+│   ├── token.SignedString(secret)
+│   ├── jwt.ParseWithClaims(tokenStr, claims, keyFunc)
+│   └── claims.Subject / claims.ExpiresAt
+├── Gin 集成
+│   ├── AuthRequired 中间件
+│   ├── c.Set(&quot;user_id&quot;, ...)
+│   ├── 角色校验中间件
+│   └── Token 黑名单
+├── 安全实践
+│   ├── 密钥管理（环境变量/KMS）
+│   ├── HTTPS 传输
+│   ├── 短期 Access Token
+│   ├── Refresh Token 轮转
+│   └── Token 黑名单（Redis）
+└── 进阶
+    ├── RS256 非对称签名
+    ├── OAuth2 集成
+    └── 多因素认证 (MFA)</code></pre>
+
+<h2>举一反三</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>方案</th>
+<th>关键点</th>
+</tr></thead><tbody>
+<tr>
+<td>单页应用 (SPA)</td>
+<td>Access Token + HttpOnly Cookie</td>
+<td>防 XSS 窃取 Token</td>
+</tr>
+<tr>
+<td>移动端 App</td>
+<td>Access Token + Secure Storage</td>
+<td>Refresh Token 存 Keychain/Keystore</td>
+</tr>
+<tr>
+<td>微服务间通信</td>
+<td>服务间共享密钥或 RS256</td>
+<td>公钥分发给验证方</td>
+</tr>
+<tr>
+<td>第三方登录</td>
+<td>OAuth2 + JWT</td>
+<td>集成 GitHub/Google Provider</td>
+</tr>
+<tr>
+<td>API 网关</td>
+<td>网关统一验签</td>
+<td>下游服务信任网关</td>
+</tr>
+</tbody></table>
+
+<h2>参考资料</h2>
+
+<ul>
+<li><a href="https://jwt.io/">JWT 官方网站</a></li>
+<li><a href="https://tools.ietf.org/html/rfc7519">RFC 7519 - JSON Web Token</a></li>
+<li><a href="https://github.com/golang-jwt/jwt">golang-jwt/jwt GitHub</a></li>
+<li><a href="https://cheatsheetseries.owasp.org/cheatsheets/JSON_Web_Token_for_Java_Cheat_Sheet.html">OWASP JWT Cheat Sheet</a></li>
+
+<h2>代码演进</h2>
+
+<p><strong>v1 — 最简 JWT：</strong></p>
+<pre><code class="language-go">token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
+    &quot;user_id&quot;: 1,
+    &quot;exp&quot;:     time.Now().Add(time.Hour).Unix(),
+})
+tokenStr, _ := token.SignedString([]byte(&quot;secret&quot;))</code></pre>
+
+<p><strong>v2 — 自定义 Claims + 双 Token：</strong></p>
+<pre><code class="language-go">type CustomClaims struct {
+    UserID int    `json:&quot;user_id&quot;`
+    Role   string `json:&quot;role&quot;`
+    jwt.RegisteredClaims
+}
+// Access Token + Refresh Token 分离</code></pre>
+
+<p><strong>v3 — 生产级方案（如上方代码）：</strong></p>
+<ul>
+<li>自定义 Claims 结构体</li>
+<li>Access + Refresh 双 Token 机制</li>
+<li>AuthRequired + AdminRequired 中间件</li>
+<li>Token 黑名单（登出撤销）</li>
+<li>签名算法验证</li>
+<li>结构化错误响应</li>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

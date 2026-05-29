@@ -1,0 +1,509 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>024 - Teleport与Suspense</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Vue.js/index.html">Vue.js</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Vue.js/01-入门到实战/index.html">Vue.js入门到实战</a>
+</nav>
+<h1>024 - Teleport与Suspense</h1>
+<div class="meta">
+<span>📂 Vue.js入门到实战</span>
+<span>🏷️ Vue.js</span>
+</div>
+<article>
+
+
+<h2>难度标注</h2>
+
+<blockquote><p>🟡 <strong>中级</strong> — 需要 Vue 3 基础、异步组件、Composition API</p></blockquote>
+
+<h2>概念讲解</h2>
+
+<h3>Teleport</h3>
+
+<p><code><Teleport></code> 允许将组件的内容<strong>渲染到 DOM 中的其他位置</strong>，而不影响组件的逻辑关系。典型场景：模态框、通知、全屏遮罩。</p>
+
+<pre><code class="language-html">&lt;Teleport to=&quot;body&quot;&gt;
+  &lt;div class=&quot;modal&quot;&gt;...&lt;/div&gt;
+&lt;/Teleport&gt;
+&lt;!-- modal 实际渲染到 &lt;body&gt; 下，而非组件内部 --&gt;</code></pre>
+
+<h3>Suspense</h3>
+
+<p><code><Suspense></code> 用于协调异步依赖，在异步组件加载或异步 setup 完成前显示 fallback 内容。</p>
+
+<h3>核心概念对比</h3>
+
+<table><thead><tr>
+<th>组件</th>
+<th>作用</th>
+<th>场景</th>
+</tr></thead><tbody>
+<tr>
+<td>Teleport</td>
+<td>DOM 传送</td>
+<td>模态框、通知、全屏层</td>
+</tr>
+<tr>
+<td>Suspense</td>
+<td>异步等待</td>
+<td>异步组件、数据加载</td>
+</tr>
+</tbody></table>
+
+<h2>脑图</h2>
+
+<pre><code>Teleport 与 Suspense
+├── Teleport
+│   ├── to=&quot;body&quot; — 目标选择器
+│   ├── disabled — 条件禁用
+│   ├── 多个 Teleport 追加到同一目标
+│   └── 应用: Modal / Toast / Drawer
+├── Suspense
+│   ├── #default — 异步内容
+│   ├── #fallback — 加载中显示
+│   ├── timeout — 超时时间
+│   └── 事件: @pending / @resolve
+└── 组合使用
+    ├── Teleport + Suspense
+    └── 模态框异步加载</code></pre>
+
+<h2>完整代码</h2>
+
+<pre><code class="language-vue">&lt;!-- components/Modal.vue — Teleport-based modal --&gt;
+&lt;script setup&gt;
+import { watch } from &#x27;vue&#x27;
+
+const props = defineProps({
+  modelValue: Boolean,
+  title: { type: String, default: &#x27;Modal&#x27; }
+})
+
+const emit = defineEmits([&#x27;update:modelValue&#x27;])
+
+function close() {
+  emit(&#x27;update:modelValue&#x27;, false)
+}
+
+// Lock body scroll when modal is open
+watch(() =&gt; props.modelValue, (val) =&gt; {
+  document.body.style.overflow = val ? &#x27;hidden&#x27; : &#x27;&#x27;
+})
+&lt;/script&gt;
+
+&lt;template&gt;
+  &lt;!-- Teleport modal to body to avoid z-index/overflow issues --&gt;
+  &lt;Teleport to=&quot;body&quot;&gt;
+    &lt;Transition name=&quot;modal&quot;&gt;
+      &lt;div v-if=&quot;modelValue&quot; class=&quot;modal-overlay&quot; @click.self=&quot;close&quot;&gt;
+        &lt;div class=&quot;modal-content&quot;&gt;
+          &lt;div class=&quot;modal-header&quot;&gt;
+            &lt;h3&gt;{{ title }}&lt;/h3&gt;
+            &lt;button class=&quot;close-btn&quot; @click=&quot;close&quot;&gt;&amp;times;&lt;/button&gt;
+          &lt;/div&gt;
+          &lt;div class=&quot;modal-body&quot;&gt;
+            &lt;slot /&gt;
+          &lt;/div&gt;
+        &lt;/div&gt;
+      &lt;/div&gt;
+    &lt;/Transition&gt;
+  &lt;/Teleport&gt;
+&lt;/template&gt;
+
+&lt;style scoped&gt;
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+.modal-content {
+  background: white;
+  border-radius: 12px;
+  padding: 24px;
+  min-width: 400px;
+  max-width: 90vw;
+}
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+.close-btn {
+  background: none;
+  border: none;
+  font-size: 24px;
+  cursor: pointer;
+}
+.modal-enter-active, .modal-leave-active { transition: opacity 0.3s; }
+.modal-enter-from, .modal-leave-to { opacity: 0; }
+&lt;/style&gt;</code></pre>
+
+<pre><code class="language-vue">&lt;!-- components/ToastStack.vue — Multiple teleports for notifications --&gt;
+&lt;script setup&gt;
+import { ref } from &#x27;vue&#x27;
+
+const toasts = ref([])
+let toastId = 0
+
+function addToast(message, type = &#x27;info&#x27;) {
+  const id = toastId++
+  toasts.value.push({ id, message, type })
+  setTimeout(() =&gt; {
+    toasts.value = toasts.value.filter(t =&gt; t.id !== id)
+  }, 3000)
+}
+
+// Expose for parent usage
+defineExpose({ addToast })
+&lt;/script&gt;
+
+&lt;template&gt;
+  &lt;Teleport to=&quot;body&quot;&gt;
+    &lt;div class=&quot;toast-stack&quot;&gt;
+      &lt;TransitionGroup name=&quot;toast&quot;&gt;
+        &lt;div
+          v-for=&quot;toast in toasts&quot;
+          :key=&quot;toast.id&quot;
+          :class=&quot;[&#x27;toast&#x27;, `toast-${toast.type}`]&quot;
+        &gt;
+          {{ toast.message }}
+        &lt;/div&gt;
+      &lt;/TransitionGroup&gt;
+    &lt;/div&gt;
+  &lt;/Teleport&gt;
+&lt;/template&gt;
+
+&lt;style scoped&gt;
+.toast-stack {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 2000;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.toast {
+  padding: 12px 20px;
+  border-radius: 8px;
+  color: white;
+  font-size: 14px;
+}
+.toast-info { background: #42b883; }
+.toast-error { background: #e74c3c; }
+.toast-enter-active, .toast-leave-active { transition: all 0.3s; }
+.toast-enter-from { opacity: 0; transform: translateX(50px); }
+.toast-leave-to { opacity: 0; transform: translateX(50px); }
+&lt;/style&gt;</code></pre>
+
+<pre><code class="language-vue">&lt;!-- components/AsyncChart.vue — Async component for Suspense --&gt;
+&lt;script setup&gt;
+// Simulate async setup (e.g., loading heavy chart library)
+const data = await new Promise(resolve =&gt; {
+  setTimeout(() =&gt; {
+    resolve([
+      { label: &#x27;Jan&#x27;, value: 65 },
+      { label: &#x27;Feb&#x27;, value: 59 },
+      { label: &#x27;Mar&#x27;, value: 80 }
+    ])
+  }, 2000)
+})
+&lt;/script&gt;
+
+&lt;template&gt;
+  &lt;div class=&quot;chart&quot;&gt;
+    &lt;h4&gt;Chart Data (loaded async)&lt;/h4&gt;
+    &lt;div v-for=&quot;item in data&quot; :key=&quot;item.label&quot; class=&quot;bar-row&quot;&gt;
+      &lt;span&gt;{{ item.label }}&lt;/span&gt;
+      &lt;div class=&quot;bar&quot; :style=&quot;{ width: item.value * 3 + &#x27;px&#x27; }&quot;&gt;
+        {{ item.value }}
+      &lt;/div&gt;
+    &lt;/div&gt;
+  &lt;/div&gt;
+&lt;/template&gt;
+
+&lt;style scoped&gt;
+.chart { padding: 16px; background: #f9f9f9; border-radius: 8px; }
+.bar-row { display: flex; align-items: center; gap: 12px; margin: 8px 0; }
+.bar { height: 24px; background: #42b883; border-radius: 4px; padding: 0 8px; color: white; display: flex; align-items: center; }
+&lt;/style&gt;</code></pre>
+
+<pre><code class="language-vue">&lt;!-- App.vue — Combining Teleport + Suspense --&gt;
+&lt;script setup&gt;
+import { ref, defineAsyncComponent } from &#x27;vue&#x27;
+import Modal from &#x27;./components/Modal.vue&#x27;
+import ToastStack from &#x27;./components/ToastStack.vue&#x27;
+
+const AsyncChart = defineAsyncComponent(() =&gt;
+  import(&#x27;./components/AsyncChart.vue&#x27;)
+)
+
+const showModal = ref(false)
+const toastRef = ref(null)
+
+function showToast() {
+  toastRef.value?.addToast(&#x27;Operation successful!&#x27;, &#x27;info&#x27;)
+}
+&lt;/script&gt;
+
+&lt;template&gt;
+  &lt;div&gt;
+    &lt;button @click=&quot;showModal = true&quot;&gt;Open Modal&lt;/button&gt;
+    &lt;button @click=&quot;showToast&quot;&gt;Show Toast&lt;/button&gt;
+
+    &lt;Modal v-model=&quot;showModal&quot; title=&quot;Async Chart&quot;&gt;
+      &lt;Suspense&gt;
+        &lt;template #default&gt;
+          &lt;AsyncChart /&gt;
+        &lt;/template&gt;
+        &lt;template #fallback&gt;
+          &lt;div class=&quot;loading&quot;&gt;Loading chart data...&lt;/div&gt;
+        &lt;/template&gt;
+      &lt;/Suspense&gt;
+    &lt;/Modal&gt;
+
+    &lt;ToastStack ref=&quot;toastRef&quot; /&gt;
+  &lt;/div&gt;
+&lt;/template&gt;
+
+&lt;style scoped&gt;
+.loading { padding: 40px; text-align: center; color: #666; }
+&lt;/style&gt;</code></pre>
+
+<h2>执行预览</h2>
+
+<pre><code>点击 &quot;Open Modal&quot;:
+  → 遮罩层和弹窗渲染到 &lt;body&gt; 下（不受父级 overflow 影响）
+  → body.style.overflow = &#x27;hidden&#x27;（禁止背景滚动）
+
+Modal 内的 AsyncChart:
+  → Suspense 显示 fallback: &quot;Loading chart data...&quot;
+  → 2秒后数据加载完成
+  → 显示图表内容
+
+点击 &quot;Show Toast&quot;:
+  → 通知从右侧滑入，渲染到 &lt;body&gt;
+  → 3秒后自动消失
+
+关闭 Modal:
+  → 动画淡出
+  → body.style.overflow 恢复</code></pre>
+
+<h2>注意事项</h2>
+
+<table><thead><tr>
+<th>注意点</th>
+<th>说明</th>
+</tr></thead><tbody>
+<tr>
+<td>Teleport to</td>
+<td>目标必须存在，否则报错</td>
+</tr>
+<tr>
+<td>disabled 属性</td>
+<td><code><Teleport :disabled="isMobile"></code> 条件禁用传送</td>
+</tr>
+<tr>
+<td>Suspense 稳定性</td>
+<td>Suspense 在 Vue 3 仍标记为实验性功能</td>
+</tr>
+<tr>
+<td>异步 setup</td>
+<td>组件 setup 中使用 <code>await</code> 会触发 Suspense</td>
+</tr>
+<tr>
+<td>多 Teleport</td>
+<td>多个 Teleport 到同一目标按渲染顺序追加</td>
+</tr>
+</tbody></table>
+
+<h2>避坑指南</h2>
+
+<table><thead><tr>
+<th>❌ 错误做法</th>
+<th>✅ 正确做法</th>
+</tr></thead><tbody>
+<tr>
+<td>弹窗放在组件内部，被 overflow:hidden 裁切</td>
+<td>用 Teleport to="body" 传送到根层</td>
+</tr>
+<tr>
+<td>不锁定 body 滚动</td>
+<td>Modal 打开时 <code>body.overflow = 'hidden'</code></td>
+</tr>
+<tr>
+<td>Suspense 不提供 fallback</td>
+<td>始终提供 fallback 提升用户体验</td>
+</tr>
+<tr>
+<td>Teleport 目标选择器不存在</td>
+<td>确保目标元素在 DOM 中存在</td>
+</tr>
+<tr>
+<td>忘记关闭 Modal 清理副作用</td>
+<td>watch modelValue 在关闭时恢复状态</td>
+</tr>
+</tbody></table>
+
+<h2>练习题</h2>
+
+<h3>🟢 基础</h3>
+<ol>
+<li>使用 Teleport 实现一个简单的模态框</li>
+</ul>
+<ol>
+<li>使用 Suspense 包裹一个异步组件，显示加载中状态</li>
+
+<h3>🟡 进阶</h3>
+<ol>
+<li>实现一个通知系统：多个通知堆叠显示，3秒后自动消失</li>
+</ul>
+<ol>
+<li>实现一个 Drawer（抽屉）组件，从右侧滑入，使用 Teleport</li>
+
+<h3>🔴 挑战</h3>
+<ol>
+<li>实现一个完整的异步页面加载方案：路由切换时显示骨架屏，加载完成后淡入内容</li>
+
+<h2>知识点总结</h2>
+
+<pre><code>Teleport 与 Suspense
+├── Teleport
+│   ├── to=&quot;body&quot; — CSS 选择器
+│   ├── :disabled — 条件禁用
+│   └── 用途: Modal / Toast / Drawer
+├── Suspense
+│   ├── #default — 异步内容
+│   ├── #fallback — 加载占位
+│   ├── 支持: async setup / defineAsyncComponent
+│   └── 事件: @pending @resolve @fallback
+└── 最佳实践
+    ├── Modal → Teleport to body
+    ├── 异步内容 → Suspense 包裹
+    └── Transition + Teleport 组合</code></pre>
+
+<h2>举一反三</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>方案</th>
+<th>组件</th>
+</tr></thead><tbody>
+<tr>
+<td>模态框</td>
+<td>Teleport to body</td>
+<td>Modal</td>
+</tr>
+<tr>
+<td>全局通知</td>
+<td>Teleport + TransitionGroup</td>
+<td>Toast</td>
+</tr>
+<tr>
+<td>抽屉菜单</td>
+<td>Teleport + slide transition</td>
+<td>Drawer</td>
+</tr>
+<tr>
+<td>异步数据加载</td>
+<td>Suspense + fallback</td>
+<td>AsyncData</td>
+</tr>
+<tr>
+<td>图片预览</td>
+<td>Teleport to body</td>
+<td>Lightbox</td>
+</tr>
+</tbody></table>
+
+<h2>参考资料</h2>
+
+<ul>
+<li><a href="https://vuejs.org/guide/built-ins/teleport.html">Vue 3 官方文档 - Teleport</a></li>
+<li><a href="https://vuejs.org/guide/built-ins/suspense.html">Vue 3 官方文档 - Suspense</a></li>
+
+<h2>代码演进</h2>
+
+<h3>v1 — 基础 Teleport</h3>
+<pre><code class="language-vue">&lt;Teleport to=&quot;body&quot;&gt;
+  &lt;div class=&quot;modal&quot;&gt;...&lt;/div&gt;
+&lt;/Teleport&gt;</code></pre>
+
+<h3>v2 — 加 Suspense</h3>
+<pre><code class="language-vue">&lt;Suspense&gt;
+  &lt;AsyncComponent /&gt;
+  &lt;template #fallback&gt;Loading...&lt;/template&gt;
+&lt;/Suspense&gt;</code></pre>
+
+<h3>v3 — 完整方案（本文代码）</h3>
+<ul>
+<li>Modal + Teleport + Transition</li>
+<li>Toast 通知系统</li>
+<li>Suspense + 异步 setup</li>
+<li>body 滚动锁定</li>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

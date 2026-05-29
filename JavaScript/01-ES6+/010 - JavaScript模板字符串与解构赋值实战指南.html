@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>010 - JavaScript模板字符串与解构赋值实战指南</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/JavaScript/index.html">JavaScript</a>
+<span class="sep">›</span>
+<a href="/tech-blog/JavaScript/01-ES6+/index.html">JavaScript ES6+</a>
+</nav>
+<h1>010 - JavaScript模板字符串与解构赋值实战指南</h1>
+<div class="meta">
+<span>📂 JavaScript ES6+</span>
+<span>🏷️ JavaScript</span>
+</div>
+<article>
+
+
+
+<h1>JavaScript模板字符串与解构赋值实战指南</h1>
+
+<blockquote><p><strong>难度标注：</strong> 🟢 初级 | <strong>前置知识：</strong> 基本JS语法、对象和数组<br><strong>阅读时间：</strong> 约14分钟 | <strong>代码量：</strong> 约120行</p></blockquote>
+
+<hr>
+
+<h2>一、概念讲解</h2>
+
+<h3>1.1 模板字符串</h3>
+
+<p>用反引号`<code> </code> `<code>包裹的字符串，支持：<strong>多行、插值</code>${}`、标签模板</strong>。</p>
+
+<h3>1.2 解构赋值</h3>
+
+<p>从数组或对象中提取值，按模式匹配赋给变量。支持：<strong>默认值、重命名、嵌套、剩余模式</strong>。</p>
+
+<hr>
+
+<h2>二、脑图</h2>
+
+<pre><code>            ES6语法糖
+           /         \
+     模板字符串      解构赋值
+      / | \          /    \
+   多行 插值 标签   数组    对象
+                解构    解构
+                 \     /
+               默认值/重命名/嵌套/剩余</code></pre>
+
+<hr>
+
+<h2>三、完整代码示例</h2>
+
+<pre><code class="language-javascript">// ============================================
+// 1. Template literals
+// ============================================
+const name = &quot;Alice&quot;;
+const age = 25;
+
+// String interpolation
+console.log(`${name} is ${age} years old.`);
+
+// Multi-line strings
+const html = `
+  &lt;div class=&quot;card&quot;&gt;
+    &lt;h2&gt;${name}&lt;/h2&gt;
+    &lt;p&gt;Age: ${age}&lt;/p&gt;
+  &lt;/div&gt;
+`;
+console.log(html.trim());
+
+// Expressions inside ${}
+console.log(`2 + 2 = ${2 + 2}`);
+console.log(`Upper: ${name.toUpperCase()}`);
+console.log(`Ternary: ${age &gt;= 18 ? &quot;adult&quot; : &quot;minor&quot;}`);
+
+// Nested template literals
+const items = [&quot;apple&quot;, &quot;banana&quot;, &quot;cherry&quot;];
+const list = `&lt;ul&gt;${items.map(i =&gt; `&lt;li&gt;${i}&lt;/li&gt;`).join(&quot;\n  &quot;)}&lt;/ul&gt;`;
+console.log(list);
+
+// Tagged template
+function highlight(strings, ...values) {
+  return strings.reduce((result, str, i) =&gt; {
+    const val = values[i] ? `&lt;mark&gt;${values[i]}&lt;/mark&gt;` : &quot;&quot;;
+    return result + str + val;
+  }, &quot;&quot;);
+}
+console.log(highlight`Hello ${name}, you are ${age}!`);
+
+// ============================================
+// 2. Array destructuring
+// ============================================
+const numbers = [1, 2, 3, 4, 5];
+
+const [first, second, ...rest] = numbers;
+console.log(first, second, rest); // 1 2 [3, 4, 5]
+
+// Skip elements
+const [, , third] = numbers;
+console.log(third); // 3
+
+// Default values
+const [a, b, c, d, e, f = 10] = numbers;
+console.log(f); // 10 (no 6th element, uses default)
+
+// Swap variables
+let x = 1, y = 2;
+[x, y] = [y, x];
+console.log(x, y); // 2 1
+
+// Function return destructuring
+function getMinMax(arr) {
+  return [Math.min(...arr), Math.max(...arr)];
+}
+const [min, max] = getMinMax(numbers);
+console.log(min, max); // 1 5
+
+// ============================================
+// 3. Object destructuring
+// ============================================
+const user = {
+  name: &quot;Alice&quot;,
+  age: 25,
+  address: {
+    city: &quot;Beijing&quot;,
+    zip: &quot;100000&quot;,
+  },
+};
+
+// Basic destructuring
+const { name: userName, age: userAge } = user;
+console.log(userName, userAge); // Alice 25
+
+// Default values
+const { role = &quot;user&quot; } = user;
+console.log(role); // &quot;user&quot;
+
+// Nested destructuring
+const { address: { city, zip } } = user;
+console.log(city, zip); // Beijing 100000
+
+// Rest in object destructuring
+const { name: n, ...otherInfo } = user;
+console.log(n);       // Alice
+console.log(otherInfo); // { age: 25, address: {...} }
+
+// Function parameter destructuring
+function createUserCard({ name, age, role = &quot;member&quot; }) {
+  return `${name} (${age}) - ${role}`;
+}
+console.log(createUserCard({ name: &quot;Bob&quot;, age: 30 }));
+
+// Mixed array + object destructuring
+const data = { results: [10, 20, 30], total: 3 };
+const { results: [firstResult, ...otherResults], total } = data;
+console.log(firstResult, otherResults, total); // 10 [20, 30] 3</code></pre>
+
+<hr>
+
+<h2>四、执行预览</h2>
+
+<pre><code>Alice is 25 years old.
+&lt;div class=&quot;card&quot;&gt;
+    &lt;h2&gt;Alice&lt;/h2&gt;
+    &lt;p&gt;Age: 25&lt;/p&gt;
+  &lt;/div&gt;
+2 + 2 = 4
+Upper: ALICE
+Ternary: adult
+&lt;ul&gt;&lt;li&gt;apple&lt;/li&gt;
+  &lt;li&gt;banana&lt;/li&gt;
+  &lt;li&gt;cherry&lt;/li&gt;&lt;/ul&gt;
+Hello &lt;mark&gt;Alice&lt;/mark&gt;, you are &lt;mark&gt;25&lt;/mark&gt;!
+1 2 [ 3, 4, 5 ]
+3
+10
+2 1
+1 5
+Alice 25
+user
+Beijing 100000
+Alice
+{ age: 25, address: { city: &#x27;Beijing&#x27;, zip: &#x27;100000&#x27; } }
+Bob (30) - member
+10 [ 20, 30 ] 3</code></pre>
+
+<hr>
+
+<h2>五、注意事项</h2>
+
+<table><thead><tr>
+<th>特性</th>
+<th>说明</th>
+<th>注意</th>
+</tr></thead><tbody>
+<tr>
+<td>标签模板</td>
+<td><code>fn\</code>str\``</td>
+<td>strings参数始终是数组</td>
+</tr>
+<tr>
+<td>嵌套解构</td>
+<td>多层对象/数组</td>
+<td>可读性vs便利性</td>
+</tr>
+<tr>
+<td>默认值</td>
+<td>仅当值为<code>undefined</code>时生效</td>
+<td><code>null</code>不触发默认值</td>
+</tr>
+<tr>
+<td>重命名</td>
+<td><code>{ prop: alias }</code></td>
+<td>注意顺序：先属性名后变量名</td>
+</tr>
+<tr>
+<td>剩余模式</td>
+<td>必须是最后一个</td>
+<td><code>...rest</code>后面不能有其他</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>六、避坑指南</h2>
+
+<h3>❌ 解构null/undefined</h3>
+<pre><code class="language-javascript">const { name } = null; // TypeError: cannot destructure</code></pre>
+<h3>✅ 提供默认值</h3>
+<pre><code class="language-javascript">const { name } = null || {}; // name = undefined
+const { name = &quot;unknown&quot; } = null || {}; // &quot;unknown&quot;</code></pre>
+
+<h3>❌ 对象解构赋值没有括号</h3>
+<pre><code class="language-javascript">let a, b;
+{ a, b } = { a: 1, b: 2 }; // SyntaxError: block statement</code></pre>
+<h3>✅ 加括号</h3>
+<pre><code class="language-javascript">let a, b;
+({ a, b } = { a: 1, b: 2 }); // OK</code></pre>
+
+<hr>
+
+<h2>七、练习题</h2>
+
+<h3>🟢 基础</h3>
+<ol>
+<li>用解构从<code>const arr = [1, 2, [3, 4], 5]</code>中提取3和5。</li>
+
+<h3>🟡 进阶</h3>
+<ol>
+<li>实现一个标签模板函数<code>sql</code>，自动转义SQL注入：</li>
+<pre><code class="language-javascript">const table = &quot;users&quot;;
+const input = &quot;&#x27;; DROP TABLE users; --&quot;;
+console.log(sql`SELECT * FROM ${table} WHERE name = &#x27;${input}&#x27;`);</code></pre>
+
+<h3>🔴 挑战</h3>
+<ol>
+<li>实现深度解构工具函数<code>deepDestruct(obj, pattern)</code>，支持模式匹配提取嵌套值。</li>
+
+<hr>
+
+<h2>八、知识点总结</h2>
+
+<pre><code>模板字符串与解构
+├── 模板字符串
+│   ├── 基础插值 ${expr}
+│   ├── 多行字符串
+│   ├── 嵌套模板
+│   └── 标签模板
+├── 数组解构
+│   ├── 位置匹配
+│   ├── 跳过元素
+│   ├── 默认值
+│   └── 剩余模式 ...rest
+└── 对象解构
+    ├── 属性名匹配
+    ├── 重命名 { prop: alias }
+    ├── 默认值
+    ├── 嵌套解构
+    └── 剩余模式 ...rest</code></pre>
+
+<hr>
+
+<h2>九、举一反三</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>用法</th>
+<th>好处</th>
+</tr></thead><tbody>
+<tr>
+<td>函数参数</td>
+<td><code>{ a, b, c = 1 }</code></td>
+<td>自文档、可选、有序无关</td>
+</tr>
+<tr>
+<td>模块导入</td>
+<td><code>import { useState, useEffect }</code></td>
+<td>按需引入</td>
+</tr>
+<tr>
+<td>React Props</td>
+<td><code>{ title, children }</code></td>
+<td>解构props</td>
+</tr>
+<tr>
+<td>API响应</td>
+<td><code>{ data: { users } }</code></td>
+<td>直接提取嵌套数据</td>
+</tr>
+<tr>
+<td>交换变量</td>
+<td><code>[a, b] = [b, a]</code></td>
+<td>无需临时变量</td>
+</tr>
+<tr>
+<td>配置合并</td>
+<td><code>{ ...defaults, ...userConfig }</code></td>
+<td>覆盖默认值</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>十、参考资料</h2>
+
+<ul>
+<li><a href="https://developer.mozilla.org/zh-CN/docs/Web/JavaScript/Reference/Template_literals">MDN: 模板字符串</a></li>
+<li><a href="https://developer.mozilla.org/zh-CN/docs/Web/JavaScript/Reference/Operators/Destructuring_assignment">MDN: 解构赋值</a></li>
+
+<hr>
+
+<h2>十一、代码演进</h2>
+
+<h3>v1: 字符串拼接</h3>
+<pre><code class="language-javascript">var greeting = &quot;Hello, &quot; + name + &quot;! You are &quot; + age + &quot; years old.&quot;;
+var city = user.address &amp;&amp; user.address.city ? user.address.city : &quot;unknown&quot;;</code></pre>
+
+<h3>v2: 模板字符串 + 解构</h3>
+<pre><code class="language-javascript">const { address: { city = &quot;unknown&quot; } = {} } = user;
+const greeting = `Hello, ${name}! You are ${age} years old.`;</code></pre>
+
+<h3>v3: 标签模板 + 深解构</h3>
+<pre><code class="language-javascript">const html = sanitize`&lt;p&gt;${rawInput}&lt;/p&gt;`;
+const { data: { results: [first, ...rest], total } } = response;</code></pre>
+
+<hr>
+
+<h2>十二、总结</h2>
+
+<table><thead><tr>
+<th>核心要点</th>
+<th>说明</th>
+</tr></thead><tbody>
+<tr>
+<td><strong>模板字符串</strong></td>
+<td>多行+插值，替代字符串拼接</td>
+</tr>
+<tr>
+<td><strong>标签模板</strong></td>
+<td>自定义字符串处理（i18n、SQL转义等）</td>
+</tr>
+<tr>
+<td><strong>数组解构</strong></td>
+<td>按位置匹配，适合有序数据</td>
+</tr>
+<tr>
+<td><strong>对象解构</strong></td>
+<td>按属性名匹配，适合配置和参数</td>
+</tr>
+<tr>
+<td><strong>默认值</strong></td>
+<td>仅<code>undefined</code>触发，<code>null</code>不触发</td>
+</tr>
+</tbody></table>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

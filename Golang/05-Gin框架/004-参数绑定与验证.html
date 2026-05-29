@@ -1,0 +1,753 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>004-参数绑定与验证</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Golang/index.html">Golang</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Golang/05-Gin框架/index.html">Gin框架</a>
+</nav>
+<h1>004-参数绑定与验证</h1>
+<div class="meta">
+<span>📂 Gin框架</span>
+<span>🏷️ Golang</span>
+</div>
+<article>
+
+
+<h1>参数绑定与验证</h1>
+
+<blockquote><p><strong>难度：⭐⭐ 进阶级</strong> | 预计阅读：25分钟 | 适合：掌握基础路由和中间件，需要规范处理请求数据的开发者</p></blockquote>
+
+<h2>一、概念讲解</h2>
+
+<h3>1.1 什么是参数绑定？</h3>
+
+<p>参数绑定就是把HTTP请求中的数据<strong>自动映射到Go结构体</strong>。Gin基于<code>binding</code>包实现，底层使用<code>validator</code>库做验证。</p>
+
+<pre><code>HTTP请求 → Gin绑定 → Go结构体 → 业务逻辑
+          ↓
+   ShouldBindXXX() 系列方法
+   ├── ShouldBindJSON()    → Body JSON
+   ├── ShouldBindQuery()   → URL查询参数
+   ├── ShouldBindURI()     → URL路径参数
+   ├── ShouldBind()        → 表单(自动判断Content-Type)
+   └── ShouldBindXML()     → Body XML</code></pre>
+
+<h3>1.2 Bind vs ShouldBind</h3>
+
+<table><thead><tr>
+<th>方法</th>
+<th>验证失败时</th>
+<th>建议</th>
+</tr></thead><tbody>
+<tr>
+<td><code>BindXXX()</code></td>
+<td>自动返回400响应</td>
+<td>❌ 不推荐，会自动设置错误响应格式</td>
+</tr>
+<tr>
+<td><code>ShouldBindXXX()</code></td>
+<td>返回error，由你决定如何响应</td>
+<td>✅ 推荐，控制权在你手中</td>
+</tr>
+</tbody></table>
+
+<p><strong>始终使用<code>ShouldBind</code>系列</strong>，这是Gin社区的最佳实践。</p>
+
+<h3>1.3 binding标签一览</h3>
+
+<pre><code class="language-go">type User struct {
+    Name  string `json:&quot;name&quot; binding:&quot;required&quot;`                      // 必填
+    Email string `json:&quot;email&quot; binding:&quot;required,email&quot;`               // 必填+邮箱格式
+    Age   int    `json:&quot;age&quot; binding:&quot;required,gte=0,lte=150&quot;`        // 范围: 0-150
+    Role  string `json:&quot;role&quot; binding:&quot;required,oneof=admin user guest&quot;` // 枚举
+    Page  int    `json:&quot;page&quot; binding:&quot;omitempty,min=1&quot;`              // 可选，但填了就要&gt;=1
+    Size  int    `json:&quot;size&quot; binding:&quot;omitempty,min=1,max=100&quot;`      // 可选范围
+}</code></pre>
+
+<p>常用binding标签速查：</p>
+
+<table><thead><tr>
+<th>标签</th>
+<th>含义</th>
+<th>示例</th>
+</tr></thead><tbody>
+<tr>
+<td><code>required</code></td>
+<td>必填</td>
+<td><code>binding:"required"</code></td>
+</tr>
+<tr>
+<td><code>omitempty</code></td>
+<td>空值跳过后续验证</td>
+<td><code>binding:"omitempty,min=1"</code></td>
+</tr>
+<tr>
+<td><code>min/max</code></td>
+<td>最小/最大值(数字)</td>
+<td><code>binding:"min=1,max=100"</code></td>
+</tr>
+<tr>
+<td><code>gt/gte/lt/lte</code></td>
+<td>大于/大于等于/小于/小于等于</td>
+<td><code>binding:"gte=18"</code></td>
+</tr>
+<tr>
+<td><code>len</code></td>
+<td>字符串长度</td>
+<td><code>binding:"len=11"</code></td>
+</tr>
+<tr>
+<td><code>oneof</code></td>
+<td>枚举值</td>
+<td><code>binding:"oneof=a b c"</code></td>
+</tr>
+<tr>
+<td><code>email</code></td>
+<td>邮箱格式</td>
+<td><code>binding:"email"</code></td>
+</tr>
+<tr>
+<td><code>url</code></td>
+<td>URL格式</td>
+<td><code>binding:"url"</code></td>
+</tr>
+<tr>
+<td><code>ip</code></td>
+<td>IP地址格式</td>
+<td><code>binding:"ip"</code></td>
+</tr>
+<tr>
+<td><code>datetime</code></td>
+<td>时间格式</td>
+<td><code>binding:"datetime=2006-01-02"</code></td>
+</tr>
+</tbody></table>
+
+<h2>二、脑图</h2>
+
+<pre><code>Gin参数绑定体系
+├── 绑定方法
+│   ├── ShouldBindJSON   → JSON Body
+│   ├── ShouldBindQuery  → URL ?key=value
+│   ├── ShouldBindURI    → 路径 /users/:id
+│   ├── ShouldBindXML    → XML Body
+│   ├── ShouldBindYAML   → YAML Body
+│   ├── ShouldBind       → 自动检测Content-Type
+│   └── ShouldBindHeader → HTTP Headers
+├── 验证标签
+│   ├── required / omitempty
+│   ├── min / max / gt / lt
+│   ├── len / min_len / max_len
+│   ├── oneof
+│   ├── email / url / ip
+│   └── 自定义验证器
+├── 文件上传
+│   ├── FormFile()      → 单文件
+│   ├── MultipartForm() → 多文件
+│   └── SaveUploadedFile()
+└── 错误处理
+    ├── 判断验证错误类型
+    ├── 自定义错误消息
+    └── 统一错误响应</code></pre>
+
+<h2>三、完整代码</h2>
+
+<h3>3.1 JSON绑定与验证</h3>
+
+<pre><code class="language-go">package main
+
+import (
+    &quot;net/http&quot;
+    &quot;github.com/gin-gonic/gin&quot;
+)
+
+// CreateUserRequest defines the expected JSON payload
+type CreateUserRequest struct {
+    Name     string `json:&quot;name&quot; binding:&quot;required,min=2,max=50&quot;`
+    Email    string `json:&quot;email&quot; binding:&quot;required,email&quot;`
+    Password string `json:&quot;password&quot; binding:&quot;required,min=8&quot;`
+    Age      int    `json:&quot;age&quot; binding:&quot;required,gte=1,lte=150&quot;`
+    Role     string `json:&quot;role&quot; binding:&quot;omitempty,oneof=admin user guest&quot;`
+}
+
+func main() {
+    r := gin.Default()
+
+    r.POST(&quot;/users&quot;, func(c *gin.Context) {
+        var req CreateUserRequest
+        if err := c.ShouldBindJSON(&amp;req); err != nil {
+            c.JSON(http.StatusBadRequest, gin.H{
+                &quot;error&quot;:   &quot;Validation failed&quot;,
+                &quot;details&quot;: err.Error(),
+            })
+            return
+        }
+        // All validations passed, proceed with business logic
+        c.JSON(http.StatusCreated, gin.H{
+            &quot;message&quot;: &quot;User created successfully&quot;,
+            &quot;user&quot;:    req,
+        })
+    })
+
+    r.Run(&quot;:8080&quot;)
+}</code></pre>
+
+<h3>3.2 Query与URI绑定</h3>
+
+<pre><code class="language-go">// ListUsersQuery binds query parameters
+type ListUsersQuery struct {
+    Page     int    `form:&quot;page&quot; binding:&quot;omitempty,min=1&quot;`
+    PageSize int    `form:&quot;page_size&quot; binding:&quot;omitempty,min=1,max=100&quot;`
+    Sort     string `form:&quot;sort&quot; binding:&quot;omitempty,oneof=asc desc&quot;`
+    Search   string `form:&quot;search&quot; binding:&quot;omitempty,min=1&quot;`
+}
+
+// GetUserURI binds path parameters
+type GetUserURI struct {
+    ID int `uri:&quot;id&quot; binding:&quot;required,min=1&quot;`
+}
+
+func main() {
+    r := gin.Default()
+
+    // Bind query parameters
+    r.GET(&quot;/users&quot;, func(c *gin.Context) {
+        var query ListUsersQuery
+        // Set defaults before binding
+        query.Page = 1
+        query.PageSize = 10
+        
+        if err := c.ShouldBindQuery(&amp;query); err != nil {
+            c.JSON(http.StatusBadRequest, gin.H{&quot;error&quot;: err.Error()})
+            return
+        }
+        c.JSON(http.StatusOK, gin.H{
+            &quot;page&quot;:      query.Page,
+            &quot;page_size&quot;: query.PageSize,
+            &quot;sort&quot;:      query.Sort,
+            &quot;search&quot;:    query.Search,
+        })
+    })
+
+    // Bind URI parameters
+    r.GET(&quot;/users/:id&quot;, func(c *gin.Context) {
+        var uri GetUserURI
+        if err := c.ShouldBindUri(&amp;uri); err != nil {
+            c.JSON(http.StatusBadRequest, gin.H{&quot;error&quot;: &quot;Invalid user ID&quot;})
+            return
+        }
+        c.JSON(http.StatusOK, gin.H{&quot;user_id&quot;: uri.ID})
+    })
+
+    r.Run(&quot;:8080&quot;)
+}</code></pre>
+
+<h3>3.3 自定义验证器</h3>
+
+<pre><code class="language-go">package main
+
+import (
+    &quot;net/http&quot;
+    &quot;regexp&quot;
+    &quot;github.com/gin-gonic/gin&quot;
+    &quot;github.com/gin-gonic/gin/binding&quot;
+    &quot;github.com/go-playground/validator/v10&quot;
+)
+
+// RegisterRequest with custom validation tags
+type RegisterRequest struct {
+    Username string `json:&quot;username&quot; binding:&quot;required,min=3,max=20,alphanum&quot;`
+    Phone    string `json:&quot;phone&quot; binding:&quot;required,validPhone&quot;`
+}
+
+// Custom phone validation function (Chinese mobile format)
+var validPhone validator.Func = func(fl validator.FieldLevel) bool {
+    phone, ok := fl.Field().Interface().(string)
+    if !ok {
+        return false
+    }
+    matched, _ := regexp.MatchString(`^1[3-9]\d{9}$`, phone)
+    return matched
+}
+
+func main() {
+    r := gin.Default()
+
+    // Register custom validator
+    if v, ok := binding.Validator.Engine().(*validator.Validate); ok {
+        v.RegisterValidation(&quot;validPhone&quot;, validPhone)
+    }
+
+    r.POST(&quot;/register&quot;, func(c *gin.Context) {
+        var req RegisterRequest
+        if err := c.ShouldBindJSON(&amp;req); err != nil {
+            c.JSON(http.StatusBadRequest, gin.H{&quot;error&quot;: err.Error()})
+            return
+        }
+        c.JSON(http.StatusOK, gin.H{&quot;message&quot;: &quot;registered&quot;, &quot;username&quot;: req.Username})
+    })
+
+    r.Run(&quot;:8080&quot;)
+}</code></pre>
+
+<h3>3.4 文件上传</h3>
+
+<pre><code class="language-go">// File upload handlers
+func main() {
+    r := gin.Default()
+
+    // Single file upload
+    r.POST(&quot;/upload&quot;, func(c *gin.Context) {
+        file, err := c.FormFile(&quot;file&quot;)
+        if err != nil {
+            c.JSON(http.StatusBadRequest, gin.H{&quot;error&quot;: &quot;No file uploaded&quot;})
+            return
+        }
+        
+        // Save file
+        dst := &quot;./uploads/&quot; + file.Filename
+        if err := c.SaveUploadedFile(file, dst); err != nil {
+            c.JSON(http.StatusInternalServerError, gin.H{&quot;error&quot;: &quot;Failed to save file&quot;})
+            return
+        }
+        
+        c.JSON(http.StatusOK, gin.H{
+            &quot;filename&quot;: file.Filename,
+            &quot;size&quot;:     file.Size,
+            &quot;saved_to&quot;: dst,
+        })
+    })
+
+    // Multiple files upload
+    r.POST(&quot;/uploads&quot;, func(c *gin.Context) {
+        form, err := c.MultipartForm()
+        if err != nil {
+            c.JSON(http.StatusBadRequest, gin.H{&quot;error&quot;: err.Error()})
+            return
+        }
+        
+        files := form.File[&quot;files&quot;]
+        var saved []string
+        for _, file := range files {
+            dst := &quot;./uploads/&quot; + file.Filename
+            if err := c.SaveUploadedFile(file, dst); err == nil {
+                saved = append(saved, file.Filename)
+            }
+        }
+        
+        c.JSON(http.StatusOK, gin.H{
+            &quot;total&quot;: len(files),
+            &quot;saved&quot;: saved,
+        })
+    })
+
+    r.Run(&quot;:8080&quot;)
+}</code></pre>
+
+<h2>四、执行预览</h2>
+
+<pre><code class="language-bash"># Valid JSON body
+$ curl -X POST http://localhost:8080/users \
+  -H &quot;Content-Type: application/json&quot; \
+  -d &#x27;{&quot;name&quot;:&quot;Alice&quot;,&quot;email&quot;:&quot;alice@example.com&quot;,&quot;password&quot;:&quot;secret123&quot;,&quot;age&quot;:25}&#x27;
+{&quot;message&quot;:&quot;User created successfully&quot;,&quot;user&quot;:{&quot;name&quot;:&quot;Alice&quot;,&quot;email&quot;:&quot;alice@example.com&quot;,...}}
+
+# Missing required field
+$ curl -X POST http://localhost:8080/users \
+  -H &quot;Content-Type: application/json&quot; \
+  -d &#x27;{&quot;name&quot;:&quot;A&quot;}&#x27;
+{&quot;details&quot;:&quot;Key: &#x27;CreateUserRequest.Name&#x27; Error:Field validation for &#x27;Name&#x27; failed on the &#x27;min&#x27; tag&quot;...
+,&quot;error&quot;:&quot;Validation failed&quot;}
+
+# Query parameters with defaults
+$ curl &quot;http://localhost:8080/users?page=2&amp;sort=asc&quot;
+{&quot;page&quot;:2,&quot;page_size&quot;:10,&quot;sort&quot;:&quot;asc&quot;,&quot;search&quot;:&quot;&quot;}
+
+# URI binding - invalid ID
+$ curl http://localhost:8080/users/abc
+{&quot;error&quot;:&quot;Invalid user ID&quot;}
+
+# File upload
+$ curl -X POST http://localhost:8080/upload \
+  -F &quot;file=@test.txt&quot;
+{&quot;filename&quot;:&quot;test.txt&quot;,&quot;saved_to&quot;:&quot;./uploads/test.txt&quot;,&quot;size&quot;:42}</code></pre>
+
+<h2>五、注意事项</h2>
+
+<table><thead><tr>
+<th>事项</th>
+<th>说明</th>
+<th>建议</th>
+</tr></thead><tbody>
+<tr>
+<td>指针传参</td>
+<td><code>ShouldBind</code>必须传指针</td>
+<td><code>&req</code>，否则修改不生效</td>
+</tr>
+<tr>
+<td>json vs form</td>
+<td>json标签用于JSON，form标签用于Query/Form</td>
+<td>按需添加两种标签</td>
+</tr>
+<tr>
+<td>默认值</td>
+<td>binding不设默认值</td>
+<td>在绑定前手动设置默认值</td>
+</tr>
+<tr>
+<td>文件大小</td>
+<td>默认32MB</td>
+<td><code>r.MaxMultipartMemory = 8 << 20</code> (8MB)</td>
+</tr>
+<tr>
+<td>多标签组合</td>
+<td>用逗号分隔</td>
+<td><code>binding:"required,min=1,max=100"</code></td>
+</tr>
+</tbody></table>
+
+<h2>六、避坑指南</h2>
+
+<h3>❌ 用Bind而不是ShouldBind</h3>
+<pre><code class="language-go">// Bad: Bind auto-writes 400 response, you lose control
+var req CreateUserRequest
+if err := c.Bind(&amp;req); err != nil {
+    // Error response already sent! You can&#x27;t customize it.
+    return
+}</code></pre>
+<h3>✅ 始终用ShouldBind系列</h3>
+<pre><code class="language-go">var req CreateUserRequest
+if err := c.ShouldBindJSON(&amp;req); err != nil {
+    c.JSON(http.StatusBadRequest, gin.H{
+        &quot;error&quot;:   &quot;Invalid request&quot;,
+        &quot;details&quot;: err.Error(), // You control the format
+    })
+    return
+}</code></pre>
+
+<h3>❌ 忘记设置默认值</h3>
+<pre><code class="language-go">type Query struct {
+    Page int `form:&quot;page&quot; binding:&quot;omitempty,min=1&quot;`
+}
+// If user doesn&#x27;t send ?page=, Page is 0 (zero value!)</code></pre>
+<h3>✅ 绑定前设置默认值</h3>
+<pre><code class="language-go">var query Query
+query.Page = 1 // Set default before binding
+query.PageSize = 10
+if err := c.ShouldBindQuery(&amp;query); err != nil {
+    // ...
+}</code></pre>
+
+<h3>❌ 文件上传不限制大小和类型</h3>
+<pre><code class="language-go">// Bad: Accepts any file of any size
+file, _ := c.FormFile(&quot;file&quot;)
+c.SaveUploadedFile(file, dst)</code></pre>
+<h3>✅ 校验文件大小和类型</h3>
+<pre><code class="language-go">file, err := c.FormFile(&quot;file&quot;)
+if err != nil {
+    c.JSON(400, gin.H{&quot;error&quot;: &quot;upload failed&quot;})
+    return
+}
+// Limit size (e.g., 5MB)
+if file.Size &gt; 5&lt;&lt;20 {
+    c.JSON(400, gin.H{&quot;error&quot;: &quot;file too large (max 5MB)&quot;})
+    return
+}
+// Validate extension
+ext := filepath.Ext(file.Filename)
+allowed := map[string]bool{&quot;.jpg&quot;: true, &quot;.png&quot;: true, &quot;.pdf&quot;: true}
+if !allowed[ext] {
+    c.JSON(400, gin.H{&quot;error&quot;: &quot;file type not allowed&quot;})
+    return
+}</code></pre>
+
+<h2>七、练习题</h2>
+
+<h3>🟢 初级：基础绑定</h3>
+<ol>
+<li>创建一个<code>POST /articles</code>接口，绑定JSON到结构体，要求title必填且长度3-200</li>
+</ul>
+<ol>
+<li>实现查询参数绑定，支持分页(page/page_size)和排序(sort)</li>
+
+<h3>🟡 中级：自定义验证</h3>
+<ol>
+<li>为密码字段添加自定义验证器：必须包含大小写字母和数字，长度8-20</li>
+</ul>
+<ol>
+<li>实现一个<code>PUT /users/:id</code>接口，同时绑定URI参数和JSON Body</li>
+
+<h3>🔴 高级：文件上传+验证</h3>
+<ol>
+<li>实现图片上传接口：只接受jpg/png，不超过2MB，生成唯一文件名，返回可访问的URL</li>
+
+<h2>八、知识点总结</h2>
+
+<pre><code>参数绑定知识树
+├── 绑定方法
+│   ├── ShouldBindJSON  → json tag
+│   ├── ShouldBindQuery → form tag
+│   ├── ShouldBindURI   → uri tag
+│   ├── ShouldBind      → 自动检测
+│   └── FormFile        → 文件上传
+├── 验证标签
+│   ├── required / omitempty
+│   ├── min / max / gt / lt / gte / lte
+│   ├── len / min_len / max_len
+│   ├── oneof (枚举)
+│   ├── email / url / ip / uuid
+│   ├── alphanum / alpha / number
+│   └── 自定义: RegisterValidation()
+├── 文件上传
+│   ├── FormFile(&quot;field&quot;)  单文件
+│   ├── MultipartForm()    多文件
+│   └── SaveUploadedFile()
+└── 错误处理
+    ├── err.Error() 原始信息
+    ├── 自定义错误提取
+    └── 统一响应格式</code></pre>
+
+<h2>九、举一反三</h2>
+
+<table><thead><tr>
+<th>Gin绑定</th>
+<th>其他框架</th>
+<th>关键差异</th>
+</tr></thead><tbody>
+<tr>
+<td><code>ShouldBindJSON</code></td>
+<td>Fiber: <code>BodyParser</code></td>
+<td>Fiber自动检测Content-Type</td>
+</tr>
+<tr>
+<td><code>binding:"required"</code></td>
+<td>NestJS: class-validator</td>
+<td>Go用标签，TS用装饰器</td>
+</tr>
+<tr>
+<td><code>ShouldBindQuery</code></td>
+<td>Echo: <code>Bind</code></td>
+<td>Echo绑定需要实现Binder接口</td>
+</tr>
+<tr>
+<td>自定义验证器</td>
+<td>Express: Joi/custom</td>
+<td>Gin底层用go-playground/validator</td>
+</tr>
+<tr>
+<td><code>FormFile</code></td>
+<td>Multer(Express)</td>
+<td>Gin内置，无需额外包</td>
+</tr>
+</tbody></table>
+
+<h2>十、参考资料</h2>
+
+<ul>
+<li><a href="https://gin-gonic.com/docs/examples/bind-body-with-shouldbind/">Gin模型绑定文档</a></li>
+<li><a href="https://pkg.go.dev/github.com/go-playground/validator/v10">go-playground/validator标签文档</a></li>
+<li><a href="https://gin-gonic.com/docs/examples/upload-file/">Gin文件上传示例</a></li>
+
+<h2>十一、代码演进</h2>
+
+<h3>v1: 基础JSON绑定</h3>
+<pre><code class="language-go">type Request struct {
+    Name  string `json:&quot;name&quot; binding:&quot;required&quot;`
+    Email string `json:&quot;email&quot; binding:&quot;required,email&quot;`
+}
+
+r.POST(&quot;/submit&quot;, func(c *gin.Context) {
+    var req Request
+    if err := c.ShouldBindJSON(&amp;req); err != nil {
+        c.JSON(400, gin.H{&quot;error&quot;: err.Error()})
+        return
+    }
+    c.JSON(200, gin.H{&quot;data&quot;: req})
+})</code></pre>
+
+<h3>v2: 多来源绑定+默认值</h3>
+<pre><code class="language-go">type QueryParams struct {
+    Page     int    `form:&quot;page&quot;`
+    PageSize int    `form:&quot;page_size&quot;`
+    Sort     string `form:&quot;sort&quot; binding:&quot;omitempty,oneof=asc desc&quot;`
+}
+
+r.GET(&quot;/items&quot;, func(c *gin.Context) {
+    q := QueryParams{Page: 1, PageSize: 10} // defaults
+    if err := c.ShouldBindQuery(&amp;q); err != nil {
+        c.JSON(400, gin.H{&quot;error&quot;: err.Error()})
+        return
+    }
+    c.JSON(200, gin.H{&quot;page&quot;: q.Page, &quot;size&quot;: q.PageSize})
+})</code></pre>
+
+<h3>v3: 完整验证+自定义验证器+统一错误处理</h3>
+<pre><code class="language-go">package main
+
+import (
+    &quot;net/http&quot;
+    &quot;regexp&quot;
+    &quot;strings&quot;
+    &quot;github.com/gin-gonic/gin&quot;
+    &quot;github.com/gin-gonic/gin/binding&quot;
+    &quot;github.com/go-playground/validator/v10&quot;
+)
+
+type ErrorResponse struct {
+    Field   string `json:&quot;field&quot;`
+    Message string `json:&quot;message&quot;`
+}
+
+// Unified response structure
+type APIResponse struct {
+    Code    int             `json:&quot;code&quot;`
+    Message string          `json:&quot;message&quot;`
+    Data    interface{}     `json:&quot;data,omitempty&quot;`
+    Errors  []ErrorResponse `json:&quot;errors,omitempty&quot;`
+}
+
+func formatValidationErrors(err error) []ErrorResponse {
+    var errors []ErrorResponse
+    if ve, ok := err.(validator.ValidationErrors); ok {
+        for _, fe := range ve {
+            msg := getErrorMsg(fe.Tag(), fe.Field(), fe.Param())
+            errors = append(errors, ErrorResponse{
+                Field:   strings.ToLower(fe.Field()),
+                Message: msg,
+            })
+        }
+    } else {
+        errors = append(errors, ErrorResponse{
+            Field:   &quot;_&quot;,
+            Message: err.Error(),
+        })
+    }
+    return errors
+}
+
+func getErrorMsg(tag, field, param string) string {
+    msgs := map[string]string{
+        &quot;required&quot;: field + &quot; is required&quot;,
+        &quot;email&quot;:    field + &quot; must be a valid email&quot;,
+        &quot;min&quot;:      field + &quot; must be at least &quot; + param,
+        &quot;max&quot;:      field + &quot; must be at most &quot; + param,
+        &quot;oneof&quot;:    field + &quot; must be one of: &quot; + param,
+        &quot;gte&quot;:      field + &quot; must be &gt;= &quot; + param,
+        &quot;lte&quot;:      field + &quot; must be &lt;= &quot; + param,
+    }
+    if msg, ok := msgs[tag]; ok {
+        return msg
+    }
+    return field + &quot; failed &quot; + tag + &quot; validation&quot;
+}
+
+// Custom validator: strong password
+var strongPassword validator.Func = func(fl validator.FieldLevel) bool {
+    pwd, _ := fl.Field().Interface().(string)
+    if len(pwd) &lt; 8 {
+        return false
+    }
+    hasUpper := regexp.MustCompile(`[A-Z]`).MatchString(pwd)
+    hasLower := regexp.MustCompile(`[a-z]`).MatchString(pwd)
+    hasDigit := regexp.MustCompile(`[0-9]`).MatchString(pwd)
+    return hasUpper &amp;&amp; hasLower &amp;&amp; hasDigit
+}
+
+type CreateUserReq struct {
+    Name     string `json:&quot;name&quot; binding:&quot;required,min=2,max=50&quot;`
+    Email    string `json:&quot;email&quot; binding:&quot;required,email&quot;`
+    Password string `json:&quot;password&quot; binding:&quot;required,strongpwd&quot;`
+    Role     string `json:&quot;role&quot; binding:&quot;required,oneof=admin user guest&quot;`
+}
+
+func main() {
+    r := gin.Default()
+
+    if v, ok := binding.Validator.Engine().(*validator.Validate); ok {
+        v.RegisterValidation(&quot;strongpwd&quot;, strongPassword)
+    }
+
+    r.POST(&quot;/users&quot;, func(c *gin.Context) {
+        var req CreateUserReq
+        if err := c.ShouldBindJSON(&amp;req); err != nil {
+            c.JSON(http.StatusBadRequest, APIResponse{
+                Code:    400,
+                Message: &quot;Validation failed&quot;,
+                Errors:  formatValidationErrors(err),
+            })
+            return
+        }
+        c.JSON(http.StatusCreated, APIResponse{
+            Code:    201,
+            Message: &quot;User created&quot;,
+            Data:    req,
+        })
+    })
+
+    r.Run(&quot;:8080&quot;)
+}</code></pre>
+
+<hr>
+
+<p><em>上一篇：<a href="/posts/003-gin-middleware">中间件：洋葱模型与请求拦截</a> | 下一篇：<a href="/posts/005-gin-response">响应处理与渲染</a> →</em></p>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

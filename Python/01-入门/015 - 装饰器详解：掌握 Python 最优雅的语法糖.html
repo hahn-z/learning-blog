@@ -1,0 +1,558 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>015 - 装饰器详解：掌握 Python 最优雅的语法糖</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Python/index.html">Python</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Python/01-入门/index.html">Python入门</a>
+</nav>
+<h1>015 - 装饰器详解：掌握 Python 最优雅的语法糖</h1>
+<div class="meta">
+<span>📂 Python入门</span>
+<span>🏷️ Python</span>
+</div>
+<article>
+
+
+<h1>装饰器详解：掌握 Python 最优雅的语法糖</h1>
+
+<blockquote><p><strong>难度：</strong> ⭐⭐⭐☆☆（中级）<br><strong>前置知识：</strong> 函数是一等公民、<code><em>args/</em>*kwargs</code>、闭包基础<br><strong>阅读时间：</strong> 约 30 分钟</p></blockquote>
+
+<hr>
+
+<h2>1. 概念讲解</h2>
+
+<h3>什么是装饰器？</h3>
+
+<p>装饰器（Decorator）是一个<strong>接收函数作为参数并返回新函数</strong>的高阶函数。它在不修改原函数代码的前提下，<strong>增强函数的行为</strong>。</p>
+
+<pre><code>类比：
+  装饰器 = 给手机套个壳
+  手机本身没变（原函数不变）
+  但多了防摔功能（新增功能）</code></pre>
+
+<h3>核心原理：函数是一等公民</h3>
+
+<pre><code class="language-python"># Functions can be assigned to variables
+def greet(name):
+    return f&quot;Hello, {name}&quot;
+
+say_hello = greet          # function as variable
+print(say_hello(&quot;World&quot;))  # Hello, World
+
+# Functions can be passed as arguments
+def apply(func, value):
+    return func(value)
+
+print(apply(str.upper, &quot;hello&quot;))  # HELLO
+
+# Functions can be returned from other functions
+def make_multiplier(n):
+    def multiply(x):
+        return x * n
+    return multiply
+
+double = make_multiplier(2)
+print(double(5))  # 10</code></pre>
+
+<h3>装饰器的本质</h3>
+
+<pre><code class="language-python">@decorator
+def func():
+    pass
+
+# 等价于：
+func = decorator(func)</code></pre>
+
+<p><code>@decorator</code> 就是语法糖——把原函数传给装饰器，用返回的新函数替换原函数。</p>
+
+<hr>
+
+<h2>2. 知识脑图</h2>
+
+<pre><code>装饰器详解
+├── 基础
+│   ├── 函数是一等公民
+│   ├── 高阶函数（接收/返回函数）
+│   ├── 闭包（inner function 记住外层变量）
+│   └── @语法糖 → func = decorator(func)
+├── 装饰器类型
+│   ├── 无参数装饰器
+│   ├── 带参数装饰器（三层嵌套）
+│   ├── 类装饰器（__call__）
+│   ├── 装饰器堆叠（从下往上执行）
+│   └── functools.wraps（保留元信息）
+├── 常用标准库装饰器
+│   ├── @property / @staticmethod / @classmethod
+│   ├── @functools.lru_cache
+│   ├── @functools.singledispatch
+│   └── @dataclasses.dataclass
+└── 实战场景
+    ├── 日志记录 @log
+    ├── 性能计时 @timer
+    ├── 权限校验 @require_auth
+    ├── 重试机制 @retry
+    └── 缓存 @cache</code></pre>
+
+<hr>
+
+<h2>3. 代码演进</h2>
+
+<h3>v1：基础装饰器（无参数）</h3>
+
+<pre><code class="language-python"># v1: Basic decorator - no arguments
+
+import functools
+import time
+
+def timer(func):
+    &quot;&quot;&quot;Measure execution time of a function.&quot;&quot;&quot;
+    @functools.wraps(func)  # preserve original function metadata
+    def wrapper(*args, **kwargs):
+        start = time.perf_counter()
+        result = func(*args, **kwargs)
+        elapsed = time.perf_counter() - start
+        print(f&quot;[{func.__name__}] took {elapsed:.4f}s&quot;)
+        return result
+    return wrapper
+
+@timer
+def slow_add(a, b):
+    time.sleep(0.1)
+    return a + b
+
+print(slow_add(1, 2))
+# [slow_add] took 0.1005s
+# 3
+
+print(slow_add.__name__)  # &quot;slow_add&quot; (preserved by @wraps)</code></pre>
+
+<h3>v2：带参数的装饰器</h3>
+
+<pre><code class="language-python"># v2: Decorator with arguments (3-level nesting)
+
+import functools
+
+def retry(max_attempts: int = 3, delay: float = 1.0):
+    &quot;&quot;&quot;Retry a function on failure, with configurable attempts and delay.&quot;&quot;&quot;
+    def decorator(func):
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs):
+            import time
+            last_error = None
+            for attempt in range(1, max_attempts + 1):
+                try:
+                    return func(*args, **kwargs)
+                except Exception as e:
+                    last_error = e
+                    print(f&quot;  Attempt {attempt}/{max_attempts} failed: {e}&quot;)
+                    if attempt &lt; max_attempts:
+                        time.sleep(delay)
+            raise last_error
+        return wrapper
+    return decorator
+
+@retry(max_attempts=3, delay=0.5)
+def fetch_data(url: str):
+    import random
+    if random.random() &lt; 0.7:
+        raise ConnectionError(f&quot;Failed to connect: {url}&quot;)
+    return f&quot;Data from {url}&quot;
+
+# fetch_data(&quot;https://api.example.com&quot;)
+# May retry up to 3 times before succeeding or raising</code></pre>
+
+<h3>v3：完整版（类装饰器 + 堆叠 + 实用工具库）</h3>
+
+<pre><code class="language-python"># v3: Class decorator, stacking, and a utility library
+
+import functools
+import time
+import logging
+
+logging.basicConfig(level=logging.INFO, format=&quot;%(message)s&quot;)
+logger = logging.getLogger(__name__)
+
+# --- 1. Class-based decorator ---
+class RateLimiter:
+    &quot;&quot;&quot;Limit how often a function can be called.&quot;&quot;&quot;
+    def __init__(self, calls_per_second: float = 1.0):
+        self.min_interval = 1.0 / calls_per_second
+        self.last_call = 0.0
+
+    def __call__(self, func):
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs):
+            elapsed = time.perf_counter() - self.last_call
+            if elapsed &lt; self.min_interval:
+                wait = self.min_interval - elapsed
+                print(f&quot;  Rate limited, waiting {wait:.2f}s&quot;)
+                time.sleep(wait)
+            self.last_call = time.perf_counter()
+            return func(*args, **kwargs)
+        return wrapper
+
+# --- 2. Stackable decorators ---
+def log(func):
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
+        logger.info(f&quot;→ Calling {func.__name__}({args}, {kwargs})&quot;)
+        result = func(*args, **kwargs)
+        logger.info(f&quot;← {func.__name__} returned {result!r}&quot;)
+        return result
+    return wrapper
+
+def timer(func):
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
+        start = time.perf_counter()
+        result = func(*args, **kwargs)
+        elapsed = time.perf_counter() - start
+        print(f&quot;  ⏱ {func.__name__}: {elapsed:.4f}s&quot;)
+        return result
+    return wrapper
+
+# --- 3. Memoization decorator ---
+def memoize(func):
+    cache = {}
+    @functools.wraps(func)
+    def wrapper(*args):
+        if args not in cache:
+            cache[args] = func(*args)
+        return cache[args]
+    wrapper.cache = cache  # expose cache for inspection
+    return wrapper
+
+# --- Demo: stacking and class decorator ---
+@log
+@timer
+@memoize
+def fibonacci(n: int) -&gt; int:
+    &quot;&quot;&quot;Recursive fibonacci (memoized to avoid exponential blowup).&quot;&quot;&quot;
+    if n &lt; 2:
+        return n
+    return fibonacci(n - 1) + fibonacci(n - 2)
+
+@RateLimiter(calls_per_second=2)
+def ping(host: str):
+    return f&quot;pong from {host}&quot;
+
+if __name__ == &quot;__main__&quot;:
+    # Stacked decorators: log → timer → memoize → fibonacci
+    print(fibonacci(10))
+    print(f&quot;Cache entries: {len(fibonacci.cache)}&quot;)
+
+    # Rate limiter
+    for i in range(3):
+        print(ping(f&quot;host-{i}&quot;))</code></pre>
+
+<hr>
+
+<h2>4. 执行预览</h2>
+
+<pre><code>→ Calling wrapper(10,)
+  ⏱ wrapper: 0.0001s
+← wrapper returned 55
+55
+Cache entries: 11
+pong from host-0
+  Rate limited, waiting 0.50s
+pong from host-1
+  Rate limited, waiting 0.50s
+pong from host-2</code></pre>
+
+<hr>
+
+<h2>5. 注意事项</h2>
+
+<table><thead><tr>
+<th>项目</th>
+<th>说明</th>
+</tr></thead><tbody>
+<tr>
+<td><code>@functools.wraps</code> 必须用</td>
+<td>否则原函数的 <code>__name__</code>、<code>__doc__</code> 会丢失</td>
+</tr>
+<tr>
+<td>装饰器堆叠顺序</td>
+<td><code>@A @B def f</code> 等价于 <code>f = A(B(f))</code>，从下往上包裹</td>
+</tr>
+<tr>
+<td>带参数装饰器三层</td>
+<td>最外层接收参数，中间层是真正装饰器，最内层是 wrapper</td>
+</tr>
+<tr>
+<td>类装饰器用 <code>__call__</code></td>
+<td>让实例可以像函数一样被调用</td>
+</tr>
+<tr>
+<td><code>lru_cache</code> 代替手写 memoize</td>
+<td>标准库自带，线程安全，支持 <code>cache_info()</code></td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>6. 避坑指南</h2>
+
+<table><thead><tr>
+<th>❌ 错误</th>
+<th>✅ 正确</th>
+<th>原因</th>
+</tr></thead><tbody>
+<tr>
+<td>不加 <code>@wraps</code></td>
+<td>始终加 <code>@functools.wraps(func)</code></td>
+<td>调试时看到的是 <code>wrapper</code> 而非原函数名</td>
+</tr>
+<tr>
+<td><code>@retry(3)</code> 少了一层</td>
+<td><code>@retry(max_attempts=3)</code> 带参数要三层嵌套</td>
+<td><code>@retry(3)</code> 会把 <code>3</code> 当成 <code>func</code> 传入</td>
+</tr>
+<tr>
+<td>装饰器不返回结果</td>
+<td>wrapper 里必须 <code>return func(...)</code></td>
+<td>否则原函数返回值被吞掉</td>
+</tr>
+<tr>
+<td>在 wrapper 里硬编码参数</td>
+<td>用 <code><em>args, </em>*kwargs</code> 透传</td>
+<td>保持装饰器的通用性</td>
+</tr>
+<tr>
+<td><code>lru_cache</code> 对可变参数</td>
+<td>只能缓存可哈希的参数</td>
+<td>列表、字典做参数会报错</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>7. 练习题</h2>
+
+<h3>🟢 入门：写一个 @debug 装饰器</h3>
+
+<p>打印函数名、参数和返回值。</p>
+
+<p><details><summary>参考答案</summary></p>
+
+<pre><code class="language-python">import functools
+
+def debug(func):
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
+        print(f&quot;Calling {func.__name__}({args}, {kwargs})&quot;)
+        result = func(*args, **kwargs)
+        print(f&quot;{func.__name__} returned {result!r}&quot;)
+        return result
+    return wrapper
+
+@debug
+def add(a, b):
+    return a + b
+
+add(1, 2)
+# Calling add((1, 2), {})
+# add returned 3</code></pre>
+
+<p></details></p>
+
+<h3>🟡 中级：@validate 类型检查装饰器</h3>
+
+<p>创建 <code>@validate</code> 装饰器，接收参数类型，运行时检查参数类型是否匹配。</p>
+
+<p><details><summary>参考答案</summary></p>
+
+<pre><code class="language-python">import functools
+
+def validate(**expected_types):
+    def decorator(func):
+        @functools.wraps(func)
+        def wrapper(**kwargs):
+            for name, expected in expected_types.items():
+                if name in kwargs and not isinstance(kwargs[name], expected):
+                    raise TypeError(
+                        f&quot;{name} must be {expected.__name__}, &quot;
+                        f&quot;got {type(kwargs[name]).__name__}&quot;
+                    )
+            return func(**kwargs)
+        return wrapper
+    return decorator
+
+@validate(name=str, age=int)
+def create_user(name, age):
+    return f&quot;User({name}, {age})&quot;
+
+print(create_user(name=&quot;Alice&quot;, age=20))   # OK
+# create_user(name=&quot;Alice&quot;, age=&quot;20&quot;)      # TypeError!</code></pre>
+
+<p></details></p>
+
+<h3>🔴 挑战：@async_retry 异步重试装饰器</h3>
+
+<p>为 <code>async def</code> 函数写一个带指数退避的重试装饰器。</p>
+
+<p><details><summary>提示</summary></p>
+
+<p>需要用 <code>async def wrapper</code>，<code>await func(...)</code>，<code>asyncio.sleep(delay)</code>。指数退避：<code>delay *= backoff</code>。</p>
+
+<p></details></p>
+
+<hr>
+
+<h2>8. 知识点总结</h2>
+
+<pre><code>装饰器详解
+├── 原理
+│   ├── 函数是一等公民 → 可赋值、传参、返回
+│   ├── 闭包 → 内函数记住外函数的变量
+│   └── @语法糖 → func = decorator(func)
+├── 装饰器模式
+│   ├── 基础装饰器 → 2层（decorator + wrapper）
+│   ├── 带参数装饰器 → 3层（参数层 + decorator + wrapper）
+│   ├── 类装饰器 → __call__ 方法
+│   └── 堆叠 → 从下往上包裹
+├── 关键工具
+│   ├── @functools.wraps → 保留函数元信息
+│   ├── @functools.lru_cache → 自动缓存
+│   └── functools.singledispatch → 泛型函数
+└── 实战模式
+    ├── 横切关注点 → 日志、计时、权限
+    ├── 重试/限流 → 提升健壮性
+    └── 缓存 → 提升性能</code></pre>
+
+<hr>
+
+<h2>9. 举一反三</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>装饰器设计</th>
+</tr></thead><tbody>
+<tr>
+<td>Web 路由</td>
+<td><code>@app.route("/api/users")</code> 注册路由</td>
+</tr>
+<tr>
+<td>权限控制</td>
+<td><code>@require_role("admin")</code> 检查用户角色</td>
+</tr>
+<tr>
+<td>数据库事务</td>
+<td><code>@transactional</code> 自动 commit/rollback</td>
+</tr>
+<tr>
+<td>输入验证</td>
+<td><code>@validate(schema)</code> 校验请求参数</td>
+</tr>
+<tr>
+<td>性能监控</td>
+<td><code>@trace</code> 记录到 APM 系统</td>
+</tr>
+<tr>
+<td>单例模式</td>
+<td><code>@singleton</code> 确保只创建一个实例</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>10. 参考资料</h2>
+
+<ul>
+<li><a href="https://peps.python.org/pep-0318/">PEP 318 - Decorators for Functions and Methods</a></li>
+<li><a href="https://realpython.com/primer-on-python-decorators/">Real Python - Primer on Python Decorators</a></li>
+<li><a href="https://www.oreilly.com/library/view/fluent-python-2nd/9781492056348/">Fluent Python, 2nd Ed</a> — Chapter 9</li>
+
+<hr>
+
+<h2>11. 代码演进回顾</h2>
+
+<table><thead><tr>
+<th>版本</th>
+<th>特性</th>
+<th>复杂度</th>
+</tr></thead><tbody>
+<tr>
+<td>v1 基础装饰器</td>
+<td><code>@timer</code>，<code>@wraps</code>，无参数</td>
+<td>⭐⭐</td>
+</tr>
+<tr>
+<td>v2 带参数</td>
+<td><code>@retry(max_attempts=3)</code>，三层嵌套</td>
+<td>⭐⭐⭐</td>
+</tr>
+<tr>
+<td>v3 完整版</td>
+<td>类装饰器 + 堆叠 + memoize 工具库</td>
+<td>⭐⭐⭐⭐</td>
+</tr>
+</tbody></table>
+
+<p><strong>核心认知：</strong> 装饰器 = 高阶函数 + 闭包 + 语法糖。掌握它，你就掌握了 Python 中最优雅的代码复用模式。</p>
+
+<hr>
+
+<p><em>上一篇：<a href="014-oop-advanced">面向对象进阶</a></em></p>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

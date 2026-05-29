@@ -1,0 +1,504 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>020 - 日志管理(slog/zap)</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Golang/index.html">Golang</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Golang/02-进阶/index.html">Golang进阶</a>
+</nav>
+<h1>020 - 日志管理(slog/zap)</h1>
+<div class="meta">
+<span>📂 Golang进阶</span>
+<span>🏷️ Golang</span>
+</div>
+<article>
+
+
+<h1>050 - 日志管理(slog/zap)</h1>
+
+<blockquote><p>难度：⭐⭐⭐ | 预计学习时间：35分钟</p></blockquote>
+
+<h2>一、概念讲解</h2>
+
+<p>日志是生产系统的生命线。Go提供了从简单到强大的日志方案：</p>
+<ul>
+<li><strong>log标准库</strong>：最基础，适合简单场景</li>
+<li><strong>log/slog</strong>（Go 1.21+）：结构化日志，标准库内置</li>
+<li><strong>zap</strong>（uber-go）：高性能结构化日志，第三方库</li>
+<li><strong>lumberjack</strong>：日志轮转，配合任何日志库使用</li>
+
+<p>结构化日志 vs 传统日志：</p>
+<ul>
+<li>传统：<code>2024/01/15 10:00:00 User 123 logged in</code></li>
+<li>结构化：<code>{"time":"2024-01-15T10:00:00Z","level":"INFO","msg":"User logged in","user_id":123}</code></li>
+
+<h2>二、脑图</h2>
+
+<pre><code>日志管理
+├── log标准库
+│   ├── log.Print/Printf/Println
+│   ├── log.Fatal / log.Panic
+│   ├── log.SetFlags (日期/时间/文件)
+│   └── log.SetOutput (输出目标)
+├── slog (Go 1.21+)
+│   ├── slog.Info/Debug/Warn/Error
+│   ├── slog.With (预设字段)
+│   ├── Handler: TextHandler / JSONHandler
+│   ├── slog.Attr / slog.Value
+│   └── 自定义 Handler
+├── zap (uber-go)
+│   ├── zap.Logger (高性能)
+│   ├── zap.SugarLogger (易用)
+│   ├── zap.Config 配置
+│   ├── zapcore.Core
+│   └── Encoder: JSON / Console
+├── lumberjack
+│   ├── 日志轮转 (按大小)
+│   ├── 按数量保留
+│   ├── 按天数保留
+│   └── 日志压缩
+└── 生产最佳实践
+    ├── 日志分级 (Debug/Info/Warn/Error)
+    ├── 请求ID追踪
+    ├── 敏感信息过滤
+    └── 性能考虑 (避免热路径alloc)</code></pre>
+
+<h2>三、完整Go代码</h2>
+
+<h3>v1: log标准库 + slog基础</h3>
+
+<pre><code class="language-go">package main
+
+import (
+	&quot;encoding/json&quot;
+	&quot;log&quot;
+	&quot;log/slog&quot;
+	&quot;os&quot;
+)
+
+func main() {
+	// === Standard log ===
+	log.SetFlags(log.LstdFlags | log.Lshortfile)
+	log.Println(&quot;Application started&quot;)
+	log.Printf(&quot;User %s logged in from %s&quot;, &quot;Alice&quot;, &quot;192.168.1.1&quot;)
+
+	// === slog: Text handler (default) ===
+	logger := slog.New(slog.NewTextHandler(os.Stdout, &amp;slog.HandlerOptions{
+		Level: slog.LevelDebug,
+	}))
+	slog.SetDefault(logger)
+
+	slog.Debug(&quot;Debug message&quot;, &quot;key&quot;, &quot;value&quot;)
+	slog.Info(&quot;User logged in&quot;, &quot;user_id&quot;, 123, &quot;ip&quot;, &quot;10.0.0.1&quot;)
+	slog.Warn(&quot;Disk usage high&quot;, &quot;usage_pct&quot;, 85)
+	slog.Error(&quot;Database connection failed&quot;, &quot;err&quot;, &quot;timeout&quot;, &quot;retries&quot;, 3)
+
+	// slog.With: pre-populate fields
+	requestLogger := slog.With(&quot;request_id&quot;, &quot;abc-123&quot;, &quot;method&quot;, &quot;GET&quot;)
+	requestLogger.Info(&quot;Request received&quot;)
+	requestLogger.Info(&quot;Request completed&quot;, &quot;status&quot;, 200, &quot;duration_ms&quot;, 42)
+
+	// === slog: JSON handler ===
+	jsonLogger := slog.New(slog.NewJSONHandler(os.Stdout, &amp;slog.HandlerOptions{
+		Level: slog.LevelInfo,
+	}))
+	jsonLogger.Info(&quot;JSON log entry&quot;, &quot;action&quot;, &quot;create&quot;, &quot;resource&quot;, &quot;user&quot;)
+
+	// Log a Go struct via slog.Any
+	type Request struct {
+		Method string `json:&quot;method&quot;`
+		Path   string `json:&quot;path&quot;`
+	}
+	req := Request{Method: &quot;POST&quot;, Path: &quot;/api/users&quot;}
+	data, _ := json.Marshal(req)
+	jsonLogger.Info(&quot;Incoming request&quot;, &quot;payload&quot;, string(data))
+}</code></pre>
+
+<p><strong>执行预览：</strong></p>
+<pre><code>2024/06/15 10:00:00 main.go:12: Application started
+2024/06/15 10:00:00 main.go:13: User Alice logged in from 192.168.1.1
+time=2024-06-15T10:00:00.000Z level=DEBUG msg=&quot;Debug message&quot; key=value
+time=2024-06-15T10:00:00.000Z level=INFO msg=&quot;User logged in&quot; user_id=123 ip=10.0.0.1
+time=2024-06-15T10:00:00.000Z level=WARN msg=&quot;Disk usage high&quot; usage_pct=85
+time=2024-06-15T10:00:00.000Z level=ERROR msg=&quot;Database connection failed&quot; err=timeout retries=3
+time=... level=INFO msg=&quot;Request received&quot; request_id=abc-123 method=GET
+time=... level=INFO msg=&quot;Request completed&quot; request_id=abc-123 method=GET status=200 duration_ms=42
+{&quot;time&quot;:&quot;2024-06-15T10:00:00Z&quot;,&quot;level&quot;:&quot;INFO&quot;,&quot;msg&quot;:&quot;JSON log entry&quot;,&quot;action&quot;:&quot;create&quot;,&quot;resource&quot;:&quot;user&quot;}
+{&quot;time&quot;:&quot;2024-06-15T10:00:00Z&quot;,&quot;level&quot;:&quot;INFO&quot;,&quot;msg&quot;:&quot;Incoming request&quot;,&quot;payload&quot;:&quot;{\&quot;method\&quot;:\&quot;POST\&quot;,\&quot;path\&quot;:\&quot;/api/users\&quot;}&quot;}</code></pre>
+
+<h3>v2: zap高性能日志</h3>
+
+<pre><code class="language-go">package main
+
+import (
+	&quot;go.uber.org/zap&quot;
+	&quot;go.uber.org/zap/zapcore&quot;
+)
+
+func main() {
+	// === Production logger (JSON, structured) ===
+	prodLogger, _ := zap.NewProduction()
+	defer prodLogger.Sync()
+
+	prodLogger.Info(&quot;Production log&quot;,
+		zap.String(&quot;action&quot;, &quot;login&quot;),
+		zap.Int(&quot;user_id&quot;, 42),
+		zap.Duration(&quot;took&quot;, 150000000), // 150ms in ns
+	)
+
+	// === Development logger (console, colorized) ===
+	devLogger, _ := zap.NewDevelopment()
+	defer devLogger.Sync()
+
+	devLogger.Debug(&quot;Debug info&quot;, zap.String(&quot;module&quot;, &quot;auth&quot;))
+	devLogger.Warn(&quot;Something suspicious&quot;, zap.String(&quot;ip&quot;, &quot;10.0.0.99&quot;))
+	devLogger.Error(&quot;Failed to process&quot;, zap.Int(&quot;attempt&quot;, 3))
+
+	// === Sugar logger (simpler API, slightly slower) ===
+	sugar := devLogger.Sugar()
+	sugar.Infow(&quot;Sugar logging&quot;,
+		&quot;event&quot;, &quot;click&quot;,
+		&quot;count&quot;, 10,
+	)
+	sugar.Infof(&quot;Formatted: user=%s, id=%d&quot;, &quot;Bob&quot;, 99)
+
+	// === Custom config ===
+	config := zap.Config{
+		Level:       zap.NewAtomicLevelAt(zapcore.DebugLevel),
+		Development: false,
+		Encoding:    &quot;json&quot;,
+		EncoderConfig: zapcore.EncoderConfig{
+			TimeKey:        &quot;ts&quot;,
+			LevelKey:       &quot;level&quot;,
+			NameKey:        &quot;logger&quot;,
+			CallerKey:      &quot;caller&quot;,
+			MessageKey:     &quot;msg&quot;,
+			StacktraceKey:  &quot;stacktrace&quot;,
+			EncodeLevel:    zapcore.LowercaseLevelEncoder,
+			EncodeTime:     zapcore.ISO8601TimeEncoder,
+			EncodeDuration: zapcore.MillisDurationEncoder,
+			EncodeCaller:   zapcore.ShortCallerEncoder,
+		},
+		OutputPaths:      []string{&quot;stdout&quot;},
+		ErrorOutputPaths: []string{&quot;stderr&quot;},
+	}
+	customLogger, _ := config.Build()
+	defer customLogger.Sync()
+
+	customLogger.Info(&quot;Custom configured logger&quot;,
+		zap.String(&quot;env&quot;, &quot;staging&quot;),
+	)
+}</code></pre>
+
+<p><strong>执行预览：</strong></p>
+<pre><code>{&quot;level&quot;:&quot;info&quot;,&quot;ts&quot;:1718440800.0,&quot;caller&quot;:&quot;main/main.go:13&quot;,&quot;msg&quot;:&quot;Production log&quot;,&quot;action&quot;:&quot;login&quot;,&quot;user_id&quot;:42,&quot;took&quot;:0.15}
+2024-06-15T10:00:00.000+0800	DEBUG	main/main.go:22	Debug info	{&quot;module&quot;: &quot;auth&quot;}
+2024-06-15T10:00:00.000+0800	WARN	main/main.go:23	Something suspicious	{&quot;ip&quot;: &quot;10.0.0.99&quot;}
+2024-06-15T10:00:00.000+0800	ERROR	main/main.go:24	Failed to process	{&quot;attempt&quot;: 3}
+2024-06-15T10:00:00.000+0800	INFO	Sugar logging	{&quot;event&quot;: &quot;click&quot;, &quot;count&quot;: 10}
+2024-06-15T10:00:00.000+0800	INFO	Formatted: user=Bob, id=99
+{&quot;level&quot;:&quot;info&quot;,&quot;ts&quot;:&quot;2024-06-15T10:00:00.000+0800&quot;,&quot;caller&quot;:&quot;main/main.go:59&quot;,&quot;msg&quot;:&quot;Custom configured logger&quot;,&quot;env&quot;:&quot;staging&quot;}</code></pre>
+
+<h3>v3: lumberjack日志轮转 + 生产配置</h3>
+
+<pre><code class="language-go">package main
+
+import (
+	&quot;io&quot;
+	&quot;log/slog&quot;
+	&quot;os&quot;
+
+	&quot;go.uber.org/zap&quot;
+	&quot;go.uber.org/zap/zapcore&quot;
+	&quot;gopkg.in/natefinch/lumberjack.v2&quot;
+)
+
+func main() {
+	// === lumberjack for log rotation ===
+	logFile := &amp;lumberjack.Logger{
+		Filename:   &quot;/tmp/app.log&quot;, // log file path
+		MaxSize:    10,              // MB, rotate when exceeded
+		MaxBackups: 5,               // keep N old files
+		MaxAge:     30,              // days to retain
+		Compress:   true,            // compress old files
+	}
+
+	// === Production zap + lumberjack ===
+	writeSyncer := zapcore.AddSync(logFile)
+	encoder := zapcore.NewJSONEncoder(zapcore.EncoderConfig{
+		TimeKey:        &quot;ts&quot;,
+		LevelKey:       &quot;level&quot;,
+		MessageKey:     &quot;msg&quot;,
+		CallerKey:      &quot;caller&quot;,
+		StacktraceKey:  &quot;stack&quot;,
+		EncodeLevel:    zapcore.LowercaseLevelEncoder,
+		EncodeTime:     zapcore.ISO8601TimeEncoder,
+		EncodeDuration: zapcore.MillisDurationEncoder,
+		EncodeCaller:   zapcore.ShortCallerEncoder,
+	})
+
+	core := zapcore.NewCore(encoder, writeSyncer, zapcore.DebugLevel)
+	logger := zap.New(core, zap.AddCaller(), zap.AddStacktrace(zapcore.ErrorLevel))
+	defer logger.Sync()
+
+	logger.Info(&quot;Application started&quot;, zap.String(&quot;version&quot;, &quot;1.0.0&quot;))
+	logger.Info(&quot;Processing request&quot;,
+		zap.String(&quot;method&quot;, &quot;POST&quot;),
+		zap.String(&quot;path&quot;, &quot;/api/users&quot;),
+		zap.Int(&quot;status&quot;, 201),
+		zap.Duration(&quot;duration&quot;, 45000000),
+	)
+	logger.Warn(&quot;Slow query detected&quot;, zap.String(&quot;query&quot;, &quot;SELECT *&quot;), zap.Duration(&quot;took&quot;, 2000000000))
+	logger.Error(&quot;Connection pool exhausted&quot;,
+		zap.Int(&quot;active&quot;, 100),
+		zap.Int(&quot;max&quot;, 100),
+	)
+
+	// === slog + lumberjack ===
+	multiWriter := io.MultiWriter(os.Stdout, logFile)
+	slogHandler := slog.NewJSONHandler(multiWriter, &amp;slog.HandlerOptions{
+		Level: slog.LevelInfo,
+	})
+	slog.SetDefault(slog.New(slogHandler))
+
+	slog.Info(&quot;slog + lumberjack&quot;, &quot;component&quot;, &quot;api&quot;, &quot;action&quot;, &quot;register&quot;)
+	slog.Error(&quot;something went wrong&quot;, &quot;err&quot;, &quot;internal&quot;, &quot;retry&quot;, true)
+
+	// === Simulate rotation: write lots of logs ===
+	for i := 0; i &lt; 100; i++ {
+		logger.Info(&quot;Batch log entry&quot;, zap.Int(&quot;index&quot;, i))
+	}
+	logger.Info(&quot;Check /tmp/app.log for output&quot;, zap.String(&quot;note&quot;, &quot;file will rotate at 10MB&quot;))
+}</code></pre>
+
+<p><strong>执行预览：</strong></p>
+<pre><code># Console output (slog):
+{&quot;time&quot;:&quot;2024-06-15T10:00:00+08:00&quot;,&quot;level&quot;:&quot;INFO&quot;,&quot;msg&quot;:&quot;slog + lumberjack&quot;,&quot;component&quot;:&quot;api&quot;,&quot;action&quot;:&quot;register&quot;}
+{&quot;time&quot;:&quot;2024-06-15T10:00:00+08:00&quot;,&quot;level&quot;:&quot;ERROR&quot;,&quot;msg&quot;:&quot;something went wrong&quot;,&quot;err&quot;:&quot;internal&quot;,&quot;retry&quot;:true}
+
+# /tmp/app.log (zap):
+{&quot;level&quot;:&quot;info&quot;,&quot;ts&quot;:&quot;2024-06-15T10:00:00+08:00&quot;,&quot;caller&quot;:&quot;main/main.go:42&quot;,&quot;msg&quot;:&quot;Application started&quot;,&quot;version&quot;:&quot;1.0.0&quot;}
+{&quot;level&quot;:&quot;info&quot;,&quot;ts&quot;:&quot;2024-06-15T10:00:00+08:00&quot;,&quot;caller&quot;:&quot;main/main.go:43&quot;,&quot;msg&quot;:&quot;Processing request&quot;,&quot;method&quot;:&quot;POST&quot;,&quot;path&quot;:&quot;/api/users&quot;,&quot;status&quot;:201,&quot;duration&quot;:45}
+...</code></pre>
+
+<h2>四、注意事项</h2>
+
+<table><thead><tr>
+<th>要点</th>
+<th>说明</th>
+</tr></thead><tbody>
+<tr>
+<td>zap.Logger vs SugarLogger</td>
+<td>Logger性能更高（类型安全），Sugar更易用</td>
+</tr>
+<tr>
+<td>Sync()刷新</td>
+<td>程序退出前调用logger.Sync()确保日志写入</td>
+</tr>
+<tr>
+<td>日志级别选择</td>
+<td>Debug=开发调试, Info=关键流程, Warn=可恢复异常, Error=需要关注</td>
+</tr>
+<tr>
+<td>结构化vs字符串</td>
+<td>结构化日志便于ELK/Grafana检索，避免拼接字符串</td>
+</tr>
+<tr>
+<td>热路径性能</td>
+<td>高频调用的日志用IsEnabled()检查级别</td>
+</tr>
+<tr>
+<td>敏感信息</td>
+<td>不要记录密码、token、个人隐私数据</td>
+</tr>
+</tbody></table>
+
+<h2>五、避坑指南</h2>
+
+<p>❌ 用fmt.Println做日志：</p>
+<pre><code class="language-go">fmt.Println(&quot;user logged in:&quot;, userID) // 无时间戳、无级别、无法检索</code></pre>
+<p>✅ 使用结构化日志：</p>
+<pre><code class="language-go">logger.Info(&quot;user logged in&quot;, zap.Int(&quot;user_id&quot;, userID))</code></pre>
+
+<p>❌ 高频日志不加级别检查：</p>
+<pre><code class="language-go">for _, item := range items {
+    logger.Debug(&quot;processing&quot;, zap.Any(&quot;item&quot;, item)) // alloc even when level is INFO
+}</code></pre>
+<p>✅ 使用IsEnabled或zap的延迟版本：</p>
+<pre><code class="language-go">if logger.Core().Enabled(zapcore.DebugLevel) {
+    logger.Debug(&quot;processing&quot;, zap.Any(&quot;item&quot;, item))
+}</code></pre>
+
+<p>❌ 日志文件无限增长：</p>
+<pre><code class="language-go">f, _ := os.OpenFile(&quot;app.log&quot;, os.O_APPEND|os.O_CREATE, 0644)
+// 永远不会轮转，磁盘会满</code></pre>
+<p>✅ 使用lumberjack自动轮转</p>
+
+<p>❌ 在日志中打印敏感数据：</p>
+<pre><code class="language-go">logger.Info(&quot;login&quot;, zap.String(&quot;password&quot;, pwd)) // 泄露！</code></pre>
+<p>✅ 过滤敏感字段或只记录ID</p>
+
+<h2>六、练习题</h2>
+
+<p>🟢 <strong>基础题：</strong> 使用slog实现一个简单的HTTP请求日志中间件，记录method、path、status、duration。</p>
+
+<p>🟡 <strong>进阶题：</strong> 实现一个支持多输出（console+file）的日志初始化函数，开发环境用console格式，生产环境用JSON格式。</p>
+
+<p>🔴 <strong>挑战题：</strong> 实现自定义slog.Handler，支持：按级别分文件输出（info.log/error.log）、日志采样（高频日志每秒最多100条）、敏感字段自动脱敏。</p>
+
+<h2>七、知识点总结</h2>
+
+<pre><code>日志管理
+├── log标准库
+│   ├── 简单场景
+│   └── 快速原型
+├── slog (Go 1.21+)
+│   ├── TextHandler (开发)
+│   ├── JSONHandler (生产)
+│   ├── slog.With (预设字段)
+│   └── 自定义Handler
+├── zap
+│   ├── Logger (高性能)
+│   ├── SugarLogger (易用)
+│   ├── zap.Config
+│   └── zapcore扩展
+├── lumberjack
+│   ├── 按大小轮转
+│   ├── 按数量/天数保留
+│   └── 自动压缩
+└── 生产实践
+    ├── 级别控制
+    ├── 多输出
+    ├── 请求追踪
+    └── 性能优化</code></pre>
+
+<h2>八、举一反三</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>推荐方案</th>
+<th>配置要点</th>
+</tr></thead><tbody>
+<tr>
+<td>CLI工具</td>
+<td>log标准库</td>
+<td>SetFlags + 前缀</td>
+</tr>
+<tr>
+<td>Web API服务</td>
+<td>slog/zap JSON</td>
+<td>中间件+请求ID</td>
+</tr>
+<tr>
+<td>微服务</td>
+<td>zap + ELK</td>
+<td>JSON + trace_id</td>
+</tr>
+<tr>
+<td>批处理任务</td>
+<td>slog + 文件</td>
+<td>分级别输出</td>
+</tr>
+<tr>
+<td>后台Worker</td>
+<td>zap + lumberjack</td>
+<td>轮转+按天保留</td>
+</tr>
+<tr>
+<td>调试开发</td>
+<td>zap Development模式</td>
+<td>console+颜色</td>
+</tr>
+</tbody></table>
+
+<h2>九、参考资料</h2>
+
+<ul>
+<li><a href="https://pkg.go.dev/log/slog">Go官方文档：log/slog</a></li>
+<li><a href="https://github.com/uber-go/zap">zap GitHub</a></li>
+<li><a href="https://github.com/natefinish/lumberjack">lumberjack GitHub</a></li>
+<li><a href="https://go.dev/blog/slog">Structured Logging in Go 1.21</a></li>
+
+<h2>十、代码演进总结</h2>
+
+<table><thead><tr>
+<th>版本</th>
+<th>重点</th>
+<th>适用场景</th>
+</tr></thead><tbody>
+<tr>
+<td>v1</td>
+<td>log标准库 + slog基础</td>
+<td>学习、简单项目</td>
+</tr>
+<tr>
+<td>v2</td>
+<td>zap高性能日志</td>
+<td>对性能有要求的项目</td>
+</tr>
+<tr>
+<td>v3</td>
+<td>lumberjack轮转 + 生产配置</td>
+<td>生产环境完整方案</td>
+</tr>
+</tbody></table>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

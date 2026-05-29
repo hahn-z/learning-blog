@@ -1,0 +1,810 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>020 - Gin 单元测试与集成测试</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Golang/index.html">Golang</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Golang/05-Gin框架/index.html">Gin框架</a>
+</nav>
+<h1>020 - Gin 单元测试与集成测试</h1>
+<div class="meta">
+<span>📂 Gin框架</span>
+<span>🏷️ Golang</span>
+</div>
+<article>
+
+
+<h1>020 - Gin 单元测试与集成测试</h1>
+
+<blockquote><p><strong>难度：⭐⭐⭐</strong> | <strong>预计阅读：18 分钟</strong><br><br>使用 Go 的 <code>net/http/httptest</code> 包测试 Gin Handler，包括 JSON 请求/响应、Mock 数据库、中间件测试、测试覆盖率和最佳实践。</p></blockquote>
+
+<hr>
+
+<h2>一、概念讲解</h2>
+
+<p>Go 的测试哲学是"内置优先"——标准库 <code>testing</code> + <code>httptest</code> 就能满足大部分 Web 测试需求。</p>
+
+<p><strong>测试分层：</strong></p>
+
+<pre><code>单元测试     → 测试单个函数/方法（最快，无外部依赖）
+  ↓
+Handler 测试  → 测试 HTTP 接口（httptest 模拟请求/响应）
+  ↓
+集成测试     → 测试多个组件协作（数据库、缓存等）
+  ↓
+E2E 测试     → 测试完整用户流程（真实 HTTP 服务器）</code></pre>
+
+<p><strong>核心工具：</strong></p>
+<ul>
+<li><code>httptest.NewRecorder()</code> — 模拟 <code>http.ResponseWriter</code></li>
+<li><code>httptest.NewServer()</code> — 创建真实测试服务器</li>
+<li><code>gin.CreateTestContext()</code> — 创建测试用 Gin Context</li>
+
+<hr>
+
+<h2>二、脑图</h2>
+
+<pre><code>单元测试与集成测试
+├── 基础
+│   ├── testing 包
+│   ├── testify 断言
+│   └── go test 命令
+├── Handler 测试
+│   ├── httptest.NewRecorder
+│   ├── 模拟 GET/POST 请求
+│   └── JSON 请求/响应验证
+├── Mock
+│   ├── 接口 + Mock 实现
+│   ├── 数据库 Mock
+│   └── 外部服务 Mock
+├── 中间件测试
+│   ├── 独立测试中间件逻辑
+│   └── 测试 Abort/Next 行为
+└── 进阶
+    ├── 测试覆盖率
+    ├── 表驱动测试
+    └── TestMain 初始化</code></pre>
+
+<hr>
+
+<h2>三、完整代码</h2>
+
+<h3>项目结构</h3>
+
+<pre><code>myapp/
+├── main.go
+├── handler/
+│   ├── user.go
+│   └── user_test.go
+├── middleware/
+│   ├── auth.go
+│   └── auth_test.go
+├── model/
+│   └── user.go
+├── repository/
+│   ├── user.go        (interface)
+│   ├── user_sqlite.go (real impl)
+│   └── user_mock.go   (mock impl)
+└── server/
+    └── server.go</code></pre>
+
+<h3>model/user.go</h3>
+
+<pre><code class="language-go">package model
+
+type User struct {
+	ID       int    `json:&quot;id&quot;`
+	Username string `json:&quot;username&quot;`
+	Email    string `json:&quot;email&quot;`
+}
+
+type CreateUserRequest struct {
+	Username string `json:&quot;username&quot; binding:&quot;required,min=3,max=50&quot;`
+	Email    string `json:&quot;email&quot; binding:&quot;required,email&quot;`
+}</code></pre>
+
+<h3>repository/user.go（接口定义，方便 Mock）</h3>
+
+<pre><code class="language-go">package repository
+
+import &quot;myapp/model&quot;
+
+// UserRepository defines the interface for user data access
+type UserRepository interface {
+	GetByID(id int) (*model.User, error)
+	Create(req *model.CreateUserRequest) (*model.User, error)
+	List() ([]model.User, error)
+}</code></pre>
+
+<h3>repository/user_mock.go</h3>
+
+<pre><code class="language-go">package repository
+
+import &quot;myapp/model&quot;
+
+// MockUserRepo is a mock implementation for testing
+type MockUserRepo struct {
+	Users map[int]*model.User
+	NextID int
+	Err    error // inject error for testing
+}
+
+func NewMockUserRepo() *MockUserRepo {
+	return &amp;MockUserRepo{
+		Users: map[int]*model.User{
+			1: {ID: 1, Username: &quot;alice&quot;, Email: &quot;alice@test.com&quot;},
+			2: {ID: 2, Username: &quot;bob&quot;, Email: &quot;bob@test.com&quot;},
+		},
+		NextID: 3,
+	}
+}
+
+func (m *MockUserRepo) GetByID(id int) (*model.User, error) {
+	if m.Err != nil {
+		return nil, m.Err
+	}
+	u, ok := m.Users[id]
+	if !ok {
+		return nil, fmt.Errorf(&quot;user not found&quot;)
+	}
+	return u, nil
+}
+
+func (m *MockUserRepo) Create(req *model.CreateUserRequest) (*model.User, error) {
+	if m.Err != nil {
+		return nil, m.Err
+	}
+	u := &amp;model.User{ID: m.NextID, Username: req.Username, Email: req.Email}
+	m.Users[m.NextID] = u
+	m.NextID++
+	return u, nil
+}
+
+func (m *MockUserRepo) List() ([]model.User, error) {
+	if m.Err != nil {
+		return nil, m.Err
+	}
+	var users []model.User
+	for _, u := range m.Users {
+		users = append(users, *u)
+	}
+	return users, nil
+}</code></pre>
+
+<h3>handler/user.go</h3>
+
+<pre><code class="language-go">package handler
+
+import (
+	&quot;net/http&quot;
+	&quot;strconv&quot;
+
+	&quot;github.com/gin-gonic/gin&quot;
+	&quot;myapp/model&quot;
+	&quot;myapp/repository&quot;
+)
+
+type UserHandler struct {
+	repo repository.UserRepository
+}
+
+func NewUserHandler(repo repository.UserRepository) *UserHandler {
+	return &amp;UserHandler{repo: repo}
+}
+
+func (h *UserHandler) GetUser(c *gin.Context) {
+	id, err := strconv.Atoi(c.Param(&quot;id&quot;))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{&quot;error&quot;: &quot;invalid id&quot;})
+		return
+	}
+
+	user, err := h.repo.GetByID(id)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{&quot;error&quot;: err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, user)
+}
+
+func (h *UserHandler) CreateUser(c *gin.Context) {
+	var req model.CreateUserRequest
+	if err := c.ShouldBindJSON(&amp;req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{&quot;error&quot;: err.Error()})
+		return
+	}
+
+	user, err := h.repo.Create(&amp;req)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{&quot;error&quot;: err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusCreated, user)
+}
+
+func (h *UserHandler) ListUsers(c *gin.Context) {
+	users, err := h.repo.List()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{&quot;error&quot;: err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{&quot;users&quot;: users})
+}
+
+// SetupRouter creates a router with all user routes
+func SetupRouter(h *UserHandler) *gin.Engine {
+	r := gin.Default()
+	api := r.Group(&quot;/api&quot;)
+	{
+		api.GET(&quot;/users/:id&quot;, h.GetUser)
+		api.POST(&quot;/users&quot;, h.CreateUser)
+		api.GET(&quot;/users&quot;, h.ListUsers)
+	}
+	return r
+}</code></pre>
+
+<h3>handler/user_test.go</h3>
+
+<pre><code class="language-go">package handler
+
+import (
+	&quot;bytes&quot;
+	&quot;encoding/json&quot;
+	&quot;net/http&quot;
+	&quot;net/http/httptest&quot;
+	&quot;testing&quot;
+
+	&quot;github.com/stretchr/testify/assert&quot;
+	&quot;myapp/model&quot;
+	&quot;myapp/repository&quot;
+)
+
+func setupTestRouter() (*gin.Engine, *repository.MockUserRepo) {
+	gin.SetMode(gin.TestMode)
+	mockRepo := repository.NewMockUserRepo()
+	handler := NewUserHandler(mockRepo)
+	router := SetupRouter(handler)
+	return router, mockRepo
+}
+
+// ===== Table-driven tests for GetUser =====
+
+func TestGetUser(t *testing.T) {
+	router, _ := setupTestRouter()
+
+	tests := []struct {
+		name       string
+		id         string
+		wantStatus int
+		wantBody   string
+	}{
+		{
+			name:       &quot;existing user&quot;,
+			id:         &quot;1&quot;,
+			wantStatus: http.StatusOK,
+			wantBody:   `&quot;username&quot;:&quot;alice&quot;`,
+		},
+		{
+			name:       &quot;non-existing user&quot;,
+			id:         &quot;999&quot;,
+			wantStatus: http.StatusNotFound,
+			wantBody:   `&quot;error&quot;`,
+		},
+		{
+			name:       &quot;invalid id&quot;,
+			id:         &quot;abc&quot;,
+			wantStatus: http.StatusBadRequest,
+			wantBody:   `&quot;error&quot;`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			w := httptest.NewRecorder()
+			req, _ := http.NewRequest(&quot;GET&quot;, &quot;/api/users/&quot;+tt.id, nil)
+			router.ServeHTTP(w, req)
+
+			assert.Equal(t, tt.wantStatus, w.Code)
+			assert.Contains(t, w.Body.String(), tt.wantBody)
+		})
+	}
+}
+
+// ===== Test POST with JSON body =====
+
+func TestCreateUser(t *testing.T) {
+	router, _ := setupTestRouter()
+
+	body := model.CreateUserRequest{
+		Username: &quot;charlie&quot;,
+		Email:    &quot;charlie@test.com&quot;,
+	}
+	jsonBody, _ := json.Marshal(body)
+
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequest(&quot;POST&quot;, &quot;/api/users&quot;, bytes.NewBuffer(jsonBody))
+	req.Header.Set(&quot;Content-Type&quot;, &quot;application/json&quot;)
+	router.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusCreated, w.Code)
+
+	var response map[string]interface{}
+	json.Unmarshal(w.Body.Bytes(), &amp;response)
+	assert.Equal(t, &quot;charlie&quot;, response[&quot;username&quot;])
+	assert.Equal(t, &quot;charlie@test.com&quot;, response[&quot;email&quot;])
+	assert.Equal(t, float64(3), response[&quot;id&quot;]) // NextID = 3
+}
+
+func TestCreateUser_ValidationError(t *testing.T) {
+	router, _ := setupTestRouter()
+
+	// Invalid: username too short, bad email
+	body := `{&quot;username&quot;:&quot;ab&quot;,&quot;email&quot;:&quot;notanemail&quot;}`
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequest(&quot;POST&quot;, &quot;/api/users&quot;, bytes.NewBufferString(body))
+	req.Header.Set(&quot;Content-Type&quot;, &quot;application/json&quot;)
+	router.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+}
+
+// ===== Test with injected error =====
+
+func TestGetUser_RepoError(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	mockRepo := repository.NewMockUserRepo()
+	mockRepo.Err = fmt.Errorf(&quot;database connection lost&quot;)
+	handler := NewUserHandler(mockRepo)
+	router := SetupRouter(handler)
+
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequest(&quot;GET&quot;, &quot;/api/users/1&quot;, nil)
+	router.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusNotFound, w.Code)
+}
+
+// ===== Test ListUsers =====
+
+func TestListUsers(t *testing.T) {
+	router, _ := setupTestRouter()
+
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequest(&quot;GET&quot;, &quot;/api/users&quot;, nil)
+	router.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+
+	var response map[string]interface{}
+	json.Unmarshal(w.Body.Bytes(), &amp;response)
+	users := response[&quot;users&quot;].([]interface{})
+	assert.Len(t, users, 2) // alice + bob
+}</code></pre>
+
+<h3>middleware/auth.go</h3>
+
+<pre><code class="language-go">package middleware
+
+import (
+	&quot;net/http&quot;
+	&quot;strings&quot;
+
+	&quot;github.com/gin-gonic/gin&quot;
+)
+
+// AuthMiddleware validates Bearer token
+func AuthMiddleware(validToken string) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		auth := c.GetHeader(&quot;Authorization&quot;)
+		if auth == &quot;&quot; {
+			c.JSON(http.StatusUnauthorized, gin.H{&quot;error&quot;: &quot;missing authorization header&quot;})
+			c.Abort()
+			return
+		}
+
+		if !strings.HasPrefix(auth, &quot;Bearer &quot;) {
+			c.JSON(http.StatusUnauthorized, gin.H{&quot;error&quot;: &quot;invalid authorization format&quot;})
+			c.Abort()
+			return
+		}
+
+		token := strings.TrimPrefix(auth, &quot;Bearer &quot;)
+		if token != validToken {
+			c.JSON(http.StatusForbidden, gin.H{&quot;error&quot;: &quot;invalid token&quot;})
+			c.Abort()
+			return
+		}
+
+		c.Set(&quot;userID&quot;, &quot;user-from-token&quot;)
+		c.Next()
+	}
+}</code></pre>
+
+<h3>middleware/auth_test.go</h3>
+
+<pre><code class="language-go">package middleware
+
+import (
+	&quot;net/http&quot;
+	&quot;net/http/httptest&quot;
+	&quot;testing&quot;
+
+	&quot;github.com/gin-gonic/gin&quot;
+	&quot;github.com/stretchr/testify/assert&quot;
+)
+
+func setupAuthRouter(token string) *gin.Engine {
+	gin.SetMode(gin.TestMode)
+	r := gin.New()
+	r.Use(AuthMiddleware(token))
+	r.GET(&quot;/protected&quot;, func(c *gin.Context) {
+		c.JSON(200, gin.H{&quot;message&quot;: &quot;ok&quot;})
+	})
+	return r
+}
+
+func TestAuthMiddleware(t *testing.T) {
+	tests := []struct {
+		name       string
+		token      string
+		authHeader string
+		wantStatus int
+	}{
+		{
+			name:       &quot;valid token&quot;,
+			token:      &quot;secret123&quot;,
+			authHeader: &quot;Bearer secret123&quot;,
+			wantStatus: http.StatusOK,
+		},
+		{
+			name:       &quot;missing header&quot;,
+			token:      &quot;secret123&quot;,
+			authHeader: &quot;&quot;,
+			wantStatus: http.StatusUnauthorized,
+		},
+		{
+			name:       &quot;wrong token&quot;,
+			token:      &quot;secret123&quot;,
+			authHeader: &quot;Bearer wrong&quot;,
+			wantStatus: http.StatusForbidden,
+		},
+		{
+			name:       &quot;invalid format&quot;,
+			token:      &quot;secret123&quot;,
+			authHeader: &quot;Basic secret123&quot;,
+			wantStatus: http.StatusUnauthorized,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			router := setupAuthRouter(tt.token)
+			w := httptest.NewRecorder()
+			req, _ := http.NewRequest(&quot;GET&quot;, &quot;/protected&quot;, nil)
+			if tt.authHeader != &quot;&quot; {
+				req.Header.Set(&quot;Authorization&quot;, tt.authHeader)
+			}
+			router.ServeHTTP(w, req)
+			assert.Equal(t, tt.wantStatus, w.Code)
+		})
+	}
+}</code></pre>
+
+<h3>集成测试（httptest.NewServer）</h3>
+
+<pre><code class="language-go">package handler
+
+import (
+	&quot;encoding/json&quot;
+	&quot;net/http&quot;
+	&quot;net/http/httptest&quot;
+	&quot;testing&quot;
+
+	&quot;github.com/stretchr/testify/assert&quot;
+	&quot;myapp/repository&quot;
+)
+
+func TestIntegration_UserFlow(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	mockRepo := repository.NewMockUserRepo()
+	handler := NewUserHandler(mockRepo)
+	router := SetupRouter(handler)
+
+	// Create a real test server
+	server := httptest.NewServer(router)
+	defer server.Close()
+	client := server.Client()
+
+	// Step 1: List users (should have 2)
+	resp, _ := client.Get(server.URL + &quot;/api/users&quot;)
+	assert.Equal(t, 200, resp.StatusCode)
+	var listResp map[string]interface{}
+	json.NewDecoder(resp.Body).Decode(&amp;listResp)
+	assert.Len(t, listResp[&quot;users&quot;], 2)
+
+	// Step 2: Create a new user
+	body := `{&quot;username&quot;:&quot;newuser&quot;,&quot;email&quot;:&quot;new@test.com&quot;}`
+	resp, _ = client.Post(server.URL+&quot;/api/users&quot;, &quot;application/json&quot;, bytes.NewBufferString(body))
+	assert.Equal(t, 201, resp.StatusCode)
+
+	// Step 3: Get the new user
+	resp, _ = client.Get(server.URL + &quot;/api/users/3&quot;)
+	assert.Equal(t, 200, resp.StatusCode)
+	var user map[string]interface{}
+	json.NewDecoder(resp.Body).Decode(&amp;user)
+	assert.Equal(t, &quot;newuser&quot;, user[&quot;username&quot;])
+}</code></pre>
+
+<hr>
+
+<h2>四、执行预览</h2>
+
+<pre><code class="language-bash"># 运行所有测试
+go test ./... -v
+# === RUN   TestGetUser
+# === RUN   TestGetUser/existing_user
+# === RUN   TestGetUser/non-existing_user
+# === RUN   TestGetUser/invalid_id
+# --- PASS: TestGetUser (0.00s)
+# --- PASS: TestCreateUser (0.00s)
+# --- PASS: TestAuthMiddleware (0.00s)
+
+# 查看测试覆盖率
+go test ./... -cover
+# ok      myapp/handler      0.003s  coverage: 85.7%
+# ok      myapp/middleware   0.002s  coverage: 100.0%
+
+# 生成覆盖率报告
+go test ./... -coverprofile=coverage.out
+go tool cover -html=coverage.out -o coverage.html</code></pre>
+
+<hr>
+
+<h2>五、注意事项</h2>
+
+<table><thead><tr>
+<th>项目</th>
+<th>说明</th>
+</tr></thead><tbody>
+<tr>
+<td><code>gin.TestMode</code></td>
+<td>测试中设置，减少日志输出</td>
+</tr>
+<tr>
+<td><code>httptest.NewRecorder</code></td>
+<td>不启动真实服务器，最快</td>
+</tr>
+<tr>
+<td><code>httptest.NewServer</code></td>
+<td>启动真实 HTTP 服务器，适合集成测试</td>
+</tr>
+<tr>
+<td>接口设计</td>
+<td>Repository 用接口，方便 Mock 替换</td>
+</tr>
+<tr>
+<td>表驱动测试</td>
+<td>Go 推荐模式，一个函数覆盖多种场景</td>
+</tr>
+<tr>
+<td>测试文件</td>
+<td><code>xxx_test.go</code> 必须在同一包，<code>go test</code> 自动发现</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>六、避坑指南</h2>
+
+<table><thead><tr>
+<th>❌ 错误做法</th>
+<th>✅ 正确做法</th>
+</tr></thead><tbody>
+<tr>
+<td>测试中连真实数据库</td>
+<td>用接口 + Mock 或测试专用 SQLite</td>
+</tr>
+<tr>
+<td><code>gin.Default()</code> 跑测试</td>
+<td><code>gin.New()</code> 或 <code>gin.SetMode(TestMode)</code></td>
+</tr>
+<tr>
+<td>测试间共享可变状态</td>
+<td>每个测试函数独立初始化</td>
+</tr>
+<tr>
+<td>只测试 Happy Path</td>
+<td>必须测试错误情况（404, 400, 500）</td>
+</tr>
+<tr>
+<td>忽略测试覆盖率</td>
+<td>核心代码覆盖率目标 > 80%</td>
+</tr>
+<tr>
+<td>手动拼 JSON 字符串</td>
+<td>用 <code>json.Marshal</code> 构造请求体</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>七、练习题</h2>
+
+<h3>🟢 入门</h3>
+<ol>
+<li>为一个 <code>GET /ping</code> 返回 <code>{"pong": true}</code> 的接口写单元测试</li>
+</ul>
+<ol>
+<li>测试 POST 请求的 JSON 参数验证</li>
+
+<h3>🟡 进阶</h3>
+<ol>
+<li>用接口 + Mock 实现 Repository 层测试</li>
+</ul>
+<ol>
+<li>实现中间件（Auth/Logging）的独立测试</li>
+
+<h3>🔴 挑战</h3>
+<ol>
+<li>使用 <code>httptest.NewServer</code> 编写完整的用户 CRUD 集成测试</li>
+</ul>
+<ol>
+<li>生成测试覆盖率报告，确保 handler 层覆盖率 > 85%</li>
+
+<hr>
+
+<h2>八、知识点总结</h2>
+
+<pre><code>测试知识树
+├── 工具链
+│   ├── go test 命令
+│   ├── testing 包
+│   ├── testify/assert
+│   └── httptest 包
+├── 测试类型
+│   ├── 单元测试 (TestXxx)
+│   ├── 表驱动测试 (t.Run)
+│   ├── 基准测试 (BenchmarkXxx)
+│   └── 集成测试 (httptest.NewServer)
+├── Mock 模式
+│   ├── 接口定义
+│   ├── Mock 实现
+│   └── 错误注入
+└── 覆盖率
+    ├── go test -cover
+    ├── coverprofile
+    └── HTML 报告</code></pre>
+
+<hr>
+
+<h2>九、举一反三</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>方案</th>
+<th>关键点</th>
+</tr></thead><tbody>
+<tr>
+<td>API 回归测试</td>
+<td>每次改动后全量跑 <code>go test</code></td>
+<td>CI 集成</td>
+</tr>
+<tr>
+<td>性能基准</td>
+<td><code>BenchmarkXxx</code> + <code>b.ReportAllocs()</code></td>
+<td>发现内存分配问题</td>
+</tr>
+<tr>
+<td>并发测试</td>
+<td><code>t.Run</code> 并行 + <code>t.Parallel()</code></td>
+<td>检测 race condition</td>
+</tr>
+<tr>
+<td>E2E 测试</td>
+<td>Docker Compose + 测试脚本</td>
+<td>真实环境验证</td>
+</tr>
+<tr>
+<td>金丝雀发布</td>
+<td>测试 + 灰度分流</td>
+<td>先测后上线</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>十、参考资料</h2>
+
+<ul>
+<li><a href="https://pkg.go.dev/testing">Go Testing 官方文档</a></li>
+<li><a href="https://pkg.go.dev/net/http/httptest">net/http/httptest</a></li>
+<li><a href="https://github.com/stretchr/testify">testify 断言库</a></li>
+<li><a href="https://go.dev/doc/tutorial/add-a-test">Go 测试最佳实践</a></li>
+
+<hr>
+
+<h2>十一、代码演进</h2>
+
+<table><thead><tr>
+<th>版本</th>
+<th>特点</th>
+<th>适用场景</th>
+</tr></thead><tbody>
+<tr>
+<td><strong>v1</strong></td>
+<td>Handler 测试 + httptest.Recorder</td>
+<td>快速单元测试</td>
+</tr>
+<tr>
+<td><strong>v2</strong></td>
+<td>接口 Mock + 中间件测试 + 表驱动</td>
+<td>完善测试体系</td>
+</tr>
+<tr>
+<td><strong>v3</strong></td>
+<td>httptest.NewServer + 集成测试 + 覆盖率</td>
+<td>CI/CD 生产级</td>
+</tr>
+</tbody></table>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

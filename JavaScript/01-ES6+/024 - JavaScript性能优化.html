@@ -1,0 +1,569 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>024 - JavaScript性能优化</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/JavaScript/index.html">JavaScript</a>
+<span class="sep">›</span>
+<a href="/tech-blog/JavaScript/01-ES6+/index.html">JavaScript ES6+</a>
+</nav>
+<h1>024 - JavaScript性能优化</h1>
+<div class="meta">
+<span>📂 JavaScript ES6+</span>
+<span>🏷️ JavaScript</span>
+</div>
+<article>
+
+
+<h1>JavaScript性能优化</h1>
+
+<blockquote><p><strong>难度：</strong> ⭐⭐⭐⭐ 较高 | <strong>适合：</strong> 有一定项目经验，想提升性能意识的开发者<br><strong>阅读时间：</strong> 约30分钟 | <strong>代码量：</strong> 200+ 行</p></blockquote>
+
+<hr>
+
+<h2>一、概念讲解</h2>
+
+<h3>为什么需要性能优化？</h3>
+
+<p>性能直接影响用户体验和商业指标：</p>
+<ul>
+<li>页面加载时间每增加1秒，转化率下降7%</li>
+<li>Google将页面速度作为搜索排名因素</li>
+<li>移动端设备性能参差不齐，更需优化</li>
+
+<h3>性能优化的三个层面</h3>
+
+<pre><code>┌─────────────────────────────┐
+│     加载性能 (Loading)        │  → 用户等多久才能看到页面
+├─────────────────────────────┤
+│     运行时性能 (Runtime)      │  → 页面操作是否流畅
+├─────────────────────────────┤
+│     内存性能 (Memory)         │  → 是否泄漏、是否占用过多
+└─────────────────────────────┘</code></pre>
+
+<hr>
+
+<h2>二、脑图（ASCII）</h2>
+
+<pre><code>                JS性能优化
+                    │
+     ┌──────────────┼──────────────┐
+     │              │              │
+  加载优化        运行时优化      内存优化
+     │              │              │
+  ┌──┼──┐      ┌───┼───┐     ┌───┼───┐
+  │  │  │      │   │   │     │   │   │
+ 代码 延迟 DOM  节流 缓存 Web 计算 对象 回收
+ 分割 加载 回流 防抖 memo Worker 池化 泄漏</code></pre>
+
+<hr>
+
+<h2>三、完整代码示例</h2>
+
+<h3>3.1 防抖与节流（高频场景必备）</h3>
+
+<pre><code class="language-javascript">// Debounce: execute after user stops triggering
+function debounce(fn, delay, { leading = false } = {}) {
+  let timer = null;
+  return function (...args) {
+    if (leading &amp;&amp; !timer) {
+      fn.apply(this, args);
+    }
+    clearTimeout(timer);
+    timer = setTimeout(() =&gt; {
+      if (!leading) fn.apply(this, args);
+      timer = null;
+    }, delay);
+  };
+}
+
+// Throttle: execute at most once per interval
+function throttle(fn, interval) {
+  let lastTime = 0;
+  let timer = null;
+  return function (...args) {
+    const now = Date.now();
+    const remaining = interval - (now - lastTime);
+    if (remaining &lt;= 0) {
+      clearTimeout(timer);
+      timer = null;
+      lastTime = now;
+      fn.apply(this, args);
+    } else if (!timer) {
+      timer = setTimeout(() =&gt; {
+        lastTime = Date.now();
+        timer = null;
+        fn.apply(this, args);
+      }, remaining);
+    }
+  };
+}
+
+// Usage
+const searchHandler = debounce((query) =&gt; {
+  fetchSearchResults(query);
+}, 300);
+
+const scrollHandler = throttle(() =&gt; {
+  loadMoreIfNearBottom();
+}, 200);</code></pre>
+
+<h3>3.2 DOM操作优化</h3>
+
+<pre><code class="language-javascript">// BAD: triggers reflow on each iteration
+function addItemsBad(container, items) {
+  items.forEach(text =&gt; {
+    const li = document.createElement(&#x27;li&#x27;);
+    li.textContent = text;
+    container.appendChild(li); // reflow each time!
+  });
+}
+
+// GOOD: batch with DocumentFragment
+function addItemsGood(container, items) {
+  const fragment = document.createDocumentFragment();
+  items.forEach(text =&gt; {
+    const li = document.createElement(&#x27;li&#x27;);
+    li.textContent = text;
+    fragment.appendChild(li); // no reflow yet
+  });
+  container.appendChild(fragment); // single reflow
+}
+
+// Virtual scrolling for large lists
+class VirtualList {
+  constructor(container, items, itemHeight = 40) {
+    this.container = container;
+    this.items = items;
+    this.itemHeight = itemHeight;
+    this.visibleCount = Math.ceil(container.clientHeight / itemHeight) + 2;
+    this.pool = [];
+    this.init();
+  }
+
+  init() {
+    this.container.style.overflow = &#x27;auto&#x27;;
+    this.container.style.position = &#x27;relative&#x27;;
+
+    // Spacer to create scrollbar
+    this.spacer = document.createElement(&#x27;div&#x27;);
+    this.spacer.style.height = this.items.length * this.itemHeight + &#x27;px&#x27;;
+    this.container.appendChild(this.spacer);
+
+    // Create DOM pool
+    for (let i = 0; i &lt; this.visibleCount; i++) {
+      const el = document.createElement(&#x27;div&#x27;);
+      el.style.position = &#x27;absolute&#x27;;
+      el.style.height = this.itemHeight + &#x27;px&#x27;;
+      el.style.width = &#x27;100%&#x27;;
+      this.container.appendChild(el);
+      this.pool.push(el);
+    }
+
+    this.container.addEventListener(&#x27;scroll&#x27;, throttle(() =&gt; this.render(), 16));
+    this.render();
+  }
+
+  render() {
+    const scrollTop = this.container.scrollTop;
+    const startIdx = Math.floor(scrollTop / this.itemHeight);
+    const offset = scrollTop % this.itemHeight;
+
+    this.pool.forEach((el, i) =&gt; {
+      const idx = startIdx + i;
+      if (idx &lt; this.items.length) {
+        el.textContent = this.items[idx];
+        el.style.transform = `translateY(${idx * this.itemHeight}px)`;
+        el.style.display = &#x27;block&#x27;;
+      } else {
+        el.style.display = &#x27;none&#x27;;
+      }
+    });
+  }
+}</code></pre>
+
+<h3>3.3 Web Worker 将计算移出主线程</h3>
+
+<pre><code class="language-javascript">// main.js
+const worker = new Worker(&#x27;worker.js&#x27;);
+
+worker.postMessage({ type: &#x27;HEAVY_CALC&#x27;, data: largeArray });
+worker.onmessage = (e) =&gt; {
+  if (e.data.type === &#x27;RESULT&#x27;) {
+    console.log(&#x27;Calculation done:&#x27;, e.data.result);
+  }
+};
+
+// worker.js
+self.onmessage = (e) =&gt; {
+  if (e.data.type === &#x27;HEAVY_CALC&#x27;) {
+    const result = heavyComputation(e.data.data);
+    self.postMessage({ type: &#x27;RESULT&#x27;, result });
+  }
+};
+
+function heavyComputation(data) {
+  // Expensive work here - won&#x27;t block main thread
+  return data.reduce((sum, val) =&gt; sum + Math.sqrt(val) * Math.log(val), 0);
+}</code></pre>
+
+<h3>3.4 内存泄漏检测与预防</h3>
+
+<pre><code class="language-javascript">// Common memory leak patterns and fixes
+
+// LEAK 1: Forgotten timers
+// BAD
+// setInterval(() =&gt; updateWidget(data), 1000);
+// GOOD
+class Widget {
+  constructor() {
+    this._timer = setInterval(() =&gt; this.update(), 1000);
+  }
+  destroy() {
+    clearInterval(this._timer); // Clean up!
+  }
+}
+
+// LEAK 2: Detached DOM nodes
+// BAD: keeping reference to removed element
+// const removed = element.remove();
+// globalCache.push(removed); // element can&#x27;t be GC&#x27;d!
+// GOOD: null the reference
+// removed = null;
+
+// LEAK 3: Event listeners not removed
+// BAD
+// window.addEventListener(&#x27;resize&#x27;, handler);
+// GOOD
+class ResponsiveHandler {
+  constructor() {
+    this.handler = this.handler.bind(this);
+    window.addEventListener(&#x27;resize&#x27;, this.handler);
+  }
+  destroy() {
+    window.removeEventListener(&#x27;resize&#x27;, this.handler);
+  }
+  handler() { /* ... */ }
+}
+
+// LEAK 4: Closures capturing large objects
+// BAD
+function createHandler(largeData) {
+  return () =&gt; process(largeData.item); // holds ALL of largeData
+}
+// GOOD
+function createHandler(largeData) {
+  const item = largeData.item; // only capture what&#x27;s needed
+  return () =&gt; process(item);
+}
+
+// WeakMap for cache without memory leaks
+class Cache {
+  #map = new WeakMap();
+  set(obj, value) { this.#map.set(obj, value); }
+  get(obj) { return this.#map.get(obj); }
+}</code></pre>
+
+<hr>
+
+<h2>四、执行预览</h2>
+
+<pre><code>Performance Optimization Demo
+==============================
+1. VirtualList: 10000 items, only ~20 DOM nodes rendered
+   → Scroll smooth at 60fps
+
+2. Debounce search: typing &quot;JavaScript&quot;
+   → Only fires API call after 300ms pause
+
+3. Web Worker: heavy math off main thread
+   → UI stays responsive during computation
+
+4. Memory: WeakMap cache auto-releases GC&#x27;d objects
+   → No manual cleanup needed</code></pre>
+
+<hr>
+
+<h2>五、注意事项</h2>
+
+<table><thead><tr>
+<th>优化手段</th>
+<th>注意点</th>
+<th>建议</th>
+</tr></thead><tbody>
+<tr>
+<td><code>DocumentFragment</code></td>
+<td>一次性插入仍触发reflow</td>
+<td>比逐个插入好得多</td>
+</tr>
+<tr>
+<td>虚拟滚动</td>
+<td>项目高度需固定或可计算</td>
+<td>动态高度需额外处理</td>
+</tr>
+<tr>
+<td>Web Worker</td>
+<td>通信有序列化开销</td>
+<td>小任务不值得开Worker</td>
+</tr>
+<tr>
+<td><code>WeakMap</code> 缓存</td>
+<td>不能遍历keys</td>
+<td>需要遍历用Map+手动清理</td>
+</tr>
+<tr>
+<td>防抖节流</td>
+<td><code>leading</code>/<code>trailing</code> 行为不同</td>
+<td>按业务需求选择</td>
+</tr>
+<tr>
+<td><code>requestIdleCallback</code></td>
+<td>浏览器支持有限</td>
+<td>降级用 <code>setTimeout</code></td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>六、避坑指南</h2>
+
+<table><thead><tr>
+<th>❌ 错误做法</th>
+<th>✅ 正确做法</th>
+<th>原因</th>
+</tr></thead><tbody>
+<tr>
+<td>循环中读写DOM样式</td>
+<td>批量读→计算→批量写</td>
+<td>避免强制同步布局</td>
+</tr>
+<tr>
+<td><code>innerHTML</code> 拼接大量HTML</td>
+<td>DocumentFragment</td>
+<td>减少HTML解析开销</td>
+</tr>
+<tr>
+<td>全部数据一次渲染</td>
+<td>虚拟滚动/分页</td>
+<td>大DOM树 = 卡顿</td>
+</tr>
+<tr>
+<td><code>setInterval</code> 做动画</td>
+<td><code>requestAnimationFrame</code></td>
+<td>与刷新率同步</td>
+</tr>
+<tr>
+<td>闭包中捕获大对象</td>
+<td>只提取需要的字段</td>
+<td>减少内存占用</td>
+</tr>
+<tr>
+<td>组件销毁不清理监听器</td>
+<td><code>destroy/disconnect</code> 方法</td>
+<td>防止内存泄漏</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>七、练习题</h2>
+
+<h3>🟢 基础</h3>
+<ol>
+<li>实现 <code>debounce(fn, 300)</code> 并测试快速连续调用只执行一次</li>
+</ul>
+<ol>
+<li>用 <code>console.time/timeEnd</code> 测量循环创建1000个DOM元素的时间</li>
+</ul>
+<ol>
+<li>用 <code>performance.now()</code> 对比 <code>for</code> 和 <code>forEach</code> 的性能差异</li>
+
+<h3>🟡 进阶</h3>
+<ol>
+<li>实现一个虚拟滚动列表（固定行高），支持10000条数据</li>
+</ul>
+<ol>
+<li>使用 <code>requestIdleCallback</code> 在空闲时间执行低优先级任务</li>
+</ul>
+<ol>
+<li>用 Chrome DevTools Memory 面板检测并修复一个内存泄漏</li>
+
+<h3>🔴 挑战</h3>
+<ol>
+<li>实现一个 LRU Cache，支持自动淘汰和大小限制</li>
+</ul>
+<ol>
+<li>性能监控SDK：采集 FCP/LCP/CLS 指标并上报</li>
+
+<hr>
+
+<h2>八、知识点总结</h2>
+
+<pre><code>JavaScript性能优化
+├── 加载性能
+│   ├── 代码分割 (Dynamic import)
+│   ├── Tree shaking
+│   ├── 延迟加载 (lazy load)
+│   └── 资源压缩 (minify/gzip)
+├── 运行时性能
+│   ├── DOM批量操作 (DocumentFragment)
+│   ├── 虚拟滚动 (Virtual List)
+│   ├── 防抖 (debounce) / 节流 (throttle)
+│   ├── Web Worker
+│   ├── requestAnimationFrame
+│   └── 缓存 (memo/WeakMap)
+├── 内存优化
+│   ├── 及时清理定时器和监听器
+│   ├── 避免闭包捕获大对象
+│   ├── WeakMap/WeakSet
+│   └── 对象池 (Object Pool)
+└── 性能度量
+    ├── Performance API
+    ├── console.time/timeEnd
+    ├── Chrome DevTools
+    └── Web Vitals (FCP/LCP/CLS/FID)</code></pre>
+
+<hr>
+
+<h2>九、举一反三</h2>
+
+<table><thead><tr>
+<th>JS优化</th>
+<th>其他领域</th>
+<th>相似思路</th>
+</tr></thead><tbody>
+<tr>
+<td>虚拟滚动</td>
+<td>数据库分页</td>
+<td>按需加载，不全量渲染</td>
+</tr>
+<tr>
+<td>Web Worker</td>
+<td>微服务拆分</td>
+<td>职责分离，并行处理</td>
+</tr>
+<tr>
+<td>防抖节流</td>
+<td>API限流 (Rate Limiting)</td>
+<td>控制频率，防止过载</td>
+</tr>
+<tr>
+<td>LRU Cache</td>
+<td>Redis缓存策略</td>
+<td>热点数据缓存，冷数据淘汰</td>
+</tr>
+<tr>
+<td>懒加载</td>
+<td>CDN预热</td>
+<td>按需 vs 预加载的不同策略</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>十、参考资料</h2>
+
+<ul>
+<li><a href="https://web.dev/performance/">Web.dev - Performance</a></li>
+<li><a href="https://developer.mozilla.org/en-US/docs/Web/API/Performance">MDN - Performance API</a></li>
+<li><a href="https://v8.dev/docs/performance">JavaScript Performance - V8</a></li>
+<li><a href="https://developer.chrome.com/docs/devtools/performance/">Chrome DevTools - Performance</a></li>
+
+<hr>
+
+<h2>十一、代码演进</h2>
+
+<h3>v1: 直接操作DOM</h3>
+
+<pre><code class="language-javascript">// Naive approach - triggers reflow per item
+data.forEach(item =&gt; {
+  const div = document.createElement(&#x27;div&#x27;);
+  div.textContent = item.name;
+  list.appendChild(div);
+});</code></pre>
+
+<h3>v2: 批量操作 + 防抖</h3>
+
+<pre><code class="language-javascript">// Batch DOM updates, debounce frequent events
+const fragment = document.createDocumentFragment();
+data.forEach(item =&gt; {
+  const div = document.createElement(&#x27;div&#x27;);
+  div.textContent = item.name;
+  fragment.appendChild(div);
+});
+list.appendChild(fragment);
+
+input.addEventListener(&#x27;input&#x27;, debounce(search, 300));</code></pre>
+
+<h3>v3: 虚拟滚动 + Worker + 内存管理</h3>
+
+<pre><code class="language-javascript">// Full optimization: virtual scroll + off-thread computation + leak prevention
+const vlist = new VirtualList(container, largeData);
+const worker = new Worker(&#x27;heavy-calc.js&#x27;);
+worker.postMessage(data);
+// ... see complete implementations above</code></pre>
+
+<hr>
+
+<h2>十二、总结</h2>
+
+<p>性能优化的核心是<strong>测量先行</strong>——先用DevTools找到瓶颈，再针对性优化。三大方向：<strong>减少DOM操作</strong>（批量、虚拟滚动）、<strong>减轻主线程</strong>（Worker、RAF）、<strong>控制内存</strong>（及时清理、WeakMap）。记住：过早优化是万恶之源，但性能意识要从第一天培养。</p>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

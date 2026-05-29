@@ -1,0 +1,513 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>002 - ES6模块化与类：从原理到实战</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/JavaScript/index.html">JavaScript</a>
+<span class="sep">›</span>
+<a href="/tech-blog/JavaScript/01-ES6+/index.html">JavaScript ES6+</a>
+</nav>
+<h1>002 - ES6模块化与类：从原理到实战</h1>
+<div class="meta">
+<span>📂 JavaScript ES6+</span>
+<span>🏷️ JavaScript</span>
+</div>
+<article>
+
+
+
+<h1>ES6模块化与类：从原理到实战</h1>
+
+<blockquote><p><strong>难度标注：</strong> 🟡 中级 | <strong>前置知识：</strong> 函数、对象、基本模块概念<br><strong>阅读时间：</strong> 约18分钟 | <strong>代码量：</strong> 约150行</p></blockquote>
+
+<hr>
+
+<h2>一、概念讲解</h2>
+
+<h3>1.1 ES6模块系统</h3>
+
+<ul>
+<li><strong>静态结构：</strong> import/export必须在顶层，编译时确定依赖</li>
+<li><strong>严格模式：</strong> 模块自动启用<code>"use strict"</code></li>
+<li><strong>单例：</strong> 模块只执行一次，多次import共享同一实例</li>
+<li><strong>命名导出 vs 默认导出</strong></li>
+
+<h3>1.2 ES6类</h3>
+
+<ul>
+<li><strong>语法糖：</strong> 本质仍是原型继承</li>
+<li><code>constructor</code>：初始化方法</li>
+<li><code>extends</code>/<code>super</code>：继承链</li>
+<li><code>static</code>：静态方法</li>
+<li><code>#private</code>：私有字段（ES2022）</li>
+
+<hr>
+
+<h2>二、脑图</h2>
+
+<pre><code>          ES6模块化与类
+         /            \
+      模块系统        类语法
+      /    \         /   |   \
+  export  import  constructor  extends  static
+  /    \    |        |          |        |
+命名  默认  命名     初始化    super()  工厂
+导出  导出  导入     实例      继承     方法
+           /  \
+       副作用  动态
+       导入    import()</code></pre>
+
+<hr>
+
+<h2>三、完整代码示例</h2>
+
+<pre><code class="language-javascript">// ============================================
+// === FILE: math-utils.js (simulated) ===
+// ============================================
+
+// Named exports
+const PI = 3.14159;
+function square(x) { return x * x; }
+function cube(x) { return x * x * x; }
+
+// Simulating export
+const mathUtils = { PI, square, cube };
+
+// Default export
+const Calculator = {
+  add: (a, b) =&gt; a + b,
+  subtract: (a, b) =&gt; a - b,
+};
+
+// ============================================
+// === FILE: shapes.js (class hierarchy) ===
+// ============================================
+
+class Shape {
+  constructor(name) {
+    this.name = name;
+  }
+
+  // Instance method
+  describe() {
+    return `${this.name}: area = ${this.area().toFixed(2)}`;
+  }
+
+  // Static method
+  static create(type, ...args) {
+    switch (type) {
+      case &quot;circle&quot;: return new Circle(...args);
+      case &quot;rectangle&quot;: return new Rectangle(...args);
+      default: throw new Error(`Unknown shape: ${type}`);
+    }
+  }
+}
+
+class Circle extends Shape {
+  #radius; // private field (ES2022)
+
+  constructor(radius) {
+    super(&quot;Circle&quot;);
+    this.#radius = radius;
+  }
+
+  get radius() { return this.#radius; }
+  set radius(r) {
+    if (r &lt;= 0) throw new Error(&quot;Radius must be positive&quot;);
+    this.#radius = r;
+  }
+
+  area() {
+    return mathUtils.PI * this.#radius ** 2;
+  }
+
+  // Static method
+  static fromDiameter(d) {
+    return new Circle(d / 2);
+  }
+}
+
+class Rectangle extends Shape {
+  #width;
+  #height;
+
+  constructor(width, height) {
+    super(&quot;Rectangle&quot;);
+    this.#width = width;
+    this.#height = height;
+  }
+
+  area() {
+    return this.#width * this.#height;
+  }
+
+  get perimeter() {
+    return 2 * (this.#width + this.#height);
+  }
+}
+
+// ============================================
+// === FILE: main.js (usage) ===
+// ============================================
+
+// Using the classes
+const circle = new Circle(5);
+console.log(circle.describe());         // Circle: area = 78.54
+console.log(circle.radius);             // 5 (getter)
+
+circle.radius = 10;
+console.log(circle.describe());         // Circle: area = 314.16
+
+const rect = new Rectangle(4, 6);
+console.log(rect.describe());           // Rectangle: area = 24.00
+console.log(rect.perimeter);            // 20
+
+// Static factory method
+const shape = Shape.create(&quot;circle&quot;, 3);
+console.log(shape.describe());          // Circle: area = 28.27
+
+// Static method on subclass
+const c2 = Circle.fromDiameter(10);
+console.log(c2.describe());             // Circle: area = 78.54
+
+// Private field is truly private
+// console.log(circle.#radius);        // SyntaxError
+
+// instanceof checks
+console.log(circle instanceof Circle);  // true
+console.log(circle instanceof Shape);   // true
+console.log(rect instanceof Circle);    // false
+
+// ============================================
+// === Module patterns (simulated) ===
+// ============================================
+
+// Re-export pattern
+const mathModule = { ...mathUtils, Calculator };
+
+// Namespace pattern
+const Shapes = { Shape, Circle, Rectangle };
+
+console.log(&quot;---&quot;);
+console.log(&quot;mathModule keys:&quot;, Object.keys(mathModule));
+console.log(&quot;Shapes keys:&quot;, Object.keys(Shapes));</code></pre>
+
+<hr>
+
+<h2>四、执行预览</h2>
+
+<pre><code>Circle: area = 78.54
+5
+Circle: area = 314.16
+Rectangle: area = 24.00
+20
+Circle: area = 28.27
+Circle: area = 78.54
+true
+true
+false
+---
+mathModule keys: [ &#x27;PI&#x27;, &#x27;square&#x27;, &#x27;cube&#x27;, &#x27;Calculator&#x27; ]
+Shapes keys: [ &#x27;Shape&#x27;, &#x27;Circle&#x27;, &#x27;Rectangle&#x27; ]</code></pre>
+
+<hr>
+
+<h2>五、注意事项</h2>
+
+<table><thead><tr>
+<th>特性</th>
+<th>模块</th>
+<th>类</th>
+<th>说明</th>
+</tr></thead><tbody>
+<tr>
+<td>严格模式</td>
+<td>自动启用</td>
+<td>不自动</td>
+<td>模块内总是strict</td>
+</tr>
+<tr>
+<td>提升</td>
+<td>不提升（import）</td>
+<td>不提升（class）</td>
+<td>必须先定义后使用</td>
+</tr>
+<tr>
+<td>this</td>
+<td>undefined（顶层）</td>
+<td>实例（方法中）</td>
+<td>模块顶层this≠window</td>
+</tr>
+<tr>
+<td>重导出</td>
+<td><code>export { x } from</code></td>
+<td>N/A</td>
+<td>模块特有</td>
+</tr>
+<tr>
+<td>私有</td>
+<td>模块作用域天然私有</td>
+<td><code>#field</code></td>
+<td>不同机制</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>六、避坑指南</h2>
+
+<h3>❌ 循环依赖</h3>
+<pre><code class="language-javascript">// a.js
+import { b } from &#x27;./b.js&#x27;;
+export const a = b + 1;
+
+// b.js
+import { a } from &#x27;./a.js&#x27;;
+export const b = a + 1;
+// → ReferenceError or undefined values</code></pre>
+<h3>✅ 重构避免循环</h3>
+<pre><code class="language-javascript">// shared.js - extract shared types/constants
+export const BASE = 0;
+
+// a.js
+import { BASE } from &#x27;./shared.js&#x27;;
+export const a = BASE + 1;
+
+// b.js
+import { BASE } from &#x27;./shared.js&#x27;;
+export const b = BASE + 2;</code></pre>
+
+<h3>❌ 类中直接用箭头方法覆盖</h3>
+<pre><code class="language-javascript">class Foo {
+  bar = () =&gt; { this.x = 1; }; // arrow field: on instance, not prototype
+}
+// Each instance gets its own copy → more memory</code></pre>
+<h3>✅ 普通方法 + 构造函数bind（按需）</h3>
+<pre><code class="language-javascript">class Foo {
+  bar() { this.x = 1; } // on prototype, shared
+  constructor() {
+    this.bar = this.bar.bind(this); // bind once if needed
+  }
+}</code></pre>
+
+<hr>
+
+<h2>七、练习题</h2>
+
+<h3>🟢 基础</h3>
+<ol>
+<li>创建一个<code>Logger</code>类，支持<code>log(msg)</code>、<code>error(msg)</code>方法，<code>error</code>输出带<code>[ERROR]</code>前缀。</li>
+
+<h3>🟡 进阶</h3>
+<ol>
+<li>创建<code>Stack<T></code>类，使用私有字段，实现<code>push</code>、<code>pop</code>、<code>peek</code>、<code>size</code> getter、<code>isEmpty</code>方法。</li>
+
+<h3>🔴 挑战</h3>
+<ol>
+<li>实现一个<code>EventEmitter</code>类，支持<code>on(event, listener)</code>、<code>off(event, listener)</code>、<code>emit(event, ...args)</code>、<code>once(event, listener)</code>，并处理边缘情况（重复监听、emit无监听器等）。</li>
+
+<hr>
+
+<h2>八、知识点总结</h2>
+
+<pre><code>模块化与类
+├── 模块系统
+│   ├── export (命名/默认)
+│   ├── import (命名/默认/全部)
+│   ├── 动态 import()
+│   └── 模块特性 (严格模式/单例/静态)
+├── 类语法
+│   ├── constructor
+│   ├── 实例方法/属性
+│   ├── 静态方法/属性
+│   ├── getter/setter
+│   ├── 私有字段 #
+│   └── extends/super 继承
+└── 设计原则
+    ├── 组合优于继承
+    ├── 模块单一职责
+    └── 避免循环依赖</code></pre>
+
+<hr>
+
+<h2>九、举一反三</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>模块</th>
+<th>类</th>
+<th>说明</th>
+</tr></thead><tbody>
+<tr>
+<td>工具函数</td>
+<td><code>export function</code></td>
+<td>—</td>
+<td>纯函数，无状态</td>
+</tr>
+<tr>
+<td>数据模型</td>
+<td><code>export class</code></td>
+<td><code>class Model</code></td>
+<td>有状态和行为的实体</td>
+</tr>
+<tr>
+<td>配置常量</td>
+<td><code>export const</code></td>
+<td>—</td>
+<td>集中管理</td>
+</tr>
+<tr>
+<td>服务层</td>
+<td><code>export class</code></td>
+<td>单例模式</td>
+<td>API调用、数据库访问</td>
+</tr>
+<tr>
+<td>插件系统</td>
+<td>动态<code>import()</code></td>
+<td>抽象基类</td>
+<td>按需加载</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>十、参考资料</h2>
+
+<ul>
+<li><a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Statements/export">MDN: export</a></li>
+<li><a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Statements/import">MDN: import</a></li>
+<li><a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Classes">MDN: Classes</a></li>
+<li><a href="https://hacks.mozilla.org/2015/08/es6-in-depth-modules/">ES6 In Depth: Modules</a></li>
+
+<hr>
+
+<h2>十一、代码演进</h2>
+
+<h3>v1: ES5原型继承</h3>
+<pre><code class="language-javascript">function Shape(name) { this.name = name; }
+Shape.prototype.describe = function() {
+  return this.name;
+};
+function Circle(radius) {
+  Shape.call(this, &quot;Circle&quot;);
+  this.radius = radius;
+}
+Circle.prototype = Object.create(Shape.prototype);
+Circle.prototype.constructor = Circle;
+Circle.prototype.area = function() {
+  return Math.PI * this.radius * this.radius;
+};</code></pre>
+
+<h3>v2: ES6 class</h3>
+<pre><code class="language-javascript">class Shape {
+  constructor(name) { this.name = name; }
+  describe() { return this.name; }
+}
+class Circle extends Shape {
+  constructor(radius) {
+    super(&quot;Circle&quot;);
+    this.radius = radius;
+  }
+  area() { return Math.PI * this.radius ** 2; }
+}</code></pre>
+
+<h3>v3: ES2022私有字段</h3>
+<pre><code class="language-javascript">class Circle extends Shape {
+  #radius;
+  constructor(radius) {
+    super(&quot;Circle&quot;);
+    this.#radius = radius;
+  }
+  get radius() { return this.#radius; }
+  area() { return Math.PI * this.#radius ** 2; }
+}</code></pre>
+
+<hr>
+
+<h2>十二、总结</h2>
+
+<table><thead><tr>
+<th>核心要点</th>
+<th>说明</th>
+</tr></thead><tbody>
+<tr>
+<td><strong>模块静态化</strong></td>
+<td>编译时确定依赖，利于tree-shaking</td>
+</tr>
+<tr>
+<td><strong>命名导出优先</strong></td>
+<td>更好的IDE支持和重构</td>
+</tr>
+<tr>
+<td><strong>class是语法糖</strong></td>
+<td>理解原型链才能用好类</td>
+</tr>
+<tr>
+<td><strong>私有字段#</strong></td>
+<td>ES2022真私有，不再需要闭包</td>
+</tr>
+<tr>
+<td><strong>避免循环依赖</strong></td>
+<td>模块设计的基本原则</td>
+</tr>
+</tbody></table>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

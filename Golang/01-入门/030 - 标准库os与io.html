@@ -1,0 +1,662 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>030 - 标准库os与io</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/learning-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/learning-blog/Golang/index.html">Golang</a>
+<span class="sep">›</span>
+<a href="/learning-blog/Golang/01-入门/index.html">Golang入门</a>
+</nav>
+<h1>030 - 标准库os与io</h1>
+<div class="meta">
+<span>📂 Golang入门</span>
+<span>🏷️ Golang</span>
+</div>
+<article>
+
+
+
+<h1>030 - 标准库 os 与 io</h1>
+
+<blockquote><p>难度：⭐⭐⭐（中高级）<br><br>掌握 Go 文件操作、IO 接口和缓冲读写的核心技能，构建可靠的文件处理能力。</p></blockquote>
+
+<hr>
+
+<h2>一、概念讲解</h2>
+
+<p>Go 的 <code>os</code> 包提供了操作系统功能的抽象：文件操作、环境变量、命令行参数、进程管理等。<code>io</code> 包定义了最核心的 <code>Reader</code> 和 <code>Writer</code> 接口，是 Go IO 体系的基石。<code>bufio</code> 包在此基础上提供缓冲，减少系统调用次数，提升性能。</p>
+
+<p><strong>核心理念：</strong></p>
+
+<ul>
+<li><code>io.Reader</code> / <code>io.Writer</code> 是 Go IO 的灵魂接口</li>
+<li><code>os.File</code> 同时实现了这两个接口</li>
+<li><code>bufio</code> 包装器模式：<code>bufio.NewReader(os.File)</code> 提升性能</li>
+<li>一切皆 <code>io.Reader/Writer</code>，组合优于继承</li>
+
+<hr>
+
+<h2>二、脑图</h2>
+
+<pre><code>                  os &amp; io
+                    │
+        ┌───────────┼───────────┐
+        │           │           │
+       os          io         bufio
+        │           │           │
+   ┌────┼────┐   ┌──┼──┐   ┌───┼───┐
+   │    │    │   │  │  │   │   │   │
+ File  Env  Args Reader│ Writer │
+ Open Create │ Copy  │ Scan  │
+ Mkdir Remove│ReadAll│ Writer │
+   │         │       │       │
+ Stat Exit  Writer  Pipe   bufio.
+   │                  │     ReadLine
+ filepath          TeeReader</code></pre>
+
+<hr>
+
+<h2>三、完整代码</h2>
+
+<pre><code class="language-go">package main
+
+import (
+	&quot;bufio&quot;
+	&quot;fmt&quot;
+	&quot;io&quot;
+	&quot;log&quot;
+	&quot;os&quot;
+	&quot;path/filepath&quot;
+	&quot;strings&quot;
+)
+
+func main() {
+	// Create a temp dir for our demo
+	tmpDir, err := os.MkdirTemp(&quot;&quot;, &quot;os-io-demo&quot;)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer os.RemoveAll(tmpDir) // clean up
+
+	fmt.Printf(&quot;Working dir: %s\n&quot;, tmpDir)
+
+	// ========== os.Create: create file for writing ==========
+	filePath := filepath.Join(tmpDir, &quot;test.txt&quot;)
+	f, err := os.Create(filePath)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// Write string to file
+	n, err := f.WriteString(&quot;Hello, Go IO!\nLine 2\nLine 3\n&quot;)
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Printf(&quot;Wrote %d bytes\n&quot;, n)
+	f.Close()
+
+	// ========== os.Open: read-only open ==========
+	f, err = os.Open(filePath)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// Read all content using io.ReadAll
+	data, err := io.ReadAll(f)
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Printf(&quot;File content:\n%s&quot;, data)
+	f.Close()
+
+	// ========== os.OpenFile: with flags ==========
+	f, err = os.OpenFile(filePath, os.O_RDWR|os.O_APPEND, 0644)
+	if err != nil {
+		log.Fatal(err)
+	}
+	f.WriteString(&quot;Appended line\n&quot;)
+	f.Close()
+
+	// ========== os.Stat: file info ==========
+	info, err := os.Stat(filePath)
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Printf(&quot;Name: %s, Size: %d, Mode: %v, IsDir: %v\n&quot;,
+		info.Name(), info.Size(), info.Mode(), info.IsDir())
+	fmt.Printf(&quot;ModTime: %v\n&quot;, info.ModTime())
+
+	// ========== Directory operations ==========
+	subDir := filepath.Join(tmpDir, &quot;sub&quot;, &quot;deep&quot;)
+	err = os.MkdirAll(subDir, 0755) // creates all parent dirs
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Printf(&quot;Created: %s\n&quot;, subDir)
+
+	// List directory entries
+	entries, _ := os.ReadDir(tmpDir)
+	for _, entry := range entries {
+		fmt.Printf(&quot;  Entry: %s (dir=%v)\n&quot;, entry.Name(), entry.IsDir())
+	}
+
+	// Remove a file
+	tempFile := filepath.Join(tmpDir, &quot;temp.txt&quot;)
+	os.WriteFile(tempFile, []byte(&quot;temp&quot;), 0644)
+	os.Remove(tempFile)
+	fmt.Println(&quot;Removed temp.txt&quot;)
+
+	// ========== os.ReadFile / os.WriteFile (convenience) ==========
+	content := []byte(&quot;Quick read/write demo\n&quot;)
+	err = os.WriteFile(filepath.Join(tmpDir, &quot;quick.txt&quot;), content, 0644)
+	if err != nil {
+		log.Fatal(err)
+	}
+	readContent, _ := os.ReadFile(filepath.Join(tmpDir, &quot;quick.txt&quot;))
+	fmt.Printf(&quot;Quick read: %s&quot;, readContent)
+
+	// ========== bufio: buffered reading ==========
+	f, _ = os.Open(filePath)
+	scanner := bufio.NewScanner(f)
+	lineNum := 0
+	for scanner.Scan() {
+		lineNum++
+		fmt.Printf(&quot;  Line %d: %s\n&quot;, lineNum, scanner.Text())
+	}
+	if err := scanner.Err(); err != nil {
+		fmt.Printf(&quot;Scanner error: %v\n&quot;, err)
+	}
+	f.Close()
+
+	// ========== bufio: buffered writing ==========
+	bufFile := filepath.Join(tmpDir, &quot;buffered.txt&quot;)
+	bf, _ := os.Create(bufFile)
+	writer := bufio.NewWriter(bf)
+	for i := 0; i &lt; 5; i++ {
+		writer.WriteString(fmt.Sprintf(&quot;Buffered line %d\n&quot;, i))
+	}
+	writer.Flush() // DON&#x27;T forget to flush!
+	bf.Close()
+
+	// ========== io.Copy: copy from Reader to Writer ==========
+	src, _ := os.Open(bufFile)
+	dst, _ := os.Create(filepath.Join(tmpDir, &quot;copy.txt&quot;))
+	copied, _ := io.Copy(dst, src)
+	fmt.Printf(&quot;Copied %d bytes\n&quot;, copied)
+	src.Close()
+	dst.Close()
+
+	// ========== io.Pipe: in-memory pipe ==========
+	pr, pw := io.Pipe()
+	go func() {
+		pw.Write([]byte(&quot;Data through pipe\n&quot;))
+		pw.Close()
+	}()
+	pipeData, _ := io.ReadAll(pr)
+	fmt.Printf(&quot;Pipe: %s&quot;, pipeData)
+
+	// ========== io.TeeReader: read and capture ==========
+	src2, _ := os.Open(bufFile)
+	var buf strings.Builder
+	tee := io.TeeReader(src2, &amp;buf)
+	io.ReadAll(tee) // reads all, also writes to buf
+	src2.Close()
+	fmt.Printf(&quot;TeeReader captured: %d bytes\n&quot;, buf.Len())
+
+	// ========== os.Args: command line arguments ==========
+	fmt.Printf(&quot;Args: %v\n&quot;, os.Args)
+
+	// ========== os.Environ / os.Getenv ==========
+	home := os.Getenv(&quot;HOME&quot;)
+	fmt.Printf(&quot;HOME: %s\n&quot;, home)
+	path := os.Getenv(&quot;PATH&quot;)
+	fmt.Printf(&quot;PATH (first 50): %s...\n&quot;, path[:min(50, len(path))])
+
+	// os.Environ returns all env vars
+	envCount := 0
+	for _, e := range os.Environ() {
+		if strings.HasPrefix(e, &quot;GO&quot;) {
+			fmt.Printf(&quot;  Go env: %s\n&quot;, e)
+			envCount++
+		}
+	}
+	fmt.Printf(&quot;Go-related env vars: %d\n&quot;, envCount)
+
+	// ========== os.Exit ==========
+	// os.Exit(0) would terminate immediately, skipping deferred functions!
+	// Use log.Fatal or return from main instead when defers matter.
+
+	// ========== filepath: path operations ==========
+	fmt.Printf(&quot;Join:      %s\n&quot;, filepath.Join(&quot;a&quot;, &quot;b&quot;, &quot;c.txt&quot;))
+	fmt.Printf(&quot;Base:      %s\n&quot;, filepath.Base(&quot;/a/b/c.txt&quot;))
+	fmt.Printf(&quot;Dir:       %s\n&quot;, filepath.Dir(&quot;/a/b/c.txt&quot;))
+	fmt.Printf(&quot;Ext:       %s\n&quot;, filepath.Ext(&quot;main.go&quot;))
+	fmt.Printf(&quot;Abs:       %s\n&quot;, func() string {
+		abs, _ := filepath.Abs(&quot;.&quot;)
+		return abs
+	}())
+
+	// Walk directory
+	fmt.Println(&quot;Walking temp dir:&quot;)
+	filepath.Walk(tmpDir, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		indent := strings.Repeat(&quot;  &quot;, strings.Count(path[len(tmpDir):], string(os.PathSeparator)))
+		fmt.Printf(&quot;%s%s\n&quot;, indent, info.Name())
+		return nil
+	})
+
+	// ========== io/ioutil is DEPRECATED ==========
+	// io/ioutil.ReadFile  → use os.ReadFile
+	// io/ioutil.WriteFile → use os.WriteFile
+	// io/ioutil.ReadDir   → use os.ReadDir
+	// io/ioutil.TempDir   → use os.MkdirTemp
+	// io/ioutil.TempFile  → use os.CreateTemp
+	fmt.Println(&quot;\nNote: io/ioutil is deprecated since Go 1.16, use os/io equivalents&quot;)
+}
+
+func min(a, b int) int {
+	if a &lt; b {
+		return a
+	}
+	return b
+}</code></pre>
+
+<h3>执行预览</h3>
+
+<pre><code>Working dir: /tmp/os-io-demo123456
+Wrote 28 bytes
+File content:
+Hello, Go IO!
+Line 2
+Line 3
+Name: test.txt, Size: 42, Mode: -rw-r--r--, IsDir: false
+ModTime: 2024-06-15 14:30:45 +0800 CST
+Created: /tmp/os-io-demo123456/sub/deep
+  Entry: quick.txt (dir=false)
+  Entry: sub (dir=true)
+  Entry: test.txt (dir=false)
+Removed temp.txt
+Quick read: Quick read/write demo
+  Line 1: Hello, Go IO!
+  Line 2: Line 2
+  Line 3: Line 3
+  Line 4: Appended line
+Copied 75 bytes
+Pipe: Data through pipe
+TeeReader captured: 75 bytes
+Args: [/tmp/go-build123/main.exe]
+HOME: /home/user
+PATH (first 50): /usr/local/bin:/usr/bin:/bin:/usr/local/go...
+Go-related env vars: 2
+  Go env: GOROOT=/usr/local/go
+  Go env: GOPATH=/home/user/go
+Join:      a/b/c.txt
+Base:      c.txt
+Dir:       /a/b
+Ext:       .go
+Walking temp dir:
+os-io-demo123456
+  quick.txt
+  sub
+    deep
+  test.txt
+  copy.txt
+  buffered.txt
+
+Note: io/ioutil is deprecated since Go 1.16, use os/io equivalents</code></pre>
+
+<hr>
+
+<h2>四、注意事项</h2>
+
+<table><thead><tr>
+<th>项目</th>
+<th>说明</th>
+</tr></thead><tbody>
+<tr>
+<td><code>os.Create</code> 会截断</td>
+<td>如果文件已存在，内容会被清空；用 <code>OpenFile</code> + <code>O_APPEND</code> 追加</td>
+</tr>
+<tr>
+<td><code>os.Open</code> 只读</td>
+<td>写文件需要 <code>os.Create</code> 或 <code>os.OpenFile</code></td>
+</tr>
+<tr>
+<td><code>defer Close()</code></td>
+<td>打开文件后立即 <code>defer f.Close()</code>，注意检查 Close 的错误</td>
+</tr>
+<tr>
+<td><code>bufio.Writer.Flush()</code></td>
+<td>忘记 Flush 数据不会写入文件</td>
+</tr>
+<tr>
+<td><code>os.Exit</code> 跳过 defer</td>
+<td><code>os.Exit</code> 直接退出，deferred 函数不会执行</td>
+</tr>
+<tr>
+<td><code>os.ReadDir</code> 排序</td>
+<td>返回的 entries 按文件名排序</td>
+</tr>
+<tr>
+<td><code>filepath.Join</code> vs <code>+</code></td>
+<td>用 Join 处理路径分隔符跨平台问题</td>
+</tr>
+<tr>
+<td><code>io.ReadAll</code> 内存</td>
+<td>读取大文件注意内存占用，可用 <code>io.Copy</code> 流式处理</td>
+</tr>
+<tr>
+<td><code>bufio.Scanner</code> 行长限制</td>
+<td>默认 64KB，超长行需用 <code>scanner.Buffer()</code> 扩大</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>五、避坑指南</h2>
+
+<p>❌ <strong>忘记关闭文件</strong></p>
+<pre><code class="language-go">func readFile(path string) []byte {
+    f, _ := os.Open(path)
+    data, _ := io.ReadAll(f)
+    // Oops: f.Close() missing! File handle leak.
+    return data
+}</code></pre>
+
+<p>✅ <strong>立即 defer Close</strong></p>
+<pre><code class="language-go">func readFile(path string) ([]byte, error) {
+    f, err := os.Open(path)
+    if err != nil {
+        return nil, err
+    }
+    defer f.Close()
+    return io.ReadAll(f)
+}</code></pre>
+
+<hr>
+
+<p>❌ <strong>用 <code>string(os.PathSeparator)</code> 拼路径</strong></p>
+<pre><code class="language-go">path := &quot;dir&quot; + string(os.PathSeparator) + &quot;file.txt&quot;
+// Works but fragile and ugly</code></pre>
+
+<p>✅ <strong>用 <code>filepath.Join</code></strong></p>
+<pre><code class="language-go">path := filepath.Join(&quot;dir&quot;, &quot;file.txt&quot;)</code></pre>
+
+<hr>
+
+<p>❌ <strong>用 <code>ioutil</code>（已废弃）</strong></p>
+<pre><code class="language-go">// Deprecated!
+data, _ := ioutil.ReadFile(&quot;config.json&quot;)</code></pre>
+
+<p>✅ <strong>用 <code>os.ReadFile</code></strong></p>
+<pre><code class="language-go">data, err := os.ReadFile(&quot;config.json&quot;)</code></pre>
+
+<hr>
+
+<p>❌ <strong>bufio.Writer 忘记 Flush</strong></p>
+<pre><code class="language-go">w := bufio.NewWriter(f)
+w.WriteString(&quot;important data&quot;)
+// Program exits, data lost!</code></pre>
+
+<p>✅ <strong>显式 Flush 或使用 defer</strong></p>
+<pre><code class="language-go">w := bufio.NewWriter(f)
+defer w.Flush()
+w.WriteString(&quot;important data&quot;)</code></pre>
+
+<hr>
+
+<h2>六、练习题</h2>
+
+<h3>🟢 初级</h3>
+<ol>
+<li>写一个程序，读取自身源文件并打印行数</li>
+</ul>
+<ol>
+<li>实现一个函数 <code>envOr(key, defaultVal string) string</code>，获取环境变量或返回默认值</li>
+
+<h3>🟡 中级</h3>
+<ol>
+<li>实现一个简单的文件复制函数 <code>copyFile(src, dst string) error</code>，使用 <code>io.Copy</code></li>
+</ul>
+<ol>
+<li>使用 <code>bufio.Scanner</code> 实现一个简易 <code>wc -l</code>，统计文件行数</li>
+
+<h3>🔴 高级</h3>
+<ol>
+<li>实现一个日志轮转写入器：当文件超过 10MB 时自动切换到新文件（<code>log_1.txt</code> → <code>log_2.txt</code>），实现 <code>io.Writer</code> 接口</li>
+
+<hr>
+
+<h2>七、知识点总结</h2>
+
+<pre><code>os &amp; io
+├── os
+│   ├── 文件操作
+│   │   ├── Create(name)       — 创建/截断
+│   │   ├── Open(name)         — 只读打开
+│   │   ├── OpenFile(name, flag, perm) — 指定模式
+│   │   ├── ReadFile(name)     — 便捷读取
+│   │   ├── WriteFile(name, data, perm) — 便捷写入
+│   │   ├── Remove(name)       — 删除文件
+│   │   └── Rename(old, new)   — 重命名
+│   ├── 目录操作
+│   │   ├── Mkdir(name, perm)  — 创建目录
+│   │   ├── MkdirAll(path, perm)— 递归创建
+│   │   ├── ReadDir(name)      — 列出目录
+│   │   └── RemoveAll(path)    — 递归删除
+│   ├── 环境信息
+│   │   ├── Args               — 命令行参数
+│   │   ├── Getenv(key)        — 获取环境变量
+│   │   ├── Setenv(key, val)   — 设置环境变量
+│   │   ├── Environ()          — 所有环境变量
+│   │   └── Exit(code)         — 退出进程
+│   └── 文件信息
+│       ├── Stat(path)         — 文件信息
+│       └── File.Stat()        — 已打开文件的信息
+├── io
+│   ├── 接口
+│   │   ├── Reader             — Read([]byte) (n, err)
+│   │   ├── Writer             — Write([]byte) (n, err)
+│   │   ├── Closer             — Close() error
+│   │   └── ReadWriter         — Reader + Writer
+│   ├── 工具函数
+│   │   ├── Copy(dst, src)     — 流式复制
+│   │   ├── ReadAll(r)         — 读取全部
+│   │   ├── Pipe()             — 内存管道
+│   │   └── TeeReader(r, w)    — 边读边写
+│   └── 特殊值
+│       ├── EOF                — 结束标记
+│       └── Discard            — 丢弃写入
+├── bufio
+│   ├── NewScanner(r)          — 逐行扫描
+│   ├── NewReader(r)           — 缓冲读取
+│   └── NewWriter(w)           — 缓冲写入
+└── filepath
+    ├── Join(elem...)          — 拼接路径
+    ├── Base(path)             — 文件名
+    ├── Dir(path)              — 目录部分
+    ├── Ext(path)              — 扩展名
+    ├── Abs(path)              — 绝对路径
+    └── Walk(root, walkFn)     — 遍历目录树</code></pre>
+
+<hr>
+
+<h2>八、举一反三</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>包</th>
+<th>函数/方法</th>
+</tr></thead><tbody>
+<tr>
+<td>读取配置文件</td>
+<td><code>os</code></td>
+<td><code>ReadFile</code></td>
+</tr>
+<tr>
+<td>写入日志</td>
+<td><code>os</code></td>
+<td><code>OpenFile(...O_APPEND)</code></td>
+</tr>
+<tr>
+<td>复制文件</td>
+<td><code>io</code></td>
+<td><code>Copy(dst, src)</code></td>
+</tr>
+<tr>
+<td>逐行处理文本</td>
+<td><code>bufio</code></td>
+<td><code>NewScanner</code> + <code>Scan</code></td>
+</tr>
+<tr>
+<td>高性能写入</td>
+<td><code>bufio</code></td>
+<td><code>NewWriter</code> + <code>Flush</code></td>
+</tr>
+<tr>
+<td>临时文件</td>
+<td><code>os</code></td>
+<td><code>CreateTemp</code></td>
+</tr>
+<tr>
+<td>环境变量配置</td>
+<td><code>os</code></td>
+<td><code>Getenv</code> / <code>LookupEnv</code></td>
+</tr>
+<tr>
+<td>目录遍历</td>
+<td><code>filepath</code></td>
+<td><code>Walk</code> / <code>WalkDir</code></td>
+</tr>
+<tr>
+<td>流式传输（HTTP）</td>
+<td><code>io</code></td>
+<td><code>Copy(responseWriter, file)</code></td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>九、参考资料</h2>
+
+<ul>
+<li><a href="https://pkg.go.dev/os">os 官方文档</a></li>
+<li><a href="https://pkg.go.dev/io">io 官方文档</a></li>
+<li><a href="https://pkg.go.dev/bufio">bufio 官方文档</a></li>
+<li><a href="https://pkg.go.dev/path/filepath">filepath 官方文档</a></li>
+<li><a href="https://go.dev/doc/go1.16#ioutil">io/ioutil 废弃说明</a></li>
+
+<hr>
+
+<h2>十、代码演进</h2>
+
+<h3>v1：基础文件读写</h3>
+<pre><code class="language-go">package main
+
+import (
+    &quot;fmt&quot;
+    &quot;os&quot;
+)
+
+func main() {
+    os.WriteFile(&quot;/tmp/hello.txt&quot;, []byte(&quot;Hello, Go!\n&quot;), 0644)
+    data, _ := os.ReadFile(&quot;/tmp/hello.txt&quot;)
+    fmt.Print(string(data))
+}</code></pre>
+
+<h3>v2：缓冲读写 + 错误处理</h3>
+<pre><code class="language-go">package main
+
+import (
+    &quot;bufio&quot;
+    &quot;fmt&quot;
+    &quot;log&quot;
+    &quot;os&quot;
+)
+
+func main() {
+    // Write with buffering
+    f, err := os.Create(&quot;/tmp/lines.txt&quot;)
+    if err != nil {
+        log.Fatal(err)
+    }
+    defer f.Close()
+
+    w := bufio.NewWriter(f)
+    for i := 0; i &lt; 10; i++ {
+        w.WriteString(fmt.Sprintf(&quot;Line %d\n&quot;, i))
+    }
+    w.Flush()
+
+    // Read line by line
+    f, _ = os.Open(&quot;/tmp/lines.txt&quot;)
+    defer f.Close()
+    scanner := bufio.NewScanner(f)
+    for scanner.Scan() {
+        fmt.Println(scanner.Text())
+    }
+}</code></pre>
+
+<h3>v3：完整 IO 工具集（io.Copy、Pipe、TeeReader、filepath、环境变量）</h3>
+<p>（即上方完整代码，涵盖 os 全操作、io 接口、bufio 缓冲、filepath 路径处理）</p>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

@@ -1,0 +1,475 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>039 - Docker 容器化与 docker-compose 编排</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Hyperf/index.html">Hyperf</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Hyperf/01-微服务实战/index.html">Hyperf微服务实战</a>
+</nav>
+<h1>039 - Docker 容器化与 docker-compose 编排</h1>
+<div class="meta">
+<span>📂 Hyperf微服务实战</span>
+<span>🏷️ Hyperf</span>
+</div>
+<article>
+
+
+<h1>Docker 容器化与 docker-compose 编排</h1>
+
+<blockquote><p><strong>难度：</strong> ⭐⭐⭐<br><strong>前置知识：</strong> Docker 基础命令、Hyperf 项目结构、网络基础<br><strong>预估用时：</strong> 50-70 分钟</p></blockquote>
+
+<h2>1. 概念讲解</h2>
+
+<p><strong>Docker 容器化</strong>是将应用及其依赖打包成标准化单元（镜像），在任何环境中一致运行的技术。<strong>docker-compose</strong> 是定义和运行多容器应用的工具，通过一个 YAML 文件编排所有服务。</p>
+
+<p>类比理解：Docker 镜像就像预装好软件的笔记本电脑——无论带到哪里，打开就能用，环境完全一致。docker-compose 就像一个乐队指挥，协调各个乐器（容器）按正确的顺序、正确的音量（资源限制）一起演奏。</p>
+
+<p>在用户服务中，我们需要容器化 Hyperf 应用、MySQL、Redis、Kafka、Elasticsearch 等所有依赖，用 docker-compose 一键启动完整的开发和测试环境。</p>
+
+<h2>2. 实时脑图</h2>
+
+<pre><code>┌───────────────────────────────────────────────────┐
+│       Docker Compose Architecture                  │
+├───────────────────────────────────────────────────┤
+│                                                    │
+│  [Docker Network: user-service-net]                │
+│                                                    │
+│  ┌─────────────┐  ┌─────────────┐                 │
+│  │ user-service │  │   MySQL     │                 │
+│  │ (Hyperf)    │──│   8.0       │                 │
+│  │ Port: 9501  │  │ Port: 3306  │                 │
+│  └──────┬──────┘  └─────────────┘                 │
+│         │                                          │
+│  ┌──────┴──────┐  ┌─────────────┐                 │
+│  │   Redis     │  │   Kafka     │                 │
+│  │ Port: 6379  │  │ Port: 9092  │                 │
+│  └─────────────┘  └──────┬──────┘                 │
+│                          │                         │
+│                   ┌──────┴──────┐                  │
+│                   │  ZooKeeper  │                  │
+│                   │ Port: 2181  │                  │
+│                   └─────────────┘                  │
+│                                                    │
+│  Build Flow:                                      │
+│  Dockerfile -&gt; composer install -&gt; php bin/hyperf  │
+└───────────────────────────────────────────────────┘</code></pre>
+
+<h2>3. 完整代码</h2>
+
+<h3>3.1 Dockerfile</h3>
+
+<pre><code class="language-dockerfile"># ✅ Multi-stage build for production optimization
+FROM php:8.2-cli AS base
+
+# ✅ Install system dependencies
+RUN apt-get update &amp;&amp; apt-get install -y \
+    git curl zip unzip libzip-dev libpq-dev \
+    &amp;&amp; docker-php-ext-install pdo_mysql zip pcntl opcache \
+    &amp;&amp; pecl install redis &amp;&amp; docker-php-ext-enable redis \
+    &amp;&amp; apt-get clean
+
+# ✅ Install Swoole (required by Hyperf)
+RUN pecl install swoole &amp;&amp; docker-php-ext-enable swoole
+
+COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
+
+WORKDIR /app
+
+# ✅ Copy dependency files first (Docker layer caching)
+COPY composer.json composer.lock ./
+RUN composer install --no-dev --no-scripts --prefer-dist --optimize-autoloader
+
+# ✅ Copy application code
+COPY . .
+
+# ✅ Production optimizations
+RUN composer dump-autoload --optimize
+
+EXPOSE 9501
+
+# ✅ Health check
+HEALTHCHECK --interval=30s --timeout=3s \
+    CMD curl -f http://localhost:9501/ || exit 1
+
+# ✅ Start Hyperf server
+CMD [&quot;php&quot;, &quot;bin/hyperf.php&quot;, &quot;start&quot;]</code></pre>
+
+<h3>3.2 Docker Compose <code>docker-compose.yml</code></h3>
+
+<pre><code class="language-yaml">version: &#x27;3.8&#x27;
+
+services:
+  # ✅ Hyperf user service
+  user-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - &quot;9501:9501&quot;
+    environment:
+      - APP_ENV=production
+      - DB_HOST=mysql
+      - DB_PORT=3306
+      - DB_DATABASE=user_service
+      - DB_USERNAME=root
+      - DB_PASSWORD=secret
+      - REDIS_HOST=redis
+      - KAFKA_BROKERS=kafka:9092
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_started
+      kafka:
+        condition: service_started
+    networks:
+      - user-service-net
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: &#x27;1.0&#x27;
+
+  # ✅ MySQL 8.0
+  mysql:
+    image: mysql:8.0
+    ports:
+      - &quot;3306:3306&quot;
+    environment:
+      MYSQL_ROOT_PASSWORD: secret
+      MYSQL_DATABASE: user_service
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./docker/mysql/init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: [&quot;CMD&quot;, &quot;mysqladmin&quot;, &quot;ping&quot;, &quot;-h&quot;, &quot;localhost&quot;]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - user-service-net
+
+  # ✅ Redis
+  redis:
+    image: redis:7-alpine
+    ports:
+      - &quot;6379:6379&quot;
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    networks:
+      - user-service-net
+
+  # ✅ Kafka + ZooKeeper
+  zookeeper:
+    image: confluentinc/cp-zookeeper:latest
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+    networks:
+      - user-service-net
+
+  kafka:
+    image: confluentinc/cp-kafka:latest
+    ports:
+      - &quot;9092:9092&quot;
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+    depends_on:
+      - zookeeper
+    networks:
+      - user-service-net
+
+networks:
+  user-service-net:
+    driver: bridge
+
+volumes:
+  mysql_data:
+  redis_data:</code></pre>
+
+<h3>3.3 开发环境覆盖 <code>docker-compose.override.yml</code></h3>
+
+<pre><code class="language-yaml"># ✅ Development overrides: hot reload + xdebug
+version: &#x27;3.8&#x27;
+services:
+  user-service:
+    build:
+      target: base
+    volumes:
+      - ./:/app  # ✅ Mount source for hot reload
+    environment:
+      - APP_ENV=development</code></pre>
+
+<h3>3.4 初始化 SQL <code>docker/mysql/init.sql</code></h3>
+
+<pre><code class="language-sql">-- ✅ Database initialization script
+CREATE DATABASE IF NOT EXISTS user_service;
+USE user_service;
+
+CREATE TABLE IF NOT EXISTS users (
+    id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    username VARCHAR(50) NOT NULL,
+    email VARCHAR(255) NOT NULL UNIQUE,
+    password VARCHAR(255) NOT NULL,
+    status VARCHAR(20) DEFAULT &#x27;pending&#x27;,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_status (status),
+    INDEX idx_email (email)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS user_points (
+    id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    user_id BIGINT UNSIGNED NOT NULL UNIQUE,
+    points INT DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;</code></pre>
+
+<h3>3.5 .dockerignore</h3>
+
+<pre><code>.git
+runtime
+vendor
+node_modules
+.env
+docker-compose*.yml
+Dockerfile
+*.md</code></pre>
+
+<h2>4. 执行预览</h2>
+
+<pre><code class="language-bash"># Build and start all services
+$ docker-compose up -d --build
+
+# Check status
+$ docker-compose ps
+# NAME            STATUS         PORTS
+# user-service    Up 30 seconds  0.0.0.0:9501-&gt;9501/tcp
+# mysql           Up 30 seconds  0.0.0.0:3306-&gt;3306/tcp
+# redis           Up 30 seconds  0.0.0.0:6379-&gt;6379/tcp
+# kafka           Up 30 seconds  0.0.0.0:9092-&gt;9092/tcp
+
+# Test registration
+$ curl -X POST http://localhost:9501/api/register \
+  -H &quot;Content-Type: application/json&quot; \
+  -d &#x27;{&quot;username&quot;:&quot;testuser&quot;,&quot;email&quot;:&quot;test@example.com&quot;,&quot;password&quot;:&quot;password123&quot;}&#x27;
+{&quot;code&quot;:0,&quot;message&quot;:&quot;Registration successful&quot;}
+
+# View logs
+$ docker-compose logs -f user-service
+
+# Stop all
+$ docker-compose down</code></pre>
+
+<h2>5. 注意事项</h2>
+
+<table><thead><tr>
+<th>约束</th>
+<th>说明</th>
+<th>违反后果</th>
+</tr></thead><tbody>
+<tr>
+<td>不在镜像中存密码</td>
+<td>用 environment 或 .env</td>
+<td>镜像泄露密码</td>
+</tr>
+<tr>
+<td>设置资源限制</td>
+<td>memory + cpus limits</td>
+<td>单容器吃光宿主机资源</td>
+</tr>
+<tr>
+<td>健康检查必配</td>
+<td>HEALTHCHECK 或 healthcheck</td>
+<td>无法检测服务异常</td>
+</tr>
+<tr>
+<td>.dockerignore 要配好</td>
+<td>排除 runtime/vendor</td>
+<td>构建慢，镜像大</td>
+</tr>
+<tr>
+<td>生产不用 override</td>
+<td>分离开发/生产配置</td>
+<td>开发配置带入生产</td>
+</tr>
+</tbody></table>
+
+<h2>6. 避坑指南</h2>
+
+<table><thead><tr>
+<th>错误</th>
+<th>现象</th>
+<th>正确做法</th>
+</tr></thead><tbody>
+<tr>
+<td>每次都 COPY 全部代码</td>
+<td>构建缓存失效，极慢</td>
+<td>先 COPY composer.json，再 COPY .</td>
+</tr>
+<tr>
+<td>不设 depends_on</td>
+<td>服务启动顺序混乱</td>
+<td>用 depends_on + healthcheck</td>
+</tr>
+<tr>
+<td>容器内用 root</td>
+<td>安全风险</td>
+<td>Dockerfile 加 USER www-data</td>
+</tr>
+<tr>
+<td>不限制日志大小</td>
+<td>磁盘被日志占满</td>
+<td>加 logging driver + max-size</td>
+</tr>
+<tr>
+<td>端口冲突</td>
+<td>多项目同时开发端口冲突</td>
+<td>用不同端口或动态分配</td>
+</tr>
+</tbody></table>
+
+<h2>7. 练习题</h2>
+
+<p>🟢 <strong>基础题 1：</strong> 为 docker-compose 添加 Elasticsearch 和 Kibana 服务。</p>
+
+<p>🟢 <strong>基础题 2：</strong> 编写一个 Makefile 封装常用 docker-compose 命令。</p>
+
+<p>🟡 <strong>进阶题：</strong> 实现多阶段构建：dev 阶段含 xdebug，prod 阶段精简。</p>
+
+<p>🔴 <strong>开放题：</strong> 设计一个 CI/CD 流水线，自动构建 Docker 镜像并推送到镜像仓库。</p>
+
+<h2>8. 知识点总结</h2>
+
+<pre><code>Docker + Compose
+├── Dockerfile
+│   ├── Multi-stage build
+│   ├── Layer caching (composer first)
+│   ├── HEALTHCHECK
+│   └── .dockerignore
+├── docker-compose.yml
+│   ├── Services: user-service, mysql, redis, kafka
+│   ├── Networks: user-service-net (bridge)
+│   ├── Volumes: mysql_data, redis_data
+│   ├── Health checks
+│   └── Resource limits
+├── Override file
+│   └── dev: volume mount for hot reload
+└── Best Practices
+    ├── Secrets via environment
+    ├── depends_on with condition
+    ├── Non-root user
+    └── Log size limits</code></pre>
+
+<h2>9. 举一反三</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>容器设计</th>
+<th>关键配置</th>
+</tr></thead><tbody>
+<tr>
+<td>多服务共享 DB</td>
+<td>独立 MySQL 容器</td>
+<td>多数据库 + 独立用户</td>
+</tr>
+<tr>
+<td>前后端分离</td>
+<td>Nginx + API 容器</td>
+<td>Nginx 反向代理到 9501</td>
+</tr>
+<tr>
+<td>定时任务</td>
+<td>独立 cron 容器</td>
+<td>挂载同代码 + entrypoint 为 crond</td>
+</tr>
+</tbody></table>
+
+<h2>10. 参考资料</h2>
+
+<ul>
+<li>🏆 <a href="https://docs.docker.com/">Docker 官方文档</a></li>
+<li>🏆 <a href="https://docs.docker.com/compose/compose-file/">Docker Compose 文件参考</a></li>
+<li>⭐ <a href="https://hub.docker.com/_/php">PHP Docker 最佳实践</a></li>
+<li>📖 <a href="https://hyperf.wiki/3.1/#/zh-cn/deploy/docker">Hyperf Docker 部署</a></li>
+
+<h2>11. 代码演进</h2>
+
+<h3>v1 ❌ 手动部署</h3>
+<pre><code class="language-bash"># ❌ Manual: install PHP, MySQL, Redis, Kafka on server
+# No reproducibility, &quot;works on my machine&quot; problems</code></pre>
+
+<h3>v2 ✅ 单 Dockerfile</h3>
+<pre><code class="language-dockerfile">FROM php:8.2-cli
+# Everything in one image, no dependency orchestration</code></pre>
+
+<h3>v3 🟢 docker-compose 编排</h3>
+<pre><code class="language-yaml"># 🟢 Full stack: app + mysql + redis + kafka
+# One command: docker-compose up -d
+# Dev/prod separation, health checks, resource limits</code></pre>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

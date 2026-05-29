@@ -1,0 +1,798 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>018 - Telegram Bot 开发：从零到实战</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Python/index.html">Python</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Python/03-实战/index.html">Python实战</a>
+</nav>
+<h1>018 - Telegram Bot 开发：从零到实战</h1>
+<div class="meta">
+<span>📂 Python实战</span>
+<span>🏷️ Python</span>
+</div>
+<article>
+
+
+<h1>Telegram Bot 开发：从零到实战</h1>
+
+<blockquote><p><strong>难度：⭐⭐ 中级</strong> | <strong>预计阅读：20 分钟</strong> | <strong>Python 3.8+</strong></p></blockquote>
+
+<h2>一、概念讲解</h2>
+
+<p>Telegram Bot 是运行在 Telegram 平台上的自动化程序。相比其他平台的 Bot，Telegram Bot API 非常友好：</p>
+
+<ul>
+<li><strong>无需审核</strong>：创建即可用，无需等待平台审批</li>
+<li><strong>功能强大</strong>：支持内联键盘、支付、小游戏、网页视图等</li>
+<li><strong>文档优秀</strong>：官方 API 文档清晰完整</li>
+<li><strong>生态成熟</strong>：python-telegram-bot 库社区活跃</li>
+
+<p><strong>核心概念</strong>：</p>
+
+<table><thead><tr>
+<th>概念</th>
+<th>说明</th>
+</tr></thead><tbody>
+<tr>
+<td><strong>Bot Token</strong></td>
+<td>创建 Bot 时获取的认证令牌</td>
+</tr>
+<tr>
+<td><strong>Webhook</strong></td>
+<td>Telegram 主动推送消息给你的服务器</td>
+</tr>
+<tr>
+<td><strong>Polling</strong></td>
+<td>你的程序主动轮询获取新消息</td>
+</tr>
+<tr>
+<td><strong>Inline Keyboard</strong></td>
+<td>消息下方的交互按钮</td>
+</tr>
+<tr>
+<td><strong>Command</strong></td>
+<td>以 <code>/</code> 开头的指令，如 <code>/start</code></td>
+</tr>
+<tr>
+<td><strong>Handler</strong></td>
+<td>处理特定类型消息的回调函数</td>
+</tr>
+</tbody></table>
+
+<p><strong>获取 Bot Token</strong>：在 Telegram 搜索 @BotFather -> 发送 <code>/newbot</code> -> 按提示操作 -> 获得 Token。</p>
+
+<h2>二、脑图（ASCII）</h2>
+
+<pre><code>              Telegram Bot 开发
+                    |
+      +-------------+-------------+
+      |             |             |
+   基础功能      高级交互       部署运维
+      |             |             |
+  +---+---+    +---+---+    +---+----+
+  |消息处理|    |内联键盘|    |Webhook |
+  |命令响应|    |会话状态|    |Polling |
+  |图片/文件|   |Callback|    |Docker  |
+  +-------+    +-------+    +--------+</code></pre>
+
+<h2>三、完整代码</h2>
+
+<h3>v1：最简 Bot — 命令响应</h3>
+
+<pre><code class="language-python"># bot_v1.py - Simple echo bot
+from telegram import Update
+from telegram.ext import (
+    ApplicationBuilder, CommandHandler,
+    MessageHandler, filters, ContextTypes
+)
+
+TOKEN = &quot;YOUR_BOT_TOKEN_HERE&quot;
+
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    # Handle /start command
+    await update.message.reply_text(
+        &quot;👋 Hello! I&#x27;m a demo bot.\n\n&quot;
+        &quot;Commands:\n&quot;
+        &quot;/start - Show this message\n&quot;
+        &quot;/help - Get help\n&quot;
+        &quot;/echo &lt;text&gt; - Echo your message&quot;
+    )
+
+async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    # Handle /help command
+    await update.message.reply_text(
+        &quot;📌 Available commands:\n&quot;
+        &quot;/start - Welcome message\n&quot;
+        &quot;/echo &lt;text&gt; - Repeat what you say\n&quot;
+        &quot;Send any text and I&#x27;ll echo it back!&quot;
+    )
+
+async def echo(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    # Echo user message back
+    if context.args:
+        text = &quot; &quot;.join(context.args)
+    else:
+        text = update.message.text
+    await update.message.reply_text(f&quot;🔊 {text}&quot;)
+
+def main():
+    # Start the bot using long polling
+    app = ApplicationBuilder().token(TOKEN).build()
+
+    app.add_handler(CommandHandler(&quot;start&quot;, start))
+    app.add_handler(CommandHandler(&quot;help&quot;, help_command))
+    app.add_handler(CommandHandler(&quot;echo&quot;, echo))
+    app.add_handler(MessageHandler(
+        filters.TEXT &amp; ~filters.COMMAND, echo
+    ))
+
+    print(&quot;Bot is running... Press Ctrl+C to stop&quot;)
+    app.run_polling(drop_pending_updates=True)
+
+if __name__ == &quot;__main__&quot;:
+    main()</code></pre>
+
+<h3>v2：Inline Keyboard + 会话管理</h3>
+
+<pre><code class="language-python"># bot_v2.py - Interactive bot with inline keyboards
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram.ext import (
+    ApplicationBuilder, CommandHandler, CallbackQueryHandler,
+    ConversationHandler, MessageHandler, filters, ContextTypes
+)
+
+TOKEN = &quot;YOUR_BOT_TOKEN_HERE&quot;
+CHOOSING, TYPING = range(2)
+user_notes = {}  # In-memory store; use DB in production
+
+async def show_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    # Show main menu with inline keyboard
+    keyboard = [
+        [InlineKeyboardButton(&quot;🌤 天气查询&quot;, callback_data=&quot;weather&quot;),
+         InlineKeyboardButton(&quot;📝 记事本&quot;, callback_data=&quot;notes&quot;)],
+        [InlineKeyboardButton(&quot;🔢 计算器&quot;, callback_data=&quot;calc&quot;),
+         InlineKeyboardButton(&quot;ℹ️ 关于&quot;, callback_data=&quot;about&quot;)],
+    ]
+    await update.message.reply_text(
+        &quot;🤖 **多功能助手**\n\n请选择功能：&quot;,
+        reply_markup=InlineKeyboardMarkup(keyboard),
+        parse_mode=&quot;Markdown&quot;
+    )
+
+async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    # Handle inline keyboard callbacks
+    query = update.callback_query
+    await query.answer()
+    data = query.data
+
+    if data == &quot;weather&quot;:
+        keyboard = [
+            [InlineKeyboardButton(&quot;北京&quot;, callback_data=&quot;w_beijing&quot;),
+             InlineKeyboardButton(&quot;上海&quot;, callback_data=&quot;w_shanghai&quot;)],
+            [InlineKeyboardButton(&quot;🏠 返回&quot;, callback_data=&quot;back&quot;)],
+        ]
+        await query.edit_message_text(
+            &quot;🌤 请选择城市：&quot;,
+            reply_markup=InlineKeyboardMarkup(keyboard)
+        )
+
+    elif data.startswith(&quot;w_&quot;):
+        city = data[2:]
+        weather = {&quot;beijing&quot;: &quot;☀️ 晴 25°C&quot;, &quot;shanghai&quot;: &quot;🌧 小雨 22°C&quot;}
+        await query.edit_message_text(
+            f&quot;🌤 **{city}**\n{weather.get(city, &#x27;未知&#x27;)}&quot;,
+            reply_markup=InlineKeyboardMarkup([
+                [InlineKeyboardButton(&quot;🏠 返回&quot;, callback_data=&quot;weather&quot;)]
+            ]),
+            parse_mode=&quot;Markdown&quot;
+        )
+
+    elif data == &quot;notes&quot;:
+        context.user_data[&quot;awaiting_note&quot;] = True
+        await query.edit_message_text(&quot;📝 请输入要保存的笔记：&quot;)
+
+    elif data == &quot;calc&quot;:
+        await query.edit_message_text(
+            &quot;🔢 发送数学表达式，如 `2 + 3 * 4`&quot;,
+            parse_mode=&quot;Markdown&quot;
+        )
+
+    elif data == &quot;about&quot;:
+        await query.edit_message_text(
+            &quot;ℹ️ **关于**\n版本：v2.0\n技术：python-telegram-bot v20+&quot;,
+            reply_markup=InlineKeyboardMarkup([
+                [InlineKeyboardButton(&quot;🏠 返回&quot;, callback_data=&quot;back&quot;)]
+            ]),
+            parse_mode=&quot;Markdown&quot;
+        )
+
+    elif data == &quot;back&quot;:
+        keyboard = [
+            [InlineKeyboardButton(&quot;🌤 天气&quot;, callback_data=&quot;weather&quot;),
+             InlineKeyboardButton(&quot;📝 记事本&quot;, callback_data=&quot;notes&quot;)],
+            [InlineKeyboardButton(&quot;🔢 计算器&quot;, callback_data=&quot;calc&quot;),
+             InlineKeyboardButton(&quot;ℹ️ 关于&quot;, callback_data=&quot;about&quot;)],
+        ]
+        await query.edit_message_text(
+            &quot;🤖 **多功能助手**\n\n请选择：&quot;,
+            reply_markup=InlineKeyboardMarkup(keyboard),
+            parse_mode=&quot;Markdown&quot;
+        )
+
+async def save_note(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    # Save user note
+    if not context.user_data.get(&quot;awaiting_note&quot;):
+        return
+    context.user_data[&quot;awaiting_note&quot;] = False
+
+    uid = update.message.from_user.id
+    user_notes.setdefault(uid, []).append(update.message.text)
+    count = len(user_notes[uid])
+
+    await update.message.reply_text(f&quot;✅ 笔记已保存！（第 {count} 条）&quot;)
+
+def main():
+    app = ApplicationBuilder().token(TOKEN).build()
+    app.add_handler(CommandHandler(&quot;start&quot;, show_menu))
+    app.add_handler(CallbackQueryHandler(button_handler))
+    app.add_handler(MessageHandler(
+        filters.TEXT &amp; ~filters.COMMAND, save_note
+    ))
+    print(&quot;Bot v2 running...&quot;)
+    app.run_polling(drop_pending_updates=True)
+
+if __name__ == &quot;__main__&quot;:
+    main()</code></pre>
+
+<h3>v3：生产级 Bot — Webhook + 数据库 + 日志</h3>
+
+<pre><code class="language-python"># bot_v3.py - Production-ready Telegram Bot
+import logging
+import sqlite3
+from datetime import datetime
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram.ext import (
+    ApplicationBuilder, CommandHandler, CallbackQueryHandler,
+    MessageHandler, filters, ContextTypes
+)
+
+# ============ Configuration ============
+TOKEN = &quot;YOUR_BOT_TOKEN_HERE&quot;
+WEBHOOK_URL = &quot;https://yourdomain.com/webhook&quot;
+PORT = 8443
+DB_PATH = &quot;bot_data.db&quot;
+
+# ============ Logging ============
+logging.basicConfig(
+    format=&quot;%(asctime)s - %(name)s - %(levelname)s - %(message)s&quot;,
+    level=logging.INFO,
+    handlers=[
+        logging.FileHandler(&quot;bot.log&quot;),
+        logging.StreamHandler()
+    ]
+)
+logger = logging.getLogger(__name__)
+
+# ============ Database ============
+def init_db():
+    # Initialize SQLite database
+    conn = sqlite3.connect(DB_PATH)
+    conn.executescript(&quot;&quot;&quot;
+        CREATE TABLE IF NOT EXISTS notes (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            content TEXT NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+        CREATE TABLE IF NOT EXISTS users (
+            user_id INTEGER PRIMARY KEY,
+            username TEXT,
+            first_seen TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            last_active TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            command_count INTEGER DEFAULT 0
+        );
+    &quot;&quot;&quot;)
+    conn.commit()
+    conn.close()
+
+def track_user(user_id: int, username: str):
+    # Track user activity
+    conn = sqlite3.connect(DB_PATH)
+    conn.execute(&quot;&quot;&quot;
+        INSERT INTO users (user_id, username, last_active, command_count)
+        VALUES (?, ?, ?, 1)
+        ON CONFLICT(user_id) DO UPDATE SET
+            last_active = excluded.last_active,
+            command_count = command_count + 1,
+            username = excluded.username
+    &quot;&quot;&quot;, (user_id, username, datetime.now().isoformat()))
+    conn.commit()
+    conn.close()
+
+# ============ Handlers ============
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    # Main menu
+    user = update.effective_user
+    track_user(user.id, user.username)
+    logger.info(f&quot;User {user.username} ({user.id}) started bot&quot;)
+
+    keyboard = [
+        [InlineKeyboardButton(&quot;📝 记笔记&quot;, callback_data=&quot;note_new&quot;),
+         InlineKeyboardButton(&quot;📋 查看笔记&quot;, callback_data=&quot;note_list&quot;)],
+        [InlineKeyboardButton(&quot;📊 统计&quot;, callback_data=&quot;stats&quot;),
+         InlineKeyboardButton(&quot;ℹ️ 帮助&quot;, callback_data=&quot;help&quot;)],
+    ]
+    await update.message.reply_text(
+        f&quot;🤖 **智能笔记助手 v3**\n\n&quot;
+        f&quot;你好 {user.first_name}！我可以帮你管理笔记。\n&quot;
+        f&quot;请选择操作：&quot;,
+        reply_markup=InlineKeyboardMarkup(keyboard),
+        parse_mode=&quot;Markdown&quot;
+    )
+
+async def quick_note(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    # Quick note via /note command
+    user = update.effective_user
+    if not context.args:
+        await update.message.reply_text(&quot;用法：/note &lt;内容&gt;&quot;)
+        return
+
+    content = &quot; &quot;.join(context.args)
+    conn = sqlite3.connect(DB_PATH)
+    conn.execute(
+        &quot;INSERT INTO notes (user_id, content) VALUES (?, ?)&quot;,
+        (user.id, content)
+    )
+    conn.commit()
+    count = conn.execute(
+        &quot;SELECT COUNT(*) FROM notes WHERE user_id = ?&quot;, (user.id,)
+    ).fetchone()[0]
+    conn.close()
+
+    await update.message.reply_text(f&quot;✅ 已保存！（共 {count} 条笔记）&quot;)
+
+async def callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    # Handle all callback queries
+    query = update.callback_query
+    await query.answer()
+    data = query.data
+    uid = query.from_user.id
+
+    if data == &quot;note_new&quot;:
+        context.user_data[&quot;awaiting&quot;] = True
+        await query.edit_message_text(&quot;📝 请输入笔记内容：&quot;)
+
+    elif data == &quot;note_list&quot;:
+        conn = sqlite3.connect(DB_PATH)
+        rows = conn.execute(
+            &quot;SELECT id, content, created_at FROM notes &quot;
+            &quot;WHERE user_id = ? ORDER BY id DESC LIMIT 5&quot;,
+            (uid,)
+        ).fetchall()
+        conn.close()
+
+        if not rows:
+            await query.edit_message_text(&quot;📭 还没有笔记。&quot;)
+            return
+
+        text = &quot;📋 **最近笔记：**\n\n&quot;
+        for r in rows:
+            preview = r[1][:50] + (&quot;...&quot; if len(r[1]) &gt; 50 else &quot;&quot;)
+            text += f&quot;#{r[0]} {preview}\n📅 {r[2]}\n\n&quot;
+
+        await query.edit_message_text(
+            text,
+            reply_markup=InlineKeyboardMarkup([
+                [InlineKeyboardButton(&quot;🏠 返回&quot;, callback_data=&quot;home&quot;)]
+            ]),
+            parse_mode=&quot;Markdown&quot;
+        )
+
+    elif data == &quot;stats&quot;:
+        conn = sqlite3.connect(DB_PATH)
+        u = conn.execute(
+            &quot;SELECT command_count, last_active FROM users WHERE user_id = ?&quot;,
+            (uid,)
+        ).fetchone()
+        n = conn.execute(
+            &quot;SELECT COUNT(*) FROM notes WHERE user_id = ?&quot;, (uid,)
+        ).fetchone()[0]
+        conn.close()
+
+        if u:
+            text = (f&quot;📊 **你的统计**\n\n&quot;
+                    f&quot;🔹 命令次数：{u[0]}\n&quot;
+                    f&quot;🔹 笔记数量：{n}\n&quot;
+                    f&quot;🔹 最后活跃：{u[1]}&quot;)
+        else:
+            text = &quot;📊 暂无数据&quot;
+
+        await query.edit_message_text(
+            text,
+            reply_markup=InlineKeyboardMarkup([
+                [InlineKeyboardButton(&quot;🏠 返回&quot;, callback_data=&quot;home&quot;)]
+            ]),
+            parse_mode=&quot;Markdown&quot;
+        )
+
+    elif data == &quot;help&quot;:
+        keyboard = [[InlineKeyboardButton(&quot;🏠 返回&quot;, callback_data=&quot;home&quot;)]]
+        await query.edit_message_text(
+            &quot;ℹ️ **帮助**\n\n&quot;
+            &quot;/start - 主菜单\n&quot;
+            &quot;/note &lt;内容&gt; - 快速记笔记\n&quot;
+            &quot;/export - 导出所有笔记&quot;,
+            reply_markup=InlineKeyboardMarkup(keyboard),
+            parse_mode=&quot;Markdown&quot;
+        )
+
+    elif data == &quot;home&quot;:
+        keyboard = [
+            [InlineKeyboardButton(&quot;📝 记笔记&quot;, callback_data=&quot;note_new&quot;),
+             InlineKeyboardButton(&quot;📋 查看笔记&quot;, callback_data=&quot;note_list&quot;)],
+            [InlineKeyboardButton(&quot;📊 统计&quot;, callback_data=&quot;stats&quot;),
+             InlineKeyboardButton(&quot;ℹ️ 帮助&quot;, callback_data=&quot;help&quot;)],
+        ]
+        await query.edit_message_text(
+            &quot;🤖 **智能笔记助手**\n\n请选择：&quot;,
+            reply_markup=InlineKeyboardMarkup(keyboard),
+            parse_mode=&quot;Markdown&quot;
+        )
+
+async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    # Handle text when awaiting note input
+    if not context.user_data.get(&quot;awaiting&quot;):
+        await update.message.reply_text(&quot;发送 /start 开始使用&quot;)
+        return
+
+    context.user_data[&quot;awaiting&quot;] = False
+    uid = update.message.from_user.id
+    text = update.message.text
+
+    conn = sqlite3.connect(DB_PATH)
+    conn.execute(
+        &quot;INSERT INTO notes (user_id, content) VALUES (?, ?)&quot;,
+        (uid, text)
+    )
+    conn.commit()
+    conn.close()
+
+    await update.message.reply_text(&quot;✅ 笔记已保存！&quot;)
+
+async def export_notes(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    # Export all notes as text
+    uid = update.effective_user.id
+    conn = sqlite3.connect(DB_PATH)
+    rows = conn.execute(
+        &quot;SELECT id, content, created_at FROM notes WHERE user_id = ? ORDER BY id&quot;,
+        (uid,)
+    ).fetchall()
+    conn.close()
+
+    if not rows:
+        await update.message.reply_text(&quot;📭 没有笔记可导出&quot;)
+        return
+
+    text = &quot;📤 笔记导出\n&quot; + &quot;=&quot; * 30 + &quot;\n\n&quot;
+    for r in rows:
+        text += f&quot;#{r[0]} [{r[2]}]\n{r[1]}\n{&#x27;-&#x27; * 30}\n&quot;
+
+    # Split if too long (Telegram limit: 4096 chars)
+    if len(text) &gt; 4000:
+        for i in range(0, len(text), 4000):
+            await update.message.reply_text(text[i:i+4000])
+    else:
+        await update.message.reply_text(text)
+
+async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE):
+    # Global error handler
+    logger.error(f&quot;Exception: {context.error}&quot;, exc_info=context.error)
+
+def main():
+    # Start the bot
+    init_db()
+
+    app = ApplicationBuilder().token(TOKEN).build()
+
+    app.add_handler(CommandHandler(&quot;start&quot;, start))
+    app.add_handler(CommandHandler(&quot;note&quot;, quick_note))
+    app.add_handler(CommandHandler(&quot;export&quot;, export_notes))
+    app.add_handler(CallbackQueryHandler(callback))
+    app.add_handler(MessageHandler(
+        filters.TEXT &amp; ~filters.COMMAND, text_handler
+    ))
+    app.add_error_handler(error_handler)
+
+    # Use polling for development
+    print(&quot;Bot v3 running (polling)...&quot;)
+    app.run_polling(drop_pending_updates=True)
+
+    # For production with webhook, use instead:
+    # app.run_webhook(
+    #     listen=&quot;0.0.0.0&quot;,
+    #     port=PORT,
+    #     url_path=TOKEN,
+    #     webhook_url=f&quot;{WEBHOOK_URL}/{TOKEN}&quot;,
+    # )
+
+if __name__ == &quot;__main__&quot;:
+    main()</code></pre>
+
+<h2>四、执行预览</h2>
+
+<pre><code>$ python bot_v3.py
+2026-04-29 07:00:00 - telegram.ext.Application - INFO - Bot v3 running...
+2026-04-29 07:00:01 - telegram.ext.Application - INFO - Starting polling
+
+# User sends /start
+2026-04-29 07:01:00 - __main__ - INFO - User john_doe (123456) started bot
+
+# User taps &quot;📝 记笔记&quot;
+-&gt; Bot: 📝 请输入笔记内容：
+
+# User types: 今天学习了 Celery 任务队列
+-&gt; Bot: ✅ 笔记已保存！
+
+# User taps &quot;📋 查看笔记&quot;
+-&gt; Bot:
+📋 最近笔记：
+#1 今天学习了 Celery 任务队列
+📅 2026-04-29 07:01:30
+
+# User sends /export
+-&gt; Bot:
+📤 笔记导出
+==============================
+#1 [2026-04-29 07:01:30]
+今天学习了 Celery 任务队列
+------------------------------</code></pre>
+
+<h2>五、注意事项</h2>
+
+<table><thead><tr>
+<th>事项</th>
+<th>说明</th>
+<th>建议</th>
+</tr></thead><tbody>
+<tr>
+<td>Token 安全</td>
+<td>Token 等同于 Bot 密码</td>
+<td>用环境变量，不要提交到 Git</td>
+</tr>
+<tr>
+<td>异步框架</td>
+<td>v20+ 全部基于 asyncio</td>
+<td>Handler 必须是 async 函数</td>
+</tr>
+<tr>
+<td>消息长度限制</td>
+<td>单条消息最多 4096 字符</td>
+<td>长内容需要分段发送</td>
+</tr>
+<tr>
+<td>速率限制</td>
+<td>Telegram 限制每秒 30 条消息</td>
+<td>批量发送时注意限速</td>
+</tr>
+<tr>
+<td>Polling vs Webhook</td>
+<td>Polling 适合开发，Webhook 适合生产</td>
+<td>生产环境推荐 Webhook</td>
+</tr>
+<tr>
+<td>数据持久化</td>
+<td>内存数据重启丢失</td>
+<td>使用数据库（SQLite/PostgreSQL）</td>
+</tr>
+<tr>
+<td>错误处理</td>
+<td>未捕获异常会静默失败</td>
+<td>添加全局 error_handler</td>
+</tr>
+<tr>
+<td>用户隐私</td>
+<td>不要记录敏感用户信息</td>
+<td>遵守隐私法规</td>
+</tr>
+</tbody></table>
+
+<h2>六、避坑指南</h2>
+
+<table><thead><tr>
+<th>❌ 错误做法</th>
+<th>✅ 正确做法</th>
+<th>原因</th>
+</tr></thead><tbody>
+<tr>
+<td>Token 硬编码在代码里</td>
+<td>用 <code>os.environ["BOT_TOKEN"]</code></td>
+<td>安全风险</td>
+</tr>
+<tr>
+<td>用同步函数做 Handler</td>
+<td>全部用 <code>async def</code></td>
+<td>v20+ 是异步框架</td>
+</tr>
+<tr>
+<td>Callback 不调用 <code>answer()</code></td>
+<td>每个 callback_query 都 answer</td>
+<td>按钮一直转圈</td>
+</tr>
+<tr>
+<td>发送超长消息不截断</td>
+<td>检查长度，分段发送</td>
+<td>超过 4096 字符会报错</td>
+</tr>
+<tr>
+<td>内存存用户数据</td>
+<td>用数据库持久化</td>
+<td>重启数据丢失</td>
+</tr>
+<tr>
+<td>不处理异常</td>
+<td>加 error_handler + 日志</td>
+<td>Bot 静默挂掉无感知</td>
+</tr>
+<tr>
+<td>edit_message_text 文本相同</td>
+<td>检查内容是否有变化</td>
+<td>Telegram 报错 "not modified"</td>
+</tr>
+</tbody></table>
+
+<h2>七、练习题</h2>
+
+<p>🟢 <strong>基础题</strong>：创建一个翻译 Bot，用户发送中文自动回复英文（提示：用 <code>translate</code> 库或调用翻译 API）。</p>
+
+<pre><code class="language-python">from translate import Translator
+
+async def translate_text(update, context):
+    translator = Translator(to_lang=&quot;en&quot;)
+    result = translator.translate(update.message.text)
+    await update.message.reply_text(result)</code></pre>
+
+<p>🟡 <strong>进阶题</strong>：实现一个 TODO Bot，支持添加、查看、完成、删除四个操作，数据存储在 SQLite，使用 Inline Keyboard 交互。</p>
+
+<p>🔴 <strong>挑战题</strong>：开发一个多语言客服 Bot：(1) 自动识别用户语言 (2) 根据语言回复 FAQ (3) 支持转人工 (4) 使用 ConversationHandler 管理多轮对话 (5) Webhook 部署。</p>
+
+<h2>八、知识点总结</h2>
+
+<pre><code>Telegram Bot 知识树
+├── 基础
+│   ├── BotFather 创建 Bot
+│   ├── Token 管理
+│   └── Handler 注册机制
+├── 消息处理
+│   ├── CommandHandler（命令）
+│   ├── MessageHandler（消息）
+│   ├── CallbackQueryHandler（回调）
+│   └── ConversationHandler（对话）
+├── 交互组件
+│   ├── InlineKeyboardMarkup
+│   ├── ReplyKeyboardMarkup
+│   ├── ForceReply
+│   └── 文件/图片/语音发送
+├── 部署
+│   ├── Polling 模式
+│   ├── Webhook 模式
+│   ├── Docker 部署
+│   └── 日志与监控
+└── 高级
+    ├── 支付 API
+    ├── Inline Mode
+    ├── Web App
+    └── 频道/群组管理</code></pre>
+
+<h2>九、举一反三</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>方案</th>
+<th>关键技术</th>
+</tr></thead><tbody>
+<tr>
+<td>客服机器人</td>
+<td>FAQ 匹配 + 人工转接</td>
+<td>ConversationHandler + NLP</td>
+</tr>
+<tr>
+<td>内容订阅</td>
+<td>定时推送 + InlineKeyboard</td>
+<td>APScheduler + 定时任务</td>
+</tr>
+<tr>
+<td>数据查询 Bot</td>
+<td>命令解析 + DB 查询</td>
+<td>SQLAlchemy + 分页显示</td>
+</tr>
+<tr>
+<td>文件处理 Bot</td>
+<td>接收文件 -> 处理 -> 返回</td>
+<td>文件下载 + 临时文件管理</td>
+</tr>
+<tr>
+<td>群管 Bot</td>
+<td>消息过滤 + 自动踢人</td>
+<td>ChatMemberHandler + 权限管理</td>
+</tr>
+</tbody></table>
+
+<h2>十、参考资料</h2>
+
+<ul>
+<li><a href="https://core.telegram.org/bots/api">Telegram Bot API 官方文档</a></li>
+<li><a href="https://docs.python-telegram-bot.org/">python-telegram-bot 文档</a></li>
+<li><a href="https://github.com/python-telegram-bot/python-telegram-bot/tree/master/examples">python-telegram-bot 示例</a></li>
+<li><a href="https://core.telegram.org/bots/features">Telegram Bot 最佳实践</a></li>
+
+<h2>十一、代码演进路线</h2>
+
+<pre><code>v1 (入门)        -&gt;  v2 (交互)         -&gt;  v3 (生产级)
+------------------------------------------------------
+命令响应            Inline Keyboard       Webhook 部署
+纯文本回复          多级菜单导航          SQLite 持久化
+内存无状态          user_data 会话        用户追踪统计
+无错误处理          部分异常捕获          全局 error_handler
+Polling 开发        Polling 开发          日志系统
+无日志              print 调试            结构化日志</code></pre>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

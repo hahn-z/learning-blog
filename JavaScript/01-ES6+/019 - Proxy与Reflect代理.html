@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>019 - Proxy与Reflect代理</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/JavaScript/index.html">JavaScript</a>
+<span class="sep">›</span>
+<a href="/tech-blog/JavaScript/01-ES6+/index.html">JavaScript ES6+</a>
+</nav>
+<h1>019 - Proxy与Reflect代理</h1>
+<div class="meta">
+<span>📂 JavaScript ES6+</span>
+<span>🏷️ JavaScript</span>
+</div>
+<article>
+
+
+<h1>Proxy与Reflect代理</h1>
+
+<blockquote><p><strong>难度：</strong> ⭐⭐⭐⭐ 较难 | <strong>分类：</strong> JavaScript 高级 | <strong>阅读时间：</strong> ~18分钟</p></blockquote>
+
+<h2>一、概念讲解</h2>
+
+<p><code>Proxy</code> 是 ES6 提供的元编程 API，可以拦截并自定义对象的基本操作（属性读取、赋值、删除、枚举等）。<code>Reflect</code> 是配套的静态对象，提供了与 Proxy handlers 一一对应的默认行为方法。</p>
+
+<p>核心思想：</p>
+<ul>
+<li><strong>Proxy</strong> = 拦截层（代理），包裹目标对象，拦截所有操作</li>
+<li><strong>Reflect</strong> = 默认行为（反射），将操作转发给原始对象</li>
+<li><strong>13 种拦截器（traps）</strong>：<code>get</code>、<code>set</code>、<code>has</code>、<code>deleteProperty</code>、<code>ownKeys</code> 等</li>
+<li><strong>可撤销代理</strong>：<code>Proxy.revocable()</code> 创建可随时销毁的代理</li>
+
+<h2>二、脑图（ASCII）</h2>
+
+<pre><code>            Proxy 与 Reflect
+          ┌────────┴────────┐
+       Proxy             Reflect
+     ┌──┴──┐           ┌──┴──┐
+   Traps  Revocable   Default  Metadata
+   get/set  revoke()  Behavior  Query
+   has/delete          get/set
+   apply/construct     ownKeys
+   13 traps total</code></pre>
+
+<h2>三、完整 JS 代码</h2>
+
+<pre><code class="language-javascript">// ==================== Reactive Object (Vue-style) ====================
+
+function reactive(target, onChange) {
+  return new Proxy(target, {
+    // Intercept property read
+    get(obj, key, receiver) {
+      // Use Reflect for default behavior
+      const result = Reflect.get(obj, key, receiver);
+      // Deep reactive for nested objects
+      if (typeof result === &#x27;object&#x27; &amp;&amp; result !== null) {
+        return reactive(result, onChange);
+      }
+      return result;
+    },
+
+    // Intercept property write
+    set(obj, key, value, receiver) {
+      const oldVal = Reflect.get(obj, key, receiver);
+      const changed = Reflect.set(obj, key, value, receiver);
+      if (changed &amp;&amp; oldVal !== value) {
+        onChange(key, oldVal, value);
+      }
+      return changed;
+    },
+
+    // Intercept &#x27;in&#x27; operator
+    has(obj, key) {
+      console.log(`Checking &quot;${key}&quot; in object`);
+      return Reflect.has(obj, key);
+    },
+
+    // Intercept delete
+    deleteProperty(obj, key) {
+      const had = Reflect.has(obj, key);
+      const deleted = Reflect.deleteProperty(obj, key);
+      if (had &amp;&amp; deleted) {
+        onChange(key, &#x27;deleted&#x27;, undefined);
+      }
+      return deleted;
+    }
+  });
+}
+
+// Usage: reactive state
+const state = reactive({ name: &#x27;Alice&#x27;, age: 25, address: { city: &#x27;Beijing&#x27; } },
+  (key, oldVal, newVal) =&gt; {
+    console.log(`[Change] ${key}: ${JSON.stringify(oldVal)} → ${JSON.stringify(newVal)}`);
+  }
+);
+
+state.name = &#x27;Bob&#x27;;             // [Change] name: &quot;Alice&quot; → &quot;Bob&quot;
+state.address.city = &#x27;Shanghai&#x27;; // [Change] city: &quot;Beijing&quot; → &quot;Shanghai&quot;
+delete state.age;               // [Change] age: &quot;deleted&quot; → undefined
+
+// ==================== Validation Proxy ====================
+
+function validate(schema) {
+  return (target) =&gt; new Proxy(target, {
+    set(obj, key, value) {
+      if (key in schema) {
+        const rules = schema[key];
+        if (rules.type &amp;&amp; typeof value !== rules.type) {
+          throw new TypeError(`${key} must be ${rules.type}, got ${typeof value}`);
+        }
+        if (rules.min !== undefined &amp;&amp; value &lt; rules.min) {
+          throw new RangeError(`${key} must be &gt;= ${rules.min}`);
+        }
+      }
+      return Reflect.set(obj, key, value);
+    }
+  });
+}
+
+const person = validate({
+  name: { type: &#x27;string&#x27; },
+  age: { type: &#x27;number&#x27;, min: 0 }
+})({ name: &#x27;Alice&#x27;, age: 25 });
+
+person.age = 30;    // ✅ OK
+// person.age = -1;  // ❌ RangeError
+// person.name = 42; // ❌ TypeError
+
+// ==================== Revocable Proxy ====================
+
+const sensitive = { password: &#x27;secret123&#x27; };
+const { proxy, revoke } = Proxy.revocable(sensitive, {
+  get(obj, key) {
+    if (key === &#x27;password&#x27;) return &#x27;***&#x27;;
+    return Reflect.get(obj, key);
+  }
+});
+
+console.log(proxy.password); // &#x27;***&#x27;
+revoke(); // Destroy the proxy
+// proxy.password; // ❌ TypeError: Cannot perform &#x27;get&#x27; on a proxy that has been revoked</code></pre>
+
+<h2>四、执行预览</h2>
+
+<pre><code>[Change] name: &quot;Alice&quot; → &quot;Bob&quot;
+[Change] city: &quot;Beijing&quot; → &quot;Shanghai&quot;
+[Change] age: &quot;deleted&quot; → undefined
+***</code></pre>
+
+<h2>五、注意事项</h2>
+
+<table><thead><tr>
+<th>项目</th>
+<th>说明</th>
+</tr></thead><tbody>
+<tr>
+<td>Proxy 是浅代理</td>
+<td>嵌套对象需要递归代理才能深度响应</td>
+</tr>
+<tr>
+<td>性能开销</td>
+<td>每次操作多一层函数调用，高频场景需评估</td>
+</tr>
+<tr>
+<td>不能代理原始值</td>
+<td><code>new Proxy(42, {})</code> 不行，需用对象包装</td>
+</tr>
+<tr>
+<td><code>this</code> 指向问题</td>
+<td>Proxy 内部的 <code>this</code> 可能不等于目标对象</td>
+</tr>
+<tr>
+<td>Reflect 不是函数</td>
+<td><code>Reflect</code> 不是构造函数，不能 <code>new Reflect()</code></td>
+</tr>
+</tbody></table>
+
+<h2>六、避坑指南</h2>
+
+<p>❌ <strong>不用 Reflect 直接操作：</strong></p>
+<pre><code class="language-javascript">new Proxy(target, {
+  set(obj, key, value) {
+    obj[key] = value; // ❌ May miss edge cases (accessors, frozen)
+    return true;
+  }
+});</code></pre>
+
+<p>✅ <strong>使用 Reflect：</strong></p>
+<pre><code class="language-javascript">new Proxy(target, {
+  set(obj, key, value, receiver) {
+    return Reflect.set(obj, key, value, receiver); // ✅ Handles all edge cases
+  }
+});</code></pre>
+
+<p>❌ <strong>代理后对象身份改变：</strong></p>
+<pre><code class="language-javascript">const p = new Proxy(obj, {});
+console.log(p === obj); // ❌ false — proxy !== target</code></pre>
+
+<h2>七、练习题</h2>
+
+<p>🟢 <strong>初级：</strong> 用 Proxy 实现属性访问日志，记录所有 <code>get</code> 和 <code>set</code> 操作。</p>
+
+<p>🟡 <strong>中级：</strong> 实现只读代理，所有 <code>set</code> 和 <code>delete</code> 操作抛出错误。</p>
+
+<p>🔴 <strong>高级：</strong> 实现一个简单的依赖收集系统（类似 Vue 3 reactive），在 <code>get</code> 时收集依赖，在 <code>set</code> 时触发更新。</p>
+
+<h2>八、知识点总结（树状）</h2>
+
+<pre><code>Proxy 与 Reflect
+├── Proxy
+│   ├── new Proxy(target, handler)
+│   ├── 13 Traps
+│   │   ├── get / set / has
+│   │   ├── deleteProperty
+│   │   ├── ownKeys / getOwnPropertyDescriptor
+│   │   ├── apply / construct
+│   │   ├── getPrototypeOf / setPrototypeOf
+│   │   ├── isExtensible / preventExtensions
+│   │   └── defineProperty
+│   └── Proxy.revocable()
+├── Reflect
+│   ├── Reflect.get / set / has
+│   ├── Reflect.deleteProperty
+│   ├── Reflect.apply / construct
+│   └── 所有方法与 Proxy traps 一一对应
+└── 应用场景
+    ├── 响应式系统 (Vue 3)
+    ├── 校验 / 类型检查
+    ├── 访问控制 (只读/私有)
+    └── API 兼容层 / Polyfill</code></pre>
+
+<h2>九、举一反三</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>实现方式</th>
+<th>关键 Trap</th>
+</tr></thead><tbody>
+<tr>
+<td>响应式数据</td>
+<td>深度 Proxy + 回调</td>
+<td>get / set</td>
+</tr>
+<tr>
+<td>只读对象</td>
+<td>拦截 set/delete 抛异常</td>
+<td>set / deleteProperty</td>
+</tr>
+<tr>
+<td>属性默认值</td>
+<td>get 时返回默认值</td>
+<td>get</td>
+</tr>
+<tr>
+<td>私有属性</td>
+<td>以 <code>_</code> 开头的属性拒绝访问</td>
+<td>get / set / has / ownKeys</td>
+</tr>
+<tr>
+<td>函数节流</td>
+<td>Proxy 包装函数</td>
+<td>apply</td>
+</tr>
+<tr>
+<td>API 版本兼容</td>
+<td>属性名映射</td>
+<td>get / set</td>
+</tr>
+</tbody></table>
+
+<h2>十、参考资料</h2>
+
+<ul>
+<li><a href="https://developer.mozilla.org/zh-CN/docs/Web/JavaScript/Reference/Global_Objects/Proxy">MDN - Proxy</a></li>
+<li><a href="https://developer.mozilla.org/zh-CN/docs/Web/JavaScript/Reference/Global_Objects/Reflect">MDN - Reflect</a></li>
+<li><a href="https://vuejs.org/guide/extras/reactivity-in-depth.html">Vue 3 Reactivity</a></li>
+
+<h2>十一、代码演进</h2>
+
+<pre><code class="language-javascript">// v1: Simple logging proxy
+const logged = new Proxy(obj, {
+  get(target, key) {
+    console.log(`Read: ${key}`);
+    return target[key];
+  }
+});
+
+// v2: With Reflect for correctness
+const logged2 = new Proxy(obj, {
+  get(target, key, receiver) {
+    console.log(`Read: ${key}`);
+    return Reflect.get(target, key, receiver);
+  }
+});
+
+// v3: Deep reactive with change notification
+function reactive(target, onChange) {
+  return new Proxy(target, {
+    get(obj, key, receiver) {
+      const val = Reflect.get(obj, key, receiver);
+      return (typeof val === &#x27;object&#x27; &amp;&amp; val !== null)
+        ? reactive(val, onChange) : val;
+    },
+    set(obj, key, val, receiver) {
+      const old = Reflect.get(obj, key, receiver);
+      Reflect.set(obj, key, val, receiver) &amp;&amp; onChange(key, old, val);
+      return true;
+    }
+  });
+}</code></pre>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

@@ -1,0 +1,631 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>021 - Go项目CI/CD流水线实战</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Golang/index.html">Golang</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Golang/03-实战/index.html">Golang实战</a>
+</nav>
+<h1>021 - Go项目CI/CD流水线实战</h1>
+<div class="meta">
+<span>📂 Golang实战</span>
+<span>🏷️ Golang</span>
+</div>
+<article>
+
+
+<h2>难度标注</h2>
+
+<blockquote><p>🟡 <strong>中级</strong> | 需要了解 Go 项目结构、Docker 基础、Git 操作</p></blockquote>
+
+<h2>概念讲解</h2>
+
+<h3>什么是 CI/CD？</h3>
+
+<ul>
+<li><strong>CI（持续集成）</strong>：代码提交后自动触发构建、测试、静态检查</li>
+<li><strong>CD（持续部署/交付）</strong>：通过自动化流水线将应用部署到目标环境</li>
+
+<h3>Go 项目 CI/CD 的核心环节</h3>
+
+<ol>
+<li><strong>代码检查</strong>：<code>go vet</code>、<code>golangci-lint</code></li>
+</ul>
+<ol>
+<li><strong>单元测试</strong>：<code>go test</code> + 覆盖率</li>
+</ul>
+<ol>
+<li><strong>构建</strong>：<code>go build</code> 交叉编译</li>
+</ul>
+<ol>
+<li><strong>镜像打包</strong>：Docker 多阶段构建</li>
+</ul>
+<ol>
+<li><strong>部署</strong>：推送到镜像仓库 + 更新服务</li>
+
+<h3>工具选型</h3>
+
+<table><thead><tr>
+<th>工具</th>
+<th>适用场景</th>
+<th>特点</th>
+</tr></thead><tbody>
+<tr>
+<td>GitHub Actions</td>
+<td>开源项目、GitHub 托管</td>
+<td>免费、生态丰富</td>
+</tr>
+<tr>
+<td>GitLab CI</td>
+<td>私有化部署</td>
+<td>功能全面、Runner 灵活</td>
+</tr>
+<tr>
+<td>Drone</td>
+<td>轻量级、Docker 原生</td>
+<td>配置简单、Go 编写</td>
+</tr>
+</tbody></table>
+
+<h2>脑图</h2>
+
+<pre><code>Go CI/CD 流水线
+├── 代码质量
+│   ├── go vet
+│   ├── golangci-lint
+│   ├── gofmt / goimports
+│   └── govulncheck
+├── 测试
+│   ├── 单元测试 (go test)
+│   ├── 集成测试
+│   ├── 覆盖率报告
+│   └── Benchmark
+├── 构建
+│   ├── 交叉编译 (GOOS/GOARCH)
+│   ├── ldflags 版本注入
+│   └── Docker 多阶段构建
+├── 部署
+│   ├── 镜像推送
+│   ├── K8s 滚动更新
+│   └── 蓝绿/金丝雀发布
+└── 监控
+    ├── 健康检查
+    ├── 性能指标
+    └── 告警规则</code></pre>
+
+<h2>完整 Go 代码：CI/CD 就绪的项目模板</h2>
+
+<pre><code class="language-go">// Package main is a CI/CD-ready Go project template with
+// health checks, version info, and graceful shutdown.
+package main
+
+import (
+	&quot;context&quot;
+	&quot;encoding/json&quot;
+	&quot;fmt&quot;
+	&quot;log&quot;
+	&quot;net/http&quot;
+	&quot;os&quot;
+	&quot;os/signal&quot;
+	&quot;syscall&quot;
+	&quot;time&quot;
+)
+
+// Build information injected via ldflags at build time.
+var (
+	Version   = &quot;dev&quot;
+	GitCommit = &quot;unknown&quot;
+	BuildTime = &quot;unknown&quot;
+)
+
+// Response is a generic API response structure.
+type Response struct {
+	Status  string      `json:&quot;status&quot;`
+	Data    interface{} `json:&quot;data,omitempty&quot;`
+	Message string      `json:&quot;message,omitempty&quot;`
+}
+
+// Server manages the HTTP server lifecycle.
+type Server struct {
+	httpServer *http.Server
+	ready      bool
+}
+
+// NewServer creates a new server with all routes registered.
+func NewServer(port string) *Server {
+	mux := http.NewServeMux()
+
+	s := &amp;Server{}
+	mux.HandleFunc(&quot;/health&quot;, s.healthHandler)
+	mux.HandleFunc(&quot;/ready&quot;, s.readyHandler)
+	mux.HandleFunc(&quot;/version&quot;, versionHandler)
+	mux.HandleFunc(&quot;/api/hello&quot;, helloHandler)
+
+	s.httpServer = &amp;http.Server{
+		Addr:         &quot;:&quot; + port,
+		Handler:      mux,
+		ReadTimeout:  10 * time.Second,
+		WriteTimeout: 10 * time.Second,
+		IdleTimeout:  60 * time.Second,
+	}
+	return s
+}
+
+// healthHandler responds to liveness probes.
+func (s *Server) healthHandler(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set(&quot;Content-Type&quot;, &quot;application/json&quot;)
+	json.NewEncoder(w).Encode(Response{Status: &quot;alive&quot;})
+}
+
+// readyHandler responds to readiness probes.
+func (s *Server) readyHandler(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set(&quot;Content-Type&quot;, &quot;application/json&quot;)
+	if s.ready {
+		json.NewEncoder(w).Encode(Response{Status: &quot;ready&quot;})
+	} else {
+		w.WriteHeader(http.StatusServiceUnavailable)
+		json.NewEncoder(w).Encode(Response{Status: &quot;not ready&quot;})
+	}
+}
+
+// versionHandler returns build version information.
+func versionHandler(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set(&quot;Content-Type&quot;, &quot;application/json&quot;)
+	json.NewEncoder(w).Encode(map[string]string{
+		&quot;version&quot;:    Version,
+		&quot;git_commit&quot;: GitCommit,
+		&quot;build_time&quot;: BuildTime,
+	})
+}
+
+// helloHandler is the main API endpoint.
+func helloHandler(w http.ResponseWriter, r *http.Request) {
+	name := r.URL.Query().Get(&quot;name&quot;)
+	if name == &quot;&quot; {
+		name = &quot;World&quot;
+	}
+	w.Header().Set(&quot;Content-Type&quot;, &quot;application/json&quot;)
+	json.NewEncoder(w).Encode(Response{
+		Status:  &quot;ok&quot;,
+		Message: fmt.Sprintf(&quot;Hello, %s!&quot;, name),
+	})
+}
+
+// Start begins serving HTTP traffic.
+func (s *Server) Start() {
+	s.ready = true
+	log.Printf(&quot;Server starting on %s (version: %s)&quot;, s.httpServer.Addr, Version)
+	if err := s.httpServer.ListenAndServe(); err != http.ErrServerClosed {
+		log.Fatalf(&quot;Server error: %v&quot;, err)
+	}
+}
+
+// Shutdown gracefully stops the server.
+func (s *Server) Shutdown(ctx context.Context) error {
+	s.ready = false // Mark as not ready for new traffic
+	log.Println(&quot;Server shutting down...&quot;)
+	return s.httpServer.Shutdown(ctx)
+}
+
+func main() {
+	port := os.Getenv(&quot;PORT&quot;)
+	if port == &quot;&quot; {
+		port = &quot;8080&quot;
+	}
+
+	srv := NewServer(port)
+
+	// Handle graceful shutdown
+	stop := make(chan os.Signal, 1)
+	signal.Notify(stop, syscall.SIGINT, syscall.SIGTERM)
+
+	go srv.Start()
+
+	&lt;-stop
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	if err := srv.Shutdown(ctx); err != nil {
+		log.Fatalf(&quot;Shutdown error: %v&quot;, err)
+	}
+	log.Println(&quot;Server stopped gracefully&quot;)
+}</code></pre>
+
+<h3>Dockerfile：多阶段构建</h3>
+
+<pre><code class="language-dockerfile"># Build stage
+FROM golang:1.22-alpine AS builder
+
+WORKDIR /app
+COPY go.mod go.sum ./
+RUN go mod download
+
+COPY . .
+
+# Build with version injection via ldflags
+ARG VERSION=dev
+ARG GIT_COMMIT=unknown
+RUN CGO_ENABLED=0 GOOS=linux go build \
+    -ldflags=&quot;-s -w -X main.Version=${VERSION} -X main.GitCommit=${GIT_COMMIT} -X main.BuildTime=$(date -u +%Y-%m-%dT%H:%M:%SZ)&quot; \
+    -o /app/server .
+
+# Runtime stage - minimal image
+FROM alpine:3.19
+
+RUN apk --no-cache add ca-certificates
+COPY --from=builder /app/server /usr/local/bin/server
+
+EXPOSE 8080
+HEALTHCHECK --interval=10s --timeout=3s \
+    CMD wget -qO- http://localhost:8080/health || exit 1
+
+ENTRYPOINT [&quot;server&quot;]</code></pre>
+
+<h3>GitHub Actions 配置</h3>
+
+<pre><code class="language-yaml"># .github/workflows/ci.yml
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+env:
+  GO_VERSION: &#x27;1.22&#x27;
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+      - name: Run golangci-lint
+        uses: golangci/golangci-lint-action@v4
+        with:
+          version: latest
+
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+      - name: Run tests with coverage
+        run: |
+          go test -race -coverprofile=coverage.out ./...
+          go tool cover -func=coverage.out
+      - name: Check coverage threshold
+        run: |
+          COVERAGE=$(go tool cover -func=coverage.out | grep total | awk &#x27;{print $3}&#x27; | sed &#x27;s/%//&#x27;)
+          echo &quot;Total coverage: ${COVERAGE}%&quot;
+          # Fail if coverage below 60%
+          if (( $(echo &quot;$COVERAGE &lt; 60&quot; | bc -l) )); then
+            echo &quot;Coverage below 60%&quot;
+            exit 1
+          fi
+
+  security:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+      - name: Run govulncheck
+        run: |
+          go install golang.org/x/vuln/cmd/govulncheck@latest
+          govulncheck ./...
+
+  build-and-push:
+    needs: [lint, test, security]
+    runs-on: ubuntu-latest
+    if: github.ref == &#x27;refs/heads/main&#x27;
+    steps:
+      - uses: actions/checkout@v4
+      - name: Extract version
+        id: version
+        run: echo &quot;VERSION=$(git describe --tags --always)&quot; &gt;&gt; $GITHUB_OUTPUT
+      - uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: |
+            myregistry/myapp:${{ steps.version.outputs.VERSION }}
+            myregistry/myapp:latest
+          build-args: |
+            VERSION=${{ steps.version.outputs.VERSION }}
+            GIT_COMMIT=${{ github.sha }}</code></pre>
+
+<h2>执行预览</h2>
+
+<pre><code class="language-bash"># Local build with version injection
+go build -ldflags=&quot;-X main.Version=v1.2.0 -X main.GitCommit=abc1234&quot; -o server .
+
+# Run and test
+./server &amp;
+# Server starting on :8080 (version: v1.2.0)
+
+curl http://localhost:8080/health
+# {&quot;status&quot;:&quot;alive&quot;}
+
+curl http://localhost:8080/version
+# {&quot;version&quot;:&quot;v1.2.0&quot;,&quot;git_commit&quot;:&quot;abc1234&quot;,&quot;build_time&quot;:&quot;2024-01-15T10:30:00Z&quot;}
+
+curl http://localhost:8080/api/hello?name=Go
+# {&quot;status&quot;:&quot;ok&quot;,&quot;message&quot;:&quot;Hello, Go!&quot;}
+
+# Docker build
+docker build --build-arg VERSION=v1.2.0 --build-arg GIT_COMMIT=abc1234 -t myapp:v1.2.0 .
+docker run -p 8080:8080 myapp:v1.2.0</code></pre>
+
+<h2>注意事项</h2>
+
+<table><thead><tr>
+<th>环节</th>
+<th>注意事项</th>
+<th>工具</th>
+</tr></thead><tbody>
+<tr>
+<td>代码检查</td>
+<td>golangci-lint 配置要适合项目规模</td>
+<td><code>.golangci.yml</code></td>
+</tr>
+<tr>
+<td>测试</td>
+<td>race detector 在 CI 中必须开启</td>
+<td><code>go test -race</code></td>
+</tr>
+<tr>
+<td>构建</td>
+<td>alpine 镜像注意 glibc 兼容性</td>
+<td><code>CGO_ENABLED=0</code></td>
+</tr>
+<tr>
+<td>镜像</td>
+<td>多阶段构建，镜像越小越好</td>
+<td>最终镜像 < 20MB</td>
+</tr>
+<tr>
+<td>部署</td>
+<td>健康检查 + 优雅关闭</td>
+<td><code>/health</code> + signal</td>
+</tr>
+<tr>
+<td>安全</td>
+<td>定期扫描依赖漏洞</td>
+<td><code>govulncheck</code></td>
+</tr>
+</tbody></table>
+
+<h2>避坑指南</h2>
+
+<table><thead><tr>
+<th>❌ 错误做法</th>
+<th>✅ 正确做法</th>
+</tr></thead><tbody>
+<tr>
+<td>用 <code>golang:latest</code> 作为运行镜像</td>
+<td>多阶段构建，runtime 用 <code>alpine/scratch</code></td>
+</tr>
+<tr>
+<td>硬编码版本号</td>
+<td><code>ldflags</code> 编译时注入</td>
+</tr>
+<tr>
+<td>不设 ReadTimeout/WriteTimeout</td>
+<td>设置合理超时防止 Slowloris</td>
+</tr>
+<tr>
+<td><code>os.Exit()</code> 强制退出</td>
+<td>监听信号 + <code>http.Server.Shutdown()</code></td>
+</tr>
+<tr>
+<td>CI 不跑 race detector</td>
+<td><code>go test -race -count=1 ./...</code></td>
+</tr>
+<tr>
+<td>忽略 <code>.dockerignore</code></td>
+<td>排除 <code>.git</code>、<code>vendor</code>、测试文件</td>
+</tr>
+</tbody></table>
+
+<h2>练习题</h2>
+
+<h3>🟢 基础题</h3>
+<ol>
+<li>解释多阶段 Docker 构建的好处。</li>
+</ul>
+<ol>
+<li>为什么需要 <code>/health</code> 和 <code>/ready</code> 两个端点？</li>
+
+<h3>🟡 进阶题</h3>
+<ol>
+<li>添加 Prometheus 指标端点 <code>/metrics</code>，暴露请求计数和延迟。</li>
+</ul>
+<ol>
+<li>编写一个 Drone CI 配置文件实现同样的流水线。</li>
+
+<h3>🔴 挑战题</h3>
+<ol>
+<li>实现金丝雀发布策略：新版本先接收 10% 流量，逐步扩大。</li>
+</ul>
+<ol>
+<li>设计多环境（dev/staging/prod）的配置管理方案，支持 secrets 加密。</li>
+
+<h2>知识点总结</h2>
+
+<pre><code>Go CI/CD 流水线
+├── 源码管理
+│   ├── 分支策略 (trunk-based)
+│   ├── PR 检查 (lint + test)
+│   └── Tag 触发发布
+├── 构建优化
+│   ├── Go module proxy
+│   ├── 编译缓存
+│   └── ldflags 注入
+├── 容器化
+│   ├── 多阶段构建
+│   ├── 最小基础镜像
+│   └── HEALTHCHECK
+├── 部署策略
+│   ├── 滚动更新
+│   ├── 蓝绿部署
+│   └── 金丝雀发布
+└── 可观测性
+    ├── 健康检查
+    ├── Prometheus 指标
+    └── 结构化日志</code></pre>
+
+<h2>举一反三</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>CI 工具</th>
+<th>部署目标</th>
+<th>特殊考虑</th>
+</tr></thead><tbody>
+<tr>
+<td>个人项目</td>
+<td>GitHub Actions</td>
+<td>Fly.io/Railway</td>
+<td>免费额度</td>
+</tr>
+<tr>
+<td>团队项目</td>
+<td>GitLab CI</td>
+<td>K8s 集群</td>
+<td>多环境管理</td>
+</tr>
+<tr>
+<td>微服务</td>
+<td>ArgoCD</td>
+<td>K8s + Helm</td>
+<td>GitOps 工作流</td>
+</tr>
+<tr>
+<td>函数计算</td>
+<td>GitHub Actions</td>
+<td>AWS Lambda</td>
+<td>交叉编译</td>
+</tr>
+<tr>
+<td>私有化</td>
+<td>Drone/Jenkins</td>
+<td>物理机/VM</td>
+<td>安全合规</td>
+</tr>
+</tbody></table>
+
+<h2>参考资料</h2>
+
+<ol>
+<li><a href="https://github.com/actions/setup-go">GitHub Actions for Go</a></li>
+</ul>
+<ol>
+<li><a href="https://docs.docker.com/build/building/multi-stage/">Docker Multi-stage Builds</a></li>
+</ul>
+<ol>
+<li><a href="https://golangci-lint.run/usage/configuration/">golangci-lint 配置</a></li>
+</ul>
+<ol>
+<li><a href="https://go.dev/doc/modules/release-workflow">Go Release 最佳实践</a></li>
+
+<h2>代码演进</h2>
+
+<h3>v1：本地脚本构建</h3>
+
+<pre><code class="language-bash">#!/bin/bash
+go test ./...
+go build -o app .
+docker build -t myapp .
+docker push myapp</code></pre>
+
+<h3>v2：完整 CI/CD（本文代码）</h3>
+
+<p>GitHub Actions 全流程：lint → test → security → build → push，带版本注入、多阶段构建、健康检查、优雅关闭。</p>
+
+<h3>v3：GitOps + ArgoCD</h3>
+
+<pre><code class="language-yaml"># k8s/deployment.yaml - Declarative deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: myapp
+  annotations:
+    argocd-image-updater.argoproj.io/image-list: myapp=myregistry/myapp
+    argocd-image-updater.argoproj.io/myapp.update-strategy: semver
+spec:
+  template:
+    spec:
+      containers:
+      - name: myapp
+        image: myregistry/myapp:latest
+        livenessProbe:
+          httpGet: { path: /health, port: 8080 }
+        readinessProbe:
+          httpGet: { path: /ready, port: 8080 }</code></pre>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

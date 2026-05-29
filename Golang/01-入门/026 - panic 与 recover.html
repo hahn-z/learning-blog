@@ -1,0 +1,619 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>026 - panic 与 recover</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/learning-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/learning-blog/Golang/index.html">Golang</a>
+<span class="sep">›</span>
+<a href="/learning-blog/Golang/01-入门/index.html">Golang入门</a>
+</nav>
+<h1>026 - panic 与 recover</h1>
+<div class="meta">
+<span>📂 Golang入门</span>
+<span>🏷️ Golang</span>
+</div>
+<article>
+
+
+<h1>026 - panic 与 recover</h1>
+
+<blockquote><p><strong>难度：⭐⭐⭐</strong> | panic 是 Go 的"紧急制动"，recover 是"安全气囊"。用对地方是艺术，用错地方是灾难。</p></blockquote>
+
+<h2>一、概念讲解</h2>
+
+<p>Go 有两种错误处理机制：<strong>error（可预期的错误）</strong> 和 <strong>panic（不可恢复的异常）</strong>。</p>
+
+<h3>panic 是什么？</h3>
+
+<ul>
+<li>一个内置函数，会立刻中断当前函数的执行</li>
+<li>开始执行当前 goroutine 中所有 defer 的函数</li>
+<li>如果 defer 中有 recover，可以"接住" panic</li>
+<li>如果没有 recover，程序崩溃，打印栈信息</li>
+
+<h3>recover 是什么？</h3>
+
+<ul>
+<li>一个内置函数，只能在 defer 中使用</li>
+<li>返回 panic 传入的值</li>
+<li>如果不在 defer 中调用，返回 nil</li>
+
+<h3>什么时候用 panic？</h3>
+
+<ul>
+<li><strong>程序初始化失败</strong>（配置文件缺失、必须的资源不可用）</li>
+<li><strong>不可能的条件</strong>（switch 的 default 分支）</li>
+<li><strong>库的 must 函数</strong>（template.Must、regexp.MustCompile）</li>
+<li><strong>严重 bug 被发现</strong>（空指针、数组越界——说明代码有 bug）</li>
+
+<p><strong>不应该用 panic 的场景：</strong> 文件不存在、网络超时、用户输入错误——这些应该用 error。</p>
+
+<h2>二、脑图（ASCII）</h2>
+
+<pre><code>Panic &amp; Recover
+├── panic
+│   ├── 内置函数 panic(v)
+│   ├── 触发场景
+│   │   ├── 手动调用 panic()
+│   │   ├── 数组/切片越界
+│   │   ├── 空指针解引用
+│   │   ├── 除以零（整数）
+│   │   └── map 并发读写
+│   └── 传播机制
+│       ├── 停止当前函数
+│       ├── 执行所有 defer
+│       ├── 向上传播到调用者
+│       └── 直到 goroutine 顶层 → crash
+├── recover
+│   ├── 只在 defer 中有效
+│   ├── 返回 panic 的值
+│   └── 阻止 panic 继续传播
+├── panic vs error
+│   ├── error: 可预期的失败
+│   └── panic: 不可恢复的严重错误
+└── 实践模式
+    ├── must 模式 (MustCompile 等)
+    ├── recover 中间件
+    └── goroutine 中的 recover</code></pre>
+
+<h2>三、完整 Go 代码</h2>
+
+<h3>v1：基础 panic 和 recover</h3>
+
+<pre><code class="language-go">package main
+
+import &quot;fmt&quot;
+
+// Function that panics
+func mustBePositive(n int) {
+    if n &lt;= 0 {
+        panic(fmt.Sprintf(&quot;must be positive, got %d&quot;, n))
+    }
+    fmt.Printf(&quot;%d is positive ✓\n&quot;, n)
+}
+
+// Function with recover in defer
+func safeCall(f func()) (result interface{}) {
+    defer func() {
+        if r := recover(); r != nil {
+            // Catch the panic and store the value
+            result = r
+        }
+    }()
+    f()
+    return nil
+}
+
+func main() {
+    // Normal call - no panic
+    mustBePositive(42)
+
+    // Call that panics - but recovered
+    err := safeCall(func() {
+        mustBePositive(-1)
+    })
+    if err != nil {
+        fmt.Printf(&quot;Recovered from panic: %v\n&quot;, err)
+    }
+
+    // Runtime panics
+    fmt.Println(&quot;\n--- Runtime panics ---&quot;)
+
+    // Slice out of bounds (caught by safeCall)
+    err = safeCall(func() {
+        s := []int{1, 2, 3}
+        _ = s[10] // index out of range
+    })
+    if err != nil {
+        fmt.Printf(&quot;Recovered: %v\n&quot;, err)
+    }
+
+    // Nil pointer dereference (caught by safeCall)
+    err = safeCall(func() {
+        var p *string
+        fmt.Println(*p) // nil pointer dereference
+    })
+    if err != nil {
+        fmt.Printf(&quot;Recovered: %v\n&quot;, err)
+    }
+
+    fmt.Println(&quot;\nProgram continues normally!&quot;)
+}</code></pre>
+
+<h3>v2：defer 中 recover 的细节 + panic 传播</h3>
+
+<pre><code class="language-go">package main
+
+import &quot;fmt&quot;
+
+// Demonstrates panic propagation through call stack
+func level3() {
+    fmt.Println(&quot;level3: start&quot;)
+    panic(&quot;panic from level3&quot;)
+    fmt.Println(&quot;level3: unreachable&quot;) // never executed
+}
+
+func level2() {
+    defer func() {
+        fmt.Println(&quot;level2: defer runs during panic unwind&quot;)
+    }()
+    fmt.Println(&quot;level2: calling level3&quot;)
+    level3()
+    fmt.Println(&quot;level2: unreachable&quot;)
+}
+
+func level1() {
+    defer func() {
+        if r := recover(); r != nil {
+            fmt.Printf(&quot;level1: recovered → %v\n&quot;, r)
+        }
+    }()
+    fmt.Println(&quot;level1: calling level2&quot;)
+    level2()
+    fmt.Println(&quot;level1: after level2 (reached because we recovered)&quot;)
+}
+
+// Demonstrates multiple defers execute in LIFO order during panic
+func deferOrderDemo() {
+    defer func() {
+        if r := recover(); r != nil {
+            fmt.Printf(&quot;Recovered: %v\n&quot;, r)
+        }
+    }()
+    defer fmt.Println(&quot;defer 2 (executed first - LIFO)&quot;)
+    defer fmt.Println(&quot;defer 1 (executed second - LIFO)&quot;)
+    fmt.Println(&quot;About to panic...&quot;)
+    panic(&quot;boom!&quot;)
+}
+
+func main() {
+    fmt.Println(&quot;=== Panic Propagation Demo ===&quot;)
+    level1()
+    fmt.Println(&quot;Program survived!\n&quot;)
+
+    fmt.Println(&quot;=== Defer Order Demo ===&quot;)
+    deferOrderDemo()
+}</code></pre>
+
+<h3>v3：must 模式 + 生产级 recover 中间件</h3>
+
+<pre><code class="language-go">package main
+
+import (
+    &quot;fmt&quot;
+    &quot;log&quot;
+    &quot;runtime/debug&quot;
+    &quot;time&quot;
+)
+
+// ---- Must Pattern ----
+// Like template.Must, regexp.MustCompile - panic on error,
+// useful for package-level initialization
+
+type Config struct {
+    Host string
+    Port int
+}
+
+func MustParseConfig(raw map[string]string) *Config {
+    host, ok := raw[&quot;host&quot;]
+    if !ok {
+        panic(&quot;config missing required field: host&quot;)
+    }
+    port, ok := raw[&quot;port&quot;]
+    if !ok {
+        panic(&quot;config missing required field: port&quot;)
+    }
+    // In real code: parse port to int
+    return &amp;Config{Host: host, Port: 0} // simplified
+}
+
+// Package-level var that panics on init if config is bad
+var defaultConfig = MustParseConfig(map[string]string{
+    &quot;host&quot;: &quot;localhost&quot;,
+    &quot;port&quot;: &quot;8080&quot;,
+})
+
+// ---- HTTP-like Handler with Recovery Middleware ----
+
+type Response struct {
+    Status  int
+    Body    string
+}
+
+type Handler func(req string) Response
+
+// Recovery middleware wraps a handler with panic protection
+func RecoveryMiddleware(next Handler) Handler {
+    return func(req string) (resp Response) {
+        // Recover must be in a deferred function
+        defer func() {
+            if r := recover(); r != nil {
+                // Log the full stack trace
+                stack := debug.Stack()
+                log.Printf(&quot;[RECOVER] panic: %v\n%s&quot;, r, stack)
+                // Return a 500 response instead of crashing
+                resp = Response{
+                    Status: 500,
+                    Body:   fmt.Sprintf(&quot;Internal Server Error: %v&quot;, r),
+                }
+            }
+        }()
+        return next(req)
+    }
+}
+
+// A handler that might panic
+func riskyHandler(req string) Response {
+    if req == &quot;crash&quot; {
+        // Simulate a bug: nil pointer dereference
+        var p *string
+        _ = *p
+    }
+    if req == &quot;explicit_panic&quot; {
+        panic(&quot;intentional panic for testing&quot;)
+    }
+    return Response{Status: 200, Body: fmt.Sprintf(&quot;Hello, %s!&quot;, req)}
+}
+
+// ---- Goroutine with recovery ----
+
+func safeGo(name string, fn func()) {
+    go func() {
+        defer func() {
+            if r := recover(); r != nil {
+                log.Printf(&quot;[goroutine %s] recovered: %v&quot;, name, r)
+            }
+        }()
+        fn()
+    }()
+}
+
+func main() {
+    fmt.Println(&quot;=== Must Pattern ===&quot;)
+    fmt.Printf(&quot;Default config: %+v\n&quot;, defaultConfig)
+
+    fmt.Println(&quot;\n=== Recovery Middleware ===&quot;)
+    handler := RecoveryMiddleware(riskyHandler)
+
+    // Normal request
+    resp := handler(&quot;world&quot;)
+    fmt.Printf(&quot;Request &#x27;world&#x27; → %d: %s\n&quot;, resp.Status, resp.Body)
+
+    // Panic request - recovered gracefully
+    resp = handler(&quot;crash&quot;)
+    fmt.Printf(&quot;Request &#x27;crash&#x27; → %d: %s\n&quot;, resp.Status, resp.Body)
+
+    resp = handler(&quot;explicit_panic&quot;)
+    fmt.Printf(&quot;Request &#x27;explicit_panic&#x27; → %d: %s\n&quot;, resp.Status, resp.Body)
+
+    // Normal request still works after recovery
+    resp = handler(&quot;recovered&quot;)
+    fmt.Printf(&quot;Request &#x27;recovered&#x27; → %d: %s\n&quot;, resp.Status, resp.Body)
+
+    fmt.Println(&quot;\n=== Goroutine Recovery ===&quot;)
+    safeGo(&quot;worker1&quot;, func() {
+        fmt.Println(&quot;worker1: working...&quot;)
+        time.Sleep(10 * time.Millisecond)
+        panic(&quot;worker1 exploded!&quot;)
+    })
+    safeGo(&quot;worker2&quot;, func() {
+        fmt.Println(&quot;worker2: working...&quot;)
+        time.Sleep(50 * time.Millisecond)
+        fmt.Println(&quot;worker2: done!&quot;)
+    })
+
+    time.Sleep(100 * time.Millisecond)
+    fmt.Println(&quot;\nMain goroutine still alive!&quot;)
+}</code></pre>
+
+<h2>四、执行预览</h2>
+
+<pre><code>$ go run main_v1.go
+42 is positive ✓
+Recovered from panic: must be positive, got -1
+
+--- Runtime panics ---
+Recovered: runtime error: index out of range [10] with length 3
+Recovered: runtime error: invalid memory address or nil pointer dereference
+
+Program continues normally!
+
+$ go run main_v2.go
+=== Panic Propagation Demo ===
+level1: calling level2
+level2: calling level3
+level3: start
+level2: defer runs during panic unwind
+level1: recovered → panic from level3
+Program survived!
+
+=== Defer Order Demo ===
+About to panic...
+defer 2 (executed first - LIFO)
+defer 1 (executed second - LIFO)
+Recovered: boom!
+
+$ go run main_v3.go
+=== Must Pattern ===
+Default config: &amp;{Host:localhost Port:8080}
+
+=== Recovery Middleware ===
+Request &#x27;world&#x27; → 200: Hello, world!
+[RECOVER] panic: runtime error: invalid memory address...
+Request &#x27;crash&#x27; → 500: Internal Server Error: ...
+Request &#x27;explicit_panic&#x27; → 500: Internal Server Error: ...
+Request &#x27;recovered&#x27; → 200: Hello, recovered!
+
+=== Goroutine Recovery ===
+worker1: working...
+[goroutine worker1] recovered: worker1 exploded!
+worker2: working...
+worker2: done!
+Main goroutine still alive!</code></pre>
+
+<h2>五、注意事项（表格）</h2>
+
+<table><thead><tr>
+<th>事项</th>
+<th>说明</th>
+</tr></thead><tbody>
+<tr>
+<td>recover 只在 defer 中有效</td>
+<td>在普通代码中调用 recover() 返回 nil</td>
+</tr>
+<tr>
+<td>defer 必须是直接调用</td>
+<td><code>defer recover()</code> 无效，必须 <code>defer func() { recover() }()</code></td>
+</tr>
+<tr>
+<td>panic 不跨 goroutine</td>
+<td>每个 goroutine 独立，子 goroutine panic 不会 recover 到父 goroutine</td>
+</tr>
+<tr>
+<td>recover 后无法回到 panic 点</td>
+<td>panic 之后的代码不会执行</td>
+</tr>
+<tr>
+<td>多个 defer LIFO 执行</td>
+<td>panic 时 defer 按后进先出顺序执行</td>
+</tr>
+<tr>
+<td>性能开销</td>
+<td>panic/recover 有栈展开开销，不要用于正常流程控制</td>
+</tr>
+</tbody></table>
+
+<h2>六、避坑指南</h2>
+
+<table><thead><tr>
+<th>❌ 错误做法</th>
+<th>✅ 正确做法</th>
+</tr></thead><tbody>
+<tr>
+<td>用 panic 处理业务错误</td>
+<td>用 error 返回值</td>
+</tr>
+<tr>
+<td>忘记在 goroutine 里 recover</td>
+<td>每个新 goroutine 都加 recover</td>
+</tr>
+<tr>
+<td><code>defer recover()</code> 直接调用</td>
+<td><code>defer func() { recover() }()</code></td>
+</tr>
+<tr>
+<td>recover 后不做任何日志</td>
+<td>至少 log.Printf 记录 panic 信息</td>
+</tr>
+<tr>
+<td>用 panic/recover 做流程控制</td>
+<td>它是应急机制，不是 try-catch</td>
+</tr>
+<tr>
+<td>认为 panic 会跨 goroutine</td>
+<td>每个 goroutine 独立处理</td>
+</tr>
+</tbody></table>
+
+<h2>七、练习题</h2>
+
+<h3>🟢 入门</h3>
+
+<ol>
+<li>写一个函数，接收一个整数切片，如果切片为空就 panic，然后用 recover 捕获</li>
+</ul>
+<ol>
+<li>验证 <code>defer recover()</code> 和 <code>defer func() { recover() }()</code> 的区别</li>
+
+<h3>🟡 进阶</h3>
+
+<ol>
+<li>实现一个 <code>Must[T]</code> 泛型函数：<code>func Must<a href="val T, err error">T any</a> T</code>，err 不为 nil 就 panic</li>
+</ul>
+<ol>
+<li>写一个 HTTP 中间件，recover 后返回 JSON 格式的 500 错误响应</li>
+
+<h3>🔴 挑战</h3>
+
+<ol>
+<li>实现一个 goroutine pool，每个 worker 自带 recover，panic 后自动重启 worker</li>
+</ul>
+<ol>
+<li>设计一个分级 panic 处理策略：业务 panic 记日志继续，系统级 panic 让程序优雅退出</li>
+
+<h2>八、知识点总结（树状）</h2>
+
+<pre><code>Panic &amp; Recover
+├── panic
+│   ├── 触发方式
+│   │   ├── 手动 panic(value)
+│   │   ├── 运行时错误（越界、空指针、除零）
+│   │   └── 并发 map 读写
+│   ├── 传播机制
+│   │   ├── 停止当前函数
+│   │   ├── 执行 defer（LIFO）
+│   │   ├── 返回调用者
+│   │   └── 到 goroutine 顶层 → crash
+│   └── 参数类型
+│       └── interface{}（任意类型）
+├── recover
+│   ├── 必须在 defer 中
+│   ├── 返回 panic 的值
+│   └── 阻止继续传播
+├── panic vs error
+│   ├── error: 可预期的，调用者应处理
+│   └── panic: 不可恢复的，严重 bug 或不可用资源
+└── 模式
+    ├── Must 模式（初始化用）
+    ├── Recovery 中间件（Web 服务）
+    └── safeGo（goroutine 保护）</code></pre>
+
+<h2>九、举一反三（表格）</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>Go 方案</th>
+<th>其他语言对比</th>
+</tr></thead><tbody>
+<tr>
+<td>不可恢复错误</td>
+<td>panic + recover</td>
+<td>Java: RuntimeException</td>
+</tr>
+<tr>
+<td>初始化失败</td>
+<td>Must 模式 panic</td>
+<td>Java: throw in static block</td>
+</tr>
+<tr>
+<td>Web 错误恢复</td>
+<td>Recovery middleware</td>
+<td>Java: @ExceptionHandler</td>
+</tr>
+<tr>
+<td>Goroutine 崩溃</td>
+<td>safeGo pattern</td>
+<td>Erlang: supervisor</td>
+</tr>
+<tr>
+<td>断言失败</td>
+<td>panic("unreachable")</td>
+<td>C: assert()</td>
+</tr>
+<tr>
+<td>泛型 Must</td>
+<td>Must<a href="T, error">T any</a> T</td>
+<td>Rust: unwrap()</td>
+</tr>
+</tbody></table>
+
+<h2>十、参考资料</h2>
+
+<ul>
+<li><a href="https://go.dev/ref/spec#Handling_panics">Go Spec: Handling panics</a></li>
+<li><a href="https://go.dev/blog/defer-panic-and-recover">Go Blog: Defer, Panic, and Recover</a></li>
+<li><a href="https://go.dev/doc/effective_go#panic">Effective Go: Panic</a></li>
+
+<h2>十一、代码演进总结</h2>
+
+<table><thead><tr>
+<th>版本</th>
+<th>重点</th>
+<th>关键技术</th>
+</tr></thead><tbody>
+<tr>
+<td>v1</td>
+<td>基础 panic/recover</td>
+<td>panic(), recover(), safeCall 包装</td>
+</tr>
+<tr>
+<td>v2</td>
+<td>传播机制与 defer 顺序</td>
+<td>多层调用栈, LIFO defer</td>
+</tr>
+<tr>
+<td>v3</td>
+<td>生产模式</td>
+<td>Must 模式, Recovery 中间件, safeGo</td>
+</tr>
+</tbody></table>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

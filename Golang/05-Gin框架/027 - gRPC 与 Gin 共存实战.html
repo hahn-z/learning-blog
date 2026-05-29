@@ -1,0 +1,598 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>027 - gRPC 与 Gin 共存实战</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Golang/index.html">Golang</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Golang/05-Gin框架/index.html">Gin框架</a>
+</nav>
+<h1>027 - gRPC 与 Gin 共存实战</h1>
+<div class="meta">
+<span>📂 Gin框架</span>
+<span>🏷️ Golang</span>
+</div>
+<article>
+
+
+<h1>gRPC 与 Gin 共存实战</h1>
+
+<blockquote><p>难度：⭐⭐⭐⭐（高级）<br>前置知识：Gin 基础、HTTP/2、Protocol Buffers</p></blockquote>
+
+<h2>一、概念讲解</h2>
+
+<p>gRPC 是 Google 开源的高性能 RPC 框架，基于 HTTP/2 和 Protocol Buffers。在微服务架构中，内部服务间用 gRPC 通信（高性能），对外暴露 REST API（兼容性），这是最佳实践。</p>
+
+<p><strong>为什么需要 Gin + gRPC 共存？</strong></p>
+
+<table><thead><tr>
+<th>场景</th>
+<th>说明</th>
+</tr></thead><tbody>
+<tr>
+<td>内部高效通信</td>
+<td>微服务间用 gRPC，二进制序列化，性能比 JSON 高 5-10 倍</td>
+</tr>
+<tr>
+<td>外部兼容接口</td>
+<td>对 Web/Mobile 暴露 REST，开发者友好</td>
+</tr>
+<tr>
+<td>渐进迁移</td>
+<td>从 REST 逐步迁移到 gRPC，两种协议并存</td>
+</tr>
+<tr>
+<td>API Gateway</td>
+<td>Gin 作为网关，gRPC 作为后端</td>
+</tr>
+</tbody></table>
+
+<p><strong>三种共存模式：</strong></p>
+<ol>
+<li><strong>双端口模式</strong>：Gin (HTTP) 和 gRPC 各监听一个端口</li>
+</ul>
+<ol>
+<li><strong>grpc-gateway 模式</strong>：gRPC 服务自动生成 REST 代理</li>
+</ul>
+<ol>
+<li><strong>Gin 代理模式</strong>：Gin 路由转发到 gRPC 后端</li>
+
+<h2>二、脑图</h2>
+
+<pre><code>Gin + gRPC 共存
+├── Protobuf
+│   ├── .proto 文件定义
+│   ├── protoc 编译
+│   └── 生成的 Go 代码
+├── gRPC 服务
+│   ├── Server 实现
+│   ├── Unary RPC
+│   ├── Streaming RPC
+│   └── 拦截器 (Interceptor)
+├── 共存模式
+│   ├── 双端口 (推荐)
+│   ├── grpc-gateway
+│   └── Gin 反向代理
+├── 服务注册
+│   ├── etcd
+│   ├── Consul
+│   └── 静态配置
+└── 选型决策
+    ├── 何时用 gRPC
+    ├── 何时用 REST
+    └── 混合架构</code></pre>
+
+<h2>三、完整代码</h2>
+
+<h3>proto/user.proto</h3>
+
+<pre><code class="language-protobuf">syntax = &quot;proto3&quot;;
+package user;
+option go_package = &quot;./proto&quot;;
+
+service UserService {
+  rpc GetUser(GetUserRequest) returns (User);
+  rpc ListUsers(ListUsersRequest) returns (UserList);
+  rpc CreateUser(CreateUserRequest) returns (User);
+}
+
+message User {
+  string id = 1;
+  string name = 2;
+  string email = 3;
+}
+
+message GetUserRequest {
+  string id = 1;
+}
+
+message ListUsersRequest {
+  int32 page = 1;
+  int32 size = 2;
+}
+
+message UserList {
+  repeated User users = 1;
+  int32 total = 2;
+}
+
+message CreateUserRequest {
+  string name = 1;
+  string email = 2;
+}</code></pre>
+
+<h3>生成代码</h3>
+
+<pre><code class="language-bash"># Install protoc plugins
+go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
+go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
+
+# Generate
+protoc --go_out=. --go-grpc_out=. proto/user.proto</code></pre>
+
+<h3>v1：双端口模式（推荐）</h3>
+
+<pre><code class="language-go">// main.go - Dual-port: Gin + gRPC side by side
+package main
+
+import (
+	&quot;context&quot;
+	&quot;fmt&quot;
+	&quot;log&quot;
+	&quot;net&quot;
+	&quot;net/http&quot;
+
+	&quot;github.com/gin-gonic/gin&quot;
+	&quot;google.golang.org/grpc&quot;
+	&quot;google.golang.org/grpc/codes&quot;
+	&quot;google.golang.org/grpc/status&quot;
+)
+
+// === gRPC Server ===
+
+type UserServer struct {
+	UnimplementedUserServiceServer
+	users []*User
+}
+
+func (s *UserServer) GetUser(ctx context.Context, req *GetUserRequest) (*User, error) {
+	for _, u := range s.users {
+		if u.Id == req.Id {
+			return u, nil
+		}
+	}
+	return nil, status.Errorf(codes.NotFound, &quot;user %s not found&quot;, req.Id)
+}
+
+func (s *UserServer) ListUsers(ctx context.Context, req *ListUsersRequest) (*UserList, error) {
+	start := int(req.Page) * int(req.Size)
+	if start &gt;= len(s.users) {
+		start = 0
+	}
+	end := start + int(req.Size)
+	if end &gt; len(s.users) {
+		end = len(s.users)
+	}
+	return &amp;UserList{Users: s.users[start:end], Total: int32(len(s.users))}, nil
+}
+
+func (s *UserServer) CreateUser(ctx context.Context, req *CreateUserRequest) (*User, error) {
+	user := &amp;User{
+		Id:    fmt.Sprintf(&quot;%d&quot;, len(s.users)+1),
+		Name:  req.Name,
+		Email: req.Email,
+	}
+	s.users = append(s.users, user)
+	return user, nil
+}
+
+// === Gin REST Server ===
+
+func setupGin(svc *UserServer) *gin.Engine {
+	r := gin.Default()
+
+	// REST endpoints that mirror gRPC
+	r.GET(&quot;/users/:id&quot;, func(c *gin.Context) {
+		user, err := svc.GetUser(c.Request.Context(), &amp;GetUserRequest{Id: c.Param(&quot;id&quot;)})
+		if err != nil {
+			c.JSON(http.StatusNotFound, gin.H{&quot;error&quot;: err.Error()})
+			return
+		}
+		c.JSON(http.StatusOK, user)
+	})
+
+	r.GET(&quot;/users&quot;, func(c *gin.Context) {
+		list, err := svc.ListUsers(c.Request.Context(), &amp;ListUsersRequest{})
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{&quot;error&quot;: err.Error()})
+			return
+		}
+		c.JSON(http.StatusOK, list)
+	})
+
+	r.POST(&quot;/users&quot;, func(c *gin.Context) {
+		var req struct {
+			Name  string `json:&quot;name&quot; binding:&quot;required&quot;`
+			Email string `json:&quot;email&quot; binding:&quot;required&quot;`
+		}
+		if err := c.ShouldBindJSON(&amp;req); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{&quot;error&quot;: err.Error()})
+			return
+		}
+		user, err := svc.CreateUser(c.Request.Context(), &amp;CreateUserRequest{Name: req.Name, Email: req.Email})
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{&quot;error&quot;: err.Error()})
+			return
+		}
+		c.JSON(http.StatusCreated, user)
+	})
+
+	return r
+}
+
+func main() {
+	// Shared service instance
+	svc := &amp;UserServer{
+		users: []*User{
+			{Id: &quot;1&quot;, Name: &quot;Alice&quot;, Email: &quot;alice@example.com&quot;},
+			{Id: &quot;2&quot;, Name: &quot;Bob&quot;, Email: &quot;bob@example.com&quot;},
+		},
+	}
+
+	// Start gRPC server on port 50051
+	grpcLis, err := net.Listen(&quot;tcp&quot;, &quot;:50051&quot;)
+	if err != nil {
+		log.Fatal(err)
+	}
+	grpcSrv := grpc.NewServer()
+	RegisterUserServiceServer(grpcSrv, svc)
+	go func() {
+		log.Println(&quot;gRPC server on :50051&quot;)
+		grpcSrv.Serve(grpcLis)
+	}()
+
+	// Start Gin server on port 8080
+	ginSrv := setupGin(svc)
+	log.Println(&quot;Gin server on :8080&quot;)
+	log.Fatal(ginSrv.Run(&quot;:8080&quot;))
+}</code></pre>
+
+<h3>v2：gRPC 拦截器 + 优雅关闭</h3>
+
+<pre><code class="language-go">// interceptors.go - gRPC interceptors
+package main
+
+import (
+	&quot;context&quot;
+	&quot;log&quot;
+	&quot;time&quot;
+
+	&quot;google.golang.org/grpc&quot;
+	&quot;google.golang.org/grpc/metadata&quot;
+)
+
+// Logging interceptor
+func UnaryLogger() grpc.UnaryServerInterceptor {
+	return func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
+		start := time.Now()
+		resp, err := handler(ctx, req)
+		log.Printf(&quot;[gRPC] %s %v&quot;, info.FullMethod, time.Since(start))
+		return resp, err
+	}
+}
+
+// Auth interceptor
+func UnaryAuth() grpc.UnaryServerInterceptor {
+	return func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
+		md, ok := metadata.FromIncomingContext(ctx)
+		if !ok {
+			return nil, fmt.Errorf(&quot;missing metadata&quot;)
+		}
+		tokens := md.Get(&quot;authorization&quot;)
+		if len(tokens) == 0 {
+			return nil, fmt.Errorf(&quot;unauthorized&quot;)
+		}
+		// Validate token...
+		return handler(ctx, req)
+	}
+}</code></pre>
+
+<pre><code class="language-go">// main.go - Graceful shutdown
+func main() {
+	svc := &amp;UserServer{users: defaultUsers()}
+
+	// gRPC with interceptors
+	grpcSrv := grpc.NewServer(
+		grpc.UnaryInterceptor(UnaryLogger()),
+	)
+	RegisterUserServiceServer(grpcSrv, svc)
+
+	// Graceful shutdown
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+
+	// Start both servers
+	grpcLis, _ := net.Listen(&quot;tcp&quot;, &quot;:50051&quot;)
+	go grpcSrv.Serve(grpcLis)
+
+	ginSrv := setupGin(svc)
+	go ginSrv.Run(&quot;:8080&quot;)
+
+	&lt;-quit
+	log.Println(&quot;Shutting down...&quot;)
+	grpcSrv.GracefulStop()
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	// ginSrv.Shutdown(ctx) if using http.Server
+}</code></pre>
+
+<h3>v3：grpc-gateway 自动生成 REST</h3>
+
+<pre><code class="language-go">// main.go - Single port with grpc-gateway
+package main
+
+import (
+	&quot;context&quot;
+	&quot;net/http&quot;
+
+	&quot;github.com/gin-gonic/gin&quot;
+	&quot;google.golang.org/grpc&quot;
+	&quot;google.golang.org/grpc/credentials/insecure&quot;
+	gw &quot;google.golang.org/grpc/gateway&quot;
+)
+
+func main() {
+	// Start gRPC
+	svc := &amp;UserServer{users: defaultUsers()}
+	grpcSrv := grpc.NewServer()
+	RegisterUserServiceServer(grpcSrv, svc)
+	go func() {
+		lis, _ := net.Listen(&quot;tcp&quot;, &quot;:50051&quot;)
+		grpcSrv.Serve(lis)
+	}()
+
+	// grpc-gateway: auto-generates REST from gRPC
+	ctx := context.Background()
+	mux := runtime.NewServeMux()
+	opts := []grpc.DialOption{grpc.WithTransportCredentials(insecure.NewCredentials())}
+	RegisterUserServiceHandlerFromEndpoint(ctx, mux, &quot;localhost:50051&quot;, opts)
+
+	// Gin handles custom routes, gateway handles /v1/*
+	r := gin.Default()
+	r.Any(&quot;/v1/*any&quot;, gin.WrapH(mux))
+
+	// Custom Gin routes for non-gRPC features
+	r.GET(&quot;/health&quot;, func(c *gin.Context) {
+		c.JSON(200, gin.H{&quot;status&quot;: &quot;ok&quot;})
+	})
+
+	r.Run(&quot;:8080&quot;)
+}</code></pre>
+
+<h2>四、执行预览</h2>
+
+<pre><code class="language-bash"># Generate protobuf code
+protoc --go_out=. --go-grpc_out=. proto/user.proto
+
+# Start server
+go run main.go
+# gRPC server on :50051
+# Gin server on :8080
+
+# Test REST (Gin)
+curl http://localhost:8080/users/1
+{&quot;id&quot;:&quot;1&quot;,&quot;name&quot;:&quot;Alice&quot;,&quot;email&quot;:&quot;alice@example.com&quot;}
+
+# Test gRPC
+grpcurl -plaintext -d &#x27;{&quot;id&quot;:&quot;1&quot;}&#x27; localhost:50051 user.UserService/GetUser
+
+# Test via grpc-gateway
+curl http://localhost:8080/v1/users/1</code></pre>
+
+<h2>五、注意事项</h2>
+
+<table><thead><tr>
+<th>事项</th>
+<th>说明</th>
+</tr></thead><tbody>
+<tr>
+<td>端口规划</td>
+<td>gRPC 默认 50051，Gin 默认 8080，避免冲突</td>
+</tr>
+<tr>
+<td>Protobuf 版本</td>
+<td>使用 proto3，统一团队版本</td>
+</tr>
+<tr>
+<td>共享业务逻辑</td>
+<td>REST 和 gRPC 调用同一 service 实例</td>
+</tr>
+<tr>
+<td>错误码映射</td>
+<td>gRPC status code ↔ HTTP status code 需要转换</td>
+</tr>
+<tr>
+<td>流式 RPC</td>
+<td>gRPC streaming 不适合 REST 代理</td>
+</tr>
+<tr>
+<td>超时控制</td>
+<td>gRPC 用 context 超时，Gin 用 middleware</td>
+</tr>
+</tbody></table>
+
+<h2>六、避坑指南</h2>
+
+<table><thead><tr>
+<th>❌ 常见错误</th>
+<th>✅ 正确做法</th>
+</tr></thead><tbody>
+<tr>
+<td>Gin 和 gRPC 监听同一端口</td>
+<td>双端口模式，各管各的</td>
+</tr>
+<tr>
+<td>gRPC 错误直接返回给 REST 客户端</td>
+<td>映射 gRPC codes 到 HTTP status</td>
+</tr>
+<tr>
+<td>不设超时</td>
+<td>gRPC 用 <code>context.WithTimeout</code>，Gin 用 middleware</td>
+</tr>
+<tr>
+<td>不注册 gRPC health check</td>
+<td>添加 <code>grpc_health_v1</code> 供 K8s 探针</td>
+</tr>
+<tr>
+<td>忘记 <code>UnimplementedUserServiceServer</code></td>
+<td>必须嵌入，保证前后兼容</td>
+</tr>
+</tbody></table>
+
+<h2>七、练习题</h2>
+
+<p>🟢 <strong>初级：</strong> 给 User 添加一个 <code>DeleteUser</code> RPC 和对应的 REST DELETE 端点</p>
+
+<p>🟡 <strong>中级：</strong> 实现 gRPC Server Streaming（服务端推送用户列表，逐条返回）</p>
+
+<p>🔴 <strong>高级：</strong> 实现 grpc-gateway + 自定义 Gin middleware 鉴权，统一 gRPC 和 REST 的认证链路</p>
+
+<h2>八、知识点总结</h2>
+
+<pre><code>Gin + gRPC 共存
+├── Protobuf
+│   ├── Message 定义
+│   ├── Service 定义
+│   └── protoc 代码生成
+├── gRPC Server
+│   ├── Service 实现
+│   ├── Interceptor (拦截器)
+│   ├── Health Check
+│   └── Graceful Shutdown
+├── 共存模式
+│   ├── 双端口 (Gin:gRPC独立)
+│   ├── grpc-gateway (自动REST)
+│   └── Gin 反向代理
+└── 运维
+    ├── 服务发现
+    ├── 负载均衡
+    └── 监控 (gRPC metrics)</code></pre>
+
+<h2>九、举一反三</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>方案</th>
+</tr></thead><tbody>
+<tr>
+<td>K8s 部署，需要健康检查</td>
+<td>gRPC health check + Gin /health</td>
+</tr>
+<tr>
+<td>前端也要调用 gRPC</td>
+<td>gRPC-Web 或 grpc-gateway</td>
+</tr>
+<tr>
+<td>需要链路追踪</td>
+<td>gRPC + Gin 都接 OpenTelemetry</td>
+</tr>
+<tr>
+<td>高并发大文件传输</td>
+<td>gRPC streaming + 流控</td>
+</tr>
+</tbody></table>
+
+<h2>十、参考资料</h2>
+
+<ul>
+<li><a href="https://grpc.io/docs/">gRPC 官方文档</a></li>
+<li><a href="https://github.com/grpc-ecosystem/grpc-gateway">grpc-gateway</a></li>
+<li><a href="https://protobuf.dev/">Protocol Buffers</a></li>
+<li><a href="https://github.com/fullstorydev/grpcurl">grpcurl 调试工具</a></li>
+
+<h2>十一、代码演进总结</h2>
+
+<table><thead><tr>
+<th>版本</th>
+<th>特点</th>
+<th>适用场景</th>
+</tr></thead><tbody>
+<tr>
+<td>v1</td>
+<td>双端口、共享 service、基础功能</td>
+<td>学习、小型项目</td>
+</tr>
+<tr>
+<td>v2</td>
+<td>拦截器、优雅关闭、日志认证</td>
+<td>生产环境</td>
+</tr>
+<tr>
+<td>v3</td>
+<td>grpc-gateway、单端口暴露</td>
+<td>API Gateway 模式</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<p><em>左手 REST，右手 gRPC，全都要。</em> ⚡</p>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

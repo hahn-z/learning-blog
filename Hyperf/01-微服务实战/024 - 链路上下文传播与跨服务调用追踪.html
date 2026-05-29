@@ -1,0 +1,609 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>024 - 链路上下文传播与跨服务调用追踪</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Hyperf/index.html">Hyperf</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Hyperf/01-微服务实战/index.html">Hyperf微服务实战</a>
+</nav>
+<h1>024 - 链路上下文传播与跨服务调用追踪</h1>
+<div class="meta">
+<span>📂 Hyperf微服务实战</span>
+<span>🏷️ Hyperf</span>
+</div>
+<article>
+
+
+<h1>链路上下文传播与跨服务调用追踪</h1>
+
+<h2>难度标注</h2>
+
+<p>⭐⭐⭐⭐（中高级）</p>
+
+<p><strong>前置知识：</strong> 分布式链路追踪原理、Jaeger 部署、Hyperf HTTP 客户端</p>
+
+<p><strong>预估用时：</strong> 50-60 分钟</p>
+
+<hr>
+
+<h2>概念讲解</h2>
+
+<p><strong>链路上下文传播（Context Propagation）</strong> 是指在微服务调用链中，将当前请求的追踪信息（Trace ID、Span ID 等）通过协议头或消息体传递给下游服务，使得所有服务产生的 Span 能够串联成一条完整的追踪链路。</p>
+
+<p><strong>现实类比：</strong> 你去医院看病，挂号时给你一个病历号（Trace ID）。你拿着病历号去看内科，内科医生在病历上记录（Span）后写上"转外科"。外科医生看到病历号，接着记录。如果每个人不传病历号，每个科室各记各的，你的看病过程就无法追溯。</p>
+
+<p><strong>技术场景：</strong> 用户服务通过 HTTP 调用订单服务、通过 gRPC 调用认证服务、通过 Kafka 发送消息给通知服务。三种协议、三种传输方式，但都需要传播同一个 Trace Context，才能在 Jaeger 中看到完整的调用链。</p>
+
+<hr>
+
+<h2>实时脑图</h2>
+
+<pre><code>                  User Request
+                  traceparent: 00-abc123-def456-01
+                       │
+                       ▼
+              ┌─────────────────────┐
+              │    User Service      │
+              │ TraceID: abc123      │
+              │ SpanID: def456       │
+              └───┬─────┬──────┬────┘
+                  │     │      │
+          HTTP    │  gRPC│  Kafka│
+     traceparent  │metadata│  header│
+                  │     │      │
+      ┌───────────▼┐ ┌──▼──────┐ ┌▼──────────┐
+      │Order Service│ │Auth Svc │ │Notify Svc │
+      │Parent: def  │ │Parent:  │ │Parent:    │
+      │SpanID: 111  │ │def      │ │def        │
+      └─────────────┘ └─────────┘ └───────────┘</code></pre>
+
+<hr>
+
+<h2>完整代码</h2>
+
+<h3>1. HTTP 上下文传播中间件</h3>
+
+<pre><code class="language-php">&lt;?php
+// app/Middleware/TracePropagationMiddleware.php
+
+declare(strict_types=1);
+
+namespace App\Middleware;
+
+use Hyperf\Context\Context;
+use Psr\Http\Message\ResponseInterface;
+use Psr\Http\Message\ServerRequestInterface;
+use Psr\Http\Server\MiddlewareInterface;
+use Psr\Http\Server\RequestHandlerInterface;
+
+class TracePropagationMiddleware implements MiddlewareInterface
+{
+    // ✅ W3C Trace Context header
+    private const TRACE_PARENT = &#x27;traceparent&#x27;;
+
+    public function process(
+        ServerRequestInterface $request,
+        RequestHandlerInterface $handler
+    ): ResponseInterface {
+        // ✅ Extract traceparent from incoming request
+        $traceParent = $request-&gt;getHeaderLine(self::TRACE_PARENT);
+
+        if ($traceParent) {
+            $context = $this-&gt;parseTraceParent($traceParent);
+            if ($context) {
+                // 🟢 Propagate existing trace
+                Context::set(&#x27;trace.trace_id&#x27;, $context[&#x27;trace_id&#x27;]);
+                Context::set(&#x27;trace.parent_span_id&#x27;, $context[&#x27;parent_span_id&#x27;]);
+            }
+        }
+
+        // ✅ Generate new span ID for this service
+        Context::set(&#x27;trace.span_id&#x27;, bin2hex(random_bytes(8)));
+
+        // If no trace_id, create one (root span)
+        if (!Context::has(&#x27;trace.trace_id&#x27;)) {
+            Context::set(&#x27;trace.trace_id&#x27;, bin2hex(random_bytes(16)));
+        }
+
+        // ✅ Continue processing
+        $response = $handler-&gt;handle($request);
+
+        // 🟢 Add trace headers to response for debugging
+        return $response-&gt;withHeader(
+            &#x27;X-Trace-Id&#x27;,
+            Context::get(&#x27;trace.trace_id&#x27;, &#x27;&#x27;)
+        );
+    }
+
+    /**
+     * ✅ Parse W3C traceparent: version-traceid-spanid-flags
+     */
+    private function parseTraceParent(string $header): ?array
+    {
+        $parts = explode(&#x27;-&#x27;, $header);
+        if (count($parts) !== 4) {
+            return null;
+        }
+        return [
+            &#x27;trace_id&#x27; =&gt; $parts[1],
+            &#x27;parent_span_id&#x27; =&gt; $parts[2],
+            &#x27;flags&#x27; =&gt; $parts[3],
+        ];
+    }
+}</code></pre>
+
+<h3>2. HTTP 客户端传播（出站）</h3>
+
+<pre><code class="language-php">&lt;?php
+// app/Service/HttpClient/TracePropagationPlugin.php
+
+declare(strict_types=1);
+
+namespace App\Service\HttpClient;
+
+use GuzzleHttp\Psr7\Request;
+use Hyperf\Context\Context;
+use Hyperf\Guzzle\CoroutineHandler;
+
+class TracePropagationPlugin
+{
+    /**
+     * ✅ Inject trace context into outgoing HTTP requests
+     */
+    public static function injectTraceHeaders(array $options): array
+    {
+        $traceId = Context::get(&#x27;trace.trace_id&#x27;);
+        $spanId = Context::get(&#x27;trace.span_id&#x27;);
+
+        if ($traceId) {
+            // ✅ Build W3C traceparent for downstream
+            $traceParent = sprintf(
+                &#x27;00-%s-%s-01&#x27;,
+                $traceId,
+                $spanId ?? bin2hex(random_bytes(8))
+            );
+
+            $options[&#x27;headers&#x27;] = array_merge($options[&#x27;headers&#x27;] ?? [], [
+                &#x27;traceparent&#x27; =&gt; $traceParent,
+                &#x27;X-Trace-Id&#x27; =&gt; $traceId,
+            ]);
+        }
+
+        return $options;
+    }
+}
+
+// app/Service/OrderClientService.php
+&lt;?php
+
+declare(strict_types=1);
+
+namespace App\Service;
+
+use App\Service\HttpClient\TracePropagationPlugin;
+use Hyperf\Guzzle\ClientFactory;
+
+class OrderClientService
+{
+    public function __construct(
+        private ClientFactory $clientFactory
+    ) {}
+
+    public function getUserOrders(int $userId): array
+    {
+        $client = $this-&gt;clientFactory-&gt;create([
+            &#x27;base_uri&#x27; =&gt; &#x27;http://order-service:9502&#x27;,
+        ]);
+
+        // ✅ Propagate trace context to order service
+        $options = TracePropagationPlugin::injectTraceHeaders([
+            &#x27;headers&#x27; =&gt; [&#x27;Accept&#x27; =&gt; &#x27;application/json&#x27;],
+        ]);
+
+        $response = $client-&gt;get(&quot;/api/orders/user/{$userId}&quot;, $options);
+
+        return json_decode($response-&gt;getBody()-&gt;getContents(), true);
+    }
+}</code></pre>
+
+<h3>3. gRPC 上下文传播</h3>
+
+<pre><code class="language-php">&lt;?php
+// app/GRPC/Client/GrpcTraceInterceptor.php
+
+declare(strict_types=1);
+
+namespace App\GRPC\Client;
+
+use Hyperf\Context\Context;
+use Hyperf\GrpcClient\BaseClient;
+
+class GrpcTraceInterceptor
+{
+    /**
+     * ✅ Create gRPC metadata with trace context
+     */
+    public static function injectTraceMetadata(): array
+    {
+        $traceId = Context::get(&#x27;trace.trace_id&#x27;);
+        $spanId = Context::get(&#x27;trace.span_id&#x27;);
+
+        if (!$traceId) {
+            return [];
+        }
+
+        // ✅ gRPC uses metadata (similar to HTTP headers)
+        return [
+            &#x27;traceparent&#x27; =&gt; [sprintf(&#x27;00-%s-%s-01&#x27;, $traceId, $spanId ?? bin2hex(random_bytes(8)))],
+            &#x27;x-trace-id&#x27; =&gt; [$traceId],
+        ];
+    }
+}
+
+// Usage in gRPC client call
+// $metadata = GrpcTraceInterceptor::injectTraceMetadata();
+// $client-&gt;GetUser($request, $metadata);</code></pre>
+
+<h3>4. Kafka 消息传播</h3>
+
+<pre><code class="language-php">&lt;?php
+// app/Producer/TraceAwareProducer.php
+
+declare(strict_types=1);
+
+namespace App\Producer;
+
+use Hyperf\Context\Context;
+use Hyperf\Kafka\Producer;
+
+class TraceAwareProducer
+{
+    public function __construct(
+        private Producer $producer
+    ) {}
+
+    /**
+     * ✅ Send Kafka message with trace context in headers
+     */
+    public function send(string $topic, string $key, array $payload): void
+    {
+        $traceId = Context::get(&#x27;trace.trace_id&#x27;);
+        $spanId = Context::get(&#x27;trace.span_id&#x27;);
+
+        // ✅ Embed trace context in Kafka message headers
+        $headers = [];
+        if ($traceId) {
+            $headers[&#x27;traceparent&#x27;] = sprintf(
+                &#x27;00-%s-%s-01&#x27;,
+                $traceId,
+                $spanId ?? bin2hex(random_bytes(8))
+            );
+        }
+
+        $this-&gt;producer-&gt;send($topic, [
+            new \Hyperf\Kafka\Message(
+                topicName: $topic,
+                key: $key,
+                value: json_encode($payload),
+                headers: $headers,
+            ),
+        ]);
+    }
+}
+
+// app/Consumer/TraceAwareConsumer.php
+&lt;?php
+
+declare(strict_types=1);
+
+namespace App\Consumer;
+
+use Hyperf\Context\Context;
+use Hyperf\Kafka\Annotation\Consumer;
+use Hyperf\Kafka\Message\ConsumerMessage;
+
+#[Consumer(topic: &#x27;user-events&#x27;, groupId: &#x27;notification-service&#x27;)]
+class UserEventConsumer extends ConsumerMessage
+{
+    public function consume(\Hyperf\Kafka\Message $message): void
+    {
+        // ✅ Extract trace context from Kafka message headers
+        $headers = $message-&gt;getHeaders();
+        $traceParent = $headers[&#x27;traceparent&#x27;] ?? null;
+
+        if ($traceParent) {
+            $parts = explode(&#x27;-&#x27;, $traceParent);
+            if (count($parts) === 4) {
+                Context::set(&#x27;trace.trace_id&#x27;, $parts[1]);
+                Context::set(&#x27;trace.parent_span_id&#x27;, $parts[2]);
+            }
+        }
+
+        // 🟢 New span ID for consumer processing
+        Context::set(&#x27;trace.span_id&#x27;, bin2hex(random_bytes(8)));
+
+        $payload = json_decode($message-&gt;getValue(), true);
+        logger()-&gt;info(&#x27;Processing user event&#x27;, [
+            &#x27;trace_id&#x27; =&gt; Context::get(&#x27;trace.trace_id&#x27;),
+            &#x27;event&#x27; =&gt; $payload,
+        ]);
+
+        // Process event...
+    }
+}</code></pre>
+
+<hr>
+
+<h2>执行预览</h2>
+
+<pre><code class="language-bash"># Request with trace context (from API Gateway)
+$ curl -H &quot;traceparent: 00-abc123def456789-spandata001-01&quot; \
+  http://localhost:9501/api/users/1/orders
+
+# Jaeger UI shows complete chain:
+# ┌─ GET /api/users/1/orders (user-service, 200ms)
+# │  ├─ HTTP GET /api/orders/user/1 (order-service, 150ms)
+# │  └─ Kafka SEND user-events (3ms)
+# │
+# └─ CONSUME user-events (notification-service, 50ms)
+
+# Check trace headers in response
+$ curl -v http://localhost:9501/api/users/1 2&gt;&amp;1 | grep X-Trace-Id
+&lt; X-Trace-Id: abc123def456789</code></pre>
+
+<hr>
+
+<h2>注意事项</h2>
+
+<table><thead><tr>
+<th>约束</th>
+<th>说明</th>
+<th>违反后果</th>
+</tr></thead><tbody>
+<tr>
+<td>三种协议都要传播</td>
+<td>HTTP/gRPC/Kafka 各有传播方式</td>
+<td>链路在某一步断裂</td>
+</tr>
+<tr>
+<td>traceparent 格式严格</td>
+<td>W3C 规范：00-{32hex}-{16hex}-{2hex}</td>
+<td>解析失败，创建新 Trace</td>
+</tr>
+<tr>
+<td>消费端必须重新生成 Span ID</td>
+<td>否则多个服务共享同一个 Span ID</td>
+<td>Jaeger 中 Span 冲突</td>
+</tr>
+<tr>
+<td>异步消息的 Trace 生命周期长</td>
+<td>Kafka 消息可能延迟消费</td>
+<td>注意 Span 的 parent 关系用 FollowsFrom</td>
+</tr>
+<tr>
+<td>不要在日志中遗漏 Trace ID</td>
+<td>所有日志关联 Trace ID</td>
+<td>无法通过日志追踪问题</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>避坑指南</h2>
+
+<table><thead><tr>
+<th>典型错误</th>
+<th>现象</th>
+<th>正确做法</th>
+</tr></thead><tbody>
+<tr>
+<td>HTTP 客户端不传 traceparent</td>
+<td>下游服务看到新 Trace</td>
+<td>封装统一的 HTTP 客户端插件</td>
+</tr>
+<tr>
+<td>gRPC 用 HTTP header 传追踪</td>
+<td>Metadata 中找不到</td>
+<td>gRPC 用独立的 Metadata 机制</td>
+</tr>
+<tr>
+<td>Kafka 不传 headers</td>
+<td>消费端无法关联</td>
+<td>在 Producer 中注入 traceparent</td>
+</tr>
+<tr>
+<td>Context 在协程间泄漏</td>
+<td>Swoole 协程切换后 Trace 错乱</td>
+<td>用 Hyperf Context 而非全局变量</td>
+</tr>
+<tr>
+<td>Span ID 不重新生成</td>
+<td>父子关系错误</td>
+<td>每个服务/操作生成新的 Span ID</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>练习题</h2>
+
+<h3>🟢 基础题</h3>
+
+<ol>
+<li><strong>实现 HTTP 出站传播</strong>：封装一个 Guzzle Middleware，自动在所有出站请求中注入 traceparent。</li>
+
+<ol>
+<li><strong>验证传播正确性</strong>：用两个 Hyperf 服务，在 Jaeger 中确认跨服务 Span 的父子关系。</li>
+
+<h3>🟡 进阶题</h3>
+
+<ol>
+<li><strong>实现 baggage 传播</strong>：除了 traceparent，额外传播一个自定义的 <code>x-tenant-id</code> baggage，在所有服务中可用。</li>
+
+<h3>🔴 开放题</h3>
+
+<ol>
+<li><strong>设计统一传播层</strong>：抽象一个 PropagationInterface，支持 HTTP、gRPC、Kafka、Redis 命令等多种载体，一处配置全局生效。</li>
+
+<hr>
+
+<h2>知识点总结</h2>
+
+<pre><code>链路上下文传播
+├── W3C Trace Context
+│   ├── traceparent 格式
+│   ├── tracestate 扩展
+│   └── 解析与生成
+├── 传播载体
+│   ├── HTTP Headers
+│   ├── gRPC Metadata
+│   ├── Kafka Headers
+│   └── Redis / 消息队列
+├── Hyperf 实现
+│   ├── 入站：Middleware 提取
+│   ├── 出站 HTTP：Guzzle Plugin 注入
+│   ├── 出站 gRPC：Metadata 注入
+│   └── Kafka：Producer/Consumer 处理
+└── 关键细节
+    ├── 协程安全的 Context
+    ├── Span ID 每跳重新生成
+    └── FollowsFrom vs ChildOf 关系</code></pre>
+
+<hr>
+
+<h2>举一反三</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>变种说明</th>
+<th>关键差异</th>
+</tr></thead><tbody>
+<tr>
+<td>同步 HTTP → 异步事件</td>
+<td>同步用 ChildOf，异步用 FollowsFrom</td>
+<td>关系类型不同，影响 Jaeger 展示</td>
+</tr>
+<tr>
+<td>W3C → B3 传播格式</td>
+<td>兼容旧 Zipkin 系统</td>
+<td>格式不同但内容相同</td>
+</tr>
+<tr>
+<td>单语言 → 多语言传播</td>
+<td>PHP 调 Go 调 Java</td>
+<td>协议一致即可，语言无关</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>参考资料</h2>
+
+<table><thead><tr>
+<th>资料</th>
+<th>链接</th>
+<th>权威等级</th>
+</tr></thead><tbody>
+<tr>
+<td>W3C Trace Context</td>
+<td>https://www.w3.org/TR/trace-context/</td>
+<td>⭐⭐⭐⭐⭐</td>
+</tr>
+<tr>
+<td>OpenTelemetry Propagation</td>
+<td>https://opentelemetry.io/docs/concepts/context-propagation/</td>
+<td>⭐⭐⭐⭐⭐</td>
+</tr>
+<tr>
+<td>Hyperf Context 管理</td>
+<td>https://hyperf.wiki/3.0/#/zh-cn/coroutine/context</td>
+<td>⭐⭐⭐⭐</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>代码演进</h2>
+
+<h3>v1 ❌ 手动在每个调用中传 Trace ID</h3>
+
+<pre><code class="language-php">// ❌ Manual propagation, easy to forget
+$response = $this-&gt;client-&gt;get(&#x27;/api/orders&#x27;, [
+    &#x27;headers&#x27; =&gt; [&#x27;X-Request-Id&#x27; =&gt; $requestId]
+]);</code></pre>
+
+<h3>v2 ✅ 中间件 + 插件自动传播</h3>
+
+<pre><code class="language-php">// Inbound: middleware extracts
+// Outbound: plugin injects
+// All automatic, no manual work per call
+$options = TracePropagationPlugin::injectTraceHeaders($options);</code></pre>
+
+<h3>v3 🟢 统一传播层 + 自动埋点</h3>
+
+<pre><code class="language-php">// Framework-level auto-instrumentation
+// No manual propagation code needed
+// @Trace annotation + auto HTTP/gRPC/Kafka tracing
+$tracer-&gt;spanBuilder(&#x27;outbound&#x27;)
+    -&gt;setParent($currentContext)
+    -&gt;startSpan();</code></pre>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

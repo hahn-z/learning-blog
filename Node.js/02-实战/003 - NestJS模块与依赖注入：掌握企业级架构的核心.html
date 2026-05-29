@@ -1,0 +1,973 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>003 - NestJS模块与依赖注入：掌握企业级架构的核心</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Node.js/index.html">Node.js</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Node.js/02-实战/index.html">Node.js实战</a>
+</nav>
+<h1>003 - NestJS模块与依赖注入：掌握企业级架构的核心</h1>
+<div class="meta">
+<span>📂 Node.js实战</span>
+<span>🏷️ Node.js</span>
+</div>
+<article>
+
+
+<h2>难度标注</h2>
+
+<blockquote><p><strong>难度：</strong> 🔴 较高 | <strong>前置知识：</strong> NestJS基础、TypeScript装饰器、面向对象设计 | <strong>预计耗时：</strong> 4-5小时</p></blockquote>
+
+<hr>
+
+<h2>概念讲解</h2>
+
+<h3>什么是模块系统？</h3>
+
+<p>模块（Module）是NestJS组织应用结构的基本单位。每个模块封装一组相关的功能，包括控制器、服务、和其他提供者。模块之间通过<strong>imports/exports</strong>建立依赖关系。</p>
+
+<h3>什么是依赖注入（DI）？</h3>
+
+<p>依赖注入是一种设计模式：<strong>对象不自己创建依赖，而是由外部容器注入</strong>。NestJS内置了强大的IoC容器，自动管理对象的创建和生命周期。</p>
+
+<pre><code class="language-typescript">// Without DI: Manual instantiation (tight coupling)
+const service = new UsersService(new DatabaseService(new ConfigService()));
+const controller = new UsersController(service);
+
+// With DI: NestJS handles everything (loose coupling)
+@Controller(&#x27;users&#x27;)
+export class UsersController {
+  constructor(private readonly usersService: UsersService) {} // Auto-injected!
+}</code></pre>
+
+<h3>模块系统的核心要素</h3>
+
+<table><thead><tr>
+<th>要素</th>
+<th>作用</th>
+<th>类比</th>
+</tr></thead><tbody>
+<tr>
+<td><code>imports</code></td>
+<td>引入其他模块的导出</td>
+<td>import库</td>
+</tr>
+<tr>
+<td><code>exports</code></td>
+<td>暴露当前模块的提供者</td>
+<td>export接口</td>
+</tr>
+<tr>
+<td><code>providers</code></td>
+<td>注册可注入的服务</td>
+<td>注册组件</td>
+</tr>
+<tr>
+<td><code>controllers</code></td>
+<td>注册控制器</td>
+<td>注册路由</td>
+</tr>
+</tbody></table>
+
+<h3>Provider的四种注册方式</h3>
+
+<pre><code class="language-typescript">@Module({
+  providers: [
+    // 1. Class provider (shorthand)
+    UsersService,
+
+    // 2. Class provider (full form)
+    { provide: UsersService, useClass: UsersService },
+
+    // 3. Value provider (mock/constant)
+    { provide: &#x27;CONFIG&#x27;, useValue: { db: &#x27;postgres&#x27; } },
+
+    // 4. Factory provider (async/dynamic)
+    {
+      provide: &#x27;DATABASE_CONNECTION&#x27;,
+      useFactory: async (configService: ConfigService) =&gt; {
+        return await createConnection(configService.dbConfig);
+      },
+      inject: [ConfigService],
+    },
+  ],
+})</code></pre>
+
+<hr>
+
+<h2>脑图</h2>
+
+<pre><code>NestJS模块与依赖注入
+├── 模块系统（Module）
+│   ├── @Module() 装饰器
+│   ├── imports → 引入外部模块
+│   ├── exports → 暴露提供者
+│   ├── providers → 注册服务
+│   └── controllers → 注册控制器
+├── 依赖注入（DI）
+│   ├── IoC容器
+│   ├── 构造函数注入
+│   ├── 属性注入（@Inject）
+│   ├── Provider类型
+│   │   ├── useClass
+│   │   ├── useValue
+│   │   ├── useFactory
+│   │   └── useExisting（别名）
+│   └── 作用域
+│       ├── DEFAULT（单例）
+│       ├── REQUEST（每请求）
+│       └── TRANSIENT（每次注入）
+├── 模块间通信
+│   ├── exports + imports 模式
+│   ├── 全局模块（@Global）
+│   └── 动态模块（forRoot/forFeature）
+└── 高级模式
+    ├── 循环依赖（forwardRef）
+    ├── 自定义Provider
+    ├── 异步Provider
+    └── 动态模块注册</code></pre>
+
+<hr>
+
+<h2>完整代码：博客系统模块化架构</h2>
+
+<h3>项目结构</h3>
+
+<pre><code>blog-system/
+├── src/
+│   ├── main.ts
+│   ├── app.module.ts
+│   ├── common/
+│   │   ├── logger/
+│   │   │   ├── logger.module.ts
+│   │   │   └── logger.service.ts
+│   │   └── database/
+│   │       ├── database.module.ts
+│   │       └── database.service.ts
+│   ├── users/
+│   │   ├── users.module.ts
+│   │   ├── users.controller.ts
+│   │   ├── users.service.ts
+│   │   └── dto/
+│   ├── posts/
+│   │   ├── posts.module.ts
+│   │   ├── posts.controller.ts
+│   │   ├── posts.service.ts
+│   │   └── dto/
+│   └── config/
+│       ├── config.module.ts
+│       └── config.service.ts</code></pre>
+
+<h3>代码实现</h3>
+
+<pre><code class="language-typescript">// src/config/config.service.ts - Configuration service
+import { Injectable } from &#x27;@nestjs/common&#x27;;
+
+@Injectable()
+export class ConfigService {
+  private readonly config: Record&lt;string, any&gt;;
+
+  constructor() {
+    this.config = {
+      database: {
+        host: process.env.DB_HOST || &#x27;localhost&#x27;,
+        port: parseInt(process.env.DB_PORT) || 5432,
+        name: process.env.DB_NAME || &#x27;blog_db&#x27;,
+      },
+      jwt: {
+        secret: process.env.JWT_SECRET || &#x27;dev-secret&#x27;,
+        expiresIn: process.env.JWT_EXPIRES || &#x27;24h&#x27;,
+      },
+    };
+  }
+
+  get(path: string): any {
+    return path.split(&#x27;.&#x27;).reduce((obj, key) =&gt; obj?.[key], this.config);
+  }
+}</code></pre>
+
+<pre><code class="language-typescript">// src/config/config.module.ts - Global config module
+import { Global, Module } from &#x27;@nestjs/common&#x27;;
+import { ConfigService } from &#x27;./config.service&#x27;;
+
+@Global() // Available everywhere without importing
+@Module({
+  providers: [ConfigService],
+  exports: [ConfigService], // Export so other modules can use it
+})
+export class ConfigModule {}</code></pre>
+
+<pre><code class="language-typescript">// src/common/database/database.service.ts - Simulated database
+import { Injectable, OnModuleInit } from &#x27;@nestjs/common&#x27;;
+
+interface DatabaseRecord {
+  id: number;
+  [key: string]: any;
+}
+
+@Injectable()
+export class DatabaseService implements OnModuleInit {
+  private tables: Map&lt;string, DatabaseRecord[]&gt; = new Map();
+  private counters: Map&lt;string, number&gt; = new Map();
+
+  onModuleInit() {
+    console.log(&#x27;📦 Database service initialized&#x27;);
+  }
+
+  // Get or create a table
+  private getTable(name: string): DatabaseRecord[] {
+    if (!this.tables.has(name)) {
+      this.tables.set(name, []);
+      this.counters.set(name, 1);
+    }
+    return this.tables.get(name)!;
+  }
+
+  // Find all records in a table
+  findAll(table: string): DatabaseRecord[] {
+    return this.getTable(table);
+  }
+
+  // Find one record by ID
+  findOne(table: string, id: number): DatabaseRecord | undefined {
+    return this.getTable(table).find(r =&gt; r.id === id);
+  }
+
+  // Create a new record
+  create(table: string, data: Omit&lt;DatabaseRecord, &#x27;id&#x27;&gt;): DatabaseRecord {
+    const id = this.counters.get(table)!;
+    this.counters.set(table, id + 1);
+    const record = { id, ...data };
+    this.getTable(table).push(record);
+    return record;
+  }
+
+  // Update a record
+  update(table: string, id: number, data: Partial&lt;DatabaseRecord&gt;): DatabaseRecord | undefined {
+    const record = this.findOne(table, id);
+    if (!record) return undefined;
+    Object.assign(record, data);
+    return record;
+  }
+
+  // Delete a record
+  delete(table: string, id: number): boolean {
+    const tableData = this.getTable(table);
+    const index = tableData.findIndex(r =&gt; r.id === id);
+    if (index === -1) return false;
+    tableData.splice(index, 1);
+    return true;
+  }
+
+  // Find records by condition
+  findWhere(table: string, predicate: (r: DatabaseRecord) =&gt; boolean): DatabaseRecord[] {
+    return this.getTable(table).filter(predicate);
+  }
+}</code></pre>
+
+<pre><code class="language-typescript">// src/common/database/database.module.ts
+import { Global, Module } from &#x27;@nestjs/common&#x27;;
+import { DatabaseService } from &#x27;./database.service&#x27;;
+
+@Global()
+@Module({
+  providers: [DatabaseService],
+  exports: [DatabaseService],
+})
+export class DatabaseModule {}</code></pre>
+
+<pre><code class="language-typescript">// src/common/logger/logger.service.ts - Custom logging service
+import { Injectable } from &#x27;@nestjs/common&#x27;;
+
+@Injectable()
+export class LoggerService {
+  log(context: string, message: string) {
+    console.log(`[${new Date().toISOString()}] [${context}] ${message}`);
+  }
+
+  error(context: string, message: string, trace?: string) {
+    console.error(`[${new Date().toISOString()}] [${context}] ERROR: ${message}`);
+    if (trace) console.error(trace);
+  }
+
+  warn(context: string, message: string) {
+    console.warn(`[${new Date().toISOString()}] [${context}] WARN: ${message}`);
+  }
+}</code></pre>
+
+<pre><code class="language-typescript">// src/common/logger/logger.module.ts
+import { Global, Module } from &#x27;@nestjs/common&#x27;;
+import { LoggerService } from &#x27;./logger.service&#x27;;
+
+@Global()
+@Module({
+  providers: [LoggerService],
+  exports: [LoggerService],
+})
+export class LoggerModule {}</code></pre>
+
+<pre><code class="language-typescript">// src/users/users.service.ts
+import { Injectable, NotFoundException, ConflictException } from &#x27;@nestjs/common&#x27;;
+import { DatabaseService } from &#x27;../common/database/database.service&#x27;;
+import { LoggerService } from &#x27;../common/logger/logger.service&#x27;;
+
+@Injectable()
+export class UsersService {
+  private readonly TABLE = &#x27;users&#x27;;
+
+  constructor(
+    private readonly db: DatabaseService,    // Injected from global module
+    private readonly logger: LoggerService,   // Injected from global module
+  ) {}
+
+  create(data: { name: string; email: string }) {
+    // Check for duplicate email
+    const existing = this.db.findWhere(
+      this.TABLE,
+      u =&gt; u.email === data.email,
+    );
+    if (existing.length &gt; 0) {
+      throw new ConflictException(&#x27;Email already exists&#x27;);
+    }
+
+    const user = this.db.create(this.TABLE, data);
+    this.logger.log(&#x27;UsersService&#x27;, `User created: ${user.id}`);
+    return user;
+  }
+
+  findAll() {
+    return this.db.findAll(this.TABLE);
+  }
+
+  findOne(id: number) {
+    const user = this.db.findOne(this.TABLE, id);
+    if (!user) throw new NotFoundException(`User #${id} not found`);
+    return user;
+  }
+}</code></pre>
+
+<pre><code class="language-typescript">// src/users/users.controller.ts
+import { Controller, Get, Post, Body, Param, ParseIntPipe } from &#x27;@nestjs/common&#x27;;
+import { UsersService } from &#x27;./users.service&#x27;;
+
+@Controller(&#x27;users&#x27;)
+export class UsersController {
+  constructor(private readonly usersService: UsersService) {}
+
+  @Post()
+  create(@Body() body: { name: string; email: string }) {
+    return this.usersService.create(body);
+  }
+
+  @Get()
+  findAll() {
+    return this.usersService.findAll();
+  }
+
+  @Get(&#x27;:id&#x27;)
+  findOne(@Param(&#x27;id&#x27;, ParseIntPipe) id: number) {
+    return this.usersService.findOne(id);
+  }
+}</code></pre>
+
+<pre><code class="language-typescript">// src/users/users.module.ts - Users feature module
+import { Module } from &#x27;@nestjs/common&#x27;;
+import { UsersController } from &#x27;./users.controller&#x27;;
+import { UsersService } from &#x27;./users.service&#x27;;
+
+@Module({
+  controllers: [UsersController],
+  providers: [UsersService],
+  exports: [UsersService], // Export so PostsModule can use it
+})
+export class UsersModule {}</code></pre>
+
+<pre><code class="language-typescript">// src/posts/posts.service.ts - Posts depend on Users
+import { Injectable, NotFoundException } from &#x27;@nestjs/common&#x27;;
+import { DatabaseService } from &#x27;../common/database/database.service&#x27;;
+import { UsersService } from &#x27;../users/users.service&#x27;;
+
+@Injectable()
+export class PostsService {
+  private readonly TABLE = &#x27;posts&#x27;;
+
+  constructor(
+    private readonly db: DatabaseService,
+    private readonly usersService: UsersService, // Cross-module injection!
+  ) {}
+
+  create(data: { title: string; content: string; authorId: number }) {
+    // Verify author exists
+    this.usersService.findOne(data.authorId);
+
+    const post = this.db.create(this.TABLE, {
+      ...data,
+      publishedAt: new Date(),
+    });
+    return post;
+  }
+
+  findAll() {
+    return this.db.findAll(this.TABLE).map(post =&gt; ({
+      ...post,
+      author: this.usersService.findOne(post.authorId),
+    }));
+  }
+
+  findOne(id: number) {
+    const post = this.db.findOne(this.TABLE, id);
+    if (!post) throw new NotFoundException(`Post #${id} not found`);
+    return { ...post, author: this.usersService.findOne(post.authorId) };
+  }
+}</code></pre>
+
+<pre><code class="language-typescript">// src/posts/posts.controller.ts
+import { Controller, Get, Post, Body, Param, ParseIntPipe } from &#x27;@nestjs/common&#x27;;
+import { PostsService } from &#x27;./posts.service&#x27;;
+
+@Controller(&#x27;posts&#x27;)
+export class PostsController {
+  constructor(private readonly postsService: PostsService) {}
+
+  @Post()
+  create(@Body() body: { title: string; content: string; authorId: number }) {
+    return this.postsService.create(body);
+  }
+
+  @Get()
+  findAll() {
+    return this.postsService.findAll();
+  }
+
+  @Get(&#x27;:id&#x27;)
+  findOne(@Param(&#x27;id&#x27;, ParseIntPipe) id: number) {
+    return this.postsService.findOne(id);
+  }
+}</code></pre>
+
+<pre><code class="language-typescript">// src/posts/posts.module.ts - Imports UsersModule to access UsersService
+import { Module } from &#x27;@nestjs/common&#x27;;
+import { PostsController } from &#x27;./posts.controller&#x27;;
+import { PostsService } from &#x27;./posts.service&#x27;;
+import { UsersModule } from &#x27;../users/users.module&#x27;;
+
+@Module({
+  imports: [UsersModule], // Import to get access to exported UsersService
+  controllers: [PostsController],
+  providers: [PostsService],
+})
+export class PostsModule {}</code></pre>
+
+<pre><code class="language-typescript">// src/app.module.ts - Root module wires everything together
+import { Module } from &#x27;@nestjs/common&#x27;;
+import { ConfigModule } from &#x27;./config/config.module&#x27;;
+import { DatabaseModule } from &#x27;./common/database/database.module&#x27;;
+import { LoggerModule } from &#x27;./common/logger/logger.module&#x27;;
+import { UsersModule } from &#x27;./users/users.module&#x27;;
+import { PostsModule } from &#x27;./posts/posts.module&#x27;;
+
+@Module({
+  imports: [
+    ConfigModule,   // @Global but still need to import once in root
+    DatabaseModule, // @Global
+    LoggerModule,   // @Global
+    UsersModule,    // Feature module
+    PostsModule,    // Feature module (imports UsersModule internally)
+  ],
+})
+export class AppModule {}</code></pre>
+
+<pre><code class="language-typescript">// src/main.ts
+import { NestFactory } from &#x27;@nestjs/core&#x27;;
+import { AppModule } from &#x27;./app.module&#x27;;
+
+async function bootstrap() {
+  const app = await NestFactory.create(AppModule);
+  app.enableCors();
+  await app.listen(3000);
+  console.log(&#x27;🚀 Blog system running on http://localhost:3000&#x27;);
+}
+bootstrap();</code></pre>
+
+<hr>
+
+<h2>执行预览</h2>
+
+<pre><code class="language-bash">$ npm run start:dev
+📦 Database service initialized
+🚀 Blog system running on http://localhost:3000
+
+# Create a user
+$ curl -X POST http://localhost:3000/users \
+  -H &quot;Content-Type: application/json&quot; \
+  -d &#x27;{&quot;name&quot;:&quot;Alice&quot;,&quot;email&quot;:&quot;alice@blog.com&quot;}&#x27;
+{&quot;id&quot;:1,&quot;name&quot;:&quot;Alice&quot;,&quot;email&quot;:&quot;alice@blog.com&quot;}
+
+# Create a post (references user)
+$ curl -X POST http://localhost:3000/posts \
+  -H &quot;Content-Type: application/json&quot; \
+  -d &#x27;{&quot;title&quot;:&quot;My First Post&quot;,&quot;content&quot;:&quot;Hello world!&quot;,&quot;authorId&quot;:1}&#x27;
+{&quot;id&quot;:1,&quot;title&quot;:&quot;My First Post&quot;,&quot;content&quot;:&quot;Hello world!&quot;,&quot;authorId&quot;:1,&quot;publishedAt&quot;:&quot;2024-01-15T10:00:00.000Z&quot;}
+
+# Get posts with author info
+$ curl http://localhost:3000/posts
+[{
+  &quot;id&quot;:1,&quot;title&quot;:&quot;My First Post&quot;,&quot;content&quot;:&quot;Hello world!&quot;,&quot;authorId&quot;:1,
+  &quot;author&quot;:{&quot;id&quot;:1,&quot;name&quot;:&quot;Alice&quot;,&quot;email&quot;:&quot;alice@blog.com&quot;},
+  &quot;publishedAt&quot;:&quot;2024-01-15T10:00:00.000Z&quot;
+}]
+
+# Try creating post with non-existent author
+$ curl -X POST http://localhost:3000/posts \
+  -H &quot;Content-Type: application/json&quot; \
+  -d &#x27;{&quot;title&quot;:&quot;Ghost Post&quot;,&quot;content&quot;:&quot;...&quot;,&quot;authorId&quot;:999}&#x27;
+{&quot;statusCode&quot;:404,&quot;message&quot;:&quot;User #999 not found&quot;}</code></pre>
+
+<hr>
+
+<h2>注意事项</h2>
+
+<table><thead><tr>
+<th>项目</th>
+<th>说明</th>
+<th>建议</th>
+</tr></thead><tbody>
+<tr>
+<td>Provider作用域</td>
+<td>默认单例，整个应用共享</td>
+<td>大部分场景用默认即可，REQUEST scope有性能开销</td>
+</tr>
+<tr>
+<td>循环依赖</td>
+<td>A导入B，B导入A</td>
+<td>用 <code>forwardRef(() => Module)</code> 解决，但尽量避免</td>
+</tr>
+<tr>
+<td>全局模块</td>
+<td>@Global只需注册一次</td>
+<td>适合通用服务（Config、Logger），不适合业务模块</td>
+</tr>
+<tr>
+<td>exports粒度</td>
+<td>只导出其他模块需要的服务</td>
+<td>不要导出内部实现细节</td>
+</tr>
+<tr>
+<td>动态模块</td>
+<td>forRoot/forFeature模式</td>
+<td>配置类模块用 forRoot 一次，业务模块用 forFeature</td>
+</tr>
+<tr>
+<td>注入顺序</td>
+<td>构造函数参数按类型注入</td>
+<td>TypeScript emitDecoratorMetadata 必须开启</td>
+</tr>
+<tr>
+<td>可选依赖</td>
+<td>@Optional() 装饰器</td>
+<td>没有对应provider时不报错，注入为null</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>避坑指南</h2>
+
+<h3>❌ 忘记 export Service</h3>
+
+<pre><code class="language-typescript">// WRONG: Other modules import UsersModule but can&#x27;t access UsersService
+@Module({
+  controllers: [UsersController],
+  providers: [UsersService],
+  // Missing: exports: [UsersService]
+})
+export class UsersModule {}</code></pre>
+
+<h3>✅ 正确 export 需要共享的服务</h3>
+
+<pre><code class="language-typescript">// CORRECT: UsersService available to importing modules
+@Module({
+  controllers: [UsersController],
+  providers: [UsersService],
+  exports: [UsersService],
+})
+export class UsersModule {}</code></pre>
+
+<h3>❌ 每个模块都 import 全局模块</h3>
+
+<pre><code class="language-typescript">// WRONG: Redundant import of global module
+@Global()
+@Module({ providers: [ConfigService], exports: [ConfigService] })
+export class ConfigModule {}
+
+// This is unnecessary:
+@Module({ imports: [ConfigModule] }) // Not needed for @Global modules
+export class UsersModule {}</code></pre>
+
+<h3>✅ 全局模块只在根模块注册一次</h3>
+
+<pre><code class="language-typescript">// CORRECT: Register once in AppModule, use everywhere
+@Module({
+  imports: [ConfigModule, UsersModule], // ConfigModule registered once
+})
+export class AppModule {}
+
+// Other modules just inject directly:
+@Injectable()
+export class UsersService {
+  constructor(private config: ConfigService) {} // Works without import!
+}</code></pre>
+
+<h3>❌ 循环依赖未处理</h3>
+
+<pre><code class="language-typescript">// WRONG: Circular dependency causes runtime error
+@Module({ imports: [PostsModule], providers: [UsersService] })
+export class UsersModule {}
+
+@Module({ imports: [UsersModule], providers: [PostsService] })
+export class PostsModule {}
+// Error: Circular dependency detected</code></pre>
+
+<h3>✅ 用 forwardRef 解决循环依赖</h3>
+
+<pre><code class="language-typescript">// CORRECT: Use forwardRef to break the cycle
+import { forwardRef } from &#x27;@nestjs/common&#x27;;
+
+@Module({
+  imports: [forwardRef(() =&gt; PostsModule)],
+  providers: [UsersService],
+  exports: [UsersService],
+})
+export class UsersModule {}
+
+// In service, also use forwardRef:
+@Injectable()
+export class UsersService {
+  constructor(
+    @Inject(forwardRef(() =&gt; PostsService))
+    private postsService: PostsService,
+  ) {}
+}</code></pre>
+
+<hr>
+
+<h2>练习题</h2>
+
+<h3>🟢 基础题</h3>
+
+<ol>
+<li><strong>模块可见性</strong>：UsersModule exports UsersService，PostsModule imports UsersModule。PostsModule 中的 PostsController 能直接注入 UsersService 吗？PostsModule 的子模块能吗？</li>
+
+<p><details><summary>参考答案</summary>PostsModule中可以注入（直接导入即获得导出的provider）。但PostsModule的子模块<strong>不能</strong>——exports只在直接导入的模块中可见，不传递给子模块。</details></p>
+
+<h3>🟡 进阶题</h3>
+
+<ol>
+<li><strong>自定义Provider</strong>：使用 <code>useFactory</code> 创建一个异步的 <code>CacheService</code>，它依赖 ConfigService 获取缓存配置。</li>
+
+<p><details><summary>参考答案</summary></p>
+
+<pre><code class="language-typescript">@Module({
+  providers: [
+    {
+      provide: &#x27;CACHE_SERVICE&#x27;,
+      useFactory: async (configService: ConfigService) =&gt; {
+        const ttl = configService.get(&#x27;cache.ttl&#x27;) || 300;
+        const store = new Map(); // Simulated cache store
+        return {
+          get: (key: string) =&gt; store.get(key),
+          set: (key: string, value: any) =&gt; store.set(key, { value, expires: Date.now() + ttl * 1000 }),
+          delete: (key: string) =&gt; store.delete(key),
+        };
+      },
+      inject: [ConfigService],
+    },
+  ],
+  exports: [&#x27;CACHE_SERVICE&#x27;],
+})
+export class CacheModule {}</code></pre>
+
+<p></details></p>
+
+<h3>🔴 挑战题</h3>
+
+<ol>
+<li><strong>动态模块</strong>：实现一个 <code>DatabaseModule.forRoot()</code> 模式，forRoot 接收配置参数，forFeature 注册特定表的 Repository。</li>
+
+<p><details><summary>参考答案</summary></p>
+
+<pre><code class="language-typescript">// database.module.ts
+import { Module, DynamicModule, Provider } from &#x27;@nestjs/common&#x27;;
+
+interface DatabaseModuleOptions {
+  host: string;
+  port: number;
+  database: string;
+}
+
+// Simulated repository factory
+class Repository&lt;T&gt; {
+  constructor(private tableName: string) {}
+  findAll() { return `Querying all from ${this.tableName}`; }
+}
+
+@Module({})
+export class DatabaseModule {
+  // forRoot: Register connection (once, in root module)
+  static forRoot(options: DatabaseModuleOptions): DynamicModule {
+    const connectionProvider: Provider = {
+      provide: &#x27;DATABASE_CONNECTION&#x27;,
+      useFactory: () =&gt; {
+        console.log(`Connecting to ${options.host}:${options.port}/${options.database}`);
+        return { connected: true, config: options };
+      },
+    };
+    return {
+      module: DatabaseModule,
+      providers: [connectionProvider],
+      exports: [connectionProvider],
+      global: true, // Available everywhere after forRoot
+    };
+  }
+
+  // forFeature: Register repository for a specific table
+  static forFeature(tableName: string): DynamicModule {
+    const repositoryProvider: Provider = {
+      provide: `${tableName.toUpperCase()}_REPOSITORY`,
+      useFactory: () =&gt; new Repository(tableName),
+    };
+    return {
+      module: DatabaseModule,
+      providers: [repositoryProvider],
+      exports: [repositoryProvider],
+    };
+  }
+}
+
+// Usage in app.module.ts:
+// imports: [DatabaseModule.forRoot({ host: &#x27;localhost&#x27;, port: 5432, database: &#x27;blog&#x27; })]
+// Usage in feature module:
+// imports: [DatabaseModule.forFeature(&#x27;users&#x27;)]</code></pre>
+
+<p></details></p>
+
+<hr>
+
+<h2>知识点总结</h2>
+
+<pre><code>NestJS模块与DI
+├── 模块（@Module）
+│   ├── providers → 注册服务到DI容器
+│   ├── controllers → 注册路由控制器
+│   ├── imports → 引入其他模块的exports
+│   ├── exports → 暴露providers给外部
+│   └── @Global → 全局可用（无需重复import）
+├── 依赖注入
+│   ├── 构造函数注入（推荐）
+│   │   └── constructor(private svc: Service) {}
+│   ├── @Inject() 属性/参数注入
+│   │   └── @Inject(&#x27;TOKEN&#x27;) private config
+│   └── Provider类型
+│       ├── useClass → 类（默认）
+│       ├── useValue → 常量/模拟对象
+│       ├── useFactory → 动态/异步创建
+│       └── useExisting → 别名映射
+├── 作用域
+│   ├── DEFAULT → 单例（推荐）
+│   ├── REQUEST → 每请求一个实例
+│   └── TRANSIENT → 每次注入新实例
+├── 高级模式
+│   ├── 动态模块 → forRoot() / forFeature()
+│   ├── 循环依赖 → forwardRef()
+│   ├── 异步Provider → useFactory + async
+│   └── 可选依赖 → @Optional()
+└── 最佳实践
+    ├── 模块按业务领域划分
+    ├── 只export必要的provider
+    ├── 避免循环依赖（重构优先）
+    └── 全局模块只用于基础设施</code></pre>
+
+<hr>
+
+<h2>举一反三</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>实现方案</th>
+<th>关键技术</th>
+</tr></thead><tbody>
+<tr>
+<td>多数据库连接</td>
+<td>useFactory创建多个连接</td>
+<td>@Inject('DB_PRIMARY'), @Inject('DB_REPLICA')</td>
+</tr>
+<tr>
+<td>插件系统</td>
+<td>动态模块 + forRoot</td>
+<td>registerAsync, DynamicModule</td>
+</tr>
+<tr>
+<td>测试Mock</td>
+<td>useValue覆盖provider</td>
+<td>{ provide: Service, useValue: mockObj }</td>
+</tr>
+<tr>
+<td>条件注册</td>
+<td>useFactory + 环境判断</td>
+<td>process.env判断返回不同实现</td>
+</tr>
+<tr>
+<td>事件总线</td>
+<td>EventEmitter2模块</td>
+<td>@nestjs/event-emitter, @OnEvent()</td>
+</tr>
+<tr>
+<td>多租户</td>
+<td>REQUEST scope + TenantService</td>
+<td>@Inject(REQUEST), request.headers</td>
+</tr>
+<tr>
+<td>配置切换</td>
+<td>useExisting别名</td>
+<td>开发/生产环境切换实现</td>
+</tr>
+<tr>
+<td>懒加载模块</td>
+<td>LazyModuleLoader</td>
+<td>按需加载大型模块</td>
+</tr>
+<tr>
+<td>中间件DI</td>
+<td>自定义Injector</td>
+<td>ModuleRef.get() / ModuleRef.create()</td>
+</tr>
+<tr>
+<td>健康检查</td>
+<td>@nestjs/terminus</td>
+<td>HealthCheckService, HealthIndicator</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>参考资料</h2>
+
+<ul>
+<li><a href="https://docs.nestjs.com/modules">NestJS Modules 官方文档</a></li>
+<li><a href="https://docs.nestjs.com/fundamentals/custom-providers">NestJS Dependency Injection</a></li>
+<li><a href="https://docs.nestjs.com/fundamentals/dynamic-modules">NestJS Dynamic Modules</a></li>
+<li><a href="https://docs.nestjs.com/fundamentals/circular-dependency">NestJS Circular Dependency</a></li>
+<li><a href="https://github.com/inversify/InversifyJS">InversifyJS</a>（NestJS DI底层灵感来源）</li>
+
+<hr>
+
+<h2>代码演进</h2>
+
+<h3>v1: 单模块单文件</h3>
+
+<pre><code class="language-typescript">// Everything in one module
+@Module({
+  controllers: [UsersController, PostsController],
+  providers: [UsersService, PostsService],
+})
+export class AppModule {}</code></pre>
+
+<p>问题：所有代码耦合在一起，难以维护。</p>
+
+<h3>v2: 按功能拆分模块</h3>
+
+<pre><code class="language-typescript">// Separate feature modules
+@Module({
+  imports: [UsersModule, PostsModule],
+})
+export class AppModule {}
+
+// UsersModule has its own controller + service
+@Module({
+  controllers: [UsersController],
+  providers: [UsersService],
+  exports: [UsersService], // Share with PostsModule
+})
+export class UsersModule {}
+
+// PostsModule imports UsersModule for cross-module DI
+@Module({
+  imports: [UsersModule],
+  controllers: [PostsController],
+  providers: [PostsService],
+})
+export class PostsModule {}</code></pre>
+
+<h3>v3: 企业级模块化架构（本文最终版）</h3>
+
+<p>在 v2 基础上增加：</p>
+<ul>
+<li>✅ 全局基础设施模块（Config、Database、Logger）</li>
+<li>✅ 自定义 Provider（useFactory、useValue）</li>
+<li>✅ 模块间依赖关系清晰（exports/imports）</li>
+<li>✅ 跨模块服务注入（PostsService → UsersService）</li>
+<li>✅ 统一的数据库服务抽象</li>
+<li>✅ 生命周期钩子（OnModuleInit）</li>
+<li>✅ 完整的模块目录结构</li>
+
+<p>从"大杂烩"到"清晰的分层架构"，这就是NestJS模块化的演进路径。</p>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

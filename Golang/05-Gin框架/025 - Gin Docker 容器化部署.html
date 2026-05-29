@@ -1,0 +1,883 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>025 - Gin Docker 容器化部署</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Golang/index.html">Golang</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Golang/05-Gin框架/index.html">Gin框架</a>
+</nav>
+<h1>025 - Gin Docker 容器化部署</h1>
+<div class="meta">
+<span>📂 Gin框架</span>
+<span>🏷️ Golang</span>
+</div>
+<article>
+
+
+<h1>025 - Gin Docker 容器化部署</h1>
+
+<blockquote><p><strong>难度：</strong> ⭐⭐⭐（较高）<br><strong>前置知识：</strong> Docker 基础、Dockerfile 语法、docker-compose 基础<br><strong>预计阅读时间：</strong> 25 分钟</p></blockquote>
+
+<hr>
+
+<h2>一、概念讲解</h2>
+
+<p>Docker 容器化是现代应用部署的标准方式。通过 Docker，我们可以将 Gin 应用和它的所有依赖（MySQL、Redis、Nginx）打包成可移植的容器，确保开发、测试、生产环境完全一致。</p>
+
+<p><strong>容器化的核心价值：</strong></p>
+
+<table><thead><tr>
+<th>价值</th>
+<th>说明</th>
+</tr></thead><tbody>
+<tr>
+<td>环境一致</td>
+<td>"在我机器上能跑"永远不再是问题</td>
+</tr>
+<tr>
+<td>快速部署</td>
+<td>秒级启动，不用装依赖</td>
+</tr>
+<tr>
+<td>资源隔离</td>
+<td>CPU/内存限制，互不影响</td>
+</tr>
+<tr>
+<td>弹性伸缩</td>
+<td>docker-compose scale 或 K8s HPA</td>
+</tr>
+<tr>
+<td>CI/CD 友好</td>
+<td>镜像即制品，Pipeline 天然支持</td>
+</tr>
+</tbody></table>
+
+<p><strong>多阶段构建原理：</strong></p>
+
+<pre><code>Stage 1: Builder (Go 编译环境)
+├── 安装依赖: go mod download
+├── 编译二进制: go build -o app
+└── 输出: /app 可执行文件
+
+Stage 2: Runtime (精简运行环境)
+├── 从 Builder 复制 /app
+├── 复制配置文件、静态资源
+├── 设置 ENTRYPOINT
+└── 最终镜像: ~20MB (Alpine)</code></pre>
+
+<hr>
+
+<h2>二、脑图</h2>
+
+<pre><code>Docker 容器化部署
+├── Dockerfile
+│   ├── 多阶段构建 (builder → runtime)
+│   ├── Alpine 基础镜像
+│   ├── 非 root 用户
+│   └── .dockerignore 优化
+├── docker-compose
+│   ├── App + MySQL + Redis
+│   ├── 服务依赖 (depends_on)
+│   ├── 健康检查 (healthcheck)
+│   └── 数据卷 (volumes)
+├── 环境变量注入
+│   ├── .env 文件
+│   ├── docker-compose environment
+│   └── 运行时覆盖
+├── 健康检查
+│   ├── HEALTHCHECK 指令
+│   ├── curl / wget 探针
+│   └── compose healthcheck
+├── 镜像优化
+│   ├── 多阶段构建减小体积
+│   ├── 层缓存利用
+│   └── Alpine vs Scratch
+└── Docker 网络
+    ├── bridge 默认网络
+    ├── 自定义网络 DNS
+    └── 端口映射策略</code></pre>
+
+<hr>
+
+<h2>三、完整代码</h2>
+
+<h3>v1：单容器 Dockerfile</h3>
+
+<pre><code class="language-dockerfile"># Dockerfile - Multi-stage build for Gin application
+# Stage 1: Build
+FROM golang:1.22-alpine AS builder
+
+# Install build dependencies
+RUN apk add --no-cache git ca-certificates tzdata
+
+WORKDIR /build
+
+# Cache dependency layer
+COPY go.mod go.sum ./
+RUN go mod download
+
+# Copy source and build
+COPY . .
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
+    go build -ldflags=&quot;-w -s&quot; -o /app main.go
+
+# Stage 2: Runtime
+FROM alpine:3.19
+
+# Install runtime dependencies
+RUN apk add --no-cache ca-certificates tzdata \
+    &amp;&amp; cp /usr/share/zoneinfo/Asia/Shanghai /etc/localtime \
+    &amp;&amp; echo &quot;Asia/Shanghai&quot; &gt; /etc/timezone
+
+# Create non-root user for security
+RUN adduser -D -g &#x27;&#x27; appuser
+
+WORKDIR /app
+
+# Copy binary and config from builder
+COPY --from=builder /app .
+COPY --from=builder /build/configs ./configs
+
+# Use non-root user
+USER appuser
+
+# Expose port
+EXPOSE 8080
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+    CMD wget -qO- http://localhost:8080/health || exit 1
+
+ENTRYPOINT [&quot;./app&quot;]</code></pre>
+
+<pre><code class="language-go">// main.go - v1 simple Gin app for Docker
+package main
+
+import (
+	&quot;fmt&quot;
+	&quot;log&quot;
+	&quot;net/http&quot;
+	&quot;os&quot;
+
+	&quot;github.com/gin-gonic/gin&quot;
+)
+
+func main() {
+	port := os.Getenv(&quot;APP_PORT&quot;)
+	if port == &quot;&quot; {
+		port = &quot;8080&quot;
+	}
+
+	mode := os.Getenv(&quot;GIN_MODE&quot;)
+	if mode == &quot;&quot; {
+		mode = &quot;release&quot;
+	}
+	gin.SetMode(mode)
+
+	r := gin.Default()
+
+	r.GET(&quot;/health&quot;, func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{
+			&quot;status&quot;:  &quot;ok&quot;,
+			&quot;version&quot;: &quot;1.0.0&quot;,
+		})
+	})
+
+	r.GET(&quot;/api/hello&quot;, func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{
+			&quot;message&quot;: &quot;Hello from Docker!&quot;,
+			&quot;host&quot;:    hostname(),
+		})
+	})
+
+	log.Printf(&quot;Server starting on :%s&quot;, port)
+	if err := r.Run(fmt.Sprintf(&quot;:%s&quot;, port)); err != nil {
+		log.Fatalf(&quot;Server failed: %v&quot;, err)
+	}
+}
+
+func hostname() string {
+	h, err := os.Hostname()
+	if err != nil {
+		return &quot;unknown&quot;
+	}
+	return h
+}</code></pre>
+
+<pre><code class="language-bash"># .dockerignore - exclude unnecessary files
+/*
+!main.go
+!go.mod
+!go.sum
+!configs/
+!handlers/
+!models/
+!middleware/</code></pre>
+
+<h3>v2：docker-compose 编排（App + MySQL + Redis）</h3>
+
+<pre><code class="language-yaml"># docker-compose.yml - Full stack deployment
+version: &quot;3.8&quot;
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: myapp-api
+    ports:
+      - &quot;8080:8080&quot;
+    environment:
+      - APP_PORT=8080
+      - GIN_MODE=release
+      - APP_ENV=prod
+      - DB_HOST=mysql
+      - DB_PORT=3306
+      - DB_USER=myapp
+      - DB_PASSWORD=${DB_PASSWORD:-changeme}
+      - DB_NAME=myapp
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-}
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: [&quot;CMD&quot;, &quot;wget&quot;, &quot;-qO-&quot;, &quot;http://localhost:8080/health&quot;]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
+    networks:
+      - app-network
+
+  mysql:
+    image: mysql:8.0
+    container_name: myapp-mysql
+    environment:
+      - MYSQL_ROOT_PASSWORD=${DB_ROOT_PASSWORD:-rootpw}
+      - MYSQL_DATABASE=myapp
+      - MYSQL_USER=myapp
+      - MYSQL_PASSWORD=${DB_PASSWORD:-changeme}
+    volumes:
+      - mysql-data:/var/lib/mysql
+      - ./scripts/init.sql:/docker-entrypoint-initdb.d/init.sql
+    ports:
+      - &quot;3306:3306&quot;
+    healthcheck:
+      test: [&quot;CMD&quot;, &quot;mysqladmin&quot;, &quot;ping&quot;, &quot;-h&quot;, &quot;localhost&quot;]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - app-network
+
+  redis:
+    image: redis:7-alpine
+    container_name: myapp-redis
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-}
+    volumes:
+      - redis-data:/data
+    ports:
+      - &quot;6379:6379&quot;
+    healthcheck:
+      test: [&quot;CMD&quot;, &quot;redis-cli&quot;, &quot;ping&quot;]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - app-network
+
+volumes:
+  mysql-data:
+  redis-data:
+
+networks:
+  app-network:
+    driver: bridge</code></pre>
+
+<pre><code class="language-go">// main.go - v2 with DB and Redis connections
+package main
+
+import (
+	&quot;database/sql&quot;
+	&quot;fmt&quot;
+	&quot;log&quot;
+	&quot;net/http&quot;
+	&quot;os&quot;
+	&quot;time&quot;
+
+	&quot;github.com/gin-gonic/gin&quot;
+	_ &quot;github.com/go-sql-driver/mysql&quot;
+	&quot;github.com/redis/go-redis/v9&quot;
+)
+
+var db *sql.DB
+var rdb *redis.Client
+
+func main() {
+	// Connect to MySQL
+	var err error
+	dsn := fmt.Sprintf(&quot;%s:%s@tcp(%s:%s)/%s?parseTime=true&quot;,
+		env(&quot;DB_USER&quot;, &quot;root&quot;),
+		env(&quot;DB_PASSWORD&quot;, &quot;&quot;),
+		env(&quot;DB_HOST&quot;, &quot;localhost&quot;),
+		env(&quot;DB_PORT&quot;, &quot;3306&quot;),
+		env(&quot;DB_NAME&quot;, &quot;myapp&quot;),
+	)
+	db, err = sql.Open(&quot;mysql&quot;, dsn)
+	if err != nil {
+		log.Fatalf(&quot;DB open failed: %v&quot;, err)
+	}
+	db.SetMaxOpenConns(100)
+	db.SetMaxIdleConns(10)
+	db.SetConnMaxLifetime(time.Hour)
+	defer db.Close()
+
+	// Connect to Redis
+	rdb = redis.NewClient(&amp;redis.Options{
+		Addr: fmt.Sprintf(&quot;%s:%s&quot;, env(&quot;REDIS_HOST&quot;, &quot;localhost&quot;), env(&quot;REDIS_PORT&quot;, &quot;6379&quot;)),
+	})
+	defer rdb.Close()
+
+	gin.SetMode(env(&quot;GIN_MODE&quot;, &quot;release&quot;))
+	r := gin.Default()
+
+	r.GET(&quot;/health&quot;, healthCheck)
+	r.GET(&quot;/api/users&quot;, listUsers)
+
+	log.Printf(&quot;Starting on :%s&quot;, env(&quot;APP_PORT&quot;, &quot;8080&quot;))
+	r.Run(fmt.Sprintf(&quot;:%s&quot;, env(&quot;APP_PORT&quot;, &quot;8080&quot;)))
+}
+
+func healthCheck(c *gin.Context) {
+	// Check DB
+	dbStatus := &quot;ok&quot;
+	if err := db.Ping(); err != nil {
+		dbStatus = err.Error()
+	}
+	// Check Redis
+	redisStatus := &quot;ok&quot;
+	if err := rdb.Ping(c.Request.Context()).Err(); err != nil {
+		redisStatus = err.Error()
+	}
+
+	status := http.StatusOK
+	if dbStatus != &quot;ok&quot; || redisStatus != &quot;ok&quot; {
+		status = http.StatusServiceUnavailable
+	}
+
+	c.JSON(status, gin.H{
+		&quot;status&quot;: &quot;ok&quot;,
+		&quot;db&quot;:     dbStatus,
+		&quot;redis&quot;:  redisStatus,
+	})
+}
+
+func listUsers(c *gin.Context) {
+	rows, err := db.Query(&quot;SELECT id, name, email FROM users LIMIT 10&quot;)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{&quot;error&quot;: err.Error()})
+		return
+	}
+	defer rows.Close()
+
+	type User struct {
+		ID    int    `json:&quot;id&quot;`
+		Name  string `json:&quot;name&quot;`
+		Email string `json:&quot;email&quot;`
+	}
+	var users []User
+	for rows.Next() {
+		var u User
+		rows.Scan(&amp;u.ID, &amp;u.Name, &amp;u.Email)
+		users = append(users, u)
+	}
+	c.JSON(http.StatusOK, users)
+}
+
+func env(key, def string) string {
+	if v := os.Getenv(key); v != &quot;&quot; {
+		return v
+	}
+	return def
+}</code></pre>
+
+<pre><code class="language-ini"># .env file (do NOT commit to git)
+DB_PASSWORD=my_secure_password
+DB_ROOT_PASSWORD=root_secure_password
+REDIS_PASSWORD=redis_secure_password</code></pre>
+
+<h3>v3：优化镜像 + Nginx 反向代理 + 多环境</h3>
+
+<pre><code class="language-dockerfile"># Dockerfile - v3 optimized production image
+# Stage 1: Build with cache mounts
+FROM golang:1.22-alpine AS builder
+
+RUN apk add --no-cache git ca-certificates
+
+WORKDIR /build
+
+# Dependency cache layer
+COPY go.mod go.sum ./
+RUN go mod download
+
+# Build with cache mount for faster rebuilds
+COPY . .
+RUN --mount=type=cache,target=/root/.cache/go-build \
+    CGO_ENABLED=0 GOOS=linux go build \
+    -ldflags=&quot;-w -s -X main.version=${VERSION:-dev}&quot; \
+    -o /app main.go
+
+# Stage 2: Scratch-based minimal image (no shell, ~10MB)
+FROM scratch
+
+# Copy CA certs and timezone from builder
+COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
+COPY --from=builder /usr/share/zoneinfo /usr/share/zoneinfo
+
+# Copy binary
+COPY --from=builder /app /app
+COPY --from=builder /build/configs /app/configs
+
+# Set timezone
+ENV TZ=Asia/Shanghai
+
+EXPOSE 8080
+
+ENTRYPOINT [&quot;/app&quot;]</code></pre>
+
+<pre><code class="language-yaml"># docker-compose.yml - v3 with Nginx reverse proxy
+version: &quot;3.8&quot;
+
+services:
+  nginx:
+    image: nginx:alpine
+    container_name: myapp-nginx
+    ports:
+      - &quot;80:80&quot;
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      app:
+        condition: service_healthy
+    networks:
+      - app-network
+    restart: unless-stopped
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        - VERSION=${VERSION:-1.0.0}
+    deploy:
+      replicas: 2
+      resources:
+        limits:
+          cpus: &quot;0.5&quot;
+          memory: 256M
+        reservations:
+          cpus: &quot;0.1&quot;
+          memory: 64M
+    environment:
+      - APP_PORT=8080
+      - GIN_MODE=release
+      - DB_HOST=mysql
+      - DB_PORT=3306
+      - DB_USER=myapp
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_NAME=myapp
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: [&quot;CMD&quot;, &quot;wget&quot;, &quot;-qO-&quot;, &quot;http://localhost:8080/health&quot;]
+      interval: 15s
+      timeout: 3s
+      retries: 3
+    restart: unless-stopped
+    networks:
+      - app-network
+
+  mysql:
+    image: mysql:8.0
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
+      MYSQL_DATABASE: myapp
+      MYSQL_USER: myapp
+      MYSQL_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - mysql-data:/var/lib/mysql
+    healthcheck:
+      test: [&quot;CMD&quot;, &quot;mysqladmin&quot;, &quot;ping&quot;, &quot;-h&quot;, &quot;localhost&quot;]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - app-network
+
+  redis:
+    image: redis:7-alpine
+    command: redis-server --appendonly yes
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: [&quot;CMD&quot;, &quot;redis-cli&quot;, &quot;ping&quot;]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - app-network
+
+volumes:
+  mysql-data:
+  redis-data:
+
+networks:
+  app-network:
+    driver: bridge</code></pre>
+
+<pre><code class="language-nginx"># nginx/nginx.conf
+events {
+    worker_connections 1024;
+}
+
+http {
+    upstream app_backend {
+        server app:8080;
+    }
+
+    server {
+        listen 80;
+        server_name _;
+
+        location / {
+            proxy_pass http://app_backend;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+        }
+
+        location /health {
+            proxy_pass http://app_backend/health;
+            access_log off;
+        }
+    }
+}</code></pre>
+
+<pre><code class="language-yaml"># docker-compose.dev.yml - Development overrides
+version: &quot;3.8&quot;
+services:
+  app:
+    build:
+      target: builder  # stop at build stage for debugging
+    volumes:
+      - .:/build  # mount source for hot reload
+    environment:
+      - GIN_MODE=debug
+      - APP_ENV=dev
+    ports:
+      - &quot;8080:8080&quot;
+      - &quot;2345:2345&quot;  # Delve debugger port</code></pre>
+
+<hr>
+
+<h2>四、执行预览</h2>
+
+<pre><code class="language-bash"># v1: Single container
+$ docker build -t myapp:v1 .
+$ docker run -d -p 8080:8080 --name myapp myapp:v1
+$ curl http://localhost:8080/health
+# {&quot;status&quot;:&quot;ok&quot;,&quot;version&quot;:&quot;1.0.0&quot;}
+$ docker logs myapp
+# Server starting on :8080
+
+# v2: Full stack
+$ docker-compose up -d
+# Creating myapp-mysql ... done
+# Creating myapp-redis ... done
+# Creating myapp-api   ... done
+$ docker-compose ps
+# NAME           STATUS         PORTS
+# myapp-api      Up (healthy)   0.0.0.0:8080-&gt;8080/tcp
+# myapp-mysql    Up (healthy)   0.0.0.0:3306-&gt;3306/tcp
+# myapp-redis    Up (healthy)   0.0.0.0:6379-&gt;6379/tcp
+
+# v3: Production with Nginx
+$ VERSION=2.0.0 docker-compose up -d --build
+# Creating myapp-nginx ... done
+# Creating myapp-app-1 ... done
+# Creating myapp-app-2 ... done (2 replicas)
+$ curl http://localhost/health
+# {&quot;status&quot;:&quot;ok&quot;,&quot;db&quot;:&quot;ok&quot;,&quot;redis&quot;:&quot;ok&quot;}
+
+# Check image size
+$ docker images myapp
+# myapp  latest  ...  12MB  (scratch-based)
+
+# Dev mode with hot reload
+$ docker-compose -f docker-compose.yml -f docker-compose.dev.yml up</code></pre>
+
+<hr>
+
+<h2>五、注意事项</h2>
+
+<table><thead><tr>
+<th>事项</th>
+<th>说明</th>
+</tr></thead><tbody>
+<tr>
+<td>.env 文件安全</td>
+<td>包含密码，必须加入 <code>.gitignore</code>，提供 <code>.env.example</code></td>
+</tr>
+<tr>
+<td>健康检查必要性</td>
+<td>Docker/K8s 依赖健康检查判断服务是否可用</td>
+</tr>
+<tr>
+<td>资源限制</td>
+<td>生产环境必须设 CPU/内存上限，防止一个容器吃光资源</td>
+</tr>
+<tr>
+<td>时区设置</td>
+<td>默认 UTC，需要显式设置 Asia/Shanghai</td>
+</tr>
+<tr>
+<td>日志输出</td>
+<td>容器内日志打到 stdout/stderr，由 Docker 日志驱动收集</td>
+</tr>
+<tr>
+<td>数据持久化</td>
+<td>MySQL/Redis 数据必须挂载 volume，否则容器重建数据丢失</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>六、避坑指南</h2>
+
+<table><thead><tr>
+<th>❌ 错误做法</th>
+<th>✅ 正确做法</th>
+</tr></thead><tbody>
+<tr>
+<td>用 <code>golang:latest</code> 做最终镜像（1GB+）</td>
+<td>多阶段构建，runtime 用 <code>alpine</code> 或 <code>scratch</code>（10-20MB）</td>
+</tr>
+<tr>
+<td>把密码写死在 docker-compose.yml</td>
+<td>用 <code>.env</code> 文件 + <code>${VAR}</code> 变量引用</td>
+</tr>
+<tr>
+<td>不设 HEALTHCHECK</td>
+<td>必须配置健康检查，否则编排系统无法判断服务状态</td>
+</tr>
+<tr>
+<td><code>COPY . .</code> 不加 <code>.dockerignore</code></td>
+<td>配置 <code>.dockerignore</code> 排除 <code>.git</code>、<code>vendor</code>、<code>node_modules</code> 等</td>
+</tr>
+<tr>
+<td>容器内用 root 运行</td>
+<td>创建非 root 用户 <code>USER appuser</code></td>
+</tr>
+<tr>
+<td>不限制容器资源</td>
+<td><code>deploy.resources.limits</code> 设 CPU/内存上限</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>七、练习题</h2>
+
+<h3>🟢 基础题</h3>
+<ol>
+<li>编写 Dockerfile，使用多阶段构建，最终镜像基于 Alpine，编译一个简单的 Gin 应用</li>
+</ul>
+<ol>
+<li>配置 <code>.dockerignore</code>，排除所有非必要文件</li>
+
+<h3>🟡 进阶题</h3>
+<ol>
+<li>编写 docker-compose.yml，编排 App + MySQL + Redis，配置健康检查和依赖关系</li>
+</ul>
+<ol>
+<li>实现 Nginx 反向代理，负载均衡到 2 个 App 实例</li>
+
+<h3>🔴 挑战题</h3>
+<ol>
+<li>实现 CI/CD Pipeline：代码推送 → 自动构建镜像 → 推送到 Registry → 自动部署</li>
+
+<hr>
+
+<h2>八、知识点总结</h2>
+
+<pre><code>Gin Docker 容器化
+├── 1. Dockerfile
+│   ├── 多阶段: builder (golang) → runtime (alpine/scratch)
+│   ├── 优化: go mod download 独立层
+│   ├── 安全: 非 root 用户
+│   └── .dockerignore 减小构建上下文
+├── 2. docker-compose
+│   ├── services: app + mysql + redis + nginx
+│   ├── depends_on: condition service_healthy
+│   ├── volumes: 数据持久化
+│   └── networks: 服务间通信
+├── 3. 环境变量
+│   ├── .env 文件
+│   ├── ${VAR:-default} 默认值
+│   └── docker-compose override
+├── 4. 健康检查
+│   ├── HEALTHCHECK 指令
+│   ├── wget/curl 探针
+│   └── interval/timeout/retries
+├── 5. 镜像优化
+│   ├── 多阶段构建 → 10-20MB
+│   ├── 层缓存利用
+│   ├── -ldflags=&quot;-w -s&quot; 去调试信息
+│   └── scratch vs alpine
+└── 6. 网络
+    ├── bridge 默认网络
+    ├── 服务名 DNS 解析
+    └── 端口映射策略</code></pre>
+
+<hr>
+
+<h2>九、举一反三</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>方案</th>
+</tr></thead><tbody>
+<tr>
+<td>Kubernetes 部署</td>
+<td>编写 Deployment + Service + Ingress YAML</td>
+</tr>
+<tr>
+<td>自动扩缩容</td>
+<td>K8s HPA 基于 CPU/内存/自定义指标</td>
+</tr>
+<tr>
+<td>镜像安全扫描</td>
+<td>Trivy / Snyk 扫描镜像漏洞</td>
+</tr>
+<tr>
+<td>蓝绿部署</td>
+<td>双版本镜像 + Nginx 切换 upstream</td>
+</tr>
+<tr>
+<td>日志收集</td>
+<td>Fluentd/Filebeat → Elasticsearch → Kibana</td>
+</tr>
+<tr>
+<td>多架构镜像</td>
+<td><code>docker buildx</code> 支持 ARM64 + AMD64</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>十、参考资料</h2>
+
+<ul>
+<li><a href="https://docs.docker.com/build/building/multi-stage/">Docker 多阶段构建</a></li>
+<li><a href="https://docs.docker.com/compose/">docker-compose 官方文档</a></li>
+<li><a href="https://docs.docker.com/develop/dev-best-practices/">Docker 最佳实践</a></li>
+<li><a href="https://hub.docker.com/_/alpine">Alpine Linux Docker 镜像</a></li>
+
+<hr>
+
+<h2>十一、代码演进</h2>
+
+<table><thead><tr>
+<th>版本</th>
+<th>变化</th>
+</tr></thead><tbody>
+<tr>
+<td><strong>v1</strong></td>
+<td>单容器 Dockerfile + 多阶段构建 + 健康检查</td>
+</tr>
+<tr>
+<td><strong>v2</strong></td>
+<td>docker-compose 编排 App+MySQL+Redis + 环境变量 + 数据卷</td>
+</tr>
+<tr>
+<td><strong>v3</strong></td>
+<td>Scratch 镜像优化 + Nginx 反向代理 + 多副本负载均衡 + 资源限制 + 开发覆盖</td>
+</tr>
+</tbody></table>
+
+<blockquote><p><strong>下一步建议：</strong> 编写 Kubernetes Deployment YAML，实现自动化 CI/CD 流水线和蓝绿部署策略。</p></blockquote>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

@@ -1,0 +1,530 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>004 - select多路复用</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Golang/index.html">Golang</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Golang/02-进阶/index.html">Golang进阶</a>
+</nav>
+<h1>004 - select多路复用</h1>
+<div class="meta">
+<span>📂 Golang进阶</span>
+<span>🏷️ Golang</span>
+</div>
+<article>
+
+
+<h1>034 - Select 多路复用</h1>
+
+<blockquote><p>难度：⭐⭐⭐（中级）<br><br>本文深入讲解 Go 语言中 <code>select</code> 语句的用法，包括多 channel 监听、非阻塞模式、超时控制、定时器实现、随机选择机制等核心知识点。</p></blockquote>
+
+<hr>
+
+<h2>一、概念讲解</h2>
+
+<p><code>select</code> 是 Go 语言中专门用于<strong>channel 多路复用</strong>的控制结构，语法类似 <code>switch</code>，但每个 <code>case</code> 必须是一个 channel 操作（发送或接收）。</p>
+
+<h3>核心特性</h3>
+
+<table><thead><tr>
+<th>特性</th>
+<th>说明</th>
+</tr></thead><tbody>
+<tr>
+<td>多 channel 监听</td>
+<td>同时监听多个 channel 的读写操作</td>
+</tr>
+<tr>
+<td>随机选择</td>
+<td>多个 case 同时就绪时，随机选择一个执行</td>
+</tr>
+<tr>
+<td>阻塞机制</td>
+<td>无 default 时，所有 case 都不就绪则阻塞</td>
+</tr>
+<tr>
+<td>非阻塞模式</td>
+<td>有 default 时，所有 case 不就绪则走 default</td>
+</tr>
+<tr>
+<td>循环使用</td>
+<td>通常配合 <code>for</code> 循环实现持续监听</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>二、脑图</h2>
+
+<pre><code>                    select 多路复用
+                         │
+         ┌───────────────┼───────────────┐
+         │               │               │
+     基础语法         典型模式         高级用法
+         │               │               │
+    ┌────┼────┐    ┌─────┼─────┐    ┌────┼────┐
+    │    │    │    │     │     │    │    │    │
+  case default 循环  超时  取消  多路  空    随机  定时
+  操作  分支  监听  控制  传播  复用  select 选择  器</code></pre>
+
+<hr>
+
+<h2>三、完整代码示例</h2>
+
+<h3>v1：基础 select - 多 channel 监听</h3>
+
+<pre><code class="language-go">package main
+
+import (
+    &quot;fmt&quot;
+    &quot;math/rand&quot;
+    &quot;time&quot;
+)
+
+// Demonstrates basic select with multiple channels
+func main() {
+    ch1 := make(chan string)
+    ch2 := make(chan string)
+
+    // Start two goroutines sending data
+    go func() {
+        time.Sleep(time.Duration(rand.Intn(500)) * time.Millisecond)
+        ch1 &lt;- &quot;from channel 1&quot;
+    }()
+
+    go func() {
+        time.Sleep(time.Duration(rand.Intn(500)) * time.Millisecond)
+        ch2 &lt;- &quot;from channel 2&quot;
+    }()
+
+    // Select waits for the first ready channel
+    select {
+    case msg := &lt;-ch1:
+        fmt.Println(&quot;Received:&quot;, msg)
+    case msg := &lt;-ch2:
+        fmt.Println(&quot;Received:&quot;, msg)
+    }
+}</code></pre>
+
+<h3>v2：超时控制 + 非阻塞</h3>
+
+<pre><code class="language-go">package main
+
+import (
+    &quot;context&quot;
+    &quot;fmt&quot;
+    &quot;time&quot;
+)
+
+// Demonstrates timeout and non-blocking patterns
+func main() {
+    ch := make(chan string, 1)
+
+    // --- Timeout pattern with time.After ---
+    go func() {
+        time.Sleep(2 * time.Second)
+        ch &lt;- &quot;slow result&quot;
+    }()
+
+    select {
+    case msg := &lt;-ch:
+        fmt.Println(&quot;Got:&quot;, msg)
+    case &lt;-time.After(1 * time.Second):
+        fmt.Println(&quot;Timeout! Operation took too long&quot;)
+    }
+
+    // --- Non-blocking receive with default ---
+    result := make(chan int, 1)
+    select {
+    case v := &lt;-result:
+        fmt.Println(&quot;Got value:&quot;, v)
+    default:
+        fmt.Println(&quot;No value available (non-blocking)&quot;)
+    }
+
+    // --- Context cancellation pattern ---
+    ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+    defer cancel()
+
+    done := make(chan struct{})
+    go func() {
+        time.Sleep(500 * time.Millisecond) // simulate long work
+        close(done)
+    }()
+
+    select {
+    case &lt;-done:
+        fmt.Println(&quot;Work completed&quot;)
+    case &lt;-ctx.Done():
+        fmt.Println(&quot;Context cancelled:&quot;, ctx.Err())
+    }
+}</code></pre>
+
+<h3>v3：生产级多路复用服务</h3>
+
+<pre><code class="language-go">package main
+
+import (
+    &quot;context&quot;
+    &quot;fmt&quot;
+    &quot;math/rand&quot;
+    &quot;sync&quot;
+    &quot;time&quot;
+)
+
+// FanIn merges multiple channels into one using select
+func FanIn(ctx context.Context, channels ...&lt;-chan string) &lt;-chan string {
+    out := make(chan string)
+    var wg sync.WaitGroup
+
+    for _, ch := range channels {
+        wg.Add(1)
+        go func(c &lt;-chan string) {
+            defer wg.Done()
+            for {
+                select {
+                case &lt;-ctx.Done():
+                    return
+                case v, ok := &lt;-c:
+                    if !ok {
+                        return
+                    }
+                    out &lt;- v
+                }
+            }
+        }(ch)
+    }
+
+    go func() {
+        wg.Wait()
+        close(out)
+    }()
+
+    return out
+}
+
+// TickLogger periodically logs using select + time.NewTicker
+func TickLogger(ctx context.Context, interval time.Duration) {
+    ticker := time.NewTicker(interval)
+    defer ticker.Stop()
+
+    for {
+        select {
+        case &lt;-ctx.Done():
+            fmt.Println(&quot;Ticker stopped&quot;)
+            return
+        case t := &lt;-ticker.C:
+            fmt.Println(&quot;Tick at:&quot;, t.Format(&quot;15:04:05&quot;))
+        }
+    }
+}
+
+func main() {
+    // Create source channels
+    sources := make([]&lt;-chan string, 3)
+    for i := range sources {
+        ch := make(chan string)
+        sources[i] = ch
+        go func(id int, c chan&lt;- string) {
+            defer close(c)
+            for j := 0; j &lt; 3; j++ {
+                time.Sleep(time.Duration(rand.Intn(300)) * time.Millisecond)
+                c &lt;- fmt.Sprintf(&quot;source-%d: msg-%d&quot;, id, j)
+            }
+        }(i, ch)
+    }
+
+    ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+    defer cancel()
+
+    // Fan-in all sources
+    merged := FanIn(ctx, sources...)
+
+    // Read merged output
+    for msg := range merged {
+        fmt.Println(msg)
+    }
+    fmt.Println(&quot;All sources exhausted&quot;)
+}</code></pre>
+
+<hr>
+
+<h2>四、执行预览</h2>
+
+<p><strong>v1 输出示例：</strong></p>
+<pre><code>Received: from channel 2</code></pre>
+<p>（每次运行可能不同，因为随机选择机制）</p>
+
+<p><strong>v2 输出：</strong></p>
+<pre><code>Timeout! Operation took too long
+No value available (non-blocking)
+Context cancelled: context deadline exceeded</code></pre>
+
+<p><strong>v3 输出示例：</strong></p>
+<pre><code>source-1: msg-0
+source-0: msg-0
+source-2: msg-0
+source-1: msg-1
+source-0: msg-1
+source-2: msg-1
+source-1: msg-2
+source-0: msg-2
+source-2: msg-2
+All sources exhausted</code></pre>
+
+<hr>
+
+<h2>五、注意事项</h2>
+
+<table><thead><tr>
+<th>注意点</th>
+<th>说明</th>
+</tr></thead><tbody>
+<tr>
+<td>nil channel 阻塞</td>
+<td>case 中 nil channel 永远不会被选中，可利用此特性动态禁用 case</td>
+</tr>
+<tr>
+<td>select 空{} 永久阻塞</td>
+<td><code>select{}</code> 永久阻塞当前 goroutine，常用于主 goroutine 保活</td>
+</tr>
+<tr>
+<td>for-select 死循环</td>
+<td>必须有退出条件，否则 goroutine 泄漏</td>
+</tr>
+<tr>
+<td>break 只跳出 select</td>
+<td>for-select 中 break 只跳出 select，需用 label 或 return 退出外层 for</td>
+</tr>
+<tr>
+<td>time.After 内存泄漏</td>
+<td>在 for-select 循环中每次创建 time.After 会导致临时 timer 堆积</td>
+</tr>
+<tr>
+<td>closed channel</td>
+<td>channel 关闭后可立即读取零值，select 会反复选中该 case</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>六、避坑指南</h2>
+
+<table><thead><tr>
+<th>❌ 错误做法</th>
+<th>✅ 正确做法</th>
+</tr></thead><tbody>
+<tr>
+<td><code>for-select</code> 中用 <code>break</code> 想退出 for</td>
+<td>用 <code>return</code> 或带 label 的 <code>break Loop</code></td>
+</tr>
+<tr>
+<td>循环中每次用 <code>time.After</code> 做超时</td>
+<td>用 <code>time.NewTicker</code> 或 <code>context.WithTimeout</code></td>
+</tr>
+<tr>
+<td>忘记检查 <code>ok</code> 值，closed channel 反复读</td>
+<td>用 <code>v, ok := <-ch</code>，<code>!ok</code> 时设 ch = nil</td>
+</tr>
+<tr>
+<td>select 内做耗时操作阻塞其他 case</td>
+<td>select case 中只做轻量操作，耗时任务交给 worker</td>
+</tr>
+<tr>
+<td>用 select 做顺序控制</td>
+<td>select 是<strong>随机</strong>的，不做顺序保证</td>
+</tr>
+<tr>
+<td>goroutine 泄漏——consumer 退出但 producer 还在</td>
+<td>用 context 取消 + producer 检查 <code>ctx.Done()</code></td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>七、练习题</h2>
+
+<h3>🟢 初级</h3>
+<ol>
+<li>写一个程序，创建两个 channel，分别发送 1-5 和 A-E，用 select 接收并打印。</li>
+</ul>
+<ol>
+<li>实现一个非阻塞的 channel 读取：有数据就读，没有就打印 "empty"。</li>
+
+<h3>🟡 中级</h3>
+<ol>
+<li>实现一个超时模式：从 channel 读取数据，超过 3 秒没收到就打印超时并退出。</li>
+</ul>
+<ol>
+<li>用 for-select 实现一个简单的任务调度器，从多个 channel 接收任务并执行。</li>
+
+<h3>🔴 高级</h3>
+<ol>
+<li>用 select + channel 实现一个优先级队列：高优先级 channel 优先处理，低优先级在空闲时处理。</li>
+</ul>
+<ol>
+<li>实现一个 goroutine 池，用 select 同时监听任务 channel 和取消 channel。</li>
+
+<hr>
+
+<h2>八、知识点总结</h2>
+
+<pre><code>select 多路复用
+├── 基础语法
+│   ├── case &lt;-ch : 接收操作
+│   ├── case ch&lt;- : 发送操作
+│   ├── default   : 非阻塞分支
+│   └── 空 select  : 永久阻塞
+├── 核心机制
+│   ├── 随机选择（多 case 就绪时）
+│   ├── 阻塞等待（无 default 且无就绪 case）
+│   └── nil channel 被跳过
+├── 典型模式
+│   ├── 超时控制：time.After
+│   ├── 取消传播：context.Done
+│   ├── 定时执行：time.NewTicker
+│   ├── Fan-In：多 channel 合并
+│   └── 动态开关：设 channel = nil
+└── 常见陷阱
+    ├── break 只跳出 select
+    ├── time.After 循环泄漏
+    └── closed channel 热循环</code></pre>
+
+<hr>
+
+<h2>九、举一反三</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>select 用法</th>
+<th>关键点</th>
+</tr></thead><tbody>
+<tr>
+<td>API 超时控制</td>
+<td><code>case <-time.After(timeout)</code></td>
+<td>用 context 更规范</td>
+</tr>
+<tr>
+<td>优雅退出</td>
+<td><code>case <-ctx.Done()</code></td>
+<td>配合 context 传播</td>
+</tr>
+<tr>
+<td>多数据源聚合</td>
+<td>Fan-In 模式</td>
+<td>每个 source 一个 goroutine</td>
+</tr>
+<tr>
+<td>心跳检测</td>
+<td><code>case <-ticker.C</code></td>
+<td>time.NewTicker 周期触发</td>
+</tr>
+<tr>
+<td>背压控制</td>
+<td><code>case out <- v</code> / <code>default</code></td>
+<td>非阻塞发送，满则丢弃</td>
+</tr>
+<tr>
+<td>动态路由</td>
+<td>设置 ch = nil 禁用 case</td>
+<td>nil channel 不参与 select</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>十、参考资料</h2>
+
+<ul>
+<li><a href="https://go.dev/ref/spec#Select_statements">Go 官方文档 - Select statements</a></li>
+<li><a href="https://go.dev/doc/effective_go#concurrency">Effective Go - Concurrency</a></li>
+<li><a href="https://book.douban.com/subject/27000535/">Go 并发编程实战（第2版）</a></li>
+<li><a href="https://draveness.me/golang/docs/part3-runtime/ch06-concurrency/golang-select/">Go 语言设计与实现 - Select</a></li>
+
+<hr>
+
+<h2>十一、代码演进</h2>
+
+<table><thead><tr>
+<th>版本</th>
+<th>演进</th>
+<th>说明</th>
+</tr></thead><tbody>
+<tr>
+<td>v1</td>
+<td>基础 select</td>
+<td>多 channel 监听，理解随机选择</td>
+</tr>
+<tr>
+<td>v2</td>
+<td>超时 + 非阻塞 + context</td>
+<td>三种常用模式：超时、非阻塞、取消</td>
+</tr>
+<tr>
+<td>v3</td>
+<td>生产级 Fan-In</td>
+<td>多 channel 聚合 + context 取消 + 并发安全</td>
+</tr>
+</tbody></table>
+
+<blockquote><p><strong>下一篇：</strong> <a href="035-waitgroup">035 - sync.WaitGroup 与 Mutex</a> → 并发同步原语，让 goroutine 乖乖排队！</p></blockquote>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

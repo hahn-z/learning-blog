@@ -1,0 +1,675 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>006-Wire依赖注入详解</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Golang/index.html">Golang</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Golang/06-Kratos微服务框架/index.html">Kratos框架</a>
+</nav>
+<h1>006-Wire依赖注入详解</h1>
+<div class="meta">
+<span>📂 Kratos框架</span>
+<span>🏷️ Golang</span>
+</div>
+<article>
+
+
+<h1>006-Wire依赖注入详解</h1>
+
+<blockquote><p>难度：⭐⭐⭐⭐（高级）<br>前置知识：Go接口、依赖注入概念、Kratos项目结构</p></blockquote>
+
+<h2>一、概念讲解</h2>
+
+<h3>什么是依赖注入？</h3>
+
+<p>依赖注入（Dependency Injection, DI）是一种设计模式，核心思想是：<strong>不自己创建依赖，由外部注入依赖</strong>。</p>
+
+<pre><code class="language-go">// ❌ 不用DI：自己创建依赖
+func NewOrderService() *OrderService {
+    db := database.Connect()       // 硬编码
+    repo := data.NewOrderRepo(db)  // 硬编码
+    return &amp;OrderService{repo: repo}
+}
+
+// ✅ 用DI：依赖从外部传入
+func NewOrderService(repo biz.OrderRepo) *OrderService {
+    return &amp;OrderService{repo: repo}
+}</code></pre>
+
+<h3>为什么选择Wire？</h3>
+
+<table><thead><tr>
+<th>特性</th>
+<th>Wire</th>
+<th>dig/fx</th>
+</tr></thead><tbody>
+<tr>
+<td>注入时机</td>
+<td><strong>编译时</strong></td>
+<td>运行时</td>
+</tr>
+<tr>
+<td>错误发现</td>
+<td>编译期报错</td>
+<td>运行时panic</td>
+</tr>
+<tr>
+<td>性能</td>
+<td>零运行时开销</td>
+<td>反射开销</td>
+</tr>
+<tr>
+<td>调试性</td>
+<td>生成可读Go代码</td>
+<td>调用栈难追踪</td>
+</tr>
+<tr>
+<td>适合场景</td>
+<td>微服务、高性能</td>
+<td>快速原型</td>
+</tr>
+</tbody></table>
+
+<p>Wire是<strong>编译时依赖注入</strong>工具，通过代码生成在编译期完成依赖图构建，零运行时开销。</p>
+
+<h2>二、脑图</h2>
+
+<pre><code>Wire 依赖注入
+├── 核心概念
+│   ├── Provider   → 提供者，创建具体对象
+│   ├── Bind       → 接口绑定，接口→实现映射
+│   ├── Set        → Provider集合，模块化组织
+│   └── Injector   → 注入器，组装完整依赖图
+├── 工作流程
+│   ├── 1. 编写 wire.go (build tag)
+│   ├── 2. 定义 Provider Set
+│   ├── 3. 编写 Injector 函数签名
+│   ├── 4. wire generate 生成 wire_gen.go
+│   └── 5. go build 编译验证
+├── Wire vs 其他
+│   ├── vs dig   → 编译时 vs 运行时
+│   ├── vs fx    → 轻量 vs 重型框架
+│   └── vs 手动  → 自动生成 vs 手动接线
+└── 大型项目组织
+    ├── 按层分 Set (data/service/biz)
+    ├── 按模块分 Set (order/user/product)
+    └── NewSet 嵌套组合</code></pre>
+
+<h2>三、完整代码示例</h2>
+
+<h3>3.1 项目结构</h3>
+
+<pre><code>order-service/
+├── cmd/
+│   └── order/
+│       ├── main.go
+│       ├── wire.go        # Wire 定义文件
+│       └── wire_gen.go    # Wire 生成文件
+├── internal/
+│   ├── conf/
+│   │   └── conf.proto
+│   ├── data/
+│   │   ├── data.go        # Provider: NewData
+│   │   └── order.go       # Provider: NewOrderRepo
+│   ├── biz/
+│   │   ├── biz.go         # Provider: NewOrderUsecase
+│   │   └── order.go       # OrderUsecase + Repo interface
+│   └── service/
+│       ├── service.go     # Provider: NewOrderService
+│       └── order.go
+├── server/
+│   ├── server.go          # Provider: NewServer
+│   ├── http.go
+│   └── grpc.go
+└── third_party/</code></pre>
+
+<h3>3.2 各层 Provider 定义</h3>
+
+<pre><code class="language-go">// internal/data/data.go
+package data
+
+import (
+    &quot;github.com/go-kratos/kratos/v2/log&quot;
+    &quot;entgo.io/ent/dialect/sql&quot;
+    _ &quot;github.com/go-sql-driver/mysql&quot;
+)
+
+// Data holds the database connection and logger.
+type Data struct {
+    db  *sql.Client
+    log *log.Helper
+}
+
+// NewData creates a new Data instance (Provider).
+func NewData(c *conf.Data, logger log.Logger) (*Data, func(), error) {
+    db, err := sql.Open(&quot;mysql&quot;, c.GetDatabase().GetSource())
+    if err != nil {
+        return nil, nil, err
+    }
+    cleanup := func() {
+        log.NewHelper(logger).Info(&quot;closing database connection&quot;)
+        db.Close()
+    }
+    return &amp;Data{db: db, log: log.NewHelper(logger)}, cleanup, nil
+}
+
+// ProviderSet is data layer providers.
+var ProviderSet = wire.NewSet(NewData, NewOrderRepo)</code></pre>
+
+<pre><code class="language-go">// internal/data/order.go
+package data
+
+import (
+    &quot;context&quot;
+    &quot;myapp/internal/biz&quot;
+)
+
+type orderRepo struct {
+    data *Data
+}
+
+// NewOrderRepo creates a new order repository (Provider).
+func NewOrderRepo(data *Data, logger log.Logger) biz.OrderRepo {
+    return &amp;orderRepo{data: data, log: log.NewHelper(logger)}
+}
+
+func (r *orderRepo) Create(ctx context.Context, order *biz.Order) (*biz.Order, error) {
+    // Database insert logic here
+    return order, nil
+}
+
+func (r *orderRepo) GetByID(ctx context.Context, id int64) (*biz.Order, error) {
+    // Database query logic here
+    return &amp;biz.Order{ID: id}, nil
+}</code></pre>
+
+<pre><code class="language-go">// internal/biz/biz.go
+package biz
+
+import &quot;github.com/google/wire&quot;
+
+// ProviderSet is biz layer providers.
+var ProviderSet = wire.NewSet(NewOrderUsecase)</code></pre>
+
+<pre><code class="language-go">// internal/biz/order.go
+package biz
+
+import (
+    &quot;context&quot;
+    &quot;github.com/go-kratos/kratos/v2/log&quot;
+)
+
+// Order is a domain model.
+type Order struct {
+    ID     int64
+    UserID int64
+    Status string
+    Amount float64
+}
+
+// OrderRepo defines the repository interface (owned by biz layer).
+type OrderRepo interface {
+    Create(ctx context.Context, order *Order) (*Order, error)
+    GetByID(ctx context.Context, id int64) (*Order, error)
+    Update(ctx context.Context, order *Order) (*Order, error)
+    List(ctx context.Context, page, size int) ([]*Order, error)
+}
+
+// OrderUsecase handles business logic for orders.
+type OrderUsecase struct {
+    repo OrderRepo
+    log  *log.Helper
+}
+
+// NewOrderUsecase creates a new OrderUsecase (Provider).
+func NewOrderUsecase(repo OrderRepo, logger log.Logger) *OrderUsecase {
+    return &amp;OrderUsecase{repo: repo, log: log.NewHelper(logger)}
+}
+
+func (uc *OrderUsecase) CreateOrder(ctx context.Context, order *Order) (*Order, error) {
+    uc.log.WithContext(ctx).Infof(&quot;Creating order for user %d&quot;, order.UserID)
+    return uc.repo.Create(ctx, order)
+}</code></pre>
+
+<pre><code class="language-go">// internal/service/service.go
+package service
+
+import &quot;github.com/google/wire&quot;
+
+// ProviderSet is service layer providers.
+var ProviderSet = wire.NewSet(NewOrderService)</code></pre>
+
+<pre><code class="language-go">// internal/service/order.go
+package service
+
+import (
+    &quot;context&quot;
+    pb &quot;myapp/api/order/v1&quot;
+    &quot;myapp/internal/biz&quot;
+)
+
+type OrderService struct {
+    pb.UnimplementedOrderServiceServer
+    uc *biz.OrderUsecase
+}
+
+// NewOrderService creates a new OrderService (Provider).
+func NewOrderService(uc *biz.OrderUsecase) *OrderService {
+    return &amp;OrderService{uc: uc}
+}
+
+func (s *OrderService) CreateOrder(ctx context.Context, req *pb.CreateOrderRequest) (*pb.CreateOrderReply, error) {
+    order := &amp;biz.Order{
+        UserID: req.GetUserId(),
+        Amount: req.GetAmount(),
+        Status: &quot;pending&quot;,
+    }
+    created, err := s.uc.CreateOrder(ctx, order)
+    if err != nil {
+        return nil, err
+    }
+    return &amp;pb.CreateOrderReply{Id: created.ID}, nil
+}</code></pre>
+
+<h3>3.3 Wire 注入器定义</h3>
+
+<pre><code class="language-go">// cmd/order/wire.go
+//go:build wireinject
+
+package main
+
+import (
+    &quot;myapp/internal/biz&quot;
+    &quot;myapp/internal/conf&quot;
+    &quot;myapp/internal/data&quot;
+    &quot;myapp/internal/service&quot;
+    &quot;myapp/server&quot;
+    &quot;github.com/google/wire&quot;
+    &quot;github.com/go-kratos/kratos/v2&quot;
+    &quot;github.com/go-kratos/kratos/v2/log&quot;
+)
+
+// initApp wires up the entire application.
+// wire.Build will be replaced by generated code.
+func initApp(*conf.Data, *conf.Server, log.Logger) (*kratos.App, func(), error) {
+    panic(wire.Build(
+        data.ProviderSet,
+        biz.ProviderSet,
+        service.ProviderSet,
+        server.ProviderSet,
+    ))
+}</code></pre>
+
+<h3>3.4 生成的 wire_gen.go（示例）</h3>
+
+<pre><code class="language-go">// cmd/order/wire_gen.go
+// Code generated by Wire. DO NOT EDIT.
+
+//go:generate go run -mod=mod github.com/google/wire/cmd/wire
+//go:build !wireinject
+// +build !wireinject
+
+package main
+
+import (
+    &quot;myapp/internal/biz&quot;
+    &quot;myapp/internal/conf&quot;
+    &quot;myapp/internal/data&quot;
+    &quot;myapp/internal/service&quot;
+    &quot;myapp/server&quot;
+    &quot;github.com/go-kratos/kratos/v2&quot;
+    &quot;github.com/go-kratos/kratos/v2/log&quot;
+)
+
+func initApp(dataConf *conf.Data, serverConf *conf.Server, logger log.Logger) (*kratos.App, func(), error) {
+    // Wire automatically resolves the dependency graph:
+    // Data → OrderRepo → OrderUsecase → OrderService → Server → App
+    dataData, cleanup, err := data.NewData(dataConf, logger)
+    if err != nil {
+        return nil, nil, err
+    }
+    orderRepo := data.NewOrderRepo(dataData, logger)
+    orderUsecase := biz.NewOrderUsecase(orderRepo, logger)
+    orderService := service.NewOrderService(orderUsecase)
+    app, cleanup2, err := server.NewApp(serverConf, orderService, logger)
+    if err != nil {
+        cleanup()
+        return nil, nil, err
+    }
+    return app, func() {
+        cleanup2()
+        cleanup()
+    }, nil
+}</code></pre>
+
+<h3>3.5 main.go</h3>
+
+<pre><code class="language-go">// cmd/order/main.go
+package main
+
+import (
+    &quot;flag&quot;
+    &quot;os&quot;
+    &quot;myapp/internal/conf&quot;
+    &quot;github.com/go-kratos/kratos/v2&quot;
+    &quot;github.com/go-kratos/kratos/v2/log&quot;
+    &quot;github.com/go-kratos/kratos/v2/transport/grpc&quot;
+    &quot;github.com/go-kratos/kratos/v2/transport/http&quot;
+)
+
+var (
+    flagconf string
+)
+
+func init() {
+    flag.StringVar(&amp;flagconf, &quot;conf&quot;, &quot;../../configs/config.yaml&quot;, &quot;config path&quot;)
+}
+
+func main() {
+    flag.Parse()
+    logger := log.With(log.NewStdLogger(os.Stdout))
+    c := conf.MustLoadConfig(flagconf)
+
+    // initApp is generated by Wire
+    app, cleanup, err := initApp(c.Data, c.Server, logger)
+    if err != nil {
+        panic(err)
+    }
+    defer cleanup()
+
+    if err := app.Run(); err != nil {
+        panic(err)
+    }
+}</code></pre>
+
+<h2>四、执行预览</h2>
+
+<pre><code class="language-bash"># 1. 安装 wire 工具
+go install github.com/google/wire/cmd/wire@latest
+
+# 2. 在 cmd/order 目录执行生成
+cd cmd/order &amp;&amp; wire
+
+# 输出：
+# wire: [cmd/order] wrote wire_gen.go
+
+# 3. 编译运行
+go build -o ./order . &amp;&amp; ./order -conf ../../configs/config.yaml
+
+# 输出：
+# INFO msg=server started http=:8080 grpc=:9000</code></pre>
+
+<h2>五、注意事项</h2>
+
+<table><thead><tr>
+<th>事项</th>
+<th>说明</th>
+<th>影响</th>
+</tr></thead><tbody>
+<tr>
+<td>wire.go 必须有 build tag</td>
+<td><code>//go:build wireinject</code></td>
+<td>否则 wire 命令无法识别</td>
+</tr>
+<tr>
+<td>wire_gen.go 不要手动编辑</td>
+<td>每次wire会覆盖</td>
+<td>手动修改会丢失</td>
+</tr>
+<tr>
+<td>Provider 签名灵活性</td>
+<td>可返回 (T, error) 或 (T, func(), error)</td>
+<td>cleanup函数需要正确处理</td>
+</tr>
+<tr>
+<td>接口绑定</td>
+<td>需要显式 wire.Bind</td>
+<td>否则Wire无法将接口映射到实现</td>
+</tr>
+<tr>
+<td>循环依赖</td>
+<td>Wire无法处理循环依赖</td>
+<td>编译报错，需重新设计</td>
+</tr>
+<tr>
+<td>文件命名</td>
+<td>wire.go 和 wire_gen.go 同目录</td>
+<td>这是约定</td>
+</tr>
+</tbody></table>
+
+<h2>六、避坑指南</h2>
+
+<table><thead><tr>
+<th>❌ 错误做法</th>
+<th>✅ 正确做法</th>
+</tr></thead><tbody>
+<tr>
+<td>手动编辑 wire_gen.go</td>
+<td>修改 wire.go 后重新 wire generate</td>
+</tr>
+<tr>
+<td>Provider 不导出（小写开头）</td>
+<td>Provider 函数必须导出（大写开头）</td>
+</tr>
+<tr>
+<td>接口没有 wire.Bind</td>
+<td>在 ProviderSet 中加 <code>wire.Bind(new(Interface), new(Impl))</code></td>
+</tr>
+<tr>
+<td>wire.go 缺少 build tag</td>
+<td>确保 <code>//go:build wireinject</code> 在文件顶部</td>
+</tr>
+<tr>
+<td>两个 Provider 返回相同类型</td>
+<td>用 <code>wire.FieldsOf</code> 或 <code>wire.Value</code> 区分</td>
+</tr>
+<tr>
+<td>忘记 import wire 包</td>
+<td>wire.go 需要 <code>import "github.com/google/wire"</code></td>
+</tr>
+<tr>
+<td>cleanup 函数不调用</td>
+<td>使用 wire.Build 中的 cleanup 确保资源释放</td>
+</tr>
+</tbody></table>
+
+<h2>七、练习题</h2>
+
+<h3>🟢 初级</h3>
+<ol>
+<li>编写一个简单的 Provider，创建 <code>*log.Helper</code>，并注入到 Usecase 中。</li>
+</ul>
+<ol>
+<li>创建一个只包含两个 Provider 的 <code>wire.NewSet</code>，观察生成的代码。</li>
+
+<h3>🟡 中级</h3>
+<ol>
+<li>在 Kratos 项目中新增一个 <code>UserRepo</code> 接口及其实现，修改 Wire 配置完成注入。</li>
+</ul>
+<ol>
+<li>使用 <code>wire.Bind</code> 将接口绑定到结构体指针，并处理接口注入。</li>
+
+<h3>🔴 高级</h3>
+<ol>
+<li>设计一个多数据源场景（MySQL + Redis），用 Wire 管理两个 Data 实例的注入。</li>
+</ul>
+<ol>
+<li>重构一个现有的手动依赖注入项目为 Wire 方式，确保所有 cleanup 函数正确链式调用。</li>
+
+<h2>八、知识点总结</h2>
+
+<pre><code>Wire 依赖注入
+├── Provider（提供者）
+│   ├── 函数签名：func(...) (*T, func(), error)
+│   ├── 返回值：目标对象 + cleanup + error
+│   └── 规则：必须导出、类型唯一
+├── wire.Bind（接口绑定）
+│   ├── wire.Bind(new(Interface), new(Impl))
+│   └── 解决接口→实现的映射
+├── wire.NewSet（集合）
+│   ├── 组织相关 Provider
+│   └── 支持嵌套 Set
+├── wire.Build（构建）
+│   ├── 在 Injector 函数中使用
+│   └── 自动解析依赖图
+├── wire.Injector（注入器）
+│   ├── 带 wireinject build tag
+│   └── 函数体只有 panic(wire.Build(...))
+└── 生成流程
+    ├── wire generate → wire_gen.go
+    └── 编译时验证所有依赖</code></pre>
+
+<h2>九、举一反三</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>Wire 方案</th>
+<th>关键点</th>
+</tr></thead><tbody>
+<tr>
+<td>多数据库（MySQL+PgSQL）</td>
+<td>两个 NewData Provider + wire.FieldsOf</td>
+<td>用 FieldsOf 区分不同 DB</td>
+</tr>
+<tr>
+<td>外部 API Client</td>
+<td>NewAPIClient Provider</td>
+<td>可加 wire.Value 注入配置</td>
+</tr>
+<tr>
+<td>插件化架构</td>
+<td>按模块分 ProviderSet</td>
+<td>运行时选择加载哪个 Set</td>
+</tr>
+<tr>
+<td>测试替换</td>
+<td>替换 ProviderSet 中的 Provider</td>
+<td>测试用 mock Provider</td>
+</tr>
+<tr>
+<td>条件注入</td>
+<td>多个 Injector 函数</td>
+<td>不同环境用不同注入器</td>
+</tr>
+</tbody></table>
+
+<h2>十、参考资料</h2>
+
+<ul>
+<li><a href="https://github.com/google/wire">Wire 官方文档</a></li>
+<li><a href="https://go-kratos.dev/docs/getting-started/usage">Kratos 官方 Wire 指南</a></li>
+<li><a href="https://dagger.dev/">Go 依赖注入最佳实践</a></li>
+<li><a href="https://engage.software/blog/wire-vs-dig">Wire vs dig 对比分析</a></li>
+
+<h2>十一、代码演进</h2>
+
+<h3>v1: 手动依赖注入</h3>
+
+<pre><code class="language-go">// cmd/order/main.go - everything manual
+func main() {
+    db := database.Connect(config)
+    repo := data.NewOrderRepo(db, logger)
+    uc := biz.NewOrderUsecase(repo, logger)
+    svc := service.NewOrderService(uc)
+    srv := server.New(config, svc, logger)
+    srv.Run()
+}</code></pre>
+
+<p><strong>问题</strong>：依赖多时手动接线繁琐，容易遗漏 cleanup。</p>
+
+<h3>v2: 引入 Wire（基础版）</h3>
+
+<pre><code class="language-go">// cmd/order/wire.go
+func initApp(c *conf.Data, logger log.Logger) (*kratos.App, func(), error) {
+    panic(wire.Build(
+        data.NewData,
+        data.NewOrderRepo,
+        biz.NewOrderUsecase,
+        service.NewOrderService,
+        server.NewApp,
+    ))
+}</code></pre>
+
+<p><strong>改进</strong>：自动解析依赖图，编译时检查。<strong>但</strong>所有 Provider 平铺。</p>
+
+<h3>v3: Wire 模块化组织（生产级）</h3>
+
+<pre><code class="language-go">// internal/data/data.go
+var ProviderSet = wire.NewSet(NewData, NewOrderRepo, wire.Bind(new(biz.OrderRepo), new(*orderRepo)))
+
+// internal/biz/biz.go
+var ProviderSet = wire.NewSet(NewOrderUsecase)
+
+// cmd/order/wire.go
+func initApp(c *conf.Data, s *conf.Server, logger log.Logger) (*kratos.App, func(), error) {
+    panic(wire.Build(
+        data.ProviderSet,
+        biz.ProviderSet,
+        service.ProviderSet,
+        server.ProviderSet,
+        newApp,
+    ))
+}</code></pre>
+
+<p><strong>最终形态</strong>：按层/按模块组织 ProviderSet，接口绑定内聚，大型项目清晰可维护。</p>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

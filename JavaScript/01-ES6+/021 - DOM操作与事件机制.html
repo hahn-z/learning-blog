@@ -1,0 +1,545 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>021 - DOM操作与事件机制</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/JavaScript/index.html">JavaScript</a>
+<span class="sep">›</span>
+<a href="/tech-blog/JavaScript/01-ES6+/index.html">JavaScript ES6+</a>
+</nav>
+<h1>021 - DOM操作与事件机制</h1>
+<div class="meta">
+<span>📂 JavaScript ES6+</span>
+<span>🏷️ JavaScript</span>
+</div>
+<article>
+
+
+<h1>DOM操作与事件机制</h1>
+
+<blockquote><p><strong>难度：</strong> ⭐⭐⭐ 中等 | <strong>适合：</strong> 有JS基础，想深入理解DOM的开发者<br><strong>阅读时间：</strong> 约25分钟 | <strong>代码量：</strong> 200+ 行</p></blockquote>
+
+<hr>
+
+<h2>一、概念讲解</h2>
+
+<h3>什么是DOM？</h3>
+
+<p>DOM（Document Object Model）是浏览器将HTML文档解析后生成的一棵<strong>树形结构</strong>。每个HTML标签对应一个<strong>节点（Node）</strong>，JavaScript通过操作这些节点来改变页面内容、结构和样式。</p>
+
+<pre><code>document
+  └── html
+       ├── head
+       │    ├── title
+       │    └── meta
+       └── body
+            ├── header
+            │    └── h1
+            ├── main
+            │    ├── section
+            │    └── article
+            └── footer</code></pre>
+
+<p><strong>核心概念：</strong></p>
+<ul>
+<li><strong>节点（Node）</strong>：DOM树的基本单元，包括元素节点、文本节点、注释节点等</li>
+<li><strong>元素（Element）</strong>：特指HTML标签对应的节点，是最常操作的类型</li>
+<li><strong>文档（Document）</strong>：DOM树的根节点，提供查询和创建API</li>
+
+<h3>事件机制三阶段</h3>
+
+<p>事件传播经历三个阶段：</p>
+
+<ol>
+<li><strong>捕获阶段（Capturing）</strong>：事件从 <code>window</code> 向目标元素传播</li>
+</ul>
+<ol>
+<li><strong>目标阶段（Target）</strong>：事件到达触发元素</li>
+</ul>
+<ol>
+<li><strong>冒泡阶段（Bubbling）</strong>：事件从目标元素向上冒泡到 <code>window</code></li>
+
+<hr>
+
+<h2>二、脑图（ASCII）</h2>
+
+<pre><code>                    DOM操作与事件机制
+                         │
+            ┌────────────┼────────────┐
+            │            │            │
+        DOM查询      DOM操作       事件系统
+            │            │            │
+     ┌──────┼──────┐  ┌──┼──┐    ┌───┼───┐
+     │      │      │  │  │  │    │   │   │
+  getElement  query- cre- del-  绑定 冒泡  事件
+  ById/ByTag  Selector ate ete  监听 捕获  委托
+     │      │      │  │  │  │    │   │   │
+   传统    现代   克隆 属性 样式 addEvent 代理
+                   节点 操作 操作 Listener</code></pre>
+
+<hr>
+
+<h2>三、完整代码示例</h2>
+
+<h3>3.1 DOM查询与遍历</h3>
+
+<pre><code class="language-javascript">// Modern DOM querying methods
+const el = document.getElementById(&#x27;app&#x27;);
+const items = document.getElementsByClassName(&#x27;item&#x27;);
+const buttons = document.getElementsByTagName(&#x27;button&#x27;);
+
+// Recommended: querySelector / querySelectorAll
+const firstCard = document.querySelector(&#x27;.card&#x27;);
+const allCards = document.querySelectorAll(&#x27;.card&#x27;);
+
+// Traversal: parent, children, siblings
+const parent = firstCard.parentElement;
+const children = parent.children;
+const nextSibling = firstCard.nextElementSibling;
+const prevSibling = firstCard.previousElementSibling;
+
+// Check relationships
+parent.contains(firstCard); // true
+firstCard.closest(&#x27;.container&#x27;); // find nearest ancestor matching selector</code></pre>
+
+<h3>3.2 DOM创建与修改</h3>
+
+<pre><code class="language-javascript">// v1: Basic element creation
+function createElement(tag, text, className) {
+  const el = document.createElement(tag);
+  el.textContent = text;
+  el.className = className;
+  return el;
+}
+
+// v2: Fluent API with attributes and events
+function h(tag, props = {}, ...children) {
+  const el = document.createElement(tag);
+  for (const [key, value] of Object.entries(props)) {
+    if (key.startsWith(&#x27;on&#x27;) &amp;&amp; typeof value === &#x27;function&#x27;) {
+      el.addEventListener(key.slice(2).toLowerCase(), value);
+    } else if (key === &#x27;className&#x27;) {
+      el.className = value;
+    } else if (key === &#x27;style&#x27; &amp;&amp; typeof value === &#x27;object&#x27;) {
+      Object.assign(el.style, value);
+    } else {
+      el.setAttribute(key, value);
+    }
+  }
+  children.flat().forEach(child =&gt; {
+    el.appendChild(typeof child === &#x27;string&#x27; ? document.createTextNode(child) : child);
+  });
+  return el;
+}
+
+// Usage
+const card = h(&#x27;div&#x27;, { className: &#x27;card&#x27;, style: { color: &#x27;red&#x27; } },
+  h(&#x27;h2&#x27;, {}, &#x27;Title&#x27;),
+  h(&#x27;p&#x27;, {}, &#x27;Description&#x27;),
+  h(&#x27;button&#x27;, { onClick: () =&gt; alert(&#x27;Clicked!&#x27;) }, &#x27;Click Me&#x27;)
+);
+document.body.appendChild(card);</code></pre>
+
+<h3>3.3 事件系统完整示例</h3>
+
+<pre><code class="language-javascript">// Event delegation pattern
+class EventManager {
+  constructor(root = document) {
+    this.root = root;
+    this.handlers = new Map();
+  }
+
+  // Delegate event handling to root element
+  on(selector, event, handler) {
+    const wrapper = (e) =&gt; {
+      const target = e.target.closest(selector);
+      if (target &amp;&amp; this.root.contains(target)) {
+        handler.call(target, e, target);
+      }
+    };
+    this.root.addEventListener(event, wrapper);
+    const key = `${selector}:${event}`;
+    this.handlers.set(key, wrapper);
+    return () =&gt; this.off(selector, event);
+  }
+
+  off(selector, event) {
+    const key = `${selector}:${event}`;
+    const wrapper = this.handlers.get(key);
+    if (wrapper) {
+      this.root.removeEventListener(event, wrapper);
+      this.handlers.delete(key);
+    }
+  }
+
+  once(selector, event, handler) {
+    const remove = this.on(selector, event, (...args) =&gt; {
+      handler(...args);
+      remove();
+    });
+    return remove;
+  }
+}
+
+// Usage: efficient event delegation
+const em = new EventManager(document.getElementById(&#x27;todo-list&#x27;));
+em.on(&#x27;.delete-btn&#x27;, &#x27;click&#x27;, (e, btn) =&gt; {
+  const li = btn.closest(&#x27;li&#x27;);
+  li.remove();
+});
+em.on(&#x27;.toggle-btn&#x27;, &#x27;click&#x27;, (e, btn) =&gt; {
+  const li = btn.closest(&#x27;li&#x27;);
+  li.classList.toggle(&#x27;completed&#x27;);
+});</code></pre>
+
+<h3>3.4 MutationObserver 监听DOM变化</h3>
+
+<pre><code class="language-javascript">// Watch for DOM changes
+const observer = new MutationObserver((mutations) =&gt; {
+  for (const mutation of mutations) {
+    if (mutation.type === &#x27;childList&#x27;) {
+      console.log(&#x27;Added:&#x27;, mutation.addedNodes.length, &#x27;nodes&#x27;);
+      console.log(&#x27;Removed:&#x27;, mutation.removedNodes.length, &#x27;nodes&#x27;);
+    }
+    if (mutation.type === &#x27;attributes&#x27;) {
+      console.log(`Attribute ${mutation.attributeName} changed`);
+    }
+  }
+});
+
+observer.observe(document.body, {
+  childList: true,     // watch for added/removed children
+  subtree: true,       // watch entire subtree
+  attributes: true,    // watch attribute changes
+  attributeFilter: [&#x27;class&#x27;, &#x27;data-status&#x27;] // only these attributes
+});
+
+// Stop observing
+// observer.disconnect();</code></pre>
+
+<hr>
+
+<h2>四、执行预览</h2>
+
+<pre><code>DOM Manipulation Demo
+=====================
+1. Created: &lt;div class=&quot;card&quot;&gt;
+   ├── &lt;h2&gt;Title&lt;/h2&gt;
+   ├── &lt;p&gt;Description&lt;/p&gt;
+   └── &lt;button&gt;Click Me&lt;/button&gt;
+
+2. Event delegation active on #todo-list
+   → .delete-btn click → remove &lt;li&gt;
+   → .toggle-btn click → toggle .completed
+
+3. MutationObserver watching &lt;body&gt;
+   → childList, subtree, attributes [class, data-status]</code></pre>
+
+<hr>
+
+<h2>五、注意事项</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>注意点</th>
+<th>建议</th>
+</tr></thead><tbody>
+<tr>
+<td><code>querySelectorAll</code></td>
+<td>返回<strong>静态</strong> NodeList，不是实时的</td>
+<td>需要实时集合用 <code>getElementsByClassName</code></td>
+</tr>
+<tr>
+<td><code>innerHTML</code></td>
+<td>存在XSS风险，性能差</td>
+<td>优先用 <code>textContent</code> 或 DOM API</td>
+</tr>
+<tr>
+<td>事件绑定</td>
+<td>同一元素同一事件可绑定多个监听器</td>
+<td>注意 <code>removeEventListener</code> 需同一引用</td>
+</tr>
+<tr>
+<td>事件委托</td>
+<td>依赖冒泡机制</td>
+<td><code>focus</code>/<code>blur</code> 不冒泡，需用 <code>focusin</code>/<code>focusout</code></td>
+</tr>
+<tr>
+<td><code>closest()</code></td>
+<td>从自身开始向上查找</td>
+<td>不会查找后代元素</td>
+</tr>
+<tr>
+<td>DocumentFragment</td>
+<td>批量DOM操作的最佳实践</td>
+<td>减少 reflow 次数</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>六、避坑指南</h2>
+
+<table><thead><tr>
+<th>❌ 错误做法</th>
+<th>✅ 正确做法</th>
+<th>原因</th>
+</tr></thead><tbody>
+<tr>
+<td><code>el.innerHTML = userInput</code></td>
+<td><code>el.textContent = userInput</code></td>
+<td>防止XSS注入</td>
+</tr>
+<tr>
+<td>循环内逐个 <code>appendChild</code></td>
+<td>先拼 <code>DocumentFragment</code>，一次插入</td>
+<td>减少reflow</td>
+</tr>
+<tr>
+<td><code>onclick = fn</code> 赋值</td>
+<td><code>addEventListener('click', fn)</code></td>
+<td>可绑定多个，更灵活</td>
+</tr>
+<tr>
+<td>100个li各绑定click</td>
+<td>父元素事件委托1个监听器</td>
+<td>内存和性能友好</td>
+</tr>
+<tr>
+<td><code>e.stopPropagation()</code> 随意调用</td>
+<td>只在确实需要时阻止</td>
+<td>避免破坏其他功能</td>
+</tr>
+<tr>
+<td><code>getElementById</code> 返回null直接用</td>
+<td>先判空再操作</td>
+<td>避免 TypeError</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>七、练习题</h2>
+
+<h3>🟢 基础</h3>
+<ol>
+<li>使用 <code>querySelectorAll</code> 选中所有 <code>.card</code> 元素，给每个添加 <code>data-index</code> 属性</li>
+</ul>
+<ol>
+<li>实现一个 <code>toggleClass(el, className)</code> 函数，切换元素的class</li>
+</ul>
+<ol>
+<li>给按钮绑定 click 事件，点击后在控制台打印按钮文字</li>
+
+<h3>🟡 进阶</h3>
+<ol>
+<li>实现事件委托：在 <code>ul</code> 上监听 click，点击 <code>li</code> 时高亮该项</li>
+</ul>
+<ol>
+<li>使用 <code>MutationObserver</code> 监听某个 div 的 class 变化，变化时打印新 class</li>
+</ul>
+<ol>
+<li>实现一个 <code>waitForElement(selector, timeout)</code> 函数，等待元素出现</li>
+
+<h3>🔴 挑战</h3>
+<ol>
+<li>实现一个迷你虚拟DOM diff算法，比较两棵树并输出差异</li>
+</ul>
+<ol>
+<li>封装一个完整的拖拽组件，支持 dragstart/dragover/drop</li>
+
+<hr>
+
+<h2>八、知识点总结</h2>
+
+<pre><code>DOM操作与事件机制
+├── DOM查询
+│   ├── getElementById / getElementsByClassName
+│   ├── querySelector / querySelectorAll
+│   ├── closest / matches
+│   └── 遍历: parent / children / siblings
+├── DOM操作
+│   ├── createElement / createTextNode
+│   ├── appendChild / insertBefore / removeChild
+│   ├── innerHTML / textContent
+│   ├── classList: add / remove / toggle / contains
+│   ├── style / dataset / setAttribute
+│   └── DocumentFragment 批量操作
+├── 事件系统
+│   ├── addEventListener / removeEventListener
+│   ├── 事件传播: 捕获 → 目标 → 冒泡
+│   ├── 事件对象: target / currentTarget
+│   ├── stopPropagation / preventDefault
+│   └── 事件委托模式
+└── 高级API
+    ├── MutationObserver
+    ├── IntersectionObserver
+    ├── ResizeObserver
+    └── CustomEvent</code></pre>
+
+<hr>
+
+<h2>九、举一反三</h2>
+
+<table><thead><tr>
+<th>技术</th>
+<th>相似概念</th>
+<th>迁移思路</th>
+</tr></thead><tbody>
+<tr>
+<td>DOM事件</td>
+<td>Node.js EventEmitter</td>
+<td>同为发布订阅模式，DOM多了冒泡捕获</td>
+</tr>
+<tr>
+<td>querySelector</td>
+<td>CSS选择器</td>
+<td>选择器语法完全一致</td>
+</tr>
+<tr>
+<td>MutationObserver</td>
+<td>Vue的watch / React的useEffect</td>
+<td>都是响应式数据变更监听</td>
+</tr>
+<tr>
+<td>DocumentFragment</td>
+<td>React的虚拟DOM</td>
+<td>都是批量操作的中间层</td>
+</tr>
+<tr>
+<td>事件委托</td>
+<td>代理模式(Proxy)</td>
+<td>将操作委托给上层统一处理</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>十、参考资料</h2>
+
+<ul>
+<li><a href="https://developer.mozilla.org/zh-CN/docs/Web/API/Document_Object_Model">MDN - Document Object Model</a></li>
+<li><a href="https://developer.mozilla.org/zh-CN/docs/Web/Events">MDN - Event reference</a></li>
+<li><a href="https://javascript.info/dom-navigation">JavaScript.info - DOM Navigation</a></li>
+<li><a href="https://dom.spec.whatwg.org/">DOM Standard - WHATWG</a></li>
+
+<hr>
+
+<h2>十一、代码演进</h2>
+
+<h3>v1: 基础DOM操作</h3>
+
+<pre><code class="language-javascript">// Simple direct DOM manipulation
+const list = document.getElementById(&#x27;myList&#x27;);
+items.forEach(text =&gt; {
+  const li = document.createElement(&#x27;li&#x27;);
+  li.textContent = text;
+  li.addEventListener(&#x27;click&#x27;, () =&gt; li.classList.toggle(&#x27;active&#x27;));
+  list.appendChild(li);
+});</code></pre>
+
+<h3>v2: 事件委托 + DocumentFragment</h3>
+
+<pre><code class="language-javascript">// Event delegation + fragment for performance
+const fragment = document.createDocumentFragment();
+items.forEach((text, i) =&gt; {
+  const li = document.createElement(&#x27;li&#x27;);
+  li.textContent = text;
+  li.dataset.index = i;
+  fragment.appendChild(li);
+});
+list.appendChild(fragment);
+
+list.addEventListener(&#x27;click&#x27;, (e) =&gt; {
+  const li = e.target.closest(&#x27;li&#x27;);
+  if (li) li.classList.toggle(&#x27;active&#x27;);
+});</code></pre>
+
+<h3>v3: 封装为可复用组件</h3>
+
+<pre><code class="language-javascript">// Reusable component with EventManager
+class ListComponent {
+  constructor(container, items) {
+    this.container = container;
+    this.em = new EventManager(container);
+    this.render(items);
+  }
+  render(items) {
+    const fragment = document.createDocumentFragment();
+    items.forEach((text, i) =&gt; {
+      const li = document.createElement(&#x27;li&#x27;);
+      li.textContent = text;
+      li.dataset.index = i;
+      fragment.appendChild(li);
+    });
+    this.container.appendChild(fragment);
+  }
+  onItemClick(handler) {
+    this.em.on(&#x27;li&#x27;, &#x27;click&#x27;, (e, li) =&gt; handler(li, +li.dataset.index));
+  }
+}</code></pre>
+
+<hr>
+
+<h2>十二、总结</h2>
+
+<p>DOM操作是前端开发的基础功。掌握<strong>查询、创建、修改、删除</strong>四大操作，理解<strong>事件捕获-冒泡机制</strong>，善用<strong>事件委托</strong>减少监听器数量，利用<strong>Observer API</strong>实现响应式监听——这些是高效DOM编程的核心。</p>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

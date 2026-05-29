@@ -1,0 +1,518 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>023 - Go 包设计与 API 设计原则</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Golang/index.html">Golang</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Golang/02-进阶/index.html">Golang进阶</a>
+</nav>
+<h1>023 - Go 包设计与 API 设计原则</h1>
+<div class="meta">
+<span>📂 Golang进阶</span>
+<span>🏷️ Golang</span>
+</div>
+<article>
+
+
+<h1>053 - Go 包设计与 API 设计原则</h1>
+
+<blockquote><p><strong>难度：⭐⭐⭐⭐</strong> | 好的包设计让代码自解释，好的 API 让使用者愉悦。这是区分新手与专家的分水岭。</p></blockquote>
+
+<h2>一、概念讲解</h2>
+
+<p>Go 的包（package）是代码组织的基本单元。一个好的包应该：</p>
+<ol>
+<li><strong>高内聚</strong>：包内的类型和函数围绕一个明确的职责</li>
+</ul>
+<ol>
+<li><strong>低耦合</strong>：包与包之间通过最小接口交互</li>
+</ul>
+<ol>
+<li><strong>小 API 面</strong>：暴露的函数和类型越少越好</li>
+</ul>
+<ol>
+<li><strong>不可变优先</strong>：暴露的结构体字段越少越好</li>
+
+<h3>核心设计模式</h3>
+
+<p><strong>选项模式（Functional Options）</strong> 是 Go 中最流行的 API 设计模式，让构造函数既能有默认值，又能灵活定制：</p>
+
+<pre><code class="language-go">// Functional Options pattern
+type Option func(*Server)
+
+func WithPort(port int) Option {
+    return func(s *Server) { s.port = port }
+}
+
+func NewServer(opts ...Option) *Server {
+    s := &amp;Server{port: 8080} // defaults
+    for _, opt := range opts {
+        opt(s)
+    }
+    return s
+}</code></pre>
+
+<h2>二、脑图</h2>
+
+<pre><code>包设计原则
+├── 包的内聚性
+│   ├── 按职责划分 (not 按类型)
+│   ├── 包名即文档
+│   └── 避免 util / common / base
+├── 最小 API 面
+│   ├── 最少导出符号
+│   ├── 内部实现用 internal
+│   └── 接口最小化
+├── 设计模式
+│   ├── Functional Options
+│   ├── Builder 模式
+│   ├── 接口隔离
+│   └── 零值可用
+├── 文档
+│   ├── go doc
+│   ├── Example 测试
+│   └── 包注释
+└── 反模式
+    ├── 暴露 channel / mutex
+    ├── 返回具体实现
+    └── init() 滥用</code></pre>
+
+<h2>三、代码演进</h2>
+
+<h3>v1：反面教材 - 暴露内部实现</h3>
+
+<pre><code class="language-go">// Package user - BAD DESIGN (anti-pattern)
+package user
+
+import &quot;sync&quot;
+
+// User represents a system user
+type User struct {
+	mu     sync.RWMutex  // exported by mistake in bad design
+	Name   string
+	Email  string
+	cache  map[string]string
+}
+
+// All exported - violates encapsulation
+var AllUsers = make(map[string]*User)
+var DefaultClient *http.Client</code></pre>
+
+<h3>v2：改进 - 最小 API 面 + 结构体封装</h3>
+
+<pre><code class="language-go">// Package user provides user management.
+//
+// Basic usage:
+//
+//	store := user.NewStore(db)
+//	u, err := store.Get(ctx, &quot;user-123&quot;)
+package user
+
+import (
+	&quot;context&quot;
+	&quot;sync&quot;
+)
+
+// User represents a system user.
+type User struct {
+	id    string
+	name  string
+	email string
+}
+
+// ID returns the user&#x27;s unique identifier.
+func (u *User) ID() string { return u.id }
+
+// Name returns the user&#x27;s display name.
+func (u *User) Name() string { return u.name }
+
+// Email returns the user&#x27;s email address.
+func (u *User) Email() string { return u.email }
+
+// Store manages user persistence.
+type Store struct {
+	mu     sync.RWMutex
+	cache  map[string]*User
+	db     Database // interface, not concrete type
+}
+
+// Database abstracts the persistence layer.
+type Database interface {
+	FindOne(ctx context.Context, table, id string, dest interface{}) error
+	Insert(ctx context.Context, table string, doc interface{}) error
+}
+
+// NewStore creates a user store with the given database.
+func NewStore(db Database) *Store {
+	return &amp;Store{
+		cache: make(map[string]*User),
+		db:    db,
+	}
+}
+
+// Get retrieves a user by ID.
+func (s *Store) Get(ctx context.Context, id string) (*User, error) {
+	s.mu.RLock()
+	if u, ok := s.cache[id]; ok {
+		s.mu.RUnlock()
+		return u, nil
+	}
+	s.mu.RUnlock()
+
+	var u User
+	if err := s.db.FindOne(ctx, &quot;users&quot;, id, &amp;u); err != nil {
+		return nil, fmt.Errorf(&quot;find user %s: %w&quot;, id, err)
+	}
+	s.mu.Lock()
+	s.cache[id] = &amp;u
+	s.mu.Unlock()
+	return &amp;u, nil
+}</code></pre>
+
+<h3>v3：Functional Options + Builder + 完整 API 设计</h3>
+
+<pre><code class="language-go">// Package server provides a configurable HTTP server.
+//
+// Use Functional Options for construction:
+//
+//	s := server.New(server.WithPort(3000), server.WithTimeout(30))
+//	s.Run()
+package server
+
+import (
+	&quot;context&quot;
+	&quot;fmt&quot;
+	&quot;net/http&quot;
+	&quot;time&quot;
+)
+
+// Option configures a Server using the Functional Options pattern.
+type Option func(*Server)
+
+// WithPort sets the listening port.
+func WithPort(port int) Option {
+	return func(s *Server) { s.port = port }
+}
+
+// WithTimeout sets read and write timeouts in seconds.
+func WithTimeout(seconds int) Option {
+	return func(s *Server) {
+		s.readTimeout = time.Duration(seconds) * time.Second
+		s.writeTimeout = time.Duration(seconds) * time.Second
+	}
+}
+
+// WithMiddleware adds HTTP middleware.
+func WithMiddleware(mw func(http.Handler) http.Handler) Option {
+	return func(s *Server) {
+		s.middleware = append(s.middleware, mw)
+	}
+}
+
+// WithLogger sets a custom logger.
+func WithLogger(logger Logger) Option {
+	return func(s *Server) { s.logger = logger }
+}
+
+// Logger abstracts logging to avoid coupling to a specific library.
+type Logger interface {
+	Infof(format string, args ...interface{})
+	Errorf(format string, args ...interface{})
+}
+
+// Server is a configured HTTP server.
+type Server struct {
+	port         int
+	readTimeout  time.Duration
+	writeTimeout time.Duration
+	middleware   []func(http.Handler) http.Handler
+	logger       Logger
+	handler      http.Handler
+	httpServer   *http.Server
+}
+
+// New creates a Server with the given options.
+func New(handler http.Handler, opts ...Option) *Server {
+	s := &amp;Server{
+		port:         8080,
+		readTimeout:  10 * time.Second,
+		writeTimeout: 10 * time.Second,
+		handler:      handler,
+		logger:       &amp;defaultLogger{},
+	}
+	for _, opt := range opts {
+		opt(s)
+	}
+	return s
+}
+
+// Run starts the server (blocking).
+func (s *Server) Run() error {
+	// Apply middleware chain
+	h := s.handler
+	for i := len(s.middleware) - 1; i &gt;= 0; i-- {
+		h = s.middleware[i](h)
+	}
+
+	s.httpServer = &amp;http.Server{
+		Addr:         fmt.Sprintf(&quot;:%d&quot;, s.port),
+		Handler:      h,
+		ReadTimeout:  s.readTimeout,
+		WriteTimeout: s.writeTimeout,
+	}
+
+	s.logger.Infof(&quot;Server starting on :%d&quot;, s.port)
+	return s.httpServer.ListenAndServe()
+}
+
+// Shutdown gracefully stops the server.
+func (s *Server) Shutdown(ctx context.Context) error {
+	s.logger.Infof(&quot;Server shutting down...&quot;)
+	return s.httpServer.Shutdown(ctx)
+}
+
+// --- Builder pattern alternative for complex configurations ---
+
+// RequestBuilder demonstrates the Builder pattern for constructing requests.
+type RequestBuilder struct {
+	method  string
+	url     string
+	headers map[string]string
+	body    []byte
+}
+
+// NewRequestBuilder creates a builder for an HTTP request.
+func NewRequestBuilder(method, url string) *RequestBuilder {
+	return &amp;RequestBuilder{
+		method:  method,
+		url:     url,
+		headers: make(map[string]string),
+	}
+}
+
+// WithHeader adds a header to the request.
+func (b *RequestBuilder) WithHeader(key, value string) *RequestBuilder {
+	b.headers[key] = value
+	return b
+}
+
+// WithBody sets the request body.
+func (b *RequestBuilder) WithBody(body []byte) *RequestBuilder {
+	b.body = body
+	return b
+}
+
+// Build constructs the final HTTP request.
+func (b *RequestBuilder) Build() (*http.Request, error) {
+	req, err := http.NewRequest(b.method, b.url, bytes.NewReader(b.body))
+	if err != nil {
+		return nil, fmt.Errorf(&quot;build request: %w&quot;, err)
+	}
+	for k, v := range b.headers {
+		req.Header.Set(k, v)
+	}
+	return req, nil
+}
+
+// defaultLogger is a minimal logger implementation.
+type defaultLogger struct{}
+
+func (d *defaultLogger) Infof(format string, args ...interface{})  {
+	fmt.Printf(&quot;[INFO] &quot;+format+&quot;\n&quot;, args...)
+}
+func (d *defaultLogger) Errorf(format string, args ...interface{}) {
+	fmt.Printf(&quot;[ERROR] &quot;+format+&quot;\n&quot;, args...)
+}</code></pre>
+
+<p><strong>执行预览（Example 测试）：</strong></p>
+<pre><code>$ go test -v -run Example
+=== RUN   ExampleNew
+--- PASS: ExampleNew (0.00s)
+=== RUN   ExampleRequestBuilder
+--- PASS: ExampleRequestBuilder (0.00s)</code></pre>
+
+<h2>四、注意事项</h2>
+
+<table><thead><tr>
+<th>项目</th>
+<th>说明</th>
+</tr></thead><tbody>
+<tr>
+<td>包名用小写单词</td>
+<td><code>user</code> 不 <code>userModel</code>，<code>http</code> 不 <code>httpUtil</code></td>
+</tr>
+<tr>
+<td>避免 <code>utils</code> / <code>common</code></td>
+<td>按职责命名，如 <code>httputil</code> → <code>routing</code></td>
+</tr>
+<tr>
+<td><code>internal</code> 目录</td>
+<td>Go 编译器强制限制，外部包无法导入</td>
+</tr>
+<tr>
+<td>导出类型要稳定</td>
+<td>一旦导出就是 API 契约，改名要谨慎</td>
+</tr>
+<tr>
+<td>Example 测试</td>
+<td>即是测试又是文档，<code>go doc</code> 会展示</td>
+</tr>
+</tbody></table>
+
+<h2>五、避坑指南</h2>
+
+<table><thead><tr>
+<th>❌ 错误做法</th>
+<th>✅ 正确做法</th>
+</tr></thead><tbody>
+<tr>
+<td>包名 <code>util</code> / <code>common</code> / <code>helper</code></td>
+<td>按职责命名：<code>jsonutil</code> → <code>encoding</code></td>
+</tr>
+<tr>
+<td>暴露 <code>sync.Mutex</code> 字段</td>
+<td>内部持有，通过方法控制访问</td>
+</tr>
+<tr>
+<td>构造函数用 <code>Config</code> 大结构体</td>
+<td>Functional Options：灵活且有默认值</td>
+</tr>
+<tr>
+<td>返回 <code>*os.File</code> 等具体类型</td>
+<td>返回 <code>io.Reader</code> 接口</td>
+</tr>
+<tr>
+<td><code>init()</code> 里做复杂逻辑</td>
+<td>显式初始化函数 <code>NewXxx()</code></td>
+</tr>
+<tr>
+<td>一个包放所有东西</td>
+<td>按职责拆分，包不超过 ~20 个导出符号</td>
+</tr>
+</tbody></table>
+
+<h2>六、练习题</h2>
+
+<p>🟢 <strong>基础：</strong> 将一个 <code>utils.go</code> 文件按职责拆分为 2-3 个有明确命名的包。</p>
+
+<p>🟡 <strong>进阶：</strong> 为一个 HTTP Client 设计 Functional Options API，支持超时、重试、自定义 Transport。</p>
+
+<p>🔴 <strong>挑战：</strong> 设计一个插件系统：定义接口包（只含接口）、内部实现包（<code>internal/</code>）、外部使用包，确保使用者只能通过接口交互。</p>
+
+<h2>七、知识点总结</h2>
+
+<pre><code>包设计与 API
+├── 包设计原则
+│   ├── 高内聚低耦合
+│   ├── 包名即文档 (小写单词)
+│   ├── internal 强制封装
+│   └── 最小导出面
+├── API 设计模式
+│   ├── Functional Options
+│   ├── Builder
+│   ├── 零值可用
+│   └── 接口最小化
+├── 文档
+│   ├── 包注释
+│   ├── go doc
+│   └── Example 测试
+└── 反模式
+    ├── util/common 包
+    ├── 暴露内部实现
+    └── init() 滥用</code></pre>
+
+<h2>八、举一反三</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>推荐模式</th>
+</tr></thead><tbody>
+<tr>
+<td>构造函数有可选参数</td>
+<td>Functional Options</td>
+</tr>
+<tr>
+<td>构建复杂对象（SQL 查询等）</td>
+<td>Builder 模式</td>
+</tr>
+<tr>
+<td>多种实现可替换</td>
+<td>接口 + 依赖注入</td>
+</tr>
+<tr>
+<td>插件/扩展系统</td>
+<td>接口包 + internal 实现</td>
+</tr>
+<tr>
+<td>库的配置项很多</td>
+<td>Functional Options + 合理默认值</td>
+</tr>
+</tbody></table>
+
+<h2>九、参考资料</h2>
+
+<ul>
+<li><a href="https://dave.cheney.net/2019/01/08/avoid-package-names-like-base-util-or-common">Go 包设计原则 - Dave Cheney</a></li>
+<li><a href="https://commandcenter.blogspot.com/2014/01/self-referential-functions-and-design.html">Functional Options - Rob Pike</a></li>
+<li><a href="https://go.dev/doc/comment">Go Doc 官方</a></li>
+<li><a href="https://go.dev/blog/package-names">Go 标准库包设计</a></li>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

@@ -1,0 +1,1067 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>005-HTML5本地存储</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/HTML-CSS/index.html">HTML-CSS</a>
+<span class="sep">›</span>
+<a href="/tech-blog/HTML-CSS/02-HTML5/index.html">HTML5</a>
+</nav>
+<h1>005-HTML5本地存储</h1>
+<div class="meta">
+<span>📂 HTML5</span>
+<span>🏷️ HTML-CSS</span>
+</div>
+<article>
+
+
+<h1>005-HTML5本地存储</h1>
+
+<blockquote><p><strong>难度：</strong> 🟡 中级 | <strong>阅读时间：</strong> 25分钟 | <strong>前置知识：</strong> JavaScript基础</p></blockquote>
+
+<hr>
+
+<h2>一、概念讲解</h2>
+
+<h3>1.1 Web存储方案对比</h3>
+
+<table><thead><tr>
+<th>特性</th>
+<th>Cookie</th>
+<th>localStorage</th>
+<th>sessionStorage</th>
+<th>IndexedDB</th>
+</tr></thead><tbody>
+<tr>
+<td>容量</td>
+<td>4KB</td>
+<td>5MB</td>
+<td>5MB</td>
+<td>无上限（通常数百MB+）</td>
+</tr>
+<tr>
+<td>过期</td>
+<td>可设过期时间</td>
+<td>永久</td>
+<td>标签页关闭</td>
+<td>永久</td>
+</tr>
+<tr>
+<td>请求携带</td>
+<td>✅ 每次HTTP请求</td>
+<td>❌</td>
+<td>❌</td>
+<td>❌</td>
+</tr>
+<tr>
+<td>API</td>
+<td>字符串</td>
+<td>同步键值对</td>
+<td>同步键值对</td>
+<td>异步</td>
+</tr>
+<tr>
+<td>作用域</td>
+<td>同域+路径</td>
+<td>同源</td>
+<td>同源+标签页</td>
+<td>同源</td>
+</tr>
+<tr>
+<td>数据类型</td>
+<td>字符串</td>
+<td>字符串</td>
+<td>字符串</td>
+<td>结构化数据</td>
+</tr>
+<tr>
+<td>Worker访问</td>
+<td>❌</td>
+<td>✅</td>
+<td>❌</td>
+<td>✅</td>
+</tr>
+</tbody></table>
+
+<h3>1.2 localStorage / sessionStorage</h3>
+
+<pre><code class="language-javascript">// Set item (auto-converts to string)
+localStorage.setItem(&#x27;username&#x27;, &#x27;铁蛋&#x27;);
+
+// Get item
+var name = localStorage.getItem(&#x27;username&#x27;); // &#x27;铁蛋&#x27;
+
+// Remove item
+localStorage.removeItem(&#x27;username&#x27;);
+
+// Clear all
+localStorage.clear();
+
+// Key by index
+var key = localStorage.key(0);
+
+// Length
+var count = localStorage.length;</code></pre>
+
+<h3>1.3 IndexedDB基础</h3>
+
+<p>IndexedDB是浏览器内置的NoSQL数据库，支持事务、索引和游标：</p>
+
+<pre><code class="language-javascript">// Open database
+var request = indexedDB.open(&#x27;MyDatabase&#x27;, 1);
+
+request.onupgradeneeded = function(e) {
+    var db = e.target.result;
+    var store = db.createObjectStore(&#x27;users&#x27;, { keyPath: &#x27;id&#x27; });
+    store.createIndex(&#x27;name&#x27;, &#x27;name&#x27;, { unique: false });
+};
+
+request.onsuccess = function(e) {
+    var db = e.target.result;
+    // Start transaction, add data, etc.
+};</code></pre>
+
+<hr>
+
+<h2>二、知识脑图</h2>
+
+<pre><code>HTML5本地存储
+├── Cookie（传统）
+│   ├── 4KB限制
+│   ├── 每次请求携带
+│   ├── document.cookie操作
+│   └── 适用：会话token、用户偏好
+├── Web Storage
+│   ├── localStorage
+│   │   ├── 5MB（同源）
+│   │   ├── 永久存储
+│   │   └── 同源共享
+│   ├── sessionStorage
+│   │   ├── 5MB（同源+标签页）
+│   │   ├── 标签页关闭清除
+│   │   └── 独立标签页隔离
+│   └── API
+│       ├── setItem / getItem
+│       ├── removeItem / clear
+│       ├── key / length
+│       └── storage事件
+├── IndexedDB
+│   ├── 数据库（Database）
+│   ├── 对象仓库（Object Store）
+│   ├── 事务（Transaction）
+│   ├── 索引（Index）
+│   └── 游标（Cursor）
+└── 最佳实践
+    ├── 存储JSON用JSON.stringify/parse
+    ├── try-catch处理quota
+    ├── 敏感数据不存本地
+    └── 定期清理过期数据</code></pre>
+
+<hr>
+
+<h2>三、完整代码示例</h2>
+
+<h3>3.1 本地存储管理器</h3>
+
+<pre><code class="language-html">&lt;!DOCTYPE html&gt;
+&lt;html lang=&quot;zh-CN&quot;&gt;
+&lt;head&gt;
+    &lt;meta charset=&quot;UTF-8&quot;&gt;
+    &lt;meta name=&quot;viewport&quot; content=&quot;width=device-width, initial-scale=1.0&quot;&gt;
+    &lt;title&gt;HTML5本地存储实战&lt;/title&gt;
+    &lt;style&gt;
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: system-ui, sans-serif;
+            background: #f0f2f5;
+            color: #333;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            text-align: center;
+            margin-bottom: 30px;
+            color: #2c3e50;
+        }
+
+        /* Tab navigation */
+        .tabs {
+            display: flex;
+            gap: 0;
+            margin-bottom: 0;
+        }
+
+        .tab-btn {
+            padding: 12px 24px;
+            background: #ddd;
+            border: none;
+            cursor: pointer;
+            font-size: 15px;
+            font-weight: 600;
+            transition: background 0.2s;
+        }
+
+        .tab-btn:first-child { border-radius: 8px 0 0 0; }
+        .tab-btn:last-child { border-radius: 0 8px 0 0; }
+
+        .tab-btn.active {
+            background: white;
+            color: #3498db;
+        }
+
+        /* Tab content */
+        .tab-content {
+            background: white;
+            border-radius: 0 8px 8px 8px;
+            padding: 24px;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+        }
+
+        .tab-panel { display: none; }
+        .tab-panel.active { display: block; }
+
+        /* Storage viewer */
+        .storage-toolbar {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 16px;
+        }
+
+        .storage-toolbar input {
+            flex: 1;
+            padding: 10px 14px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-size: 14px;
+            outline: none;
+        }
+
+        .storage-toolbar input:focus { border-color: #3498db; }
+
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+
+        .btn:hover { transform: translateY(-1px); }
+        .btn-primary { background: #3498db; color: white; }
+        .btn-danger { background: #e74c3c; color: white; }
+        .btn-success { background: #2ecc71; color: white; }
+        .btn-warning { background: #f39c12; color: white; }
+
+        /* Data table */
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 16px;
+        }
+
+        .data-table th {
+            background: #f8f9fa;
+            padding: 10px 12px;
+            text-align: left;
+            font-size: 13px;
+            color: #666;
+            border-bottom: 2px solid #eee;
+        }
+
+        .data-table td {
+            padding: 10px 12px;
+            border-bottom: 1px solid #f0f0f0;
+            font-size: 14px;
+        }
+
+        .data-table tr:hover { background: #f8f9fa; }
+
+        .data-table .key { font-weight: 600; color: #2c3e50; }
+
+        .data-table .value {
+            max-width: 300px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            font-family: monospace;
+            font-size: 13px;
+            color: #666;
+        }
+
+        .data-table .actions { white-space: nowrap; }
+
+        .data-table .actions button {
+            padding: 4px 8px;
+            font-size: 12px;
+            margin-right: 4px;
+        }
+
+        /* Stats */
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 16px;
+            margin-bottom: 20px;
+        }
+
+        .stat-card {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 16px;
+            text-align: center;
+        }
+
+        .stat-card .number {
+            font-size: 28px;
+            font-weight: bold;
+            color: #3498db;
+        }
+
+        .stat-card .label {
+            font-size: 13px;
+            color: #95a5a6;
+            margin-top: 4px;
+        }
+
+        /* Note app */
+        .note-app {
+            margin-top: 16px;
+        }
+
+        .note-input {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-size: 15px;
+            min-height: 60px;
+            resize: vertical;
+            outline: none;
+        }
+
+        .note-input:focus { border-color: #3498db; }
+
+        .notes-list {
+            margin-top: 16px;
+        }
+
+        .note-item {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 12px 16px;
+            margin-bottom: 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+        }
+
+        .note-content { flex: 1; }
+
+        .note-time {
+            font-size: 12px;
+            color: #95a5a6;
+            margin-top: 4px;
+        }
+
+        .note-item button {
+            background: none;
+            border: none;
+            color: #e74c3c;
+            cursor: pointer;
+            font-size: 18px;
+            padding: 0 4px;
+        }
+
+        /* IndexedDB section */
+        .idb-form {
+            display: grid;
+            grid-template-columns: 1fr 2fr auto;
+            gap: 10px;
+            margin-bottom: 16px;
+        }
+
+        .idb-form input {
+            padding: 10px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            outline: none;
+        }
+
+        .idb-form input:focus { border-color: #3498db; }
+
+        /* Empty state */
+        .empty-state {
+            text-align: center;
+            padding: 40px;
+            color: #bdc3c7;
+        }
+
+        .empty-state .icon { font-size: 48px; margin-bottom: 12px; }
+
+        /* Storage event log */
+        .event-log {
+            background: #2c3e50;
+            color: #ecf0f1;
+            border-radius: 8px;
+            padding: 12px 16px;
+            font-family: monospace;
+            font-size: 13px;
+            max-height: 150px;
+            overflow-y: auto;
+            margin-top: 16px;
+        }
+
+        .event-log .log-entry {
+            margin-bottom: 4px;
+        }
+
+        .event-log .log-time { color: #95a5a6; }
+    &lt;/style&gt;
+&lt;/head&gt;
+&lt;body&gt;
+    &lt;div class=&quot;container&quot;&gt;
+        &lt;h1&gt;💾 HTML5本地存储管理器&lt;/h1&gt;
+
+        &lt;!-- Tab navigation --&gt;
+        &lt;div class=&quot;tabs&quot;&gt;
+            &lt;button class=&quot;tab-btn active&quot; onclick=&quot;switchTab(&#x27;localStorage&#x27;)&quot;&gt;localStorage&lt;/button&gt;
+            &lt;button class=&quot;tab-btn&quot; onclick=&quot;switchTab(&#x27;sessionStorage&#x27;)&quot;&gt;sessionStorage&lt;/button&gt;
+            &lt;button class=&quot;tab-btn&quot; onclick=&quot;switchTab(&#x27;indexedDB&#x27;)&quot;&gt;IndexedDB&lt;/button&gt;
+            &lt;button class=&quot;tab-btn&quot; onclick=&quot;switchTab(&#x27;notes&#x27;)&quot;&gt;备忘录Demo&lt;/button&gt;
+        &lt;/div&gt;
+
+        &lt;div class=&quot;tab-content&quot;&gt;
+            &lt;!-- localStorage Panel --&gt;
+            &lt;div class=&quot;tab-panel active&quot; id=&quot;panel-localStorage&quot;&gt;
+                &lt;div class=&quot;stats&quot;&gt;
+                    &lt;div class=&quot;stat-card&quot;&gt;
+                        &lt;div class=&quot;number&quot; id=&quot;ls-count&quot;&gt;0&lt;/div&gt;
+                        &lt;div class=&quot;label&quot;&gt;条目数&lt;/div&gt;
+                    &lt;/div&gt;
+                    &lt;div class=&quot;stat-card&quot;&gt;
+                        &lt;div class=&quot;number&quot; id=&quot;ls-size&quot;&gt;0&lt;/div&gt;
+                        &lt;div class=&quot;label&quot;&gt;已用空间(B)&lt;/div&gt;
+                    &lt;/div&gt;
+                    &lt;div class=&quot;stat-card&quot;&gt;
+                        &lt;div class=&quot;number&quot; id=&quot;ls-limit&quot;&gt;~5MB&lt;/div&gt;
+                        &lt;div class=&quot;label&quot;&gt;容量限制&lt;/div&gt;
+                    &lt;/div&gt;
+                &lt;/div&gt;
+
+                &lt;div class=&quot;storage-toolbar&quot;&gt;
+                    &lt;input type=&quot;text&quot; id=&quot;ls-key&quot; placeholder=&quot;Key&quot;&gt;
+                    &lt;input type=&quot;text&quot; id=&quot;ls-value&quot; placeholder=&quot;Value&quot;&gt;
+                    &lt;button class=&quot;btn btn-primary&quot; onclick=&quot;addLSItem()&quot;&gt;添加&lt;/button&gt;
+                &lt;/div&gt;
+
+                &lt;table class=&quot;data-table&quot; id=&quot;ls-table&quot;&gt;
+                    &lt;thead&gt;
+                        &lt;tr&gt;
+                            &lt;th&gt;Key&lt;/th&gt;
+                            &lt;th&gt;Value&lt;/th&gt;
+                            &lt;th&gt;操作&lt;/th&gt;
+                        &lt;/tr&gt;
+                    &lt;/thead&gt;
+                    &lt;tbody id=&quot;ls-body&quot;&gt;&lt;/tbody&gt;
+                &lt;/table&gt;
+
+                &lt;div style=&quot;margin-top:12px;text-align:right;&quot;&gt;
+                    &lt;button class=&quot;btn btn-danger&quot; onclick=&quot;clearLS()&quot;&gt;清空全部&lt;/button&gt;
+                &lt;/div&gt;
+            &lt;/div&gt;
+
+            &lt;!-- sessionStorage Panel --&gt;
+            &lt;div class=&quot;tab-panel&quot; id=&quot;panel-sessionStorage&quot;&gt;
+                &lt;p style=&quot;margin-bottom:16px;color:#95a5a6;&quot;&gt;
+                    sessionStorage与localStorage API完全一致，但数据在标签页关闭后清除。
+                &lt;/p&gt;
+
+                &lt;div class=&quot;storage-toolbar&quot;&gt;
+                    &lt;input type=&quot;text&quot; id=&quot;ss-key&quot; placeholder=&quot;Key&quot;&gt;
+                    &lt;input type=&quot;text&quot; id=&quot;ss-value&quot; placeholder=&quot;Value&quot;&gt;
+                    &lt;button class=&quot;btn btn-primary&quot; onclick=&quot;addSSItem()&quot;&gt;添加&lt;/button&gt;
+                &lt;/div&gt;
+
+                &lt;table class=&quot;data-table&quot;&gt;
+                    &lt;thead&gt;
+                        &lt;tr&gt;&lt;th&gt;Key&lt;/th&gt;&lt;th&gt;Value&lt;/th&gt;&lt;th&gt;操作&lt;/th&gt;&lt;/tr&gt;
+                    &lt;/thead&gt;
+                    &lt;tbody id=&quot;ss-body&quot;&gt;&lt;/tbody&gt;
+                &lt;/table&gt;
+            &lt;/div&gt;
+
+            &lt;!-- IndexedDB Panel --&gt;
+            &lt;div class=&quot;tab-panel&quot; id=&quot;panel-indexedDB&quot;&gt;
+                &lt;p style=&quot;margin-bottom:16px;color:#95a5a6;&quot;&gt;
+                    IndexedDB支持结构化数据存储，无大小限制（通常数百MB）。
+                &lt;/p&gt;
+
+                &lt;div class=&quot;idb-form&quot;&gt;
+                    &lt;input type=&quot;text&quot; id=&quot;idb-name&quot; placeholder=&quot;姓名&quot;&gt;
+                    &lt;input type=&quot;email&quot; id=&quot;idb-email&quot; placeholder=&quot;邮箱&quot;&gt;
+                    &lt;button class=&quot;btn btn-success&quot; onclick=&quot;addIDBContact()&quot;&gt;添加联系人&lt;/button&gt;
+                &lt;/div&gt;
+
+                &lt;table class=&quot;data-table&quot;&gt;
+                    &lt;thead&gt;
+                        &lt;tr&gt;&lt;th&gt;姓名&lt;/th&gt;&lt;th&gt;邮箱&lt;/th&gt;&lt;th&gt;操作&lt;/th&gt;&lt;/tr&gt;
+                    &lt;/thead&gt;
+                    &lt;tbody id=&quot;idb-body&quot;&gt;&lt;/tbody&gt;
+                &lt;/table&gt;
+            &lt;/div&gt;
+
+            &lt;!-- Notes Demo Panel --&gt;
+            &lt;div class=&quot;tab-panel&quot; id=&quot;panel-notes&quot;&gt;
+                &lt;div class=&quot;note-app&quot;&gt;
+                    &lt;textarea class=&quot;note-input&quot; id=&quot;noteInput&quot; placeholder=&quot;写点什么...自动保存到localStorage&quot;&gt;&lt;/textarea&gt;
+                    &lt;div style=&quot;margin-top:8px;text-align:right;&quot;&gt;
+                        &lt;button class=&quot;btn btn-primary&quot; onclick=&quot;addNote()&quot;&gt;保存备忘&lt;/button&gt;
+                    &lt;/div&gt;
+
+                    &lt;div class=&quot;notes-list&quot; id=&quot;notesList&quot;&gt;&lt;/div&gt;
+                &lt;/div&gt;
+
+                &lt;div class=&quot;event-log&quot; id=&quot;eventLog&quot;&gt;
+                    &lt;div class=&quot;log-entry&quot;&gt;&lt;span class=&quot;log-time&quot;&gt;[系统]&lt;/span&gt; 存储事件日志（同一源的其他标签页操作会触发storage事件）&lt;/div&gt;
+                &lt;/div&gt;
+            &lt;/div&gt;
+        &lt;/div&gt;
+    &lt;/div&gt;
+
+    &lt;script&gt;
+        // ========== Tab switching ==========
+        function switchTab(name) {
+            document.querySelectorAll(&#x27;.tab-btn&#x27;).forEach(function(btn, i) {
+                btn.classList.toggle(&#x27;active&#x27;, btn.textContent === name ||
+                    (i === 0 &amp;&amp; name === &#x27;localStorage&#x27;) ||
+                    (i === 1 &amp;&amp; name === &#x27;sessionStorage&#x27;) ||
+                    (i === 2 &amp;&amp; name === &#x27;indexedDB&#x27;) ||
+                    (i === 3 &amp;&amp; name === &#x27;notes&#x27;));
+            });
+
+            document.querySelectorAll(&#x27;.tab-btn&#x27;).forEach(function(btn) {
+                btn.classList.remove(&#x27;active&#x27;);
+            });
+            event.target.classList.add(&#x27;active&#x27;);
+
+            document.querySelectorAll(&#x27;.tab-panel&#x27;).forEach(function(panel) {
+                panel.classList.remove(&#x27;active&#x27;);
+            });
+            document.getElementById(&#x27;panel-&#x27; + name).classList.add(&#x27;active&#x27;);
+
+            // Refresh data
+            if (name === &#x27;localStorage&#x27;) refreshLS();
+            if (name === &#x27;sessionStorage&#x27;) refreshSS();
+            if (name === &#x27;indexedDB&#x27;) refreshIDB();
+            if (name === &#x27;notes&#x27;) refreshNotes();
+        }
+
+        // ========== localStorage ==========
+        function refreshLS() {
+            var body = document.getElementById(&#x27;ls-body&#x27;);
+            body.innerHTML = &#x27;&#x27;;
+            var totalSize = 0;
+
+            for (var i = 0; i &lt; localStorage.length; i++) {
+                var key = localStorage.key(i);
+                var value = localStorage.getItem(key);
+                totalSize += key.length + value.length;
+
+                var tr = document.createElement(&#x27;tr&#x27;);
+                tr.innerHTML = &#x27;&lt;td class=&quot;key&quot;&gt;&#x27; + escapeHtml(key) + &#x27;&lt;/td&gt;&#x27; +
+                    &#x27;&lt;td class=&quot;value&quot;&gt;&#x27; + escapeHtml(value) + &#x27;&lt;/td&gt;&#x27; +
+                    &#x27;&lt;td class=&quot;actions&quot;&gt;&lt;button class=&quot;btn btn-danger&quot; onclick=&quot;removeLS(\&#x27;&#x27; +
+                    escapeHtml(key) + &#x27;\&#x27;)&quot;&gt;删除&lt;/button&gt;&lt;/td&gt;&#x27;;
+                body.appendChild(tr);
+            }
+
+            document.getElementById(&#x27;ls-count&#x27;).textContent = localStorage.length;
+            document.getElementById(&#x27;ls-size&#x27;).textContent = (totalSize * 2).toLocaleString(); // UTF-16
+        }
+
+        function addLSItem() {
+            var key = document.getElementById(&#x27;ls-key&#x27;).value.trim();
+            var value = document.getElementById(&#x27;ls-value&#x27;).value.trim();
+            if (!key) return;
+
+            try {
+                localStorage.setItem(key, value);
+                document.getElementById(&#x27;ls-key&#x27;).value = &#x27;&#x27;;
+                document.getElementById(&#x27;ls-value&#x27;).value = &#x27;&#x27;;
+                refreshLS();
+            } catch (e) {
+                alert(&#x27;存储失败：可能超出容量限制 - &#x27; + e.message);
+            }
+        }
+
+        function removeLS(key) {
+            localStorage.removeItem(key);
+            refreshLS();
+        }
+
+        function clearLS() {
+            if (confirm(&#x27;确定清空所有localStorage数据？&#x27;)) {
+                localStorage.clear();
+                refreshLS();
+            }
+        }
+
+        // ========== sessionStorage ==========
+        function refreshSS() {
+            var body = document.getElementById(&#x27;ss-body&#x27;);
+            body.innerHTML = &#x27;&#x27;;
+
+            for (var i = 0; i &lt; sessionStorage.length; i++) {
+                var key = sessionStorage.key(i);
+                var value = sessionStorage.getItem(key);
+
+                var tr = document.createElement(&#x27;tr&#x27;);
+                tr.innerHTML = &#x27;&lt;td class=&quot;key&quot;&gt;&#x27; + escapeHtml(key) + &#x27;&lt;/td&gt;&#x27; +
+                    &#x27;&lt;td class=&quot;value&quot;&gt;&#x27; + escapeHtml(value) + &#x27;&lt;/td&gt;&#x27; +
+                    &#x27;&lt;td&gt;&lt;button class=&quot;btn btn-danger&quot; onclick=&quot;sessionStorage.removeItem(\&#x27;&#x27; +
+                    escapeHtml(key) + &#x27;\&#x27;);refreshSS();&quot;&gt;删除&lt;/button&gt;&lt;/td&gt;&#x27;;
+                body.appendChild(tr);
+            }
+        }
+
+        function addSSItem() {
+            var key = document.getElementById(&#x27;ss-key&#x27;).value.trim();
+            var value = document.getElementById(&#x27;ss-value&#x27;).value.trim();
+            if (!key) return;
+            sessionStorage.setItem(key, value);
+            document.getElementById(&#x27;ss-key&#x27;).value = &#x27;&#x27;;
+            document.getElementById(&#x27;ss-value&#x27;).value = &#x27;&#x27;;
+            refreshSS();
+        }
+
+        // ========== IndexedDB ==========
+        var idb = null;
+
+        function initIDB() {
+            var request = indexedDB.open(&#x27;ContactDB&#x27;, 1);
+
+            request.onupgradeneeded = function(e) {
+                var db = e.target.result;
+                if (!db.objectStoreNames.contains(&#x27;contacts&#x27;)) {
+                    var store = db.createObjectStore(&#x27;contacts&#x27;, { keyPath: &#x27;id&#x27;, autoIncrement: true });
+                    store.createIndex(&#x27;name&#x27;, &#x27;name&#x27;, { unique: false });
+                    store.createIndex(&#x27;email&#x27;, &#x27;email&#x27;, { unique: true });
+                }
+            };
+
+            request.onsuccess = function(e) {
+                idb = e.target.result;
+                refreshIDB();
+            };
+        }
+
+        function addIDBContact() {
+            var name = document.getElementById(&#x27;idb-name&#x27;).value.trim();
+            var email = document.getElementById(&#x27;idb-email&#x27;).value.trim();
+            if (!name || !email) return;
+
+            var tx = idb.transaction(&#x27;contacts&#x27;, &#x27;readwrite&#x27;);
+            var store = tx.objectStore(&#x27;contacts&#x27;);
+            var request = store.add({ name: name, email: email });
+
+            request.onsuccess = function() {
+                document.getElementById(&#x27;idb-name&#x27;).value = &#x27;&#x27;;
+                document.getElementById(&#x27;idb-email&#x27;).value = &#x27;&#x27;;
+                refreshIDB();
+            };
+
+            request.onerror = function(e) {
+                alert(&#x27;添加失败（邮箱可能重复）：&#x27; + e.target.error);
+            };
+        }
+
+        function refreshIDB() {
+            if (!idb) return;
+            var body = document.getElementById(&#x27;idb-body&#x27;);
+            body.innerHTML = &#x27;&#x27;;
+
+            var tx = idb.transaction(&#x27;contacts&#x27;, &#x27;readonly&#x27;);
+            var store = tx.objectStore(&#x27;contacts&#x27;);
+            var request = store.openCursor();
+
+            request.onsuccess = function(e) {
+                var cursor = e.target.result;
+                if (cursor) {
+                    var contact = cursor.value;
+                    var tr = document.createElement(&#x27;tr&#x27;);
+                    tr.innerHTML = &#x27;&lt;td&gt;&#x27; + escapeHtml(contact.name) + &#x27;&lt;/td&gt;&#x27; +
+                        &#x27;&lt;td&gt;&#x27; + escapeHtml(contact.email) + &#x27;&lt;/td&gt;&#x27; +
+                        &#x27;&lt;td&gt;&lt;button class=&quot;btn btn-danger&quot; onclick=&quot;deleteIDBContact(&#x27; +
+                        contact.id + &#x27;)&quot;&gt;删除&lt;/button&gt;&lt;/td&gt;&#x27;;
+                    body.appendChild(tr);
+                    cursor.continue();
+                }
+            };
+        }
+
+        function deleteIDBContact(id) {
+            var tx = idb.transaction(&#x27;contacts&#x27;, &#x27;readwrite&#x27;);
+            tx.objectStore(&#x27;contacts&#x27;).delete(id);
+            tx.oncomplete = function() { refreshIDB(); };
+        }
+
+        // ========== Notes App ==========
+        function getNotes() {
+            try {
+                return JSON.parse(localStorage.getItem(&#x27;my_notes&#x27;) || &#x27;[]&#x27;);
+            } catch (e) {
+                return [];
+            }
+        }
+
+        function saveNotes(notes) {
+            localStorage.setItem(&#x27;my_notes&#x27;, JSON.stringify(notes));
+        }
+
+        function addNote() {
+            var text = document.getElementById(&#x27;noteInput&#x27;).value.trim();
+            if (!text) return;
+
+            var notes = getNotes();
+            notes.unshift({
+                id: Date.now(),
+                text: text,
+                time: new Date().toLocaleString(&#x27;zh-CN&#x27;)
+            });
+            saveNotes(notes);
+            document.getElementById(&#x27;noteInput&#x27;).value = &#x27;&#x27;;
+            refreshNotes();
+        }
+
+        function deleteNote(id) {
+            var notes = getNotes().filter(function(n) { return n.id !== id; });
+            saveNotes(notes);
+            refreshNotes();
+        }
+
+        function refreshNotes() {
+            var notes = getNotes();
+            var list = document.getElementById(&#x27;notesList&#x27;);
+
+            if (notes.length === 0) {
+                list.innerHTML = &#x27;&lt;div class=&quot;empty-state&quot;&gt;&lt;div class=&quot;icon&quot;&gt;📝&lt;/div&gt;&lt;p&gt;还没有备忘录&lt;/p&gt;&lt;/div&gt;&#x27;;
+                return;
+            }
+
+            list.innerHTML = notes.map(function(note) {
+                return &#x27;&lt;div class=&quot;note-item&quot;&gt;&#x27; +
+                    &#x27;&lt;div class=&quot;note-content&quot;&gt;&#x27; +
+                    &#x27;&lt;div&gt;&#x27; + escapeHtml(note.text) + &#x27;&lt;/div&gt;&#x27; +
+                    &#x27;&lt;div class=&quot;note-time&quot;&gt;&#x27; + note.time + &#x27;&lt;/div&gt;&#x27; +
+                    &#x27;&lt;/div&gt;&#x27; +
+                    &#x27;&lt;button onclick=&quot;deleteNote(&#x27; + note.id + &#x27;)&quot;&gt;×&lt;/button&gt;&#x27; +
+                    &#x27;&lt;/div&gt;&#x27;;
+            }).join(&#x27;&#x27;);
+        }
+
+        // ========== Storage Event Listener ==========
+        window.addEventListener(&#x27;storage&#x27;, function(e) {
+            var log = document.getElementById(&#x27;eventLog&#x27;);
+            var entry = document.createElement(&#x27;div&#x27;);
+            entry.className = &#x27;log-entry&#x27;;
+            entry.innerHTML = &#x27;&lt;span class=&quot;log-time&quot;&gt;[&#x27; + new Date().toLocaleTimeString() + &#x27;]&lt;/span&gt; &#x27; +
+                e.key + &#x27;: &quot;&#x27; + (e.oldValue || &#x27;null&#x27;) + &#x27;&quot; → &quot;&#x27; + (e.newValue || &#x27;null&#x27;) + &#x27;&quot;&#x27;;
+            log.appendChild(entry);
+            log.scrollTop = log.scrollHeight;
+        });
+
+        // ========== Utility ==========
+        function escapeHtml(str) {
+            var div = document.createElement(&#x27;div&#x27;);
+            div.textContent = str;
+            return div.innerHTML;
+        }
+
+        // ========== Initialize ==========
+        refreshLS();
+        initIDB();
+        refreshNotes();
+    &lt;/script&gt;
+&lt;/body&gt;
+&lt;/html&gt;</code></pre>
+
+<h3>执行预览</h3>
+
+<p>四标签页管理界面：</p>
+<ol>
+<li><strong>localStorage</strong> — 统计条目数/已用空间，可增删数据，展示所有键值对</li>
+</ul>
+<ol>
+<li><strong>sessionStorage</strong> — 同上，标签页关闭后数据消失</li>
+</ul>
+<ol>
+<li><strong>IndexedDB</strong> — 联系人管理（姓名+邮箱），演示数据库事务操作</li>
+</ul>
+<ol>
+<li><strong>备忘录Demo</strong> — 实际应用案例，自动保存到localStorage，带删除和时间戳</li>
+
+<hr>
+
+<h2>四、注意事项</h2>
+
+<table><thead><tr>
+<th>注意点</th>
+<th>说明</th>
+<th>建议</th>
+</tr></thead><tbody>
+<tr>
+<td>只存字符串</td>
+<td>对象会变成"[object Object]"</td>
+<td>用JSON.stringify/parse</td>
+</tr>
+<tr>
+<td>容量限制</td>
+<td>localStorage约5MB</td>
+<td>大数据用IndexedDB</td>
+</tr>
+<tr>
+<td>同步阻塞</td>
+<td>localStorage是同步操作</td>
+<td>大量数据可能阻塞主线程</td>
+</tr>
+<tr>
+<td>安全性</td>
+<td>用户可在DevTools中查看修改</td>
+<td>敏感数据不要存本地</td>
+</tr>
+<tr>
+<td>隐私模式</td>
+<td>Safari隐私模式写入会报错</td>
+<td>用try-catch包裹</td>
+</tr>
+<tr>
+<td>storage事件</td>
+<td>只在同源的其他标签页触发</td>
+<td>当前标签页不触发</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>五、避坑指南</h2>
+
+<h3>❌ 直接存对象</h3>
+<pre><code class="language-javascript">localStorage.setItem(&#x27;user&#x27;, { name: &#x27;铁蛋&#x27; });
+// Actual stored: &quot;[object Object]&quot;</code></pre>
+<h3>✅ JSON序列化</h3>
+<pre><code class="language-javascript">localStorage.setItem(&#x27;user&#x27;, JSON.stringify({ name: &#x27;铁蛋&#x27; }));
+var user = JSON.parse(localStorage.getItem(&#x27;user&#x27;));</code></pre>
+
+<h3>❌ 不处理写入失败</h3>
+<pre><code class="language-javascript">localStorage.setItem(&#x27;data&#x27;, hugeString); // May throw QuotaExceededError</code></pre>
+<h3>✅ try-catch保护</h3>
+<pre><code class="language-javascript">try {
+    localStorage.setItem(&#x27;data&#x27;, hugeString);
+} catch (e) {
+    console.error(&#x27;存储失败:&#x27;, e);
+    // Fallback: clear old data or use IndexedDB
+}</code></pre>
+
+<h3>❌ IndexedDB不用事务</h3>
+<pre><code class="language-javascript">var store = db.objectStore(&#x27;contacts&#x27;); // Error!</code></pre>
+<h3>✅ 通过事务操作</h3>
+<pre><code class="language-javascript">var tx = db.transaction(&#x27;contacts&#x27;, &#x27;readwrite&#x27;);
+var store = tx.objectStore(&#x27;contacts&#x27;);
+store.add(data);</code></pre>
+
+<hr>
+
+<h2>六、练习题</h2>
+
+<h3>🟢 入门</h3>
+<ol>
+<li>用localStorage实现一个简单的计数器（刷新后保留）。</li>
+</ul>
+<ol>
+<li>存储一个对象数组到localStorage，并在页面加载时恢复。</li>
+
+<h3>🟡 进阶</h3>
+<ol>
+<li>实现localStorage的封装工具类：支持设过期时间、自动JSON转换。</li>
+</ul>
+<ol>
+<li>用IndexedDB实现一个简单的待办事项应用（增删改查）。</li>
+
+<h3>🔴 挑战</h3>
+<ol>
+<li>实现离线缓存策略：网络可用时从API获取数据，离线时从IndexedDB读取。</li>
+</ul>
+<ol>
+<li>实现跨标签页通信：通过storage事件同步多标签页状态。</li>
+
+<hr>
+
+<h2>七、知识点总结</h2>
+
+<pre><code>HTML5本地存储
+├── Web Storage
+│   ├── localStorage（永久，同源共享）
+│   ├── sessionStorage（标签页隔离）
+│   ├── API：setItem/getItem/removeItem/clear
+│   └── storage事件（跨标签页）
+├── IndexedDB
+│   ├── Database → Object Store
+│   ├── Transaction（事务）
+│   ├── Index（索引）
+│   ├── Cursor（游标遍历）
+│   └── 异步API（request/result模式）
+├── 对比选择
+│   ├── Cookie：会话token（4KB）
+│   ├── localStorage：用户偏好（5MB）
+│   └── IndexedDB：大量数据（无限制）
+└── 最佳实践
+    ├── JSON序列化
+    ├── try-catch
+    ├── 过期清理
+    └── 敏感数据不存本地</code></pre>
+
+<hr>
+
+<h2>八、举一反三</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>推荐方案</th>
+<th>说明</th>
+</tr></thead><tbody>
+<tr>
+<td>用户偏好（主题/语言）</td>
+<td>localStorage</td>
+<td>小数据、持久化</td>
+</tr>
+<tr>
+<td>表单草稿自动保存</td>
+<td>sessionStorage</td>
+<td>标签页内临时</td>
+</tr>
+<tr>
+<td>离线数据缓存</td>
+<td>IndexedDB</td>
+<td>大量结构化数据</td>
+</tr>
+<tr>
+<td>购物车（未登录）</td>
+<td>localStorage</td>
+<td>跨会话保留</td>
+</tr>
+<tr>
+<td>多标签页同步</td>
+<td>localStorage + storage事件</td>
+<td>跨标签页通知</td>
+</tr>
+<tr>
+<td>文件/图片缓存</td>
+<td>IndexedDB + Blob</td>
+<td>二进制数据</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>九、参考资料</h2>
+
+<ul>
+<li><a href="https://developer.mozilla.org/zh-CN/docs/Web/API/Web_Storage_API">MDN - Web Storage API</a></li>
+<li><a href="https://developer.mozilla.org/zh-CN/docs/Web/API/IndexedDB_API">MDN - IndexedDB API</a></li>
+<li><a href="https://developer.mozilla.org/zh-CN/docs/Web/API/Service_Worker_API">HTML5离线存储</a></li>
+
+<hr>
+
+<h2>十、代码演进</h2>
+
+<h3>v1 — 简单localStorage</h3>
+<pre><code class="language-javascript">// Save user preference
+localStorage.setItem(&#x27;theme&#x27;, &#x27;dark&#x27;);
+var theme = localStorage.getItem(&#x27;theme&#x27;);</code></pre>
+
+<h3>v2 — 带封装的存储工具</h3>
+<pre><code class="language-javascript">var Store = {
+    get: function(key) {
+        try { return JSON.parse(localStorage.getItem(key)); }
+        catch(e) { return null; }
+    },
+    set: function(key, value) {
+        try { localStorage.setItem(key, JSON.stringify(value)); }
+        catch(e) { console.error(&#x27;Storage full:&#x27;, e); }
+    }
+};</code></pre>
+
+<h3>v3 — 完整存储方案</h3>
+<pre><code class="language-javascript">// localStorage + sessionStorage + IndexedDB unified API
+// Auto-expire support, JSON serialization
+// Cross-tab sync via storage event
+// Offline-first with IndexedDB cache
+// Privacy mode detection with try-catch</code></pre>
+
+<blockquote><p><strong>演进要点：</strong> 裸API调用 → 工具封装 → 完整存储方案（多存储引擎、过期机制、跨标签同步、离线优先）。</p></blockquote>
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

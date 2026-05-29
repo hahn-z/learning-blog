@@ -1,0 +1,815 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>014 - Gin 高级路由与API版本管理</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Golang/index.html">Golang</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Golang/05-Gin框架/index.html">Gin框架</a>
+</nav>
+<h1>014 - Gin 高级路由与API版本管理</h1>
+<div class="meta">
+<span>📂 Gin框架</span>
+<span>🏷️ Golang</span>
+</div>
+<article>
+
+
+<h1>014 - Gin 高级路由与 API 版本管理 ⭐⭐⭐</h1>
+
+<h2>难度标注</h2>
+
+<table><thead><tr>
+<th>维度</th>
+<th>等级</th>
+<th>说明</th>
+</tr></thead><tbody>
+<tr>
+<td>理解难度</td>
+<td>⭐⭐</td>
+<td>路由组概念直观</td>
+</tr>
+<tr>
+<td>实现难度</td>
+<td>⭐⭐⭐</td>
+<td>版本管理策略需要设计</td>
+</tr>
+<tr>
+<td>生产就绪</td>
+<td>⭐⭐⭐</td>
+<td>路由注册自动化是加分项</td>
+</tr>
+</tbody></table>
+
+<h2>概念讲解</h2>
+
+<h3>为什么需要 API 版本管理？</h3>
+
+<p>API 一旦上线就有用户依赖。修改接口（改名、删字段、改行为）会破坏现有客户端。<strong>版本管理</strong>让你可以平滑演进：</p>
+
+<pre><code>/api/v1/users  →  稳定，老客户端继续用
+/api/v2/users  →  新功能，新客户端迁移</code></pre>
+
+<h3>Gin 路由组嵌套</h3>
+
+<p>Gin 的 <code>Group()</code> 支持任意层级嵌套，每层可以挂中间件：</p>
+
+<pre><code class="language-go">// 三层嵌套
+v1 := r.Group(&quot;/api/v1&quot;)           // 版本前缀
+v1.Use(Logger(), Recovery())       // 版本级中间件
+{
+    admin := v1.Group(&quot;/admin&quot;)    // 子模块
+    admin.Use(AuthRequired())      // 模块级中间件
+    {
+        admin.GET(&quot;/users&quot;, ...)   // 最终路由
+    }
+}
+// 最终路径: GET /api/v1/admin/users</code></pre>
+
+<h3>API 版本策略对比</h3>
+
+<table><thead><tr>
+<th>策略</th>
+<th>示例</th>
+<th>优点</th>
+<th>缺点</th>
+</tr></thead><tbody>
+<tr>
+<td>URL 路径</td>
+<td><code>/api/v1/users</code></td>
+<td>直观、易缓存</td>
+<td>URL 变长</td>
+</tr>
+<tr>
+<td>Header</td>
+<td><code>Accept: application/vnd.api.v1+json</code></td>
+<td>URL 干净</td>
+<td>不直观、调试麻烦</td>
+</tr>
+<tr>
+<td>Query 参数</td>
+<td><code>/api/users?version=1</code></td>
+<td>简单</td>
+<td>易被忽略、不利于缓存</td>
+</tr>
+<tr>
+<td>子域名</td>
+<td><code>v1.api.example.com</code></td>
+<td>完全隔离</td>
+<td>DNS/证书管理复杂</td>
+</tr>
+</tbody></table>
+
+<p><strong>推荐：URL 路径策略</strong>，最主流、最直观。</p>
+
+<h2>脑图</h2>
+
+<pre><code>高级路由与API版本管理
+├── 路由组嵌套
+│   ├── Group() 任意层级
+│   ├── 每层可挂中间件
+│   └── 路径前缀拼接
+├── 版本管理策略
+│   ├── URL 路径版 (推荐)
+│   ├── Header 版
+│   ├── Query 参数版
+│   └── 子域名版
+├── 版本实现
+│   ├── 目录隔离: handlers/v1/, handlers/v2/
+│   ├── 共享模型 + 版本适配
+│   └── 版本废弃机制
+├── 高级路由
+│   ├── NoRoute → 404 处理
+│   ├── NoMethod → 405 处理
+│   ├── 重定向
+│   └── 静态文件路由
+├── 路由注册自动化
+│   ├── 自动注册扫描
+│   ├── 基于约定的注册
+│   └── 反射 + 接口
+└── 路由元数据
+    ├── 自定义路由信息
+    ├── 权限注解
+    └── 文档生成</code></pre>
+
+<h2>完整 Go 代码</h2>
+
+<h3>项目结构</h3>
+
+<pre><code>gin-router-demo/
+├── main.go
+├── router/
+│   ├── router.go          # 总路由注册
+│   └── registry.go        # 自动注册
+├── handlers/
+│   ├── common.go          # 通用响应
+│   ├── v1/
+│   │   ├── user.go        # v1 用户接口
+│   │   └── article.go     # v1 文章接口
+│   └── v2/
+│       ├── user.go        # v2 用户接口（增强版）
+│       └── article.go     # v2 文章接口
+├── middleware/
+│   └── version.go         # 版本相关中间件
+└── core/
+    └── response.go        # 统一响应</code></pre>
+
+<h3>core/response.go - 统一响应结构</h3>
+
+<pre><code class="language-go">package core
+
+import (
+    &quot;github.com/gin-gonic/gin&quot;
+)
+
+// Response is the unified API response structure
+type Response struct {
+    Code    int         `json:&quot;code&quot;`
+    Message string      `json:&quot;message&quot;`
+    Data    interface{} `json:&quot;data,omitempty&quot;`
+    Version string      `json:&quot;version,omitempty&quot;`
+}
+
+// Success sends a successful response
+func Success(c *gin.Context, data interface{}) {
+    version := c.GetString(&quot;api_version&quot;)
+    c.JSON(200, Response{
+        Code:    0,
+        Message: &quot;success&quot;,
+        Data:    data,
+        Version: version,
+    })
+}
+
+// Error sends an error response
+func Error(c *gin.Context, code int, message string) {
+    c.JSON(code, Response{
+        Code:    code,
+        Message: message,
+    })
+}</code></pre>
+
+<h3>middleware/version.go - 版本中间件</h3>
+
+<pre><code class="language-go">package middleware
+
+import (
+    &quot;github.com/gin-gonic/gin&quot;
+)
+
+// APIVersion injects the API version into context
+func APIVersion(version string) gin.HandlerFunc {
+    return func(c *gin.Context) {
+        c.Set(&quot;api_version&quot;, version)
+        c.Header(&quot;X-API-Version&quot;, version)
+        c.Next()
+    }
+}
+
+// DeprecationWarning adds a Sunset header for deprecated versions
+func DeprecationWarning(alternative string) gin.HandlerFunc {
+    return func(c *gin.Context) {
+        c.Header(&quot;Deprecation&quot;, &quot;true&quot;)
+        c.Header(&quot;Sunset&quot;, &quot;Sat, 01 Jan 2027 00:00:00 GMT&quot;)
+        c.Header(&quot;Link&quot;, alternative+&quot;; rel=\&quot;successor-version\&quot;&quot;)
+        c.Next()
+    }
+}</code></pre>
+
+<h3>handlers/v1/user.go</h3>
+
+<pre><code class="language-go">package v1
+
+import (
+    &quot;gin-router-demo/core&quot;
+
+    &quot;github.com/gin-gonic/gin&quot;
+)
+
+// UserV1 represents a user in v1 format
+type UserV1 struct {
+    ID       uint   `json:&quot;id&quot;`
+    Username string `json:&quot;username&quot;`
+    Email    string `json:&quot;email&quot;`
+}
+
+// ListUsers returns all users (v1 format)
+// GET /api/v1/users
+func ListUsers(c *gin.Context) {
+    users := []UserV1{
+        {ID: 1, Username: &quot;admin&quot;, Email: &quot;admin@example.com&quot;},
+        {ID: 2, Username: &quot;editor&quot;, Email: &quot;editor@example.com&quot;},
+    }
+    core.Success(c, gin.H{&quot;users&quot;: users})
+}
+
+// GetUser returns a single user (v1 format)
+// GET /api/v1/users/:id
+func GetUser(c *gin.Context) {
+    id := c.Param(&quot;id&quot;)
+    core.Success(c, UserV1{
+        ID: 1, Username: &quot;admin&quot;, Email: &quot;admin@example.com&quot;,
+    })
+}</code></pre>
+
+<h3>handlers/v2/user.go</h3>
+
+<pre><code class="language-go">package v2
+
+import (
+    &quot;gin-router-demo/core&quot;
+    &quot;time&quot;
+
+    &quot;github.com/gin-gonic/gin&quot;
+)
+
+// UserV2 represents a user in v2 format (enhanced with more fields)
+type UserV2 struct {
+    ID        uint      `json:&quot;id&quot;`
+    Username  string    `json:&quot;username&quot;`
+    Email     string    `json:&quot;email&quot;`
+    Nickname  string    `json:&quot;nickname&quot;`
+    Avatar    string    `json:&quot;avatar&quot;`
+    Role      string    `json:&quot;role&quot;`
+    CreatedAt time.Time `json:&quot;created_at&quot;`
+}
+
+// ListUsers returns all users (v2 format with pagination)
+// GET /api/v2/users?page=1&amp;size=10
+func ListUsers(c *gin.Context) {
+    page := c.DefaultQuery(&quot;page&quot;, &quot;1&quot;)
+    size := c.DefaultQuery(&quot;size&quot;, &quot;10&quot;)
+
+    users := []UserV2{
+        {ID: 1, Username: &quot;admin&quot;, Email: &quot;admin@example.com&quot;,
+            Nickname: &quot;Admin&quot;, Role: &quot;admin&quot;, CreatedAt: time.Now()},
+        {ID: 2, Username: &quot;editor&quot;, Email: &quot;editor@example.com&quot;,
+            Nickname: &quot;Editor&quot;, Role: &quot;editor&quot;, CreatedAt: time.Now()},
+    }
+
+    core.Success(c, gin.H{
+        &quot;users&quot;: users,
+        &quot;pagination&quot;: gin.H{
+            &quot;page&quot;: page,
+            &quot;size&quot;: size,
+            &quot;total&quot;: 2,
+        },
+    })
+}
+
+// GetUser returns a single user (v2 format with profile)
+// GET /api/v2/users/:id
+func GetUser(c *gin.Context) {
+    id := c.Param(&quot;id&quot;)
+    core.Success(c, UserV2{
+        ID: 1, Username: &quot;admin&quot;, Email: &quot;admin@example.com&quot;,
+        Nickname: &quot;Admin&quot;, Role: &quot;admin&quot;, CreatedAt: time.Now(),
+    })
+}</code></pre>
+
+<h3>handlers/v1/article.go</h3>
+
+<pre><code class="language-go">package v1
+
+import (
+    &quot;gin-router-demo/core&quot;
+
+    &quot;github.com/gin-gonic/gin&quot;
+)
+
+type ArticleV1 struct {
+    ID      uint   `json:&quot;id&quot;`
+    Title   string `json:&quot;title&quot;`
+    Content string `json:&quot;content&quot;`
+}
+
+// ListArticles returns articles (v1 format)
+// GET /api/v1/articles
+func ListArticles(c *gin.Context) {
+    articles := []ArticleV1{
+        {ID: 1, Title: &quot;Hello Gin&quot;, Content: &quot;First article&quot;},
+    }
+    core.Success(c, gin.H{&quot;articles&quot;: articles})
+}</code></pre>
+
+<h3>handlers/v2/article.go</h3>
+
+<pre><code class="language-go">package v2
+
+import (
+    &quot;gin-router-demo/core&quot;
+    &quot;time&quot;
+
+    &quot;github.com/gin-gonic/gin&quot;
+)
+
+type ArticleV2 struct {
+    ID        uint      `json:&quot;id&quot;`
+    Title     string    `json:&quot;title&quot;`
+    Content   string    `json:&quot;content&quot;`
+    Summary   string    `json:&quot;summary&quot;`
+    Author    string    `json:&quot;author&quot;`
+    Tags      []string  `json:&quot;tags&quot;`
+    CreatedAt time.Time `json:&quot;created_at&quot;`
+}
+
+// ListArticles returns articles (v2 format with tags and author)
+// GET /api/v2/articles
+func ListArticles(c *gin.Context) {
+    articles := []ArticleV2{
+        {ID: 1, Title: &quot;Hello Gin&quot;, Content: &quot;...&quot;, Summary: &quot;Intro&quot;,
+            Author: &quot;admin&quot;, Tags: []string{&quot;go&quot;, &quot;gin&quot;}, CreatedAt: time.Now()},
+    }
+    core.Success(c, gin.H{&quot;articles&quot;: articles})
+}</code></pre>
+
+<h3>router/registry.go - 路由自动注册</h3>
+
+<pre><code class="language-go">package router
+
+import (
+    &quot;reflect&quot;
+    &quot;strings&quot;
+
+    &quot;github.com/gin-gonic/gin&quot;
+)
+
+// RouteDefinition describes a single route
+type RouteDefinition struct {
+    Method      string
+    Path        string
+    Handler     gin.HandlerFunc
+    Middlewares []gin.HandlerFunc
+}
+
+// Registrar is implemented by handler groups that auto-register routes
+type Registrar interface {
+    Routes() []RouteDefinition
+}
+
+// AutoRegister scans a registrar and registers all routes
+func AutoRegister(rg *gin.RouterGroup, r Registrar) {
+    for _, route := range r.Routes() {
+        handlers := append(route.Middlewares, route.Handler)
+        rg.Handle(route.Method, route.Path, handlers...)
+    }
+}
+
+// PrintRoutes prints all registered routes (for debugging)
+func PrintRoutes(r *gin.Engine) {
+    routes := r.Routes()
+    for _, route := range routes {
+        println(route.Method, route.Path)
+    }
+}
+
+// WalkRoutes returns routes matching a prefix
+func WalkRoutes(r *gin.Engine, prefix string) []string {
+    var matched []string
+    for _, route := range r.Routes() {
+        if strings.HasPrefix(route.Path, prefix) {
+            matched = append(matched, route.Method+&quot; &quot;+route.Path)
+        }
+    }
+    return matched
+}</code></pre>
+
+<h3>router/router.go - 总路由注册</h3>
+
+<pre><code class="language-go">package router
+
+import (
+    v1 &quot;gin-router-demo/handlers/v1&quot;
+    v2 &quot;gin-router-demo/handlers/v2&quot;
+    &quot;gin-router-demo/middleware&quot;
+
+    &quot;github.com/gin-gonic/gin&quot;
+    &quot;net/http&quot;
+)
+
+// Setup configures all routes
+func Setup(r *gin.Engine) {
+    // Global middlewares
+    r.Use(gin.Logger(), gin.Recovery())
+
+    // Health check
+    r.GET(&quot;/health&quot;, func(c *gin.Context) {
+        c.JSON(200, gin.H{&quot;status&quot;: &quot;ok&quot;})
+    })
+
+    // === API V1 ===
+    v1Group := r.Group(&quot;/api/v1&quot;)
+    v1Group.Use(middleware.APIVersion(&quot;v1&quot;))
+    {
+        // v1 is deprecated, add warning
+        v1Group.Use(middleware.DeprecationWarning(&quot;/api/v2&quot;))
+
+        v1Group.GET(&quot;/users&quot;, v1.ListUsers)
+        v1Group.GET(&quot;/users/:id&quot;, v1.GetUser)
+        v1Group.GET(&quot;/articles&quot;, v1.ListArticles)
+    }
+
+    // === API V2 ===
+    v2Group := r.Group(&quot;/api/v2&quot;)
+    v2Group.Use(middleware.APIVersion(&quot;v2&quot;))
+    {
+        v2Group.GET(&quot;/users&quot;, v2.ListUsers)
+        v2Group.GET(&quot;/users/:id&quot;, v2.GetUser)
+        v2Group.GET(&quot;/articles&quot;, v2.ListArticles)
+    }
+
+    // === Domain-based routing ===
+    // r.Use(middleware.DomainRouter(&quot;api.example.com&quot;, apiGroup))
+
+    // === Static files ===
+    r.Static(&quot;/assets&quot;, &quot;./public&quot;)
+    r.StaticFile(&quot;/favicon.ico&quot;, &quot;./public/favicon.ico&quot;)
+
+    // === NoRoute handler ===
+    r.NoRoute(func(c *gin.Context) {
+        c.JSON(http.StatusNotFound, gin.H{
+            &quot;code&quot;:    404,
+            &quot;message&quot;: &quot;Route not found&quot;,
+            &quot;hint&quot;:    &quot;Try /api/v1/ or /api/v2/&quot;,
+        })
+    })
+
+    // === NoMethod handler ===
+    r.NoMethod(func(c *gin.Context) {
+        c.JSON(http.StatusMethodNotAllowed, gin.H{
+            &quot;code&quot;:    405,
+            &quot;message&quot;: &quot;Method not allowed&quot;,
+        })
+    })
+
+    // === Redirect example ===
+    r.GET(&quot;/api/users&quot;, func(c *gin.Context) {
+        c.Redirect(http.StatusMovedPermanently, &quot;/api/v2/users&quot;)
+    })
+}</code></pre>
+
+<h3>main.go</h3>
+
+<pre><code class="language-go">package main
+
+import (
+    &quot;gin-router-demo/router&quot;
+
+    &quot;github.com/gin-gonic/gin&quot;
+)
+
+func main() {
+    r := gin.Default()
+
+    // Register all routes
+    router.Setup(r)
+
+    // Print all registered routes for debugging
+    println(&quot;\nRegistered routes:&quot;)
+    for _, route := range r.Routes() {
+        println(route.Method + &quot; &quot; + route.Path)
+    }
+
+    r.Run(&quot;:8080&quot;)
+}</code></pre>
+
+<h2>执行预览</h2>
+
+<pre><code class="language-bash"># 启动服务
+go run main.go
+# Registered routes:
+# GET /health
+# GET /api/v1/users
+# GET /api/v1/users/:id
+# GET /api/v1/articles
+# GET /api/v2/users
+# GET /api/v2/users/:id
+# GET /api/v2/articles
+
+# 1. 访问 v1 用户列表（注意 Deprecation header）
+curl -i http://localhost:8080/api/v1/users
+# HTTP/1.1 200 OK
+# Deprecation: true
+# X-Api-Version: v1
+# {&quot;code&quot;:0,&quot;message&quot;:&quot;success&quot;,&quot;data&quot;:{&quot;users&quot;:[...]},&quot;version&quot;:&quot;v1&quot;}
+
+# 2. 访问 v2 用户列表（带分页）
+curl &quot;http://localhost:8080/api/v2/users?page=1&amp;size=10&quot;
+# {&quot;code&quot;:0,&quot;message&quot;:&quot;success&quot;,&quot;data&quot;:{&quot;users&quot;:[...],&quot;pagination&quot;:{&quot;page&quot;:&quot;1&quot;,&quot;size&quot;:&quot;10&quot;,&quot;total&quot;:2}},&quot;version&quot;:&quot;v2&quot;}
+
+# 3. 旧路径重定向
+curl -i http://localhost:8080/api/users
+# HTTP/1.1 301 Moved Permanently
+# Location: /api/v2/users
+
+# 4. 404 处理
+curl http://localhost:8080/unknown
+# {&quot;code&quot;:404,&quot;message&quot;:&quot;Route not found&quot;,&quot;hint&quot;:&quot;Try /api/v1/ or /api/v2/&quot;}
+
+# 5. 健康检查
+curl http://localhost:8080/health
+# {&quot;status&quot;:&quot;ok&quot;}</code></pre>
+
+<h2>注意事项</h2>
+
+<table><thead><tr>
+<th>事项</th>
+<th>说明</th>
+<th>严重度</th>
+</tr></thead><tbody>
+<tr>
+<td>版本兼容</td>
+<td>v1 不能随便改，破坏老客户端</td>
+<td>🔴 严重</td>
+</tr>
+<tr>
+<td>废弃通知</td>
+<td>用 Deprecation + Sunset header</td>
+<td>🟡 重要</td>
+</tr>
+<tr>
+<td>文档同步</td>
+<td>每个版本独立文档</td>
+<td>🟡 重要</td>
+</tr>
+<tr>
+<td>版本数量</td>
+<td>同时维护 ≤3 个版本</td>
+<td>🟡 重要</td>
+</tr>
+<tr>
+<td>路由冲突</td>
+<td>参数路由放后面，避免吞掉固定路由</td>
+<td>🟡 重要</td>
+</tr>
+<tr>
+<td>重定向</td>
+<td>旧路径用 301 重定向到新版本</td>
+<td>🟢 建议</td>
+</tr>
+</tbody></table>
+
+<h2>避坑指南</h2>
+
+<h3>❌ 路由参数吞掉固定路径</h3>
+<pre><code class="language-go">// BAD: :name matches &quot;new&quot; too
+r.GET(&quot;/users/:name&quot;, getUser)
+r.GET(&quot;/users/new&quot;, newUserForm) // Never reached!</code></pre>
+<p>✅ <strong>正确做法：</strong> 固定路径注册在参数路由之前，或用不同前缀。</p>
+
+<h3>❌ 版本间共享 handler</h3>
+<pre><code class="language-go">// BAD: v1 and v2 use the same handler, can&#x27;t evolve independently
+v1.GET(&quot;/users&quot;, listUsers)
+v2.GET(&quot;/users&quot;, listUsers) // Same function!</code></pre>
+<p>✅ <strong>正确做法：</strong> 每个版本独立的 handler，底层可共享 service 层。</p>
+
+<h3>❌ 不处理 404/405</h3>
+<pre><code class="language-go">// BAD: Default 404 is a 301 redirect with no body
+// Users see confusing redirect behavior</code></pre>
+<p>✅ <strong>正确做法：</strong> 设置 <code>NoRoute</code> 和 <code>NoMethod</code> 处理器返回 JSON。</p>
+
+<h3>❌ 版本写在 middleware 里但不体现在 URL</h3>
+<pre><code class="language-go">// BAD: Version only in header, hard to debug
+r.Use(func(c *gin.Context) {
+    version := c.GetHeader(&quot;API-Version&quot;)
+    // Routing doesn&#x27;t change based on version!
+})</code></pre>
+<p>✅ <strong>正确做法：</strong> 版本体现在 URL 路径中，路由天然隔离。</p>
+
+<h2>练习题</h2>
+
+<h3>🟢 基础题</h3>
+
+<ol>
+<li><strong>基础路由组：</strong> 创建一个有 <code>/api/v1</code> 和 <code>/api/v2</code> 两个版本的路由，每个版本有 <code>GET /ping</code> 返回不同消息。</li>
+
+<ol>
+<li><strong>404 处理：</strong> 实现自定义 NoRoute 处理器，返回 JSON 格式的错误信息。</li>
+
+<h3>🟡 进阶题</h3>
+
+<ol>
+<li><strong>版本迁移实战：</strong> v1 有 <code>GET /users</code> 返回数组，v2 返回带分页的对象。实现 v1 自动重定向到 v2。</li>
+
+<ol>
+<li><strong>路由自动注册：</strong> 实现基于接口的自动注册：定义 <code>Controller</code> 接口，扫描所有实现并自动注册路由。</li>
+
+<h3>🔴 挑战题</h3>
+
+<ol>
+<li><strong>域名路由 + 版本：</strong> 实现 <code>v1.api.example.com</code> 和 <code>v2.api.example.com</code> 基于子域名的版本路由。</li>
+
+<h2>知识点总结</h2>
+
+<pre><code>高级路由与API版本管理
+├── 路由组
+│   ├── Group(path) 创建组
+│   ├── 嵌套组合
+│   ├── 组级中间件
+│   └── 路径拼接规则
+├── 版本策略
+│   ├── URL 路径版 (推荐)
+│   ├── Header 版
+│   ├── Query 参数版
+│   └── 子域名版
+├── 版本实现
+│   ├── 目录隔离 v1/ v2/
+│   ├── 共享 service 层
+│   ├── Deprecation header
+│   └── 重定向旧路径
+├── 特殊路由
+│   ├── NoRoute (404)
+│   ├── NoMethod (405)
+│   ├── Static / StaticFile
+│   └── Redirect
+├── 路由注册自动化
+│   ├── 接口约定
+│   ├── 反射扫描
+│   └── 路由元数据
+└── 调试
+    ├── Routes() 列出路由
+    └── 路由冲突检测</code></pre>
+
+<h2>举一反三</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>方案</th>
+<th>关键点</th>
+</tr></thead><tbody>
+<tr>
+<td>RESTful API</td>
+<td>资源路由 + 版本前缀</td>
+<td>标准化路径设计</td>
+</tr>
+<tr>
+<td>GraphQL 网关</td>
+<td><code>/v1/graphql</code> + <code>/v2/graphql</code></td>
+<td>不同 schema 版本</td>
+</tr>
+<tr>
+<td>WebSocket</td>
+<td>版本化 WebSocket 路径</td>
+<td>协议版本协商</td>
+</tr>
+<tr>
+<td>gRPC Gateway</td>
+<td>Gin 挂载 gRPC-Gateway</td>
+<td>多协议统一路由</td>
+</tr>
+<tr>
+<td>插件系统</td>
+<td>动态路由注册/注销</td>
+<td>运行时路由管理</td>
+</tr>
+</tbody></table>
+
+<h2>参考资料</h2>
+
+<ul>
+<li><a href="https://gin-gonic.com/docs/examples/routing/">Gin 路由文档</a></li>
+<li><a href="https://www.postman.com/api-platform/api-versioning/">API Versioning Best Practices</a></li>
+<li><a href="https://restfulapi.net/versioning/">REST API Versioning</a></li>
+<li><a href="https://datatracker.ietf.org/doc/draft-dalal-deprecation-header/">HTTP Deprecation Header</a></li>
+<li><a href="https://github.com/gin-gonic/gin/blob/master/routergroup.go">Gin RouterGroup 源码</a></li>
+
+<h2>代码演进</h2>
+
+<h3>v1 - 硬编码路由</h3>
+
+<pre><code class="language-go">// v1: Everything in main.go, no structure
+func main() {
+    r := gin.Default()
+    r.GET(&quot;/users&quot;, listUsers)
+    r.GET(&quot;/users/:id&quot;, getUser)
+    r.Run()
+}</code></pre>
+
+<h3>v2 - 路由组 + 版本</h3>
+
+<pre><code class="language-go">// v2: Router groups with version prefix
+func main() {
+    r := gin.Default()
+    v1 := r.Group(&quot;/api/v1&quot;)
+    {
+        v1.GET(&quot;/users&quot;, v1.ListUsers)
+        v1.GET(&quot;/users/:id&quot;, v1.GetUser)
+    }
+    v2 := r.Group(&quot;/api/v2&quot;)
+    {
+        v2.GET(&quot;/users&quot;, v2.ListUsers)
+        v2.GET(&quot;/users/:id&quot;, v2.GetUser)
+    }
+    r.Run()
+}</code></pre>
+
+<h3>v3 - 自动注册 + 废弃管理</h3>
+
+<pre><code class="language-go">// v3: Auto-registration, deprecation headers, unified response
+func main() {
+    r := gin.Default()
+    router.Setup(r) // Auto-registers all versions
+    // Includes: NoRoute handler, Deprecation headers, redirects
+    r.Run()
+}</code></pre>
+
+<p><strong>演进总结：</strong> v1 平铺路由 → v2 结构化路由组 + 版本 → v3 自动化注册 + 废弃管理 + 生产级处理。</p>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

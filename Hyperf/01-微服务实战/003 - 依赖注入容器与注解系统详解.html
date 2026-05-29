@@ -1,0 +1,538 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>003 - 依赖注入容器与注解系统详解</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Hyperf/index.html">Hyperf</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Hyperf/01-微服务实战/index.html">Hyperf微服务实战</a>
+</nav>
+<h1>003 - 依赖注入容器与注解系统详解</h1>
+<div class="meta">
+<span>📂 Hyperf微服务实战</span>
+<span>🏷️ Hyperf</span>
+</div>
+<article>
+
+
+<h1>依赖注入容器与注解系统详解</h1>
+
+<blockquote><p><strong>难度：</strong> ⭐⭐⭐<br><strong>前置知识：</strong> OOP 基础、Hyperf 入门（001）、协程概念（002）<br><strong>预估用时：</strong> 55 分钟</p></blockquote>
+
+<hr>
+
+<h2>一、概念讲解</h2>
+
+<p><strong>一句话定义：</strong> 依赖注入（DI）是一种设计模式，由容器自动解析并注入对象依赖，而非手动 <code>new</code> 创建。</p>
+
+<p><strong>现实类比：</strong> 你去餐厅点餐，不需要自己去厨房找厨师、找食材、找锅——服务员（容器）会自动把一切安排好端到你面前。你只管"点菜"（声明依赖），不关心"怎么做"（对象创建）。</p>
+
+<p><strong>技术场景：</strong> 在用户服务中，<code>UserController</code> 需要 <code>UserService</code>，<code>UserService</code> 需要 <code>UserRepository</code> 和 <code>Logger</code>。手动创建这些对象并传递依赖会让代码耦合度爆表。Hyperf 的 DI 容器通过注解（如 <code>#[Inject]</code>）自动完成依赖解析和注入，让代码解耦、可测试、可维护。</p>
+
+<hr>
+
+<h2>二、实时脑图</h2>
+
+<pre><code>┌────────────────────────────────────────────┐
+│           Hyperf DI Container               │
+├────────────────────────────────────────────┤
+│                                             │
+│  ┌─────────┐    解析    ┌──────────────┐   │
+│  │ 注解扫描 │ ────────→ │ 容器注册表    │   │
+│  │(Scanner) │          │ (Container)   │   │
+│  └─────────┘          └──────┬───────┘   │
+│                              │            │
+│                    ┌─────────┼────────┐   │
+│                    ▼         ▼        ▼   │
+│              ┌────────┐ ┌───────┐ ┌────┐ │
+│              │Service │ │Model  │ │DAO │ │
+│              │  Layer │ │ Layer │ │    │ │
+│              └────────┘ └───────┘ └────┘ │
+│                    ▲         ▲        ▲   │
+│                    │  #[Inject] 注入      │
+│              ┌─────────────────────────┐  │
+│              │     Controller Layer    │  │
+│              └─────────────────────────┘  │
+└────────────────────────────────────────────┘</code></pre>
+
+<hr>
+
+<h2>三、完整代码</h2>
+
+<h3>3.1 Repository 层</h3>
+
+<pre><code class="language-php">&lt;?php
+// ✅ app/Repository/UserRepository.php
+
+declare(strict_types=1);
+
+namespace App\Repository;
+
+use Hyperf\DbConnection\Db;
+
+class UserRepository
+{
+    // ✅ Find user by ID
+    public function findById(int $id): ?object
+    {
+        return Db::table(&#x27;users&#x27;)-&gt;where(&#x27;id&#x27;, $id)-&gt;first();
+    }
+
+    // ✅ Find user by email
+    public function findByEmail(string $email): ?object
+    {
+        return Db::table(&#x27;users&#x27;)-&gt;where(&#x27;email&#x27;, $email)-&gt;first();
+    }
+
+    // ✅ Create a new user record
+    public function create(array $data): int
+    {
+        return Db::table(&#x27;users&#x27;)-&gt;insertGetId($data);
+    }
+}</code></pre>
+
+<h3>3.2 Service 层（使用依赖注入）</h3>
+
+<pre><code class="language-php">&lt;?php
+// ✅ app/Service/UserService.php
+
+declare(strict_types=1);
+
+namespace App\Service;
+
+use App\Repository\UserRepository;
+use Hyperf\Di\Annotation\Inject;
+use Psr\Log\LoggerInterface;
+
+class UserService
+{
+    // 🟢 Constructor injection (recommended for required dependencies)
+    public function __construct(
+        private UserRepository $userRepository,
+    ) {}
+
+    // 🟢 Property injection via annotation (alternative approach)
+    #[Inject]
+    private LoggerInterface $logger;
+
+    // ✅ Get user by ID with logging
+    public function getUser(int $id): ?array
+    {
+        $this-&gt;logger-&gt;info(&quot;Fetching user by ID&quot;, [&#x27;id&#x27; =&gt; $id]);
+        $user = $this-&gt;userRepository-&gt;findById($id);
+
+        if (!$user) {
+            $this-&gt;logger-&gt;warning(&quot;User not found&quot;, [&#x27;id&#x27; =&gt; $id]);
+            return null;
+        }
+
+        return (array) $user;
+    }
+}</code></pre>
+
+<h3>3.3 Controller 层</h3>
+
+<pre><code class="language-php">&lt;?php
+// ✅ app/Controller/UserController.php
+
+declare(strict_types=1);
+
+namespace App\Controller;
+
+use App\Service\UserService;
+use Hyperf\HttpServer\Annotation\AutoController;
+use Hyperf\HttpServer\Contract\RequestInterface;
+use Hyperf\Di\Annotation\Inject;
+
+#[AutoController(prefix: &quot;user&quot;)]
+class UserController
+{
+    // ✅ Inject service via annotation
+    #[Inject]
+    private UserService $userService;
+
+    // ✅ Get user profile
+    public function profile(RequestInterface $request): array
+    {
+        $id = (int) $request-&gt;input(&#x27;id&#x27;, 0);
+
+        if ($id &lt;= 0) {
+            return [&#x27;code&#x27; =&gt; 400, &#x27;message&#x27; =&gt; &#x27;Invalid user ID&#x27;];
+        }
+
+        $user = $this-&gt;userService-&gt;getUser($id);
+
+        if (!$user) {
+            return [&#x27;code&#x27; =&gt; 404, &#x27;message&#x27; =&gt; &#x27;User not found&#x27;];
+        }
+
+        return [&#x27;code&#x27; =&gt; 0, &#x27;data&#x27; =&gt; $user];
+    }
+}</code></pre>
+
+<h3>3.4 自定义注解</h3>
+
+<pre><code class="language-php">&lt;?php
+// ✅ app/Annotation/RateLimit.php
+
+declare(strict_types=1);
+
+namespace App\Annotation;
+
+use Attribute;
+use Hyperf\Di\Annotation\AbstractAnnotation;
+
+// 🟢 Custom annotation for rate limiting
+#[Attribute(Attribute::TARGET_METHOD)]
+class RateLimit extends AbstractAnnotation
+{
+    public function __construct(
+        public int $maxRequests = 60,
+        public int $window = 60,
+    ) {}
+}</code></pre>
+
+<pre><code class="language-php">&lt;?php
+// ✅ app/Aspect/RateLimitAspect.php
+
+declare(strict_types=1);
+
+namespace App\Aspect;
+
+use App\Annotation\RateLimit;
+use Hyperf\Di\Aop\AbstractAspect;
+use Hyperf\Di\Aop\ProceedingJoinPoint;
+use Hyperf\Redis\Redis;
+use Hyperf\Di\Annotation\Aspect;
+use Hyperf\Context\ApplicationContext;
+
+#[Aspect]
+class RateLimitAspect extends AbstractAspect
+{
+    // ✅ Define which annotations this aspect handles
+    public array $annotations = [
+        RateLimit::class,
+    ];
+
+    public function process(ProceedingJoinPoint $proceedingJoinPoint)
+    {
+        $metadata = $proceedingJoinPoint-&gt;getAnnotationMetadata();
+        /** @var RateLimit $rateLimit */
+        $rateLimit = $metadata-&gt;method[RateLimit::class] ?? null;
+
+        if (!$rateLimit) {
+            return $proceedingJoinPoint-&gt;process();
+        }
+
+        $container = ApplicationContext::getContainer();
+        $redis = $container-&gt;get(Redis::class);
+        $key = &#x27;rate_limit:&#x27; . md5($proceedingJoinPoint-&gt;className . &#x27;::&#x27; . $proceedingJoinPoint-&gt;methodName);
+
+        $current = $redis-&gt;incr($key);
+        if ($current === 1) {
+            $redis-&gt;expire($key, $rateLimit-&gt;window);
+        }
+
+        if ($current &gt; $rateLimit-&gt;maxRequests) {
+            return [&#x27;code&#x27; =&gt; 429, &#x27;message&#x27; =&gt; &#x27;Too many requests&#x27;];
+        }
+
+        return $proceedingJoinPoint-&gt;process();
+    }
+}</code></pre>
+
+<hr>
+
+<h2>四、执行预览</h2>
+
+<pre><code class="language-bash"># GET user profile
+$ curl http://127.0.0.1:9501/user/profile?id=1
+{&quot;code&quot;:0,&quot;data&quot;:{&quot;id&quot;:1,&quot;name&quot;:&quot;Hahn&quot;,&quot;email&quot;:&quot;hahn@example.com&quot;,&quot;created_at&quot;:&quot;2026-05-01&quot;}}
+
+# Missing ID
+$ curl http://127.0.0.1:9501/user/profile
+{&quot;code&quot;:400,&quot;message&quot;:&quot;Invalid user ID&quot;}
+
+# Non-existent user
+$ curl http://127.0.0.1:9501/user/profile?id=999
+{&quot;code&quot;:404,&quot;message&quot;:&quot;User not found&quot;}</code></pre>
+
+<hr>
+
+<h2>五、注意事项</h2>
+
+<table><thead><tr>
+<th>约束</th>
+<th>说明</th>
+<th>违反后果</th>
+</tr></thead><tbody>
+<tr>
+<td>不要 <code>new</code> Service 对象</td>
+<td>绕过容器导致依赖不被注入</td>
+<td><code>#[Inject]</code> 属性为 null，NPE 崩溃</td>
+</tr>
+<tr>
+<td>注解类必须被 Scanner 扫描</td>
+<td>需在 <code>config/autoload/annotations.php</code> 配置扫描路径</td>
+<td>注解不生效</td>
+</tr>
+<tr>
+<td>AOP 代理类限制</td>
+<td><code>final</code> 类和 <code>private</code> 方法不支持 AOP</td>
+<td>Aspect 不生效，无报错</td>
+</tr>
+<tr>
+<td>单例是默认行为</td>
+<td>容器中对象默认单例</td>
+<td>请求间数据串扰（需注意状态管理）</td>
+</tr>
+<tr>
+<td>构造函数不要做重操作</td>
+<td>容器启动时就会解析</td>
+<td>启动变慢，连接池未就绪报错</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>六、避坑指南</h2>
+
+<table><thead><tr>
+<th>典型错误</th>
+<th>现象</th>
+<th>正确做法</th>
+</tr></thead><tbody>
+<tr>
+<td>❌ <code>new UserService()</code> 手动创建</td>
+<td>注入的属性为 null</td>
+<td>用容器 <code>make()</code> 或构造函数注入</td>
+</tr>
+<tr>
+<td>❌ 在 <code>__construct</code> 中用 <code>#[Inject]</code> 属性</td>
+<td>属性尚未注入，值为 null</td>
+<td>用构造函数参数注入依赖</td>
+</tr>
+<tr>
+<td>❌ 忘记配置 scan.enable</td>
+<td>自定义注解/Aspect 不生效</td>
+<td>检查 <code>annotations.php</code> 配置</td>
+</tr>
+<tr>
+<td>❌ 在注解属性中写业务逻辑</td>
+<td>逻辑不执行</td>
+<td>注解只做元数据，逻辑放 Aspect</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>七、练习题</h2>
+
+<p>🟢 <strong>基础题 1：</strong> 创建一个 <code>EmailService</code>，注入到 <code>UserService</code> 中，在注册成功后调用发送欢迎邮件的方法。</p>
+
+<p>🟢 <strong>基础题 2：</strong> 实现构造函数注入 vs <code>#[Inject]</code> 属性注入两种方式，并说明适用场景。</p>
+
+<p>🟡 <strong>进阶题：</strong> 创建一个 <code>@Log</code> 注解 + Aspect，自动记录被标注方法的入参和返回值到日志。</p>
+
+<p>🔴 <strong>开放题：</strong> 研究 Hyperf 的代理类机制（<code>proxy/</code> 目录），分析 AOP 是如何通过类继承实现的，以及 <code>final</code> 类为什么不能被代理。</p>
+
+<hr>
+
+<h2>八、知识点总结</h2>
+
+<pre><code>DI 容器与注解
+├── 依赖注入
+│   ├── 构造函数注入（推荐）
+│   ├── #[Inject] 属性注入
+│   └── 容器手动绑定（bind/make）
+├── 注解系统
+│   ├── #[AutoController] — 路由注册
+│   ├── #[Inject] — 依赖注入
+│   ├── #[Middleware] — 中间件绑定
+│   └── 自定义注解（extends AbstractAnnotation）
+├── AOP 切面
+│   ├── Aspect 类（定义切点+通知）
+│   ├── ProceedingJoinPoint（环绕通知）
+│   └── 代理类生成机制
+└── 容器核心
+    ├── 单例管理
+    ├── 依赖解析图
+    └── 循环依赖检测</code></pre>
+
+<hr>
+
+<h2>九、举一反三</h2>
+
+<table><thead><tr>
+<th>变种场景</th>
+<th>关键差异</th>
+<th>适配方式</th>
+</tr></thead><tbody>
+<tr>
+<td>多实现绑定</td>
+<td>接口有多个实现类</td>
+<td>用 <code>#[Inject(IUserService::class)]</code> 指定或容器绑定</td>
+</tr>
+<tr>
+<td>条件注入</td>
+<td>根据环境/配置选择实现</td>
+<td>工厂模式 + <code>Container::set()</code></td>
+</tr>
+<tr>
+<td>第三方库集成</td>
+<td>非 Hyperf 包没有注解</td>
+<td><code>config/autoload/dependencies.php</code> 手动绑定</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>十、参考资料</h2>
+
+<table><thead><tr>
+<th>资料</th>
+<th>权威等级</th>
+<th>链接</th>
+</tr></thead><tbody>
+<tr>
+<td>Hyperf DI 容器文档</td>
+<td>⭐⭐⭐⭐⭐</td>
+<td>https://hyperf.wiki/3.1/#/zh-cn/di</td>
+</tr>
+<tr>
+<td>Hyperf 注解系统文档</td>
+<td>⭐⭐⭐⭐⭐</td>
+<td>https://hyperf.wiki/3.1/#/zh-cn/annotation</td>
+</tr>
+<tr>
+<td>Hyperf AOP 文档</td>
+<td>⭐⭐⭐⭐⭐</td>
+<td>https://hyperf.wiki/3.1/#/zh-cn/aop</td>
+</tr>
+<tr>
+<td>PSR-11 容器接口</td>
+<td>⭐⭐⭐⭐</td>
+<td>https://www.php-fig.org/psr/psr-11/</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>十一、代码演进</h2>
+
+<h3>v1 ❌ 手动创建依赖</h3>
+
+<pre><code class="language-php">&lt;?php
+// ❌ Tight coupling: manual dependency creation
+class UserController
+{
+    public function profile(RequestInterface $request): array
+    {
+        // ❌ Manual instantiation, no logging, no DI
+        $db = new \PDO(&#x27;mysql:host=127.0.0.1;dbname=test&#x27;, &#x27;root&#x27;, &#x27;&#x27;);
+        $repo = new UserRepository($db);
+        $service = new UserService($repo);
+        $user = $service-&gt;getUser(1);
+        return (array) $user;
+    }
+}</code></pre>
+
+<h3>v2 ✅ 构造函数注入</h3>
+
+<pre><code class="language-php">&lt;?php
+// ✅ Constructor injection with DI container
+class UserController
+{
+    public function __construct(
+        private UserService $userService,
+    ) {}
+
+    public function profile(RequestInterface $request): array
+    {
+        $user = $this-&gt;userService-&gt;getUser(1);
+        return [&#x27;code&#x27; =&gt; 0, &#x27;data&#x27; =&gt; $user];
+    }
+}</code></pre>
+
+<h3>v3 🟢 注解驱动 + AOP</h3>
+
+<pre><code class="language-php">&lt;?php
+// 🟢 Annotation-driven with rate limiting AOP
+#[AutoController(prefix: &quot;user&quot;)]
+class UserController
+{
+    #[Inject]
+    private UserService $userService;
+
+    #[RateLimit(maxRequests: 100, window: 60)]
+    public function profile(RequestInterface $request): array
+    {
+        $id = (int) $request-&gt;input(&#x27;id&#x27;, 0);
+        $user = $this-&gt;userService-&gt;getUser($id);
+        return $user ? [&#x27;code&#x27; =&gt; 0, &#x27;data&#x27; =&gt; $user] : [&#x27;code&#x27; =&gt; 404];
+    }
+}</code></pre>
+
+<hr>
+
+<p><strong>上一篇：</strong> <a href="/post/002-swoole-coroutine-core">002 - Swoole 协程核心原理与 Hyperf 底层机制</a></p>
+<p><strong>下一篇：</strong> <a href="/post/004-middleware-pipeline">004 - 中间件、请求生命周期与管道模式</a></p>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

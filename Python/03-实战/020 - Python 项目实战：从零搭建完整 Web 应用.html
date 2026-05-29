@@ -1,0 +1,898 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>020 - Python 项目实战：从零搭建完整 Web 应用</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Python/index.html">Python</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Python/03-实战/index.html">Python实战</a>
+</nav>
+<h1>020 - Python 项目实战：从零搭建完整 Web 应用</h1>
+<div class="meta">
+<span>📂 Python实战</span>
+<span>🏷️ Python</span>
+</div>
+<article>
+
+
+<h2>难度标注</h2>
+
+<blockquote><p>🔴 <strong>中高级难度</strong> | 预计学习时间：4-6小时<br>前置要求：Python基础、SQL基础、HTTP协议、命令行操作</p></blockquote>
+
+<h2>概念讲解</h2>
+
+<h3>为什么需要完整项目实战？</h3>
+
+<p>学了一堆 Python 语法，却不知道怎么组合成一个真正的应用？这是大多数初学者的困境。本篇带你从零搭建一个完整的 <strong>任务管理 Web 应用</strong>，涵盖前端、后端、数据库、部署的全流程。</p>
+
+<h3>技术栈选择</h3>
+
+<table><thead><tr>
+<th>层级</th>
+<th>技术选型</th>
+<th>理由</th>
+</tr></thead><tbody>
+<tr>
+<td><strong>Web 框架</strong></td>
+<td>FastAPI</td>
+<td>异步、高性能、自动文档</td>
+</tr>
+<tr>
+<td><strong>数据库</strong></td>
+<td>SQLite → PostgreSQL</td>
+<td>开发用 SQLite，生产可迁移</td>
+</tr>
+<tr>
+<td><strong>ORM</strong></td>
+<td>SQLAlchemy 2.0</td>
+<td>Python 生态最成熟的 ORM</td>
+</tr>
+<tr>
+<td><strong>前端</strong></td>
+<td>Jinja2 + HTMX</td>
+<td>无需 Node.js，轻量交互</td>
+</tr>
+<tr>
+<td><strong>样式</strong></td>
+<td>Pico CSS</td>
+<td>极简 CSS，零配置</td>
+</tr>
+<tr>
+<td><strong>部署</strong></td>
+<td>Uvicorn + Docker</td>
+<td>ASGI 标准，容器化部署</td>
+</tr>
+</tbody></table>
+
+<h3>架构设计</h3>
+
+<pre><code>浏览器
+  ↓ HTTP Request
+FastAPI (路由 + 业务逻辑)
+  ↓ ORM
+SQLite (数据存储)
+  ↑ Jinja2 模板渲染
+HTML + HTMX (前端交互)</code></pre>
+
+<p><strong>目录结构：</strong></p>
+
+<pre><code>tasker/
+├── app/
+│   ├── __init__.py
+│   ├── main.py          # FastAPI app 入口
+│   ├── database.py      # 数据库配置
+│   ├── models.py        # SQLAlchemy 模型
+│   ├── schemas.py       # Pydantic 数据验证
+│   ├── routers/
+│   │   ├── tasks.py     # 任务路由
+│   │   └── pages.py     # 页面路由
+│   ├── services/
+│   │   └── task_service.py  # 业务逻辑
+│   └── templates/
+│       ├── base.html
+│       ├── index.html
+│       └── partials/
+│           └── task_list.html
+├── tests/
+│   └── test_tasks.py
+├── requirements.txt
+├── Dockerfile
+└── README.md</code></pre>
+
+<h2>脑图</h2>
+
+<pre><code>Python Web 应用实战
+├── 1. 项目初始化
+│   ├── 创建虚拟环境
+│   ├── 安装依赖
+│   └── 目录结构规划
+├── 2. 数据层
+│   ├── SQLAlchemy 配置
+│   ├── 模型定义(Task)
+│   ├── 数据库迁移
+│   └── CRUD 操作封装
+├── 3. API 层
+│   ├── FastAPI 路由
+│   ├── Pydantic 验证
+│   ├── 错误处理
+│   └── 自动 API 文档
+├── 4. 前端层
+│   ├── Jinja2 模板
+│   ├── HTMX 动态交互
+│   ├── 表单处理
+│   └── 响应式样式
+├── 5. 测试
+│   ├── pytest 配置
+│   ├── 单元测试
+│   └── API 测试
+└── 6. 部署
+    ├── Docker 镜像
+    ├── 环境变量
+    └── 生产配置</code></pre>
+
+<h2>完整 Python 代码</h2>
+
+<h3>代码演进 v1：最小可用版本（单文件）</h3>
+
+<pre><code class="language-python"># v1: Minimal task manager - single file, SQLite, FastAPI
+# Install: pip install fastapi uvicorn sqlalchemy jinja2 python-multipart
+
+import os
+from datetime import datetime
+from fastapi import FastAPI, Request, Form
+from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.templating import Jinja2Templates
+from sqlalchemy import create_engine, Column, Integer, String, Boolean, DateTime
+from sqlalchemy.orm import sessionmaker, DeclarativeBase
+
+# --- Database Setup ---
+DB_PATH = os.path.join(os.path.dirname(__file__), &quot;tasks.db&quot;)
+engine = create_engine(f&quot;sqlite:///{DB_PATH}&quot;, echo=False)
+SessionLocal = sessionmaker(bind=engine)
+
+
+class Base(DeclarativeBase):
+    pass
+
+
+class Task(Base):
+    &quot;&quot;&quot;Task model representing a to-do item.&quot;&quot;&quot;
+    __tablename__ = &quot;tasks&quot;
+
+    id = Column(Integer, primary_key=True, index=True)
+    title = Column(String(200), nullable=False)
+    description = Column(String(1000), default=&quot;&quot;)
+    done = Column(Boolean, default=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
+# Create tables
+Base.metadata.create_all(bind=engine)
+
+# --- FastAPI App ---
+app = FastAPI(title=&quot;Tasker&quot;, description=&quot;A simple task manager&quot;)
+templates = Jinja2Templates(directory=os.path.join(os.path.dirname(__file__), &quot;templates&quot;))
+
+
+@app.get(&quot;/&quot;, response_class=HTMLResponse)
+def index(request: Request):
+    &quot;&quot;&quot;Render main page with all tasks.&quot;&quot;&quot;
+    db = SessionLocal()
+    tasks = db.query(Task).order_by(Task.created_at.desc()).all()
+    db.close()
+    return templates.TemplateResponse(&quot;index.html&quot;, {&quot;request&quot;: request, &quot;tasks&quot;: tasks})
+
+
+@app.post(&quot;/tasks&quot;)
+def create_task(title: str = Form(...), description: str = Form(default=&quot;&quot;)):
+    &quot;&quot;&quot;Create a new task.&quot;&quot;&quot;
+    db = SessionLocal()
+    task = Task(title=title, description=description)
+    db.add(task)
+    db.commit()
+    db.close()
+    return RedirectResponse(url=&quot;/&quot;, status_code=303)
+
+
+@app.post(&quot;/tasks/{task_id}/toggle&quot;)
+def toggle_task(task_id: int):
+    &quot;&quot;&quot;Toggle task completion status.&quot;&quot;&quot;
+    db = SessionLocal()
+    task = db.query(Task).filter(Task.id == task_id).first()
+    if task:
+        task.done = not task.done
+        db.commit()
+    db.close()
+    return RedirectResponse(url=&quot;/&quot;, status_code=303)
+
+
+@app.post(&quot;/tasks/{task_id}/delete&quot;)
+def delete_task(task_id: int):
+    &quot;&quot;&quot;Delete a task.&quot;&quot;&quot;
+    db = SessionLocal()
+    task = db.query(Task).filter(Task.id == task_id).first()
+    if task:
+        db.delete(task)
+        db.commit()
+    db.close()
+    return RedirectResponse(url=&quot;/&quot;, status_code=303)</code></pre>
+
+<p><strong>配套的 <code>templates/index.html</code>：</strong></p>
+
+<pre><code class="language-html">&lt;!DOCTYPE html&gt;
+&lt;html lang=&quot;zh&quot;&gt;
+&lt;head&gt;
+    &lt;meta charset=&quot;UTF-8&quot;&gt;
+    &lt;meta name=&quot;viewport&quot; content=&quot;width=device-width, initial-scale=1.0&quot;&gt;
+    &lt;title&gt;Tasker - 任务管理&lt;/title&gt;
+    &lt;link rel=&quot;stylesheet&quot; href=&quot;https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css&quot;&gt;
+&lt;/head&gt;
+&lt;body&gt;
+    &lt;main class=&quot;container&quot; style=&quot;max-width: 640px; margin-top: 2rem;&quot;&gt;
+        &lt;h1&gt;📋 Tasker&lt;/h1&gt;
+
+        &lt;!-- Add task form --&gt;
+        &lt;form action=&quot;/tasks&quot; method=&quot;post&quot;&gt;
+            &lt;input type=&quot;text&quot; name=&quot;title&quot; placeholder=&quot;输入任务标题...&quot; required&gt;
+            &lt;textarea name=&quot;description&quot; placeholder=&quot;描述（可选）&quot; rows=&quot;2&quot;&gt;&lt;/textarea&gt;
+            &lt;button type=&quot;submit&quot;&gt;添加任务&lt;/button&gt;
+        &lt;/form&gt;
+
+        &lt;!-- Task list --&gt;
+        {% for task in tasks %}
+        &lt;article style=&quot;margin-top: 1rem; {% if task.done %}opacity: 0.6;{% endif %}&quot;&gt;
+            &lt;div style=&quot;display: flex; justify-content: space-between; align-items: center;&quot;&gt;
+                &lt;div&gt;
+                    &lt;strong {% if task.done %}style=&quot;text-decoration: line-through;&quot;{% endif %}&gt;
+                        {{ task.title }}
+                    &lt;/strong&gt;
+                    {% if task.description %}
+                    &lt;p style=&quot;margin: 0.25rem 0; color: #666;&quot;&gt;{{ task.description }}&lt;/p&gt;
+                    {% endif %}
+                    &lt;small&gt;{{ task.created_at.strftime(&quot;%m-%d %H:%M&quot;) }}&lt;/small&gt;
+                &lt;/div&gt;
+                &lt;div&gt;
+                    &lt;form action=&quot;/tasks/{{ task.id }}/toggle&quot; method=&quot;post&quot; style=&quot;display: inline;&quot;&gt;
+                        &lt;button type=&quot;submit&quot; class=&quot;secondary&quot; style=&quot;padding: 0.3rem 0.6rem;&quot;&gt;
+                            {% if task.done %}↩️{% else %}✅{% endif %}
+                        &lt;/button&gt;
+                    &lt;/form&gt;
+                    &lt;form action=&quot;/tasks/{{ task.id }}/delete&quot; method=&quot;post&quot; style=&quot;display: inline;&quot;&gt;
+                        &lt;button type=&quot;submit&quot; class=&quot;contrast&quot; style=&quot;padding: 0.3rem 0.6rem;&quot;&gt;🗑️&lt;/button&gt;
+                    &lt;/form&gt;
+                &lt;/div&gt;
+            &lt;/div&gt;
+        &lt;/article&gt;
+        {% endfor %}
+
+        {% if not tasks %}
+        &lt;p style=&quot;text-align: center; color: #999; margin-top: 2rem;&quot;&gt;暂无任务，添加一个吧！&lt;/p&gt;
+        {% endif %}
+    &lt;/main&gt;
+&lt;/body&gt;
+&lt;/html&gt;</code></pre>
+
+<h3>代码演进 v2：分层架构 + HTMX 动态交互</h3>
+
+<pre><code class="language-python"># v2: Layered architecture with HTMX, service layer, proper error handling
+
+# --- app/database.py ---
+import os
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker, DeclarativeBase
+
+DB_PATH = os.environ.get(&quot;DB_PATH&quot;, os.path.join(os.path.dirname(__file__), &quot;..&quot;, &quot;tasks.db&quot;))
+engine = create_engine(f&quot;sqlite:///{DB_PATH}&quot;, echo=False, connect_args={&quot;check_same_thread&quot;: False})
+SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False)
+
+
+class Base(DeclarativeBase):
+    pass
+
+
+def get_db():
+    &quot;&quot;&quot;Dependency for getting DB session.&quot;&quot;&quot;
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
+
+def init_db():
+    &quot;&quot;&quot;Create all tables.&quot;&quot;&quot;
+    from .models import Task  # noqa: F401
+    Base.metadata.create_all(bind=engine)
+
+
+# --- app/models.py ---
+from datetime import datetime
+from sqlalchemy import Column, Integer, String, Boolean, DateTime
+from .database import Base
+
+
+class Task(Base):
+    &quot;&quot;&quot;Task model with priority support.&quot;&quot;&quot;
+    __tablename__ = &quot;tasks&quot;
+
+    id = Column(Integer, primary_key=True, index=True)
+    title = Column(String(200), nullable=False)
+    description = Column(String(1000), default=&quot;&quot;)
+    done = Column(Boolean, default=False)
+    priority = Column(String(10), default=&quot;medium&quot;)  # low, medium, high
+    created_at = Column(DateTime, default=datetime.utcnow)
+    completed_at = Column(DateTime, nullable=True)
+
+
+# --- app/schemas.py ---
+from pydantic import BaseModel, Field
+from datetime import datetime
+from typing import Optional
+
+
+class TaskCreate(BaseModel):
+    &quot;&quot;&quot;Schema for creating a task.&quot;&quot;&quot;
+    title: str = Field(..., min_length=1, max_length=200)
+    description: str = Field(default=&quot;&quot;, max_length=1000)
+    priority: str = Field(default=&quot;medium&quot;, pattern=&quot;^(low|medium|high)$&quot;)
+
+
+class TaskResponse(BaseModel):
+    &quot;&quot;&quot;Schema for task response.&quot;&quot;&quot;
+    id: int
+    title: str
+    description: str
+    done: bool
+    priority: str
+    created_at: datetime
+    completed_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+
+# --- app/services/task_service.py ---
+from sqlalchemy.orm import Session
+from datetime import datetime
+from ..models import Task
+from ..schemas import TaskCreate
+
+
+class TaskService:
+    &quot;&quot;&quot;Business logic for task operations.&quot;&quot;&quot;
+
+    @staticmethod
+    def list_tasks(db: Session, status: str = &quot;all&quot;):
+        &quot;&quot;&quot;Get tasks filtered by status.&quot;&quot;&quot;
+        query = db.query(Task)
+        if status == &quot;pending&quot;:
+            query = query.filter(Task.done == False)  # noqa: E712
+        elif status == &quot;done&quot;:
+            query = query.filter(Task.done == True)  # noqa: E712
+        return query.order_by(Task.created_at.desc()).all()
+
+    @staticmethod
+    def create_task(db: Session, data: TaskCreate) -&gt; Task:
+        &quot;&quot;&quot;Create a new task.&quot;&quot;&quot;
+        task = Task(**data.model_dump())
+        db.add(task)
+        db.commit()
+        db.refresh(task)
+        return task
+
+    @staticmethod
+    def toggle_task(db: Session, task_id: int) -&gt; Task | None:
+        &quot;&quot;&quot;Toggle task completion.&quot;&quot;&quot;
+        task = db.query(Task).filter(Task.id == task_id).first()
+        if task:
+            task.done = not task.done
+            task.completed_at = datetime.utcnow() if task.done else None
+            db.commit()
+            db.refresh(task)
+        return task
+
+    @staticmethod
+    def delete_task(db: Session, task_id: int) -&gt; bool:
+        &quot;&quot;&quot;Delete a task.&quot;&quot;&quot;
+        task = db.query(Task).filter(Task.id == task_id).first()
+        if task:
+            db.delete(task)
+            db.commit()
+            return True
+        return False
+
+    @staticmethod
+    def get_stats(db: Session) -&gt; dict:
+        &quot;&quot;&quot;Get task statistics.&quot;&quot;&quot;
+        total = db.query(Task).count()
+        done = db.query(Task).filter(Task.done == True).count()  # noqa: E712
+        return {&quot;total&quot;: total, &quot;done&quot;: done, &quot;pending&quot;: total - done}
+
+
+# --- app/routers/tasks.py ---
+from fastapi import APIRouter, Depends
+from sqlalchemy.orm import Session
+from ..database import get_db
+from ..services.task_service import TaskService
+from ..schemas import TaskCreate, TaskResponse
+
+router = APIRouter(prefix=&quot;/api/tasks&quot;, tags=[&quot;tasks&quot;])
+
+
+@router.get(&quot;&quot;, response_model=list[TaskResponse])
+def api_list_tasks(status: str = &quot;all&quot;, db: Session = Depends(get_db)):
+    &quot;&quot;&quot;REST API: List all tasks.&quot;&quot;&quot;
+    return TaskService.list_tasks(db, status)
+
+
+@router.post(&quot;&quot;, response_model=TaskResponse)
+def api_create_task(data: TaskCreate, db: Session = Depends(get_db)):
+    &quot;&quot;&quot;REST API: Create a task.&quot;&quot;&quot;
+    return TaskService.create_task(db, data)
+
+
+@router.get(&quot;/stats&quot;)
+def api_stats(db: Session = Depends(get_db)):
+    &quot;&quot;&quot;REST API: Get task statistics.&quot;&quot;&quot;
+    return TaskService.get_stats(db)
+
+
+# --- app/routers/pages.py ---
+from fastapi import APIRouter, Request, Depends, Form
+from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.templating import Jinja2Templates
+from sqlalchemy.orm import Session
+import os
+from ..database import get_db
+from ..services.task_service import TaskService
+from ..schemas import TaskCreate
+
+router = APIRouter()
+templates = Jinja2Templates(
+    directory=os.path.join(os.path.dirname(__file__), &quot;..&quot;, &quot;templates&quot;)
+)
+
+
+@router.get(&quot;/&quot;, response_class=HTMLResponse)
+def page_index(request: Request, status: str = &quot;all&quot;, db: Session = Depends(get_db)):
+    &quot;&quot;&quot;Render main page.&quot;&quot;&quot;
+    tasks = TaskService.list_tasks(db, status)
+    stats = TaskService.get_stats(db)
+    return templates.TemplateResponse(&quot;index.html&quot;, {
+        &quot;request&quot;: request, &quot;tasks&quot;: tasks, &quot;stats&quot;: stats, &quot;current_filter&quot;: status
+    })
+
+
+@router.post(&quot;/tasks&quot;, response_class=HTMLResponse)
+def page_create_task(
+    request: Request,
+    title: str = Form(...),
+    description: str = Form(default=&quot;&quot;),
+    priority: str = Form(default=&quot;medium&quot;),
+    db: Session = Depends(get_db),
+):
+    &quot;&quot;&quot;Create task and return updated list (HTMX).&quot;&quot;&quot;
+    TaskService.create_task(db, TaskCreate(title=title, description=description, priority=priority))
+    tasks = TaskService.list_tasks(db)
+    return templates.TemplateResponse(&quot;partials/task_list.html&quot;, {&quot;request&quot;: request, &quot;tasks&quot;: tasks})
+
+
+@router.post(&quot;/tasks/{task_id}/delete&quot;)
+def page_delete_task(task_id: int, db: Session = Depends(get_db)):
+    &quot;&quot;&quot;Delete task.&quot;&quot;&quot;
+    TaskService.delete_task(db, task_id)
+    return RedirectResponse(url=&quot;/&quot;, status_code=303)
+
+
+# --- app/main.py ---
+from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
+from .database import init_db
+from .routers import tasks, pages
+import os
+
+app = FastAPI(title=&quot;Tasker v2&quot;, version=&quot;2.0.0&quot;)
+
+init_db()
+
+app.include_router(tasks.router)
+app.include_router(pages.router)
+
+static_dir = os.path.join(os.path.dirname(__file__), &quot;static&quot;)
+if os.path.exists(static_dir):
+    app.mount(&quot;/static&quot;, StaticFiles(directory=static_dir), name=&quot;static&quot;)</code></pre>
+
+<h3>代码演进 v3：生产就绪 + 测试 + Docker</h3>
+
+<pre><code class="language-python"># v3: Production-ready with testing, Docker, config management
+
+# --- app/config.py ---
+import os
+from dataclasses import dataclass
+
+
+@dataclass
+class Settings:
+    &quot;&quot;&quot;Application settings from environment variables.&quot;&quot;&quot;
+    db_url: str = os.getenv(&quot;DATABASE_URL&quot;, &quot;sqlite:///./tasks.db&quot;)
+    debug: bool = os.getenv(&quot;DEBUG&quot;, &quot;false&quot;).lower() == &quot;true&quot;
+    secret_key: str = os.getenv(&quot;SECRET_KEY&quot;, &quot;change-me-in-production&quot;)
+    host: str = os.getenv(&quot;HOST&quot;, &quot;0.0.0.0&quot;)
+    port: int = int(os.getenv(&quot;PORT&quot;, &quot;8000&quot;))
+
+
+settings = Settings()
+
+
+# --- tests/test_tasks.py ---
+import pytest
+from fastapi.testclient import TestClient
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+from app.database import Base, get_db
+from app.main import app
+
+# Use in-memory SQLite for tests
+TEST_ENGINE = create_engine(&quot;sqlite:///:memory:&quot;, connect_args={&quot;check_same_thread&quot;: False})
+TestSession = sessionmaker(bind=TEST_ENGINE)
+
+
+def override_get_db():
+    db = TestSession()
+    try:
+        yield db
+    finally:
+        db.close()
+
+
+app.dependency_overrides[get_db] = override_get_db
+
+
+@pytest.fixture(autouse=True)
+def setup_db():
+    &quot;&quot;&quot;Create and drop tables for each test.&quot;&quot;&quot;
+    Base.metadata.create_all(bind=TEST_ENGINE)
+    yield
+    Base.metadata.drop_all(bind=TEST_ENGINE)
+
+
+client = TestClient(app)
+
+
+def test_create_task():
+    resp = client.post(&quot;/api/tasks&quot;, json={&quot;title&quot;: &quot;Test task&quot;, &quot;priority&quot;: &quot;high&quot;})
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data[&quot;title&quot;] == &quot;Test task&quot;
+    assert data[&quot;done&quot;] is False
+
+
+def test_list_tasks():
+    client.post(&quot;/api/tasks&quot;, json={&quot;title&quot;: &quot;Task 1&quot;})
+    client.post(&quot;/api/tasks&quot;, json={&quot;title&quot;: &quot;Task 2&quot;})
+    resp = client.get(&quot;/api/tasks&quot;)
+    assert resp.status_code == 200
+    assert len(resp.json()) == 2
+
+
+def test_task_stats():
+    client.post(&quot;/api/tasks&quot;, json={&quot;title&quot;: &quot;Task 1&quot;})
+    resp = client.get(&quot;/api/tasks/stats&quot;)
+    assert resp.json()[&quot;total&quot;] == 1
+    assert resp.json()[&quot;pending&quot;] == 1
+
+
+def test_validation_empty_title():
+    resp = client.post(&quot;/api/tasks&quot;, json={&quot;title&quot;: &quot;&quot;})
+    assert resp.status_code == 422</code></pre>
+
+<p><strong>Dockerfile：</strong></p>
+
+<pre><code class="language-dockerfile">FROM python:3.12-slim
+WORKDIR /app
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+COPY . .
+EXPOSE 8000
+CMD [&quot;uvicorn&quot;, &quot;app.main:app&quot;, &quot;--host&quot;, &quot;0.0.0.0&quot;, &quot;--port&quot;, &quot;8000&quot;]</code></pre>
+
+<p><strong>requirements.txt：</strong></p>
+
+<pre><code>fastapi&gt;=0.110
+uvicorn[standard]&gt;=0.29
+sqlalchemy&gt;=2.0
+jinja2&gt;=3.1
+python-multipart&gt;=0.0.9
+pydantic&gt;=2.0</code></pre>
+
+<h2>执行预览</h2>
+
+<pre><code class="language-bash"># 1. 创建项目
+$ mkdir tasker &amp;&amp; cd tasker
+$ python -m venv venv
+$ source venv/bin/activate
+$ pip install fastapi uvicorn sqlalchemy jinja2 python-multipart
+
+# 2. 运行 v1 单文件版本
+$ python app.py
+# INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
+
+# 3. 浏览器访问 http://localhost:8000
+# → 看到 Tasker 界面，可添加、完成、删除任务
+
+# 4. 运行 v3 测试
+$ pip install pytest httpx
+$ pytest tests/ -v
+# test_create_task PASSED
+# test_list_tasks PASSED
+# test_task_stats PASSED
+# test_validation_empty_title PASSED
+# 4 passed in 0.15s
+
+# 5. Docker 部署
+$ docker build -t tasker .
+$ docker run -p 8000:8000 -e SECRET_KEY=my-secret tasker</code></pre>
+
+<p><strong>API 自动文档（FastAPI 自带 Swagger UI）：</strong></p>
+
+<pre><code>访问 http://localhost:8000/docs → 自动生成的交互式 API 文档
+GET  /api/tasks       - 列出所有任务
+POST /api/tasks       - 创建任务
+GET  /api/tasks/stats - 获取统计</code></pre>
+
+<h2>注意事项</h2>
+
+<table><thead><tr>
+<th>项目</th>
+<th>说明</th>
+<th>重要程度</th>
+</tr></thead><tbody>
+<tr>
+<td>虚拟环境</td>
+<td>每个项目独立 venv，避免依赖冲突</td>
+<td>⭐⭐⭐</td>
+</tr>
+<tr>
+<td>数据库迁移</td>
+<td>生产环境用 Alembic 管理迁移</td>
+<td>⭐⭐⭐</td>
+</tr>
+<tr>
+<td>环境变量</td>
+<td>敏感信息不放代码，用 .env</td>
+<td>⭐⭐⭐</td>
+</tr>
+<tr>
+<td>错误处理</td>
+<td>API 返回正确的 HTTP 状态码</td>
+<td>⭐⭐⭐</td>
+</tr>
+<tr>
+<td>CSRF 保护</td>
+<td>表单提交需要 CSRF Token</td>
+<td>⭐⭐</td>
+</tr>
+<tr>
+<td>异步支持</td>
+<td>FastAPI 支持 async，IO 密集场景用异步</td>
+<td>⭐⭐</td>
+</tr>
+<tr>
+<td>静态文件缓存</td>
+<td>生产环境用 Nginx 处理静态文件</td>
+<td>⭐⭐</td>
+</tr>
+</tbody></table>
+
+<h2>避坑指南</h2>
+
+<table><thead><tr>
+<th>❌ 常见错误</th>
+<th>✅ 正确做法</th>
+</tr></thead><tbody>
+<tr>
+<td>把所有代码写在一个文件</td>
+<td>按职责分层：models / services / routers</td>
+</tr>
+<tr>
+<td>直接拼接 SQL 字符串</td>
+<td>用 ORM 或参数化查询防注入</td>
+</tr>
+<tr>
+<td>不做数据验证</td>
+<td>用 Pydantic Schema 验证输入</td>
+</tr>
+<tr>
+<td>不写测试</td>
+<td>至少覆盖核心 CRUD 和边界情况</td>
+</tr>
+<tr>
+<td>用 print 调试</td>
+<td>用 logging 模块，分级别输出</td>
+</tr>
+<tr>
+<td>忽略 CORS</td>
+<td>API 被前端调用时配置 CORS 中间件</td>
+</tr>
+<tr>
+<td>SQLite 写锁冲突</td>
+<td>生产环境换 PostgreSQL</td>
+</tr>
+</tbody></table>
+
+<h2>练习题</h2>
+
+<h3>🟢 基础题</h3>
+
+<ol>
+<li><strong>添加用户系统</strong>：在 Task 模型上添加 <code>owner</code> 字段，实现简单的多用户任务管理。</li>
+
+<ol>
+<li><strong>导出功能</strong>：添加一个 <code>/tasks/export</code> 接口，将任务导出为 CSV 文件下载。</li>
+
+<h3>🟡 进阶题</h3>
+
+<ol>
+<li><strong>任务标签系统</strong>：实现多对多关系——Task 和 Tag，支持按标签筛选任务。</li>
+
+<ol>
+<li><strong>定时提醒</strong>：用 APScheduler 实现任务到期提醒，在 <code>due_date</code> 到期时发送通知。</li>
+
+<h3>🔴 挑战题</h3>
+
+<ol>
+<li><strong>WebSocket 实时更新</strong>：用 FastAPI WebSocket 实现——当一个浏览器添加任务时，其他打开的页面自动刷新列表。</li>
+
+<ol>
+<li><strong>完整的 CI/CD</strong>：配置 GitHub Actions，实现 push 后自动运行测试、构建 Docker 镜像、推送到镜像仓库。</li>
+
+<h2>知识点总结</h2>
+
+<pre><code>Python Web 应用知识树
+├── 项目结构
+│   ├── 分层架构(routers/services/models)
+│   ├── 配置管理(环境变量)
+│   └── 依赖注入(FastAPI Depends)
+├── 数据层
+│   ├── SQLAlchemy 2.0 ORM
+│   ├── 模型定义与关系
+│   ├── 数据库会话管理
+│   └── 迁移管理(Alembic)
+├── API 层
+│   ├── RESTful 设计
+│   ├── Pydantic 验证
+│   ├── 自动文档(Swagger)
+│   └── 错误处理
+├── 前端层
+│   ├── Jinja2 模板
+│   ├── HTMX 动态交互
+│   └── 表单处理
+├── 测试
+│   ├── pytest 配置
+│   ├── TestClient
+│   └── 内存数据库测试
+└── 部署
+    ├── Uvicorn ASGI
+    ├── Docker 容器化
+    └── 环境变量管理</code></pre>
+
+<h2>举一反三</h2>
+
+<table><thead><tr>
+<th>你学到的</th>
+<th>可以应用到</th>
+<th>具体场景</th>
+</tr></thead><tbody>
+<tr>
+<td>分层架构</td>
+<td>任何 Python Web 项目</td>
+<td>Django/Flask 项目也能用同样的分层思路</td>
+</tr>
+<tr>
+<td>ORM 模型设计</td>
+<td>数据库设计</td>
+<td>任何需要持久化的应用（博客、电商）</td>
+</tr>
+<tr>
+<td>Pydantic 验证</td>
+<td>API 数据校验</td>
+<td>配置文件解析、外部 API 响应验证</td>
+</tr>
+<tr>
+<td>依赖注入</td>
+<td>代码解耦</td>
+<td>数据库会话、认证、配置都可以注入</td>
+</tr>
+<tr>
+<td>HTMX 前端交互</td>
+<td>快速原型开发</td>
+<td>不用写 JS 也能做动态页面</td>
+</tr>
+<tr>
+<td>Docker 部署</td>
+<td>任何后端服务</td>
+<td>统一的部署流程，环境一致性</td>
+</tr>
+</tbody></table>
+
+<h2>参考资料</h2>
+
+<ul>
+<li><a href="https://fastapi.tiangolo.com/">FastAPI 官方文档</a></li>
+<li><a href="https://docs.sqlalchemy.org/en/20/">SQLAlchemy 2.0 文档</a></li>
+<li><a href="https://htmx.org/">HTMX 官方文档</a></li>
+<li><a href="https://docs.pydantic.dev/">Pydantic V2 文档</a></li>
+<li><a href="https://www.uvicorn.org/deployment/">Uvicorn 部署指南</a></li>
+
+<h2>代码演进路线</h2>
+
+<pre><code>v1 单文件 MVP（100行）
+ └── 能用：添加、完成、删除任务
+     └── v2 分层架构（300行）
+         └── routers/services/models 分离 + HTMX
+             └── v3 生产就绪（500行+测试+Docker）
+                 └── 配置管理、测试套件、容器化
+                     └── 下一步：认证系统 + WebSocket + CI/CD</code></pre>
+
+<p><strong>v1 → v2 改进点</strong>：从单文件拆分为分层架构，引入 Service 层封装业务逻辑，使用 HTMX 实现局部刷新，添加 Pydantic 数据验证。</p>
+
+<p><strong>v2 → v3 改进点</strong>：添加完整的 pytest 测试套件（内存数据库隔离测试），配置管理（环境变量），Dockerfile 容器化，为生产部署做好准备。</p>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

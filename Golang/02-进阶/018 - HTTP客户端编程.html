@@ -1,0 +1,521 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>018 - HTTP客户端编程</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Golang/index.html">Golang</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Golang/02-进阶/index.html">Golang进阶</a>
+</nav>
+<h1>018 - HTTP客户端编程</h1>
+<div class="meta">
+<span>📂 Golang进阶</span>
+<span>🏷️ Golang</span>
+</div>
+<article>
+
+
+<h1>048 - HTTP客户端编程</h1>
+
+<blockquote><p>难度：⭐⭐⭐ | 预计学习时间：35分钟</p></blockquote>
+
+<h2>一、概念讲解</h2>
+
+<p>Go的 <code>net/http</code> 包提供了强大的HTTP客户端和服务端支持。客户端方面，<code>http.Client</code> 是核心，配合 <code>http.Request</code> 可以发送各种HTTP请求。</p>
+
+<p>关键组件：</p>
+<ul>
+<li><strong>http.Client</strong>：管理连接池、Cookie、超时等</li>
+<li><strong>http.Request</strong>：封装请求方法、URL、Header、Body</li>
+<li><strong>http.Transport</strong>：底层传输控制（TLS、代理、Keep-Alive）</li>
+<li><strong>multipart.Writer</strong>：文件上传</li>
+
+<h2>二、脑图</h2>
+
+<pre><code>HTTP客户端编程
+├── 基本请求
+│   ├── http.Get/Post (DefaultClient)
+│   ├── http.NewRequest 自定义请求
+│   └── GET/POST/PUT/DELETE/PATCH
+├── Client配置
+│   ├── Timeout 总超时
+│   ├── Transport 底层传输
+│   ├── CheckRedirect 重定向控制
+│   ├── Jar Cookie管理
+│   └── 连接池控制
+├── 请求处理
+│   ├── Header 设置
+│   ├── Body (io.Reader)
+│   ├── Query参数
+│   ├── Basic Auth
+│   └── Bearer Token
+├── 文件上传
+│   ├── multipart.Writer
+│   ├── 多文件上传
+│   └── 表单字段混合
+├── 高级特性
+│   ├── TLS配置
+│   ├── 代理设置
+│   ├── 请求重试
+│   └── Context超时控制
+└── 响应处理
+    ├── StatusCode
+    ├── Header
+    ├── Body (io.ReadCloser)
+    └── 必须关闭Body!</code></pre>
+
+<h2>三、完整Go代码</h2>
+
+<h3>v1: 基本GET/POST + JSON处理</h3>
+
+<pre><code class="language-go">package main
+
+import (
+	&quot;bytes&quot;
+	&quot;encoding/json&quot;
+	&quot;fmt&quot;
+	&quot;io&quot;
+	&quot;net/http&quot;
+	&quot;time&quot;
+)
+
+type Post struct {
+	ID     int    `json:&quot;id&quot;`
+	Title  string `json:&quot;title&quot;`
+	Body   string `json:&quot;body&quot;`
+	UserId int    `json:&quot;userId&quot;`
+}
+
+func main() {
+	client := &amp;http.Client{Timeout: 10 * time.Second}
+
+	// GET request
+	resp, err := client.Get(&quot;https://jsonplaceholder.typicode.com/posts/1&quot;)
+	if err != nil {
+		panic(err)
+	}
+	defer resp.Body.Close() // ALWAYS close body!
+
+	body, _ := io.ReadAll(resp.Body)
+	var post Post
+	json.Unmarshal(body, &amp;post)
+	fmt.Printf(&quot;GET: id=%d title=%q\n&quot;, post.ID, post.Title)
+
+	// POST with JSON
+	newPost := Post{Title: &quot;Test&quot;, Body: &quot;Hello Go&quot;, UserId: 1}
+	jsonData, _ := json.Marshal(newPost)
+
+	resp2, err := client.Post(
+		&quot;https://jsonplaceholder.typicode.com/posts&quot;,
+		&quot;application/json&quot;,
+		bytes.NewReader(jsonData),
+	)
+	if err != nil {
+		panic(err)
+	}
+	defer resp2.Body.Close()
+
+	var created Post
+	json.NewDecoder(resp2.Body).Decode(&amp;created)
+	fmt.Printf(&quot;POST: created id=%d\n&quot;, created.ID)
+
+	// PUT request
+	newPost.Title = &quot;Updated Title&quot;
+	jsonData, _ = json.Marshal(newPost)
+	req, _ := http.NewRequest(&quot;PUT&quot;,
+		&quot;https://jsonplaceholder.typicode.com/posts/1&quot;,
+		bytes.NewReader(jsonData))
+	req.Header.Set(&quot;Content-Type&quot;, &quot;application/json&quot;)
+
+	resp3, err := client.Do(req)
+	if err != nil {
+		panic(err)
+	}
+	defer resp3.Body.Close()
+	fmt.Printf(&quot;PUT: status=%d\n&quot;, resp3.StatusCode)
+
+	// DELETE
+	req, _ = http.NewRequest(&quot;DELETE&quot;,
+		&quot;https://jsonplaceholder.typicode.com/posts/1&quot;, nil)
+	resp4, err := client.Do(req)
+	if err != nil {
+		panic(err)
+	}
+	defer resp4.Body.Close()
+	fmt.Printf(&quot;DELETE: status=%d\n&quot;, resp4.StatusCode)
+}</code></pre>
+
+<p><strong>执行预览：</strong></p>
+<pre><code>GET: id=1 title=&quot;sunt aut facere repellat provident...&quot;
+POST: created id=101
+PUT: status=200
+DELETE: status=200</code></pre>
+
+<h3>v2: 自定义Client + Timeout + Cookie + TLS</h3>
+
+<pre><code class="language-go">package main
+
+import (
+	&quot;crypto/tls&quot;
+	&quot;fmt&quot;
+	&quot;io&quot;
+	&quot;net/http&quot;
+	&quot;net/http/cookiejar&quot;
+	&quot;time&quot;
+)
+
+func main() {
+	// Cookie jar for automatic cookie management
+	jar, _ := cookiejar.New(nil)
+
+	// Custom Transport with TLS config
+	transport := &amp;http.Transport{
+		TLSClientConfig: &amp;tls.Config{
+			MinVersion: tls.VersionTLS12,
+		},
+		MaxIdleConns:        100,
+		MaxIdleConnsPerHost: 10,
+		IdleConnTimeout:     90 * time.Second,
+	}
+
+	client := &amp;http.Client{
+		Timeout:   30 * time.Second,
+		Transport: transport,
+		Jar:       jar,
+	}
+
+	// Request with custom headers
+	req, _ := http.NewRequest(&quot;GET&quot;, &quot;https://httpbin.org/headers&quot;, nil)
+	req.Header.Set(&quot;User-Agent&quot;, &quot;GoClient/1.0&quot;)
+	req.Header.Set(&quot;Accept&quot;, &quot;application/json&quot;)
+
+	resp, err := client.Do(req)
+	if err != nil {
+		panic(err)
+	}
+	defer resp.Body.Close()
+
+	body, _ := io.ReadAll(resp.Body)
+	fmt.Printf(&quot;Status: %d\nBody: %s\n&quot;, resp.StatusCode, string(body[:min(len(body), 200)]))
+
+	// Check cookies
+	fmt.Printf(&quot;Cookies: %v\n&quot;, jar.Cookies(req.URL))
+}
+
+func min(a, b int) int {
+	if a &lt; b {
+		return a
+	}
+	return b
+}</code></pre>
+
+<p><strong>执行预览：</strong></p>
+<pre><code>Status: 200
+Body: {&quot;headers&quot;:{&quot;Accept&quot;:&quot;application/json&quot;,&quot;Host&quot;:&quot;httpbin.org&quot;,&quot;User-Agent&quot;:&quot;GoClient/1.0&quot;}}
+Cookies: []</code></pre>
+
+<h3>v3: 文件上传 + 请求重试</h3>
+
+<pre><code class="language-go">package main
+
+import (
+	&quot;bytes&quot;
+	&quot;fmt&quot;
+	&quot;io&quot;
+	&quot;mime/multipart&quot;
+	&quot;net/http&quot;
+	&quot;time&quot;
+)
+
+// RetryHTTP retries a request up to maxAttempts times
+func RetryHTTP(client *http.Client, req *http.Request, maxAttempts int) (*http.Response, error) {
+	var lastErr error
+	for i := 0; i &lt; maxAttempts; i++ {
+		// Clone request body if needed
+		var bodyBytes []byte
+		if req.Body != nil {
+			bodyBytes, _ = io.ReadAll(req.Body)
+			req.Body.Close()
+		}
+
+		// Create a fresh request for each attempt
+		newReq := req.Clone(req.Context())
+		if bodyBytes != nil {
+			newReq.Body = io.NopCloser(bytes.NewReader(bodyBytes))
+		}
+
+		resp, err := client.Do(newReq)
+		if err != nil {
+			lastErr = err
+			time.Sleep(time.Second * time.Duration(i+1)) // backoff
+			continue
+		}
+		// Retry on server errors
+		if resp.StatusCode &gt;= 500 {
+			resp.Body.Close()
+			lastErr = fmt.Errorf(&quot;server error: %d&quot;, resp.StatusCode)
+			time.Sleep(time.Second * time.Duration(i+1))
+			continue
+		}
+		return resp, nil
+	}
+	return nil, fmt.Errorf(&quot;after %d attempts: %w&quot;, maxAttempts, lastErr)
+}
+
+func main() {
+	// Multipart file upload
+	var buf bytes.Buffer
+	w := multipart.NewWriter(&amp;buf)
+
+	// Add a file field
+	fileWriter, _ := w.CreateFormFile(&quot;upload&quot;, &quot;test.txt&quot;)
+	fileWriter.Write([]byte(&quot;Hello, this is file content!\nLine 2 of the file.\n&quot;))
+
+	// Add regular form fields
+	w.WriteField(&quot;username&quot;, &quot;gopher&quot;)
+	w.WriteField(&quot;description&quot;, &quot;A test upload&quot;)
+	w.Close()
+
+	req, _ := http.NewRequest(&quot;POST&quot;,
+		&quot;https://httpbin.org/post&quot;,
+		&amp;buf)
+	req.Header.Set(&quot;Content-Type&quot;, w.FormDataContentType())
+
+	client := &amp;http.Client{Timeout: 30 * time.Second}
+
+	// Use retry
+	resp, err := RetryHTTP(client, req, 3)
+	if err != nil {
+		fmt.Printf(&quot;Upload failed: %v\n&quot;, err)
+		return
+	}
+	defer resp.Body.Close()
+
+	body, _ := io.ReadAll(resp.Body)
+	output := string(body)
+	if len(output) &gt; 300 {
+		output = output[:300] + &quot;...&quot;
+	}
+	fmt.Printf(&quot;Upload response (%d): %s\n&quot;, resp.StatusCode, output)
+}</code></pre>
+
+<p><strong>执行预览：</strong></p>
+<pre><code>Upload response (200): {&quot;args&quot;:{},&quot;data&quot;:&quot;&quot;,&quot;files&quot;:{&quot;upload&quot;:&quot;Hello, this is file content!\nLine 2 of the file.\n&quot;},&quot;form&quot;:{&quot;description&quot;:&quot;A test upload&quot;,&quot;username&quot;:&quot;gopher&quot;},...</code></pre>
+
+<h2>四、注意事项</h2>
+
+<table><thead><tr>
+<th>要点</th>
+<th>说明</th>
+</tr></thead><tbody>
+<tr>
+<td>必须关闭Body</td>
+<td><code>defer resp.Body.Close()</code> 是必须的，否则连接无法复用</td>
+</tr>
+<tr>
+<td>DefaultClient无超时</td>
+<td><code>http.Get()</code> 用的DefaultClient没有超时，生产环境危险</td>
+</tr>
+<tr>
+<td>连接池复用</td>
+<td>同一host的请求应共用Client，复用连接</td>
+</tr>
+<tr>
+<td>Context取消</td>
+<td>用req.WithContext(ctx)支持请求取消</td>
+</tr>
+<tr>
+<td>302重定向</td>
+<td>默认跟随重定向，可自定义CheckRedirect</td>
+</tr>
+<tr>
+<td>Body只能读一次</td>
+<td>需要重试时要保存Body字节并重建Reader</td>
+</tr>
+</tbody></table>
+
+<h2>五、避坑指南</h2>
+
+<p>❌ 用DefaultClient无超时：</p>
+<pre><code class="language-go">resp, err := http.Get(url) // 可能永远阻塞</code></pre>
+<p>✅ 自定义Client带超时：</p>
+<pre><code class="language-go">client := &amp;http.Client{Timeout: 10 * time.Second}</code></pre>
+
+<p>❌ 忘记关闭Body：</p>
+<pre><code class="language-go">resp, _ := client.Get(url)
+// 没有 defer resp.Body.Close()</code></pre>
+<p>✅ 始终关闭：</p>
+<pre><code class="language-go">resp, err := client.Get(url)
+if err != nil { return err }
+defer resp.Body.Close()</code></pre>
+
+<p>❌ 重试时Body已消耗：</p>
+<pre><code class="language-go">client.Do(req) // Body reader已读完
+client.Do(req) // 第二次Body为空</code></pre>
+<p>✅ 重试前保存并重建Body</p>
+
+<p>❌ 忽略StatusCode：</p>
+<pre><code class="language-go">// 只检查err，不检查 resp.StatusCode</code></pre>
+<p>✅ 始终检查：</p>
+<pre><code class="language-go">if resp.StatusCode != http.StatusOK { /* handle error */ }</code></pre>
+
+<h2>六、练习题</h2>
+
+<p>🟢 <strong>基础题：</strong> 写一个HTTP客户端，访问 https://httpbin.org/get 并打印所有响应头。</p>
+
+<p>🟡 <strong>进阶题：</strong> 实现一个支持重试、超时、日志的HTTP Client封装，提供 GetJSON/PostJSON 方法。</p>
+
+<p>🔴 <strong>挑战题：</strong> 实现并发下载器：给定一个URL列表，使用goroutine并发下载，支持进度显示和断点续传。</p>
+
+<h2>七、知识点总结</h2>
+
+<pre><code>HTTP客户端
+├── 核心对象
+│   ├── http.Client (连接管理)
+│   ├── http.Request (请求构造)
+│   └── http.Response (响应处理)
+├── 请求方法
+│   ├── GET 查询
+│   ├── POST 创建
+│   ├── PUT 更新
+│   ├── DELETE 删除
+│   └── PATCH 部分更新
+├── 高级配置
+│   ├── Timeout (总体超时)
+│   ├── Transport (底层传输)
+│   ├── CookieJar (Cookie)
+│   └── TLSConfig (安全)
+└── 实战模式
+    ├── JSON API调用
+    ├── 文件上传 (multipart)
+    ├── 请求重试 (backoff)
+    └── 并发请求控制</code></pre>
+
+<h2>八、举一反三</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>方案</th>
+<th>关键函数</th>
+</tr></thead><tbody>
+<tr>
+<td>REST API调用</td>
+<td>JSON序列化 + 自定义Client</td>
+<td>json.NewDecoder(resp.Body)</td>
+</tr>
+<tr>
+<td>微服务通信</td>
+<td>连接池 + 超时 + 重试</td>
+<td>Client{Transport, Timeout}</td>
+</tr>
+<tr>
+<td>文件下载</td>
+<td>流式写入文件 + 进度</td>
+<td>io.Copy(file, resp.Body)</td>
+</tr>
+<tr>
+<td>文件上传</td>
+<td>multipart.Writer</td>
+<td>CreateFormFile</td>
+</tr>
+<tr>
+<td>爬虫</td>
+<td>Cookie管理 + 代理</td>
+<td>CookieJar + Transport.Proxy</td>
+</tr>
+<tr>
+<td>Webhook回调</td>
+<td>POST + JSON + 重试</td>
+<td>RetryHTTP模式</td>
+</tr>
+</tbody></table>
+
+<h2>九、参考资料</h2>
+
+<ul>
+<li><a href="https://pkg.go.dev/net/http">Go官方文档：net/http</a></li>
+<li><a href="https://blog.cloudflare.com/the-complete-guide-to-golang-net-http-timeouts/">Go HTTP Client最佳实践</a></li>
+<li><a href="https://pkg.go.dev/mime/multipart">MIME multipart</a></li>
+
+<h2>十、代码演进总结</h2>
+
+<table><thead><tr>
+<th>版本</th>
+<th>重点</th>
+<th>适用场景</th>
+</tr></thead><tbody>
+<tr>
+<td>v1</td>
+<td>基本GET/POST/PUT/DELETE</td>
+<td>简单API调用</td>
+</tr>
+<tr>
+<td>v2</td>
+<td>自定义Client+TLS+Cookie</td>
+<td>生产环境HTTP客户端</td>
+</tr>
+<tr>
+<td>v3</td>
+<td>文件上传+请求重试</td>
+<td>健壮的API客户端</td>
+</tr>
+</tbody></table>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

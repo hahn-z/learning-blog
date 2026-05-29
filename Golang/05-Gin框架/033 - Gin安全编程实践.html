@@ -1,0 +1,613 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>033 - Gin安全编程实践</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Golang/index.html">Golang</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Golang/05-Gin框架/index.html">Gin框架</a>
+</nav>
+<h1>033 - Gin安全编程实践</h1>
+<div class="meta">
+<span>📂 Gin框架</span>
+<span>🏷️ Golang</span>
+</div>
+<article>
+
+
+
+<h1>033 - Gin安全编程实践</h1>
+
+<blockquote><p>难度：⭐⭐⭐⭐（中高级）<br>适用：需要上线生产环境的Gin开发者</p></blockquote>
+
+<h2>一、概念讲解</h2>
+
+<p>Web安全是上线前必须重视的环节。OWASP Top 10是业界公认的最常见Web安全风险清单。本节覆盖Gin中的核心安全防护。</p>
+
+<h3>OWASP Top 10（2021版核心）</h3>
+
+<ol>
+<li><strong>A01 - 权限控制失效</strong>：越权访问</li>
+</ul>
+<ol>
+<li><strong>A02 - 加密失败</strong>：敏感信息明文传输/存储</li>
+</ul>
+<ol>
+<li><strong>A03 - 注入</strong>：SQL注入、XSS、命令注入</li>
+</ul>
+<ol>
+<li><strong>A04 - 不安全设计</strong>：架构设计缺陷</li>
+</ul>
+<ol>
+<li><strong>A05 - 安全配置错误</strong>：默认配置、多余功能</li>
+</ul>
+<ol>
+<li><strong>A07 - 认证失败</strong>：弱密码、会话管理不当</li>
+
+<h2>二、脑图</h2>
+
+<pre><code>Gin安全防护
+├── 输入安全
+│   ├── SQL注入防护
+│   ├── XSS防护
+│   ├── CSRF防护
+│   └── 命令注入防护
+├── 认证授权
+│   ├── JWT安全
+│   ├── 密码加密(bcrypt)
+│   ├── 会话管理
+│   └── RBAC权限
+├── 传输安全
+│   ├── HTTPS/TLS
+│   └── 安全头部
+└── 运维安全
+    ├── 速率限制
+    ├── 日志审计
+    └── 错误信息脱敏</code></pre>
+
+<h2>三、完整代码</h2>
+
+<h3>v1：基础防护（输入验证+安全头部）</h3>
+
+<pre><code class="language-go">// middleware/security.go - Security middleware
+package middleware
+
+import (
+    &quot;net/http&quot;
+    &quot;strings&quot;
+    &quot;github.com/gin-gonic/gin&quot;
+)
+
+// SecurityHeaders adds security-related HTTP headers
+func SecurityHeaders() gin.HandlerFunc {
+    return func(c *gin.Context) {
+        c.Header(&quot;X-Content-Type-Options&quot;, &quot;nosniff&quot;)
+        c.Header(&quot;X-Frame-Options&quot;, &quot;DENY&quot;)
+        c.Header(&quot;X-XSS-Protection&quot;, &quot;1; mode=block&quot;)
+        c.Header(&quot;Strict-Transport-Security&quot;, &quot;max-age=31536000; includeSubDomains&quot;)
+        c.Header(&quot;Content-Security-Policy&quot;, &quot;default-src &#x27;self&#x27;&quot;)
+        c.Header(&quot;Referrer-Policy&quot;, &quot;strict-origin-when-cross-origin&quot;)
+        c.Next()
+    }
+}
+
+// InputSanitizer middleware sanitizes common injection patterns
+type SanitizeConfig struct {
+    MaxContentLength int
+    StripTags        bool
+}
+
+func InputSanitizer(cfg SanitizeConfig) gin.HandlerFunc {
+    return func(c *gin.Context) {
+        if cfg.MaxContentLength &gt; 0 {
+            if c.Request.ContentLength &gt; int64(cfg.MaxContentLength) {
+                c.AbortWithStatusJSON(http.StatusRequestEntityTooLarge, gin.H{
+                    &quot;error&quot;: &quot;request body too large&quot;,
+                })
+                return
+            }
+        }
+        c.Next()
+    }
+}</code></pre>
+
+<h3>v2：认证安全（JWT+bcrypt+CSRF）</h3>
+
+<pre><code class="language-go">// internal/auth/jwt.go - JWT authentication
+package auth
+
+import (
+    &quot;errors&quot;
+    &quot;time&quot;
+    &quot;github.com/golang-jwt/jwt/v5&quot;
+)
+
+var jwtSecret = []byte(&quot;your-256-bit-secret-key-change-in-production&quot;)
+
+type Claims struct {
+    UserID int64  `json:&quot;user_id&quot;`
+    Role   string `json:&quot;role&quot;`
+    jwt.RegisteredClaims
+}
+
+// GenerateToken creates a JWT access token
+func GenerateToken(userID int64, role string) (string, error) {
+    claims := Claims{
+        UserID: userID,
+        Role:   role,
+        RegisteredClaims: jwt.RegisteredClaims{
+            ExpiresAt: jwt.NewNumericDate(time.Now().Add(2 * time.Hour)),
+            IssuedAt:  jwt.NewNumericDate(time.Now()),
+            Issuer:    &quot;myapp&quot;,
+        },
+    }
+    token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+    return token.SignedString(jwtSecret)
+}
+
+// ParseToken validates and parses a JWT token
+func ParseToken(tokenStr string) (*Claims, error) {
+    token, err := jwt.ParseWithClaims(tokenStr, &amp;Claims{},
+        func(token *jwt.Token) (interface{}, error) {
+            if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+                return nil, errors.New(&quot;unexpected signing method&quot;)
+            }
+            return jwtSecret, nil
+        },
+    )
+    if err != nil {
+        return nil, err
+    }
+    claims, ok := token.Claims.(*Claims)
+    if !ok || !token.Valid {
+        return nil, errors.New(&quot;invalid token&quot;)
+    }
+    return claims, nil
+}</code></pre>
+
+<pre><code class="language-go">// internal/auth/password.go - Password security
+package auth
+
+import (
+    &quot;golang.org/x/crypto/bcrypt&quot;
+)
+
+// HashPassword hashes a password using bcrypt
+func HashPassword(password string) (string, error) {
+    bytes, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+    return string(bytes), err
+}
+
+// CheckPassword compares a password with its hash
+func CheckPassword(password, hash string) bool {
+    err := bcrypt.CompareHashAndPassword([]byte(hash), []byte(password))
+    return err == nil
+}</code></pre>
+
+<pre><code class="language-go">// middleware/auth.go - Auth middleware
+package middleware
+
+import (
+    &quot;net/http&quot;
+    &quot;strings&quot;
+    &quot;myapp/internal/auth&quot;
+    &quot;github.com/gin-gonic/gin&quot;
+)
+
+// JWTAuth validates JWT tokens from Authorization header
+func JWTAuth() gin.HandlerFunc {
+    return func(c *gin.Context) {
+        authHeader := c.GetHeader(&quot;Authorization&quot;)
+        if authHeader == &quot;&quot; {
+            c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{&quot;error&quot;: &quot;missing token&quot;})
+            return
+        }
+        parts := strings.SplitN(authHeader, &quot; &quot;, 2)
+        if len(parts) != 2 || parts[0] != &quot;Bearer&quot; {
+            c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{&quot;error&quot;: &quot;invalid token format&quot;})
+            return
+        }
+        claims, err := auth.ParseToken(parts[1])
+        if err != nil {
+            c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{&quot;error&quot;: &quot;invalid token&quot;})
+            return
+        }
+        c.Set(&quot;userID&quot;, claims.UserID)
+        c.Set(&quot;userRole&quot;, claims.Role)
+        c.Next()
+    }
+}
+
+// RBAC checks user role against required roles
+func RBAC(allowedRoles ...string) gin.HandlerFunc {
+    roleSet := make(map[string]bool)
+    for _, r := range allowedRoles {
+        roleSet[r] = true
+    }
+    return func(c *gin.Context) {
+        role, _ := c.Get(&quot;userRole&quot;)
+        if !roleSet[role.(string)] {
+            c.AbortWithStatusJSON(http.StatusForbidden, gin.H{&quot;error&quot;: &quot;insufficient permissions&quot;})
+            return
+        }
+        c.Next()
+    }
+}
+
+// RateLimit simple rate limiter per IP
+func RateLimit(maxRequests int, per time.Duration) gin.HandlerFunc {
+    type visitor struct {
+        count    int
+        lastSeen time.Time
+    }
+    visitors := make(map[string]*visitor)
+    mu := sync.Mutex{}
+
+    return func(c *gin.Context) {
+        ip := c.ClientIP()
+        mu.Lock()
+        defer mu.Unlock()
+
+        v, exists := visitors[ip]
+        if !exists || time.Since(v.lastSeen) &gt; per {
+            visitors[ip] = &amp;visitor{count: 1, lastSeen: time.Now()}
+            c.Next()
+            return
+        }
+        v.count++
+        v.lastSeen = time.Now()
+        if v.count &gt; maxRequests {
+            c.AbortWithStatusJSON(http.StatusTooManyRequests, gin.H{&quot;error&quot;: &quot;rate limit exceeded&quot;})
+            return
+        }
+        c.Next()
+    }
+}</code></pre>
+
+<pre><code class="language-go">// repository/user.go - Safe SQL with parameterized queries
+package repository
+
+import (
+    &quot;context&quot;
+    &quot;database/sql&quot;
+    &quot;myapp/internal/model&quot;
+)
+
+type UserRepository struct {
+    db *sql.DB
+}
+
+// GetByEmail uses parameterized query to prevent SQL injection
+func (r *UserRepository) GetByEmail(ctx context.Context, email string) (*model.User, error) {
+    // ✅ Safe: parameterized query
+    query := &quot;SELECT id, name, email, password_hash FROM users WHERE email = ?&quot;
+    row := r.db.QueryRowContext(ctx, query, email)
+    
+    var user model.User
+    if err := row.Scan(&amp;user.ID, &amp;user.Name, &amp;user.Email, &amp;user.PasswordHash); err != nil {
+        return nil, err
+    }
+    return &amp;user, nil
+}
+
+// NEVER do this:
+// query := fmt.Sprintf(&quot;SELECT * FROM users WHERE email = &#x27;%s&#x27;&quot;, email) // ❌ SQL INJECTION!</code></pre>
+
+<h3>v3：完整安全方案</h3>
+
+<pre><code class="language-go">// cmd/server/main.go - Security-hardened server
+package main
+
+import (
+    &quot;crypto/tls&quot;
+    &quot;log&quot;
+    &quot;net/http&quot;
+    &quot;time&quot;
+    &quot;github.com/gin-gonic/gin&quot;
+    &quot;myapp/middleware&quot;
+)
+
+func main() {
+    gin.SetMode(gin.ReleaseMode)
+    r := gin.New()
+
+    // Global security middleware
+    r.Use(
+        middleware.SecurityHeaders(),              // Security headers
+        middleware.InputSanitizer(middleware.SanitizeConfig{
+            MaxContentLength: 10 &lt;&lt; 20, // 10MB max
+        }),
+        middleware.RateLimit(100, time.Minute),    // 100 req/min per IP
+        gin.Logger(),                              // Access logging
+        gin.Recovery(),                            // Panic recovery
+    )
+
+    // Public routes
+    r.POST(&quot;/login&quot;, handleLogin)
+    r.POST(&quot;/register&quot;, handleRegister)
+
+    // Protected routes
+    auth := r.Group(&quot;/api&quot;)
+    auth.Use(middleware.JWTAuth())
+    {
+        auth.GET(&quot;/profile&quot;, handleProfile)
+        
+        // Admin-only routes
+        admin := auth.Group(&quot;/admin&quot;)
+        admin.Use(middleware.RBAC(&quot;admin&quot;))
+        {
+            admin.GET(&quot;/users&quot;, handleListUsers)
+        }
+    }
+
+    // TLS configuration
+    tlsCfg := &amp;tls.Config{
+        MinVersion: tls.VersionTLS12,
+        CurvePreferences: []tls.CurveID{
+            tls.X25519,
+            tls.CurveP256,
+        },
+    }
+
+    srv := &amp;http.Server{
+        Addr:         &quot;:8443&quot;,
+        Handler:      r,
+        TLSConfig:    tlsCfg,
+        ReadTimeout:  10 * time.Second,
+        WriteTimeout: 30 * time.Second,
+        IdleTimeout:  60 * time.Second,
+    }
+
+    log.Println(&quot;Server on :8443 (HTTPS)&quot;)
+    log.Fatal(srv.ListenAndServeTLS(&quot;cert.pem&quot;, &quot;key.pem&quot;))
+}
+
+func handleLogin(c *gin.Context) {
+    var req struct {
+        Email    string `json:&quot;email&quot; binding:&quot;required,email&quot;`
+        Password string `json:&quot;password&quot; binding:&quot;required,min=8&quot;`
+    }
+    if err := c.ShouldBindJSON(&amp;req); err != nil {
+        c.JSON(http.StatusBadRequest, gin.H{&quot;error&quot;: &quot;invalid input&quot;})
+        return
+    }
+    // Verify credentials...
+    token, _ := auth.GenerateToken(1, &quot;user&quot;)
+    c.JSON(http.StatusOK, gin.H{&quot;token&quot;: token})
+}</code></pre>
+
+<h2>四、执行预览</h2>
+
+<pre><code class="language-bash"># Register
+$ curl -X POST http://localhost:8443/register \
+  -H &quot;Content-Type: application/json&quot; \
+  -d &#x27;{&quot;email&quot;:&quot;alice@test.com&quot;,&quot;password&quot;:&quot;Str0ngP@ss!&quot;}&#x27;
+{&quot;id&quot;:1,&quot;email&quot;:&quot;alice@test.com&quot;}
+
+# Login
+$ curl -X POST http://localhost:8443/login \
+  -H &quot;Content-Type: application/json&quot; \
+  -d &#x27;{&quot;email&quot;:&quot;alice@test.com&quot;,&quot;password&quot;:&quot;Str0ngP@ss!&quot;}&#x27;
+{&quot;token&quot;:&quot;eyJhbGci...&quot;}
+
+# Access protected route
+$ curl http://localhost:8443/api/profile \
+  -H &quot;Authorization: Bearer eyJhbGci...&quot;
+{&quot;id&quot;:1,&quot;name&quot;:&quot;Alice&quot;,&quot;email&quot;:&quot;alice@test.com&quot;}
+
+# Rate limit exceeded
+$ for i in $(seq 1 110); do curl -s http://localhost:8443/api/profile; done
+{&quot;error&quot;:&quot;rate limit exceeded&quot;}</code></pre>
+
+<h2>五、注意事项</h2>
+
+<table><thead><tr>
+<th>事项</th>
+<th>说明</th>
+</tr></thead><tbody>
+<tr>
+<td>JWT密钥</td>
+<td>生产环境必须从环境变量/Vault加载，不硬编码</td>
+</tr>
+<tr>
+<td>bcrypt cost</td>
+<td>DefaultCost(10)够用，别设太高影响性能</td>
+</tr>
+<tr>
+<td>HTTPS</td>
+<td>生产环境必须开启，Let's Encrypt免费证书</td>
+</tr>
+<tr>
+<td>错误信息</td>
+<td>不要返回内部错误详情给客户端</td>
+</tr>
+<tr>
+<td>日志审计</td>
+<td>敏感操作必须记录，但不能记录密码</td>
+</tr>
+</tbody></table>
+
+<h2>六、避坑指南</h2>
+
+<table><thead><tr>
+<th>❌ 错误做法</th>
+<th>✅ 正确做法</th>
+</tr></thead><tbody>
+<tr>
+<td><code>fmt.Sprintf</code>拼接SQL</td>
+<td>参数化查询/ORM</td>
+</tr>
+<tr>
+<td><code>md5/sha1</code>存密码</td>
+<td><code>bcrypt</code>/<code>argon2id</code></td>
+</tr>
+<tr>
+<td>JWT存在localStorage</td>
+<td>HttpOnly Cookie + CSRF Token</td>
+</tr>
+<tr>
+<td>明文HTTP传输</td>
+<td>HTTPS + HSTS</td>
+</tr>
+<tr>
+<td>返回完整错误堆栈</td>
+<td>通用错误信息 + 服务端日志</td>
+</tr>
+<tr>
+<td>硬编码密钥</td>
+<td>环境变量/Vault/配置中心</td>
+</tr>
+</tbody></table>
+
+<h2>七、练习题</h2>
+
+<p>🟢 <strong>初级</strong>：为Gin应用添加安全头部中间件，配置HTTPS。</p>
+
+<p>🟡 <strong>中级</strong>：实现JWT认证+bcrypt密码加密+速率限制。</p>
+
+<p>🔴 <strong>高级</strong>：实现完整RBAC权限系统+审计日志+CSRF防护+安全扫描。</p>
+
+<h2>八、知识点总结</h2>
+
+<pre><code>Gin安全
+├── 输入安全
+│   ├── 参数化查询（SQL注入）
+│   ├── HTML转义（XSS）
+│   ├── CSRF Token
+│   └── 输入长度/格式验证
+├── 认证授权
+│   ├── JWT（访问令牌）
+│   ├── bcrypt（密码哈希）
+│   └── RBAC（角色权限）
+├── 传输安全
+│   ├── TLS 1.2+
+│   ├── 安全响应头
+│   └── CORS白名单
+└── 运维安全
+    ├── 速率限制
+    ├── 日志审计
+    └── 错误脱敏</code></pre>
+
+<h2>九、举一反三</h2>
+
+<table><thead><tr>
+<th>攻击类型</th>
+<th>防护方案</th>
+</tr></thead><tbody>
+<tr>
+<td>SQL注入</td>
+<td>参数化查询 + ORM</td>
+</tr>
+<tr>
+<td>XSS</td>
+<td>HTML转义 + CSP头</td>
+</tr>
+<tr>
+<td>CSRF</td>
+<td>SameSite Cookie + CSRF Token</td>
+</tr>
+<tr>
+<td>暴力破解</td>
+<td>速率限制 + 账户锁定</td>
+</tr>
+<tr>
+<td>中间人攻击</td>
+<td>HTTPS + HSTS</td>
+</tr>
+<tr>
+<td>越权访问</td>
+<td>RBAC + 资源归属校验</td>
+</tr>
+</tbody></table>
+
+<h2>十、参考资料</h2>
+
+<ul>
+<li><a href="https://owasp.org/Top10/">OWASP Top 10(2021)</a></li>
+<li><a href="https://pkg.go.dev/golang.org/x/crypto">Go Crypto标准库</a></li>
+<li><a href="https://tools.ietf.org/html/rfc8725">JWT最佳实践(RFC8725)</a></li>
+<li><a href="https://content-security-policy.com/">CSP参考</a></li>
+<li><a href="https://letsencrypt.org/">Let's Encrypt</a></li>
+
+<h2>十一、代码演进总结</h2>
+
+<table><thead><tr>
+<th>版本</th>
+<th>特点</th>
+<th>安全等级</th>
+</tr></thead><tbody>
+<tr>
+<td>v1 安全头部+输入过滤</td>
+<td>基础防护</td>
+<td>开发/测试环境</td>
+</tr>
+<tr>
+<td>v2 JWT+bcrypt+限流</td>
+<td>认证授权完整</td>
+<td>一般生产环境</td>
+</tr>
+<tr>
+<td>v3 TLS+RBAC+审计</td>
+<td>全面安全加固</td>
+<td>金融/高安全场景</td>
+</tr>
+</tbody></table>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

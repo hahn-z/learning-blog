@@ -1,0 +1,735 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>008-biz业务层开发</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Golang/index.html">Golang</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Golang/06-Kratos微服务框架/index.html">Kratos框架</a>
+</nav>
+<h1>008-biz业务层开发</h1>
+<div class="meta">
+<span>📂 Kratos框架</span>
+<span>🏷️ Golang</span>
+</div>
+<article>
+
+
+<h1>008-biz业务层开发</h1>
+
+<blockquote><p>难度：⭐⭐⭐⭐（高级）<br>前置知识：DDD领域驱动设计、Go接口、Kratos项目结构</p></blockquote>
+
+<h2>一、概念讲解</h2>
+
+<h3>biz 层是什么？</h3>
+
+<p>biz 层是 Kratos 项目中<strong>纯业务逻辑</strong>所在的层，对应 DDD 中的 Domain Layer。它的核心原则：</p>
+
+<ol>
+<li><strong>不依赖任何外部框架</strong>（不直接操作数据库、不处理 HTTP/gRPC）</li>
+</ul>
+<ol>
+<li><strong>通过接口定义依赖</strong>（Repository 接口由 biz 层定义，data 层实现）</li>
+</ul>
+<ol>
+<li><strong>封装业务规则</strong>（所有业务判断在 biz 层完成）</li>
+
+<h3>Kratos 分层架构中 biz 的位置</h3>
+
+<pre><code>HTTP/gRPC  →  Service（薄层，协议适配）  →  biz（业务逻辑）  →  data（数据访问）
+                                                    ↑
+                                            Repository 接口（biz定义）
+                                            Repository 实现（data层提供）</code></pre>
+
+<p><strong>关键设计</strong>：biz 层定义 Repository 接口，data 层实现它。这是<strong>依赖倒置原则（DIP）</strong>的体现。</p>
+
+<h2>二、脑图</h2>
+
+<pre><code>biz 业务层
+├── 核心职责
+│   ├── 定义 Repository 接口
+│   ├── 封装业务规则和逻辑
+│   ├── 领域模型定义
+│   └── 事务边界划分
+├── Repository 接口
+│   ├── 接口定义在 biz 层
+│   ├── 实现在 data 层
+│   ├── 方法粒度 = 业务操作
+│   └── 返回领域模型（BO）
+├── 领域模型（BO）
+│   ├── 纯 Go 结构体
+│   ├── 不依赖 ORM 标签
+│   ├── 可包含业务方法
+│   └── 可包含领域事件
+├── 业务规则封装
+│   ├── 参数校验（业务级）
+│   ├── 状态流转规则
+│   ├── 权限判断
+│   └── 计算逻辑
+├── 事务边界
+│   ├── Usecase 方法 = 事务边界
+│   ├── 通过 Transaction 接口
+│   └── 不直接操作 DB
+├── 单元测试
+│   ├── Mock Repository
+│   ├── 纯逻辑测试
+│   └── 无外部依赖
+└── 反模式（避免）
+    ├── biz 层操作数据库
+    ├── Repository 返回 ORM 模型
+    └── Service 层写业务逻辑</code></pre>
+
+<h2>三、完整代码示例</h2>
+
+<h3>3.1 领域模型</h3>
+
+<pre><code class="language-go">// internal/biz/order.go
+package biz
+
+import (
+    &quot;context&quot;
+    &quot;time&quot;
+
+    &quot;github.com/go-kratos/kratos/v2/log&quot;
+)
+
+// OrderStatus defines order status type
+type OrderStatus string
+
+const (
+    StatusPending   OrderStatus = &quot;pending&quot;
+    StatusPaid      OrderStatus = &quot;paid&quot;
+    StatusShipped   OrderStatus = &quot;shipped&quot;
+    StatusCompleted OrderStatus = &quot;completed&quot;
+    StatusCancelled OrderStatus = &quot;cancelled&quot;
+)
+
+// Order is the domain model (Business Object)
+type Order struct {
+    ID              int64
+    UserID          int64
+    Status          OrderStatus
+    TotalAmount     float64
+    Items           []*OrderItem
+    ShippingAddress *Address
+    Remark          string
+    PaidAt          *time.Time
+    ShippedAt       *time.Time
+    CreatedAt       time.Time
+    UpdatedAt       time.Time
+}
+
+// OrderItem is a domain sub-entity
+type OrderItem struct {
+    ID          int64
+    ProductID   int64
+    ProductName string
+    Quantity    int32
+    UnitPrice   float64
+}
+
+// Address is a value object
+type Address struct {
+    Name     string
+    Phone    string
+    FullAddr string
+}
+
+// CanPay checks if the order can be paid (business rule)
+func (o *Order) CanPay() bool {
+    return o.Status == StatusPending
+}
+
+// CanCancel checks if the order can be cancelled
+func (o *Order) CanCancel() bool {
+    return o.Status == StatusPending || o.Status == StatusPaid
+}
+
+// CanShip checks if the order can be shipped
+func (o *Order) CanShip() bool {
+    return o.Status == StatusPaid
+}
+
+// CalculateTotal computes the total amount from items
+func (o *Order) CalculateTotal() float64 {
+    total := 0.0
+    for _, item := range o.Items {
+        total += float64(item.Quantity) * item.UnitPrice
+    }
+    return total
+}</code></pre>
+
+<h3>3.2 Repository 接口定义</h3>
+
+<pre><code class="language-go">// internal/biz/repository.go
+package biz
+
+import &quot;context&quot;
+
+// OrderRepo defines the repository interface for order operations.
+// This interface is OWNED by biz layer and IMPLEMENTED by data layer.
+type OrderRepo interface {
+    // Save persists an order (create or update)
+    Save(ctx context.Context, order *Order) (*Order, error)
+
+    // FindByID retrieves an order by ID
+    FindByID(ctx context.Context, id int64) (*Order, error)
+
+    // FindByUser retrieves orders by user ID with pagination
+    FindByUser(ctx context.Context, userID int64, page, size int) ([]*Order, int64, error)
+
+    // UpdateStatus updates order status
+    UpdateStatus(ctx context.Context, id int64, status OrderStatus) error
+}
+
+// Transaction defines the transaction interface for biz layer
+type Transaction interface {
+    // ExecTx executes a function within a database transaction
+    ExecTx(ctx context.Context, fn func(ctx context.Context) error) error
+}</code></pre>
+
+<h3>3.3 Usecase 实现</h3>
+
+<pre><code class="language-go">// internal/biz/order_usecase.go
+package biz
+
+import (
+    &quot;context&quot;
+    &quot;fmt&quot;
+
+    &quot;github.com/go-kratos/kratos/v2/errors&quot;
+    &quot;github.com/go-kratos/kratos/v2/log&quot;
+)
+
+// OrderUsecase implements order business logic
+type OrderUsecase struct {
+    repo OrderRepo
+    tx   Transaction
+    log  *log.Helper
+}
+
+// NewOrderUsecase creates a new OrderUsecase
+func NewOrderUsecase(repo OrderRepo, tx Transaction, logger log.Logger) *OrderUsecase {
+    return &amp;OrderUsecase{repo: repo, tx: tx, log: log.NewHelper(logger)}
+}
+
+// CreateOrder handles order creation business logic
+func (uc *OrderUsecase) CreateOrder(ctx context.Context, order *Order) (*Order, error) {
+    // Business rule: validate order items
+    if len(order.Items) == 0 {
+        return nil, errors.BadRequest(&quot;ORDER_EMPTY&quot;, &quot;order must have at least one item&quot;)
+    }
+
+    // Business rule: calculate total amount
+    order.TotalAmount = order.CalculateTotal()
+
+    // Business rule: validate total amount &gt; 0
+    if order.TotalAmount &lt;= 0 {
+        return nil, errors.BadRequest(&quot;INVALID_AMOUNT&quot;, &quot;order total must be positive&quot;)
+    }
+
+    // Set initial status
+    order.Status = StatusPending
+
+    // Persist within transaction
+    var saved *Order
+    err := uc.tx.ExecTx(ctx, func(ctx context.Context) error {
+        var err error
+        saved, err = uc.repo.Save(ctx, order)
+        return err
+    })
+    if err != nil {
+        return nil, fmt.Errorf(&quot;create order failed: %w&quot;, err)
+    }
+
+    uc.log.WithContext(ctx).Infof(&quot;Order created: id=%d, user=%d, amount=%.2f&quot;,
+        saved.ID, saved.UserID, saved.TotalAmount)
+    return saved, nil
+}
+
+// GetOrder retrieves an order with business validation
+func (uc *OrderUsecase) GetOrder(ctx context.Context, id int64) (*Order, error) {
+    order, err := uc.repo.FindByID(ctx, id)
+    if err != nil {
+        return nil, fmt.Errorf(&quot;get order failed: %w&quot;, err)
+    }
+    if order == nil {
+        return nil, errors.NotFound(&quot;ORDER_NOT_FOUND&quot;, fmt.Sprintf(&quot;order %d not found&quot;, id))
+    }
+    return order, nil
+}
+
+// PayOrder handles payment business logic with status transition
+func (uc *OrderUsecase) PayOrder(ctx context.Context, id int64) (*Order, error) {
+    order, err := uc.GetOrder(ctx, id)
+    if err != nil {
+        return nil, err
+    }
+
+    // Business rule: only pending orders can be paid
+    if !order.CanPay() {
+        return nil, errors.Conflict(&quot;ORDER_STATUS_INVALID&quot;,
+            fmt.Sprintf(&quot;order %d cannot be paid, current status: %s&quot;, id, order.Status))
+    }
+
+    // Transition status
+    err = uc.repo.UpdateStatus(ctx, id, StatusPaid)
+    if err != nil {
+        return nil, fmt.Errorf(&quot;pay order failed: %w&quot;, err)
+    }
+
+    order.Status = StatusPaid
+    uc.log.WithContext(ctx).Infof(&quot;Order paid: id=%d&quot;, id)
+    return order, nil
+}
+
+// CancelOrder handles cancellation with business rules
+func (uc *OrderUsecase) CancelOrder(ctx context.Context, id int64, reason string) (*Order, error) {
+    order, err := uc.GetOrder(ctx, id)
+    if err != nil {
+        return nil, err
+    }
+
+    // Business rule: only pending/paid orders can be cancelled
+    if !order.CanCancel() {
+        return nil, errors.Conflict(&quot;ORDER_CANNOT_CANCEL&quot;,
+            fmt.Sprintf(&quot;order %d in status %s cannot be cancelled&quot;, id, order.Status))
+    }
+
+    err = uc.repo.UpdateStatus(ctx, id, StatusCancelled)
+    if err != nil {
+        return nil, fmt.Errorf(&quot;cancel order failed: %w&quot;, err)
+    }
+
+    // Business rule: if order was paid, trigger refund process
+    if order.Status == StatusPaid {
+        uc.log.WithContext(ctx).Infof(&quot;Refund triggered for cancelled order: id=%d, reason=%s&quot;, id, reason)
+        // Could publish a domain event here
+    }
+
+    order.Status = StatusCancelled
+    return order, nil
+}
+
+// ListOrders lists orders for a user
+func (uc *OrderUsecase) ListOrders(ctx context.Context, userID int64, page, size int) ([]*Order, int64, error) {
+    if page &lt; 1 {
+        page = 1
+    }
+    if size &lt; 1 || size &gt; 100 {
+        size = 20
+    }
+    return uc.repo.FindByUser(ctx, userID, page, size)
+}</code></pre>
+
+<h3>3.4 biz 层单元测试</h3>
+
+<pre><code class="language-go">// internal/biz/order_usecase_test.go
+package biz
+
+import (
+    &quot;context&quot;
+    &quot;testing&quot;
+    &quot;time&quot;
+
+    &quot;github.com/stretchr/testify/assert&quot;
+    &quot;github.com/stretchr/testify/mock&quot;
+)
+
+// MockOrderRepo is a mock implementation of OrderRepo
+type MockOrderRepo struct {
+    mock.Mock
+}
+
+func (m *MockOrderRepo) Save(ctx context.Context, order *Order) (*Order, error) {
+    args := m.Called(ctx, order)
+    if args.Get(0) == nil {
+        return nil, args.Error(1)
+    }
+    return args.Get(0).(*Order), args.Error(1)
+}
+
+func (m *MockOrderRepo) FindByID(ctx context.Context, id int64) (*Order, error) {
+    args := m.Called(ctx, id)
+    if args.Get(0) == nil {
+        return nil, args.Error(1)
+    }
+    return args.Get(0).(*Order), args.Error(1)
+}
+
+func (m *MockOrderRepo) FindByUser(ctx context.Context, userID int64, page, size int) ([]*Order, int64, error) {
+    args := m.Called(ctx, userID, page, size)
+    return args.Get(0).([]*Order), args.Get(1).(int64), args.Error(2)
+}
+
+func (m *MockOrderRepo) UpdateStatus(ctx context.Context, id int64, status OrderStatus) error {
+    args := m.Called(ctx, id, status)
+    return args.Error(0)
+}
+
+// MockTransaction is a mock transaction implementation
+type MockTransaction struct {
+    mock.Mock
+}
+
+func (m *MockTransaction) ExecTx(ctx context.Context, fn func(ctx context.Context) error) error {
+    args := m.Called(ctx, fn)
+    // Actually execute the function to simulate transaction
+    if fn != nil &amp;&amp; args.Error(0) == nil {
+        return fn(ctx)
+    }
+    return args.Error(0)
+}
+
+func TestCreateOrder_Success(t *testing.T) {
+    repo := new(MockOrderRepo)
+    tx := new(MockTransaction)
+    uc := NewOrderUsecase(repo, tx, log.DefaultLogger)
+
+    order := &amp;Order{
+        UserID: 1,
+        Items: []*OrderItem{
+            {ProductID: 100, Quantity: 2, UnitPrice: 50.0},
+        },
+    }
+
+    // Mock: transaction wraps the save
+    tx.On(&quot;ExecTx&quot;, mock.Anything, mock.AnythingOfType(&quot;func(context.Context) error&quot;)).
+        Return(nil)
+    repo.On(&quot;Save&quot;, mock.Anything, mock.AnythingOfType(&quot;*biz.Order&quot;)).
+        Return(&amp;Order{ID: 1, UserID: 1, Status: StatusPending, TotalAmount: 100.0}, nil)
+
+    result, err := uc.CreateOrder(context.Background(), order)
+
+    assert.NoError(t, err)
+    assert.Equal(t, float64(100.0), order.TotalAmount)
+    assert.Equal(t, StatusPending, order.Status)
+    repo.AssertExpectations(t)
+}
+
+func TestCreateOrder_EmptyItems(t *testing.T) {
+    repo := new(MockOrderRepo)
+    tx := new(MockTransaction)
+    uc := NewOrderUsecase(repo, tx, log.DefaultLogger)
+
+    order := &amp;Order{UserID: 1, Items: []*OrderItem{}}
+
+    result, err := uc.CreateOrder(context.Background(), order)
+
+    assert.Nil(t, result)
+    assert.Error(t, err)
+}
+
+func TestPayOrder_NotPending(t *testing.T) {
+    repo := new(MockOrderRepo)
+    tx := new(MockTransaction)
+    uc := NewOrderUsecase(repo, tx, log.DefaultLogger)
+
+    // Order already paid
+    repo.On(&quot;FindByID&quot;, mock.Anything, int64(1)).
+        Return(&amp;Order{ID: 1, Status: StatusPaid}, nil)
+
+    result, err := uc.PayOrder(context.Background(), 1)
+
+    assert.Nil(t, result)
+    assert.Error(t, err)
+    assert.Contains(t, err.Error(), &quot;cannot be paid&quot;)
+}</code></pre>
+
+<h2>四、执行预览</h2>
+
+<pre><code class="language-bash"># 运行 biz 层单元测试
+$ go test ./internal/biz/... -v
+
+# === RUN   TestCreateOrder_Success
+# --- PASS: TestCreateOrder_Success (0.00s)
+# === RUN   TestCreateOrder_EmptyItems
+# --- PASS: TestCreateOrder_EmptyItems (0.00s)
+# === RUN   TestPayOrder_NotPending
+# --- PASS: TestPayOrder_NotPending (0.00s)
+# PASS  ok  myapp/internal/biz  0.012s</code></pre>
+
+<h2>五、注意事项</h2>
+
+<table><thead><tr>
+<th>事项</th>
+<th>说明</th>
+<th>影响</th>
+</tr></thead><tbody>
+<tr>
+<td>biz 层不 import data 包</td>
+<td>保持依赖方向正确</td>
+<td>否则循环依赖或耦合</td>
+</tr>
+<tr>
+<td>Repository 接口在 biz 定义</td>
+<td>依赖倒置原则</td>
+<td>data 层实现 biz 层接口</td>
+</tr>
+<tr>
+<td>Usecase 方法是事务边界</td>
+<td>一个 Usecase 方法 = 一个事务</td>
+<td>跨表操作需要事务包装</td>
+</tr>
+<tr>
+<td>领域模型不含 ORM 标签</td>
+<td>BO 纯粹，DO 在 data 层</td>
+<td>分离关注点</td>
+</tr>
+<tr>
+<td>业务错误用 kratos/errors</td>
+<td>统一错误格式</td>
+<td>Service 层可直接返回</td>
+</tr>
+<tr>
+<td>避免 God Usecase</td>
+<td>一个领域一个 Usecase</td>
+<td>过大的 Usecase 需拆分</td>
+</tr>
+</tbody></table>
+
+<h2>六、避坑指南</h2>
+
+<table><thead><tr>
+<th>❌ 错误做法</th>
+<th>✅ 正确做法</th>
+</tr></thead><tbody>
+<tr>
+<td>biz 层直接操作 *gorm.DB</td>
+<td>定义 Repository 接口，data 层注入实现</td>
+</tr>
+<tr>
+<td>Repository 返回 data 层的 ORM 模型</td>
+<td>返回 biz 层的领域模型（BO）</td>
+</tr>
+<tr>
+<td>Service 层写业务逻辑</td>
+<td>Service 层只做协议转换，逻辑在 biz</td>
+</tr>
+<tr>
+<td>biz 层 import Proto 生成的类型</td>
+<td>biz 用自己的领域模型，不依赖 Proto</td>
+</tr>
+<tr>
+<td>一个 Usecase 方法做太多事</td>
+<td>单一职责，一个方法一个业务操作</td>
+</tr>
+<tr>
+<td>事务在 data 层管理</td>
+<td>事务边界在 biz 层通过 Transaction 接口控制</td>
+</tr>
+<tr>
+<td>忽略单元测试</td>
+<td>biz 层逻辑最复杂，必须有单元测试</td>
+</tr>
+</tbody></table>
+
+<h2>七、练习题</h2>
+
+<h3>🟢 初级</h3>
+<ol>
+<li>为 <code>Order</code> 添加 <code>CanComplete()</code> 方法，实现完成状态的业务规则。</li>
+</ul>
+<ol>
+<li>编写 <code>ListOrders</code> 的单元测试，验证分页参数校正逻辑。</li>
+
+<h3>🟡 中级</h3>
+<ol>
+<li>实现一个 <code>RefundOrder</code> Usecase，包含退款金额计算和状态检查。</li>
+</ul>
+<ol>
+<li>在 biz 层添加领域事件机制，当订单支付成功时发布 <code>OrderPaidEvent</code>。</li>
+
+<h3>🔴 高级</h3>
+<ol>
+<li>设计一个跨领域的订单创建流程：创建订单同时扣减库存，用事务+补偿机制保证一致性。</li>
+</ul>
+<ol>
+<li>使用 Go泛型实现一个通用的 <code>Specification</code> 模式，用于复杂的订单查询条件组合。</li>
+
+<h2>八、知识点总结</h2>
+
+<pre><code>biz 业务层
+├── 核心原则
+│   ├── 不依赖外部框架
+│   ├── 通过接口定义依赖
+│   └── 纯业务逻辑
+├── 领域模型（BO）
+│   ├── 纯 Go 结构体
+│   ├── 业务方法（CanPay, CalculateTotal）
+│   └── 不含 ORM/Proto 标签
+├── Repository 接口
+│   ├── biz 层定义接口
+│   ├── data 层实现
+│   └── 方法粒度 = 业务操作
+├── Usecase
+│   ├── 编排业务逻辑
+│   ├── 调用 Repository
+│   └── 事务边界
+├── 事务管理
+│   ├── Transaction 接口
+│   ├── ExecTx 包装
+│   └── biz 层控制边界
+└── 单元测试
+    ├── Mock Repository
+    ├── Mock Transaction
+    └── 纯逻辑无外部依赖</code></pre>
+
+<h2>九、举一反三</h2>
+
+<table><thead><tr>
+<th>领域</th>
+<th>核心实体</th>
+<th>关键业务规则</th>
+<th>复杂度来源</th>
+</tr></thead><tbody>
+<tr>
+<td>订单</td>
+<td>Order</td>
+<td>状态流转、金额计算</td>
+<td>跨服务一致性</td>
+</tr>
+<tr>
+<td>用户</td>
+<td>User</td>
+<td>注册校验、权限分级</td>
+<td>认证授权逻辑</td>
+</tr>
+<tr>
+<td>库存</td>
+<td>Inventory</td>
+<td>扣减/归还、预占</td>
+<td>并发控制</td>
+</tr>
+<tr>
+<td>优惠券</td>
+<td>Coupon</td>
+<td>使用条件、叠加规则</td>
+<td>规则引擎</td>
+</tr>
+<tr>
+<td>支付</td>
+<td>Payment</td>
+<td>对账、退款</td>
+<td>第三方集成</td>
+</tr>
+</tbody></table>
+
+<h2>十、参考资料</h2>
+
+<ul>
+<li><a href="https://go-kratos.dev/docs/getting-started/usage">Kratos 官方文档 - biz 层</a></li>
+<li><a href="https://domain-driven-design.org/">DDD 领域驱动设计</a></li>
+<li><a href="https://go.dev/doc/tutorial/add-a-test">Go 单元测试最佳实践</a></li>
+<li><a href="https://en.wikipedia.org/wiki/Dependency_inversion_principle">依赖倒置原则</a></li>
+
+<h2>十一、代码演进</h2>
+
+<h3>v1: 贫血模型（逻辑在 Service 层）</h3>
+
+<pre><code class="language-go">// Service 层直接操作 repo，业务逻辑散落
+func (s *OrderService) CreateOrder(ctx context.Context, req *pb.CreateReq) (*pb.CreateResp, error) {
+    order := &amp;Order{UserID: req.UserId, Status: &quot;pending&quot;}
+    for _, item := range req.Items {
+        order.TotalAmount += float64(item.Quantity) * item.Price
+    }
+    return s.repo.Save(ctx, order)  // 业务逻辑泄漏到 service
+}</code></pre>
+
+<p><strong>问题</strong>：业务逻辑分散在 Service 层，不可复用、不可测试。</p>
+
+<h3>v2: 充血模型（Usecase + 领域方法）</h3>
+
+<pre><code class="language-go">// biz 层 Usecase 封装逻辑
+func (uc *OrderUsecase) CreateOrder(ctx context.Context, order *Order) (*Order, error) {
+    order.TotalAmount = order.CalculateTotal()  // 领域方法
+    order.Status = StatusPending
+    return uc.repo.Save(ctx, order)
+}</code></pre>
+
+<p><strong>改进</strong>：逻辑集中在 biz 层。<strong>但</strong>没有事务控制。</p>
+
+<h3>v3: 生产级（事务 + 事件 + 规则引擎）</h3>
+
+<pre><code class="language-go">func (uc *OrderUsecase) CreateOrder(ctx context.Context, order *Order) (*Order, error) {
+    // Business rules
+    if err := uc.validateOrder(order); err != nil {
+        return nil, err
+    }
+    order.TotalAmount = order.CalculateTotal()
+    order.Status = StatusPending
+
+    // Transaction boundary
+    var saved *Order
+    err := uc.tx.ExecTx(ctx, func(ctx context.Context) error {
+        var err error
+        saved, err = uc.repo.Save(ctx, order)
+        if err != nil {
+            return err
+        }
+        // Domain event
+        return uc.event.Publish(ctx, &amp;OrderCreatedEvent{OrderID: saved.ID})
+    })
+    return saved, err
+}</code></pre>
+
+<p><strong>最终形态</strong>：完整的事务控制、领域事件、规则验证。</p>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

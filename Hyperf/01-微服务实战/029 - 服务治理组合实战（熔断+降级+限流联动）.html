@@ -1,0 +1,741 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>029 - 服务治理组合实战（熔断+降级+限流联动）</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Hyperf/index.html">Hyperf</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Hyperf/01-微服务实战/index.html">Hyperf微服务实战</a>
+</nav>
+<h1>029 - 服务治理组合实战（熔断+降级+限流联动）</h1>
+<div class="meta">
+<span>📂 Hyperf微服务实战</span>
+<span>🏷️ Hyperf</span>
+</div>
+<article>
+
+
+<h1>服务治理组合实战（熔断+降级+限流联动）</h1>
+
+<h2>难度标注</h2>
+
+<p>⭐⭐⭐⭐⭐（高级）</p>
+
+<p><strong>前置知识：</strong> 熔断器、降级策略、限流算法、Hyperf 中间件</p>
+
+<p><strong>预估用时：</strong> 60-70 分钟</p>
+
+<hr>
+
+<h2>概念讲解</h2>
+
+<p><strong>服务治理组合</strong> 是将熔断、降级、限流三种机制协同工作，形成多层次的系统保护网。限流是第一道防线（控制进入的流量），熔断是第二道（快速失败不等待），降级是第三道（提供替代方案）。三者联动才能实现从"预防"到"容灾"的完整保护。</p>
+
+<p><strong>现实类比：</strong> 大坝防洪系统。限流 = 上游分洪闸（控制来水量），熔断 = 自动泄洪闸（水位太高自动开闸放水），降级 = 应急预案（水淹了农田但保住了城区）。三者配合：先控水（限流），撑不住就泄洪（熔断），最坏情况保核心（降级）。</p>
+
+<p><strong>技术场景：</strong> 用户服务在秒杀活动中突然涌入大量请求。首先限流器按 500 QPS 截流，超过的直接返回 429。进入的 500 QPS 中调用订单服务的部分，如果订单服务开始超时，熔断器 5 次失败后打开，后续请求快速返回。熔断触发的同时，降级策略生效，返回缓存的订单数据。三层防护确保核心功能不挂。</p>
+
+<hr>
+
+<h2>实时脑图</h2>
+
+<pre><code>                    Incoming Traffic
+                    (10000 QPS burst)
+                           │
+                    ┌──────▼──────┐
+                    │  Rate Limit │ Layer 1: Control inflow
+                    │  500 QPS    │ → 429 for excess
+                    └──────┬──────┘
+                           │ (500 QPS pass)
+                           ▼
+              ┌────────────────────────┐
+              │    User Service        │
+              │    Business Logic      │
+              └───────────┬────────────┘
+                          │
+                    ┌─────▼──────┐
+                    │  Circuit   │ Layer 2: Fast fail
+                    │  Breaker   │ → Fallback when open
+                    └─────┬──────┘
+                          │
+               ┌──────────┼──────────┐
+               ▼          ▼          ▼
+          Order Svc   Auth Svc   Points Svc
+               │          │          │
+          ┌────▼────┐    OK    ┌────▼─────┐
+          │Timeout! │          │Timeout!  │
+          └────┬────┘          └────┬─────┘
+               │                     │
+               ▼                     ▼
+          ┌──────────────────────────────┐
+          │    Degradation Layer 3       │
+          │  Return cached/default data  │
+          │  + degraded flag in response │
+          └──────────────────────────────┘</code></pre>
+
+<hr>
+
+<h2>完整代码</h2>
+
+<h3>1. 治理配置中心</h3>
+
+<pre><code class="language-php">&lt;?php
+// config/autoload/governance.php
+
+declare(strict_types=1);
+
+return [
+    // ✅ Global governance configuration
+    &#x27;rate_limit&#x27; =&gt; [
+        &#x27;global&#x27; =&gt; [&#x27;limit&#x27; =&gt; 1000, &#x27;window&#x27; =&gt; 1],
+        &#x27;routes&#x27; =&gt; [
+            &#x27;/api/users/register&#x27; =&gt; [&#x27;limit&#x27; =&gt; 50, &#x27;window&#x27; =&gt; 1],
+            &#x27;/api/users&#x27; =&gt; [&#x27;limit&#x27; =&gt; 200, &#x27;window&#x27; =&gt; 1],
+        ],
+    ],
+
+    &#x27;circuit_breaker&#x27; =&gt; [
+        &#x27;order-service&#x27; =&gt; [
+            &#x27;fail_threshold&#x27; =&gt; 5,
+            &#x27;success_threshold&#x27; =&gt; 3,
+            &#x27;recovery_time&#x27; =&gt; 30,
+            &#x27;timeout&#x27; =&gt; 3.0,
+        ],
+        &#x27;auth-service&#x27; =&gt; [
+            &#x27;fail_threshold&#x27; =&gt; 10,
+            &#x27;success_threshold&#x27; =&gt; 5,
+            &#x27;recovery_time&#x27; =&gt; 60,
+            &#x27;timeout&#x27; =&gt; 2.0,
+        ],
+    ],
+
+    &#x27;degradation&#x27; =&gt; [
+        &#x27;features&#x27; =&gt; [
+            &#x27;user_profile&#x27; =&gt; [&#x27;min_level&#x27; =&gt; &#x27;emergency&#x27;],
+            &#x27;order_stats&#x27; =&gt; [&#x27;min_level&#x27; =&gt; &#x27;minimal&#x27;],
+            &#x27;points_query&#x27; =&gt; [&#x27;min_level&#x27; =&gt; &#x27;degraded&#x27;],
+            &#x27;recommendations&#x27; =&gt; [&#x27;min_level&#x27; =&gt; &#x27;normal&#x27;],
+        ],
+        &#x27;default_level&#x27; =&gt; &#x27;normal&#x27;,
+    ],
+];</code></pre>
+
+<h3>2. 组合治理中间件</h3>
+
+<pre><code class="language-php">&lt;?php
+// app/Middleware/GovernanceMiddleware.php
+
+declare(strict_types=1);
+
+namespace App\Middleware;
+
+use App\Service\Governance\GovernanceManager;
+use App\Service\RateLimit\DistributedRateLimiter;
+use Hyperf\HttpMessage\Exception\TooManyRequestsHttpException;
+use Psr\Http\Message\ResponseInterface;
+use Psr\Http\Message\ServerRequestInterface;
+use Psr\Http\Server\MiddlewareInterface;
+use Psr\Http\Server\RequestHandlerInterface;
+
+class GovernanceMiddleware implements MiddlewareInterface
+{
+    public function __construct(
+        private DistributedRateLimiter $limiter,
+        private GovernanceManager $governance
+    ) {}
+
+    public function process(
+        ServerRequestInterface $request,
+        RequestHandlerInterface $handler
+    ): ResponseInterface {
+        $path = $request-&gt;getUri()-&gt;getPath();
+
+        // ✅ Layer 1: Rate limiting
+        $rateLimitResult = $this-&gt;checkRateLimit($path, $request);
+        if (!$rateLimitResult-&gt;allowed) {
+            throw new TooManyRequestsHttpException(
+                $rateLimitResult-&gt;retryAfter &gt; 0 ? $rateLimitResult-&gt;retryAfter : null,
+                &#x27;Rate limit exceeded&#x27;
+            );
+        }
+
+        // ✅ Layer 2 &amp; 3 handled in service layer via annotations
+        $response = $handler-&gt;handle($request);
+
+        // 🟢 Add governance headers for observability
+        return $response
+            -&gt;withHeader(&#x27;X-RateLimit-Remaining&#x27;, (string)$rateLimitResult-&gt;remaining)
+            -&gt;withHeader(&#x27;X-Governance-Level&#x27;, $this-&gt;governance-&gt;getCurrentLevel()-&gt;value);
+    }
+
+    private function checkRateLimit(string $path, ServerRequestInterface $request)
+    {
+        $config = config(&#x27;governance.rate_limit.routes.&#x27; . $path)
+            ?? config(&#x27;governance.rate_limit.global&#x27;);
+
+        if ($config === null) {
+            return new \App\Service\RateLimit\RateLimitResult(true, 999, 999, 0);
+        }
+
+        $ip = $request-&gt;getServerParams()[&#x27;remote_addr&#x27;] ?? &#x27;unknown&#x27;;
+        return $this-&gt;limiter-&gt;slidingWindow($path, $ip, $config[&#x27;limit&#x27;], $config[&#x27;window&#x27;]);
+    }
+}</code></pre>
+
+<h3>3. 治理管理器</h3>
+
+<pre><code class="language-php">&lt;?php
+// app/Service/Governance/GovernanceManager.php
+
+declare(strict_types=1);
+
+namespace App\Service\Governance;
+
+use App\Enum\DegradationLevel;
+use App\Service\DegradationManager;
+use Hyperf\Context\Context;
+use Hyperf\Di\Annotation\Inject;
+
+class GovernanceManager
+{
+    #[Inject]
+    private DegradationManager $degradationManager;
+
+    /**
+     * ✅ Get current degradation level
+     */
+    public function getCurrentLevel(): DegradationLevel
+    {
+        return $this-&gt;degradationManager-&gt;getCurrentLevel();
+    }
+
+    /**
+     * ✅ Check if feature is available at current governance level
+     */
+    public function isFeatureAvailable(string $feature): bool
+    {
+        return $this-&gt;degradationManager-&gt;isFeatureAvailable($feature);
+    }
+
+    /**
+     * ✅ Execute call with full governance protection
+     * Order: check degradation → check circuit breaker → execute → fallback
+     */
+    public function protectedCall(
+        string $service,
+        string $feature,
+        callable $primary,
+        ?callable $fallback = null
+    ): mixed {
+        // ✅ Check if feature is available (degradation layer)
+        if (!$this-&gt;isFeatureAvailable($feature)) {
+            return $fallback ? $fallback() : null;
+        }
+
+        try {
+            return $primary();
+        } catch (\Throwable $e) {
+            // 🟡 Circuit breaker state managed by @CircuitBreaker annotation
+            // This is the degradation layer fallback
+            logger()-&gt;warning(&#x27;Governance protected call failed&#x27;, [
+                &#x27;service&#x27; =&gt; $service,
+                &#x27;feature&#x27; =&gt; $feature,
+                &#x27;error&#x27; =&gt; $e-&gt;getMessage(),
+            ]);
+
+            return $fallback ? $fallback() : null;
+        }
+    }
+
+    /**
+     * ✅ Get governance dashboard data
+     */
+    public function getDashboard(): array
+    {
+        return [
+            &#x27;degradation_level&#x27; =&gt; $this-&gt;getCurrentLevel()-&gt;value,
+            &#x27;features&#x27; =&gt; [
+                &#x27;user_profile&#x27; =&gt; $this-&gt;isFeatureAvailable(&#x27;user_profile&#x27;),
+                &#x27;order_stats&#x27; =&gt; $this-&gt;isFeatureAvailable(&#x27;order_stats&#x27;),
+                &#x27;points_query&#x27; =&gt; $this-&gt;isFeatureAvailable(&#x27;points_query&#x27;),
+                &#x27;recommendations&#x27; =&gt; $this-&gt;isFeatureAvailable(&#x27;recommendations&#x27;),
+            ],
+        ];
+    }
+}</code></pre>
+
+<h3>4. 用户服务完整治理集成</h3>
+
+<pre><code class="language-php">&lt;?php
+// app/Service/UserGovernanceService.php
+
+declare(strict_types=1);
+
+namespace App\Service;
+
+use App\Enum\DegradationLevel;
+use App\Service\Governance\GovernanceManager;
+use App\Service\RateLimit\DistributedRateLimiter;
+use Hyperf\CircuitBreaker\Annotation\CircuitBreaker;
+use Hyperf\Di\Annotation\Inject;
+use Hyperf\Redis\Redis;
+
+class UserGovernanceService
+{
+    #[Inject]
+    private GovernanceManager $governance;
+
+    #[Inject]
+    private OrderClientService $orderClient;
+
+    #[Inject]
+    private CacheService $cacheService;
+
+    #[Inject]
+    private Redis $redis;
+
+    /**
+     * ✅ Full governance: rate limit + circuit breaker + degradation
+     * Rate limit handled by middleware
+     * Circuit breaker via annotation
+     * Degradation via governance manager
+     */
+    #[CircuitBreaker(
+        name: &#x27;order-service&#x27;,
+        failCounter: 5,
+        successCounter: 3,
+        duration: 30,
+        fallback: &#x27;getUserOrdersGovernance&#x27;
+    )]
+    public function getUserOrders(int $userId): array
+    {
+        // ✅ Check degradation level first
+        if (!$this-&gt;governance-&gt;isFeatureAvailable(&#x27;order_stats&#x27;)) {
+            return $this-&gt;getFallbackOrders($userId);
+        }
+
+        return $this-&gt;orderClient-&gt;getUserOrders($userId);
+    }
+
+    /**
+     * ✅ Fallback: circuit breaker + degradation combined
+     */
+    public function getUserOrdersGovernance(int $userId, ?\Throwable $e = null): array
+    {
+        // Log the fallback trigger reason
+        logger()-&gt;warning(&#x27;Order fetch fallback triggered&#x27;, [
+            &#x27;user_id&#x27; =&gt; $userId,
+            &#x27;circuit_breaker&#x27; =&gt; $e ? &#x27;open&#x27; : &#x27;degraded&#x27;,
+            &#x27;error&#x27; =&gt; $e?-&gt;getMessage(),
+        ]);
+
+        // ✅ Try cache fallback first
+        $cached = $this-&gt;cacheService-&gt;getCachedOrderStats($userId);
+        if ($cached &amp;&amp; !isset($cached[&#x27;no_data&#x27;])) {
+            $cached[&#x27;fallback&#x27;] = true;
+            $cached[&#x27;fallback_reason&#x27;] = &#x27;circuit_open&#x27;;
+            return $cached;
+        }
+
+        // ✅ Safe default response
+        return [
+            &#x27;user_id&#x27; =&gt; $userId,
+            &#x27;orders&#x27; =&gt; [],
+            &#x27;total&#x27; =&gt; 0,
+            &#x27;fallback&#x27; =&gt; true,
+            &#x27;fallback_reason&#x27; =&gt; &#x27;service_unavailable&#x27;,
+            &#x27;message&#x27; =&gt; &#x27;Order service temporarily unavailable&#x27;,
+        ];
+    }
+
+    private function getFallbackOrders(int $userId): array
+    {
+        return [
+            &#x27;user_id&#x27; =&gt; $userId,
+            &#x27;orders&#x27; =&gt; [],
+            &#x27;fallback&#x27; =&gt; true,
+            &#x27;fallback_reason&#x27; =&gt; &#x27;feature_degraded&#x27;,
+        ];
+    }
+}</code></pre>
+
+<h3>5. 治理监控接口</h3>
+
+<pre><code class="language-php">&lt;?php
+// app/Controller/GovernanceController.php
+
+declare(strict_types=1);
+
+namespace App\Controller;
+
+use App\Enum\DegradationLevel;
+use App\Service\CircuitBreakerManager;
+use App\Service\DegradationManager;
+use App\Service\Governance\GovernanceManager;
+use Hyperf\Di\Annotation\Inject;
+use Hyperf\HttpServer\Annotation\Controller;
+use Hyperf\HttpServer\Annotation\GetMapping;
+use Hyperf\HttpServer\Annotation\PutMapping;
+
+#[Controller(prefix: &#x27;/api/governance&#x27;)]
+class GovernanceController
+{
+    #[Inject]
+    private GovernanceManager $governance;
+
+    #[Inject]
+    private DegradationManager $degradationManager;
+
+    #[Inject]
+    private CircuitBreakerManager $cbManager;
+
+    // ✅ Full governance dashboard
+    #[GetMapping(path: &#x27;&#x27;)]
+    public function dashboard(): array
+    {
+        return [
+            &#x27;governance&#x27; =&gt; $this-&gt;governance-&gt;getDashboard(),
+            &#x27;circuit_breakers&#x27; =&gt; $this-&gt;cbManager-&gt;getAllStates(),
+        ];
+    }
+
+    // ✅ Update degradation level
+    #[PutMapping(path: &#x27;/degradation/{level}&#x27;)]
+    public function setDegradation(string $level): array
+    {
+        $degLevel = DegradationLevel::tryFrom($level);
+        if ($degLevel === null) {
+            return [&#x27;error&#x27; =&gt; &#x27;Invalid level&#x27;];
+        }
+        $this-&gt;degradationManager-&gt;setLevel($degLevel);
+        return [&#x27;success&#x27; =&gt; true, &#x27;level&#x27; =&gt; $degLevel-&gt;value];
+    }
+
+    // ✅ Reset circuit breaker
+    #[PutMapping(path: &#x27;/circuit-breaker/{name}/reset&#x27;)]
+    public function resetBreaker(string $name): array
+    {
+        return [&#x27;success&#x27; =&gt; $this-&gt;cbManager-&gt;reset($name)];
+    }
+}</code></pre>
+
+<hr>
+
+<h2>执行预览</h2>
+
+<pre><code class="language-bash"># Full governance dashboard
+$ curl http://localhost:9501/api/governance
+{
+  &quot;governance&quot;: {
+    &quot;degradation_level&quot;: &quot;normal&quot;,
+    &quot;features&quot;: {
+      &quot;user_profile&quot;: true,
+      &quot;order_stats&quot;: true,
+      &quot;points_query&quot;: true,
+      &quot;recommendations&quot;: true
+    }
+  },
+  &quot;circuit_breakers&quot;: {
+    &quot;order-service&quot;: {&quot;state&quot;: &quot;closed&quot;, &quot;fail_counter&quot;: 0},
+    &quot;auth-service&quot;: {&quot;state&quot;: &quot;closed&quot;, &quot;fail_counter&quot;: 0}
+  }
+}
+
+# Simulate traffic spike - rate limit kicks in
+$ wrk -t4 -c100 -d5s http://localhost:9501/api/users/1
+# Many 429 responses after limit hit
+
+# Manually trigger degradation
+$ curl -X PUT http://localhost:9501/api/governance/degradation/degraded
+{&quot;success&quot;:true,&quot;level&quot;:&quot;degraded&quot;}
+
+# Now recommendations are disabled, circuit breaker still active
+$ curl http://localhost:9501/api/users/1/detail
+{
+  &quot;user&quot;: {...},
+  &quot;recommendations&quot;: null,
+  &quot;fallback&quot;: true,
+  &quot;fallback_reason&quot;: &quot;feature_degraded&quot;
+}
+
+# Full emergency mode
+$ curl -X PUT http://localhost:9501/api/governance/degradation/emergency
+# Only user_profile available, all others return cached/defaults
+
+# Reset everything
+$ curl -X PUT http://localhost:9501/api/governance/degradation/normal
+$ curl -X PUT http://localhost:9501/api/governance/circuit-breaker/order-service/reset</code></pre>
+
+<hr>
+
+<h2>注意事项</h2>
+
+<table><thead><tr>
+<th>约束</th>
+<th>说明</th>
+<th>违反后果</th>
+</tr></thead><tbody>
+<tr>
+<td>三层顺序不能乱</td>
+<td>限流→熔断→降级，从外到内</td>
+<td>内层保护被流量冲破</td>
+</tr>
+<tr>
+<td>状态要共享</td>
+<td>多实例共享 Redis 中的限流和降级状态</td>
+<td>各实例行为不一致</td>
+</tr>
+<tr>
+<td>监控要全面</td>
+<td>每层都要有指标和告警</td>
+<td>不知道哪层在起作用</td>
+</tr>
+<tr>
+<td>回复要有标识</td>
+<td>响应中标注哪层触发了保护</td>
+<td>前端无法正确展示</td>
+</tr>
+<tr>
+<td>降级可以手动触发</td>
+<td>知道大促要来了提前降级</td>
+<td>来不及自动降级就挂了</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>避坑指南</h2>
+
+<table><thead><tr>
+<th>典型错误</th>
+<th>现象</th>
+<th>正确做法</th>
+</tr></thead><tbody>
+<tr>
+<td>三层独立配置不协调</td>
+<td>限流放行但熔断阈值太低</td>
+<td>统一在 governance.php 配置</td>
+</tr>
+<tr>
+<td>熔断 fallback 又调原服务</td>
+<td>死循环</td>
+<td>fallback 只返回缓存/默认值</td>
+</tr>
+<tr>
+<td>降级忘了通知前端</td>
+<td>用户看到空白页</td>
+<td>响应加 degraded 标识</td>
+</tr>
+<tr>
+<td>限流 Key 粒度不对</td>
+<td>限了所有用户</td>
+<td>按 user_id 或 IP 限</td>
+</tr>
+<tr>
+<td>没有 admin 接口</td>
+<td>出问题只能改代码重启</td>
+<td>提供动态配置 API</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>练习题</h2>
+
+<h3>🟢 基础题</h3>
+
+<ol>
+<li><strong>配置三层防护</strong>：为一个新接口配置限流（100 QPS）+ 熔断（3 次失败）+ 降级（缓存兜底）。</li>
+
+<ol>
+<li><strong>测试联动效果</strong>：模拟下游服务不可用，观察三层防护的触发顺序和恢复过程。</li>
+
+<h3>🟡 进阶题</h3>
+
+<ol>
+<li><strong>自动化运维脚本</strong>：写一个脚本，监控 governance dashboard，当 circuit breaker 频繁打开时自动提升降级级别。</li>
+
+<h3>🔴 开放题</h3>
+
+<ol>
+<li><strong>设计自适应服务治理</strong>：基于 Prometheus 指标（错误率、延迟 P99、CPU），自动调整限流阈值、熔断参数和降级级别，实现闭环自动治理。</li>
+
+<hr>
+
+<h2>知识点总结</h2>
+
+<pre><code>服务治理组合
+├── 三层防护体系
+│   ├── Layer 1: Rate Limiting（流量入口）
+│   │   ├── 滑动窗口限流
+│   │   ├── 令牌桶限流
+│   │   └── 分级限流（IP/用户/接口）
+│   ├── Layer 2: Circuit Breaker（调用保护）
+│   │   ├── 三态模型
+│   │   ├── Fallback 机制
+│   │   └── 自动恢复
+│   └── Layer 3: Degradation（降级兜底）
+│       ├── 功能降级
+│       ├── 数据降级（缓存）
+│       └── 分级降级
+├── 配置中心
+│   ├── governance.php 统一配置
+│   ├── 动态配置（Redis）
+│   └── Admin API 热更新
+└── 可观测性
+    ├── Dashboard 接口
+    ├── 响应 Headers
+    └── 日志与指标</code></pre>
+
+<hr>
+
+<h2>举一反三</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>变种说明</th>
+<th>关键差异</th>
+</tr></thead><tbody>
+<tr>
+<td>HTTP 服务治理 → gRPC 治理</td>
+<td>协议不同</td>
+<td>gRPC 用拦截器替代中间件</td>
+</tr>
+<tr>
+<td>单服务治理 → 网关层治理</td>
+<td>统一入口治理</td>
+<td>网关限流 + 服务熔断</td>
+</tr>
+<tr>
+<td>手动治理 → 自适应治理</td>
+<td>自动调整参数</td>
+<td>需要监控闭环</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>参考资料</h2>
+
+<table><thead><tr>
+<th>资料</th>
+<th>链接</th>
+<th>权威等级</th>
+</tr></thead><tbody>
+<tr>
+<td>Google SRE - Handling Overload</td>
+<td>https://sre.google/sre-book/handling-overload/</td>
+<td>⭐⭐⭐⭐⭐</td>
+</tr>
+<tr>
+<td>Netflix Hystrix Wiki</td>
+<td>https://github.com/Netflix/Hystrix/wiki</td>
+<td>⭐⭐⭐⭐</td>
+</tr>
+<tr>
+<td>Hyperf Circuit Breaker</td>
+<td>https://hyperf.wiki/3.0/#/zh-cn/circuit-breaker</td>
+<td>⭐⭐⭐⭐</td>
+</tr>
+<tr>
+<td>Sentinel (Alibaba)</td>
+<td>https://sentinelguard.io/</td>
+<td>⭐⭐⭐⭐</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>代码演进</h2>
+
+<h3>v1 ❌ 各自为战，没有联动</h3>
+
+<pre><code class="language-php">// ❌ Rate limit in one place, circuit breaker in another
+// No coordination, no unified config
+// Different services use different patterns
+class OrderClient {
+    public function getOrders($id) {
+        // No protection at all
+        return $this-&gt;http-&gt;get(&#x27;/orders&#x27;);
+    }
+}</code></pre>
+
+<h3>v2 ✅ 三层防护 + 注解 + 中间件</h3>
+
+<pre><code class="language-php">// Rate limit: middleware
+// Circuit breaker: @CircuitBreaker annotation
+// Degradation: GovernanceManager + feature map
+#[CircuitBreaker(name: &#x27;order-service&#x27;, failCounter: 5, fallback: &#x27;getOrdersFallback&#x27;)]
+public function getUserOrders(int $userId): array {
+    if (!$this-&gt;governance-&gt;isFeatureAvailable(&#x27;order_stats&#x27;)) {
+        return $this-&gt;getFallbackOrders($userId);
+    }
+    return $this-&gt;orderClient-&gt;getUserOrders($userId);
+}</code></pre>
+
+<h3>v3 🟢 自适应治理 + 统一配置 + 闭环监控</h3>
+
+<pre><code class="language-php">// + Auto-adjust rate limit based on system load
+// + Unified governance.php config
+// + Admin API for dynamic changes
+// + Prometheus metrics for every layer
+// + Auto-escalate degradation when error rate spikes</code></pre>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

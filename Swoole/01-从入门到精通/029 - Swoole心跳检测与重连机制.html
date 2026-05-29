@@ -1,0 +1,642 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>029 - Swoole心跳检测与重连机制</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Swoole/index.html">Swoole</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Swoole/01-从入门到精通/index.html">Swoole从入门到精通</a>
+</nav>
+<h1>029 - Swoole心跳检测与重连机制</h1>
+<div class="meta">
+<span>📂 Swoole从入门到精通</span>
+<span>🏷️ Swoole</span>
+</div>
+<article>
+
+
+<h1>Swoole心跳检测与重连机制</h1>
+
+<blockquote><p>难度：⭐⭐⭐（中级）</p></blockquote>
+
+<h2>一、概念讲解</h2>
+
+<h3>为什么需要心跳？</h3>
+
+<p>TCP 连接建立后，如果一方崩溃、断电、网络中断，另一方<strong>无法感知</strong>连接已失效。这种连接称为<strong>半开连接（Half-Open Connection）</strong>。</p>
+
+<p>心跳机制通过<strong>定期发送探测包</strong>来检测连接是否存活：</p>
+
+<pre><code>Client                          Server
+  │                               │
+  │──── Ping ────────────────────►│
+  │◄──────────────── Pong ───────│  ← 连接正常
+  │                               │
+  │──── Ping ────────────────────►│
+  │     (无响应)                    │  ← 连接异常
+  │──── Ping ────────────────────►│
+  │     (无响应)                    │  ← 超时，断开
+  ╳                               │</code></pre>
+
+<h3>两种心跳模式</h3>
+
+<table><thead><tr>
+<th>模式</th>
+<th>原理</th>
+<th>适用场景</th>
+</tr></thead><tbody>
+<tr>
+<td>服务端心跳</td>
+<td>Swoole 定时检测，超时主动关闭</td>
+<td>服务端管理连接，推荐</td>
+</tr>
+<tr>
+<td>客户端心跳</td>
+<td>客户端定时发 Ping，服务端回 Pong</td>
+<td>需要客户端感知网络状态</td>
+</tr>
+</tbody></table>
+
+<h3>重连机制</h3>
+
+<p>客户端检测到连接断开后，需要自动重连：</p>
+
+<ol>
+<li><strong>指数退避</strong>：首次 1s，二次 2s，三次 4s... 避免雪崩</li>
+</ul>
+<ol>
+<li><strong>最大重试次数</strong>：防止无限重试</li>
+</ul>
+<ol>
+<li><strong>重连成功后恢复状态</strong>：重新认证、订阅等</li>
+
+<h2>二、脑图</h2>
+
+<pre><code>心跳与重连
+├── 心跳检测
+│   ├── 服务端心跳
+│   │   ├── heartbeat_check_interval
+│   │   └── heartbeat_idle_time
+│   ├── 客户端心跳
+│   │   ├── 定时 Ping
+│   │   └── 超时判断
+│   └── 应用层心跳
+│       └── 自定义 Ping/Pong 协议
+├── 重连机制
+│   ├── 指数退避 (1s → 2s → 4s → 8s)
+│   ├── 最大重试次数
+│   ├── 重连回调
+│   └── 状态恢复
+├── Swoole 配置
+│   ├── heartbeat_check_interval
+│   ├── heartbeat_idle_time
+│   └── TCP KeepAlive
+└── 监控
+    ├── 连接数统计
+    ├── 心跳超时统计
+    └── 重连成功率</code></pre>
+
+<h2>三、代码演进</h2>
+
+<h3>v1：Swoole 内置心跳检测</h3>
+
+<pre><code class="language-php">&lt;?php
+// v1: Server-side heartbeat using Swoole built-in config
+// Swoole automatically closes idle connections
+
+$server = new Swoole\Server(&quot;0.0.0.0&quot;, 9501);
+
+$server-&gt;set([
+    &quot;worker_num&quot; =&gt; 4,
+    &quot;heartbeat_check_interval&quot; =&gt; 10,  // Check every 10 seconds
+    &quot;heartbeat_idle_time&quot; =&gt; 30,       // Close if idle for 30s
+    &quot;package_max_length&quot; =&gt; 65536
+]);
+
+$server-&gt;on(&quot;connect&quot;, function ($server, $fd) {
+    echo &quot;[+] fd={$fd} connected at &quot; . date(&quot;H:i:s&quot;) . &quot;\n&quot;;
+});
+
+$server-&gt;on(&quot;receive&quot;, function ($server, $fd, $reactorId, $data) {
+    echo &quot;[Recv] fd={$fd}: {$data}\n&quot;;
+    $server-&gt;send($fd, &quot;ECHO: &quot; . $data);
+});
+
+$server-&gt;on(&quot;close&quot;, function ($server, $fd) {
+    echo &quot;[-] fd={$fd} closed at &quot; . date(&quot;H:i:s&quot;) . &quot;\n&quot;;
+});
+
+echo &quot;Heartbeat Server: check=10s idle=30s\n&quot;;
+$server-&gt;start();</code></pre>
+
+<h3>v2：应用层心跳 + 客户端自动重连</h3>
+
+<pre><code class="language-php">&lt;?php
+// v2-server: Application-level heartbeat with custom protocol
+// Protocol: [1B type][body]  type: 0=data, 1=ping, 2=pong
+
+define(&quot;MSG_DATA&quot;, 0);
+define(&quot;MSG_PING&quot;, 1);
+define(&quot;MSG_PONG&quot;, 2);
+
+$server = new Swoole\Server(&quot;0.0.0.0&quot;, 9501);
+
+$server-&gt;set([
+    &quot;worker_num&quot; =&gt; 2,
+    &quot;heartbeat_check_interval&quot; =&gt; 5,
+    &quot;heartbeat_idle_time&quot; =&gt; 15,
+    &quot;open_length_check&quot; =&gt; true,
+    &quot;package_length_type&quot; =&gt; &quot;N&quot;,
+    &quot;package_length_offset&quot; =&gt; 0,
+    &quot;package_body_offset&quot; =&gt; 4,
+    &quot;package_max_length&quot; =&gt; 65536
+]);
+
+// Track client last-active time
+$lastActive = new Swoole\Table(1024);
+$lastActive-&gt;column(&quot;time&quot;, Swoole\Table::TYPE_INT);
+$lastActive-&gt;column(&quot;ping_count&quot;, Swoole\Table::TYPE_INT);
+$lastActive-&gt;create();
+
+$server-&gt;on(&quot;connect&quot;, function ($server, $fd) use ($lastActive) {
+    $lastActive-&gt;set($fd, [&quot;time&quot; =&gt; time(), &quot;ping_count&quot; =&gt; 0]);
+    echo &quot;[+] fd={$fd} connected\n&quot;;
+});
+
+$server-&gt;on(&quot;receive&quot;, function ($server, $fd, $reactorId, $data) use ($lastActive) {
+    $lastActive-&gt;set($fd, [&quot;time&quot; =&gt; time(), &quot;ping_count&quot; =&gt; 0]);
+    
+    $type = ord($data[0]);
+    $body = substr($data, 1);
+    
+    switch ($type) {
+        case MSG_PING:
+            // Respond with PONG
+            $server-&gt;send($fd, chr(MSG_PONG) . &quot;OK&quot;);
+            echo &quot;[Ping] fd={$fd} heartbeat\n&quot;;
+            break;
+            
+        case MSG_DATA:
+            // Process data
+            echo &quot;[Data] fd={$fd}: {$body}\n&quot;;
+            $response = chr(MSG_DATA) . &quot;ACK: &quot; . $body;
+            $server-&gt;send($fd, $response);
+            break;
+    }
+});
+
+$server-&gt;on(&quot;close&quot;, function ($server, $fd) use ($lastActive) {
+    $lastActive-&gt;del($fd);
+    echo &quot;[-] fd={$fd} closed\n&quot;;
+});
+
+echo &quot;=== Heartbeat Server v2 ===\n&quot;;
+$server-&gt;start();</code></pre>
+
+<p><strong>v2 客户端（含自动重连）：</strong></p>
+
+<pre><code class="language-php">&lt;?php
+// v2-client: Auto-reconnect with exponential backoff
+
+class ReconnectClient
+{
+    private $host;
+    private $port;
+    private $client;
+    private $retryCount = 0;
+    private $maxRetries = 10;
+    private $baseDelay = 1000;  // 1 second in ms
+    private $heartbeatTimer;
+    private $connected = false;
+
+    public function __construct(string $host, int $port)
+    {
+        $this-&gt;host = $host;
+        $this-&gt;port = $port;
+    }
+
+    public function start(): void
+    {
+        $this-&gt;connect();
+    }
+
+    private function connect(): void
+    {
+        $this-&gt;client = new Swoole\Client(SWOOLE_SOCK_TCP, SWOOLE_SOCK_ASYNC);
+
+        $this-&gt;client-&gt;on(&quot;connect&quot;, function ($client) {
+            echo &quot;[Connected] to {$this-&gt;host}:{$this-&gt;port}\n&quot;;
+            $this-&gt;connected = true;
+            $this-&gt;retryCount = 0;  // Reset retry counter
+            
+            // Start heartbeat timer
+            $this-&gt;startHeartbeat();
+            
+            // Send initial data
+            $this-&gt;send(MSG_DATA, &quot;Hello from client&quot;);
+        });
+
+        $this-&gt;client-&gt;on(&quot;receive&quot;, function ($client, $data) {
+            $type = ord($data[0]);
+            $body = substr($data, 1);
+            
+            if ($type === MSG_PONG) {
+                echo &quot;[Heartbeat] PONG received\n&quot;;
+            } else {
+                echo &quot;[Recv] {$body}\n&quot;;
+            }
+        });
+
+        $this-&gt;client-&gt;on(&quot;error&quot;, function ($client) {
+            echo &quot;[Error] Connection error\n&quot;;
+            $this-&gt;connected = false;
+            $this-&gt;reconnect();
+        });
+
+        $this-&gt;client-&gt;on(&quot;close&quot;, function ($client) {
+            echo &quot;[Closed] Connection closed\n&quot;;
+            $this-&gt;connected = false;
+            $this-&gt;reconnect();
+        });
+
+        $this-&gt;client-&gt;connect($this-&gt;host, $this-&gt;port, 3.0);
+    }
+
+    private function startHeartbeat(): void
+    {
+        // Send heartbeat every 5 seconds
+        $this-&gt;heartbeatTimer = Swoole\Timer::tick(5000, function () {
+            if ($this-&gt;connected) {
+                $this-&gt;send(MSG_PING, &quot;&quot;);
+                echo &quot;[Heartbeat] PING sent\n&quot;;
+            }
+        });
+    }
+
+    private function reconnect(): void
+    {
+        if ($this-&gt;heartbeatTimer) {
+            Swoole\Timer::clear($this-&gt;heartbeatTimer);
+            $this-&gt;heartbeatTimer = null;
+        }
+
+        if ($this-&gt;retryCount &gt;= $this-&gt;maxRetries) {
+            echo &quot;[Fatal] Max retries ({$this-&gt;maxRetries}) reached. Giving up.\n&quot;;
+            return;
+        }
+
+        // Exponential backoff: 1s, 2s, 4s, 8s, 16s, max 30s
+        $delay = min($this-&gt;baseDelay * pow(2, $this-&gt;retryCount), 30000);
+        $this-&gt;retryCount++;
+        
+        echo &quot;[Reconnect] Attempt {$this-&gt;retryCount}/{$this-&gt;maxRetries} in {$delay}ms\n&quot;;
+        
+        Swoole\Timer::after($delay, function () {
+            $this-&gt;connect();
+        });
+    }
+
+    private function send(int $type, string $body): void
+    {
+        if ($this-&gt;connected) {
+            $this-&gt;client-&gt;send(chr($type) . $body);
+        }
+    }
+}
+
+define(&quot;MSG_DATA&quot;, 0);
+define(&quot;MSG_PING&quot;, 1);
+define(&quot;MSG_PONG&quot;, 2);
+
+$client = new ReconnectClient(&quot;127.0.0.1&quot;, 9501);
+$client-&gt;start();</code></pre>
+
+<h3>v3：生产级心跳管理（含监控面板）</h3>
+
+<pre><code class="language-php">&lt;?php
+// v3: Production heartbeat manager with monitoring
+// :9501 TCP service, :9502 HTTP monitoring
+
+$server = new Swoole\Server(&quot;0.0.0.0&quot;, 9501);
+
+// Shared connection table
+$connTable = new Swoole\Table(65536);
+$connTable-&gt;column(&quot;fd&quot;, Swoole\Table::TYPE_INT);
+$connTable-&gt;column(&quot;connect_time&quot;, Swoole\Table::TYPE_INT);
+$connTable-&gt;column(&quot;last_active&quot;, Swoole\Table::TYPE_INT);
+$connTable-&gt;column(&quot;heartbeat_count&quot;, Swoole\Table::TYPE_INT);
+$connTable-&gt;column(&quot;data_count&quot;, Swoole\Table::TYPE_INT);
+$connTable-&gt;create();
+
+// Stats counter
+$stats = new Swoole\Table(1);
+$stats-&gt;set(&quot;global&quot;, [&quot;total_connects&quot; =&gt; 0, &quot;total_timeouts&quot; =&gt; 0, &quot;total_reconnects&quot; =&gt; 0]);
+
+$server-&gt;set([
+    &quot;worker_num&quot; =&gt; 4,
+    &quot;heartbeat_check_interval&quot; =&gt; 5,
+    &quot;heartbeat_idle_time&quot; =&gt; 20
+]);
+
+$server-&gt;on(&quot;connect&quot;, function ($server, $fd) use ($connTable) {
+    $connTable-&gt;set($fd, [
+        &quot;fd&quot; =&gt; $fd,
+        &quot;connect_time&quot; =&gt; time(),
+        &quot;last_active&quot; =&gt; time(),
+        &quot;heartbeat_count&quot; =&gt; 0,
+        &quot;data_count&quot; =&gt; 0
+    ]);
+    echo &quot;[+] fd={$fd}\n&quot;;
+});
+
+$server-&gt;on(&quot;receive&quot;, function ($server, $fd, $rid, $data) use ($connTable) {
+    $row = $connTable-&gt;get($fd);
+    if (!$row) return;
+    
+    $connTable-&gt;set($fd, [
+        &quot;last_active&quot; =&gt; time(),
+        &quot;heartbeat_count&quot; =&gt; $row[&quot;heartbeat_count&quot;],
+        &quot;data_count&quot; =&gt; $row[&quot;data_count&quot;] + 1
+    ]);
+    
+    $server-&gt;send($fd, &quot;ACK: &quot; . trim($data));
+});
+
+$server-&gt;on(&quot;close&quot;, function ($server, $fd) use ($connTable) {
+    $connTable-&gt;del($fd);
+    echo &quot;[-] fd={$fd}\n&quot;;
+});
+
+// HTTP monitoring on :9502
+$httpPort = $server-&gt;listen(&quot;0.0.0.0&quot;, 9502, SWOOLE_SOCK_TCP);
+$httpPort-&gt;set([&quot;open_http_protocol&quot; =&gt; true]);
+
+$httpPort-&gt;on(&quot;request&quot;, function ($request, $response) use ($connTable) {
+    $path = $request-&gt;server[&quot;request_uri&quot;] ?? &quot;/&quot;;
+    
+    if ($path === &quot;/connections&quot;) {
+        $conns = [];
+        $now = time();
+        foreach ($connTable as $k =&gt; $row) {
+            $idle = $now - $row[&quot;last_active&quot;];
+            $conns[] = [
+                &quot;fd&quot; =&gt; $row[&quot;fd&quot;],
+                &quot;idle_seconds&quot; =&gt; $idle,
+                &quot;connect_duration&quot; =&gt; $now - $row[&quot;connect_time&quot;],
+                &quot;data_count&quot; =&gt; $row[&quot;data_count&quot;]
+            ];
+        }
+        $response-&gt;header(&quot;Content-Type&quot;, &quot;application/json&quot;);
+        $response-&gt;end(json_encode([&quot;total&quot; =&gt; count($conns), &quot;connections&quot; =&gt; $conns], JSON_PRETTY_PRINT));
+    } else {
+        $response-&gt;end(&quot;Heartbeat Monitor. /connections for details.&quot;);
+    }
+});
+
+echo &quot;=== Production Heartbeat Server ===\n&quot;;
+echo &quot;TCP: :9501 | Monitor: :9502\n&quot;;
+$server-&gt;start();</code></pre>
+
+<h2>四、执行预览</h2>
+
+<pre><code># Server
+$ php v3-heartbeat.php
+=== Production Heartbeat Server ===
+TCP: :9501 | Monitor: :9502
+[+] fd=1
+[Recv] fd=1: hello
+[-] fd=1  (idle timeout after 20s)
+
+# Client (with reconnect)
+$ php v2-client.php
+[Connected] to 127.0.0.1:9501
+[Recv] ACK: Hello from client
+[Heartbeat] PING sent
+[Heartbeat] PONG received
+[Closed] Connection closed
+[Reconnect] Attempt 1/10 in 1000ms
+[Connected] to 127.0.0.1:9501  ← 重连成功！
+
+# Monitor
+$ curl http://127.0.0.1:9502/connections
+{&quot;total&quot;:1,&quot;connections&quot;:[{&quot;fd&quot;:1,&quot;idle_seconds&quot;:3,...}]}</code></pre>
+
+<h2>五、注意事项</h2>
+
+<table><thead><tr>
+<th>项目</th>
+<th>说明</th>
+</tr></thead><tbody>
+<tr>
+<td>idle_time > interval</td>
+<td><code>heartbeat_idle_time</code> 必须 > <code>heartbeat_check_interval</code>，推荐 2-3 倍</td>
+</tr>
+<tr>
+<td>客户端也要心跳</td>
+<td>服务端心跳只能关闭连接，客户端需主动检测并重连</td>
+</tr>
+<tr>
+<td>Timer 清理</td>
+<td>重连前务必清理旧的 Timer，避免泄漏</td>
+</tr>
+<tr>
+<td>Table 容量</td>
+<td><code>Swoole\Table</code> 容量要 >= 最大连接数</td>
+</tr>
+<tr>
+<td>TCP KeepAlive</td>
+<td>系统级 KeepAlive 延迟较大（默认2小时），不能替代应用层心跳</td>
+</tr>
+</tbody></table>
+
+<h2>六、避坑指南</h2>
+
+<table><thead><tr>
+<th>❌ 错误做法</th>
+<th>✅ 正确做法</th>
+</tr></thead><tbody>
+<tr>
+<td>只依赖 TCP KeepAlive</td>
+<td>应用层心跳，间隔短、可控</td>
+</tr>
+<tr>
+<td>固定间隔重连（1s 1s 1s）</td>
+<td>指数退避（1s 2s 4s 8s...）</td>
+</tr>
+<tr>
+<td>重连不设上限</td>
+<td>设最大重试次数，超过告警</td>
+</tr>
+<tr>
+<td>重连后不清 Timer</td>
+<td>每次 reconnect 前 clear 旧 Timer</td>
+</tr>
+<tr>
+<td>idle_time = interval</td>
+<td>idle_time 至少是 interval 的 2 倍</td>
+</tr>
+</tbody></table>
+
+<h2>七、练习题</h2>
+
+<h3>🟢 基础题</h3>
+<ol>
+<li>配置 Swoole Server，每 30 秒检查一次心跳，超过 60 秒无活动断开。</li>
+</ul>
+<ol>
+<li>用 <code>nc</code> 连接服务器，观察超时断开的行为。</li>
+
+<h3>🟡 进阶题</h3>
+<ol>
+<li>实现异步客户端，每 5 秒发送心跳，断开后自动重连。</li>
+</ul>
+<ol>
+<li>用 <code>Swoole\Table</code> 记录每个连接的心跳次数，通过 HTTP 接口查询。</li>
+
+<h3>🔴 挑战题</h3>
+<ol>
+<li>实现一个连接池管理器：维护 N 个连接，自动心跳保活，断线重连，提供 <code>getConnection()</code> 方法。</li>
+
+<h2>八、知识点总结</h2>
+
+<pre><code>心跳与重连知识树
+├── 服务端心跳
+│   ├── heartbeat_check_interval
+│   ├── heartbeat_idle_time
+│   └── 自动 close 超时连接
+├── 客户端心跳
+│   ├── Timer::tick() 定时 Ping
+│   ├── 超时检测
+│   └── 连接状态机
+├── 重连策略
+│   ├── 指数退避
+│   ├── 最大重试
+│   ├── 状态恢复
+│   └── 告警通知
+├── 监控
+│   ├── 连接数
+│   ├── 空闲时间
+│   └── 心跳统计
+└── TCP KeepAlive
+    ├── SO_KEEPALIVE
+    ├── TCP_KEEPIDLE
+    └── TCP_KEEPINTVL</code></pre>
+
+<h2>九、举一反三</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>心跳策略</th>
+</tr></thead><tbody>
+<tr>
+<td>WebSocket 聊天</td>
+<td>Ping/Pong帧，30s超时</td>
+</tr>
+<tr>
+<td>IoT 设备管理</td>
+<td>设备定时上报即心跳，超时标记离线</td>
+</tr>
+<tr>
+<td>RPC 连接池</td>
+<td>空闲连接定时Ping，失败重建</td>
+</tr>
+<tr>
+<td>游戏服务器</td>
+<td>帧同步内置心跳，100ms超时</td>
+</tr>
+<tr>
+<td>消息队列</td>
+<td>Consumer定期ACK即心跳</td>
+</tr>
+</tbody></table>
+
+<h2>十、参考资料</h2>
+
+<ul>
+<li><a href="https://wiki.swoole.com/#/server/setting?id=heartbeat_check_interval">Swoole 心跳检测</a></li>
+<li><a href="https://wiki.swoole.com/#/timer">Swoole Timer 定时器</a></li>
+<li><a href="https://wiki.swoole.com/#/client">Swoole 异步客户端</a></li>
+<li><a href="https://tldp.org/HOWTO/TCP-Keepalive-HOWTO/">TCP KeepAlive 详解</a></li>
+
+<h2>十一、代码演进总结</h2>
+
+<table><thead><tr>
+<th>版本</th>
+<th>特点</th>
+<th>适用场景</th>
+</tr></thead><tbody>
+<tr>
+<td>v1</td>
+<td>Swoole 内置心跳，零代码</td>
+<td>简单服务端连接管理</td>
+</tr>
+<tr>
+<td>v2</td>
+<td>应用层 Ping/Pong + 客户端重连</td>
+<td>需要双向感知的生产服务</td>
+</tr>
+<tr>
+<td>v3</td>
+<td>生产级，含监控面板、连接统计</td>
+<td>运维可视化的生产环境</td>
+</tr>
+</tbody></table>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

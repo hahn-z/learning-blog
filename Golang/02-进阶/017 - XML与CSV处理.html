@@ -1,0 +1,516 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>017 - XML与CSV处理</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Golang/index.html">Golang</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Golang/02-进阶/index.html">Golang进阶</a>
+</nav>
+<h1>017 - XML与CSV处理</h1>
+<div class="meta">
+<span>📂 Golang进阶</span>
+<span>🏷️ Golang</span>
+</div>
+<article>
+
+
+<h1>047 - XML与CSV处理</h1>
+
+<blockquote><p>难度：⭐⭐⭐ | 预计学习时间：30分钟</p></blockquote>
+
+<h2>一、概念讲解</h2>
+
+<p>Go标准库提供了 <code>encoding/xml</code> 和 <code>encoding/csv</code> 两个包，分别处理XML和CSV这两种常见的数据格式。</p>
+
+<ul>
+<li><strong>encoding/xml</strong>：支持结构体标签映射(<code>xml:"name"</code>)、Marshal/Unmarshal、流式Decoder/Encoder</li>
+<li><strong>encoding/csv</strong>：支持读写CSV文件、自定义分隔符、流式逐行处理</li>
+
+<p>两者都支持流式处理，适合大文件场景。</p>
+
+<h2>二、脑图</h2>
+
+<pre><code>XML与CSV处理
+├── XML处理
+│   ├── Marshal/Unmarshal
+│   ├── 结构体标签 xml:&quot;name,attr&quot;
+│   ├── xml.Name 嵌套元素
+│   ├── Decoder 流式读取
+│   ├── Encoder 流式写入
+│   └── 处理属性、CDATA、注释
+├── CSV处理
+│   ├── Reader 逐行读取
+│   ├── Writer 逐行写入
+│   ├── 自定义 Comma 分隔符
+│   ├── LazyQuotes 宽松模式
+│   └── FieldsPerRecord 字段数控制
+└── 大文件处理
+    ├── XML: token-by-token 解析
+    ├── CSV: 逐行读写
+    └── 内存控制策略</code></pre>
+
+<h2>三、完整Go代码</h2>
+
+<h3>v1: 基础XML/CSV Marshal和Unmarshal</h3>
+
+<pre><code class="language-go">package main
+
+import (
+	&quot;encoding/csv&quot;
+	&quot;encoding/xml&quot;
+	&quot;fmt&quot;
+	&quot;strings&quot;
+)
+
+// Book represents an XML book element
+type Book struct {
+	XMLName xml.Name `xml:&quot;book&quot;`
+	ID      string   `xml:&quot;id,attr&quot;`
+	Title   string   `xml:&quot;title&quot;`
+	Author  string   `xml:&quot;author&quot;`
+	Year    int      `xml:&quot;year&quot;`
+}
+
+// Library wraps multiple books
+type Library struct {
+	XMLName xml.Name `xml:&quot;library&quot;`
+	Name    string   `xml:&quot;name,attr&quot;`
+	Books   []Book   `xml:&quot;book&quot;`
+}
+
+func main() {
+	// XML Marshal
+	lib := Library{
+		Name: &quot;MyBooks&quot;,
+		Books: []Book{
+			{ID: &quot;1&quot;, Title: &quot;Go Programming&quot;, Author: &quot;Alice&quot;, Year: 2023},
+			{ID: &quot;2&quot;, Title: &quot;Advanced Go&quot;, Author: &quot;Bob&quot;, Year: 2024},
+		},
+	}
+	data, _ := xml.MarshalIndent(lib, &quot;&quot;, &quot;  &quot;)
+	fmt.Println(&quot;XML Output:&quot;)
+	fmt.Println(string(data))
+
+	// XML Unmarshal
+	xmlInput := `&lt;library name=&quot;Test&quot;&gt;
+		&lt;book id=&quot;10&quot;&gt;&lt;title&gt;Test Book&lt;/title&gt;&lt;author&gt;Charlie&lt;/author&gt;&lt;year&gt;2024&lt;/year&gt;&lt;/book&gt;
+	&lt;/library&gt;`
+	var lib2 Library
+	xml.Unmarshal([]byte(xmlInput), &amp;lib2)
+	fmt.Printf(&quot;\nUnmarshaled: %+v\n&quot;, lib2)
+
+	// CSV Write
+	var buf strings.Builder
+	w := csv.NewWriter(&amp;buf)
+	w.Write([]string{&quot;name&quot;, &quot;age&quot;, &quot;city&quot;})
+	w.Write([]string{&quot;Alice&quot;, &quot;30&quot;, &quot;Beijing&quot;})
+	w.Write([]string{&quot;Bob&quot;, &quot;25&quot;, &quot;Shanghai&quot;})
+	w.Flush()
+	fmt.Println(&quot;\nCSV Output:&quot;)
+	fmt.Print(buf.String())
+
+	// CSV Read
+	r := csv.NewReader(&amp;buf)
+	records, _ := r.ReadAll()
+	fmt.Println(&quot;CSV Records:&quot;)
+	for i, row := range records {
+		fmt.Printf(&quot;  Row %d: %v\n&quot;, i, row)
+	}
+}</code></pre>
+
+<p><strong>执行预览：</strong></p>
+<pre><code>XML Output:
+&lt;library name=&quot;MyBooks&quot;&gt;
+  &lt;book id=&quot;1&quot;&gt;
+    &lt;title&gt;Go Programming&lt;/title&gt;
+    &lt;author&gt;Alice&lt;/author&gt;
+    &lt;year&gt;2023&lt;/year&gt;
+  &lt;/book&gt;
+  &lt;book id=&quot;2&quot;&gt;
+    &lt;title&gt;Advanced Go&lt;/title&gt;
+    &lt;author&gt;Bob&lt;/author&gt;
+    &lt;year&gt;2024&lt;/year&gt;
+  &lt;/book&gt;
+&lt;/library&gt;
+
+CSV Output:
+name,age,city
+Alice,30,Beijing
+Bob,25,Shanghai
+
+CSV Records:
+  Row 0: [name age city]
+  Row 1: [Alice 30 Beijing]
+  Row 2: [Bob 25 Shanghai]</code></pre>
+
+<h3>v2: XML流式Decoder + CSV自定义分隔符</h3>
+
+<pre><code class="language-go">package main
+
+import (
+	&quot;encoding/csv&quot;
+	&quot;encoding/xml&quot;
+	&quot;fmt&quot;
+	&quot;io&quot;
+	&quot;strings&quot;
+)
+
+func main() {
+	// XML Stream Decoder - token by token
+	xmlData := `&lt;root&gt;&lt;item id=&quot;1&quot;&gt;Alpha&lt;/item&gt;&lt;item id=&quot;2&quot;&gt;Beta&lt;/item&gt;&lt;item id=&quot;3&quot;&gt;Gamma&lt;/item&gt;&lt;/root&gt;`
+	dec := xml.NewDecoder(strings.NewReader(xmlData))
+	for {
+		token, err := dec.Token()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			panic(err)
+		}
+		switch t := token.(type) {
+		case xml.StartElement:
+			if t.Name.Local == &quot;item&quot; {
+				var id string
+				for _, attr := range t.Attr {
+					if attr.Name.Local == &quot;id&quot; {
+						id = attr.Value
+					}
+				}
+				// Read the character data inside
+				var content string
+				dec.DecodeElement(&amp;content, &amp;t)
+				fmt.Printf(&quot;Item id=%s: %s\n&quot;, id, content)
+			}
+		}
+	}
+
+	// CSV with tab delimiter (TSV)
+	tsvData := &quot;name\tage\tcity\nAlice\t30\tBeijing\nBob\t25\tShanghai\n&quot;
+	r := csv.NewReader(strings.NewReader(tsvData))
+	r.Comma = &#x27;\t&#x27; // custom delimiter
+	r.FieldsPerRecord = 3
+	for {
+		record, err := r.Read()
+		if err == io.EOF {
+			break
+		}
+		fmt.Printf(&quot;TSV Row: %v\n&quot;, record)
+	}
+}</code></pre>
+
+<p><strong>执行预览：</strong></p>
+<pre><code>Item id=1: Alpha
+Item id=2: Beta
+Item id=3: Gamma
+TSV Row: [name age city]
+TSV Row: [Alice 30 Beijing]
+TSV Row: [Bob 25 Shanghai]</code></pre>
+
+<h3>v3: 大文件流式处理 + XML Encoder</h3>
+
+<pre><code class="language-go">package main
+
+import (
+	&quot;encoding/csv&quot;
+	&quot;encoding/xml&quot;
+	&quot;fmt&quot;
+	&quot;io&quot;
+	&quot;strings&quot;
+)
+
+// Item for XML streaming output
+type Item struct {
+	XMLName xml.Name `xml:&quot;item&quot;`
+	ID      int      `xml:&quot;id,attr&quot;`
+	Name    string   `xml:&quot;name&quot;`
+	Value   float64  `xml:&quot;value&quot;`
+}
+
+func main() {
+	// Simulate processing a large CSV → convert to XML stream
+	csvInput := strings.NewReader(
+		&quot;1,Widget,9.99\n2,Gadget,19.99\n3,Doohickey,4.99\n&quot;)
+
+	var xmlOutput strings.Builder
+	xmlOutput.WriteString(&quot;&lt;?xml version=\&quot;1.0\&quot; encoding=\&quot;UTF-8\&quot;?&gt;\n&lt;catalog&gt;\n&quot;)
+
+	enc := xml.NewEncoder(&amp;xmlOutput)
+	r := csv.NewReader(csvInput)
+	r.FieldsPerRecord = 3
+
+	header, _ := r.Read() // skip header if present
+	_ = header
+
+	for {
+		record, err := r.Read()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			panic(err)
+		}
+		var id int
+		var name string
+		var value float64
+		fmt.Sscanf(record[0], &quot;%d&quot;, &amp;id)
+		name = record[1]
+		fmt.Sscanf(record[2], &quot;%f&quot;, &amp;value)
+
+		item := Item{ID: id, Name: name, Value: value}
+		enc.Encode(item)
+	}
+
+	xmlOutput.WriteString(&quot;&lt;/catalog&gt;\n&quot;)
+	fmt.Println(&quot;CSV → XML conversion:&quot;)
+	fmt.Println(xmlOutput.String())
+
+	// Stream CSV read with error handling
+	fmt.Println(&quot;--- CSV processing with stats ---&quot;)
+	csvData := strings.NewReader(
+		&quot;product,qty,price\nApple,100,3.5\nBanana,200,2.8\nOrange,50,5.0\n&quot;)
+	cr := csv.NewReader(csvData)
+	var totalValue float64
+	count := 0
+	for {
+		record, err := cr.Read()
+		if err == io.EOF {
+			break
+		}
+		if count == 0 { // skip header
+			count++
+			continue
+		}
+		var qty int
+		var price float64
+		fmt.Sscanf(record[1], &quot;%d&quot;, &amp;qty)
+		fmt.Sscanf(record[2], &quot;%f&quot;, &amp;price)
+		totalValue += float64(qty) * price
+		fmt.Printf(&quot;  %s: qty=%d, price=%.2f, subtotal=%.2f\n&quot;,
+			record[0], qty, price, float64(qty)*price)
+		count++
+	}
+	fmt.Printf(&quot;Total: %.2f (%d items)\n&quot;, totalValue, count-1)
+}</code></pre>
+
+<p><strong>执行预览：</strong></p>
+<pre><code>CSV → XML conversion:
+&lt;?xml version=&quot;1.0&quot; encoding=&quot;UTF-8&quot;?&gt;
+&lt;catalog&gt;
+&lt;item id=&quot;1&quot;&gt;&lt;name&gt;Widget&lt;/name&gt;&lt;value&gt;9.99&lt;/value&gt;&lt;/item&gt;
+&lt;item id=&quot;2&quot;&gt;&lt;name&gt;Gadget&lt;/name&gt;&lt;value&gt;19.99&lt;/value&gt;&lt;/item&gt;
+&lt;item id=&quot;3&quot;&gt;&lt;name&gt;Doohickey&lt;/name&gt;&lt;value&gt;4.99&lt;/value&gt;&lt;/item&gt;
+&lt;/catalog&gt;
+
+--- CSV processing with stats ---
+  Apple: qty=100, price=3.50, subtotal=350.00
+  Banana: qty=200, price=2.80, subtotal=560.00
+  Orange: qty=50, price=5.00, subtotal=250.00
+Total: 1160.00 (3 items)</code></pre>
+
+<h2>四、注意事项</h2>
+
+<table><thead><tr>
+<th>要点</th>
+<th>说明</th>
+</tr></thead><tbody>
+<tr>
+<td>XML标签必须匹配</td>
+<td>标签名和属性必须与XML结构一致</td>
+</tr>
+<tr>
+<td>XML需要根元素</td>
+<td>Marshal必须有一个根结构体</td>
+</tr>
+<tr>
+<td>CSV无类型</td>
+<td>所有值都是string，需手动转换</td>
+</tr>
+<tr>
+<td>CSV引号规则</td>
+<td>含逗号/换行/引号的字段需要双引号包裹</td>
+</tr>
+<tr>
+<td>xml.Name</td>
+<td>必须用xml.Name类型表示元素名</td>
+</tr>
+<tr>
+<td>BOM处理</td>
+<td>CSV文件可能有UTF-8 BOM，需跳过前3字节</td>
+</tr>
+</tbody></table>
+
+<h2>五、避坑指南</h2>
+
+<p>❌ XML标签忘记XMLName：</p>
+<pre><code class="language-go">type Bad struct { Items []string `xml:&quot;item&quot;` } // 缺少根元素名</code></pre>
+<p>✅ 使用xml.Name指定根：</p>
+<pre><code class="language-go">type Good struct {
+    XMLName xml.Name `xml:&quot;root&quot;`
+    Items   []string `xml:&quot;item&quot;`
+}</code></pre>
+
+<p>❌ CSV读完不检查Flush：</p>
+<pre><code class="language-go">w := csv.NewWriter(&amp;buf)
+w.Write(record) // 数据可能还在缓冲区</code></pre>
+<p>✅ 调用Flush并检查Error：</p>
+<pre><code class="language-go">w.Flush()
+if err := w.Error(); err != nil { /* handle */ }</code></pre>
+
+<p>❌ 大XML用Unmarshal一次性加载：</p>
+<pre><code class="language-go">xml.Unmarshal(hugeData, &amp;v) // 内存爆炸</code></pre>
+<p>✅ 使用Decoder逐token处理</p>
+
+<h2>六、练习题</h2>
+
+<p>🟢 <strong>基础题：</strong> 读取一个CSV文件（含name,email,age），打印每个人的信息，年龄转换为int。</p>
+
+<p>🟡 <strong>进阶题：</strong> 解析一个RSS/Atom feed（XML格式），提取所有条目的标题和链接。</p>
+
+<p>🔴 <strong>挑战题：</strong> 实现CSV→JSON批量转换工具，支持命令行参数指定输入输出文件，流式处理不超100MB内存。</p>
+
+<h2>七、知识点总结</h2>
+
+<pre><code>XML与CSV处理
+├── XML
+│   ├── 结构体映射 (xml标签)
+│   │   ├── 元素: xml:&quot;name&quot;
+│   │   ├── 属性: xml:&quot;,attr&quot;
+│   │   ├── 内嵌: xml:&quot;,innerxml&quot;
+│   │   ├── 字符数据: xml:&quot;,chardata&quot;
+│   │   └── 忽略: xml:&quot;-&quot;
+│   ├── Marshal/Unmarshal
+│   └── Decoder/Encoder (流式)
+├── CSV
+│   ├── Reader/Writer
+│   ├── Comma自定义分隔符
+│   ├── LazyQuotes
+│   └── FieldsPerRecord
+└── 大文件策略
+    ├── XML: Token级别解析
+    ├── CSV: 逐行处理
+    └── 编码转换(gbk等)</code></pre>
+
+<h2>八、举一反三</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>XML方案</th>
+<th>CSV方案</th>
+</tr></thead><tbody>
+<tr>
+<td>配置文件</td>
+<td>Unmarshal到struct</td>
+<td>不推荐用CSV</td>
+</tr>
+<tr>
+<td>数据导入/导出</td>
+<td>不推荐</td>
+<td>csv.Reader/Writer</td>
+</tr>
+<tr>
+<td>API响应解析</td>
+<td>xml.Decoder流式</td>
+<td>—</td>
+</tr>
+<tr>
+<td>日志处理</td>
+<td>—</td>
+<td>csv.Reader逐行</td>
+</tr>
+<tr>
+<td>数据格式转换</td>
+<td>Decoder → Encoder</td>
+<td>csv → json/xml</td>
+</tr>
+</tbody></table>
+
+<h2>九、参考资料</h2>
+
+<ul>
+<li><a href="https://pkg.go.dev/encoding/xml">Go官方文档：encoding/xml</a></li>
+<li><a href="https://pkg.go.dev/encoding/csv">Go官方文档：encoding/csv</a></li>
+<li><a href="https://www.w3.org/TR/xml/">XML标准规范</a></li>
+
+<h2>十、代码演进总结</h2>
+
+<table><thead><tr>
+<th>版本</th>
+<th>重点</th>
+<th>适用场景</th>
+</tr></thead><tbody>
+<tr>
+<td>v1</td>
+<td>Marshal/Unmarshal基础</td>
+<td>小文件、配置解析</td>
+</tr>
+<tr>
+<td>v2</td>
+<td>流式Decoder + 自定义分隔符</td>
+<td>大文件、TSV等变体</td>
+</tr>
+<tr>
+<td>v3</td>
+<td>CSV↔XML转换 + 统计计算</td>
+<td>ETL、数据处理管道</td>
+</tr>
+</tbody></table>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

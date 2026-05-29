@@ -1,0 +1,587 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>024 - 接口进阶：类型断言与组合</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/learning-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/learning-blog/Golang/index.html">Golang</a>
+<span class="sep">›</span>
+<a href="/learning-blog/Golang/01-入门/index.html">Golang入门</a>
+</nav>
+<h1>024 - 接口进阶：类型断言与组合</h1>
+<div class="meta">
+<span>📂 Golang入门</span>
+<span>🏷️ Golang</span>
+</div>
+<article>
+
+
+<h1>024 - 接口进阶：类型断言与组合</h1>
+
+<blockquote><p>难度：⭐⭐⭐⭐ | 预计阅读：20分钟</p></blockquote>
+
+<h2>一、概念讲解</h2>
+
+<p>上一篇我们掌握了接口基础。本篇深入三个核心主题：</p>
+
+<ol>
+<li><strong>类型断言与 type switch</strong>：从接口值中提取具体类型</li>
+</ul>
+<ol>
+<li><strong>接口嵌入组合</strong>：用小接口组合出复杂行为</li>
+</ul>
+<ol>
+<li><strong>实战模式</strong>：sort.Interface、error 接口、自定义错误类型、接口设计原则</li>
+
+<p>Go 的接口哲学：<strong>"The bigger the interface, the weaker the abstraction."</strong>（接口越大，抽象越弱）—— Rob Pike。Go 鼓励<strong>小接口</strong>，1-3 个方法最佳。</p>
+
+<h2>二、脑图</h2>
+
+<pre><code>Interface Advanced（接口进阶）
+├── 类型断言
+│   ├── v := i.(T)              ← panic on fail
+│   ├── v, ok := i.(T)          ← safe
+│   └── type switch             ← i.(type) in switch
+├── 接口嵌入组合
+│   ├── io.ReadWriter = Reader + Writer
+│   ├── sort.Interface = Len + Less + Swap
+│   └── 自定义组合接口
+├── 标准库接口深入
+│   ├── error → Error() string
+│   ├── fmt.Stringer → String() string
+│   └── sort.Interface
+├── 自定义错误类型
+│   ├── 实现 error 接口
+│   ├── Unwrap() error 链
+│   ├── errors.Is() / errors.As()
+│   └── 自定义错误含上下文信息
+└── 接口设计原则
+    ├── 小接口（1-3 方法）
+    ├── Accept interfaces, return structs
+    └── 消费者定义接口，非生产者</code></pre>
+
+<h2>三、完整 Go 代码</h2>
+
+<pre><code class="language-go">package main
+
+import (
+	&quot;errors&quot;
+	&quot;fmt&quot;
+	&quot;sort&quot;
+	&quot;strconv&quot;
+	&quot;strings&quot;
+)
+
+// ========== 1. Type Assertion &amp; Type Switch ==========
+
+type Animal interface {
+	Sound() string
+}
+
+type Dog struct{ Name string }
+type Cat struct{ Name string }
+type Bird struct{ Name string }
+
+func (d Dog) Sound() string { return d.Name + &quot;: Woof!&quot; }
+func (c Cat) Sound() string { return c.Name + &quot;: Meow!&quot; }
+func (b Bird) Sound() string { return b.Name + &quot;: Tweet!&quot; }
+
+// Type switch: clean pattern for handling multiple types
+func identify(a Animal) {
+	switch v := a.(type) {
+	case Dog:
+		fmt.Printf(&quot;  Dog named %s says %s\n&quot;, v.Name, v.Sound())
+	case Cat:
+		fmt.Printf(&quot;  Cat named %s says %s\n&quot;, v.Name, v.Sound())
+	case Bird:
+		fmt.Printf(&quot;  Bird named %s says %s\n&quot;, v.Name, v.Sound())
+	default:
+		fmt.Printf(&quot;  Unknown animal type: %T\n&quot;, v)
+	}
+}
+
+// Safe type assertion with comma-ok
+func tryAsDog(a Animal) {
+	if dog, ok := a.(Dog); ok {
+		fmt.Printf(&quot;  Found dog: %s\n&quot;, dog.Name)
+	} else {
+		fmt.Printf(&quot;  Not a dog, it&#x27;s %T\n&quot;, a)
+	}
+}
+
+// ========== 2. sort.Interface in Practice ==========
+
+// Custom type that sorts by multiple criteria
+type Employee struct {
+	Name   string
+	Age    int
+	Salary float64
+}
+
+type ByAge []Employee
+
+func (a ByAge) Len() int           { return len(a) }
+func (a ByAge) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
+func (a ByAge) Less(i, j int) bool { return a[i].Age &lt; a[j].Age }
+
+type BySalary []Employee
+
+func (a BySalary) Len() int           { return len(a) }
+func (a BySalary) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
+func (a BySalary) Less(i, j int) bool { return a[i].Salary &gt; a[j].Salary } // descending
+
+// Multi-sort using sort.Slice (simpler alternative)
+func demoSliceSort() {
+	emps := []Employee{
+		{&quot;Alice&quot;, 30, 80000},
+		{&quot;Bob&quot;, 25, 90000},
+		{&quot;Charlie&quot;, 35, 70000},
+	}
+
+	sort.Slice(emps, func(i, j int) bool {
+		return emps[i].Name &lt; emps[j].Name
+	})
+	fmt.Println(&quot;  Sorted by name:&quot;, namesOf(emps))
+}
+
+func namesOf(emps []Employee) string {
+	ns := make([]string, len(emps))
+	for i, e := range emps {
+		ns[i] = e.Name
+	}
+	return strings.Join(ns, &quot;, &quot;)
+}
+
+// ========== 3. Custom Error Types ==========
+
+// Basic custom error
+type NotFoundError struct {
+	Resource string
+	ID       int
+}
+
+func (e *NotFoundError) Error() string {
+	return fmt.Sprintf(&quot;%s with id %d not found&quot;, e.Resource, e.ID)
+}
+
+// Wrapped error with context
+type ValidationError struct {
+	Field   string
+	Message string
+	Cause   error
+}
+
+func (e *ValidationError) Error() string {
+	return fmt.Sprintf(&quot;validation failed on %s: %s&quot;, e.Field, e.Message)
+}
+
+func (e *ValidationError) Unwrap() error {
+	return e.Cause
+}
+
+// Business logic that returns custom errors
+func findUser(id int) (string, error) {
+	if id &lt;= 0 {
+		return &quot;&quot;, &amp;ValidationError{
+			Field:   &quot;id&quot;,
+			Message: &quot;must be positive&quot;,
+		}
+	}
+	if id &gt; 100 {
+		return &quot;&quot;, &amp;NotFoundError{Resource: &quot;User&quot;, ID: id}
+	}
+	return &quot;user_&quot; + strconv.Itoa(id), nil
+}
+
+// ========== 4. Stringer Interface ==========
+
+type Money struct {
+	Amount   float64
+	Currency string
+}
+
+func (m Money) String() string {
+	return fmt.Sprintf(&quot;%.2f%s&quot;, m.Amount, m.Currency)
+}
+
+type Percentage float64
+
+func (p Percentage) String() string {
+	return fmt.Sprintf(&quot;%.1f%%&quot;, float64(p))
+}
+
+// ========== 5. Interface Composition ==========
+
+type Serializer interface {
+	Serialize() string
+}
+
+type Validator interface {
+	Validate() error
+}
+
+// Composed interface: must implement both
+type ValidatedSerializer interface {
+	Serializer
+	Validator
+}
+
+type Config struct {
+	Key   string
+	Value string
+}
+
+func (c Config) Serialize() string {
+	return c.Key + &quot;=&quot; + c.Value
+}
+
+func (c Config) Validate() error {
+	if c.Key == &quot;&quot; {
+		return errors.New(&quot;key cannot be empty&quot;)
+	}
+	return nil
+}
+
+func processConfig(vs ValidatedSerializer) error {
+	if err := vs.Validate(); err != nil {
+		return fmt.Errorf(&quot;config validation: %w&quot;, err)
+	}
+	fmt.Printf(&quot;  Serialized: %s\n&quot;, vs.Serialize())
+	return nil
+}
+
+// ========== main ==========
+
+func main() {
+	fmt.Println(&quot;=== 1. Type Switch ===&quot;)
+	animals := []Animal{
+		Dog{&quot;Buddy&quot;},
+		Cat{&quot;Whiskers&quot;},
+		Bird{&quot;Tweety&quot;},
+	}
+	for _, a := range animals {
+		identify(a)
+	}
+
+	fmt.Println(&quot;\n=== Type Assertion (comma-ok) ===&quot;)
+	tryAsDog(Dog{&quot;Rex&quot;})
+	tryAsDog(Cat{&quot;Mittens&quot;})
+
+	fmt.Println(&quot;\n=== 2. sort.Interface ===&quot;)
+	emps := []Employee{
+		{&quot;Alice&quot;, 30, 80000},
+		{&quot;Bob&quot;, 25, 90000},
+		{&quot;Charlie&quot;, 35, 70000},
+		{&quot;Diana&quot;, 28, 85000},
+	}
+
+	sort.Sort(ByAge(emps))
+	fmt.Println(&quot;  By Age:&quot;, namesOf(emps))
+
+	sort.Sort(BySalary(emps))
+	fmt.Println(&quot;  By Salary (desc):&quot;, namesOf(emps))
+
+	fmt.Println(&quot;\n  Using sort.Slice:&quot;)
+	demoSliceSort()
+
+	fmt.Println(&quot;\n=== 3. Custom Error Types ===&quot;)
+	testCases := []int{-1, 42, 200}
+	for _, id := range testCases {
+		user, err := findUser(id)
+		if err != nil {
+			// Use errors.As to check specific error type
+			var nfe *NotFoundError
+			var ve *ValidationError
+			if errors.As(err, &amp;nfe) {
+				fmt.Printf(&quot;  ID %d: NotFound → %v\n&quot;, id, nfe)
+			} else if errors.As(err, &amp;ve) {
+				fmt.Printf(&quot;  ID %d: Validation → %v\n&quot;, id, ve)
+			}
+			continue
+		}
+		fmt.Printf(&quot;  ID %d: Found %s\n&quot;, id, user)
+	}
+
+	fmt.Println(&quot;\n=== 4. Stringer ===&quot;)
+	price := Money{99.5, &quot;USD&quot;}
+	tax := Percentage(8.25)
+	fmt.Printf(&quot;  Price: %s, Tax: %s\n&quot;, price, tax)
+
+	fmt.Println(&quot;\n=== 5. Interface Composition ===&quot;)
+	cfg := Config{Key: &quot;host&quot;, Value: &quot;localhost&quot;}
+	processConfig(cfg)
+
+	badCfg := Config{Key: &quot;&quot;, Value: &quot;x&quot;}
+	if err := processConfig(badCfg); err != nil {
+		fmt.Printf(&quot;  Error: %v\n&quot;, err)
+	}
+
+	fmt.Println(&quot;\n=== Bonus: errors.Is for error chain ===&quot;)
+	baseErr := errors.New(&quot;connection refused&quot;)
+	wrappedErr := fmt.Errorf(&quot;db query failed: %w&quot;, baseErr)
+	fmt.Printf(&quot;  errors.Is(wrapped, base)? %v\n&quot;, errors.Is(wrappedErr, baseErr))
+}</code></pre>
+
+<h2>四、执行预览</h2>
+
+<pre><code>=== 1. Type Switch ===
+  Dog named Buddy says Buddy: Woof!
+  Cat named Whiskers says Whiskers: Meow!
+  Bird named Tweety says Tweety: Tweet!
+
+=== Type Assertion (comma-ok) ===
+  Found dog: Rex
+  Not a dog, it&#x27;s main.Cat
+
+=== 2. sort.Interface ===
+  By Age: Bob, Diana, Alice, Charlie
+  By Salary (desc): Bob, Diana, Alice, Charlie
+
+  Using sort.Slice:
+    Sorted by name: Alice, Bob, Charlie
+
+=== 3. Custom Error Types ===
+  ID -1: Validation → validation failed on id: must be positive
+  ID 42: Found user_42
+  ID 200: NotFound → User with id 200 not found
+
+=== 4. Stringer ===
+  Price: 99.50USD, Tax: 8.3%
+
+=== 5. Interface Composition ===
+  Serialized: host=localhost
+  Error: config validation: key cannot be empty
+
+=== Bonus: errors.Is for error chain ===
+  errors.Is(wrapped, base)? true</code></pre>
+
+<h2>五、注意事项</h2>
+
+<table><thead><tr>
+<th>事项</th>
+<th>说明</th>
+</tr></thead><tbody>
+<tr>
+<td>类型断言安全</td>
+<td>除非100%确定类型，否则用 <code>v, ok := i.(T)</code></td>
+</tr>
+<tr>
+<td>type switch</td>
+<td>只能在 switch 语句中使用 <code>i.(type)</code>，不能赋值</td>
+</tr>
+<tr>
+<td>errors.As vs 类型断言</td>
+<td><code>errors.As</code> 会沿 Unwrap 链查找，类型断言只看当前层</td>
+</tr>
+<tr>
+<td>sort.Interface</td>
+<td>需同时实现 Len/Less/Swap 三个方法</td>
+</tr>
+<tr>
+<td>Unwrap 链</td>
+<td><code>errors.Is</code> 和 <code>errors.As</code> 依赖 Unwrap 遍历链</td>
+</tr>
+<tr>
+<td>接口大小</td>
+<td>1-3 个方法最佳，标准库 io.Reader 只有 1 个方法</td>
+</tr>
+<tr>
+<td>组合接口</td>
+<td>嵌入多个接口时，方法不能重名（除非签名一致）</td>
+</tr>
+</tbody></table>
+
+<h2>六、避坑指南</h2>
+
+<p>❌ <strong>类型断言不检查直接用</strong></p>
+<pre><code class="language-go">func process(i interface{}) {
+    s := i.(string) // panics if i is int!
+    fmt.Println(s)
+}</code></pre>
+<p>✅ 安全模式</p>
+<pre><code class="language-go">func process(i interface{}) {
+    if s, ok := i.(string); ok {
+        fmt.Println(s)
+    }
+}</code></pre>
+
+<p>❌ <strong>在 switch case 外使用 i.(type)</strong></p>
+<pre><code class="language-go">t := i.(type) // compile error!</code></pre>
+<p>✅ 只在 type switch 内使用</p>
+<pre><code class="language-go">switch v := i.(type) {
+case string:
+    fmt.Println(v)
+}</code></pre>
+
+<p>❌ <strong>用 == 比较自定义错误</strong></p>
+<pre><code class="language-go">if err == io.EOF { ... } // fragile, misses wrapped errors</code></pre>
+<p>✅ 用 errors.Is</p>
+<pre><code class="language-go">if errors.Is(err, io.EOF) { ... } // handles wrapped errors</code></pre>
+
+<h2>七、练习题</h2>
+
+<p>🟢 <strong>基础题：type switch 实战</strong></p>
+<p>写一个函数 <code>func classify(v any) string</code>，用 type switch 识别 <code>int</code>、<code>string</code>、<code>bool</code>、<code>[]int</code>、<code>map[string]int</code>，返回描述字符串如 <code>"int: 42"</code>。</p>
+
+<p>🟡 <strong>进阶题：自定义排序</strong></p>
+<p>定义 <code>type Student struct { Name string; Score int }</code>，实现按 Score 降序排序，Score 相同时按 Name 升序。同时用 sort.Slice 写一个简化版本对比。</p>
+
+<p>🔴 <strong>挑战题：错误链与 errors.Is/As</strong></p>
+<p>定义三层错误类型：<code>DBError</code> → <code>ServiceError</code> → <code>HandlerError</code>，每层用 <code>Unwrap()</code> 链接。用 <code>errors.Is</code> 判断底层错误类型，用 <code>errors.As</code> 提取中间层错误信息。</p>
+
+<h2>八、知识点总结</h2>
+
+<pre><code>Go Interface Advanced（接口进阶）
+├── 类型断言
+│   ├── v, ok := i.(T)    ← 安全提取
+│   ├── switch i.(type)   ← 多类型分发
+│   └── 只能对接口类型使用
+├── 接口组合
+│   ├── 嵌入已有接口
+│   ├── sort.Interface（Len/Less/Swap）
+│   └── io.Reader + Writer → ReadWriter
+├── 错误处理模式
+│   ├── 自定义错误类型
+│   ├── Error() + Unwrap()
+│   ├── errors.Is() — 查找链中特定错误值
+│   ├── errors.As() — 查找链中特定错误类型
+│   └── fmt.Errorf(&quot;%w&quot;, err) — 包装错误
+├── Stringer 接口
+│   └── String() string — fmt 自动调用
+└── 设计原则
+    ├── 小接口（1-3 方法）
+    ├── Accept interfaces, return structs
+    ├── 消费者定义接口
+    └── 组合优于继承</code></pre>
+
+<h2>九、举一反三</h2>
+
+<table><thead><tr>
+<th>模式</th>
+<th>Go 实现</th>
+<th>其他语言对比</th>
+</tr></thead><tbody>
+<tr>
+<td>类型判断</td>
+<td>type switch / type assertion</td>
+<td>Java <code>instanceof</code>、Rust <code>match</code> on enum</td>
+</tr>
+<tr>
+<td>错误链</td>
+<td><code>Unwrap()</code> + <code>errors.Is/As</code></td>
+<td>Java exception chain、Rust <code>anyhow</code></td>
+</tr>
+<tr>
+<td>接口组合</td>
+<td>嵌入小接口</td>
+<td>Java default methods、Rust trait 组合</td>
+</tr>
+<tr>
+<td>多态排序</td>
+<td><code>sort.Interface</code></td>
+<td>Java <code>Comparable</code>/<code>Comparator</code></td>
+</tr>
+<tr>
+<td>字符串表示</td>
+<td><code>fmt.Stringer</code></td>
+<td>Java <code>toString()</code>、Python <code>__str__</code></td>
+</tr>
+</tbody></table>
+
+<h2>十、参考资料</h2>
+
+<ul>
+<li><a href="https://go.dev/tour/methods/15">Go 官方 - Type assertions</a></li>
+<li><a href="https://go.dev/tour/methods/17">Go 官方 - Stringer</a></li>
+<li><a href="https://go.dev/blog/error-handling-and-go">Go Blog - Error handling</a></li>
+<li><a href="https://go.dev/blog/go1.13-errors">Go Blog - Working with Errors</a></li>
+<li><a href="https://pkg.go.dev/sort#Interface">sort.Interface 文档</a></li>
+
+<h2>十一、代码演进</h2>
+
+<p><strong>v1：基础类型断言</strong></p>
+<pre><code class="language-go">func describe(i any) {
+    v, ok := i.(string)
+    if ok { fmt.Println(v) }
+}</code></pre>
+
+<p><strong>v2：type switch + sort.Interface</strong></p>
+<pre><code class="language-go">switch v := i.(type) {
+case int: fmt.Println(&quot;int:&quot;, v)
+case string: fmt.Println(&quot;str:&quot;, v)
+}
+
+type ByName []Student
+func (a ByName) Len() int { return len(a) }
+func (a ByName) Less(i, j int) bool { return a[i].Name &lt; a[j].Name }
+func (a ByName) Swap(i, j int) { a[i], a[j] = a[j], a[i] }</code></pre>
+
+<p><strong>v3：自定义错误链 + errors.Is/As + 组合接口</strong></p>
+<pre><code class="language-go">type AppError struct {
+    Code int
+    Msg  string
+    Err  error
+}
+func (e *AppError) Error() string { return e.Msg }
+func (e *AppError) Unwrap() error { return e.Err }
+
+// errors.Is(err, baseErr)
+// errors.As(err, &amp;appErr)</code></pre>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

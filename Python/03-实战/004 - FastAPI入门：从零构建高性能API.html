@@ -1,0 +1,569 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>004 - FastAPI入门：从零构建高性能API</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Python/index.html">Python</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Python/03-实战/index.html">Python实战</a>
+</nav>
+<h1>004 - FastAPI入门：从零构建高性能API</h1>
+<div class="meta">
+<span>📂 Python实战</span>
+<span>🏷️ Python</span>
+</div>
+<article>
+
+
+<h1>FastAPI入门：从零构建高性能API</h1>
+
+<blockquote><p><strong>难度标注：</strong> ⭐⭐☆☆☆（初级）<br><strong>前置知识：</strong> Python基础、HTTP协议基础概念<br><strong>预计阅读时间：</strong> 25分钟</p></blockquote>
+
+<hr>
+
+<h2>一、概念讲解</h2>
+
+<p>FastAPI 是一个现代、高性能的 Python Web 框架，用于构建 API。它的核心优势在于：</p>
+
+<ul>
+<li><strong>快速</strong>：基于 Starlette 和 Pydantic，性能与 NodeJS 和 Go 相当</li>
+<li><strong>高效</strong>：开发效率提升约 200%-300%</li>
+<li><strong>少Bug</strong>：减少约 40% 的人为错误</li>
+<li><strong>智能</strong>：编辑器支持极佳，自动补全无处不在</li>
+<li><strong>简单</strong>：设计易于使用和学习</li>
+<li><strong>简短</strong>：减少代码重复</li>
+<li><strong>健壮</strong>：生产级别可用的代码，还有自动生成交互式文档</li>
+
+<h3>核心概念对比</h3>
+
+<table><thead><tr>
+<th>特性</th>
+<th>FastAPI</th>
+<th>Flask</th>
+<th>Django</th>
+</tr></thead><tbody>
+<tr>
+<td>异步支持</td>
+<td>✅ 原生</td>
+<td>❌ 需扩展</td>
+<td>✅ 3.1+支持</td>
+</tr>
+<tr>
+<td>自动文档</td>
+<td>✅ OpenAPI</td>
+<td>❌ 需扩展</td>
+<td>❌ 需扩展</td>
+</tr>
+<tr>
+<td>类型验证</td>
+<td>✅ Pydantic</td>
+<td>❌ 手动</td>
+<td>❌ 手动</td>
+</tr>
+<tr>
+<td>性能</td>
+<td>⭐⭐⭐⭐⭐</td>
+<td>⭐⭐⭐</td>
+<td>⭐⭐⭐</td>
+</tr>
+<tr>
+<td>学习曲线</td>
+<td>低</td>
+<td>低</td>
+<td>中高</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>二、知识脑图</h2>
+
+<pre><code>FastAPI入门
+├── 环境搭建
+│   ├── pip install fastapi uvicorn
+│   └── ASGI服务器：uvicorn
+├── 路由与视图
+│   ├── @app.get / @app.post
+│   ├── 路径参数 {item_id}
+│   ├── 查询参数 ?skip=0&amp;limit=10
+│   └── 请求体 Request Body
+├── 数据验证
+│   ├── Pydantic Model
+│   ├── 字段类型与验证
+│   └── Optional字段
+├── 响应模型
+│   ├── response_model
+│   ├── 嵌套模型
+│   └── 响应状态码
+└── 自动文档
+    ├── /docs (Swagger UI)
+    └── /redoc (ReDoc)</code></pre>
+
+<hr>
+
+<h2>三、代码演进</h2>
+
+<h3>v1：最简Hello World</h3>
+
+<pre><code class="language-python"># v1_minimal.py - The simplest FastAPI application
+from fastapi import FastAPI
+
+app = FastAPI()
+
+@app.get(&quot;/&quot;)
+def root():
+    return {&quot;message&quot;: &quot;Hello, FastAPI!&quot;}
+
+# Run: uvicorn v1_minimal:app --reload</code></pre>
+
+<p>就这么简单！6行代码就能启动一个API服务。<code>FastAPI()</code> 创建应用实例，<code>@app.get("/")</code> 定义路由，函数返回值自动转为JSON响应。</p>
+
+<h3>v2：带路径参数和请求体</h3>
+
+<pre><code class="language-python"># v2_crud.py - Adding path params and request body
+from fastapi import FastAPI, HTTPException
+from pydantic import BaseModel
+from typing import Optional
+
+app = FastAPI(title=&quot;Todo API&quot;, version=&quot;2.0&quot;)
+
+# In-memory database simulation
+todos_db = {}
+
+class TodoCreate(BaseModel):
+    title: str
+    description: Optional[str] = None
+    completed: bool = False
+
+class TodoResponse(BaseModel):
+    id: int
+    title: str
+    description: Optional[str] = None
+    completed: bool = False
+
+@app.post(&quot;/todos&quot;, response_model=TodoResponse, status_code=201)
+def create_todo(todo: TodoCreate):
+    todo_id = len(todos_db) + 1
+    todo_data = todo.model_dump()
+    todo_data[&quot;id&quot;] = todo_id
+    todos_db[todo_id] = todo_data
+    return todo_data
+
+@app.get(&quot;/todos&quot;, response_model=list[TodoResponse])
+def list_todos(skip: int = 0, limit: int = 10):
+    items = list(todos_db.values())
+    return items[skip : skip + limit]
+
+@app.get(&quot;/todos/{todo_id}&quot;, response_model=TodoResponse)
+def get_todo(todo_id: int):
+    if todo_id not in todos_db:
+        raise HTTPException(status_code=404, detail=&quot;Todo not found&quot;)
+    return todos_db[todo_id]</code></pre>
+
+<p>v2 引入了三个关键概念：</p>
+<ul>
+<li><strong>Pydantic模型</strong>：<code>TodoCreate</code> 定义输入数据结构，自动验证类型和必填项</li>
+<li><strong>路径参数</strong>：<code>{todo_id}</code> 在URL中，FastAPI自动提取并验证类型（int）</li>
+<li><strong>response_model</strong>：声明响应格式，自动过滤多余字段</li>
+
+<h3>v3：完整项目结构</h3>
+
+<pre><code class="language-python"># v3_full/main.py - Full project with validation and docs
+from fastapi import FastAPI, HTTPException, Query
+from pydantic import BaseModel, Field
+from typing import Optional
+from datetime import datetime
+
+app = FastAPI(
+    title=&quot;Todo API Pro&quot;,
+    description=&quot;A production-ready Todo API built with FastAPI&quot;,
+    version=&quot;3.0.0&quot;,
+)
+
+class TodoBase(BaseModel):
+    title: str = Field(..., min_length=1, max_length=100, description=&quot;Todo title&quot;)
+    description: Optional[str] = Field(None, max_length=500)
+
+class TodoCreate(TodoBase):
+    pass
+
+class TodoUpdate(BaseModel):
+    title: Optional[str] = Field(None, min_length=1, max_length=100)
+    description: Optional[str] = Field(None, max_length=500)
+    completed: Optional[bool] = None
+
+class TodoResponse(TodoBase):
+    id: int
+    completed: bool = False
+    created_at: datetime
+    updated_at: datetime
+
+todos_db: dict[int, dict] = {}
+_counter = 0
+
+def _next_id():
+    global _counter
+    _counter += 1
+    return _counter
+
+@app.post(&quot;/todos&quot;, response_model=TodoResponse, status_code=201)
+def create_todo(todo: TodoCreate):
+    now = datetime.now()
+    data = {&quot;id&quot;: _next_id(), **todo.model_dump(), &quot;completed&quot;: False, &quot;created_at&quot;: now, &quot;updated_at&quot;: now}
+    todos_db[data[&quot;id&quot;]] = data
+    return data
+
+@app.get(&quot;/todos&quot;, response_model=list[TodoResponse])
+def list_todos(
+    skip: int = Query(0, ge=0),
+    limit: int = Query(10, ge=1, le=100),
+    completed: Optional[bool] = Query(None),
+):
+    items = list(todos_db.values())
+    if completed is not None:
+        items = [i for i in items if i[&quot;completed&quot;] == completed]
+    return items[skip : skip + limit]
+
+@app.get(&quot;/todos/{todo_id}&quot;, response_model=TodoResponse)
+def get_todo(todo_id: int):
+    if todo_id not in todos_db:
+        raise HTTPException(status_code=404, detail=f&quot;Todo {todo_id} not found&quot;)
+    return todos_db[todo_id]
+
+@app.put(&quot;/todos/{todo_id}&quot;, response_model=TodoResponse)
+def update_todo(todo_id: int, todo: TodoUpdate):
+    if todo_id not in todos_db:
+        raise HTTPException(status_code=404, detail=f&quot;Todo {todo_id} not found&quot;)
+    existing = todos_db[todo_id]
+    existing.update(todo.model_dump(exclude_unset=True))
+    existing[&quot;updated_at&quot;] = datetime.now()
+    return existing
+
+@app.delete(&quot;/todos/{todo_id}&quot;, status_code=204)
+def delete_todo(todo_id: int):
+    if todo_id not in todos_db:
+        raise HTTPException(status_code=404, detail=f&quot;Todo {todo_id} not found&quot;)
+    del todos_db[todo_id]</code></pre>
+
+<p>v3 新增：</p>
+<ul>
+<li><strong>Field验证</strong>：<code>min_length</code>、<code>max_length</code>、<code>ge</code>（大于等于）、<code>le</code>（小于等于）</li>
+<li><strong>模型继承</strong>：<code>TodoCreate(TodoBase)</code> 减少重复</li>
+<li><strong>部分更新</strong>：<code>exclude_unset=True</code> 只更新传入的字段</li>
+<li><strong>分页和筛选</strong>：<code>Query()</code> 为查询参数添加验证</li>
+
+<hr>
+
+<h2>四、执行预览</h2>
+
+<pre><code class="language-bash"># 启动服务器
+$ uvicorn v3_full.main:app --reload
+INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
+INFO:     Started reloader process
+
+# 创建Todo
+$ curl -X POST http://localhost:8000/todos \
+  -H &quot;Content-Type: application/json&quot; \
+  -d &#x27;{&quot;title&quot;:&quot;Learn FastAPI&quot;,&quot;description&quot;:&quot;Build a REST API&quot;}&#x27;
+{&quot;id&quot;:1,&quot;title&quot;:&quot;Learn FastAPI&quot;,&quot;description&quot;:&quot;Build a REST API&quot;,&quot;completed&quot;:false,&quot;created_at&quot;:&quot;...&quot;,&quot;updated_at&quot;:&quot;...&quot;}
+
+# 获取列表
+$ curl http://localhost:8000/todos
+[{&quot;id&quot;:1,&quot;title&quot;:&quot;Learn FastAPI&quot;,...}]
+
+# 验证失败 - 标题太短
+$ curl -X POST http://localhost:8000/todos \
+  -H &quot;Content-Type: application/json&quot; \
+  -d &#x27;{&quot;title&quot;:&quot;&quot;}&#x27;
+{&quot;detail&quot;:[{&quot;type&quot;:&quot;string_too_short&quot;,&quot;loc&quot;:[&quot;body&quot;,&quot;title&quot;],...}]}
+
+# 自动文档 -&gt; 浏览器访问 http://localhost:8000/docs</code></pre>
+
+<hr>
+
+<h2>五、注意事项</h2>
+
+<table><thead><tr>
+<th>事项</th>
+<th>说明</th>
+<th>建议</th>
+</tr></thead><tbody>
+<tr>
+<td>ASGI服务器</td>
+<td>FastAPI需要ASGI服务器</td>
+<td>推荐uvicorn</td>
+</tr>
+<tr>
+<td>类型注解</td>
+<td>路径参数必须有类型注解</td>
+<td><code>todo_id: int</code> 自动验证</td>
+</tr>
+<tr>
+<td>返回字典</td>
+<td>可以直接返回dict</td>
+<td>推荐用response_model</td>
+</tr>
+<tr>
+<td>异步函数</td>
+<td>async def和def都支持</td>
+<td>IO密集用async，CPU密集用sync</td>
+</tr>
+<tr>
+<td>查询参数</td>
+<td>函数参数非路径即查询</td>
+<td>用Query()添加验证</td>
+</tr>
+<tr>
+<td>Pydantic v2</td>
+<td>model_dump()替代dict()</td>
+<td>注意版本兼容性</td>
+</tr>
+<tr>
+<td>自动文档</td>
+<td>Swagger/ReDoc自动生成</td>
+<td>无需额外配置</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>六、避坑指南</h2>
+
+<h3>❌ 路径参数和函数参数不一致</h3>
+<pre><code class="language-python">@app.get(&quot;/items/{item_id}&quot;)
+def get_item(id: int):  # ❌ 参数名不一致
+    ...</code></pre>
+<h3>✅ 参数名保持一致</h3>
+<pre><code class="language-python">@app.get(&quot;/items/{item_id}&quot;)
+def get_item(item_id: int):  # ✅ 与路径中的{item_id}一致
+    ...</code></pre>
+
+<h3>❌ 忘记设置类型注解</h3>
+<pre><code class="language-python">@app.post(&quot;/items&quot;)
+def create(item):  # ❌ 没有类型注解，FastAPI不知道怎么解析
+    ...</code></pre>
+<h3>✅ 使用Pydantic模型</h3>
+<pre><code class="language-python">@app.post(&quot;/items&quot;)
+def create(item: ItemCreate):  # ✅ 自动解析JSON请求体
+    ...</code></pre>
+
+<h3>❌ 不处理404</h3>
+<pre><code class="language-python">@app.get(&quot;/items/{item_id}&quot;)
+def get_item(item_id: int):
+    return db[item_id]  # ❌ 不存在时KeyError，返回500</code></pre>
+<h3>✅ 主动抛HTTPException</h3>
+<pre><code class="language-python">@app.get(&quot;/items/{item_id}&quot;)
+def get_item(item_id: int):
+    if item_id not in db:
+        raise HTTPException(status_code=404, detail=&quot;Not found&quot;)
+    return db[item_id]</code></pre>
+
+<h3>❌ 在Pydantic模型中使用可变默认值</h3>
+<pre><code class="language-python">class Item(BaseModel):
+    tags: list[str] = []  # ❌ 共享可变对象</code></pre>
+<h3>✅ 使用Field(default_factory=...)</h3>
+<pre><code class="language-python">class Item(BaseModel):
+    tags: list[str] = Field(default_factory=list)  # ✅ 每次创建新列表</code></pre>
+
+<hr>
+
+<h2>七、练习题</h2>
+
+<h3>🟢 入门题</h3>
+<ol>
+<li>创建 <code>/health</code> 端点，返回 <code>{"status": "ok", "timestamp": "当前时间"}</code></li>
+</ul>
+<ol>
+<li>创建带路径参数的 <code>/greet/{name}</code> 端点，返回个性化问候语</li>
+
+<h3>🟡 进阶题</h3>
+<ol>
+<li>实现计算器端点 <code>/calculator</code>，接受operation(add/sub/mul/div)和两个数字作为查询参数</li>
+</ul>
+<ol>
+<li>为计算器添加输入验证：除数不能为0，数字范围 -1000 到 1000</li>
+
+<h3>🔴 挑战题</h3>
+<ol>
+<li>实现完整 <code>/books</code> CRUD API，含Pydantic模型、分页、按作者/年份筛选、ISBN格式验证</li>
+
+<hr>
+
+<h2>八、知识点总结</h2>
+
+<pre><code>FastAPI入门知识树
+├── 基础
+│   ├── FastAPI() 实例化
+│   ├── 路由装饰器 (@get/@post/@put/@delete)
+│   └── uvicorn 启动
+├── 参数类型
+│   ├── 路径参数 - {param} 在URL路径中
+│   ├── 查询参数 - 函数参数，不在路径中
+│   ├── 请求体 - Pydantic BaseModel
+│   └── Header/Cookie - 专用依赖
+├── 数据验证
+│   ├── Pydantic BaseModel
+│   ├── Field() 字段约束
+│   ├── Optional 可选字段
+│   └── 自动错误响应 (422)
+└── 文档与部署
+    ├── /docs (Swagger UI)
+    ├── /redoc (ReDoc)
+    └── --reload 开发模式</code></pre>
+
+<hr>
+
+<h2>九、举一反三</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>核心思路</th>
+<th>关键代码</th>
+</tr></thead><tbody>
+<tr>
+<td>文件上传</td>
+<td>UploadFile类型</td>
+<td><code>file: UploadFile</code></td>
+</tr>
+<tr>
+<td>表单数据</td>
+<td>Form()依赖</td>
+<td><code>username: str = Form()</code></td>
+</tr>
+<tr>
+<td>Cookie操作</td>
+<td>Cookie()依赖</td>
+<td><code>session_id: str = Cookie()</code></td>
+</tr>
+<tr>
+<td>返回HTML</td>
+<td>HTMLResponse</td>
+<td><code>return HTMLResponse(content)</code></td>
+</tr>
+<tr>
+<td>流式响应</td>
+<td>StreamingResponse</td>
+<td><code>yield chunk</code> 生成器</td>
+</tr>
+<tr>
+<td>CORS跨域</td>
+<td>CORSMiddleware</td>
+<td><code>app.add_middleware(CORSMiddleware)</code></td>
+</tr>
+<tr>
+<td>静态文件</td>
+<td>StaticFiles</td>
+<td><code>app.mount("/static", StaticFiles(...))</code></td>
+</tr>
+<tr>
+<td>WebSocket</td>
+<td>内置支持</td>
+<td><code>@app.websocket("/ws")</code></td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>十、参考资料</h2>
+
+<ol>
+<li><strong>FastAPI官方文档</strong>：https://fastapi.tiangolo.com/ （最权威，教程极佳）</li>
+</ul>
+<ol>
+<li><strong>Pydantic文档</strong>：https://docs.pydantic.dev/ （数据验证核心库）</li>
+</ul>
+<ol>
+<li><strong>Uvicorn文档</strong>：https://www.uvicorn.org/ （ASGI服务器）</li>
+</ul>
+<ol>
+<li><strong>Starlette文档</strong>：https://www.starlette.io/ （FastAPI底层框架）</li>
+</ul>
+<ol>
+<li><strong>OpenAPI规范</strong>：https://swagger.io/specification/ （API文档标准）</li>
+
+<hr>
+
+<h2>十一、代码演进总结</h2>
+
+<table><thead><tr>
+<th>版本</th>
+<th>演进重点</th>
+<th>新增能力</th>
+</tr></thead><tbody>
+<tr>
+<td>v1</td>
+<td>最小可用</td>
+<td>单个GET路由，返回JSON</td>
+</tr>
+<tr>
+<td>v2</td>
+<td>CRUD + 验证</td>
+<td>POST/GET路径参数，Pydantic模型</td>
+</tr>
+<tr>
+<td>v3</td>
+<td>生产级API</td>
+<td>Field验证、分页、筛选、完整CRUD、时间戳</td>
+</tr>
+</tbody></table>
+
+<p><strong>下一步学习：</strong> FastAPI进阶 - 依赖注入、中间件、认证鉴权、数据库集成</p>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

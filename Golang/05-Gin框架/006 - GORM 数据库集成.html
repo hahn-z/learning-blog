@@ -1,0 +1,622 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>006 - GORM 数据库集成</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Golang/index.html">Golang</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Golang/05-Gin框架/index.html">Gin框架</a>
+</nav>
+<h1>006 - GORM 数据库集成</h1>
+<div class="meta">
+<span>📂 Gin框架</span>
+<span>🏷️ Golang</span>
+</div>
+<article>
+
+
+<h1>006 - GORM 数据库集成</h1>
+
+<blockquote><p><strong>难度标注：</strong> ⭐⭐⭐（中级）<br><br><strong>前置知识：</strong> Go 基础、Gin 路由、SQL 基本概念<br><br><strong>学习目标：</strong> 掌握 GORM 安装配置、连接管理、CRUD 操作、链式调用与错误处理</p></blockquote>
+
+<hr>
+
+<h2>一、概念讲解</h2>
+
+<p><strong>GORM</strong> 是 Go 语言最流行的 ORM（Object-Relational Mapping）库。它的核心思想是：<strong>用 Go 的结构体（struct）来映射数据库表，用方法调用来替代 SQL 语句</strong>。</p>
+
+<h3>为什么需要 ORM？</h3>
+
+<table><thead><tr>
+<th>方式</th>
+<th>代码示例</th>
+<th>问题</th>
+</tr></thead><tbody>
+<tr>
+<td>原生 SQL</td>
+<td><code>db.Query("SELECT * FROM users WHERE id = ?", id)</code></td>
+<td>SQL 拼接易出错、类型不安全</td>
+</tr>
+<tr>
+<td>GORM</td>
+<td><code>db.Where("id = ?", id).First(&user)</code></td>
+<td>类型安全、链式调用、自动映射</td>
+</tr>
+</tbody></table>
+
+<h3>GORM 核心特性</h3>
+
+<ul>
+<li><strong>全功能 ORM</strong>：CRUD、关联、预加载、事务、迁移、SQL 构建器</li>
+<li><strong>链式 API</strong>：<code>db.Where().Order().Limit().Find()</code></li>
+<li><strong>钩子（Hooks）</strong>：BeforeCreate、AfterUpdate 等生命周期回调</li>
+<li><strong>多数据库支持</strong>：MySQL、PostgreSQL、SQLite、SQL Server</li>
+<li><strong>自动迁移</strong>：根据 struct 定义自动创建/更新表结构</li>
+
+<hr>
+
+<h2>二、脑图（ASCII）</h2>
+
+<pre><code>                    GORM 数据库集成
+                         │
+          ┌──────────────┼──────────────┐
+          │              │              │
+      安装配置       CRUD操作        高级特性
+          │              │              │
+     ┌────┴────┐    ┌────┼────┐    ┌───┴────┐
+     │         │    │    │    │    │        │
+  MySQL    SQLite  C   R   U   D  链式   错误处理
+     │         │    │    │    │    │ 调用      │
+  连接池   文件DB  Create Find Update Delete  日志模式</code></pre>
+
+<hr>
+
+<h2>三、完整 Go 代码</h2>
+
+<h3>v1：基础连接 + SQLite CRUD</h3>
+
+<pre><code class="language-go">// main.go - GORM basic CRUD with SQLite
+package main
+
+import (
+	&quot;fmt&quot;
+	&quot;log&quot;
+
+	&quot;gorm.io/driver/sqlite&quot;
+	&quot;gorm.io/gorm&quot;
+	&quot;gorm.io/gorm/logger&quot;
+)
+
+// User model maps to &quot;users&quot; table
+type User struct {
+	ID   uint   `gorm:&quot;primaryKey&quot; json:&quot;id&quot;`
+	Name string `gorm:&quot;size:100;not null&quot; json:&quot;name&quot;`
+	Email string `gorm:&quot;size:255;uniqueIndex&quot; json:&quot;email&quot;`
+	Age  int    `json:&quot;age&quot;`
+}
+
+func main() {
+	// Connect to SQLite (file-based)
+	db, err := gorm.Open(sqlite.Open(&quot;test.db&quot;), &amp;gorm.Config{
+		Logger: logger.Default.LogMode(logger.Info), // Log all SQL
+	})
+	if err != nil {
+		log.Fatal(&quot;Failed to connect database:&quot;, err)
+	}
+
+	// Auto migrate the schema
+	db.AutoMigrate(&amp;User{})
+
+	// --- CREATE ---
+	user := User{Name: &quot;Alice&quot;, Email: &quot;alice@example.com&quot;, Age: 25}
+	result := db.Create(&amp;user) // Insert one record
+	fmt.Printf(&quot;Created: ID=%d, RowsAffected=%d\n&quot;, user.ID, result.RowsAffected)
+
+	// Batch create
+	users := []User{
+		{Name: &quot;Bob&quot;, Email: &quot;bob@example.com&quot;, Age: 30},
+		{Name: &quot;Charlie&quot;, Email: &quot;charlie@example.com&quot;, Age: 28},
+	}
+	db.Create(&amp;users)
+
+	// --- READ ---
+	var foundUser User
+	db.First(&amp;foundUser, 1) // Find by primary key
+	fmt.Printf(&quot;Found: %+v\n&quot;, foundUser)
+
+	var allUsers []User
+	db.Find(&amp;allUsers) // Find all
+	fmt.Printf(&quot;Total users: %d\n&quot;, len(allUsers))
+
+	// Query with conditions
+	var adults []User
+	db.Where(&quot;age &gt;= ?&quot;, 25).Find(&amp;adults)
+	fmt.Printf(&quot;Adults: %d\n&quot;, len(adults))
+
+	// --- UPDATE ---
+	db.Model(&amp;foundUser).Update(&quot;Age&quot;, 26) // Update single field
+	db.Model(&amp;foundUser).Updates(User{Age: 27, Name: &quot;Alice Updated&quot;}) // Update multiple fields
+
+	// --- DELETE ---
+	db.Delete(&amp;User{}, 2) // Delete by ID (Bob)
+	fmt.Println(&quot;Deleted user with ID=2&quot;)
+}</code></pre>
+
+<p><strong>执行预览：</strong></p>
+
+<pre><code>$ go run main.go
+// SQL logs will show:
+// CREATE TABLE `users` ...
+// INSERT INTO `users` ...
+Created: ID=1, RowsAffected=1
+Found: {ID:1 Name:Alice Email:alice@example.com Age:25}
+Total users: 3
+Adults: 3
+Deleted user with ID=2</code></pre>
+
+<h3>v2：MySQL 连接 + 连接池 + Gin 集成</h3>
+
+<pre><code class="language-go">// main.go - GORM + MySQL + Gin integration
+package main
+
+import (
+	&quot;log&quot;
+	&quot;net/http&quot;
+	&quot;time&quot;
+
+	&quot;github.com/gin-gonic/gin&quot;
+	&quot;gorm.io/driver/mysql&quot;
+	&quot;gorm.io/gorm&quot;
+	&quot;gorm.io/gorm/logger&quot;
+)
+
+type User struct {
+	ID        uint      `gorm:&quot;primaryKey&quot; json:&quot;id&quot;`
+	Name      string    `gorm:&quot;size:100;not null&quot; json:&quot;name&quot;`
+	Email     string    `gorm:&quot;size:255;uniqueIndex&quot; json:&quot;email&quot;`
+	Age       int       `json:&quot;age&quot;`
+	CreatedAt time.Time `json:&quot;created_at&quot;`
+	UpdatedAt time.Time `json:&quot;updated_at&quot;`
+}
+
+var db *gorm.DB
+
+func initDB() {
+	dsn := &quot;root:password@tcp(127.0.0.1:3306)/myapp?charset=utf8mb4&amp;parseTime=True&amp;loc=Local&quot;
+	var err error
+	db, err = gorm.Open(mysql.Open(dsn), &amp;gorm.Config{
+		Logger: logger.Default.LogMode(logger.Warn), // Only log warnings and above
+	})
+	if err != nil {
+		log.Fatal(&quot;Failed to connect MySQL:&quot;, err)
+	}
+
+	// Configure connection pool
+	sqlDB, _ := db.DB()
+	sqlDB.SetMaxIdleConns(10)           // Max idle connections
+	sqlDB.SetMaxOpenConns(100)          // Max open connections
+	sqlDB.SetConnMaxLifetime(time.Hour) // Connection max lifetime
+
+	db.AutoMigrate(&amp;User{})
+}
+
+func main() {
+	initDB()
+	r := gin.Default()
+
+	// CRUD endpoints
+	r.GET(&quot;/users&quot;, listUsers)
+	r.GET(&quot;/users/:id&quot;, getUser)
+	r.POST(&quot;/users&quot;, createUser)
+	r.PUT(&quot;/users/:id&quot;, updateUser)
+	r.DELETE(&quot;/users/:id&quot;, deleteUser)
+
+	r.Run(&quot;:8080&quot;)
+}
+
+func listUsers(c *gin.Context) {
+	var users []User
+	if err := db.Find(&amp;users).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{&quot;error&quot;: err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, users)
+}
+
+func getUser(c *gin.Context) {
+	var user User
+	if err := db.First(&amp;user, c.Param(&quot;id&quot;)).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{&quot;error&quot;: &quot;User not found&quot;})
+		return
+	}
+	c.JSON(http.StatusOK, user)
+}
+
+func createUser(c *gin.Context) {
+	var user User
+	if err := c.ShouldBindJSON(&amp;user); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{&quot;error&quot;: err.Error()})
+		return
+	}
+	if err := db.Create(&amp;user).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{&quot;error&quot;: err.Error()})
+		return
+	}
+	c.JSON(http.StatusCreated, user)
+}
+
+func updateUser(c *gin.Context) {
+	var user User
+	if err := db.First(&amp;user, c.Param(&quot;id&quot;)).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{&quot;error&quot;: &quot;User not found&quot;})
+		return
+	}
+	if err := c.ShouldBindJSON(&amp;user); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{&quot;error&quot;: err.Error()})
+		return
+	}
+	db.Save(&amp;user)
+	c.JSON(http.StatusOK, user)
+}
+
+func deleteUser(c *gin.Context) {
+	db.Delete(&amp;User{}, c.Param(&quot;id&quot;))
+	c.JSON(http.StatusOK, gin.H{&quot;message&quot;: &quot;Deleted&quot;})
+}</code></pre>
+
+<h3>v3：链式调用 + 高级查询 + 错误处理封装</h3>
+
+<pre><code class="language-go">// repository/user_repo.go - Encapsulated GORM operations
+package repository
+
+import (
+	&quot;errors&quot;
+
+	&quot;gorm.io/gorm&quot;
+)
+
+type UserRepository struct {
+	db *gorm.DB
+}
+
+func NewUserRepository(db *gorm.DB) *UserRepository {
+	return &amp;UserRepository{db: db}
+}
+
+// QueryParams holds common query parameters
+type QueryParams struct {
+	Page     int    `form:&quot;page&quot;`
+	PageSize int    `form:&quot;page_size&quot;`
+	Search   string `form:&quot;search&quot;`
+	OrderBy  string `form:&quot;order_by&quot;`
+	Order    string `form:&quot;order&quot;` // &quot;asc&quot; or &quot;desc&quot;
+}
+
+// List with pagination, search, and sorting (chain calls)
+func (r *UserRepository) List(params QueryParams) ([]User, int64, error) {
+	var users []User
+	var total int64
+
+	query := r.db.Model(&amp;User{})
+
+	// Search condition (chain call)
+	if params.Search != &quot;&quot; {
+		query = query.Where(&quot;name LIKE ? OR email LIKE ?&quot;,
+			&quot;%&quot;+params.Search+&quot;%&quot;, &quot;%&quot;+params.Search+&quot;%&quot;)
+	}
+
+	// Count total before pagination
+	query.Count(&amp;total)
+
+	// Sorting
+	if params.OrderBy != &quot;&quot; {
+		order := &quot;asc&quot;
+		if params.Order == &quot;desc&quot; {
+			order = &quot;desc&quot;
+		}
+		query = query.Order(params.OrderBy + &quot; &quot; + order)
+	}
+
+	// Pagination with default values
+	if params.Page &lt; 1 {
+		params.Page = 1
+	}
+	if params.PageSize &lt; 1 {
+		params.PageSize = 10
+	}
+	offset := (params.Page - 1) * params.PageSize
+
+	// Execute query
+	if err := query.Offset(offset).Limit(params.PageSize).Find(&amp;users).Error; err != nil {
+		return nil, 0, err
+	}
+
+	return users, total, nil
+}
+
+// Create with error wrapping
+func (r *UserRepository) Create(user *User) error {
+	result := r.db.Create(user)
+	if result.Error != nil {
+		// Check for duplicate key (MySQL error 1062)
+		if errors.Is(result.Error, gorm.ErrDuplicatedKey) {
+			return errors.New(&quot;email already exists&quot;)
+		}
+		return result.Error
+	}
+	return nil
+}
+
+// GetByID returns ErrRecordNotFound wrapped
+func (r *UserRepository) GetByID(id uint) (*User, error) {
+	var user User
+	if err := r.db.First(&amp;user, id).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, errors.New(&quot;user not found&quot;)
+		}
+		return nil, err
+	}
+	return &amp;user, nil
+}</code></pre>
+
+<hr>
+
+<h2>四、注意事项</h2>
+
+<table><thead><tr>
+<th>项目</th>
+<th>说明</th>
+<th>建议</th>
+</tr></thead><tbody>
+<tr>
+<td>连接池</td>
+<td>默认无上限，可能耗尽数据库连接</td>
+<td>生产环境必须设置 MaxOpenConns</td>
+</tr>
+<tr>
+<td>日志模式</td>
+<td><code>logger.Info</code> 会打印所有 SQL</td>
+<td>生产用 <code>logger.Warn</code>，开发用 <code>logger.Info</code></td>
+</tr>
+<tr>
+<td>错误检查</td>
+<td>GORM 链式调用不会 panic</td>
+<td>必须检查 <code>.Error</code> 或 <code>result.Error</code></td>
+</tr>
+<tr>
+<td>连接关闭</td>
+<td><code>gorm.Open</code> 后记得关闭 <code>sqlDB.Close()</code></td>
+<td>程序退出前调用 <code>db.DB().Close()</code></td>
+</tr>
+<tr>
+<td>零值问题</td>
+<td><code>Update("age", 0)</code> 不会更新零值</td>
+<td>用 <code>Select("age")</code> 显式指定或用 map</td>
+</tr>
+<tr>
+<td>parseTime</td>
+<td>MySQL DSN 必须加 <code>parseTime=True</code></td>
+<td>否则 time.Time 字段会报错</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>五、避坑指南</h2>
+
+<h3>❌ 不检查错误</h3>
+<pre><code class="language-go">db.Create(&amp;user)
+// If error occurs, you&#x27;ll never know</code></pre>
+<h3>✅ 始终检查 Error</h3>
+<pre><code class="language-go">if err := db.Create(&amp;user).Error; err != nil {
+    log.Fatal(err)
+}</code></pre>
+
+<h3>❌ 直接拼接 SQL</h3>
+<pre><code class="language-go">db.Where(&quot;name = &#x27;&quot; + name + &quot;&#x27;&quot;)
+// SQL injection vulnerability!</code></pre>
+<h3>✅ 使用参数化查询</h3>
+<pre><code class="language-go">db.Where(&quot;name = ?&quot;, name)</code></pre>
+
+<h3>❌ 忽略零值更新</h3>
+<pre><code class="language-go">db.Model(&amp;user).Updates(User{Age: 0, Name: &quot;Alice&quot;})
+// Age: 0 will NOT be updated!</code></pre>
+<h3>✅ 使用 Select 或 map</h3>
+<pre><code class="language-go">db.Model(&amp;user).Select(&quot;Age&quot;, &quot;Name&quot;).Updates(User{Age: 0, Name: &quot;Alice&quot;})
+// Or use map:
+db.Model(&amp;user).Updates(map[string]interface{}{&quot;age&quot;: 0, &quot;name&quot;: &quot;Alice&quot;})</code></pre>
+
+<h3>❌ 忘记关闭数据库连接</h3>
+<pre><code class="language-go">db, _ := gorm.Open(...)
+// sqlDB leaks</code></pre>
+<h3>✅ 程序退出时关闭</h3>
+<pre><code class="language-go">db, _ := gorm.Open(...)
+defer func() {
+    sqlDB, _ := db.DB()
+    sqlDB.Close()
+}()</code></pre>
+
+<hr>
+
+<h2>六、练习题</h2>
+
+<h3>🟢 初级</h3>
+<ol>
+<li>使用 GORM + SQLite 创建一个 <code>Product</code> 模型（Name, Price, Stock），并实现基本的 Create 和 Find 操作。</li>
+</ul>
+<ol>
+<li>配置 GORM 日志模式为 <code>logger.Info</code>，观察生成的 SQL 语句。</li>
+
+<h3>🟡 中级</h3>
+<ol>
+<li>实现一个带分页的用户列表查询（支持 page、page_size 参数）。</li>
+</ul>
+<ol>
+<li>编写一个根据邮箱查找用户的函数，处理 "记录不存在" 的情况。</li>
+
+<h3>🔴 高级</h3>
+<ol>
+<li>封装一个通用的 <code>Paginate()</code> 作用域函数，可复用于任意模型的分页查询。</li>
+</ul>
+<ol>
+<li>实现一个带条件的批量更新：将所有 age > 30 的用户状态设为 "inactive"。</li>
+
+<hr>
+
+<h2>七、知识点总结</h2>
+
+<pre><code>GORM 数据库集成
+├── 安装配置
+│   ├── SQLite: gorm.io/driver/sqlite
+│   ├── MySQL: gorm.io/driver/mysql (DSN: user:pass@tcp(host:port)/dbname)
+│   └── 连接池: SetMaxIdleConns / SetMaxOpenConns / SetConnMaxLifetime
+├── CRUD 操作
+│   ├── Create: db.Create(&amp;obj) / db.Create(&amp;slice)
+│   ├── Read: db.First() / db.Find() / db.Where()
+│   ├── Update: db.Update() / db.Updates() / db.Save()
+│   └── Delete: db.Delete(&amp;obj, id)
+├── 链式调用
+│   ├── Where / Or / Not
+│   ├── Select / Omit
+│   ├── Order / Limit / Offset
+│   └── Joins / Preload
+├── 错误处理
+│   ├── result.Error
+│   ├── gorm.ErrRecordNotFound
+│   └── gorm.ErrDuplicatedKey
+└── 日志模式
+    ├── logger.Silent (无日志)
+    ├── logger.Error (仅错误)
+    ├── logger.Warn (警告+错误)
+    └── logger.Info (全部SQL)</code></pre>
+
+<hr>
+
+<h2>八、举一反三</h2>
+
+<table><thead><tr>
+<th>本文学到</th>
+<th>可应用到</th>
+<th>示例</th>
+</tr></thead><tbody>
+<tr>
+<td>GORM 连接 MySQL</td>
+<td>连接 PostgreSQL</td>
+<td><code>gorm.Open(postgres.Open(dsn))</code></td>
+</tr>
+<tr>
+<td>Where 条件查询</td>
+<td>多条件动态查询</td>
+<td>根据 filter 参数动态拼接链式调用</td>
+</tr>
+<tr>
+<td>连接池配置</td>
+<td>任何高并发场景</td>
+<td>API 服务、Worker、爬虫</td>
+</tr>
+<tr>
+<td>错误处理模式</td>
+<td>统一错误响应</td>
+<td>封装 <code>HandleDBError(err)</code> 工具函数</td>
+</tr>
+<tr>
+<td>零值更新技巧</td>
+<td>所有 struct 更新</td>
+<td>配置表、状态更新</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>九、参考资料</h2>
+
+<ul>
+<li><a href="https://gorm.io/docs/">GORM 官方文档</a></li>
+<li><a href="https://gorm.io/zh_CN/docs/">GORM 中文文档</a></li>
+<li><a href="https://github.com/go-gorm/gorm#quick-start">Gin + GORM 示例项目</a></li>
+<li><a href="https://golang.org/pkg/database/sql/">Go database/sql 连接池</a></li>
+
+<hr>
+
+<h2>十、代码演进</h2>
+
+<table><thead><tr>
+<th>版本</th>
+<th>特点</th>
+<th>适用场景</th>
+</tr></thead><tbody>
+<tr>
+<td><strong>v1</strong></td>
+<td>SQLite + 基础 CRUD</td>
+<td>快速原型、学习、测试</td>
+</tr>
+<tr>
+<td><strong>v2</strong></td>
+<td>MySQL + 连接池 + Gin API</td>
+<td>生产级单文件服务</td>
+</tr>
+<tr>
+<td><strong>v3</strong></td>
+<td>Repository 封装 + 链式查询 + 错误处理</td>
+<td>多人协作、大型项目</td>
+</tr>
+</tbody></table>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

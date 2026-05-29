@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>009 - 流程控制：switch</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/learning-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/learning-blog/Golang/index.html">Golang</a>
+<span class="sep">›</span>
+<a href="/learning-blog/Golang/01-入门/index.html">Golang入门</a>
+</nav>
+<h1>009 - 流程控制：switch</h1>
+<div class="meta">
+<span>📂 Golang入门</span>
+<span>🏷️ Golang</span>
+</div>
+<article>
+
+
+<h1>009 - 流程控制：switch ⭐⭐</h1>
+
+<blockquote><p>难度：⭐⭐ | 预计学习时间：15 分钟</p></blockquote>
+
+<h2>一、概念讲解</h2>
+
+<p>Go 的 <code>switch</code> 比 C/Java 更强大、更安全：</p>
+<ul>
+<li><strong>默认不穿透</strong>：匹配一个 case 后自动跳出，不需要 <code>break</code></li>
+<li><strong>case 支持多值</strong>：<code>case 1, 2, 3:</code></li>
+<li><strong>case 支持表达式</strong>：可以写条件表达式</li>
+<li><strong>无条件 switch</strong>：可以替代 if-else 链，更清晰</li>
+<li><strong>type switch</strong>：用于接口类型断言</li>
+
+<h2>二、实时脑图</h2>
+
+<pre><code>switch
+├── 基本用法
+│   ├── switch variable { case ... }
+│   └── 默认不穿透 (自动break)
+├── 多值 case
+│   └── case &quot;a&quot;, &quot;b&quot;, &quot;c&quot;:
+├── case 表达式
+│   └── case x &gt; 0 &amp;&amp; x &lt; 10:
+├── fallthrough
+│   └── 显式穿透到下一个 case
+├── 无条件 switch
+│   └── switch { case cond1: ... }
+├── type switch
+│   └── switch v := i.(type) { }
+└── 最佳实践
+    ├── 替代长 if-else 链
+    └── 枚举值匹配</code></pre>
+
+<h2>三、完整 Go 代码</h2>
+
+<pre><code class="language-go">package main
+
+import (
+	&quot;fmt&quot;
+	&quot;runtime&quot;
+)
+
+func main() {
+	// --- 1. Basic switch ---
+	fmt.Println(&quot;=== Basic switch ===&quot;)
+	day := &quot;Monday&quot;
+	switch day {
+	case &quot;Monday&quot;:
+		fmt.Println(&quot;Start of work week&quot;)
+	case &quot;Friday&quot;:
+		fmt.Println(&quot;TGIF!&quot;)
+	case &quot;Saturday&quot;, &quot;Sunday&quot;: // Multiple values
+		fmt.Println(&quot;Weekend!&quot;)
+	default:
+		fmt.Println(&quot;Midweek&quot;)
+	}
+
+	// --- 2. No automatic fallthrough ---
+	fmt.Println(&quot;=== No fallthrough ===&quot;)
+	x := 1
+	switch x {
+	case 1:
+		fmt.Println(&quot;one&quot;)
+		// No break needed, exits automatically
+	case 2:
+		fmt.Println(&quot;two&quot;)
+	}
+
+	// --- 3. Explicit fallthrough ---
+	fmt.Println(&quot;=== Fallthrough ===&quot;)
+	num := 1
+	switch num {
+	case 1:
+		fmt.Println(&quot;one&quot;)
+		fallthrough // MUST be last statement in case
+	case 2:
+		fmt.Println(&quot;two&quot;) // This also prints!
+		fallthrough
+	case 3:
+		fmt.Println(&quot;three&quot;) // This too!
+	}
+
+	// --- 4. Case with expressions (condition switch) ---
+	fmt.Println(&quot;=== Expression switch ===&quot;)
+	score := 85
+	switch {
+	case score &gt;= 90:
+		fmt.Println(&quot;A&quot;)
+	case score &gt;= 80:
+		fmt.Println(&quot;B&quot;)
+	case score &gt;= 70:
+		fmt.Println(&quot;C&quot;)
+	default:
+		fmt.Println(&quot;F&quot;)
+	}
+
+	// --- 5. Switch with init statement ---
+	fmt.Println(&quot;=== Init statement ===&quot;)
+	switch os := runtime.GOOS; os {
+	case &quot;linux&quot;:
+		fmt.Println(&quot;Linux&quot;)
+	case &quot;darwin&quot;:
+		fmt.Println(&quot;macOS&quot;)
+	case &quot;windows&quot;:
+		fmt.Println(&quot;Windows&quot;)
+	default:
+		fmt.Println(&quot;Other:&quot;, os)
+	}
+
+	// --- 6. Type switch ---
+	fmt.Println(&quot;=== Type switch ===&quot;)
+	checkType(42)
+	checkType(&quot;hello&quot;)
+	checkType(3.14)
+	checkType(true)
+
+	// --- 7. Switch in loop with break ---
+	fmt.Println(&quot;=== Switch in loop ===&quot;)
+	for i := 0; i &lt; 5; i++ {
+		switch i {
+		case 2:
+			continue // continues the for loop
+		case 4:
+			break // breaks the for loop
+		}
+		fmt.Print(i, &quot; &quot;)
+	}
+	fmt.Println()
+}
+
+func checkType(i interface{}) {
+	switch v := i.(type) {
+	case int:
+		fmt.Printf(&quot;int: %d\n&quot;, v)
+	case string:
+		fmt.Printf(&quot;string: %s\n&quot;, v)
+	case float64:
+		fmt.Printf(&quot;float64: %f\n&quot;, v)
+	default:
+		fmt.Printf(&quot;unknown: %T\n&quot;, v)
+	}
+}</code></pre>
+
+<h2>四、执行预览</h2>
+
+<pre><code>=== Basic switch ===
+Start of work week
+=== No fallthrough ===
+one
+=== Fallthrough ===
+one
+two
+three
+=== Expression switch ===
+B
+=== Init statement ===
+Linux
+=== Type switch ===
+int: 42
+string: hello
+float64: 3.140000
+unknown: bool
+=== Switch in loop ===
+0 1 3</code></pre>
+
+<h2>五、注意事项</h2>
+
+<table><thead><tr>
+<th>要点</th>
+<th>说明</th>
+</tr></thead><tbody>
+<tr>
+<td>默认不穿透</td>
+<td>匹配 case 后自动跳出，无需 <code>break</code></td>
+</tr>
+<tr>
+<td>fallthrough 必须在末尾</td>
+<td><code>fallthrough</code> 必须是 case 块最后一条语句</td>
+</tr>
+<tr>
+<td>fallthrough 无条件穿透</td>
+<td>不检查下一个 case 条件，直接执行</td>
+</tr>
+<tr>
+<td>case 不重复</td>
+<td>同一个 switch 中 case 值不能重复（编译器检查）</td>
+</tr>
+<tr>
+<td>type switch 很有用</td>
+<td>处理 <code>interface{}</code> 时必备</td>
+</tr>
+<tr>
+<td>case 多值用逗号</td>
+<td><code>case 1, 2, 3:</code> 而非多个 case</td>
+</tr>
+</tbody></table>
+
+<h2>六、避坑指南</h2>
+
+<table><thead><tr>
+<th>❌ 错误写法</th>
+<th>✅ 正确写法</th>
+<th>原因</th>
+</tr></thead><tbody>
+<tr>
+<td>每个 case 末尾写 <code>break</code></td>
+<td>不需要，自动跳出</td>
+<td>Go 默认不穿透</td>
+</tr>
+<tr>
+<td><code>fallthrough</code> 在 case 中间</td>
+<td><code>fallthrough</code> 放在 case 最后</td>
+<td>编译错误</td>
+</tr>
+<tr>
+<td><code>switch x; x > 0 {}</code></td>
+<td><code>switch x { case ... }</code> 或无条件 switch</td>
+<td>语法错误</td>
+</tr>
+<tr>
+<td>switch 变量用 float</td>
+<td>用整数或字符串</td>
+<td>浮点精度问题</td>
+</tr>
+<tr>
+<td>忘写 default</td>
+<td>关键场景加 default</td>
+<td>未匹配时静默跳过</td>
+</tr>
+</tbody></table>
+
+<h2>七、练习题</h2>
+
+<p>🟢 <strong>基础题：</strong> 用 switch 实现简单计算器（+、-、*、/），根据运算符执行对应操作。</p>
+
+<p>🟡 <strong>进阶题：</strong> 用无条件 switch 判断年份是否为闰年（能被4整除且不能被100整除，或能被400整除）。</p>
+
+<p>🔴 <strong>挑战题：</strong> 实现 type switch，对 <code>[]interface{}</code> 中的元素按类型分组统计（int、string、bool、其他），输出每种类型的个数。</p>
+
+<h2>八、知识点总结</h2>
+
+<pre><code>switch 知识树
+├── 语法形式
+│   ├── switch expr { case val: }
+│   ├── switch { case cond: }  (无条件)
+│   ├── switch init; expr { }  (初始化)
+│   └── switch v := i.(type) { } (类型)
+├── case 特性
+│   ├── 多值: case 1, 2, 3:
+│   ├── 表达式: case x &gt; 10:
+│   └── fallthrough (显式穿透)
+├── 与其他语言对比
+│   ├── Go: 默认不穿透
+│   ├── C/Java: 默认穿透
+│   └── Go: case 不需常量
+└── 应用场景
+    ├── 替代 if-else 链
+    ├── 枚举值匹配
+    └── 接口类型判断</code></pre>
+
+<h2>九、举一反三</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>用法</th>
+</tr></thead><tbody>
+<tr>
+<td>状态机</td>
+<td><code>switch state { case "idle": ... }</code></td>
+</tr>
+<tr>
+<td>命令分发</td>
+<td><code>switch cmd { case "start": ... }</code></td>
+</tr>
+<tr>
+<td>HTTP 路由</td>
+<td><code>switch r.Method { case "GET": ... }</code></td>
+</tr>
+<tr>
+<td>错误分类</td>
+<td><code>switch { case errors.Is(err, ErrNotFound): ... }</code></td>
+</tr>
+<tr>
+<td>日志级别</td>
+<td><code>switch level { case "debug": ... }</code></td>
+</tr>
+<tr>
+<td>接口处理</td>
+<td><code>switch v := i.(type) { ... }</code></td>
+</tr>
+</tbody></table>
+
+<h2>十、参考资料</h2>
+
+<ul>
+<li><a href="https://go.dev/ref/spec#Switch_statements">Go 官方文档 - Switch statements</a></li>
+<li><a href="https://gobyexample.com/switch">Go by Example - Switch</a></li>
+<li><a href="https://go.dev/doc/effective_go#switch">Effective Go - Switch</a></li>
+
+<h2>十一、代码演进</h2>
+
+<p><strong>v1 — if-else 链：</strong></p>
+<pre><code class="language-go">if day == &quot;Monday&quot; {
+    fmt.Println(&quot;Work&quot;)
+} else if day == &quot;Saturday&quot; || day == &quot;Sunday&quot; {
+    fmt.Println(&quot;Rest&quot;)
+} else {
+    fmt.Println(&quot;Work&quot;)
+}</code></pre>
+
+<p><strong>v2 — switch 改写：</strong></p>
+<pre><code class="language-go">switch day {
+case &quot;Monday&quot;:
+    fmt.Println(&quot;Work&quot;)
+case &quot;Saturday&quot;, &quot;Sunday&quot;:
+    fmt.Println(&quot;Rest&quot;)
+default:
+    fmt.Println(&quot;Work&quot;)
+}</code></pre>
+
+<p><strong>v3 — 无条件 switch + 函数封装：</strong></p>
+<pre><code class="language-go">func weekdayType(day string) string {
+    switch {
+    case day == &quot;Saturday&quot; || day == &quot;Sunday&quot;:
+        return &quot;weekend&quot;
+    case day &gt;= &quot;Monday&quot; &amp;&amp; day &lt;= &quot;Friday&quot;:
+        return &quot;weekday&quot;
+    default:
+        return &quot;unknown&quot;
+    }
+}</code></pre>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

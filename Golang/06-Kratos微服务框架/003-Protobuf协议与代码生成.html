@@ -1,0 +1,693 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>003-Protobuf协议与代码生成</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Golang/index.html">Golang</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Golang/06-Kratos微服务框架/index.html">Kratos框架</a>
+</nav>
+<h1>003-Protobuf协议与代码生成</h1>
+<div class="meta">
+<span>📂 Kratos框架</span>
+<span>🏷️ Golang</span>
+</div>
+<article>
+
+
+
+<h1>003-Protobuf协议与代码生成</h1>
+
+<blockquote><p><strong>难度：⭐⭐⭐（进阶级）</strong><br><br>需要了解基本的数据序列化概念。读完本文，你将精通Protobuf语法，并能熟练使用kratos的代码生成工具链。</p></blockquote>
+
+<hr>
+
+<h2>一、概念讲解</h2>
+
+<h3>1.1 什么是Protobuf？</h3>
+
+<p><strong>Protocol Buffers（Protobuf）</strong> 是Google开发的<strong>语言无关、平台无关</strong>的序列化协议：</p>
+
+<table><thead><tr>
+<th>特性</th>
+<th>Protobuf</th>
+<th>JSON</th>
+<th>XML</th>
+</tr></thead><tbody>
+<tr>
+<td>序列化大小</td>
+<td>极小</td>
+<td>大</td>
+<td>很大</td>
+</tr>
+<tr>
+<td>解析速度</td>
+<td>极快</td>
+<td>中</td>
+<td>慢</td>
+</tr>
+<tr>
+<td>可读性</td>
+<td>二进制（不可读）</td>
+<td>高</td>
+<td>高</td>
+</tr>
+<tr>
+<td>Schema定义</td>
+<td>.proto文件</td>
+<td>无</td>
+<td>XSD</td>
+</tr>
+<tr>
+<td>代码生成</td>
+<td>✅ 自动</td>
+<td>❌</td>
+<td>❌</td>
+</tr>
+<tr>
+<td>类型安全</td>
+<td>✅ 强类型</td>
+<td>❌ 弱类型</td>
+<td>❌</td>
+</tr>
+</tbody></table>
+
+<h3>1.2 为什么Kratos选择Protobuf？</h3>
+
+<ol>
+<li><strong>接口即契约</strong>：proto文件是前后端、服务间的API契约</li>
+</ul>
+<ol>
+<li><strong>代码生成</strong>：一个proto文件同时生成HTTP和gRPC代码</li>
+</ul>
+<ol>
+<li><strong>类型安全</strong>：编译期检查，减少运行时错误</li>
+</ul>
+<ol>
+<li><strong>高性能</strong>：gRPC默认使用Protobuf，效率远超JSON</li>
+</ul>
+<ol>
+<li><strong>文档即代码</strong>：proto文件本身就是最准确的API文档</li>
+
+<h3>1.3 Kratos代码生成流程</h3>
+
+<pre><code>.proto文件 → protoc编译器 → 生成Go代码
+                              ├── .pb.go          (消息类型)
+                              ├── _grpc.pb.go      (gRPC服务)
+                              ├── _http.pb.go      (HTTP路由)
+                              └── .pb.validate.go  (校验规则)</code></pre>
+
+<hr>
+
+<h2>二、脑图（ASCII）</h2>
+
+<pre><code>              Protobuf与代码生成
+                    │
+     ┌──────────────┼──────────────┐
+     │              │              │
+  Proto语法     代码生成       组织规范
+     │              │              │
+  ┌──┼──┐      ┌───┼───┐     ┌───┼───┐
+  │  │  │      │   │   │     │   │   │
+msg svc rpc  pb.go grpc http ver  目录  命名  版本
+            .go  .go  .go sion</code></pre>
+
+<hr>
+
+<h2>三、Protobuf语法详解</h2>
+
+<h3>3.1 基础语法</h3>
+
+<pre><code class="language-protobuf">// api/helloworld/v1/greeter.proto
+
+// Specify syntax version
+syntax = &quot;proto3&quot;;
+
+// Go package path
+package helloworld.v1;
+
+// Go import path option
+option go_package = &quot;helloworld/api/helloworld/v1&quot;;
+
+// Import common types
+import &quot;google/protobuf/empty.proto&quot;;
+
+// Service definition
+service GreeterService {
+    // RPC method: takes HelloRequest, returns HelloReply
+    rpc SayHello (HelloRequest) returns (HelloReply) {}
+    
+    // RPC method: takes no params (Empty), returns HelloList
+    rpc ListGreetings (google.protobuf.Empty) returns (HelloList) {}
+}
+
+// Message definition (like a struct)
+message HelloRequest {
+    string name = 1;           // Field number 1
+    int32 age = 2;             // Field number 2
+    repeated string tags = 3;  // Repeated = slice/array
+}
+
+message HelloReply {
+    string message = 1;
+}
+
+message HelloList {
+    repeated HelloReply items = 1;
+    int32 total = 2;
+}</code></pre>
+
+<h3>3.2 数据类型映射</h3>
+
+<table><thead><tr>
+<th>Protobuf类型</th>
+<th>Go类型</th>
+<th>说明</th>
+</tr></thead><tbody>
+<tr>
+<td>string</td>
+<td>string</td>
+<td>字符串</td>
+</tr>
+<tr>
+<td>int32/int64</td>
+<td>int32/int64</td>
+<td>整数</td>
+</tr>
+<tr>
+<td>uint32/uint64</td>
+<td>uint32/uint64</td>
+<td>无符号整数</td>
+</tr>
+<tr>
+<td>float/double</td>
+<td>float32/float64</td>
+<td>浮点数</td>
+</tr>
+<tr>
+<td>bool</td>
+<td>bool</td>
+<td>布尔值</td>
+</tr>
+<tr>
+<td>bytes</td>
+<td>[]byte</td>
+<td>字节流</td>
+</tr>
+<tr>
+<td>repeated T</td>
+<td>[]T</td>
+<td>数组/切片</td>
+</tr>
+<tr>
+<td>map<K,V></td>
+<td>map[K]V</td>
+<td>映射</td>
+</tr>
+<tr>
+<td>optional T</td>
+<td>*T</td>
+<td>可选（proto3）</td>
+</tr>
+<tr>
+<td>oneof</td>
+<td>interface{}</td>
+<td>联合类型</td>
+</tr>
+<tr>
+<td>enum</td>
+<td>int32 (enum type)</td>
+<td>枚举</td>
+</tr>
+</tbody></table>
+
+<h3>3.3 高级语法</h3>
+
+<pre><code class="language-protobuf">// Enum definition
+message User {
+    enum Status {
+        STATUS_UNSPECIFIED = 0;  // First value must be 0
+        STATUS_ACTIVE = 1;
+        STATUS_INACTIVE = 2;
+        STATUS_BANNED = 3;
+    }
+    
+    int64 id = 1;
+    string name = 2;
+    string email = 3;
+    Status status = 4;
+    
+    // oneof: only one field can be set
+    oneof contact {
+        string phone = 5;
+        string wechat = 6;
+    }
+    
+    // Nested message
+    message Address {
+        string city = 1;
+        string street = 2;
+    }
+    Address address = 7;
+    
+    // Timestamp
+    google.protobuf.Timestamp created_at = 8;
+}</code></pre>
+
+<h3>3.4 HTTP注解（Kratos扩展）</h3>
+
+<p>Kratos通过<code>google/api/annotations.proto</code>支持HTTP路由映射：</p>
+
+<pre><code class="language-protobuf">syntax = &quot;proto3&quot;;
+
+package helloworld.v1;
+
+option go_package = &quot;helloworld/api/helloworld/v1&quot;;
+
+import &quot;google/api/annotations.proto&quot;;
+import &quot;google/protobuf/empty.proto&quot;;
+
+service GreeterService {
+    // Map RPC to GET /helloworld/{name}
+    rpc SayHello (HelloRequest) returns (HelloReply) {
+        option (google.api.http) = {
+            get: &quot;/helloworld/{name}&quot;
+        };
+    }
+    
+    // Map RPC to POST /greetings
+    rpc CreateGreeting (CreateGreetingRequest) returns (HelloReply) {
+        option (google.api.http) = {
+            post: &quot;/v1/greetings&quot;
+            body: &quot;*&quot;
+        };
+    }
+    
+    // Map RPC to PUT /greetings/{id}
+    rpc UpdateGreeting (UpdateGreetingRequest) returns (HelloReply) {
+        option (google.api.http) = {
+            put: &quot;/v1/greetings/{id}&quot;
+            body: &quot;*&quot;
+        };
+    }
+    
+    // Map RPC to DELETE /greetings/{id}
+    rpc DeleteGreeting (DeleteGreetingRequest) returns (google.protobuf.Empty) {
+        option (google.api.http) = {
+            delete: &quot;/v1/greetings/{id}&quot;
+        };
+    }
+    
+    // Map RPC to GET /greetings
+    rpc ListGreetings (ListGreetingRequest) returns (HelloList) {
+        option (google.api.http) = {
+            get: &quot;/v1/greetings&quot;
+        };
+    }
+}
+
+message HelloRequest {
+    string name = 1;
+}
+
+message CreateGreetingRequest {
+    string name = 1;
+    string message = 2;
+}
+
+message UpdateGreetingRequest {
+    int64 id = 1;
+    string name = 2;
+    string message = 3;
+}
+
+message DeleteGreetingRequest {
+    int64 id = 1;
+}
+
+message ListGreetingRequest {
+    int32 page = 1;
+    int32 page_size = 2;
+}</code></pre>
+
+<hr>
+
+<h2>四、代码生成</h2>
+
+<h3>4.1 使用Makefile（推荐）</h3>
+
+<pre><code class="language-makefile"># Makefile
+.PHONY: api
+api:
+	protoc --proto_path=. \
+	       --proto_path=./third_party \
+	       --go_out=paths=source_relative:. \
+	       --go-http_out=paths=source_relative:. \
+	       --go-grpc_out=paths=source_relative:. \
+	       --go-errors_out=paths=source_relative:. \
+	       --validate_out=paths=source_relative:. \
+	       $(shell find api -name &#x27;*.proto&#x27;)</code></pre>
+
+<h3>4.2 使用kratos CLI</h3>
+
+<pre><code class="language-bash"># Generate from a single proto file
+kratos proto client api/helloworld/v1/greeter.proto
+
+# Generate server stub
+kratos proto server api/helloworld/v1/greeter.proto -t internal/service</code></pre>
+
+<h3>4.3 生成文件说明</h3>
+
+<pre><code>api/helloworld/v1/
+├── greeter.proto              # Source: proto definition
+├── greeter.pb.go              # Generated: message types (structs)
+├── greeter_http.pb.go         # Generated: HTTP routes + handlers
+├── greeter_grpc.pb.go         # Generated: gRPC server/client stubs
+├── greeter.pb.validate.go     # Generated: validation logic (optional)
+└── greeter.pb.errors.go       # Generated: error codes (optional)</code></pre>
+
+<p><strong>greeter.pb.go</strong> — 生成的消息类型：</p>
+<pre><code class="language-go">// Auto-generated by protoc. DO NOT EDIT.
+type HelloRequest struct {
+    Name string `protobuf:&quot;bytes,1,opt,name=name,proto3&quot; json:&quot;name,omitempty&quot;`
+}</code></pre>
+
+<p><strong>greeter_http.pb.go</strong> — 生成的HTTP路由：</p>
+<pre><code class="language-go">// Register route: GET /helloworld/{name}
+func RegisterGreeterServiceHTTPServer(s *http.Server, srv GreeterServiceHTTPServer) {
+    r := s.Route(&quot;/&quot;)
+    r.GET(&quot;/helloworld/{name}&quot;, _GreeterService_SayHello0_HTTP_Handler(srv))
+}</code></pre>
+
+<p><strong>greeter_grpc.pb.go</strong> — 生成的gRPC存根：</p>
+<pre><code class="language-go">// gRPC service descriptor
+func RegisterGreeterServiceServer(s grpc.ServiceRegistrar, srv GreeterServiceServer) {
+    s.RegisterService(&amp;_GreeterService_serviceDesc, srv)
+}</code></pre>
+
+<hr>
+
+<h2>五、执行预览</h2>
+
+<pre><code>$ make api
+protoc --proto_path=. --proto_path=./third_party \
+       --go_out=paths=source_relative:. \
+       --go-http_out=paths=source_relative:. \
+       --go-grpc_out=paths=source_relative:. \
+       api/helloworld/v1/greeter.proto
+
+# Generated files:
+#   api/helloworld/v1/greeter.pb.go
+#   api/helloworld/v1/greeter_http.pb.go
+#   api/helloworld/v1/greeter_grpc.pb.go
+
+$ kratos proto client api/helloworld/v1/greeter.proto
+# Same as make api but for a single file</code></pre>
+
+<hr>
+
+<h2>六、注意事项</h2>
+
+<table><thead><tr>
+<th>注意点</th>
+<th>说明</th>
+<th>严重度</th>
+</tr></thead><tbody>
+<tr>
+<td>proto3语法</td>
+<td>确保第一行声明<code>syntax = "proto3"</code></td>
+<td>🔴 高</td>
+</tr>
+<tr>
+<td>go_package选项</td>
+<td>必须正确设置Go导入路径</td>
+<td>🔴 高</td>
+</tr>
+<tr>
+<td>field number</td>
+<td>已使用的编号永远不要复用</td>
+<td>🔴 高</td>
+</tr>
+<tr>
+<td>third_party目录</td>
+<td>存放google/api等第三方proto</td>
+<td>🟡 中</td>
+</tr>
+<tr>
+<td>import路径</td>
+<td>确保protoc能找到所有import</td>
+<td>🟡 中</td>
+</tr>
+<tr>
+<td>生成文件不要手动修改</td>
+<td>每次make api会覆盖</td>
+<td>🔴 高</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>七、避坑指南</h2>
+
+<table><thead><tr>
+<th>❌ 常见错误</th>
+<th>✅ 正确做法</th>
+</tr></thead><tbody>
+<tr>
+<td>修改已发布proto的field number</td>
+<td>永远用新编号，旧编号废弃</td>
+</tr>
+<tr>
+<td>手动编辑生成的.pb.go文件</td>
+<td>只编辑.proto文件，重新生成</td>
+</tr>
+<tr>
+<td>proto文件放在项目根目录</td>
+<td>放在<code>api/</code>目录下，按版本组织</td>
+</tr>
+<tr>
+<td>不设置go_package</td>
+<td>必须设置，否则生成路径错误</td>
+</tr>
+<tr>
+<td>import google/api/annotations找不到</td>
+<td>确保third_party目录包含所需proto</td>
+</tr>
+<tr>
+<td>proto中HTTP注解不生效</td>
+<td>检查是否import了annotations.proto</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>八、练习题</h2>
+
+<h3>🟢 入门题</h3>
+<ol>
+<li>编写一个<code>User</code>消息类型，包含id(int64)、name(string)、email(string)、age(int32)字段。</li>
+
+<h3>🟡 进阶题</h3>
+<ol>
+<li>定义一个完整的<code>UserService</code>，包含CreateUser、GetUser、UpdateUser、DeleteUser、ListUsers五个RPC方法，并为每个方法添加HTTP注解。</li>
+
+<h3>🔴 挑战题</h3>
+<ol>
+<li>定义一个电商订单系统的proto，包含Order（订单）、Product（商品）、User（用户）三个message，以及OrderService（下单、查询、取消、支付）的完整接口定义。使用nested message、enum、oneof等高级特性。</li>
+
+<hr>
+
+<h2>九、知识点总结</h2>
+
+<pre><code>Protobuf与代码生成
+├── Proto语法
+│   ├── syntax = &quot;proto3&quot;
+│   ├── message（消息定义）
+│   ├── service/rpc（服务定义）
+│   ├── import（导入）
+│   ├── option go_package
+│   └── 高级：enum/oneof/map/repeated/nested
+├── HTTP注解
+│   ├── get/post/put/delete
+│   ├── body: &quot;*&quot;（请求体映射）
+│   ├── 路径参数 {name}
+│   └── 需import google/api/annotations.proto
+├── 代码生成
+│   ├── protoc编译器 + Go插件
+│   ├── .pb.go（消息类型）
+│   ├── _http.pb.go（HTTP路由）
+│   ├── _grpc.pb.go（gRPC存根）
+│   └── Makefile / kratos CLI
+└── 组织规范
+    ├── api/&lt;service&gt;/&lt;version&gt;/&lt;name&gt;.proto
+    ├── third_party/ 放第三方proto
+    ├── 生成文件不入git（或入git，团队约定）
+    └── field number不复用</code></pre>
+
+<hr>
+
+<h2>十、举一反三</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>思路</th>
+<th>关键技术</th>
+</tr></thead><tbody>
+<tr>
+<td>RESTful API设计</td>
+<td>用HTTP注解映射CRUD到RPC方法</td>
+<td>google.api.http</td>
+</tr>
+<tr>
+<td>版本管理</td>
+<td>按v1/v2组织proto目录</td>
+<td>package versioning</td>
+</tr>
+<tr>
+<td>前后端协作</td>
+<td>共享proto文件，各自生成代码</td>
+<td>protoc多语言支持</td>
+</tr>
+<tr>
+<td>接口文档</td>
+<td>proto本身就是文档，或用protoc-gen-doc生成</td>
+<td>API文档生成</td>
+</tr>
+<tr>
+<td>接口校验</td>
+<td>使用protoc-gen-validate添加校验规则</td>
+<td>validation rules</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>十一、参考资料</h2>
+
+<table><thead><tr>
+<th>资源</th>
+<th>链接</th>
+</tr></thead><tbody>
+<tr>
+<td>Protobuf官方文档</td>
+<td>https://protobuf.dev/programming-guides/proto3/</td>
+</tr>
+<tr>
+<td>Google HTTP Annotations</td>
+<td>https://github.com/googleapis/googleapis/blob/master/google/api/annotations.proto</td>
+</tr>
+<tr>
+<td>Kratos Proto文档</td>
+<td>https://go-kratos.dev/docs/component/proto</td>
+</tr>
+<tr>
+<td>protoc-gen-validate</td>
+<td>https://github.com/bufbuild/protoc-gen-validate</td>
+</tr>
+<tr>
+<td>Kratos示例项目</td>
+<td>https://github.com/go-kratos/examples</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>十二、代码演进</h2>
+
+<h3>v1：基本消息定义</h3>
+<pre><code class="language-protobuf">message HelloRequest {
+    string name = 1;
+}
+message HelloReply {
+    string message = 1;
+}</code></pre>
+
+<h3>v2：添加HTTP注解</h3>
+<pre><code class="language-protobuf">service GreeterService {
+    rpc SayHello (HelloRequest) returns (HelloReply) {
+        option (google.api.http) = {
+            get: &quot;/v1/greetings/{name}&quot;
+        };
+    }
+}</code></pre>
+
+<h3>v3：完整CRUD + 校验</h3>
+<pre><code class="language-protobuf">import &quot;validate/validate.proto&quot;;
+
+message CreateGreetingRequest {
+    string name = 1 [(validate.rules).string = {min_len: 1, max_len: 100}];
+    string message = 2 [(validate.rules).string.min_len = 1];
+}
+
+service GreeterService {
+    rpc CreateGreeting (CreateGreetingRequest) returns (HelloReply) {
+        option (google.api.http) = { post: &quot;/v1/greetings&quot; body: &quot;*&quot; };
+    }
+    rpc ListGreetings (ListGreetingRequest) returns (HelloList) {
+        option (google.api.http) = { get: &quot;/v1/greetings&quot; };
+    }
+}</code></pre>
+
+<hr>
+
+<p><strong>上一篇：</strong> <a href="/posts/002-kratos-project-structure">002-项目结构与分层架构</a></p>
+<p><strong>下一篇：</strong> <a href="/posts/004-kratos-helloworld">004-第一个Kratos服务Hello World</a></p>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

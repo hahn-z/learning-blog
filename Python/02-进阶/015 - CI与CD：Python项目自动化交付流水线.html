@@ -1,0 +1,932 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>015 - CI与CD：Python项目自动化交付流水线</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Python/index.html">其他</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Python/02-进阶/index.html">Python进阶</a>
+</nav>
+<h1>015 - CI与CD：Python项目自动化交付流水线</h1>
+<div class="meta">
+<span>📂 Python进阶</span>
+<span>🏷️ 其他</span>
+</div>
+<article>
+
+
+<hr>
+<p>difficulty: ⭐⭐⭐⭐高级</p>
+<p>tags: [Python, CI, CD, GitHub Actions, 自动化]</p>
+<hr>
+
+<h1>CI与CD：Python项目自动化交付流水线</h1>
+
+<blockquote><p><strong>难度标注：⭐⭐⭐⭐ 高级</strong> | 适合有一定 Python 和 Git 基础，想搭建自动化流水线的开发者</p></blockquote>
+
+<h2>一、概念讲解</h2>
+
+<h3>什么是 CI/CD？</h3>
+
+<p><strong>CI（Continuous Integration，持续集成）</strong>：代码变更自动触发构建和测试，确保每次提交都是可工作的。</p>
+
+<p><strong>CD（Continuous Deployment/Delivery，持续部署/交付）</strong>：通过所有检查的代码自动部署到目标环境。</p>
+
+<pre><code>开发者推送代码
+    |
+[CI] 代码检出 -&gt; 安装依赖 -&gt; 运行测试 -&gt; 代码检查 -&gt; 构建
+    | (全部通过)
+[CD] 打包 -&gt; 部署到Staging -&gt; 验收测试 -&gt; 部署到Production</code></pre>
+
+<h3>CI/CD 的核心价值</h3>
+
+<table><thead><tr>
+<th>价值</th>
+<th>说明</th>
+</tr></thead><tbody>
+<tr>
+<td><strong>快速反馈</strong></td>
+<td>几分钟内发现代码问题，不用等到发布</td>
+</tr>
+<tr>
+<td><strong>一致性</strong></td>
+<td>构建和部署流程标准化，消除"在我机器上能跑"</td>
+</tr>
+<tr>
+<td><strong>安全性</strong></td>
+<td>自动化测试守卫，减少人工遗漏</td>
+</tr>
+<tr>
+<td><strong>效率</strong></td>
+<td>自动执行重复性操作，释放人力</td>
+</tr>
+<tr>
+<td><strong>可追溯</strong></td>
+<td>每次部署都有记录，方便回滚</td>
+</tr>
+</tbody></table>
+
+<h3>常见 CI/CD 工具对比</h3>
+
+<table><thead><tr>
+<th>工具</th>
+<th>类型</th>
+<th>特点</th>
+<th>适用场景</th>
+</tr></thead><tbody>
+<tr>
+<td>GitHub Actions</td>
+<td>云端</td>
+<td>与 GitHub 深度集成，YAML 配置</td>
+<td>开源项目、GitHub 托管</td>
+</tr>
+<tr>
+<td>GitLab CI</td>
+<td>云端/自建</td>
+<td>与 GitLab 深度集成，功能全面</td>
+<td>GitLab 用户</td>
+</tr>
+<tr>
+<td>Jenkins</td>
+<td>自建</td>
+<td>插件丰富，高度可定制</td>
+<td>企业内部、复杂流水线</td>
+</tr>
+<tr>
+<td>CircleCI</td>
+<td>云端</td>
+<td>速度快，Docker 支持好</td>
+<td>中小团队</td>
+</tr>
+<tr>
+<td>Azure DevOps</td>
+<td>云端</td>
+<td>微软生态，企业级</td>
+<td>.NET + Python 混合项目</td>
+</tr>
+</tbody></table>
+
+<p><strong>本文以 GitHub Actions 为例</strong>，因为它免费、普及度最高、配置简单。</p>
+
+<h2>二、脑图</h2>
+
+<pre><code>Python CI/CD
+├── CI（持续集成）
+│   ├── 代码检出
+│   ├── Python 版本矩阵
+│   ├── 依赖安装（pip/poetry）
+│   ├── 代码检查
+│   │   ├── ruff（Linter + Formatter）
+│   │   ├── mypy（类型检查）
+│   │   └── black（格式检查）
+│   ├── 运行测试
+│   │   ├── pytest
+│   │   ├── 覆盖率报告
+│   │   └── 并行测试
+│   └── 安全检查
+│       ├── pip-audit（依赖漏洞）
+│       └── bandit（代码安全）
+├── CD（持续部署）
+│   ├── 构建产物
+│   │   ├── Wheel / Sdist
+│   │   ├── Docker 镜像
+│   │   └── 静态文件
+│   ├── 发布
+│   │   ├── PyPI 发布
+│   │   ├── GitHub Release
+│   │   └── Docker Hub
+│   └── 部署
+│       ├── 服务器部署（SSH）
+│       ├── 容器编排（K8s）
+│       └── Serverless
+├── GitHub Actions
+│   ├── Workflow 文件 (.github/workflows/)
+│   ├── 触发条件（push/PR/schedule）
+│   ├── Jobs / Steps / Actions
+│   ├── 矩阵策略
+│   ├── 缓存依赖
+│   └── Secrets 管理
+└── 最佳实践
+    ├── 分支策略（trunk-based / GitFlow）
+    ├── 环境隔离（dev/staging/prod）
+    ├── 回滚策略
+    └── 监控告警</code></pre>
+
+<h2>三、完整代码示例</h2>
+
+<h3>项目结构</h3>
+
+<pre><code>myapp/
+├── .github/
+│   └── workflows/
+│       ├── ci.yml              # CI 流水线
+│       ├── cd.yml              # CD 流水线
+│       └── release.yml         # 发布流程
+├── src/
+│   └── myapp/
+│       ├── __init__.py
+│       ├── app.py
+│       └── config.py
+├── tests/
+│   ├── conftest.py
+│   └── test_app.py
+├── Dockerfile
+├── pyproject.toml
+└── Makefile</code></pre>
+
+<h3>src/myapp/app.py -- 应用代码</h3>
+
+<pre><code class="language-python">&quot;&quot;&quot;A simple FastAPI application for CI/CD demonstration.&quot;&quot;&quot;
+from fastapi import FastAPI, HTTPException
+from pydantic import BaseModel
+
+app = FastAPI(title=&quot;MyApp&quot;, version=&quot;1.0.0&quot;)
+
+
+class Item(BaseModel):
+    &quot;&quot;&quot;Item model for API.&quot;&quot;&quot;
+    name: str
+    price: float
+    description: str = &quot;&quot;
+
+
+# In-memory store (replace with DB in production)
+_items: dict[int, Item] = {}
+_next_id = 1
+
+
+@app.get(&quot;/&quot;)
+def root():
+    &quot;&quot;&quot;Health check endpoint.&quot;&quot;&quot;
+    return {&quot;status&quot;: &quot;ok&quot;, &quot;version&quot;: &quot;1.0.0&quot;}
+
+
+@app.get(&quot;/items&quot;)
+def list_items() -&gt; list[Item]:
+    &quot;&quot;&quot;List all items.&quot;&quot;&quot;
+    return list(_items.values())
+
+
+@app.post(&quot;/items&quot;, status_code=201)
+def create_item(item: Item) -&gt; Item:
+    &quot;&quot;&quot;Create a new item.&quot;&quot;&quot;
+    global _next_id
+    _items[_next_id] = item
+    _next_id += 1
+    return item
+
+
+@app.get(&quot;/items/{item_id}&quot;)
+def get_item(item_id: int) -&gt; Item:
+    &quot;&quot;&quot;Get an item by ID.&quot;&quot;&quot;
+    if item_id not in _items:
+        raise HTTPException(status_code=404, detail=&quot;Item not found&quot;)
+    return _items[item_id]
+
+
+@app.delete(&quot;/items/{item_id}&quot;, status_code=204)
+def delete_item(item_id: int):
+    &quot;&quot;&quot;Delete an item by ID.&quot;&quot;&quot;
+    if item_id not in _items:
+        raise HTTPException(status_code=404, detail=&quot;Item not found&quot;)
+    del _items[item_id]</code></pre>
+
+<h3>tests/test_app.py -- 测试代码</h3>
+
+<pre><code class="language-python">&quot;&quot;&quot;Tests for the FastAPI application.&quot;&quot;&quot;
+import pytest
+from fastapi.testclient import TestClient
+from myapp.app import app, _items
+
+client = TestClient(app)
+
+
+@pytest.fixture(autouse=True)
+def clean_items():
+    &quot;&quot;&quot;Clear items before each test.&quot;&quot;&quot;
+    _items.clear()
+    yield
+    _items.clear()
+
+
+def test_health_check():
+    &quot;&quot;&quot;Test the health check endpoint.&quot;&quot;&quot;
+    resp = client.get(&quot;/&quot;)
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data[&quot;status&quot;] == &quot;ok&quot;
+    assert &quot;version&quot; in data
+
+
+def test_list_items_empty():
+    &quot;&quot;&quot;Test listing items when empty.&quot;&quot;&quot;
+    resp = client.get(&quot;/items&quot;)
+    assert resp.status_code == 200
+    assert resp.json() == []
+
+
+def test_create_and_get_item():
+    &quot;&quot;&quot;Test creating and retrieving an item.&quot;&quot;&quot;
+    # Create
+    resp = client.post(&quot;/items&quot;, json={
+        &quot;name&quot;: &quot;Widget&quot;, &quot;price&quot;: 9.99, &quot;description&quot;: &quot;A widget&quot;
+    })
+    assert resp.status_code == 201
+    assert resp.json()[&quot;name&quot;] == &quot;Widget&quot;
+
+    # Get
+    resp = client.get(&quot;/items/1&quot;)
+    assert resp.status_code == 200
+    assert resp.json()[&quot;price&quot;] == 9.99
+
+
+def test_get_item_not_found():
+    &quot;&quot;&quot;Test getting a non-existent item returns 404.&quot;&quot;&quot;
+    resp = client.get(&quot;/items/999&quot;)
+    assert resp.status_code == 404
+
+
+def test_delete_item():
+    &quot;&quot;&quot;Test deleting an item.&quot;&quot;&quot;
+    client.post(&quot;/items&quot;, json={&quot;name&quot;: &quot;Widget&quot;, &quot;price&quot;: 9.99})
+    resp = client.delete(&quot;/items/1&quot;)
+    assert resp.status_code == 204
+
+    # Verify deleted
+    resp = client.get(&quot;/items/1&quot;)
+    assert resp.status_code == 404</code></pre>
+
+<h3>pyproject.toml -- 项目配置</h3>
+
+<pre><code class="language-toml">[project]
+name = &quot;myapp&quot;
+version = &quot;1.0.0&quot;
+requires-python = &quot;&gt;=3.10&quot;
+dependencies = [
+    &quot;fastapi&gt;=0.104.0&quot;,
+    &quot;uvicorn&gt;=0.24.0&quot;,
+    &quot;pydantic&gt;=2.0.0&quot;,
+]
+
+[project.optional-dependencies]
+dev = [
+    &quot;pytest&gt;=7.4&quot;,
+    &quot;pytest-cov&gt;=4.1&quot;,
+    &quot;httpx&gt;=0.25&quot;,
+    &quot;ruff&gt;=0.1&quot;,
+    &quot;mypy&gt;=1.7&quot;,
+]
+
+[tool.pytest.ini_options]
+testpaths = [&quot;tests&quot;]
+addopts = &quot;-v --cov=myapp --cov-report=term-missing&quot;
+
+[tool.ruff]
+line-length = 88
+select = [&quot;E&quot;, &quot;F&quot;, &quot;I&quot;, &quot;W&quot;]
+
+[tool.mypy]
+strict = true</code></pre>
+
+<h3>Dockerfile</h3>
+
+<pre><code class="language-dockerfile"># Multi-stage build for smaller image
+FROM python:3.12-slim AS builder
+WORKDIR /app
+COPY pyproject.toml .
+RUN pip install --no-cache-dir .
+
+FROM python:3.12-slim
+WORKDIR /app
+COPY --from=builder /usr/local/lib/python3.12/site-packages /usr/local/lib/python3.12/site-packages
+COPY --from=builder /usr/local/bin /usr/local/bin
+COPY src/ src/
+
+EXPOSE 8000
+CMD [&quot;uvicorn&quot;, &quot;myapp.app:app&quot;, &quot;--host&quot;, &quot;0.0.0.0&quot;, &quot;--port&quot;, &quot;8000&quot;]</code></pre>
+
+<h3>Makefile -- 常用命令</h3>
+
+<pre><code class="language-makefile">.PHONY: install test lint format check build docker
+
+install:
+	pip install -e &quot;.[dev]&quot;
+
+test:
+	pytest
+
+lint:
+	ruff check src/ tests/
+	mypy src/
+
+format:
+	ruff format src/ tests/
+
+check: format lint test
+
+build:
+	python -m build
+
+docker:
+	docker build -t myapp:latest .</code></pre>
+
+<h3>.github/workflows/ci.yml -- CI 流水线</h3>
+
+<pre><code class="language-yaml">name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: [&quot;3.10&quot;, &quot;3.11&quot;, &quot;3.12&quot;]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: &quot;pip&quot;
+
+      - name: Install dependencies
+        run: pip install -e &quot;.[dev]&quot;
+
+      - name: Lint with ruff
+        run: ruff check src/ tests/
+
+      - name: Type check with mypy
+        run: mypy src/
+
+      - name: Run tests with coverage
+        run: pytest --cov=myapp --cov-report=xml --cov-report=term-missing
+
+      - name: Upload coverage to Codecov
+        if: matrix.python-version == &#x27;3.12&#x27;
+        uses: codecov/codecov-action@v3
+        with:
+          file: ./coverage.xml
+
+  security:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: &quot;3.12&quot;
+      - name: Check dependencies for vulnerabilities
+        run: |
+          pip install pip-audit
+          pip-audit
+
+  docker-build:
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build Docker image
+        run: docker build -t myapp:${{ github.sha }} .
+      - name: Test Docker image
+        run: |
+          docker run -d -p 8000:8000 --name myapp myapp:${{ github.sha }}
+          sleep 5
+          curl -f http://localhost:8000/ || exit 1
+          docker stop myapp</code></pre>
+
+<h3>.github/workflows/cd.yml -- CD 流水线</h3>
+
+<pre><code class="language-yaml">name: CD
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy-staging:
+    runs-on: ubuntu-latest
+    needs: []
+    environment: staging
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: &quot;3.12&quot;
+
+      - name: Build package
+        run: |
+          pip install build
+          python -m build
+
+      - name: Build and push Docker image
+        run: |
+          echo &quot;${{ secrets.DOCKER_PASSWORD }}&quot; | docker login -u &quot;${{ secrets.DOCKER_USER }}&quot; --password-stdin
+          docker build -t myorg/myapp:staging .
+          docker push myorg/myapp:staging
+
+      - name: Deploy to staging
+        run: |
+          echo &quot;Deploying to staging server...&quot;
+          # ssh ${{ secrets.STAGING_HOST }} &quot;docker pull myorg/myapp:staging &amp;&amp; docker-compose up -d&quot;
+
+  deploy-production:
+    runs-on: ubuntu-latest
+    needs: deploy-staging
+    environment: production
+    steps:
+      - name: Deploy to production
+        run: |
+          echo &quot;Deploying to production...&quot;
+          # In real life: pull latest image, rolling update, health check</code></pre>
+
+<h3>.github/workflows/release.yml -- 发布流程</h3>
+
+<pre><code class="language-yaml">name: Release
+
+on:
+  push:
+    tags: [&quot;v*&quot;]
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: &quot;3.12&quot;
+
+      - name: Build package
+        run: |
+          pip install build
+          python -m build
+
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          password: ${{ secrets.PYPI_API_TOKEN }}
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: dist/*
+          generate_release_notes: true</code></pre>
+
+<h2>四、执行预览</h2>
+
+<pre><code class="language-bash"># 本地运行 CI 流程
+$ make check
+ruff format src/ tests/
+3 files formatted
+ruff check src/ tests/
+All checks passed!
+mypy src/
+Success: no issues found in 5 source files
+pytest -v --cov=myapp --cov-report=term-missing
+===================== test session starts =====================
+tests/test_app.py::test_health_check PASSED               [ 20%]
+tests/test_app.py::test_list_items_empty PASSED           [ 40%]
+tests/test_app.py::test_create_and_get_item PASSED        [ 60%]
+tests/test_app.py::test_get_item_not_found PASSED         [ 80%]
+tests/test_app.py::test_delete_item PASSED                [100%]
+===================== 5 passed ==============================
+Name          Stmts   Miss  Cover   Missing
+-------------------------------------------
+myapp/app.py     25      0   100%
+-------------------------------------------
+TOTAL            25      0   100%</code></pre>
+
+<pre><code class="language-bash"># Docker 构建和测试
+$ docker build -t myapp:latest .
+$ docker run -d -p 8000:8000 myapp:latest
+$ curl http://localhost:8000/
+{&quot;status&quot;:&quot;ok&quot;,&quot;version&quot;:&quot;1.0.0&quot;}
+
+# 打 Tag 触发发布
+$ git tag v1.0.0
+$ git push origin v1.0.0
+# -&gt; GitHub Actions 自动发布到 PyPI + 创建 Release</code></pre>
+
+<h2>五、注意事项</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>注意点</th>
+<th>建议</th>
+</tr></thead><tbody>
+<tr>
+<td>Secrets 管理</td>
+<td>API Key 不能明文写在 YAML</td>
+<td>用 GitHub Secrets</td>
+</tr>
+<tr>
+<td>缓存依赖</td>
+<td>每次安装依赖很慢</td>
+<td>用 <code>cache: "pip"</code> 或 <code>actions/cache</code></td>
+</tr>
+<tr>
+<td>矩阵策略</td>
+<td>测试所有 Python 版本很耗时</td>
+<td>PR 只测最新版，merge 测全矩阵</td>
+</tr>
+<tr>
+<td>Docker 层缓存</td>
+<td>每次构建镜像慢</td>
+<td>多阶段构建 + .dockerignore</td>
+</tr>
+<tr>
+<td>测试环境隔离</td>
+<td>测试之间互相影响</td>
+<td>用 fixture 清理、独立数据库</td>
+</tr>
+<tr>
+<td>并行 vs 串行</td>
+<td>并行快但有资源限制</td>
+<td>独立 Job 并行，有依赖的串行</td>
+</tr>
+<tr>
+<td>回滚策略</td>
+<td>部署失败怎么回滚</td>
+<td>保留上一个镜像版本</td>
+</tr>
+<tr>
+<td>分支保护</td>
+<td>直接 push main 有风险</td>
+<td>开启分支保护 + 必须 PR + CI 通过</td>
+</tr>
+</tbody></table>
+
+<h2>六、避坑指南</h2>
+
+<h3>把密钥写在 YAML vs 用 Secrets</h3>
+
+<pre><code class="language-yaml"># Bad: Hardcoded secrets
+- name: Deploy
+  run: ssh user@host &quot;docker pull myapp&quot;
+  env:
+    SSH_KEY: &quot;-----BEGIN RSA PRIVATE KEY-----...&quot;  # Leaked!
+
+# Good: Use GitHub Secrets
+- name: Deploy
+  run: ssh -i &lt;(echo &quot;${{ secrets.SSH_KEY }}&quot;) user@host &quot;docker pull myapp&quot;</code></pre>
+
+<h3>每次全量安装依赖 vs 利用缓存</h3>
+
+<pre><code class="language-yaml"># Bad: No cache, installs everything every time
+- run: pip install -e &quot;.[dev]&quot;  # Slow every time
+
+# Good: Use setup-python cache
+- uses: actions/setup-python@v5
+  with:
+    python-version: &quot;3.12&quot;
+    cache: &quot;pip&quot;  # Cache pip downloads
+- run: pip install -e &quot;.[dev]&quot;</code></pre>
+
+<h3>一个 Job 包揽一切 vs 拆分 Job 并行</h3>
+
+<pre><code class="language-yaml"># Bad: Sequential everything
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - run: pip install -e &quot;.[dev]&quot;
+      - run: ruff check .
+      - run: mypy .
+      - run: pytest
+      - run: docker build .
+
+# Good: Parallel jobs with dependencies
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - run: ruff check . &amp;&amp; mypy .
+
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python: [&quot;3.10&quot;, &quot;3.11&quot;, &quot;3.12&quot;]
+    steps:
+      - run: pytest
+
+  docker:
+    needs: [lint, test]  # Only after lint+test pass
+    runs-on: ubuntu-latest
+    steps:
+      - run: docker build -t myapp .</code></pre>
+
+<h3>不测试 Docker 镜像 vs 构建后冒烟测试</h3>
+
+<pre><code class="language-yaml"># Bad: Build but never test the image
+- run: docker build -t myapp .
+
+# Good: Build, run, and smoke test
+- run: docker build -t myapp:latest .
+- run: |
+    docker run -d -p 8000:8000 --name test myapp:latest
+    sleep 3
+    curl -f http://localhost:8000/ || (docker logs test &amp;&amp; exit 1)
+    docker stop test</code></pre>
+
+<h2>七、练习题</h2>
+
+<h3>基础题</h3>
+
+<ol>
+<li><strong>创建第一个 Workflow</strong>：在现有项目中创建 <code>.github/workflows/ci.yml</code>，实现：推送时自动运行 pytest。</li>
+
+<ol>
+<li><strong>添加 Lint 步骤</strong>：在 CI 中添加 ruff 检查步骤，确保代码风格一致。</li>
+
+<ol>
+<li><strong>Matrix 测试</strong>：配置 GitHub Actions 在 Python 3.10、3.11、3.12 三个版本上运行测试。</li>
+
+<h3>进阶题</h3>
+
+<ol>
+<li><strong>完整 CI 流水线</strong>：为你的项目搭建包含以下步骤的 CI：</li>
+<li>代码检出 + 缓存</li>
+<li>Lint (ruff)</li>
+<li>类型检查 (mypy)</li>
+<li>测试 + 覆盖率</li>
+<li>Docker 构建 + 冒烟测试</li>
+
+<ol>
+<li><strong>自动发布</strong>：创建 release workflow，当推送 <code>v*</code> tag 时：</li>
+<li>构建 Python 包</li>
+<li>发布到 TestPyPI（测试用）</li>
+<li>创建 GitHub Release</li>
+
+<ol>
+<li><strong>定时任务</strong>：创建一个每天早上 8 点运行的 workflow，检查依赖是否有安全漏洞。</li>
+
+<h3>挑战题</h3>
+
+<ol>
+<li><strong>蓝绿部署</strong>：实现蓝绿部署策略：</li>
+<li>两个完全相同的生产环境</li>
+<li>新版本部署到空闲环境</li>
+<li>健康检查通过后切换流量</li>
+<li>失败则自动回滚</li>
+
+<ol>
+<li><strong>多环境 Pipeline</strong>：构建完整的多环境部署流水线：</li>
+<li>PR -> CI 测试 + 预览环境</li>
+<li>Merge to develop -> 部署到 Staging + 集成测试</li>
+<li>Merge to main -> 部署到 Production + 烟雾测试 + 监控告警</li>
+<li>Tag -> 正式版本发布</li>
+
+<h2>八、知识点总结</h2>
+
+<pre><code>CI/CD 知识树
+├── 1. CI（持续集成）
+│   ├── 自动触发（push/PR）
+│   ├── 依赖安装 + 缓存
+│   ├── 代码检查（lint/type）
+│   ├── 自动化测试
+│   ├── 覆盖率报告
+│   └── 安全扫描
+├── 2. CD（持续部署）
+│   ├── 构建产物（wheel/docker）
+│   ├── 多环境（staging/prod）
+│   ├── 部署策略（蓝绿/滚动）
+│   └── 健康检查 + 回滚
+├── 3. GitHub Actions
+│   ├── Workflow YAML
+│   ├── Triggers（push/PR/tag/schedule）
+│   ├── Jobs + Steps
+│   ├── Matrix 策略
+│   ├── Secrets + Environments
+│   └── 常用 Actions（checkout/setup-python）
+├── 4. Docker 集成
+│   ├── Dockerfile（多阶段构建）
+│   ├── Docker Hub 推送
+│   ├── .dockerignore
+│   └── 容器冒烟测试
+└── 5. 最佳实践
+    ├── 分支保护 + PR Review
+    ├── Secrets 管理
+    ├── 依赖缓存
+    ├── 矩阵策略优化
+    └── 监控 + 告警</code></pre>
+
+<h2>九、举一反三</h2>
+
+<table><thead><tr>
+<th>你学到的</th>
+<th>可以应用到</th>
+<th>示例</th>
+</tr></thead><tbody>
+<tr>
+<td>GitHub Actions YAML</td>
+<td>其他 CI/CD 工具</td>
+<td>GitLab CI、Jenkins Pipeline 逻辑相同</td>
+</tr>
+<tr>
+<td>Matrix 策略</td>
+<td>多平台兼容测试</td>
+<td>Python 多版本、OS 多系统、浏览器多版本</td>
+</tr>
+<tr>
+<td>Docker 多阶段构建</td>
+<td>任何语言的项目</td>
+<td>Node.js、Go、Rust 项目同理</td>
+</tr>
+<tr>
+<td>环境隔离</td>
+<td>多租户系统</td>
+<td>dev -> staging -> production 逐步验证</td>
+</tr>
+<tr>
+<td>Secrets 管理</td>
+<td>任何涉及凭证的场景</td>
+<td>API Key、数据库密码、SSH 密钥</td>
+</tr>
+<tr>
+<td>蓝绿部署</td>
+<td>零停机发布策略</td>
+<td>电商大促、金融系统上线</td>
+</tr>
+</tbody></table>
+
+<h2>十、参考资料</h2>
+
+<ul>
+<li><a href="https://docs.github.com/en/actions">GitHub Actions 官方文档</a></li>
+<li><a href="https://docs.github.com/en/actions/quickstart">GitHub Actions 入门教程</a></li>
+<li><a href="https://packaging.python.org/">Python Packaging User Guide</a></li>
+<li><a href="https://docs.docker.com/build/building/multi-stage/">Docker 多阶段构建</a></li>
+<li><a href="https://martinfowler.com/bliki/ContinuousDelivery.html">Continuous Delivery -- Martin Fowler</a></li>
+<li><a href="https://realpython.com/python-github-actions/">GitHub Actions 实践指南 -- Real Python</a></li>
+
+<h2>十一、代码演进</h2>
+
+<h3>v1 -- 本地手动脚本</h3>
+
+<pre><code class="language-bash">#!/bin/bash
+# deploy.sh -- Manual deployment script
+
+set -e
+echo &quot;Running tests...&quot;
+pytest
+
+echo &quot;Building Docker image...&quot;
+docker build -t myapp:latest .
+
+echo &quot;Deploying to server...&quot;
+ssh prod-server &quot;docker pull myapp:latest &amp;&amp; docker-compose up -d&quot;
+
+echo &quot;Done!&quot;</code></pre>
+
+<p><strong>问题</strong>：依赖手动执行，容易忘记步骤，没有质量门禁。</p>
+
+<h3>v2 -- 基础 CI</h3>
+
+<pre><code class="language-yaml"># .github/workflows/ci.yml -- Basic CI
+name: CI
+on: [push, pull_request]
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: &quot;3.12&quot;
+      - run: pip install -e &quot;.[dev]&quot;
+      - run: pytest</code></pre>
+
+<p><strong>改进</strong>：自动触发、云端运行。<strong>问题</strong>：没有 lint、没有多版本、没有缓存。</p>
+
+<h3>v3 -- 完整 CI/CD 流水线</h3>
+
+<pre><code class="language-yaml"># Full pipeline with matrix, caching, lint, security, deploy
+name: CI/CD
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+
+jobs:
+  lint: { ... }        # ruff + mypy
+  test: { ... }        # Matrix 3 Python versions
+  security: { ... }    # pip-audit
+  docker: { ... }      # Build + smoke test
+  deploy-staging: { ... }   # Auto deploy on merge to develop
+  deploy-production: { ... } # Manual approval for production
+  release: { ... }     # PyPI + GitHub Release on tag</code></pre>
+
+<p><strong>最终形态</strong>：并行执行、矩阵覆盖、安全扫描、多环境部署、自动发布、完整的质量门禁。</p>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

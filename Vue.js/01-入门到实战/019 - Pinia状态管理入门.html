@@ -1,0 +1,525 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>019 - Pinia状态管理入门</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Vue.js/index.html">Vue.js</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Vue.js/01-入门到实战/index.html">Vue.js入门到实战</a>
+</nav>
+<h1>019 - Pinia状态管理入门</h1>
+<div class="meta">
+<span>📂 Vue.js入门到实战</span>
+<span>🏷️ Vue.js</span>
+</div>
+<article>
+
+
+<h1>057-Pinia状态管理入门</h1>
+
+<blockquote><p>📌 <strong>难度标注</strong>：⭐⭐ 入门中级（需要Vue 3 Composition API基础）</p></blockquote>
+
+<h2>一、概念讲解</h2>
+
+<h3>什么是状态管理？</h3>
+
+<p>当应用变得复杂，多个组件需要<strong>共享和同步数据</strong>时，"父子组件传 props/emits" 和 "跨组件 provide/inject" 的方式会变得混乱。状态管理库提供了一个<strong>全局共享的数据仓库</strong>。</p>
+
+<h3>为什么选 Pinia？</h3>
+
+<table><thead><tr>
+<th>特性</th>
+<th>Vuex</th>
+<th>Pinia</th>
+</tr></thead><tbody>
+<tr>
+<td>Vue 3 支持</td>
+<td>需要 vuex@4</td>
+<td>原生支持</td>
+</tr>
+<tr>
+<td>TypeScript</td>
+<td>支持但复杂</td>
+<td>完美推断</td>
+</tr>
+<tr>
+<td>Composition API</td>
+<td>不支持</td>
+<td>原生支持</td>
+</tr>
+<tr>
+<td>Mutations</td>
+<td>必须</td>
+<td>去掉了（简化）</td>
+</tr>
+<tr>
+<td>模块化</td>
+<td>嵌套模块</td>
+<td>多个独立 Store</td>
+</tr>
+<tr>
+<td>体积</td>
+<td>~20KB</td>
+<td>~1.5KB</td>
+</tr>
+</tbody></table>
+
+<p>Pinia 已成为 Vue 官方推荐的状态管理方案。</p>
+
+<h3>核心概念</h3>
+
+<ul>
+<li><strong>Store</strong>：独立的状态仓库</li>
+<li><strong>State</strong>：存储的数据（类似 data）</li>
+<li><strong>Getters</strong>：计算属性（类似 computed）</li>
+<li><strong>Actions</strong>：方法（同步和异步，类似 methods）</li>
+
+<h3>两种定义风格</h3>
+
+<pre><code class="language-javascript">// Option Store（选项式）
+export const useCounterStore = defineStore(&#x27;counter&#x27;, {
+  state: () =&gt; ({ count: 0 }),
+  getters: { double: (state) =&gt; state.count * 2 },
+  actions: { increment() { this.count++ } }
+})
+
+// Setup Store（组合式）- 推荐！
+export const useCounterStore = defineStore(&#x27;counter&#x27;, () =&gt; {
+  const count = ref(0)
+  const double = computed(() =&gt; count.value * 2)
+  function increment() { count.value++ }
+  return { count, double, increment }
+})</code></pre>
+
+<h2>二、脑图</h2>
+
+<pre><code>Pinia 状态管理入门
+├── 核心概念
+│   ├── State    -&gt; 共享数据 (ref/reactive)
+│   ├── Getters  -&gt; 计算属性 (computed)
+│   └── Actions  -&gt; 方法 (同步/异步)
+├── 定义 Store
+│   ├── defineStore(id, options)  -- 选项式
+│   └── defineStore(id, setup)    -- 组合式(推荐)
+├── 使用 Store
+│   ├── const store = useXxxStore()
+│   ├── store.count  -&gt; 读取 state
+│   ├── store.count++ -&gt; 直接修改
+│   └── store.increment() -&gt; 调用 action
+├── Store 方法
+│   ├── $reset()      -&gt; 重置状态
+│   ├── $patch()      -&gt; 批量更新
+│   ├── $subscribe()  -&gt; 监听变化
+│   └── $onAction()   -&gt; 监听 action
+└── 插件机制
+    ├── 持久化插件
+    └── 自定义插件</code></pre>
+
+<h2>三、完整代码</h2>
+
+<pre><code class="language-javascript">// stores/counter.js
+import { defineStore } from &#x27;pinia&#x27;
+import { ref, computed } from &#x27;vue&#x27;
+
+export const useCounterStore = defineStore(&#x27;counter&#x27;, () =&gt; {
+  // State
+  const count = ref(0)
+  const history = ref([])
+
+  // Getters
+  const doubleCount = computed(() =&gt; count.value * 2)
+  const isPositive = computed(() =&gt; count.value &gt; 0)
+  const canUndo = computed(() =&gt; history.value.length &gt; 0)
+
+  // Actions
+  function increment() {
+    history.value.push(count.value)
+    count.value++
+  }
+
+  function decrement() {
+    history.value.push(count.value)
+    count.value--
+  }
+
+  function reset() {
+    history.value.push(count.value)
+    count.value = 0
+  }
+
+  function undo() {
+    if (history.value.length &gt; 0) {
+      count.value = history.value.pop()
+    }
+  }
+
+  async function incrementAsync() {
+    return new Promise(resolve =&gt; {
+      setTimeout(() =&gt; {
+        increment()
+        resolve(count.value)
+      }, 1000)
+    })
+  }
+
+  return {
+    count, history,
+    doubleCount, isPositive, canUndo,
+    increment, decrement, reset, undo, incrementAsync
+  }
+})</code></pre>
+
+<pre><code class="language-javascript">// stores/user.js
+import { defineStore } from &#x27;pinia&#x27;
+import { ref, computed } from &#x27;vue&#x27;
+
+export const useUserStore = defineStore(&#x27;user&#x27;, () =&gt; {
+  const user = ref(null)
+  const token = ref(&#x27;&#x27;)
+  const loading = ref(false)
+
+  const isLoggedIn = computed(() =&gt; !!token.value)
+  const userName = computed(() =&gt; user.value?.name || &#x27;游客&#x27;)
+
+  async function login(email, password) {
+    loading.value = true
+    try {
+      await new Promise(r =&gt; setTimeout(r, 800))
+      user.value = { id: 1, name: &#x27;Hahn&#x27;, email, role: &#x27;admin&#x27; }
+      token.value = &#x27;fake-jwt-token&#x27;
+    } finally {
+      loading.value = false
+    }
+  }
+
+  function logout() {
+    user.value = null
+    token.value = &#x27;&#x27;
+  }
+
+  return { user, token, loading, isLoggedIn, userName, login, logout }
+})</code></pre>
+
+<pre><code class="language-vue">&lt;!-- components/CounterDemo.vue --&gt;
+&lt;template&gt;
+  &lt;div class=&quot;counter-demo&quot;&gt;
+    &lt;h2&gt;计数器 Store&lt;/h2&gt;
+    &lt;div class=&quot;display&quot;&gt;
+      &lt;p&gt;当前值：&lt;strong&gt;{{ store.count }}&lt;/strong&gt;&lt;/p&gt;
+      &lt;p&gt;双倍值：{{ store.doubleCount }}&lt;/p&gt;
+      &lt;p&gt;是否为正：{{ store.isPositive ? &#x27;是&#x27; : &#x27;否&#x27; }}&lt;/p&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;actions&quot;&gt;
+      &lt;button @click=&quot;store.increment()&quot;&gt;+1&lt;/button&gt;
+      &lt;button @click=&quot;store.decrement()&quot;&gt;-1&lt;/button&gt;
+      &lt;button @click=&quot;store.reset()&quot;&gt;归零&lt;/button&gt;
+      &lt;button @click=&quot;store.undo()&quot; :disabled=&quot;!store.canUndo&quot;&gt;撤销&lt;/button&gt;
+      &lt;button @click=&quot;handleAsync&quot;&gt;异步+1&lt;/button&gt;
+    &lt;/div&gt;
+    &lt;p v-if=&quot;asyncLoading&quot;&gt;异步操作中...&lt;/p&gt;
+  &lt;/div&gt;
+&lt;/template&gt;
+
+&lt;script setup&gt;
+import { ref } from &#x27;vue&#x27;
+import { useCounterStore } from &#x27;../stores/counter&#x27;
+
+const store = useCounterStore()
+const asyncLoading = ref(false)
+
+const handleAsync = async () =&gt; {
+  asyncLoading.value = true
+  await store.incrementAsync()
+  asyncLoading.value = false
+}
+&lt;/script&gt;</code></pre>
+
+<pre><code class="language-vue">&lt;!-- components/UserDemo.vue --&gt;
+&lt;template&gt;
+  &lt;div class=&quot;user-demo&quot;&gt;
+    &lt;h2&gt;用户 Store&lt;/h2&gt;
+    &lt;div v-if=&quot;store.isLoggedIn&quot;&gt;
+      &lt;p&gt;欢迎，{{ store.userName }}！&lt;/p&gt;
+      &lt;button @click=&quot;store.logout()&quot;&gt;退出登录&lt;/button&gt;
+    &lt;/div&gt;
+    &lt;div v-else&gt;
+      &lt;input v-model=&quot;email&quot; placeholder=&quot;邮箱&quot; /&gt;
+      &lt;button @click=&quot;handleLogin&quot; :disabled=&quot;store.loading&quot;&gt;
+        {{ store.loading ? &#x27;登录中...&#x27; : &#x27;登录&#x27; }}
+      &lt;/button&gt;
+    &lt;/div&gt;
+  &lt;/div&gt;
+&lt;/template&gt;
+
+&lt;script setup&gt;
+import { ref } from &#x27;vue&#x27;
+import { useUserStore } from &#x27;../stores/user&#x27;
+
+const store = useUserStore()
+const email = ref(&#x27;admin@example.com&#x27;)
+
+const handleLogin = () =&gt; {
+  store.login(email.value, &#x27;123456&#x27;)
+}
+&lt;/script&gt;</code></pre>
+
+<h2>四、执行预览</h2>
+
+<pre><code>计数器操作：
+  初始值：count=0, doubleCount=0
+  点击 +1：count=1, doubleCount=2, history=[0]
+  点击 +1：count=2, doubleCount=4, history=[0,1]
+  点击 撤销：count=1, history=[0]
+  点击 归零：count=0
+
+用户操作：
+  未登录 -&gt; 显示登录表单
+  点击登录 -&gt; loading -&gt; 显示用户信息
+  退出 -&gt; 回到登录表单</code></pre>
+
+<h2>五、注意事项</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>注意事项</th>
+<th>推荐做法</th>
+</tr></thead><tbody>
+<tr>
+<td>解构 Store</td>
+<td>解构会丢失响应式</td>
+<td>使用 storeToRefs()</td>
+</tr>
+<tr>
+<td>Store 命名</td>
+<td>use 开头 Store 结尾</td>
+<td>useXxxStore 约定</td>
+</tr>
+<tr>
+<td>多组件共享</td>
+<td>同一个 useXxxStore 返回同一实例</td>
+<td>Pinia 自动单例</td>
+</tr>
+<tr>
+<td>$reset()</td>
+<td>Setup Store 不支持</td>
+<td>手动实现或用插件</td>
+</tr>
+<tr>
+<td>SSR</td>
+<td>需要为每个请求创建新实例</td>
+<td>使用 Pinia SSR 方案</td>
+</tr>
+<tr>
+<td>持久化</td>
+<td>刷新页面 state 丢失</td>
+<td>pinia-plugin-persistedstate</td>
+</tr>
+</tbody></table>
+
+<h2>六、避坑指南</h2>
+
+<h3>❌ 坑1：直接解构丢失响应式</h3>
+
+<pre><code class="language-javascript">// ❌ 解构后变成普通值
+const { count, doubleCount } = useCounterStore()
+
+// ✅ 使用 storeToRefs
+import { storeToRefs } from &#x27;pinia&#x27;
+const store = useCounterStore()
+const { count, doubleCount } = storeToRefs(store)
+// Actions 直接解构即可
+const { increment } = store</code></pre>
+
+<h3>❌ 坑2：在 Store 外随意修改 state</h3>
+
+<pre><code class="language-javascript">// ❌ 难以追踪变更来源
+store.count = 999
+
+// ✅ 通过 action 修改，方便调试
+function setCount(val) { count.value = val }
+store.setCount(999)</code></pre>
+
+<h3>❌ 坑3：忘记注册 Pinia</h3>
+
+<pre><code class="language-javascript">// ❌ 直接使用 store，Pinia 未安装
+const store = useCounterStore() // Error
+
+// ✅ 先注册
+import { createPinia } from &#x27;pinia&#x27;
+const app = createApp(App)
+app.use(createPinia())
+app.mount(&#x27;#app&#x27;)</code></pre>
+
+<h2>七、练习题</h2>
+
+<h3>🟢 入门：待办事项 Store</h3>
+<p>创建 <code>useTodoStore</code>，包含待办列表（state）、未完成数量（getter）、添加/删除/切换完成（actions）。</p>
+
+<h3>🟡 进阶：购物车 Store</h3>
+<p>创建购物车 Store，支持添加商品（重复自动增加数量）、删除、计算总价、清空。</p>
+
+<h3>🔴 挑战：带持久化的主题 Store</h3>
+<p>创建主题 Store 管理深色/浅色模式，使用持久化插件，并动态修改 document 的 class。</p>
+
+<h2>八、知识点总结</h2>
+
+<pre><code>Pinia 入门
+├── 安装与配置
+│   ├── npm install pinia
+│   ├── app.use(createPinia())
+│   └── defineStore(id, setup/options)
+├── State
+│   ├── ref() 定义
+│   ├── 直接读写 store.xxx
+│   └── $patch() 批量更新
+├── Getters
+│   ├── computed() 定义
+│   └── 可互相引用
+├── Actions
+│   ├── 普通函数
+│   ├── 支持异步
+│   └── 可调用其他 store
+└── 工具
+    ├── storeToRefs()  -&gt; 响应式解构
+    ├── $subscribe()   -&gt; 监听变化
+    └── $onAction()    -&gt; 监听 action</code></pre>
+
+<h2>九、举一反三</h2>
+
+<table><thead><tr>
+<th>Pinia 概念</th>
+<th>Vue 类比</th>
+<th>使用场景</th>
+</tr></thead><tbody>
+<tr>
+<td>State</td>
+<td>ref/reactive</td>
+<td>共享数据</td>
+</tr>
+<tr>
+<td>Getters</td>
+<td>computed</td>
+<td>派生数据</td>
+</tr>
+<tr>
+<td>Actions</td>
+<td>methods</td>
+<td>业务逻辑</td>
+</tr>
+<tr>
+<td>$patch</td>
+<td>批量 setData</td>
+<td>同时更新多字段</td>
+</tr>
+<tr>
+<td>storeToRefs</td>
+<td>toRefs</td>
+<td>解构保持响应式</td>
+</tr>
+<tr>
+<td>$subscribe</td>
+<td>watch</td>
+<td>调试、持久化</td>
+</tr>
+</tbody></table>
+
+<h2>十、参考资料</h2>
+
+<ul>
+<li><a href="https://pinia.vuejs.org/zh/">Pinia 官方文档</a></li>
+<li><a href="https://pinia.vuejs.org/zh/introduction.html#comparison-with-vuex">Pinia vs Vuex</a></li>
+<li><a href="https://vuejs.org/guide/scaling-up/state-management.html">Vue 3 状态管理</a></li>
+
+<h2>十一、代码演进</h2>
+
+<h3>v1：最小 Store</h3>
+<pre><code class="language-javascript">export const useCountStore = defineStore(&#x27;count&#x27;, () =&gt; {
+  const count = ref(0)
+  function increment() { count.value++ }
+  return { count, increment }
+})</code></pre>
+
+<h3>v2：完整 Counter + Getters</h3>
+<pre><code class="language-javascript">export const useCounterStore = defineStore(&#x27;counter&#x27;, () =&gt; {
+  const count = ref(0)
+  const double = computed(() =&gt; count.value * 2)
+  const history = ref([])
+  function increment() {
+    history.value.push(count.value)
+    count.value++
+  }
+  return { count, double, history, increment }
+})</code></pre>
+
+<h3>v3：多 Store 协作 + 持久化</h3>
+<pre><code class="language-javascript">export const useCartStore = defineStore(&#x27;cart&#x27;, () =&gt; {
+  const items = ref([])
+  const total = computed(() =&gt; items.value.reduce((s, i) =&gt; s + i.price * i.qty, 0))
+  function addItem(product) {
+    const existing = items.value.find(i =&gt; i.id === product.id)
+    if (existing) existing.qty++
+    else items.value.push({ ...product, qty: 1 })
+  }
+  return { items, total, addItem }
+}, { persist: true })</code></pre>
+
+<blockquote><p>💡 <strong>总结</strong>：Pinia 以极简 API 取代了 Vuex。记住 storeToRefs 解构、Action 修改状态、持久化插件这三招，就能覆盖 90% 的场景。</p></blockquote>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

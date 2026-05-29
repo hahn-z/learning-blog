@@ -1,0 +1,674 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>014 - SQLAlchemy ORM 实战指南</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Python/index.html">Python</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Python/03-实战/index.html">Python实战</a>
+</nav>
+<h1>014 - SQLAlchemy ORM 实战指南</h1>
+<div class="meta">
+<span>📂 Python实战</span>
+<span>🏷️ Python</span>
+</div>
+<article>
+
+
+<h1>SQLAlchemy ORM 实战指南</h1>
+
+<blockquote><p><strong>难度：</strong> ⭐⭐⭐ 中高级 | <strong>预计阅读：</strong> 30 分钟 | <strong>标签：</strong> Python, ORM, 数据库, SQLAlchemy</p></blockquote>
+
+<hr>
+
+<h2>一、概念讲解</h2>
+
+<p>SQLAlchemy 是 Python 生态中最强大的数据库工具包，提供两个主要抽象层：</p>
+
+<ul>
+<li><strong>Core 层</strong>：SQL Expression Language，直接操作 SQL，灵活高效</li>
+<li><strong>ORM 层</strong>：对象关系映射，用 Python 类操作数据库，开发效率高</li>
+
+<h3>ORM 核心思想</h3>
+
+<p>ORM（Object-Relational Mapping）将数据库表映射为 Python 类，表中的行映射为对象实例，消除 SQL 字符串拼接的痛苦。</p>
+
+<pre><code>Python 对象         &lt;-&gt;         数据库表
++----------+                    +----------+
+| User类    |     ORM映射       | users表   |
+| - name   | &lt;---------------&gt; | - name   |
+| - email  |                    | - email  |
++----------+                    +----------+</code></pre>
+
+<p><strong>为什么选 SQLAlchemy？</strong></p>
+
+<table><thead><tr>
+<th>对比项</th>
+<th>原生 SQL</th>
+<th>SQLAlchemy ORM</th>
+</tr></thead><tbody>
+<tr>
+<td>SQL 注入</td>
+<td>手动防护</td>
+<td>自动参数化</td>
+</tr>
+<tr>
+<td>数据库迁移</td>
+<td>手动写 SQL</td>
+<td>Alembic 自动生成</td>
+</tr>
+<tr>
+<td>多数据库</td>
+<td>重写 SQL</td>
+<td>切换连接字符串即可</td>
+</tr>
+<tr>
+<td>代码可读性</td>
+<td>字符串拼接</td>
+<td>Pythonic 链式调用</td>
+</tr>
+<tr>
+<td>类型安全</td>
+<td>无</td>
+<td>混合类型提示</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>二、知识脑图</h2>
+
+<pre><code>SQLAlchemy ORM
+├── 基础配置
+│   ├── create_engine() 连接引擎
+│   ├── sessionmaker() 会话工厂
+│   ├── DeclarativeBase 声明基类
+│   └── Mapped / mapped_column 类型映射
+├── 模型定义
+│   ├── Column 类型 (String, Integer, DateTime)
+│   ├── 主键 PrimaryKeyConstraint
+│   ├── 外键 ForeignKey
+│   ├── 唯一约束 UniqueConstraint
+│   └── 索引 Index
+├── 关系映射
+│   ├── relationship() 关系定义
+│   ├── 一对多 (ForeignKey + relationship)
+│   ├── 多对多 (association table)
+│   └── 自引用关系
+├── CRUD 操作
+│   ├── session.add() 新增
+│   ├── session.query() / select() 查询
+│   ├── session.commit() 提交
+│   └── session.delete() 删除
+├── 查询进阶
+│   ├── filter / where 条件过滤
+│   ├── join / select_from 关联查询
+│   ├── func 聚合函数
+│   ├── order_by / limit / offset
+│   └── 子查询 subquery()
+└── 高级特性
+    ├── eager/lazy loading
+    ├── 事务控制
+    ├── 事件系统
+    └── Alembic 迁移</code></pre>
+
+<hr>
+
+<h2>三、完整代码实战</h2>
+
+<h3>项目：博客系统数据库层</h3>
+
+<pre><code class="language-python">&#x27;&#x27;&#x27;
+Blog System Database Layer with SQLAlchemy ORM 2.0
+Demonstrates: models, relationships, CRUD, queries
+&#x27;&#x27;&#x27;
+from datetime import datetime
+from typing import List, Optional
+
+from sqlalchemy import (
+    create_engine, String, Text, Integer, DateTime, ForeignKey,
+    func, select, desc, Table, Column, MetaData
+)
+from sqlalchemy.orm import (
+    DeclarativeBase, Mapped, mapped_column,
+    relationship, Session, sessionmaker
+)
+
+# ---------- 1. Base &amp; Engine ----------
+class Base(DeclarativeBase):
+    &#x27;&#x27;&#x27;Base class for all models.&#x27;&#x27;&#x27;
+    pass
+
+engine = create_engine(&quot;sqlite:///blog.db&quot;, echo=False)
+SessionLocal = sessionmaker(bind=engine)
+
+# Association table for many-to-many: Post &lt;-&gt; Tag
+post_tags_table = Table(
+    &quot;post_tags&quot;, Base.metadata,
+    Column(&quot;post_id&quot;, Integer, ForeignKey(&quot;posts.id&quot;), primary_key=True),
+    Column(&quot;tag_id&quot;, Integer, ForeignKey(&quot;tags.id&quot;), primary_key=True),
+)
+
+
+# ---------- 2. Models ----------
+class User(Base):
+    __tablename__ = &quot;users&quot;
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    username: Mapped[str] = mapped_column(String(50), unique=True, index=True)
+    email: Mapped[str] = mapped_column(String(120), unique=True)
+    bio: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime, default=datetime.utcnow
+    )
+
+    # Relationship: one user has many posts
+    posts: Mapped[List[&quot;Post&quot;]] = relationship(
+        back_populates=&quot;author&quot;, cascade=&quot;all, delete-orphan&quot;
+    )
+
+    def __repr__(self):
+        return f&quot;&lt;User(username=&#x27;{self.username}&#x27;)&gt;&quot;
+
+
+class Post(Base):
+    __tablename__ = &quot;posts&quot;
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    title: Mapped[str] = mapped_column(String(200), index=True)
+    content: Mapped[str] = mapped_column(Text)
+    published: Mapped[bool] = mapped_column(default=False)
+    view_count: Mapped[int] = mapped_column(Integer, default=0)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime, default=datetime.utcnow
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, default=datetime.utcnow, onupdate=datetime.utcnow
+    )
+
+    # Foreign key to users table
+    author_id: Mapped[int] = mapped_column(ForeignKey(&quot;users.id&quot;))
+    author: Mapped[&quot;User&quot;] = relationship(back_populates=&quot;posts&quot;)
+
+    # Many-to-many with tags
+    tags: Mapped[List[&quot;Tag&quot;]] = relationship(
+        secondary=post_tags_table, back_populates=&quot;posts&quot;
+    )
+
+    def __repr__(self):
+        return f&quot;&lt;Post(title=&#x27;{self.title}&#x27;)&gt;&quot;
+
+
+class Tag(Base):
+    __tablename__ = &quot;tags&quot;
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(String(50), unique=True)
+
+    posts: Mapped[List[&quot;Post&quot;]] = relationship(
+        secondary=post_tags_table, back_populates=&quot;tags&quot;
+    )
+
+    def __repr__(self):
+        return f&quot;&lt;Tag(name=&#x27;{self.name}&#x27;)&gt;&quot;
+
+
+# ---------- 3. CRUD Operations ----------
+def create_user(session: Session, username: str, email: str, bio: str = None) -&gt; User:
+    &#x27;&#x27;&#x27;Create a new user.&#x27;&#x27;&#x27;
+    user = User(username=username, email=email, bio=bio)
+    session.add(user)
+    session.commit()
+    session.refresh(user)
+    return user
+
+
+def create_post(session: Session, title: str, content: str,
+                author_id: int, tag_names: List[str] = None) -&gt; Post:
+    &#x27;&#x27;&#x27;Create a new post with optional tags.&#x27;&#x27;&#x27;
+    post = Post(title=title, content=content, author_id=author_id)
+
+    # Handle tags: create if not exist
+    if tag_names:
+        for name in tag_names:
+            tag = session.execute(
+                select(Tag).where(Tag.name == name)
+            ).scalar_one_or_none()
+            if not tag:
+                tag = Tag(name=name)
+                session.add(tag)
+            post.tags.append(tag)
+
+    session.add(post)
+    session.commit()
+    session.refresh(post)
+    return post
+
+
+def get_posts_by_author(session: Session, username: str) -&gt; List[Post]:
+    &#x27;&#x27;&#x27;Get all published posts by a specific author.&#x27;&#x27;&#x27;
+    stmt = (
+        select(Post)
+        .join(Post.author)
+        .where(User.username == username)
+        .where(Post.published == True)
+        .order_by(desc(Post.created_at))
+    )
+    return list(session.execute(stmt).scalars())
+
+
+def get_popular_tags(session: Session, limit: int = 10):
+    &#x27;&#x27;&#x27;Get tags sorted by post count.&#x27;&#x27;&#x27;
+    stmt = (
+        select(Tag.name, func.count(post_tags_table.c.post_id).label(&quot;post_count&quot;))
+        .join(post_tags_table, Tag.id == post_tags_table.c.tag_id)
+        .group_by(Tag.name)
+        .order_by(desc(&quot;post_count&quot;))
+        .limit(limit)
+    )
+    return session.execute(stmt).all()
+
+
+def search_posts(session: Session, keyword: str) -&gt; List[Post]:
+    &#x27;&#x27;&#x27;Search in title and content.&#x27;&#x27;&#x27;
+    stmt = (
+        select(Post)
+        .where(
+            (Post.title.contains(keyword)) | (Post.content.contains(keyword))
+        )
+        .where(Post.published == True)
+        .order_by(desc(Post.created_at))
+    )
+    return list(session.execute(stmt).scalars())
+
+
+# ---------- 4. Main Demo ----------
+def main():
+    Base.metadata.create_all(engine)
+    print(&quot;Tables created successfully!&quot;)
+
+    session = SessionLocal()
+    try:
+        alice = create_user(session, &quot;alice&quot;, &quot;alice@example.com&quot;, &quot;Python dev&quot;)
+        bob = create_user(session, &quot;bob&quot;, &quot;bob@example.com&quot;, &quot;Data scientist&quot;)
+        print(f&quot;Created: {alice}, {bob}&quot;)
+
+        p1 = create_post(session,
+            &quot;Getting Started with SQLAlchemy&quot;,
+            &quot;SQLAlchemy is the most popular Python ORM...&quot;,
+            author_id=alice.id,
+            tag_names=[&quot;Python&quot;, &quot;Database&quot;, &quot;ORM&quot;]
+        )
+        p1.published = True
+
+        p2 = create_post(session,
+            &quot;Advanced Query Techniques&quot;,
+            &quot;Let&#x27;s explore subqueries and window functions...&quot;,
+            author_id=alice.id,
+            tag_names=[&quot;Python&quot;, &quot;SQL&quot;]
+        )
+        p2.published = True
+
+        p3 = create_post(session,
+            &quot;Data Analysis with Pandas&quot;,
+            &quot;Pandas makes data analysis easy...&quot;,
+            author_id=bob.id,
+            tag_names=[&quot;Python&quot;, &quot;Data Analysis&quot;]
+        )
+        p3.published = True
+        session.commit()
+
+        print(&quot;\\n--- Alice&#x27;s Posts ---&quot;)
+        for post in get_posts_by_author(session, &quot;alice&quot;):
+            print(f&quot;  {post.title} (views: {post.view_count})&quot;)
+
+        print(&quot;\\n--- Popular Tags ---&quot;)
+        for name, count in get_popular_tags(session):
+            print(f&quot;  #{name}: {count} posts&quot;)
+
+        print(&quot;\\n--- Search: &#x27;SQL&#x27; ---&quot;)
+        for post in search_posts(session, &quot;SQL&quot;):
+            print(f&quot;  {post.title} by {post.author.username}&quot;)
+    finally:
+        session.close()
+
+if __name__ == &quot;__main__&quot;:
+    main()</code></pre>
+
+<hr>
+
+<h2>四、执行预览</h2>
+
+<pre><code>Tables created successfully!
+Created: &lt;User(username=&#x27;alice&#x27;)&gt;, &lt;User(username=&#x27;bob&#x27;)&gt;
+
+--- Alice&#x27;s Posts ---
+  Advanced Query Techniques (views: 0)
+  Getting Started with SQLAlchemy (views: 0)
+
+--- Popular Tags ---
+  #Python: 3 posts
+  #Database: 1 posts
+  #ORM: 1 posts
+  #SQL: 1 posts
+  #Data Analysis: 1 posts
+
+--- Search: &#x27;SQL&#x27; ---
+  Getting Started with SQLAlchemy by alice
+  Advanced Query Techniques by alice</code></pre>
+
+<hr>
+
+<h2>五、注意事项</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>注意事项</th>
+<th>说明</th>
+</tr></thead><tbody>
+<tr>
+<td>Session 管理</td>
+<td>用完必关</td>
+<td>使用 <code>try/finally</code> 或上下文管理器</td>
+</tr>
+<tr>
+<td>懒加载</td>
+<td>默认 lazy</td>
+<td>大量数据时注意 N+1 查询问题</td>
+</tr>
+<tr>
+<td>连接池</td>
+<td>默认 5 个</td>
+<td>高并发需调大 <code>pool_size</code></td>
+</tr>
+<tr>
+<td>事务隔离</td>
+<td>默认 READ COMMITTED</td>
+<td>关键业务需明确隔离级别</td>
+</tr>
+<tr>
+<td>批量操作</td>
+<td>逐条 add 慢</td>
+<td>用 <code>bulk_insert_mappings()</code> 批量插入</td>
+</tr>
+<tr>
+<td>异步支持</td>
+<td>2.0 新增</td>
+<td>用 <code>create_async_engine</code> + <code>AsyncSession</code></td>
+</tr>
+<tr>
+<td>类型映射</td>
+<td>Mapped vs Column</td>
+<td>2.0 推荐 <code>Mapped</code> + <code>mapped_column</code></td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>六、避坑指南</h2>
+
+<h3>错误：Session 泄漏 → 正确：上下文管理</h3>
+
+<pre><code class="language-python"># Wrong: Session never closed
+session = SessionLocal()
+user = session.query(User).first()
+# If exception happens, session leaks
+
+# Correct: Use context manager
+with SessionLocal() as session:
+    user = session.execute(select(User).limit(1)).scalar_one()
+# Session auto-closes even on exception</code></pre>
+
+<h3>错误：N+1 查询问题 → 正确：Eager Loading</h3>
+
+<pre><code class="language-python"># Wrong: Triggers N+1 queries
+posts = session.execute(select(Post)).scalars().all()
+for p in posts:
+    print(p.author.username)  # Each access = 1 SQL query!
+
+# Correct: Use joinedload
+from sqlalchemy.orm import joinedload
+stmt = select(Post).options(joinedload(Post.author))
+posts = session.execute(stmt).unique().scalars().all()</code></pre>
+
+<h3>错误：忘记 commit → 正确：显式事务控制</h3>
+
+<pre><code class="language-python"># Wrong: Changes lost because no commit
+session.add(user)
+print(&quot;done&quot;)  # User not persisted!
+
+# Correct: Always commit
+session.add(user)
+session.commit()</code></pre>
+
+<h3>错误：字符串拼接 SQL → 正确：参数化查询</h3>
+
+<pre><code class="language-python"># Wrong: SQL injection risk!
+session.execute(text(f&quot;SELECT * FROM users WHERE username = &#x27;{username}&#x27;&quot;))
+
+# Correct: Use ORM filter
+stmt = select(User).where(User.username == username)</code></pre>
+
+<hr>
+
+<h2>七、练习题</h2>
+
+<h3>入门级</h3>
+
+<ol>
+<li>定义一个 <code>Product</code> 模型（name, price, stock, created_at），创建表并插入 3 条数据</li>
+</ul>
+<ol>
+<li>查询所有 price > 100 的产品，按价格降序排列</li>
+
+<h3>中级</h3>
+
+<ol>
+<li>实现 <code>Category</code> 和 <code>Product</code> 的一对多关系，支持通过 Category 查询所有产品</li>
+</ul>
+<ol>
+<li>实现分页查询函数 <code>paginate(query, page, per_page)</code>，返回指定页的数据</li>
+
+<h3>高级</h3>
+
+<ol>
+<li>实现多对多关系：<code>Student</code> 和 <code>Course</code>，通过中间表关联，查询某学生的所有课程</li>
+</ul>
+<ol>
+<li>用 Alembic 为已有模型添加新字段，生成并执行迁移脚本</li>
+
+<hr>
+
+<h2>八、知识点总结</h2>
+
+<pre><code>SQLAlchemy ORM 知识树
+├── 连接配置
+│   ├── create_engine(url, pool_size, echo)
+│   ├── sessionmaker(bind=engine)
+│   └── AsyncSession (异步)
+├── 模型定义 (2.0 风格)
+│   ├── DeclarativeBase
+│   ├── Mapped[type] + mapped_column()
+│   ├── __tablename__
+│   └── __repr__()
+├── 关系映射
+│   ├── ForeignKey() 外键
+│   ├── relationship() 关系
+│   ├── back_populates 双向引用
+│   ├── secondary 多对多中间表
+│   └── cascade 级联操作
+├── 查询 API (2.0 select 风格)
+│   ├── select(Model) 基础查询
+│   ├── .where() / .filter() 条件
+│   ├── .join() 关联查询
+│   ├── .order_by() 排序
+│   ├── .limit() / .offset() 分页
+│   └── func.count/sum/max 聚合
+├── 加载策略
+│   ├── lazy (默认，按需加载)
+│   ├── joinedload (JOIN 一次加载)
+│   ├── selectinload (IN 查询加载)
+│   └── subqueryload (子查询加载)
+└── 生命周期
+    ├── session.add() -&gt; 挂起态
+    ├── session.commit() -&gt; 持久态
+    ├── session.rollback() -&gt; 回滚
+    └── session.close() -&gt; 脱管态</code></pre>
+
+<hr>
+
+<h2>九、举一反三</h2>
+
+<table><thead><tr>
+<th>技能</th>
+<th>基础用法</th>
+<th>进阶场景</th>
+<th>实战扩展</th>
+</tr></thead><tbody>
+<tr>
+<td>模型定义</td>
+<td>单表映射</td>
+<td>继承（单表/联合表）</td>
+<td>多态查询</td>
+</tr>
+<tr>
+<td>关系</td>
+<td>一对多</td>
+<td>多对多 + 自引用</td>
+<td>权限树、评论嵌套</td>
+</tr>
+<tr>
+<td>查询</td>
+<td>条件过滤</td>
+<td>窗口函数 + CTE</td>
+<td>复杂报表</td>
+</tr>
+<tr>
+<td>事务</td>
+<td>自动提交</td>
+<td>分布式事务</td>
+<td>订单 + 库存一致性</td>
+</tr>
+<tr>
+<td>迁移</td>
+<td>手动建表</td>
+<td>Alembic 版本管理</td>
+<td>CI/CD 自动迁移</td>
+</tr>
+<tr>
+<td>性能</td>
+<td>基本 CRUD</td>
+<td>批量操作 + 连接池</td>
+<td>高并发服务</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>十、参考资料</h2>
+
+<ul>
+<li><a href="https://docs.sqlalchemy.org/en/20/">SQLAlchemy 2.0 官方文档</a></li>
+<li><a href="https://docs.sqlalchemy.org/en/20/orm/quickstart.html">SQLAlchemy ORM Tutorial</a></li>
+<li><a href="https://alembic.sqlalchemy.org/">Alembic 迁移工具</a></li>
+<li><a href="https://fastapi.tiangolo.com/tutorial/sql-databases/">FastAPI + SQLAlchemy 集成</a></li>
+
+<hr>
+
+<h2>十一、代码演进</h2>
+
+<h3>v1：原始 SQL（手动拼接）</h3>
+
+<pre><code class="language-python">import sqlite3
+conn = sqlite3.connect(&quot;blog.db&quot;)
+conn.execute(&quot;CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT)&quot;)
+conn.execute(&quot;INSERT INTO users (name) VALUES (&#x27;alice&#x27;)&quot;)
+conn.commit()
+for row in conn.execute(&quot;SELECT * FROM users&quot;):
+    print(row)
+conn.close()</code></pre>
+
+<h3>v2：SQLAlchemy Core（表达式语言）</h3>
+
+<pre><code class="language-python">from sqlalchemy import create_engine, Table, Column, Integer, String, MetaData, select
+
+engine = create_engine(&quot;sqlite:///blog.db&quot;)
+metadata = MetaData()
+users = Table(&quot;users&quot;, metadata,
+    Column(&quot;id&quot;, Integer, primary_key=True),
+    Column(&quot;name&quot;, String(50))
+)
+metadata.create_all(engine)
+
+with engine.connect() as conn:
+    conn.execute(users.insert().values(name=&quot;alice&quot;))
+    conn.commit()
+    for row in conn.execute(select(users)):
+        print(row)</code></pre>
+
+<h3>v3：SQLAlchemy ORM（本文实战代码）</h3>
+
+<ul>
+<li>声明式模型 + 类型注解</li>
+<li>关系映射 + 懒加载控制</li>
+<li>2.0 select 风格查询</li>
+<li>完整 CRUD + 业务查询封装</li>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

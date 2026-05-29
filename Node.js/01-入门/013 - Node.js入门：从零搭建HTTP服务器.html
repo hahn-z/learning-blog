@@ -1,0 +1,510 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>013 - Node.js入门：从零搭建HTTP服务器</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Node.js/index.html">Node.js</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Node.js/01-入门/index.html">Node.js入门</a>
+</nav>
+<h1>013 - Node.js入门：从零搭建HTTP服务器</h1>
+<div class="meta">
+<span>📂 Node.js入门</span>
+<span>🏷️ Node.js</span>
+</div>
+<article>
+
+
+<h2>难度标注</h2>
+
+<blockquote><p>🟢 入门级 | 预计学习时间：30分钟 | 前置知识：JavaScript基础、命令行操作</p></blockquote>
+
+<hr>
+
+<h2>概念讲解</h2>
+
+<h3>什么是HTTP服务器？</h3>
+
+<p>HTTP服务器就是一个<strong>不断监听网络请求的程序</strong>。当浏览器（客户端）发起请求时，服务器接收请求、处理逻辑、然后返回响应。这就是整个Web的运行基础。</p>
+
+<p>在Node.js出现之前，搭建HTTP服务器通常需要Apache、Nginx等软件，或者Java/PHP的Web框架。而Node.js把HTTP服务器的能力直接内置到了语言标准库中，几行代码就能启动一个Web服务器。</p>
+
+<h3>核心概念：请求-响应模型</h3>
+
+<pre><code>浏览器                    Node.js服务器
+  │                          │
+  │─── HTTP REQUEST ────────&gt;│
+  │    (GET /hello)          │
+  │                          │ 解析请求
+  │                          │ 执行业务逻辑
+  │&lt;── HTTP RESPONSE ───────│
+  │    (200 OK + HTML)       │
+  │                          │</code></pre>
+
+<h3>Node.js的http模块</h3>
+
+<p>Node.js内置了<code>http</code>模块，无需安装任何第三方包就能创建HTTP服务器。核心API：</p>
+
+<ul>
+<li><code>http.createServer(callback)</code> — 创建服务器实例</li>
+<li><code>server.listen(port)</code> — 监听指定端口</li>
+<li>回调函数接收 <code>(req, res)</code> 两个对象</li>
+<li><code>req</code>（IncomingMessage）：请求信息（URL、方法、头部等）</li>
+<li><code>res</code>（ServerResponse）：响应工具（状态码、头部、内容等）</li>
+
+<hr>
+
+<h2>脑图（ASCII）</h2>
+
+<pre><code>                     ┌──────────────────────┐
+                     │   Node.js HTTP Server │
+                     └──────────┬───────────┘
+                                │
+            ┌───────────────────┼───────────────────┐
+            │                   │                   │
+     ┌──────┴──────┐   ┌───────┴───────┐   ┌───────┴───────┐
+     │  http模块    │   │  req对象      │   │  res对象       │
+     └──────┬──────┘   └───────┬───────┘   └───────┬───────┘
+            │                  │                   │
+    ┌───────┴───────┐  ┌──────┴──────┐    ┌───────┴───────┐
+    │createServer() │  │req.url      │    │res.writeHead()│
+    │listen()       │  │req.method   │    │res.end()      │
+    │close()        │  │req.headers  │    │res.write()    │
+    └───────────────┘  │req.on(&#x27;data&#x27;)│   │res.statusCode │
+                       └─────────────┘    └───────────────┘</code></pre>
+
+<hr>
+
+<h2>完整Node.js代码</h2>
+
+<h3>v1：最简HTTP服务器</h3>
+
+<pre><code class="language-js">// v1-minimal.js - The simplest HTTP server in Node.js
+const http = require(&#x27;http&#x27;);
+
+const server = http.createServer((req, res) =&gt; {
+  res.end(&#x27;Hello from Node.js!&#x27;);
+});
+
+server.listen(3000, () =&gt; {
+  console.log(&#x27;Server running at http://localhost:3000&#x27;);
+});</code></pre>
+
+<h3>v2：路由 + JSON响应 + 请求方法处理</h3>
+
+<pre><code class="language-js">// v2-router.js - HTTP server with routing and method handling
+const http = require(&#x27;http&#x27;);
+
+const todos = [
+  { id: 1, text: &#x27;Learn Node.js&#x27;, done: false },
+  { id: 2, text: &#x27;Build a project&#x27;, done: false },
+];
+
+const server = http.createServer((req, res) =&gt; {
+  // Parse URL and method
+  const { method, url } = req;
+
+  // Route: GET /todos
+  if (method === &#x27;GET&#x27; &amp;&amp; url === &#x27;/todos&#x27;) {
+    res.writeHead(200, { &#x27;Content-Type&#x27;: &#x27;application/json; charset=utf-8&#x27; });
+    res.end(JSON.stringify({ data: todos }));
+    return;
+  }
+
+  // Route: POST /todos - create a new todo
+  if (method === &#x27;POST&#x27; &amp;&amp; url === &#x27;/todos&#x27;) {
+    let body = &#x27;&#x27;;
+    req.on(&#x27;data&#x27;, (chunk) =&gt; { body += chunk; });
+    req.on(&#x27;end&#x27;, () =&gt; {
+      const { text } = JSON.parse(body);
+      const newTodo = { id: todos.length + 1, text, done: false };
+      todos.push(newTodo);
+      res.writeHead(201, { &#x27;Content-Type&#x27;: &#x27;application/json; charset=utf-8&#x27; });
+      res.end(JSON.stringify({ data: newTodo }));
+    });
+    return;
+  }
+
+  // Route: 404 fallback
+  res.writeHead(404, { &#x27;Content-Type&#x27;: &#x27;application/json; charset=utf-8&#x27; });
+  res.end(JSON.stringify({ error: &#x27;Not Found&#x27; }));
+});
+
+server.listen(3000, () =&gt; {
+  console.log(&#x27;Todo API running at http://localhost:3000&#x27;);
+});</code></pre>
+
+<h3>v3：模块化 + 静态文件服务</h3>
+
+<pre><code class="language-js">// v3-modular.js - Modular server with static file serving
+const http = require(&#x27;http&#x27;);
+const fs = require(&#x27;fs&#x27;);
+const path = require(&#x27;path&#x27;);
+
+const PORT = 3000;
+
+// MIME type mapping
+const MIME_TYPES = {
+  &#x27;.html&#x27;: &#x27;text/html&#x27;,
+  &#x27;.css&#x27;: &#x27;text/css&#x27;,
+  &#x27;.js&#x27;: &#x27;application/javascript&#x27;,
+  &#x27;.json&#x27;: &#x27;application/json&#x27;,
+  &#x27;.png&#x27;: &#x27;image/png&#x27;,
+  &#x27;.jpg&#x27;: &#x27;image/jpeg&#x27;,
+};
+
+// Todo data store
+const todos = [
+  { id: 1, text: &#x27;Learn Node.js&#x27;, done: false },
+  { id: 2, text: &#x27;Build a project&#x27;, done: false },
+];
+
+// Helper: send JSON response
+function sendJson(res, statusCode, data) {
+  res.writeHead(statusCode, { &#x27;Content-Type&#x27;: &#x27;application/json; charset=utf-8&#x27; });
+  res.end(JSON.stringify(data));
+}
+
+// Helper: parse request body as JSON
+function parseBody(req) {
+  return new Promise((resolve, reject) =&gt; {
+    let body = &#x27;&#x27;;
+    req.on(&#x27;data&#x27;, (chunk) =&gt; { body += chunk; });
+    req.on(&#x27;end&#x27;, () =&gt; {
+      try { resolve(JSON.parse(body)); }
+      catch (e) { reject(e); }
+    });
+    req.on(&#x27;error&#x27;, reject);
+  });
+}
+
+// Route handler: API routes
+async function handleApi(req, res) {
+  const { method, url } = req;
+
+  // GET /api/todos
+  if (method === &#x27;GET&#x27; &amp;&amp; url === &#x27;/api/todos&#x27;) {
+    return sendJson(res, 200, { data: todos });
+  }
+
+  // POST /api/todos
+  if (method === &#x27;POST&#x27; &amp;&amp; url === &#x27;/api/todos&#x27;) {
+    const { text } = await parseBody(req);
+    const newTodo = { id: todos.length + 1, text, done: false };
+    todos.push(newTodo);
+    return sendJson(res, 201, { data: newTodo });
+  }
+
+  // DELETE /api/todos/:id
+  if (method === &#x27;DELETE&#x27; &amp;&amp; url.startsWith(&#x27;/api/todos/&#x27;)) {
+    const id = parseInt(url.split(&#x27;/&#x27;).pop());
+    const index = todos.findIndex((t) =&gt; t.id === id);
+    if (index === -1) return sendJson(res, 404, { error: &#x27;Not found&#x27; });
+    todos.splice(index, 1);
+    return sendJson(res, 200, { message: &#x27;Deleted&#x27; });
+  }
+
+  return false; // Not an API route
+}
+
+// Static file handler
+function handleStatic(req, res) {
+  const filePath = path.join(__dirname, &#x27;public&#x27;, req.url === &#x27;/&#x27; ? &#x27;index.html&#x27; : req.url);
+  const ext = path.extname(filePath);
+
+  fs.readFile(filePath, (err, data) =&gt; {
+    if (err) {
+      sendJson(res, 404, { error: &#x27;Not Found&#x27; });
+      return;
+    }
+    res.writeHead(200, { &#x27;Content-Type&#x27;: MIME_TYPES[ext] || &#x27;text/plain&#x27; });
+    res.end(data);
+  });
+}
+
+// Main server
+const server = http.createServer(async (req, res) =&gt; {
+  console.log(`${req.method} ${req.url}`);
+
+  try {
+    // Try API routes first
+    const handled = await handleApi(req, res);
+    if (!handled) {
+      // Fall back to static files
+      handleStatic(req, res);
+    }
+  } catch (err) {
+    console.error(&#x27;Server error:&#x27;, err);
+    sendJson(res, 500, { error: &#x27;Internal Server Error&#x27; });
+  }
+});
+
+server.listen(PORT, () =&gt; {
+  console.log(`Server running at http://localhost:${PORT}`);
+});</code></pre>
+
+<hr>
+
+<h2>执行预览</h2>
+
+<pre><code class="language-bash">$ node v2-router.js
+Todo API running at http://localhost:3000
+
+# 另一个终端
+$ curl http://localhost:3000/todos
+{&quot;data&quot;:[{&quot;id&quot;:1,&quot;text&quot;:&quot;Learn Node.js&quot;,&quot;done&quot;:false},{&quot;id&quot;:2,&quot;text&quot;:&quot;Build a project&quot;,&quot;done&quot;:false}]}
+
+$ curl -X POST http://localhost:3000/todos \
+  -H &quot;Content-Type: application/json&quot; \
+  -d &#x27;{&quot;text&quot;:&quot;Write tests&quot;}&#x27;
+{&quot;data&quot;:{&quot;id&quot;:3,&quot;text&quot;:&quot;Write tests&quot;,&quot;done&quot;:false}}
+
+$ curl http://localhost:3000/unknown
+{&quot;error&quot;:&quot;Not Found&quot;}</code></pre>
+
+<hr>
+
+<h2>注意事项</h2>
+
+<table><thead><tr>
+<th>项目</th>
+<th>说明</th>
+</tr></thead><tbody>
+<tr>
+<td>端口占用</td>
+<td>3000端口被占用会报<code>EADDRINUSE</code>，换端口或杀进程</td>
+</tr>
+<tr>
+<td>Content-Type</td>
+<td>返回HTML用<code>text/html</code>，返回JSON用<code>application/json</code></td>
+</tr>
+<tr>
+<td>字符编码</td>
+<td>中文内容记得加<code>charset=utf-8</code>，否则浏览器可能乱码</td>
+</tr>
+<tr>
+<td>req.body</td>
+<td>Node.js的http模块不会自动解析请求体，需要手动监听<code>data</code>事件</td>
+</tr>
+<tr>
+<td>错误处理</td>
+<td><code>res.end()</code>只能调一次，多次调用会报错</td>
+</tr>
+<tr>
+<td>端口范围</td>
+<td>有效端口1-65535，1024以下需要root权限</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>避坑指南</h2>
+
+<table><thead><tr>
+<th>❌ 常见错误</th>
+<th>✅ 正确做法</th>
+</tr></thead><tbody>
+<tr>
+<td>忘记调用<code>res.end()</code></td>
+<td>每个请求路径都必须调用<code>res.end()</code>，否则请求会挂起</td>
+</tr>
+<tr>
+<td><code>res.end()</code>调用多次</td>
+<td>用<code>return res.end()</code>确保只执行一次</td>
+</tr>
+<tr>
+<td>直接用<code>req.body</code>获取数据</td>
+<td>需要监听<code>req.on('data')</code>和<code>req.on('end')</code>手动拼接</td>
+</tr>
+<tr>
+<td>路由判断只看URL不看方法</td>
+<td>同时判断<code>method</code>和<code>url</code>，否则GET/POST无法区分</td>
+</tr>
+<tr>
+<td>异步回调中仍然访问<code>res</code></td>
+<td>确保在<code>res.end()</code>前没有其他地方已经结束响应</td>
+</tr>
+<tr>
+<td><code>http.createServer()</code>后忘了<code>listen()</code></td>
+<td>两个方法都要调用，<code>createServer</code>只创建不启动</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>练习题</h2>
+
+<h3>🟢 初级（理解概念）</h3>
+
+<ol>
+<li>创建一个HTTP服务器，访问<code>/time</code>时返回当前服务器时间</li>
+</ul>
+<ol>
+<li>让服务器同时支持<code>/hello</code>返回"Hello"和<code>/bye</code>返回"Goodbye"</li>
+
+<h3>🟡 中级（动手实践）</h3>
+
+<ol>
+<li>实现一个简单的计数器API：<code>GET /count</code>返回访问次数，每访问一次+1</li>
+</ul>
+<ol>
+<li>实现一个<code>POST /echo</code>接口，将请求体原样返回</li>
+
+<h3>🔴 高级（综合挑战）</h3>
+
+<ol>
+<li>实现一个完整的RESTful API，包含CRUD操作（增删改查），数据存储在内存数组中，并实现<code>PUT /api/todos/:id</code>更新功能</li>
+</ul>
+<ol>
+<li>给v3版本添加日志中间件：记录每个请求的方法、URL、响应状态码和耗时</li>
+
+<hr>
+
+<h2>知识点总结（树状）</h2>
+
+<pre><code>Node.js HTTP服务器
+├── http模块
+│   ├── createServer(callback) → 创建服务器
+│   ├── listen(port, callback) → 监听端口
+│   └── close(callback) → 关闭服务器
+├── req对象（IncomingMessage）
+│   ├── req.url → 请求路径
+│   ├── req.method → 请求方法（GET/POST/...）
+│   ├── req.headers → 请求头对象
+│   └── req.on(&#x27;data&#x27;/&#x27;end&#x27;) → 接收请求体
+├── res对象（ServerResponse）
+│   ├── res.writeHead(statusCode, headers) → 写入响应头
+│   ├── res.write(data) → 写入响应体（可多次）
+│   ├── res.end(data) → 结束响应
+│   └── res.statusCode → 设置/获取状态码
+├── 路由处理
+│   ├── URL匹配
+│   ├── 方法判断
+│   └── 404处理
+└── 静态文件服务
+    ├── fs.readFile()
+    ├── MIME类型映射
+    └── 路径安全检查</code></pre>
+
+<hr>
+
+<h2>举一反三</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>核心思路</th>
+<th>关键API</th>
+</tr></thead><tbody>
+<tr>
+<td>返回HTML页面</td>
+<td>设置Content-Type为text/html</td>
+<td><code>res.writeHead(200, {'Content-Type':'text/html'})</code></td>
+</tr>
+<tr>
+<td>返回JSON数据</td>
+<td>对象序列化为字符串</td>
+<td><code>JSON.stringify()</code> + <code>application/json</code></td>
+</tr>
+<tr>
+<td>文件下载</td>
+<td>设置Content-Disposition头</td>
+<td><code>res.setHeader('Content-Disposition','attachment; filename=xxx')</code></td>
+</tr>
+<tr>
+<td>重定向</td>
+<td>设置301/302状态码+Location头</td>
+<td><code>res.writeHead(302, {Location: '/new-url'})</code></td>
+</tr>
+<tr>
+<td>处理大文件上传</td>
+<td>分块接收，流式写入</td>
+<td><code>req.on('data')</code> + <code>fs.createWriteStream()</code></td>
+</tr>
+<tr>
+<td>支持CORS</td>
+<td>添加跨域响应头</td>
+<td><code>res.setHeader('Access-Control-Allow-Origin','*')</code></td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>参考资料</h2>
+
+<ul>
+<li><a href="https://nodejs.org/api/http.html">Node.js http模块官方文档</a></li>
+<li><a href="https://developer.mozilla.org/zh-CN/docs/Web/HTTP/Methods">MDN - HTTP请求方法</a></li>
+<li><a href="https://developer.mozilla.org/zh-CN/docs/Web/HTTP/Status">HTTP状态码完整列表</a></li>
+
+<hr>
+
+<h2>代码演进</h2>
+
+<pre><code>v1（5行代码）─── v2（40行）─── v3（100行）
+ │                │              │
+最简服务器      路由+API       模块化+静态文件
+单路径响应      POST解析       工具函数封装
+无错误处理      JSON响应       错误处理兜底
+                               MIME类型映射</code></pre>
+
+<p><strong>v1 → v2 关键变化：</strong> 引入路由判断和请求方法区分，实现真正的API</p>
+<p><strong>v2 → v3 关键变化：</strong> 模块化拆分（handleApi/handleStatic），Promise化异步，添加静态文件服务</p>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

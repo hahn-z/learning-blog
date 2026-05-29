@@ -1,0 +1,661 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>007 - Node.js 事件循环机制完全指南</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Node.js/index.html">Node.js</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Node.js/01-入门/index.html">Node.js入门</a>
+</nav>
+<h1>007 - Node.js 事件循环机制完全指南</h1>
+<div class="meta">
+<span>📂 Node.js入门</span>
+<span>🏷️ Node.js</span>
+</div>
+<article>
+
+
+<h1>Node.js 事件循环机制完全指南</h1>
+
+<blockquote><p><strong>难度：</strong> ⭐⭐⭐ 中等偏上<br><strong>前置知识：</strong> JavaScript 基础、回调函数、异步编程概念<br><strong>阅读时间：</strong> 约 25 分钟</p></blockquote>
+
+<hr>
+
+<h2>一、概念讲解</h2>
+
+<h3>什么是事件循环？</h3>
+
+<p>Node.js 是<strong>单线程</strong>的，但它能处理大量并发请求，秘密就在于<strong>事件循环（Event Loop）</strong>。</p>
+
+<p>简单类比：想象一个餐厅的服务员，他一次只能服务一桌，但他不断在多桌之间轮转——谁点了菜就记下来，菜好了就端上去。他不需要同时站在每一桌旁边。</p>
+
+<p>事件循环就是那个"服务员"，不断检查是否有待处理的回调、定时器、I/O 事件，有的话就执行，没有就等一下再检查。</p>
+
+<h3>为什么需要事件循环？</h3>
+
+<pre><code>传统多线程模型（如 Java）：
+  每个请求 → 一个线程 → 线程空闲时浪费资源 → 线程切换开销大
+
+Node.js 事件循环模型：
+  所有请求 → 单线程 + 事件循环 → I/O 等待时处理其他请求 → 高效利用 CPU</code></pre>
+
+<h3>事件循环的六个阶段</h3>
+
+<pre><code>   ┌───────────────────────────┐
+┌─&gt;│         timers             │  ← setTimeout / setInterval
+│  └─────────────┬─────────────┘
+│  ┌─────────────┴─────────────┐
+│  │     pending callbacks      │  ← 系统级回调（如 TCP 错误）
+│  └─────────────┬─────────────┘
+│  ┌─────────────┴─────────────┐
+│  │       idle, prepare        │  ← 内部使用（libuv）
+│  └─────────────┬─────────────┘
+│  ┌─────────────┴─────────────┐
+│  │         poll               │  ← I/O 回调（文件读写、网络等）
+│  └─────────────┬─────────────┘
+│  ┌─────────────┴─────────────┐
+│  │         check              │  ← setImmediate
+│  └─────────────┬─────────────┘
+│  ┌─────────────┴─────────────┐
+│  │     close callbacks        │  ← socket.on(&#x27;close&#x27;, ...)
+│  └─────────────┬─────────────┘
+│                                │
+└────────────────────────────────┘</code></pre>
+
+<p><strong>各阶段详解：</strong></p>
+
+<table><thead><tr>
+<th>阶段</th>
+<th>说明</th>
+<th>常见 API</th>
+</tr></thead><tbody>
+<tr>
+<td><strong>timers</strong></td>
+<td>执行到期的 setTimeout/setInterval 回调</td>
+<td><code>setTimeout</code>, <code>setInterval</code></td>
+</tr>
+<tr>
+<td><strong>pending callbacks</strong></td>
+<td>推迟到下一轮循环的 I/O 回调</td>
+<td>TCP 连接错误等</td>
+</tr>
+<tr>
+<td><strong>idle, prepare</strong></td>
+<td>libuv 内部使用，开发者无需关心</td>
+<td>—</td>
+</tr>
+<tr>
+<td><strong>poll</strong></td>
+<td>获取新的 I/O 事件，执行 I/O 相关回调</td>
+<td><code>fs.readFile</code>, <code>net.Server</code></td>
+</tr>
+<tr>
+<td><strong>check</strong></td>
+<td>在 poll 之后立即执行</td>
+<td><code>setImmediate</code></td>
+</tr>
+<tr>
+<td><strong>close callbacks</strong></td>
+<td>关闭事件的回调</td>
+<td><code>socket.destroy()</code></td>
+</tr>
+</tbody></table>
+
+<h3>微任务（Microtasks）</h3>
+
+<p>除了事件循环的六个阶段，还有<strong>微任务队列</strong>，优先级更高：</p>
+
+<ul>
+<li><code>process.nextTick()</code> — 最高优先级，每个阶段之间执行</li>
+<li><code>Promise.then/catch/finally</code> — nextTick 之后执行</li>
+
+<pre><code>执行顺序：
+  同步代码 → nextTick → Promise → 事件循环下一阶段</code></pre>
+
+<hr>
+
+<h2>二、脑图</h2>
+
+<pre><code>Event Loop 事件循环
+├── 核心概念
+│   ├── 单线程模型
+│   ├── 非阻塞 I/O
+│   ├── 事件驱动
+│   └── libuv 引擎
+├── 六个阶段
+│   ├── timers (定时器)
+│   ├── pending callbacks (待处理回调)
+│   ├── idle/prepare (内部)
+│   ├── poll (轮询) ← 核心
+│   ├── check (检查)
+│   └── close callbacks (关闭回调)
+├── 微任务队列
+│   ├── process.nextTick (最优先)
+│   └── Promise (次优先)
+├── 常见 API 执行顺序
+│   ├── setTimeout vs setImmediate
+│   ├── nextTick vs Promise
+│   └── 同步 vs 异步
+└── 实践要点
+    ├── 不要阻塞事件循环
+    ├── 合理使用 nextTick
+    └── 理解 I/O 密集 vs CPU 密集</code></pre>
+
+<hr>
+
+<h2>三、完整代码示例</h2>
+
+<h3>示例 1：事件循环阶段验证</h3>
+
+<pre><code class="language-js">// event-loop-phases.js
+// Demonstrate the execution order of different event loop phases
+
+console.log(&#x27;1. Sync code starts&#x27;);
+
+// timers phase
+setTimeout(() =&gt; {
+  console.log(&#x27;2. setTimeout (timers phase)&#x27;);
+}, 0);
+
+// check phase
+setImmediate(() =&gt; {
+  console.log(&#x27;3. setImmediate (check phase)&#x27;);
+});
+
+// microtasks
+process.nextTick(() =&gt; {
+  console.log(&#x27;4. nextTick (microtask)&#x27;);
+});
+
+Promise.resolve().then(() =&gt; {
+  console.log(&#x27;5. Promise.then (microtask)&#x27;);
+});
+
+// poll phase - I/O callback
+const fs = require(&#x27;fs&#x27;);
+fs.readFile(__filename, () =&gt; {
+  console.log(&#x27;6. readFile callback (poll phase)&#x27;);
+
+  // Inside I/O callback, setImmediate always runs before setTimeout
+  setTimeout(() =&gt; {
+    console.log(&#x27;7.  inner setTimeout&#x27;);
+  }, 0);
+  setImmediate(() =&gt; {
+    console.log(&#x27;8.  inner setImmediate&#x27;);
+  });
+});
+
+console.log(&#x27;9. Sync code ends&#x27;);</code></pre>
+
+<h3>示例 2：微任务优先级</h3>
+
+<pre><code class="language-js">// microtask-priority.js
+// Show the priority order of microtasks
+
+console.log(&#x27;=== Microtask Priority Demo ===&#x27;);
+
+setImmediate(() =&gt; console.log(&#x27;setImmediate&#x27;));
+setTimeout(() =&gt; console.log(&#x27;setTimeout&#x27;), 0);
+
+Promise.resolve()
+  .then(() =&gt; console.log(&#x27;Promise 1&#x27;))
+  .then(() =&gt; console.log(&#x27;Promise 2&#x27;));
+
+process.nextTick(() =&gt; console.log(&#x27;nextTick 1&#x27;));
+process.nextTick(() =&gt; console.log(&#x27;nextTick 2&#x27;));
+
+Promise.resolve().then(() =&gt; {
+  console.log(&#x27;Promise 3&#x27;);
+  process.nextTick(() =&gt; console.log(&#x27;nextTick inside Promise&#x27;));
+});
+
+console.log(&#x27;Sync end&#x27;);
+
+// Execution order:
+// Sync end → nextTick 1 → nextTick 2 → Promise 1 → Promise 3 →
+// nextTick inside Promise → Promise 2 → setTimeout → setImmediate</code></pre>
+
+<h3>示例 3：阻塞事件循环的教训</h3>
+
+<pre><code class="language-js">// blocking-event-loop.js
+// WARNING: This shows what NOT to do
+
+const http = require(&#x27;http&#x27;);
+
+const server = http.createServer((req, res) =&gt; {
+  if (req.url === &#x27;/fast&#x27;) {
+    res.end(&#x27;Fast response!\n&#x27;);
+  } else if (req.url === &#x27;/slow&#x27;) {
+    // BAD: CPU-intensive work blocks the event loop
+    const start = Date.now();
+    while (Date.now() - start &lt; 5000) {
+      // Blocking for 5 seconds!
+    }
+    res.end(&#x27;Slow response after 5s\n&#x27;);
+  }
+});
+
+server.listen(3000, () =&gt; {
+  console.log(&#x27;Server running at http://localhost:3000&#x27;);
+  console.log(&#x27;Try: /fast (instant) and /slow (blocks everything)&#x27;);
+});</code></pre>
+
+<hr>
+
+<h2>四、执行预览</h2>
+
+<p><strong>示例 1 运行结果：</strong></p>
+
+<pre><code>$ node event-loop-phases.js
+1. Sync code starts
+9. Sync code ends
+4. nextTick (microtask)
+5. Promise.then (microtask)
+2. setTimeout (timers phase)
+3. setImmediate (check phase)
+6. readFile callback (poll phase)
+8.  inner setImmediate
+7.  inner setTimeout</code></pre>
+
+<p><strong>示例 2 运行结果：</strong></p>
+
+<pre><code>$ node microtask-priority.js
+=== Microtask Priority Demo ===
+Sync end
+nextTick 1
+nextTick 2
+Promise 1
+Promise 3
+nextTick inside Promise
+Promise 2
+setTimeout
+setImmediate</code></pre>
+
+<p><strong>关键观察：</strong></p>
+<ul>
+<li>同步代码最先执行</li>
+<li><code>nextTick</code> > <code>Promise</code> > <code>setTimeout</code> > <code>setImmediate</code></li>
+<li>在 I/O 回调内部，<code>setImmediate</code> 先于 <code>setTimeout</code></li>
+
+<hr>
+
+<h2>五、注意事项</h2>
+
+<table><thead><tr>
+<th>注意点</th>
+<th>说明</th>
+<th>建议</th>
+</tr></thead><tbody>
+<tr>
+<td>setTimeout(fn, 0) 不是真 0ms</td>
+<td>浏览器最低 4ms，Node.js 默认 1ms</td>
+<td>不要依赖 0ms 的精确性</td>
+</tr>
+<tr>
+<td>setImmediate vs setTimeout</td>
+<td>在主模块中顺序不确定，I/O 回调中 setImmediate 优先</td>
+<td>在 I/O 回调中用 setImmediate</td>
+</tr>
+<tr>
+<td>process.nextTick 太多会饿死</td>
+<td>大量 nextTick 会阻止事件循环进入下一阶段</td>
+<td>控制数量，优先用 Promise</td>
+</tr>
+<tr>
+<td>不要阻塞事件循环</td>
+<td>CPU 密集任务会让所有请求排队</td>
+<td>用 Worker Threads 或拆分任务</td>
+</tr>
+<tr>
+<td>poll 阶段的行为</td>
+<td>有回调就执行，没有就等待或进入 check</td>
+<td>理解 poll 是核心停留点</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>六、避坑指南</h2>
+
+<h3>❌ 陷阱 1：以为 setTimeout(fn, 0) 会立即执行</h3>
+
+<pre><code class="language-js">// ❌ Wrong: Expecting immediate execution
+setTimeout(() =&gt; console.log(&#x27;first&#x27;), 0);
+console.log(&#x27;second&#x27;);
+// Actual output: second → first</code></pre>
+
+<pre><code class="language-js">// ✅ Correct: Understand async scheduling
+setTimeout(() =&gt; console.log(&#x27;scheduled&#x27;), 0);
+console.log(&#x27;sync runs first&#x27;);
+// Always remember: sync &gt; microtasks &gt; macrotasks</code></pre>
+
+<h3>❌ 陷阱 2：在 I/O 回调外假设 setImmediate 和 setTimeout 的顺序</h3>
+
+<pre><code class="language-js">// ❌ Wrong: Assuming fixed order in main module
+setTimeout(() =&gt; console.log(&#x27;timeout&#x27;), 0);
+setImmediate(() =&gt; console.log(&#x27;immediate&#x27;));
+// Order is NON-DETERMINISTIC in main module!</code></pre>
+
+<pre><code class="language-js">// ✅ Correct: Inside I/O callback, setImmediate always wins
+const fs = require(&#x27;fs&#x27;);
+fs.readFile(__filename, () =&gt; {
+  setTimeout(() =&gt; console.log(&#x27;timeout&#x27;), 0);
+  setImmediate(() =&gt; console.log(&#x27;immediate&#x27;)); // Always first!
+});</code></pre>
+
+<h3>❌ 陷阱 3：CPU 密集操作阻塞事件循环</h3>
+
+<pre><code class="language-js">// ❌ Wrong: Blocking the event loop
+app.get(&#x27;/compute&#x27;, (req, res) =&gt; {
+  let sum = 0;
+  for (let i = 0; i &lt; 1e10; i++) sum += i; // Blocks everything!
+  res.send({ sum });
+});</code></pre>
+
+<pre><code class="language-js">// ✅ Correct: Use Worker Threads or chunk the work
+const { Worker } = require(&#x27;worker_threads&#x27;);
+app.get(&#x27;/compute&#x27;, (req, res) =&gt; {
+  const worker = new Worker(&#x27;./compute.js&#x27;);
+  worker.on(&#x27;message&#x27;, sum =&gt; res.send({ sum }));
+});</code></pre>
+
+<hr>
+
+<h2>七、练习题</h2>
+
+<h3>🟢 入门：输出顺序预测</h3>
+
+<pre><code class="language-js">console.log(&#x27;A&#x27;);
+setTimeout(() =&gt; console.log(&#x27;B&#x27;), 0);
+Promise.resolve().then(() =&gt; console.log(&#x27;C&#x27;));
+process.nextTick(() =&gt; console.log(&#x27;D&#x27;));
+console.log(&#x27;E&#x27;);</code></pre>
+
+<p><strong>问题：</strong> 请写出 A-E 的输出顺序。</p>
+
+<p><details></p>
+<p><summary>参考答案</summary></p>
+
+<p>A → E → D → C → B</p>
+
+<p>解析：同步代码(A, E) → nextTick(D) → Promise(C) → setTimeout(B)</p>
+<p></details></p>
+
+<h3>🟡 进阶：嵌套异步顺序</h3>
+
+<pre><code class="language-js">setTimeout(() =&gt; {
+  console.log(&#x27;1&#x27;);
+  Promise.resolve().then(() =&gt; console.log(&#x27;2&#x27;));
+}, 0);
+
+Promise.resolve().then(() =&gt; {
+  console.log(&#x27;3&#x27;);
+  setTimeout(() =&gt; console.log(&#x27;4&#x27;), 0);
+});
+
+console.log(&#x27;5&#x27;);</code></pre>
+
+<p><strong>问题：</strong> 写出完整输出顺序。</p>
+
+<p><details></p>
+<p><summary>参考答案</summary></p>
+
+<p>5 → 3 → 1 → 2 → 4</p>
+
+<p>解析：同步(5) → Promise微任务(3, 注册setTimeout) → timers(1, Promise微任务2) → timers(4)</p>
+<p></details></p>
+
+<h3>🔴 挑战：事件循环实战</h3>
+
+<p>实现一个简单的任务调度器，支持优先级：</p>
+
+<pre><code class="language-js">class TaskScheduler {
+  constructor() {
+    this.tasks = [];
+  }
+
+  addTask(fn, priority = &#x27;normal&#x27;) {
+    // TODO: implement
+    // priority: &#x27;high&#x27; (nextTick), &#x27;normal&#x27; (Promise), &#x27;low&#x27; (setTimeout)
+  }
+
+  runAll() {
+    // TODO: execute all tasks by priority
+  }
+}</code></pre>
+
+<p><details></p>
+<p><summary>参考答案</summary></p>
+
+<pre><code class="language-js">class TaskScheduler {
+  constructor() {
+    this.highTasks = [];
+    this.normalTasks = [];
+    this.lowTasks = [];
+  }
+
+  addTask(fn, priority = &#x27;normal&#x27;) {
+    const pool = priority === &#x27;high&#x27; ? this.highTasks
+      : priority === &#x27;low&#x27; ? this.lowTasks
+      : this.normalTasks;
+    pool.push(fn);
+    return this; // chainable
+  }
+
+  runAll() {
+    // High priority → nextTick
+    process.nextTick(() =&gt; {
+      this.highTasks.forEach(fn =&gt; fn());
+    });
+    // Normal priority → Promise
+    Promise.resolve().then(() =&gt; {
+      this.normalTasks.forEach(fn =&gt; fn());
+    });
+    // Low priority → setTimeout
+    setTimeout(() =&gt; {
+      this.lowTasks.forEach(fn =&gt; fn());
+    }, 0);
+  }
+}
+
+// Usage
+const scheduler = new TaskScheduler();
+scheduler
+  .addTask(() =&gt; console.log(&#x27;low task&#x27;), &#x27;low&#x27;)
+  .addTask(() =&gt; console.log(&#x27;normal task&#x27;))
+  .addTask(() =&gt; console.log(&#x27;high task&#x27;), &#x27;high&#x27;)
+  .runAll();
+// Output: high task → normal task → low task</code></pre>
+<p></details></p>
+
+<hr>
+
+<h2>八、知识点总结</h2>
+
+<pre><code>Event Loop
+├── 1. 单线程 + 非阻塞 I/O
+├── 2. 六个阶段循环
+│   ├── timers → setTimeout/setInterval
+│   ├── pending callbacks
+│   ├── poll ← 核心 I/O 处理
+│   ├── check → setImmediate
+│   └── close callbacks
+├── 3. 微任务优先级
+│   ├── process.nextTick (最高)
+│   └── Promise (次高)
+├── 4. 关键规则
+│   ├── 同步 &gt; 微任务 &gt; 宏任务
+│   ├── I/O 内 setImmediate &gt; setTimeout
+│   └── 不要阻塞事件循环
+└── 5. libuv
+    └── 事件循环的底层实现引擎</code></pre>
+
+<hr>
+
+<h2>九、举一反三</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>类比理解</th>
+<th>实际应用</th>
+</tr></thead><tbody>
+<tr>
+<td>餐厅服务员</td>
+<td>服务员在多桌间轮转</td>
+<td>事件循环处理多请求</td>
+</tr>
+<tr>
+<td>快递分拣</td>
+<td>按优先级分到不同传送带</td>
+<td>nextTick/Promise/setTimeout 分队列</td>
+</tr>
+<tr>
+<td>红绿灯</td>
+<td>定时切换，不阻塞其他方向</td>
+<td>timers 阶段的定时检查</td>
+</tr>
+<tr>
+<td>流水线工人</td>
+<td>完成一个工序就传给下一个</td>
+<td>poll → check → close 的阶段流转</td>
+</tr>
+<tr>
+<td>电话排队</td>
+<td>VIP 客户优先接入</td>
+<td>微任务优先于宏任务</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>十、参考资料</h2>
+
+<ul>
+<li><a href="https://nodejs.org/en/learn/asynchronous-work/event-loop-timers-and-nexttick">Node.js 官方文档 - Event Loop</a></li>
+<li><a href="https://docs.libuv.org/en/v1.x/design.html">libuv 官方文档</a></li>
+<li><a href="https://developer.mozilla.org/zh-CN/docs/Web/JavaScript/Event_loop">MDN - 并发模型与事件循环</a></li>
+<li>《深入浅出 Node.js》— 朴灵</li>
+
+<hr>
+
+<h2>十一、代码演进</h2>
+
+<h3>v1：基础理解 — 同步 vs 异步</h3>
+
+<pre><code class="language-js">// v1: Basic sync vs async
+console.log(&#x27;Start&#x27;);
+setTimeout(() =&gt; console.log(&#x27;Timeout&#x27;), 0);
+console.log(&#x27;End&#x27;);
+// Output: Start → End → Timeout</code></pre>
+
+<h3>v2：进阶 — 微任务优先级</h3>
+
+<pre><code class="language-js">// v2: Understanding microtask priority
+console.log(&#x27;Start&#x27;);
+setTimeout(() =&gt; console.log(&#x27;setTimeout&#x27;), 0);
+setImmediate(() =&gt; console.log(&#x27;setImmediate&#x27;));
+Promise.resolve().then(() =&gt; console.log(&#x27;Promise&#x27;));
+process.nextTick(() =&gt; console.log(&#x27;nextTick&#x27;));
+console.log(&#x27;End&#x27;);
+// Output: Start → End → nextTick → Promise → setTimeout → setImmediate</code></pre>
+
+<h3>v3：实战 — 请求调度器</h3>
+
+<pre><code class="language-js">// v3: Practical request scheduler using event loop knowledge
+const http = require(&#x27;http&#x27;);
+
+const requestQueue = {
+  high: [],   // nextTick level
+  normal: [], // Promise level
+  low: [],    // setTimeout level
+};
+
+function scheduleRequest(handler, priority = &#x27;normal&#x27;) {
+  requestQueue[priority].push(handler);
+  drainQueue();
+}
+
+function drainQueue() {
+  process.nextTick(() =&gt; {
+    while (requestQueue.high.length) requestQueue.high.shift()();
+  });
+  Promise.resolve().then(() =&gt; {
+    while (requestQueue.normal.length) requestQueue.normal.shift()();
+  });
+  setTimeout(() =&gt; {
+    while (requestQueue.low.length) requestQueue.low.shift()();
+  }, 0);
+}
+
+// Usage
+const server = http.createServer((req, res) =&gt; {
+  const priority = req.headers[&#x27;x-priority&#x27;] || &#x27;normal&#x27;;
+  scheduleRequest(() =&gt; res.end(&#x27;Handled!\n&#x27;), priority);
+});
+
+server.listen(3000, () =&gt; console.log(&#x27;Scheduler running on :3000&#x27;));</code></pre>
+
+<p><strong>演进总结：</strong> v1 认识异步 → v2 掌握优先级 → v3 应用于实战调度。</p>
+
+<hr>
+
+<p><em>掌握事件循环，就掌握了 Node.js 异步编程的灵魂。</em> 🔄</p>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

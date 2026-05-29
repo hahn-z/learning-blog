@@ -1,0 +1,642 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>016 - Redis缓存集成 | Kratos实战系列</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Golang/index.html">Golang</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Golang/06-Kratos微服务框架/index.html">Kratos框架</a>
+</nav>
+<h1>016 - Redis缓存集成 | Kratos实战系列</h1>
+<div class="meta">
+<span>📂 Kratos框架</span>
+<span>🏷️ Golang</span>
+</div>
+<article>
+
+
+<h1>Redis缓存集成</h1>
+
+<blockquote><p><strong>难度：</strong> ⭐⭐⭐ | <strong>预计阅读：</strong> 15 分钟<br><br>Kratos 数据层集成 Redis，覆盖连接配置、缓存 Repository 模式、分布式锁、旁路缓存策略与穿透防护。</p></blockquote>
+
+<hr>
+
+<h2>1. 概念讲解</h2>
+
+<h3>为什么需要 Redis？</h3>
+
+<p>微服务架构中，数据库是最大的性能瓶颈。Redis 作为内存级 KV 存储，可以在以下场景显著提升性能：</p>
+
+<table><thead><tr>
+<th>场景</th>
+<th>说明</th>
+</tr></thead><tbody>
+<tr>
+<td>热点数据缓存</td>
+<td>用户信息、配置项等高频读取数据</td>
+</tr>
+<tr>
+<td>分布式锁</td>
+<td>防止并发重复操作（如重复下单）</td>
+</tr>
+<tr>
+<td>Session 存储</td>
+<td>无状态服务的会话管理</td>
+</tr>
+<tr>
+<td>排行榜/计数器</td>
+<td>利用 Redis 原子操作</td>
+</tr>
+</tbody></table>
+
+<h3>Kratos 中的 Redis 集成方式</h3>
+
+<p>Kratos 通过 <code>contrib</code> 仓库提供 Redis 支持，核心是 <code>github.com/go-kratos/kratos/contrib/registry/redis</code> 的封装。实际项目中，我们直接使用 <code>go-redis/redis/v9</code> 配合 Kratos 的 Data 层模式。</p>
+
+<h3>缓存策略：旁路缓存（Cache-Aside）</h3>
+
+<pre><code>读：Cache → Miss → DB → Write Cache → Return
+写：Update DB → Delete Cache</code></pre>
+
+<hr>
+
+<h2>2. 脑图</h2>
+
+<pre><code>Redis 集成
+├── 连接配置
+│   ├── 单节点
+│   ├── Sentinel
+│   └── Cluster
+├── Data 层封装
+│   ├── redis.Client 初始化
+│   ├── Repository 模式
+│   └── 连接池参数
+├── 缓存策略
+│   ├── 旁路缓存 (Cache-Aside)
+│   ├── 穿透防护 (布隆过滤器)
+│   ├── 雪崩防护 (随机TTL)
+│   └── 击穿防护 (互斥锁)
+├── 分布式锁
+│   ├── SET NX EX
+│   ├── Redisson Go 实现
+│   └── 看门狗续期
+└── Session 存储
+    ├── Cookie + Redis Session
+    └── Token 黑名单</code></pre>
+
+<hr>
+
+<h2>3. 完整 Go 代码</h2>
+
+<h3>v1 — 基础 Redis 连接与缓存读取</h3>
+
+<pre><code class="language-go">// internal/data/redis.go
+package data
+
+import (
+	&quot;context&quot;
+	&quot;encoding/json&quot;
+	&quot;fmt&quot;
+	&quot;time&quot;
+
+	&quot;github.com/go-kratos/kratos/v2/log&quot;
+	&quot;github.com/redis/go-redis/v9&quot;
+)
+
+type RedisConfig struct {
+	Addr     string
+	Password string
+	DB       int
+}
+
+// NewRedisClient creates a redis client
+func NewRedisClient(cfg RedisConfig, logger log.Logger) *redis.Client {
+	rdb := redis.NewClient(&amp;redis.Options{
+		Addr:         cfg.Addr,
+		Password:     cfg.Password,
+		DB:           cfg.DB,
+		DialTimeout:  5 * time.Second,
+		ReadTimeout:  3 * time.Second,
+		WriteTimeout: 3 * time.Second,
+		PoolSize:     100,
+		MinIdleConns: 10,
+	})
+
+	// Verify connection
+	if err := rdb.Ping(context.Background()).Err(); err != nil {
+		log.NewHelper(logger).Fatalf(&quot;redis connect failed: %v&quot;, err)
+	}
+	return rdb
+}</code></pre>
+
+<pre><code class="language-go">// internal/data/user_cache.go
+package data
+
+import (
+	&quot;context&quot;
+	&quot;encoding/json&quot;
+	&quot;fmt&quot;
+	&quot;time&quot;
+
+	&quot;github.com/redis/go-redis/v9&quot;
+	&quot;your-project/internal/biz&quot;
+)
+
+type userCacheRepo struct {
+	rdb *redis.Client
+	ttl time.Duration
+}
+
+// NewUserCacheRepo creates a cached user repository
+func NewUserCacheRepo(rdb *redis.Client) biz.UserCacheRepo {
+	return &amp;userCacheRepo{rdb: rdb, ttl: 30 * time.Minute}
+}
+
+func (r *userCacheRepo) Get(ctx context.Context, key string, dest interface{}) error {
+	val, err := r.rdb.Get(ctx, key).Result()
+	if err == redis.Nil {
+		// Cache miss
+		return biz.ErrCacheMiss
+	}
+	if err != nil {
+		return fmt.Errorf(&quot;redis get: %w&quot;, err)
+	}
+	return json.Unmarshal([]byte(val), dest)
+}
+
+func (r *userCacheRepo) Set(ctx context.Context, key string, val interface{}) error {
+	data, err := json.Marshal(val)
+	if err != nil {
+		return fmt.Errorf(&quot;json marshal: %w&quot;, err)
+	}
+	return r.rdb.Set(ctx, key, data, r.ttl).Err()
+}
+
+func (r *userCacheRepo) Delete(ctx context.Context, key string) error {
+	return r.rdb.Del(ctx, key).Err()
+}</code></pre>
+
+<h3>v2 — 旁路缓存 Repository（穿透防护）</h3>
+
+<pre><code class="language-go">// internal/data/cached_user_repo.go
+package data
+
+import (
+	&quot;context&quot;
+	&quot;encoding/json&quot;
+	&quot;fmt&quot;
+	&quot;time&quot;
+
+	&quot;github.com/redis/go-redis/v9&quot;
+	&quot;your-project/internal/biz&quot;
+)
+
+const (
+	userCachePrefix = &quot;user:&quot;
+	nullCacheTTL    = 5 * time.Minute // TTL for null cache (anti-penetration)
+)
+
+type cachedUserRepo struct {
+	db   biz.UserRepo // actual DB repo
+	rdb  *redis.Client
+	ttl  time.Duration
+}
+
+// NewCachedUserRepo wraps a UserRepo with cache-aside pattern
+func NewCachedUserRepo(db biz.UserRepo, rdb *redis.Client) biz.UserRepo {
+	return &amp;cachedUserRepo{
+		db:  db,
+		rdb: rdb,
+		ttl: 30 * time.Minute,
+	}
+}
+
+func (r *cachedUserRepo) GetUser(ctx context.Context, id int64) (*biz.User, error) {
+	key := fmt.Sprintf(&quot;%s%d&quot;, userCachePrefix, id)
+
+	// Step 1: Try cache
+	val, err := r.rdb.Get(ctx, key).Result()
+	if err == nil {
+		// Check for null cache marker
+		if val == &quot;NULL&quot; {
+			return nil, biz.ErrUserNotFound
+		}
+		var user biz.User
+		if err := json.Unmarshal([]byte(val), &amp;user); err == nil {
+			return &amp;user, nil
+		}
+	}
+
+	// Step 2: Cache miss, query DB
+	user, err := r.db.GetUser(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	if user == nil {
+		// Anti-penetration: cache null marker with short TTL
+		r.rdb.Set(ctx, key, &quot;NULL&quot;, nullCacheTTL)
+		return nil, biz.ErrUserNotFound
+	}
+
+	// Step 3: Write back to cache
+	data, _ := json.Marshal(user)
+	r.rdb.Set(ctx, key, data, r.ttl)
+
+	return user, nil
+}
+
+func (r *cachedUserRepo) CreateUser(ctx context.Context, user *biz.User) error {
+	return r.db.CreateUser(ctx, user)
+}
+
+func (r *cachedUserRepo) UpdateUser(ctx context.Context, user *biz.User) error {
+	err := r.db.UpdateUser(ctx, user)
+	if err != nil {
+		return err
+	}
+	// Invalidate cache
+	key := fmt.Sprintf(&quot;%s%d&quot;, userCachePrefix, user.ID)
+	r.rdb.Del(ctx, key)
+	return nil
+}</code></pre>
+
+<h3>v3 — 分布式锁 + 完整缓存防击穿</h3>
+
+<pre><code class="language-go">// internal/pkg/distributed/lock.go
+package distributed
+
+import (
+	&quot;context&quot;
+	&quot;time&quot;
+
+	&quot;github.com/redis/go-redis/v9&quot;
+)
+
+type RedisLock struct {
+	rdb    *redis.Client
+	key    string
+	value  string
+	expiry time.Duration
+}
+
+// NewRedisLock creates a distributed lock instance
+func NewRedisLock(rdb *redis.Client, key string, expiry time.Duration) *RedisLock {
+	return &amp;RedisLock{rdb: rdb, key: key, expiry: expiry}
+}
+
+// TryLock attempts to acquire the lock, returns true on success
+func (l *RedisLock) TryLock(ctx context.Context) (bool, error) {
+	ok, err := l.rdb.SetNX(ctx, l.key, l.value, l.expiry).Result()
+	return ok, err
+}
+
+// Unlock releases the lock (should use Lua for atomic check+del in production)
+func (l *RedisLock) Unlock(ctx context.Context) error {
+	// Use Lua script for atomic unlock
+	script := redis.NewScript(`
+		if redis.call(&quot;get&quot;, KEYS[1]) == ARGV[1] then
+			return redis.call(&quot;del&quot;, KEYS[1])
+		else
+			return 0
+		end
+	`)
+	return script.Run(ctx, l.rdb, []string{l.key}, l.value).Err()
+}
+
+// WithLock executes fn while holding the lock
+func WithLock(ctx context.Context, rdb *redis.Client, key string, expiry time.Duration, fn func() error) error {
+	lock := NewRedisLock(rdb, key, expiry)
+
+	// Retry up to 3 times
+	for i := 0; i &lt; 3; i++ {
+		ok, err := lock.TryLock(ctx)
+		if err != nil {
+			return err
+		}
+		if ok {
+			defer lock.Unlock(ctx)
+			return fn()
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+	return fmt.Errorf(&quot;failed to acquire lock: %s&quot;, key)
+}</code></pre>
+
+<pre><code class="language-go">// internal/data/cached_user_repo.go — v3 with anti-stampede
+func (r *cachedUserRepo) GetUser(ctx context.Context, id int64) (*biz.User, error) {
+	key := fmt.Sprintf(&quot;%s%d&quot;, userCachePrefix, id)
+
+	// Try cache first
+	val, err := r.rdb.Get(ctx, key).Result()
+	if err == nil {
+		if val == &quot;NULL&quot; {
+			return nil, biz.ErrUserNotFound
+		}
+		var user biz.User
+		if json.Unmarshal([]byte(val), &amp;user) == nil {
+			return &amp;user, nil
+		}
+	}
+
+	// Anti-stampede: use distributed lock to prevent thundering herd
+	lockKey := fmt.Sprintf(&quot;lock:%s%d&quot;, userCachePrefix, id)
+	err = WithLock(ctx, r.rdb, lockKey, 5*time.Second, func() error {
+		// Double-check cache after acquiring lock
+		val, err := r.rdb.Get(ctx, key).Result()
+		if err == nil &amp;&amp; val != &quot;NULL&quot; {
+			return json.Unmarshal([]byte(val), new(biz.User))
+		}
+
+		// Query DB
+		user, dbErr := r.db.GetUser(ctx, id)
+		if dbErr != nil {
+			return dbErr
+		}
+		if user == nil {
+			r.rdb.Set(ctx, key, &quot;NULL&quot;, nullCacheTTL)
+			return biz.ErrUserNotFound
+		}
+
+		data, _ := json.Marshal(user)
+		r.rdb.Set(ctx, key, data, r.ttl)
+		return nil
+	})
+
+	// After lock, re-read from cache
+	val, err = r.rdb.Get(ctx, key).Result()
+	if err != nil {
+		return nil, err
+	}
+	var user biz.User
+	json.Unmarshal([]byte(val), &amp;user)
+	return &amp;user, nil
+}</code></pre>
+
+<hr>
+
+<h2>4. 执行预览</h2>
+
+<pre><code class="language-bash"># Start Redis
+$ docker run -d --name redis -p 6379:6379 redis:7-alpine
+
+# Run application
+$ go run cmd/server/main.go
+INFO msg=redis connected addr=localhost:6379
+
+# API call (first time — cache miss)
+$ curl http://localhost:8000/user/1
+{&quot;id&quot;:1,&quot;name&quot;:&quot;Alice&quot;} 
+# Log: cache miss, query DB, write cache
+
+# API call (second time — cache hit)
+$ curl http://localhost:8000/user/1
+{&quot;id&quot;:1,&quot;name&quot;:&quot;Alice&quot;}
+# Log: cache hit, TTL=1798s remaining</code></pre>
+
+<hr>
+
+<h2>5. 注意事项</h2>
+
+<table><thead><tr>
+<th>项目</th>
+<th>说明</th>
+</tr></thead><tbody>
+<tr>
+<td>序列化</td>
+<td>推荐 JSON，性能敏感场景用 protobuf/MessagePack</td>
+</tr>
+<tr>
+<td>TTL</td>
+<td>基础 TTL 30min，加随机偏移防雪崩（如 30±5min）</td>
+</tr>
+<tr>
+<td>连接池</td>
+<td>PoolSize 建议 CPU核数×10，MinIdleConns≥5</td>
+</tr>
+<tr>
+<td>空值缓存</td>
+<td>空结果也要缓存，TTL 设短（5min），防穿透</td>
+</tr>
+<tr>
+<td>分布式锁</td>
+<td>必须用 Lua 脚本原子释放，防止误删别人的锁</td>
+</tr>
+<tr>
+<td>Key 设计</td>
+<td><code>业务:实体:ID</code> 三层命名，如 <code>user:info:123</code></td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>6. 避坑指南</h2>
+
+<table><thead><tr>
+<th>❌ 错误做法</th>
+<th>✅ 正确做法</th>
+</tr></thead><tbody>
+<tr>
+<td><code>SET key val</code> 无过期时间</td>
+<td>始终设置 TTL，加随机偏移</td>
+</tr>
+<tr>
+<td>先删缓存再更新数据库</td>
+<td>先更新数据库再删缓存（或用双删策略）</td>
+</tr>
+<tr>
+<td>用 <code>DEL</code> 释放分布式锁</td>
+<td>用 Lua 脚本比较 value 后原子删除</td>
+</tr>
+<tr>
+<td>缓存不存在时直接返回空</td>
+<td>缓存空值标记（"NULL"）防止穿透</td>
+</tr>
+<tr>
+<td>所有数据用相同 TTL</td>
+<td>TTL 加随机偏移量防止雪崩</td>
+</tr>
+<tr>
+<td>分布式锁不设超时</td>
+<td>锁必须设 expiry，防死锁</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>7. 练习题</h2>
+
+<h3>🟢 Easy</h3>
+<ol>
+<li>实现一个简单的 <code>Set/Get/Delete</code> 缓存封装，TTL 为 10 分钟</li>
+</ul>
+<ol>
+<li>在 Kratos Data 层初始化 Redis 连接并添加健康检查</li>
+
+<h3>🟡 Medium</h3>
+<ol>
+<li>实现旁路缓存模式，包含空值缓存防穿透</li>
+</ul>
+<ol>
+<li>实现分布式锁的加锁/解锁（用 Lua 脚本）</li>
+
+<h3>🔴 Hard</h3>
+<ol>
+<li>实现带看门狗自动续期的分布式锁</li>
+</ul>
+<ol>
+<li>设计多级缓存方案（本地缓存 + Redis），保证一致性</li>
+
+<hr>
+
+<h2>8. 知识点总结</h2>
+
+<pre><code>Redis 缓存集成
+├── 连接管理
+│   ├── go-redis/v9 客户端
+│   ├── 连接池参数调优
+│   └── 健康检查 Ping
+├── 缓存模式
+│   ├── Cache-Aside（旁路）
+│   ├── Read-Through / Write-Through
+│   └── Write-Behind
+├── 缓存问题
+│   ├── 穿透 → 空值缓存/布隆过滤器
+│   ├── 雪崩 → 随机TTL/多级缓存
+│   └── 击穿 → 互斥锁/永不过期
+├── 分布式锁
+│   ├── SET NX EX 基础实现
+│   ├── Lua 原子释放
+│   └── 看门狗续期机制
+└── Data 层设计
+    ├── Repository 模式
+    ├── 装饰器模式（缓存包装）
+    └── 依赖注入</code></pre>
+
+<hr>
+
+<h2>9. 举一反三</h2>
+
+<table><thead><tr>
+<th>本文学到的</th>
+<th>可应用到</th>
+</tr></thead><tbody>
+<tr>
+<td>Cache-Aside 模式</td>
+<td>任何读多写少场景（商品详情、配置）</td>
+</tr>
+<tr>
+<td>分布式锁</td>
+<td>库存扣减、防重复提交、定时任务互斥</td>
+</tr>
+<tr>
+<td>空值缓存</td>
+<td>防止恶意请求查询不存在的数据</td>
+</tr>
+<tr>
+<td>Lua 原子操作</td>
+<td>限流（滑动窗口）、库存预占</td>
+</tr>
+<tr>
+<td>装饰器模式</td>
+<td>日志、鉴权、限流等横切关注点</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>10. 参考资料</h2>
+
+<ul>
+<li><a href="https://redis.uptrace.dev/">go-redis 官方文档</a></li>
+<li><a href="https://github.com/go-kratos/kratos/tree/main/examples">Kratos contrib 数据层示例</a></li>
+<li><a href="https://redis.io/docs/manual/patterns/distributed-locks/">Redis 分布式锁的正确实现</a></li>
+<li>《Redis 设计与实现》— 黄健宏</li>
+
+<hr>
+
+<h2>11. 代码演进</h2>
+
+<table><thead><tr>
+<th>版本</th>
+<th>内容</th>
+<th>适用场景</th>
+</tr></thead><tbody>
+<tr>
+<td>v1</td>
+<td>基础 Redis 连接 + 简单缓存读写</td>
+<td>快速原型、小规模项目</td>
+</tr>
+<tr>
+<td>v2</td>
+<td>旁路缓存 + 空值缓存防穿透</td>
+<td>生产环境标准方案</td>
+</tr>
+<tr>
+<td>v3</td>
+<td>分布式锁 + 防击穿（双重检查）</td>
+<td>高并发核心数据</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<p>_缓存不是银弹，但不用缓存肯定是灾难。_ 🚀</p>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

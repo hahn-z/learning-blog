@@ -1,0 +1,664 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>032 - 实战：RPC服务框架</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Swoole/index.html">Swoole</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Swoole/01-从入门到精通/index.html">Swoole从入门到精通</a>
+</nav>
+<h1>032 - 实战：RPC服务框架</h1>
+<div class="meta">
+<span>📂 Swoole从入门到精通</span>
+<span>🏷️ Swoole</span>
+</div>
+<article>
+
+
+<h2>难度标注</h2>
+
+<blockquote><p><strong>难度：★★★★☆（中高级）</strong><br>前置知识：PHP OOP、Swoole TCP Server、序列化、服务注册概念</p></blockquote>
+
+<h2>概念讲解</h2>
+
+<p>RPC（Remote Procedure Call，远程过程调用）让调用远程服务就像调用本地函数一样简单。在微服务架构中，RPC 是服务间通信的核心机制。</p>
+
+<p><strong>为什么需要 RPC？</strong></p>
+
+<ul>
+<li><strong>微服务拆分</strong>：系统拆成多个服务后，服务间需要高效通信</li>
+<li><strong>性能</strong>：比 HTTP REST 更轻量，使用二进制协议和长连接</li>
+<li><strong>透明调用</strong>：客户端不需要知道服务端在哪、用什么语言</li>
+
+<p><strong>RPC 框架核心组件：</strong></p>
+
+<pre><code>┌──────────┐         ┌──────────────┐         ┌──────────┐
+│ Consumer │──Call──→│  RPC Server  │──Call──→│ Provider │
+│ (Client) │←Result──│  (Registry)  │←Result──│ (Server) │
+└──────────┘         └──────────────┘         └──────────┘
+
+调用流程：
+1. Consumer → 获取 Provider 地址 → 发送请求
+2. Provider → 接收请求 → 调用本地方法 → 返回结果
+3. Consumer → 接收结果 → 返回给调用方</code></pre>
+
+<p><strong>协议设计：</strong></p>
+
+<pre><code>+--------+--------+----------+---------+--------+
+| Magic  | Version| Length   | Request │ Body   |
+| 4bytes | 1byte  | 4bytes   | ID 4B   | N bytes|
++--------+--------+----------+---------+--------+</code></pre>
+
+<h2>脑图</h2>
+
+<pre><code>RPC 框架
+├── 协议层
+│   ├── 魔数校验（Magic Number）
+│   ├── 版本号
+│   ├── 消息长度
+│   └── 请求/响应 ID
+├── 传输层
+│   ├── Swoole TCP Client
+│   ├── Swoole TCP Server
+│   └── 长连接池
+├── 序列化
+│   ├── JSON
+│   ├── PHP Serialize
+│   └── MsgPack / Protobuf
+├── 服务注册
+│   ├── 文件配置
+│   ├── Redis 注册中心
+│   └── Consul / Etcd
+├── 中间件
+│   ├── 日志记录
+│   ├── 限流
+│   └── 熔断
+└── 客户端
+    ├── 代理生成
+    ├── 负载均衡
+    └── 超时重试</code></pre>
+
+<h2>完整代码</h2>
+
+<h3>协议类（Protocol.php）</h3>
+
+<pre><code class="language-php">&lt;?php
+// Protocol.php - RPC Protocol Definition
+
+class RpcProtocol
+{
+    const MAGIC    = 0x52504331; // &quot;RPC1&quot;
+    const VERSION  = 0x01;
+    const HEADER_SIZE = 13; // 4 + 1 + 4 + 4
+
+    /**
+     * Encode a request into binary packet
+     */
+    public static function encode(string $body): string
+    {
+        $bodyLen = strlen($body);
+        // Pack: magic(N) + version(C) + length(N) + requestId(N)
+        $header = pack(&#x27;NCCN&#x27;, self::MAGIC, self::VERSION, 0, $bodyLen);
+        // Fix: use proper pack format
+        $header = pack(&#x27;NnNN&#x27;, self::MAGIC, self::VERSION, 0, $bodyLen);
+        return $header . $body;
+    }
+
+    /**
+     * Decode header from binary data
+     */
+    public static function decodeHeader(string $data): ?array
+    {
+        if (strlen($data) &lt; self::HEADER_SIZE) {
+            return null;
+        }
+
+        $arr = unpack(&#x27;Nmagic/nversion/Nrequest_id/Nbody_len&#x27;, $data);
+
+        if ($arr[&#x27;magic&#x27;] !== self::MAGIC) {
+            throw new RuntimeException(&quot;Invalid magic number&quot;);
+        }
+
+        return $arr;
+    }
+
+    /**
+     * Create a request payload
+     */
+    public static function makeRequest(string $service, string $method, array $args): string
+    {
+        return json_encode([
+            &#x27;service&#x27; =&gt; $service,
+            &#x27;method&#x27;  =&gt; $method,
+            &#x27;args&#x27;    =&gt; $args,
+            &#x27;traceid&#x27; =&gt; uniqid(&#x27;rpc_&#x27;, true),
+        ]);
+    }
+}</code></pre>
+
+<h3>RPC Server（rpc_server.php）</h3>
+
+<pre><code class="language-php">&lt;?php
+// rpc_server.php - RPC Service Provider
+
+$server = new Swoole\Server(&quot;0.0.0.0&quot;, 9502);
+
+// Service registry: class =&gt; object
+$services = [];
+
+/**
+ * Register a service class
+ */
+function registerService(string $name, object $instance) use (&amp;$services) {
+    $services[$name] = $instance;
+}
+
+// --- Define Sample Services ---
+
+class UserService
+{
+    public function getById(int $id): array
+    {
+        // Simulate database query
+        $users = [
+            1 =&gt; [&#x27;id&#x27; =&gt; 1, &#x27;name&#x27; =&gt; &#x27;Alice&#x27;, &#x27;email&#x27; =&gt; &#x27;alice@example.com&#x27;],
+            2 =&gt; [&#x27;id&#x27; =&gt; 2, &#x27;name&#x27; =&gt; &#x27;Bob&#x27;, &#x27;email&#x27; =&gt; &#x27;bob@example.com&#x27;],
+            3 =&gt; [&#x27;id&#x27; =&gt; 3, &#x27;name&#x27; =&gt; &#x27;Charlie&#x27;, &#x27;email&#x27; =&gt; &#x27;charlie@example.com&#x27;],
+        ];
+        return $users[$id] ?? [&#x27;error&#x27; =&gt; &#x27;User not found&#x27;];
+    }
+
+    public function getList(int $page = 1, int $size = 10): array
+    {
+        return [
+            &#x27;page&#x27; =&gt; $page,
+            &#x27;size&#x27; =&gt; $size,
+            &#x27;list&#x27; =&gt; [
+                [&#x27;id&#x27; =&gt; 1, &#x27;name&#x27; =&gt; &#x27;Alice&#x27;],
+                [&#x27;id&#x27; =&gt; 2, &#x27;name&#x27; =&gt; &#x27;Bob&#x27;],
+            ],
+        ];
+    }
+}
+
+class OrderService
+{
+    public function create(array $order): array
+    {
+        return [
+            &#x27;order_id&#x27; =&gt; rand(10000, 99999),
+            &#x27;status&#x27;   =&gt; &#x27;created&#x27;,
+            &#x27;items&#x27;    =&gt; $order[&#x27;items&#x27;] ?? [],
+            &#x27;total&#x27;    =&gt; $order[&#x27;total&#x27;] ?? 0,
+        ];
+    }
+}
+
+// Register services
+$services[&#x27;UserService&#x27;] = new UserService();
+$services[&#x27;OrderService&#x27;] = new OrderService();
+
+$server-&gt;on(&#x27;receive&#x27;, function ($server, $fd, $reactorId, $data) use (&amp;$services) {
+    try {
+        $header = RpcProtocol::decodeHeader($data);
+        if (!$header) {
+            $server-&gt;send($fd, json_encode([&#x27;error&#x27; =&gt; &#x27;Invalid header&#x27;]));
+            return;
+        }
+
+        $bodyLen = $header[&#x27;body_len&#x27;];
+        $body = substr($data, RpcProtocol::HEADER_SIZE, $bodyLen);
+        $request = json_decode($body, true);
+
+        $serviceName = $request[&#x27;service&#x27;] ?? &#x27;&#x27;;
+        $method      = $request[&#x27;method&#x27;] ?? &#x27;&#x27;;
+        $args        = $request[&#x27;args&#x27;] ?? [];
+
+        echo &quot;[RPC] {$serviceName}::{$method}(&quot; . json_encode($args) . &quot;)\n&quot;;
+
+        // Check service exists
+        if (!isset($services[$serviceName])) {
+            $response = json_encode([&#x27;error&#x27; =&gt; &quot;Service &#x27;{$serviceName}&#x27; not found&quot;]);
+            $server-&gt;send($fd, RpcProtocol::encode($response));
+            return;
+        }
+
+        $service = $services[$serviceName];
+
+        // Check method exists
+        if (!method_exists($service, $method)) {
+            $response = json_encode([&#x27;error&#x27; =&gt; &quot;Method &#x27;{$method}&#x27; not found&quot;]);
+            $server-&gt;send($fd, RpcProtocol::encode($response));
+            return;
+        }
+
+        // Call the service method
+        $result = call_user_func_array([$service, $method], $args);
+
+        $response = json_encode([
+            &#x27;result&#x27;  =&gt; $result,
+            &#x27;traceid&#x27; =&gt; $request[&#x27;traceid&#x27;] ?? &#x27;&#x27;,
+        ]);
+
+        $server-&gt;send($fd, RpcProtocol::encode($response));
+
+    } catch (Throwable $e) {
+        $error = json_encode([
+            &#x27;error&#x27; =&gt; $e-&gt;getMessage(),
+            &#x27;file&#x27;  =&gt; $e-&gt;getFile(),
+            &#x27;line&#x27;  =&gt; $e-&gt;getLine(),
+        ]);
+        $server-&gt;send($fd, RpcProtocol::encode($error));
+    }
+});
+
+$server-&gt;set([
+    &#x27;worker_num&#x27;            =&gt; 2,
+    &#x27;max_request&#x27;           =&gt; 10000,
+    &#x27;dispatch_mode&#x27;         =&gt; 1, // Round-robin
+    &#x27;open_length_check&#x27;     =&gt; true,
+    &#x27;package_length_type&#x27;   =&gt; &#x27;N&#x27;,
+    &#x27;package_length_offset&#x27; =&gt; 8,
+    &#x27;package_body_offset&#x27;   =&gt; 13,
+]);
+
+echo &quot;RPC Server started on tcp://0.0.0.0:9502\n&quot;;
+$server-&gt;start();</code></pre>
+
+<h3>RPC Client（rpc_client.php）</h3>
+
+<pre><code class="language-php">&lt;?php
+// rpc_client.php - RPC Client with connection pool
+
+Swoole\Runtime::enableCoroutine();
+
+class RpcClient
+{
+    private string $host;
+    private int $port;
+    private float $timeout;
+    private ?Swoole\Coroutine\Client $client = null;
+
+    public function __construct(string $host = &#x27;127.0.0.1&#x27;, int $port = 9502, float $timeout = 3.0)
+    {
+        $this-&gt;host    = $host;
+        $this-&gt;port    = $port;
+        $this-&gt;timeout = $timeout;
+    }
+
+    /**
+     * Lazy connect
+     */
+    private function connect(): void
+    {
+        if ($this-&gt;client &amp;&amp; $this-&gt;client-&gt;isConnected()) {
+            return;
+        }
+
+        $this-&gt;client = new Swoole\Coroutine\Client(SWOOLE_SOCK_TCP);
+        $this-&gt;client-&gt;set([
+            &#x27;open_length_check&#x27;     =&gt; true,
+            &#x27;package_length_type&#x27;   =&gt; &#x27;N&#x27;,
+            &#x27;package_length_offset&#x27; =&gt; 8,
+            &#x27;package_body_offset&#x27;   =&gt; 13,
+        ]);
+
+        if (!$this-&gt;client-&gt;connect($this-&gt;host, $this-&gt;port, $this-&gt;timeout)) {
+            throw new RuntimeException(&quot;Connect failed: {$this-&gt;client-&gt;errMsg}&quot;);
+        }
+    }
+
+    /**
+     * Call a remote service method
+     */
+    public function call(string $service, string $method, array $args = [])
+    {
+        $this-&gt;connect();
+
+        $body    = RpcProtocol::makeRequest($service, $method, $args);
+        $packet  = RpcProtocol::encode($body);
+
+        $this-&gt;client-&gt;send($packet);
+
+        $response = $this-&gt;client-&gt;recv(-1);
+        if (!$response) {
+            throw new RuntimeException(&quot;Recv failed: {$this-&gt;client-&gt;errMsg}&quot;);
+        }
+
+        $header = RpcProtocol::decodeHeader($response);
+        $result = substr($response, RpcProtocol::HEADER_SIZE, $header[&#x27;body_len&#x27;]);
+
+        return json_decode($result, true);
+    }
+
+    public function close(): void
+    {
+        if ($this-&gt;client) {
+            $this-&gt;client-&gt;close();
+            $this-&gt;client = null;
+        }
+    }
+}
+
+// --- Demo Usage ---
+
+Swoole\Coroutine\run(function () {
+    $client = new RpcClient();
+
+    // Call UserService::getById
+    $result = $client-&gt;call(&#x27;UserService&#x27;, &#x27;getById&#x27;, [1]);
+    echo &quot;getById(1): &quot; . json_encode($result, JSON_PRETTY_PRINT) . &quot;\n\n&quot;;
+
+    // Call UserService::getList
+    $result = $client-&gt;call(&#x27;UserService&#x27;, &#x27;getList&#x27;, [1, 10]);
+    echo &quot;getList(1, 10): &quot; . json_encode($result, JSON_PRETTY_PRINT) . &quot;\n\n&quot;;
+
+    // Call OrderService::create
+    $result = $client-&gt;call(&#x27;OrderService&#x27;, &#x27;create&#x27;, [[
+        &#x27;items&#x27; =&gt; [&#x27;Widget A&#x27;, &#x27;Widget B&#x27;],
+        &#x27;total&#x27; =&gt; 99.99,
+    ]]);
+    echo &quot;create(order): &quot; . json_encode($result, JSON_PRETTY_PRINT) . &quot;\n\n&quot;;
+
+    // Call non-existent service (error handling)
+    $result = $client-&gt;call(&#x27;PaymentService&#x27;, &#x27;pay&#x27;, [100]);
+    echo &quot;pay(100): &quot; . json_encode($result, JSON_PRETTY_PRINT) . &quot;\n&quot;;
+
+    $client-&gt;close();
+});</code></pre>
+
+<h2>执行预览</h2>
+
+<pre><code class="language-bash"># Terminal 1: Start RPC Server
+$ php rpc_server.php
+RPC Server started on tcp://0.0.0.0:9502
+
+# Terminal 2: Run Client
+$ php rpc_client.php
+getById(1): {
+    &quot;result&quot;: {
+        &quot;id&quot;: 1,
+        &quot;name&quot;: &quot;Alice&quot;,
+        &quot;email&quot;: &quot;alice@example.com&quot;
+    },
+    &quot;traceid&quot;: &quot;rpc_6632a1b2...&quot;
+}
+
+getList(1, 10): {
+    &quot;result&quot;: {
+        &quot;page&quot;: 1,
+        &quot;size&quot;: 10,
+        &quot;list&quot;: [...]
+    }
+}
+
+create(order): {
+    &quot;result&quot;: {
+        &quot;order_id&quot;: 58273,
+        &quot;status&quot;: &quot;created&quot;,
+        &quot;items&quot;: [&quot;Widget A&quot;, &quot;Widget B&quot;]
+    }
+}
+
+# Server log:
+[RPC] UserService::getById([1])
+[RPC] UserService::getList([1,10])
+[RPC] OrderService::create([{&quot;items&quot;:[&quot;Widget A&quot;,&quot;Widget B&quot;],&quot;total&quot;:99.99}])
+[RPC] PaymentService::pay([100])</code></pre>
+
+<h2>注意事项</h2>
+
+<table><thead><tr>
+<th>项目</th>
+<th>说明</th>
+</tr></thead><tbody>
+<tr>
+<td>包协议</td>
+<td>必须用长度检查协议（open_length_check），否则 TCP 粘包</td>
+</tr>
+<tr>
+<td>异常处理</td>
+<td>服务端异常要捕获并返回，不能让 Worker 崩溃</td>
+</tr>
+<tr>
+<td>超时控制</td>
+<td>客户端必须设置超时，防止服务端卡死导致客户端挂起</td>
+</tr>
+<tr>
+<td>服务发现</td>
+<td>生产环境用注册中心（Consul/Nacos），不用硬编码地址</td>
+</tr>
+<tr>
+<td>连接池</td>
+<td>高并发场景用连接池管理 TCP 连接，避免频繁创建销毁</td>
+</tr>
+<tr>
+<td>序列化</td>
+<td>JSON 简单但性能一般，生产推荐 MsgPack 或 Hessian</td>
+</tr>
+</tbody></table>
+
+<h2>避坑指南</h2>
+
+<table><thead><tr>
+<th>❌ 常见错误</th>
+<th>✅ 正确做法</th>
+</tr></thead><tbody>
+<tr>
+<td>不处理 TCP 粘包</td>
+<td>设置 open_length_check + package_length_type</td>
+</tr>
+<tr>
+<td>用 file_get_contents 模拟 RPC</td>
+<td>用 Swoole Coroutine Client 做长连接</td>
+</tr>
+<tr>
+<td>服务端异常直接 throw 到 Worker</td>
+<td>try-catch 包裹，返回错误 JSON</td>
+</tr>
+<tr>
+<td>客户端不设超时</td>
+<td>connect 和 recv 都加 timeout</td>
+</tr>
+<tr>
+<td>硬编码服务地址</td>
+<td>用配置中心或注册中心动态获取</td>
+</tr>
+<tr>
+<td>serialize() 做序列化</td>
+<td>有安全风险，用 JSON 或 MsgPack</td>
+</tr>
+</tbody></table>
+
+<h2>练习题</h2>
+
+<h3>🟢 基础题</h3>
+<ol>
+<li>给 RpcClient 添加 <code>__call</code> 魔术方法，实现 <code>$client->UserService->getById(1)</code> 的链式调用</li>
+</ul>
+<ol>
+<li>添加请求日志中间件，记录每次调用的服务名、方法名、耗时</li>
+
+<h3>🟡 进阶题</h3>
+<ol>
+<li>实现基于 Redis 的服务注册与发现：服务启动时注册，客户端动态获取地址</li>
+</ul>
+<ol>
+<li>实现简单的轮询负载均衡：同一个服务有多个 Provider 时轮流调用</li>
+
+<h3>🔴 挑战题</h3>
+<ol>
+<li>实现异步回调模式：<code>$client->callAsync($service, $method, $args, $callback)</code></li>
+</ul>
+<ol>
+<li>给 RPC 加上熔断器：连续失败 N 次后自动断路，过一段时间后半开试探</li>
+
+<h2>知识点总结</h2>
+
+<pre><code>RPC 框架知识树
+├── 协议设计
+│   ├── 魔数校验
+│   ├── 消息头定长
+│   ├── 长度字段
+│   └── 请求追踪 ID
+├── 网络传输
+│   ├── Swoole TCP Server
+│   ├── Swoole Coroutine Client
+│   ├── 粘包处理
+│   └── 长连接复用
+├── 服务治理
+│   ├── 服务注册
+│   ├── 服务发现
+│   ├── 负载均衡
+│   └── 熔断降级
+├── 序列化
+│   ├── JSON
+│   ├── PHP Serialize
+│   └── MsgPack
+└── 可靠性
+    ├── 超时重试
+    ├── 异常处理
+    └── 链路追踪</code></pre>
+
+<h2>举一反三</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>技术方案</th>
+<th>核心改动</th>
+</tr></thead><tbody>
+<tr>
+<td>Dubbo 风格 RPC</td>
+<td>服务接口定义 + 代理生成</td>
+<td>加 Interface 定义，动态代理类</td>
+</tr>
+<tr>
+<td>gRPC (PHP)</td>
+<td>Protobuf + HTTP/2</td>
+<td>用 protoc 生成 PHP 类，Swoole HTTP2 Client</td>
+</tr>
+<tr>
+<td>Service Mesh</td>
+<td>Sidecar 代理</td>
+<td>RPC Client 直连 Sidecar，由 Sidecar 转发</td>
+</tr>
+<tr>
+<td>跨语言 RPC</td>
+<td>Thrift / Protobuf</td>
+<td>用 IDL 定义接口，生成多语言代码</td>
+</tr>
+</tbody></table>
+
+<h2>参考资料</h2>
+
+<ul>
+<li><a href="https://wiki.swoole.com/#/start/start_tcp_server">Swoole TCP Server 文档</a></li>
+<li><a href="https://wiki.swoole.com/#/coroutine/client">Swoole Coroutine Client</a></li>
+<li><a href="https://www.cnblogs.com/polodb/p/4653992.html">RPC 原理详解</a></li>
+<li><a href="https://wiki.swoole.com/#/learn?id=tcp%e7%b2%98%e5%8c%85">Swoole 包协议</a></li>
+
+<h2>代码演进</h2>
+
+<h3>v1 - 最简版：裸 TCP 调用</h3>
+
+<pre><code class="language-php">// Server: just receive and respond
+$server-&gt;on(&#x27;receive&#x27;, function ($server, $fd, $rid, $data) {
+    $req = json_decode($data, true);
+    $result = [&#x27;echo&#x27; =&gt; $req];
+    $server-&gt;send($fd, json_encode($result));
+});
+
+// Client
+$client = new Swoole\Client(SWOOLE_SOCK_TCP);
+$client-&gt;connect(&#x27;127.0.0.1&#x27;, 9502);
+$client-&gt;send(json_encode([&#x27;hello&#x27; =&gt; &#x27;world&#x27;]));
+echo $client-&gt;recv();</code></pre>
+
+<h3>v2 - 协议版（本文主体）</h3>
+
+<ul>
+<li>加入 Magic Number + 长度头的二进制协议</li>
+<li>粘包处理（open_length_check）</li>
+<li>服务注册与路由</li>
+<li>异常捕获与错误返回</li>
+
+<h3>v3 - 生产级（注册中心 + 连接池 + 中间件）</h3>
+
+<pre><code class="language-php">// Connection pool
+$pool = new Swoole\Connection\Pool(function () {
+    $client = new Swoole\Coroutine\Client(SWOOLE_SOCK_TCP);
+    $client-&gt;connect(&#x27;127.0.0.1&#x27;, 9502);
+    return $client;
+}, 64);
+
+// Service discovery from Redis
+$providers = $redis-&gt;hGetAll(&quot;rpc:service:{$serviceName}&quot;);
+$address = loadBalance($providers); // round-robin
+
+// Middleware chain
+$chain = new MiddlewareChain([
+    new TracingMiddleware(),
+    new RetryMiddleware(3),
+    new CircuitBreakerMiddleware(),
+    new LoggingMiddleware(),
+]);
+$result = $chain-&gt;handle($request);</code></pre>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

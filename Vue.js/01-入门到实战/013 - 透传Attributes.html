@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>013 - 透传Attributes</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Vue.js/index.html">Vue.js</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Vue.js/01-入门到实战/index.html">Vue.js入门到实战</a>
+</nav>
+<h1>013 - 透传Attributes</h1>
+<div class="meta">
+<span>📂 Vue.js入门到实战</span>
+<span>🏷️ Vue.js</span>
+</div>
+<article>
+
+
+<h1>051-透传Attributes</h1>
+
+<blockquote><p><strong>难度标注：</strong> 🟢 初级 | <strong>前置知识：</strong> Vue 3 组件基础</p></blockquote>
+
+<hr>
+
+<h2>一、概念讲解</h2>
+
+<p>"透传 Attributes"是指父组件传递给子组件、但子组件<strong>没有在 props 或 emits 中声明</strong>的属性。这些属性会自动"透传"到子组件的根元素上。</p>
+
+<p>常见场景：<code>class</code>、<code>style</code>、<code>id</code>、<code>data-<em></code>、<code>aria-</em></code> 等 HTML 属性。</p>
+
+<pre><code class="language-vue">&lt;!-- Parent --&gt;
+&lt;MyButton class=&quot;large&quot; id=&quot;submit-btn&quot; aria-label=&quot;Submit&quot; /&gt;
+
+&lt;!-- MyButton template --&gt;
+&lt;button&gt;Click me&lt;/button&gt;
+
+&lt;!-- Rendered: attrs fall through to root --&gt;
+&lt;button class=&quot;large&quot; id=&quot;submit-btn&quot; aria-label=&quot;Submit&quot;&gt;Click me&lt;/button&gt;</code></pre>
+
+<h3>核心API</h3>
+
+<ul>
+<li><strong><code>inheritAttrs: false</code></strong>——禁止自动透传</li>
+<li><strong><code>$attrs</code></strong>——访问所有透传属性</li>
+<li><strong><code>useAttrs()</code></strong>——在 <code><script setup></code> 中使用</li>
+
+<hr>
+
+<h2>二、脑图（ASCII）</h2>
+
+<pre><code>透传 Attributes
+├── 自动透传（默认）
+│   ├── class + style 会合并
+│   ├── 其他属性直接覆盖
+│   └── 只透传到单根元素
+├── inheritAttrs: false
+│   ├── 禁止自动透传
+│   ├── $attrs 手动绑定
+│   └── v-bind=&quot;$attrs&quot; 绑定到目标元素
+├── 多根节点
+│   ├── Vue 3 多根不会自动透传
+│   └── 需要手动 v-bind=&quot;$attrs&quot;
+├── 访问 $attrs
+│   ├── 模板：$attrs
+│   ├── JS：useAttrs()
+│   └── 包含 class + style（Vue 3）
+└── 典型场景
+    ├── 封装原生元素
+    ├── 高阶组件
+    └── UI 库组件开发</code></pre>
+
+<hr>
+
+<h2>三、完整代码示例</h2>
+
+<pre><code class="language-vue">&lt;!-- BaseInput.vue - Manual attrs control --&gt;
+&lt;template&gt;
+  &lt;div class=&quot;input-wrapper&quot;&gt;
+    &lt;label v-if=&quot;label&quot;&gt;{{ label }}&lt;/label&gt;
+    &lt;!-- Bind all fallthrough attrs to the actual input --&gt;
+    &lt;input v-bind=&quot;$attrs&quot; :value=&quot;modelValue&quot; @input=&quot;onInput&quot; /&gt;
+    &lt;span v-if=&quot;error&quot; class=&quot;error&quot;&gt;{{ error }}&lt;/span&gt;
+  &lt;/div&gt;
+&lt;/template&gt;
+
+&lt;script setup&gt;
+// Disable auto-inherit so attrs don&#x27;t land on wrapper div
+defineOptions({ inheritAttrs: false })
+
+defineProps({
+  modelValue: { type: String, default: &#x27;&#x27; },
+  label: { type: String, default: &#x27;&#x27; },
+  error: { type: String, default: &#x27;&#x27; }
+})
+
+const emit = defineEmits([&#x27;update:modelValue&#x27;])
+
+function onInput(e) {
+  emit(&#x27;update:modelValue&#x27;, e.target.value)
+}
+&lt;/script&gt;
+
+&lt;style scoped&gt;
+.input-wrapper { margin-bottom: 16px; }
+label { display: block; margin-bottom: 4px; font-weight: bold; }
+.error { color: red; font-size: 12px; }
+&lt;/style&gt;</code></pre>
+
+<pre><code class="language-vue">&lt;!-- App.vue --&gt;
+&lt;template&gt;
+  &lt;div&gt;
+    &lt;h2&gt;Form with BaseInput&lt;/h2&gt;
+    &lt;form @submit.prevent=&quot;submit&quot;&gt;
+      &lt;!-- These attrs fall through to &lt;input&gt; inside BaseInput --&gt;
+      &lt;BaseInput v-model=&quot;form.name&quot; label=&quot;Name&quot; placeholder=&quot;Enter your name&quot; class=&quot;name-input&quot; /&gt;
+      &lt;BaseInput v-model=&quot;form.email&quot; label=&quot;Email&quot; type=&quot;email&quot; placeholder=&quot;Enter your email&quot; :error=&quot;errors.email&quot; aria-required=&quot;true&quot; /&gt;
+      &lt;BaseInput v-model=&quot;form.password&quot; label=&quot;Password&quot; type=&quot;password&quot; minlength=&quot;8&quot; /&gt;
+      &lt;button type=&quot;submit&quot;&gt;Submit&lt;/button&gt;
+    &lt;/form&gt;
+    &lt;pre&gt;{{ form }}&lt;/pre&gt;
+  &lt;/div&gt;
+&lt;/template&gt;
+
+&lt;script setup&gt;
+import { reactive } from &#x27;vue&#x27;
+import BaseInput from &#x27;./BaseInput.vue&#x27;
+
+const form = reactive({ name: &#x27;&#x27;, email: &#x27;&#x27;, password: &#x27;&#x27; })
+const errors = reactive({ email: &#x27;&#x27; })
+
+function submit() {
+  if (!form.email.includes(&#x27;@&#x27;)) {
+    errors.email = &#x27;Invalid email&#x27;
+    return
+  }
+  errors.email = &#x27;&#x27;
+  alert(JSON.stringify(form, null, 2))
+}
+&lt;/script&gt;</code></pre>
+
+<hr>
+
+<h2>四、执行预览</h2>
+
+<pre><code>Form with BaseInput
+
+Name
+[Enter your name          ]
+
+Email
+[Enter your email         ]
+
+Password
+[••••••••                 ]
+
+[Submit]
+
+{ &quot;name&quot;: &quot;&quot;, &quot;email&quot;: &quot;&quot;, &quot;password&quot;: &quot;&quot; }</code></pre>
+
+<hr>
+
+<h2>五、注意事项</h2>
+
+<table><thead><tr>
+<th>事项</th>
+<th>说明</th>
+<th>建议</th>
+</tr></thead><tbody>
+<tr>
+<td>class/style 合并</td>
+<td>父子 class 会合并而非覆盖</td>
+<td>利用这个特性做样式扩展</td>
+</tr>
+<tr>
+<td>inheritAttrs 默认 true</td>
+<td>自动透传到根元素</td>
+<td>封装组件时设为 false</td>
+</tr>
+<tr>
+<td>多根节点</td>
+<td>不会自动透传</td>
+<td>需手动 <code>v-bind="$attrs"</code></td>
+</tr>
+<tr>
+<td>事件监听器</td>
+<td>Vue 3 中 <code>$attrs</code> 包含事件</td>
+<td><code>@click</code> 会出现在 <code>$attrs.onClick</code></td>
+</tr>
+<tr>
+<td>$attrs 响应性</td>
+<td><code>$attrs</code> 是只读的响应式对象</td>
+<td>不要尝试修改它</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>六、避坑指南</h2>
+
+<table><thead><tr>
+<th>❌ 错误做法</th>
+<th>✅ 正确做法</th>
+</tr></thead><tbody>
+<tr>
+<td>attrs 自动落到 wrapper div</td>
+<td><code>inheritAttrs: false</code> + <code>v-bind="$attrs"</code> 绑到目标元素</td>
+</tr>
+<tr>
+<td>忘记 <code>defineOptions({ inheritAttrs: false })</code></td>
+<td>封装原生元素时始终设置</td>
+</tr>
+<tr>
+<td>多根组件不处理 attrs</td>
+<td>手动绑定到目标元素</td>
+</tr>
+<tr>
+<td>在 <code>setup</code> 中用 <code>this.$attrs</code></td>
+<td>用 <code>useAttrs()</code> 代替</td>
+</tr>
+<tr>
+<td><code>$attrs</code> 包含 class 以外的东西</td>
+<td>注意过滤不需要的属性</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>七、练习题</h2>
+
+<h3>🟢 基础</h3>
+<ol>
+<li>创建 <code>MyButton</code> 组件，让父组件传入的 <code>class</code>、<code>disabled</code> 等属性自动透传到 <code><button></code>。</li>
+</ul>
+<ol>
+<li>给 <code>BaseInput</code> 添加 <code>autofocus</code> 属性的支持。</li>
+
+<h3>🟡 进阶</h3>
+<ol>
+<li>创建 <code>Link</code> 组件封装 <code><router-link></code>，透传所有属性到 <code><a></code> 标签。</li>
+</ul>
+<ol>
+<li>在多根节点组件中手动分发 <code>$attrs</code> 到指定元素。</li>
+
+<h3>🔴 挑战</h3>
+<ol>
+<li>创建 <code>withAttrs</code> 工具函数，过滤 <code>$attrs</code> 中只保留 <code>data-<em></code> 和 <code>aria-</em></code> 属性。</li>
+
+<hr>
+
+<h2>八、知识点总结</h2>
+
+<pre><code>透传 Attributes
+├── 自动透传
+│   ├── 单根节点自动继承
+│   └── class/style 合并
+├── 手动控制
+│   ├── inheritAttrs: false
+│   ├── v-bind=&quot;$attrs&quot;
+│   └── useAttrs() composable
+├── $attrs 内容
+│   ├── 非 prop 的属性
+│   ├── class + style
+│   └── 事件监听器 (Vue 3)
+└── 设计模式
+    ├── 透明包装器组件
+    └── 属性过滤代理</code></pre>
+
+<hr>
+
+<h2>九、举一反三</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>策略</th>
+<th>示例</th>
+</tr></thead><tbody>
+<tr>
+<td>封装 input</td>
+<td>inheritAttrs: false + v-bind</td>
+<td>BaseInput, BaseTextarea</td>
+</tr>
+<tr>
+<td>封装 button</td>
+<td>默认透传即可</td>
+<td>MyButton, IconButton</td>
+</tr>
+<tr>
+<td>UI 库组件</td>
+<td>inheritAttrs: false</td>
+<td>防止 attrs 污染 wrapper</td>
+</tr>
+<tr>
+<td>高阶组件</td>
+<td>v-bind="$attrs" 透传</td>
+<td>withLoading, withPermission</td>
+</tr>
+<tr>
+<td>多根节点</td>
+<td>手动绑定到主元素</td>
+<td>List + ListItem</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>十、参考资料</h2>
+
+<ul>
+<li><a href="https://vuejs.org/guide/components/attrs.html">Vue 3 Fallthrough Attributes</a></li>
+<li><a href="https://vuejs.org/api/options-misc.html#inheritattrs">inheritAttrs API</a></li>
+
+<hr>
+
+<h2>十一、代码演进</h2>
+
+<h3>v1 - 默认自动透传</h3>
+<pre><code class="language-vue">&lt;template&gt;
+  &lt;button class=&quot;btn&quot;&gt;&lt;slot /&gt;&lt;/button&gt;
+&lt;/template&gt;</code></pre>
+
+<h3>v2 - inheritAttrs: false 手动控制</h3>
+<pre><code class="language-vue">&lt;script setup&gt;
+defineOptions({ inheritAttrs: false })
+&lt;/script&gt;
+&lt;template&gt;
+  &lt;div class=&quot;wrapper&quot;&gt;
+    &lt;input v-bind=&quot;$attrs&quot; :value=&quot;modelValue&quot; /&gt;
+  &lt;/div&gt;
+&lt;/template&gt;</code></pre>
+
+<h3>v3 - 属性过滤 + TypeScript</h3>
+<pre><code class="language-vue">&lt;script setup lang=&quot;ts&quot;&gt;
+defineOptions({ inheritAttrs: false })
+const attrs = useAttrs()
+const safeAttrs = computed(() =&gt; {
+  const { class: cls, style, ...rest } = attrs
+  return rest
+})
+&lt;/script&gt;</code></pre>
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

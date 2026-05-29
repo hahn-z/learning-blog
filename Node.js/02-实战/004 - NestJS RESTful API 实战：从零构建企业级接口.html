@@ -1,0 +1,804 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>004 - NestJS RESTful API 实战：从零构建企业级接口</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Node.js/index.html">Node.js</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Node.js/02-实战/index.html">Node.js实战</a>
+</nav>
+<h1>004 - NestJS RESTful API 实战：从零构建企业级接口</h1>
+<div class="meta">
+<span>📂 Node.js实战</span>
+<span>🏷️ Node.js</span>
+</div>
+<article>
+
+
+<h2>🎯 难度标注</h2>
+
+<p><strong>难度等级：⭐⭐⭐ 中级</strong></p>
+
+<blockquote><p>前置要求：熟悉 TypeScript 基础、了解 REST API 概念、有 Node.js 开发经验。本文不讲解 TypeScript 语法基础。</p></blockquote>
+
+<hr>
+
+<h2>📖 概念讲解</h2>
+
+<h3>什么是 NestJS？</h3>
+
+<p>NestJS 是一个用于构建高效、可扩展的 Node.js 服务端应用的框架。它使用 TypeScript 编写，结合了面向对象编程（OOP）、函数式编程（FP）和函数响应式编程（FRP）的元素。</p>
+
+<h3>核心设计理念</h3>
+
+<p>NestJS 的架构深受 Angular 启发，核心概念包括：</p>
+
+<table><thead><tr>
+<th>概念</th>
+<th>说明</th>
+<th>类比</th>
+</tr></thead><tbody>
+<tr>
+<td><strong>Module</strong></td>
+<td>组织应用结构的容器</td>
+<td>Angular Module</td>
+</tr>
+<tr>
+<td><strong>Controller</strong></td>
+<td>处理 HTTP 请求的路由层</td>
+<td>Express Router</td>
+</tr>
+<tr>
+<td><strong>Provider/Service</strong></td>
+<td>封装业务逻辑</td>
+<td>Service Layer</td>
+</tr>
+<tr>
+<td><strong>Middleware</strong></td>
+<td>请求处理管道中的中间件</td>
+<td>Express Middleware</td>
+</tr>
+<tr>
+<td><strong>Guard</strong></td>
+<td>权限验证守卫</td>
+<td>Express Auth Middleware</td>
+</tr>
+<tr>
+<td><strong>Interceptor</strong></td>
+<td>拦截请求/响应做额外处理</td>
+<td>Express 中间件的增强版</td>
+</tr>
+<tr>
+<td><strong>Pipe</strong></td>
+<td>数据转换与验证</td>
+<td>Express Validator</td>
+</tr>
+<tr>
+<td><strong>Filter</strong></td>
+<td>统一异常处理</td>
+<td>Express Error Handler</td>
+</tr>
+</tbody></table>
+
+<h3>为什么选 NestJS 而不是 Express？</h3>
+
+<pre><code>Express:  自由度高 → 但大型项目结构混乱
+NestJS:   约定优于配置 → 结构清晰，团队协作友好</code></pre>
+
+<hr>
+
+<h2>🧠 知识脑图</h2>
+
+<pre><code>NestJS RESTful API
+├── 核心概念
+│   ├── Module (模块化组织)
+│   ├── Controller (路由处理)
+│   ├── Service (业务逻辑)
+│   └── DTO (数据传输对象)
+├── 请求生命周期
+│   ├── Middleware → Guard → Interceptor → Pipe
+│   └── Controller → Service → Response
+├── 数据验证
+│   ├── class-validator 装饰器
+│   └── ValidationPipe 全局管道
+├── 异常处理
+│   ├── 内置异常 (NotFoundException等)
+│   └── 自定义异常过滤器
+└── API 规范
+    ├── RESTful 路由设计
+    ├── 统一响应格式
+    └── 分页与过滤</code></pre>
+
+<hr>
+
+<h2>💻 完整代码实现</h2>
+
+<h3>项目初始化</h3>
+
+<pre><code class="language-bash"># Create new NestJS project
+nest new blog-api
+cd blog-api
+
+# Install dependencies
+npm install class-validator class-transformer
+npm install @nestjs/mapped-types</code></pre>
+
+<h3>v1：基础 CRUD</h3>
+
+<pre><code class="language-typescript">// src/posts/dto/create-post.dto.ts
+import { IsString, IsOptional, IsInt, MinLength } from &#x27;class-validator&#x27;;
+
+export class CreatePostDto {
+  @IsString()
+  @MinLength(1)
+  title: string;
+
+  @IsString()
+  @MinLength(10)
+  content: string;
+
+  @IsOptional()
+  @IsString()
+  category?: string;
+}
+
+// src/posts/dto/update-post.dto.ts
+import { PartialType } from &#x27;@nestjs/mapped-types&#x27;;
+import { CreatePostDto } from &#x27;./create-post.dto&#x27;;
+
+export class UpdatePostDto extends PartialType(CreatePostDto) {}</code></pre>
+
+<pre><code class="language-typescript">// src/posts/posts.service.ts
+import { Injectable, NotFoundException } from &#x27;@nestjs/common&#x27;;
+
+export interface Post {
+  id: number;
+  title: string;
+  content: string;
+  category: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+@Injectable()
+export class PostsService {
+  // In-memory store (will be replaced with DB in v2)
+  private posts: Post[] = [];
+  private idCounter = 0;
+
+  create(dto: { title: string; content: string; category?: string }): Post {
+    const post: Post = {
+      id: ++this.idCounter,
+      title: dto.title,
+      content: dto.content,
+      category: dto.category || &#x27;uncategorized&#x27;,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    this.posts.push(post);
+    return post;
+  }
+
+  findAll(page = 1, limit = 10): { data: Post[]; total: number } {
+    const start = (page - 1) * limit;
+    return {
+      data: this.posts.slice(start, start + limit),
+      total: this.posts.length,
+    };
+  }
+
+  findOne(id: number): Post {
+    const post = this.posts.find((p) =&gt; p.id === id);
+    if (!post) throw new NotFoundException(`Post #${id} not found`);
+    return post;
+  }
+
+  update(id: number, dto: Partial&lt;Post&gt;): Post {
+    const post = this.findOne(id);
+    Object.assign(post, { ...dto, updatedAt: new Date() });
+    return post;
+  }
+
+  remove(id: number): void {
+    this.findOne(id); // Ensure exists
+    this.posts = this.posts.filter((p) =&gt; p.id !== id);
+  }
+}</code></pre>
+
+<pre><code class="language-typescript">// src/posts/posts.controller.ts
+import {
+  Controller, Get, Post, Put, Delete,
+  Body, Param, Query, ParseIntPipe,
+} from &#x27;@nestjs/common&#x27;;
+import { PostsService } from &#x27;./posts.service&#x27;;
+import { CreatePostDto } from &#x27;./dto/create-post.dto&#x27;;
+import { UpdatePostDto } from &#x27;./dto/update-post.dto&#x27;;
+
+@Controller(&#x27;posts&#x27;)
+export class PostsController {
+  constructor(private readonly postsService: PostsService) {}
+
+  @Post()
+  create(@Body() dto: CreatePostDto) {
+    return this.postsService.create(dto);
+  }
+
+  @Get()
+  findAll(
+    @Query(&#x27;page&#x27;) page?: string,
+    @Query(&#x27;limit&#x27;) limit?: string,
+  ) {
+    return this.postsService.findAll(
+      parseInt(page || &#x27;1&#x27;, 10),
+      parseInt(limit || &#x27;10&#x27;, 10),
+    );
+  }
+
+  @Get(&#x27;:id&#x27;)
+  findOne(@Param(&#x27;id&#x27;, ParseIntPipe) id: number) {
+    return this.postsService.findOne(id);
+  }
+
+  @Put(&#x27;:id&#x27;)
+  update(
+    @Param(&#x27;id&#x27;, ParseIntPipe) id: number,
+    @Body() dto: UpdatePostDto,
+  ) {
+    return this.postsService.update(id, dto);
+  }
+
+  @Delete(&#x27;:id&#x27;)
+  remove(@Param(&#x27;id&#x27;, ParseIntPipe) id: number) {
+    this.postsService.remove(id);
+    return { message: &#x27;Deleted successfully&#x27; };
+  }
+}</code></pre>
+
+<pre><code class="language-typescript">// src/posts/posts.module.ts
+import { Module } from &#x27;@nestjs/common&#x27;;
+import { PostsController } from &#x27;./posts.controller&#x27;;
+import { PostsService } from &#x27;./posts.service&#x27;;
+
+@Module({
+  controllers: [PostsController],
+  providers: [PostsService],
+})
+export class PostsModule {}</code></pre>
+
+<pre><code class="language-typescript">// src/main.ts
+import { NestFactory } from &#x27;@nestjs/core&#x27;;
+import { ValidationPipe } from &#x27;@nestjs/common&#x27;;
+import { AppModule } from &#x27;./app.module&#x27;;
+
+async function bootstrap() {
+  const app = await NestFactory.create(AppModule);
+
+  // Enable global validation pipe
+  app.useGlobalPipes(
+    new ValidationPipe({
+      whitelist: true,           // Strip unknown properties
+      forbidNonWhitelisted: true, // Throw error on unknown props
+      transform: true,            // Auto-transform types
+    }),
+  );
+
+  // Enable CORS
+  app.enableCors();
+
+  await app.listen(3000);
+  console.log(&#x27;Application running on http://localhost:3000&#x27;);
+}
+bootstrap();</code></pre>
+
+<h3>v2：统一响应格式 + 异常过滤器</h3>
+
+<pre><code class="language-typescript">// src/common/interceptors/transform.interceptor.ts
+import {
+  Injectable, NestInterceptor, ExecutionContext,
+  CallHandler,
+} from &#x27;@nestjs/common&#x27;;
+import { map } from &#x27;rxjs/operators&#x27;;
+import { Observable } from &#x27;rxjs&#x27;;
+
+// Standard API response wrapper
+export interface ApiResponse&lt;T&gt; {
+  success: boolean;
+  data: T;
+  timestamp: string;
+}
+
+@Injectable()
+export class TransformInterceptor&lt;T&gt;
+  implements NestInterceptor&lt;T, ApiResponse&lt;T&gt;&gt;
+{
+  intercept(
+    context: ExecutionContext,
+    next: CallHandler,
+  ): Observable&lt;ApiResponse&lt;T&gt;&gt; {
+    return next.handle().pipe(
+      map((data) =&gt; ({
+        success: true,
+        data,
+        timestamp: new Date().toISOString(),
+      })),
+    );
+  }
+}</code></pre>
+
+<pre><code class="language-typescript">// src/common/filters/all-exceptions.filter.ts
+import {
+  ExceptionFilter, Catch, ArgumentsHost,
+  HttpException, HttpStatus, Logger,
+} from &#x27;@nestjs/common&#x27;;
+import { Response } from &#x27;express&#x27;;
+
+@Catch()
+export class AllExceptionsFilter implements ExceptionFilter {
+  private readonly logger = new Logger(AllExceptionsFilter.name);
+
+  catch(exception: unknown, host: ArgumentsHost): void {
+    const ctx = host.switchToHttp();
+    const response = ctx.getResponse&lt;Response&gt;();
+
+    const status =
+      exception instanceof HttpException
+        ? exception.getStatus()
+        : HttpStatus.INTERNAL_SERVER_ERROR;
+
+    const message =
+      exception instanceof HttpException
+        ? exception.message
+        : &#x27;Internal server error&#x27;;
+
+    this.logger.error(
+      `${status} - ${message}`,
+      exception instanceof Error ? exception.stack : undefined,
+    );
+
+    response.status(status).json({
+      success: false,
+      statusCode: status,
+      message,
+      timestamp: new Date().toISOString(),
+    });
+  }
+}</code></pre>
+
+<pre><code class="language-typescript">// Updated src/main.ts for v2
+import { NestFactory } from &#x27;@nestjs/core&#x27;;
+import { ValidationPipe, Logger } from &#x27;@nestjs/common&#x27;;
+import { AppModule } from &#x27;./app.module&#x27;;
+import { TransformInterceptor } from &#x27;./common/interceptors/transform.interceptor&#x27;;
+import { AllExceptionsFilter } from &#x27;./common/filters/all-exceptions.filter&#x27;;
+
+async function bootstrap() {
+  const app = await NestFactory.create(AppModule);
+  const logger = new Logger(&#x27;Bootstrap&#x27;);
+
+  app.useGlobalPipes(
+    new ValidationPipe({
+      whitelist: true,
+      forbidNonWhitelisted: true,
+      transform: true,
+    }),
+  );
+
+  // Apply global interceptor and filter
+  app.useGlobalInterceptors(new TransformInterceptor());
+  app.useGlobalFilters(new AllExceptionsFilter());
+
+  app.enableCors();
+  await app.listen(3000);
+  logger.log(&#x27;Application running on http://localhost:3000&#x27;);
+}
+bootstrap();</code></pre>
+
+<h3>v3：分页 DTO + Swagger 文档</h3>
+
+<pre><code class="language-typescript">// src/common/dto/pagination.dto.ts
+import { IsOptional, IsInt, Min, Max } from &#x27;class-validator&#x27;;
+import { Type } from &#x27;class-transformer&#x27;;
+
+export class PaginationDto {
+  @IsOptional()
+  @Type(() =&gt; Number)
+  @IsInt()
+  @Min(1)
+  page?: number = 1;
+
+  @IsOptional()
+  @Type(() =&gt; Number)
+  @IsInt()
+  @Min(1)
+  @Max(100)
+  limit?: number = 10;
+}
+
+// src/common/dto/paginated-result.dto.ts
+export class PaginatedResultDto&lt;T&gt; {
+  data: T[];
+  meta: {
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+  };
+
+  constructor(data: T[], total: number, page: number, limit: number) {
+    this.data = data;
+    this.meta = {
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+    };
+  }
+}</code></pre>
+
+<pre><code class="language-bash"># Install Swagger for v3
+npm install @nestjs/swagger</code></pre>
+
+<pre><code class="language-typescript">// src/main.ts additions for Swagger
+import { SwaggerModule, DocumentBuilder } from &#x27;@nestjs/swagger&#x27;;
+
+const config = new DocumentBuilder()
+  .setTitle(&#x27;Blog API&#x27;)
+  .setDescription(&#x27;A RESTful blog API built with NestJS&#x27;)
+  .setVersion(&#x27;1.0&#x27;)
+  .addBearerAuth()
+  .build();
+const document = SwaggerModule.createDocument(app, config);
+SwaggerModule.setup(&#x27;api/docs&#x27;, app, document);</code></pre>
+
+<hr>
+
+<h2>🔍 执行预览</h2>
+
+<pre><code class="language-bash"># Start the server
+$ npm run start:dev
+
+# Create a post
+$ curl -X POST http://localhost:3000/posts \
+  -H &quot;Content-Type: application/json&quot; \
+  -d &#x27;{&quot;title&quot;:&quot;Hello NestJS&quot;,&quot;content&quot;:&quot;My first NestJS post!&quot;}&#x27;
+
+# Response (v2 format):
+{
+  &quot;success&quot;: true,
+  &quot;data&quot;: {
+    &quot;id&quot;: 1,
+    &quot;title&quot;: &quot;Hello NestJS&quot;,
+    &quot;content&quot;: &quot;My first NestJS post!&quot;,
+    &quot;category&quot;: &quot;uncategorized&quot;,
+    &quot;createdAt&quot;: &quot;2024-01-15T10:30:00.000Z&quot;,
+    &quot;updatedAt&quot;: &quot;2024-01-15T10:30:00.000Z&quot;
+  },
+  &quot;timestamp&quot;: &quot;2024-01-15T10:30:00.000Z&quot;
+}
+
+# Get all posts with pagination
+$ curl &quot;http://localhost:3000/posts?page=1&amp;limit=5&quot;
+
+# Validation error (missing required field)
+$ curl -X POST http://localhost:3000/posts \
+  -H &quot;Content-Type: application/json&quot; \
+  -d &#x27;{&quot;title&quot;:&quot;&quot;}&#x27;
+
+# Response:
+{
+  &quot;success&quot;: false,
+  &quot;statusCode&quot;: 400,
+  &quot;message&quot;: [
+    &quot;title must be longer than or equal to 1 characters&quot;,
+    &quot;content must be longer than or equal to 10 characters&quot;,
+    &quot;content should not be empty&quot;
+  ],
+  &quot;timestamp&quot;: &quot;2024-01-15T10:31:00.000Z&quot;
+}
+
+# Delete a post
+$ curl -X DELETE http://localhost:3000/posts/1
+{
+  &quot;success&quot;: true,
+  &quot;data&quot;: { &quot;message&quot;: &quot;Deleted successfully&quot; },
+  &quot;timestamp&quot;: &quot;2024-01-15T10:32:00.000Z&quot;
+}</code></pre>
+
+<hr>
+
+<h2>⚠️ 注意事项</h2>
+
+<table><thead><tr>
+<th>事项</th>
+<th>说明</th>
+<th>建议</th>
+</tr></thead><tbody>
+<tr>
+<td>ValidationPipe</td>
+<td>必须全局注册，否则 DTO 验证不生效</td>
+<td>在 <code>main.ts</code> 中配置</td>
+</tr>
+<tr>
+<td>ParseIntPipe</td>
+<td>路由参数默认是 string 类型</td>
+<td>使用 <code>ParseIntPipe</code> 自动转换</td>
+</tr>
+<tr>
+<td>whitelist: true</td>
+<td>过滤 DTO 中未定义的属性</td>
+<td>防止批量赋值攻击</td>
+</tr>
+<tr>
+<td>模块划分</td>
+<td>每个 Feature 一个 Module</td>
+<td>保持模块职责单一</td>
+</tr>
+<tr>
+<td>异步操作</td>
+<td>Service 方法建议返回 Promise</td>
+<td>为后续接入数据库预留</td>
+</tr>
+<tr>
+<td>路由顺序</td>
+<td><code>@Get('search')</code> 必须在 <code>@Get(':id')</code> 之前</td>
+<td>否则 "search" 会被当作 id</td>
+</tr>
+<tr>
+<td>CORS</td>
+<td>生产环境应限制来源域名</td>
+<td>不要用 <code>app.enableCors()</code> 无参调用</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>🚫 避坑指南</h2>
+
+<h3>❌ 在 Controller 里写业务逻辑</h3>
+<pre><code class="language-typescript">// BAD: Business logic in controller
+@Post()
+create(@Body() dto: CreatePostDto) {
+  if (!dto.title) throw new BadRequestException(&#x27;Title required&#x27;);
+  const post = { id: Date.now(), ...dto };
+  this.posts.push(post); // Direct data access
+  return post;
+}</code></pre>
+
+<h3>✅ Controller 只做路由分发，Service 处理业务</h3>
+<pre><code class="language-typescript">// GOOD: Controller delegates to service
+@Post()
+create(@Body() dto: CreatePostDto) {
+  return this.postsService.create(dto);
+}</code></pre>
+
+<h3>❌ 不使用 DTO 验证</h3>
+<pre><code class="language-typescript">// BAD: Accept any body
+@Post()
+create(@Body() body: any) {  // No validation!
+  return this.postsService.create(body);
+}</code></pre>
+
+<h3>✅ 使用 class-validator DTO</h3>
+<pre><code class="language-typescript">// GOOD: Validate with DTO
+@Post()
+create(@Body() dto: CreatePostDto) {
+  return this.postsService.create(dto);
+}</code></pre>
+
+<h3>❌ 忽略错误处理</h3>
+<pre><code class="language-typescript">// BAD: Let errors bubble up without context
+@Get(&#x27;:id&#x27;)
+findOne(@Param(&#x27;id&#x27;) id: string) {
+  return this.posts[parseInt(id)]; // undefined if not found
+}</code></pre>
+
+<h3>✅ 明确抛出业务异常</h3>
+<pre><code class="language-typescript">// GOOD: Throw descriptive exceptions
+findOne(id: number): Post {
+  const post = this.posts.find(p =&gt; p.id === id);
+  if (!post) throw new NotFoundException(`Post #${id} not found`);
+  return post;
+}</code></pre>
+
+<hr>
+
+<h2>🏋️ 练习题</h2>
+
+<h3>🟢 基础题</h3>
+
+<ol>
+<li><strong>创建一个 Cats 模块</strong>：实现 Cat 实体的 CRUD，包含 <code>name</code>、<code>age</code>、<code>breed</code> 字段，使用 DTO 验证。</li>
+
+<ol>
+<li><strong>添加查询过滤</strong>：在 <code>GET /posts</code> 接口添加 <code>category</code> 查询参数，按分类过滤结果。</li>
+
+<h3>🟡 进阶题</h3>
+
+<ol>
+<li><strong>自定义异常</strong>：创建 <code>PostAlreadyExistsException</code>，当创建重复标题的文章时抛出，并配置专门的异常过滤器。</li>
+
+<ol>
+<li><strong>请求日志拦截器</strong>：实现一个 <code>LoggingInterceptor</code>，记录每个请求的方法、URL、响应时间和状态码。</li>
+
+<h3>🔴 挑战题</h3>
+
+<ol>
+<li><strong>版本控制 API</strong>：使用 NestJS 的版本控制功能，实现 <code>v1</code> 和 <code>v2</code> 两个版本的 Posts API，v2 新增 <code>tags</code> 字段和全文搜索功能。</li>
+
+<hr>
+
+<h2>📝 知识点总结</h2>
+
+<pre><code>NestJS RESTful API
+├── 请求处理
+│   ├── @Controller() - 路由前缀
+│   ├── @Get/@Post/@Put/@Delete - HTTP 方法
+│   ├── @Body/@Param/@Query - 参数提取
+│   └── ParseIntPipe - 自动类型转换
+├── 数据验证
+│   ├── class-validator - 装饰器验证
+│   ├── class-transformer - 类型转换
+│   └── ValidationPipe - 全局管道
+├── 响应处理
+│   ├── TransformInterceptor - 统一响应格式
+│   ├── AllExceptionsFilter - 统一异常格式
+│   └── NotFoundException - 业务异常
+├── 架构分层
+│   ├── Module - 模块化组织
+│   ├── Controller - 路由层
+│   ├── Service - 业务层
+│   └── DTO - 数据传输层
+└── API 设计
+    ├── RESTful 规范
+    ├── 分页查询
+    └── Swagger 文档</code></pre>
+
+<hr>
+
+<h2>🔄 举一反三</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>NestJS 方案</th>
+<th>对应 Express 方案</th>
+</tr></thead><tbody>
+<tr>
+<td>数据验证</td>
+<td>class-validator + ValidationPipe</td>
+<td>joi / express-validator</td>
+</tr>
+<tr>
+<td>统一响应</td>
+<td>TransformInterceptor</td>
+<td>自定义中间件</td>
+</tr>
+<tr>
+<td>异常处理</td>
+<td>@Catch() ExceptionFilter</td>
+<td>express-error-handler</td>
+</tr>
+<tr>
+<td>权限控制</td>
+<td>Guard (@Injectable)</td>
+<td>中间件鉴权</td>
+</tr>
+<tr>
+<td>请求日志</td>
+<td>LoggingInterceptor</td>
+<td>morgan</td>
+</tr>
+<tr>
+<td>API 文档</td>
+<td>@nestjs/swagger</td>
+<td>swagger-jsdoc</td>
+</tr>
+<tr>
+<td>分页查询</td>
+<td>PaginationDto + Service</td>
+<td>手动解析 query 参数</td>
+</tr>
+<tr>
+<td>速率限制</td>
+<td>@nestjs/throttler</td>
+<td>express-rate-limit</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>📚 参考资料</h2>
+
+<ul>
+<li><a href="https://docs.nestjs.com/">NestJS 官方文档</a></li>
+<li><a href="https://docs.nestjs.com/controllers">NestJS Controllers</a></li>
+<li><a href="https://docs.nestjs.com/providers">NestJS Providers</a></li>
+<li><a href="https://github.com/typestack/class-validator">class-validator GitHub</a></li>
+<li><a href="https://docs.nestjs.com/openapi/introduction">NestJS Swagger 插件</a></li>
+
+<hr>
+
+<h2>🛤️ 代码演进路线</h2>
+
+<h3>v1 → 基础 CRUD（本文已覆盖）</h3>
+<ul>
+<li>内存数据存储</li>
+<li>基本 CRUD 端点</li>
+<li>DTO 验证</li>
+<li>ParseIntPipe</li>
+
+<h3>v2 → 生产就绪（本文已覆盖）</h3>
+<ul>
+<li>统一响应格式（TransformInterceptor）</li>
+<li>全局异常过滤器（AllExceptionsFilter）</li>
+<li>日志记录</li>
+<li>CORS 配置</li>
+
+<h3>v3 → 企业级（后续文章展开）</h3>
+<ul>
+<li>TypeORM 数据库集成（→ 下一篇：NestJS TypeORM）</li>
+<li>JWT 认证（→ 下下篇：NestJS 认证JWT）</li>
+<li>Swagger API 文档</li>
+<li>速率限制</li>
+<li>缓存拦截器</li>
+<li>单元测试 & E2E 测试</li>
+
+<blockquote><p><strong>下一站</strong>：<a href="/posts/025-nestjs-typeorm">NestJS TypeORM → 数据持久化实战</a></p></blockquote>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

@@ -1,0 +1,527 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>022 - BOM与浏览器API</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/JavaScript/index.html">JavaScript</a>
+<span class="sep">›</span>
+<a href="/tech-blog/JavaScript/01-ES6+/index.html">JavaScript ES6+</a>
+</nav>
+<h1>022 - BOM与浏览器API</h1>
+<div class="meta">
+<span>📂 JavaScript ES6+</span>
+<span>🏷️ JavaScript</span>
+</div>
+<article>
+
+
+<h1>BOM与浏览器API</h1>
+
+<blockquote><p><strong>难度：</strong> ⭐⭐⭐ 中等 | <strong>适合：</strong> 需要与浏览器环境交互的开发者<br><strong>阅读时间：</strong> 约25分钟 | <strong>代码量：</strong> 180+ 行</p></blockquote>
+
+<hr>
+
+<h2>一、概念讲解</h2>
+
+<h3>什么是BOM？</h3>
+
+<p>BOM（Browser Object Model）是浏览器提供的JavaScript API集合，它让JS能够与浏览器窗口、导航、存储、定时器等进行交互。与DOM操作HTML不同，BOM操作的是<strong>浏览器环境本身</strong>。</p>
+
+<pre><code>window (全局对象)
+  ├── document (DOM入口)
+  ├── navigator (浏览器信息)
+  ├── location (URL信息)
+  ├── history (浏览历史)
+  ├── screen (屏幕信息)
+  ├── localStorage / sessionStorage
+  ├── fetch / XMLHttpRequest
+  ├── setTimeout / setInterval
+  └── postMessage</code></pre>
+
+<hr>
+
+<h2>二、脑图（ASCII）</h2>
+
+<pre><code>                    BOM与浏览器API
+                         │
+        ┌────────────────┼────────────────┐
+        │                │                │
+    核心对象           存储            网络通信
+        │                │                │
+   ┌────┼────┐     ┌────┼────┐     ┌────┼────┐
+   │    │    │     │    │    │     │    │    │
+  loc  nav hist  local session cookie fetch  XHR
+  ation igtor ory  Stge  Stge           postMsg</code></pre>
+
+<hr>
+
+<h2>三、完整代码示例</h2>
+
+<h3>3.1 Location & URL操作</h3>
+
+<pre><code class="language-javascript">// Parse and manipulate URLs
+const url = new URL(&#x27;https://example.com/path?name=js&amp;page=1#section&#x27;);
+
+console.log(url.protocol); // &#x27;https:&#x27;
+console.log(url.hostname); // &#x27;example.com&#x27;
+console.log(url.pathname); // &#x27;/path&#x27;
+console.log(url.searchParams.get(&#x27;name&#x27;)); // &#x27;js&#x27;
+console.log(url.hash); // &#x27;#section&#x27;
+
+// Modify URL without reload
+history.pushState({ page: 2 }, &#x27;&#x27;, &#x27;/page/2&#x27;);
+history.replaceState({ page: 2 }, &#x27;&#x27;, &#x27;/page/2&#x27;);
+
+// Listen for popstate (back/forward button)
+window.addEventListener(&#x27;popstate&#x27;, (e) =&gt; {
+  console.log(&#x27;State:&#x27;, e.state);
+});
+
+// Redirect
+// location.href = &#x27;https://example.com&#x27;;  // full redirect
+// location.reload();  // reload current page</code></pre>
+
+<h3>3.2 Navigator & 设备信息</h3>
+
+<pre><code class="language-javascript">// Browser and device info
+console.log(&#x27;Language:&#x27;, navigator.language);      // &#x27;zh-CN&#x27;
+console.log(&#x27;Platform:&#x27;, navigator.userAgent);
+console.log(&#x27;Online:&#x27;, navigator.onLine);
+
+// Network information
+const conn = navigator.connection;
+if (conn) {
+  console.log(&#x27;Effective type:&#x27;, conn.effectiveType); // &#x27;4g&#x27;
+  console.log(&#x27;Downlink:&#x27;, conn.downlink, &#x27;Mbps&#x27;);
+}
+
+// Clipboard API
+async function copyToClipboard(text) {
+  try {
+    await navigator.clipboard.writeText(text);
+    console.log(&#x27;Copied!&#x27;);
+  } catch {
+    // Fallback for older browsers
+    const textarea = document.createElement(&#x27;textarea&#x27;);
+    textarea.value = text;
+    document.body.appendChild(textarea);
+    textarea.select();
+    document.execCommand(&#x27;copy&#x27;);
+    document.body.removeChild(textarea);
+  }
+}
+
+// Geolocation
+navigator.geolocation.getCurrentPosition(
+  (pos) =&gt; console.log(`Lat: ${pos.coords.latitude}, Lng: ${pos.coords.longitude}`),
+  (err) =&gt; console.error(&#x27;Geolocation error:&#x27;, err.message),
+  { enableHighAccuracy: true, timeout: 5000 }
+);</code></pre>
+
+<h3>3.3 Storage 封装</h3>
+
+<pre><code class="language-javascript">// Type-safe storage wrapper with expiry
+class StorageWrapper {
+  constructor(storage = localStorage) {
+    this.storage = storage;
+  }
+
+  set(key, value, ttlMs = null) {
+    const item = {
+      value,
+      timestamp: Date.now(),
+      ttl: ttlMs,
+    };
+    this.storage.setItem(key, JSON.stringify(item));
+  }
+
+  get(key, defaultValue = null) {
+    const raw = this.storage.getItem(key);
+    if (!raw) return defaultValue;
+    try {
+      const item = JSON.parse(raw);
+      // Check TTL expiration
+      if (item.ttl &amp;&amp; Date.now() - item.timestamp &gt; item.ttl) {
+        this.remove(key);
+        return defaultValue;
+      }
+      return item.value;
+    } catch {
+      return defaultValue;
+    }
+  }
+
+  remove(key) {
+    this.storage.removeItem(key);
+  }
+
+  clear() {
+    this.storage.clear();
+  }
+
+  // Get all keys with optional prefix filter
+  keys(prefix = &#x27;&#x27;) {
+    return Object.keys(this.storage)
+      .filter(k =&gt; k.startsWith(prefix));
+  }
+
+  // Get storage usage in bytes
+  getSize() {
+    let size = 0;
+    for (const key of Object.keys(this.storage)) {
+      size += key.length + this.storage.getItem(key).length;
+    }
+    return size * 2; // UTF-16 = 2 bytes per char
+  }
+}
+
+const ls = new StorageWrapper(localStorage);
+ls.set(&#x27;user&#x27;, { name: &#x27;Hahn&#x27; }, 3600000); // 1 hour TTL
+ls.set(&#x27;theme&#x27;, &#x27;dark&#x27;);
+console.log(ls.get(&#x27;user&#x27;)); // { name: &#x27;Hahn&#x27; }
+console.log(ls.getSize(), &#x27;bytes used&#x27;);</code></pre>
+
+<h3>3.4 定时器与动画帧</h3>
+
+<pre><code class="language-javascript">// Precise timing with requestAnimationFrame
+function animate(element, property, from, to, duration) {
+  const start = performance.now();
+
+  function frame(now) {
+    const elapsed = now - start;
+    const progress = Math.min(elapsed / duration, 1);
+    // Ease-out cubic
+    const eased = 1 - Math.pow(1 - progress, 3);
+    const current = from + (to - from) * eased;
+    element.style[property] = current + &#x27;px&#x27;;
+
+    if (progress &lt; 1) {
+      requestAnimationFrame(frame);
+    }
+  }
+
+  requestAnimationFrame(frame);
+}
+
+// Debounce and throttle using timers
+function debounce(fn, delay) {
+  let timer;
+  return (...args) =&gt; {
+    clearTimeout(timer);
+    timer = setTimeout(() =&gt; fn(...args), delay);
+  };
+}
+
+function throttle(fn, interval) {
+  let lastTime = 0;
+  return (...args) =&gt; {
+    const now = Date.now();
+    if (now - lastTime &gt;= interval) {
+      lastTime = now;
+      fn(...args);
+    }
+  };
+}
+
+// Usage
+window.addEventListener(&#x27;resize&#x27;, debounce(() =&gt; {
+  console.log(&#x27;Resized:&#x27;, window.innerWidth, window.innerHeight);
+}, 300));
+
+window.addEventListener(&#x27;scroll&#x27;, throttle(() =&gt; {
+  console.log(&#x27;Scroll position:&#x27;, window.scrollY);
+}, 100));</code></pre>
+
+<hr>
+
+<h2>四、执行预览</h2>
+
+<pre><code>BOM API Demo
+=============
+1. URL parsed: https://example.com/path?name=js&amp;page=1#section
+2. Navigator: zh-CN, online=true, 4g
+3. Storage: user={name:Hahn} (TTL: 1h), theme=dark
+4. Animation: opacity 0→1 over 500ms (ease-out)
+5. Resize debounced (300ms), Scroll throttled (100ms)</code></pre>
+
+<hr>
+
+<h2>五、注意事项</h2>
+
+<table><thead><tr>
+<th>API</th>
+<th>注意点</th>
+<th>建议</th>
+</tr></thead><tbody>
+<tr>
+<td><code>localStorage</code></td>
+<td>同源限制，约5MB</td>
+<td>大数据用 IndexedDB</td>
+</tr>
+<tr>
+<td><code>sessionStorage</code></td>
+<td>标签页关闭即清除</td>
+<td>适合临时会话数据</td>
+</tr>
+<tr>
+<td><code>navigator.geolocation</code></td>
+<td>需要用户授权</td>
+<td>HTTPS环境下才能使用</td>
+</tr>
+<tr>
+<td><code>history.pushState</code></td>
+<td>不触发页面加载</td>
+<td>需要自行管理路由状态</td>
+</tr>
+<tr>
+<td><code>fetch</code></td>
+<td>默认不发送cookies</td>
+<td>设置 <code>credentials: 'include'</code></td>
+</tr>
+<tr>
+<td><code>postMessage</code></td>
+<td>需验证 <code>event.origin</code></td>
+<td>安全性考虑</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>六、避坑指南</h2>
+
+<table><thead><tr>
+<th>❌ 错误做法</th>
+<th>✅ 正确做法</th>
+<th>原因</th>
+</tr></thead><tbody>
+<tr>
+<td><code>setInterval</code> 做动画</td>
+<td><code>requestAnimationFrame</code></td>
+<td>与屏幕刷新同步，不卡顿</td>
+</tr>
+<tr>
+<td><code>localStorage</code> 存大文件</td>
+<td>用 IndexedDB</td>
+<td>localStorage有5MB限制</td>
+</tr>
+<tr>
+<td>直接 <code>location.href</code> 跳转</td>
+<td><code>history.pushState</code> + 路由</td>
+<td>SPA不需要整页刷新</td>
+</tr>
+<tr>
+<td><code>navigator.userAgent</code> 判断特性</td>
+<td>特性检测 <code>if ('geolocation' in navigator)</code></td>
+<td>UA可伪造，不可靠</td>
+</tr>
+<tr>
+<td><code>new Date().getTime()</code></td>
+<td><code>Date.now()</code> 或 <code>performance.now()</code></td>
+<td>更简洁，performance更精确</td>
+</tr>
+<tr>
+<td>定时器不清理</td>
+<td>组件卸载时 <code>clearTimeout/clearInterval</code></td>
+<td>防止内存泄漏</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>七、练习题</h2>
+
+<h3>🟢 基础</h3>
+<ol>
+<li>解析当前页面URL，输出所有查询参数</li>
+</ul>
+<ol>
+<li>实现页面主题切换，状态保存到 <code>localStorage</code></li>
+</ul>
+<ol>
+<li>使用 <code>setTimeout</code> 实现一个简单的倒计时</li>
+
+<h3>🟡 进阶</h3>
+<ol>
+<li>封装 <code>debounce</code> 和 <code>throttle</code>，支持取消防抖</li>
+</ul>
+<ol>
+<li>使用 <code>IntersectionObserver</code> 实现图片懒加载</li>
+</ul>
+<ol>
+<li>实现 <code>BroadcastChannel</code> 跨标签页通信</li>
+
+<h3>🔴 挑战</h3>
+<ol>
+<li>用 <code>history API</code> 实现一个迷你SPA路由</li>
+</ul>
+<ol>
+<li>封装 IndexedDB 操作库，支持事务和索引查询</li>
+
+<hr>
+
+<h2>八、知识点总结</h2>
+
+<pre><code>BOM与浏览器API
+├── 核心对象
+│   ├── window: 全局对象、尺寸、滚动
+│   ├── location: URL解析与跳转
+│   ├── navigator: 浏览器/设备信息
+│   ├── history: 路由与导航
+│   └── screen: 屏幕信息
+├── 存储
+│   ├── localStorage: 持久化KV存储
+│   ├── sessionStorage: 会话级KV存储
+│   ├── Cookie: 小型文本存储
+│   └── IndexedDB: 大型结构化存储
+├── 定时与动画
+│   ├── setTimeout / setInterval
+│   ├── requestAnimationFrame
+│   └── performance.now()
+├── 网络
+│   ├── fetch API
+│   ├── WebSocket
+│   └── postMessage / BroadcastChannel
+└── 设备API
+    ├── Geolocation
+    ├── Clipboard
+    ├── Notification
+    └── Media (Camera/Mic)</code></pre>
+
+<hr>
+
+<h2>九、举一反三</h2>
+
+<table><thead><tr>
+<th>BOM API</th>
+<th>类似技术</th>
+<th>迁移思路</th>
+</tr></thead><tbody>
+<tr>
+<td>localStorage</td>
+<td>Redis / Memcached</td>
+<td>同为KV存储，注意容量差异</td>
+</tr>
+<tr>
+<td>fetch</td>
+<td>axios / jQuery.ajax</td>
+<td>底层都是XMLHttpRequest/Fetch</td>
+</tr>
+<tr>
+<td>history API</td>
+<td>React Router / Vue Router</td>
+<td>框架路由是对history的封装</td>
+</tr>
+<tr>
+<td>requestAnimationFrame</td>
+<td>CSS transition/animation</td>
+<td>JS适合复杂逻辑，CSS适合简单动画</td>
+</tr>
+<tr>
+<td>IndexedDB</td>
+<td>SQLite</td>
+<td>同为本地数据库，IndexedDB是异步的</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>十、参考资料</h2>
+
+<ul>
+<li><a href="https://developer.mozilla.org/zh-CN/docs/Web/API">MDN - Web APIs</a></li>
+<li><a href="https://developer.mozilla.org/zh-CN/docs/Web/API/Window">MDN - Window</a></li>
+<li><a href="https://javascript.info/onload-ondomcontentloaded">JavaScript.info - BOM</a></li>
+
+<hr>
+
+<h2>十一、代码演进</h2>
+
+<h3>v1: 直接使用BOM API</h3>
+
+<pre><code class="language-javascript">// Raw BOM calls, no abstraction
+localStorage.setItem(&#x27;theme&#x27;, &#x27;dark&#x27;);
+const theme = localStorage.getItem(&#x27;theme&#x27;);
+window.addEventListener(&#x27;scroll&#x27;, () =&gt; console.log(window.scrollY));</code></pre>
+
+<h3>v2: 封装工具函数</h3>
+
+<pre><code class="language-javascript">// Utility functions with error handling
+const store = {
+  get(key, fallback = null) {
+    try { return JSON.parse(localStorage.getItem(key)) || fallback; }
+    catch { return fallback; }
+  },
+  set(key, val) {
+    localStorage.setItem(key, JSON.stringify(val));
+  }
+};</code></pre>
+
+<h3>v3: 完整StorageWrapper类 + TTL</h3>
+
+<pre><code class="language-javascript">// Full-featured storage with TTL, size tracking, prefix filtering
+// See section 3.3 above for complete implementation</code></pre>
+
+<hr>
+
+<h2>十二、总结</h2>
+
+<p>BOM是JS与浏览器交互的桥梁。掌握<strong>location/history</strong>实现路由，<strong>Storage API</strong>做本地持久化，<strong>定时器与RAF</strong>控制动画节奏，<strong>navigator</strong>获取设备能力——这些让你从"操作DOM"进化到"掌控浏览器环境"。</p>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

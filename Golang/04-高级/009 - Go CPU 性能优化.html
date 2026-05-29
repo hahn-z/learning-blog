@@ -1,0 +1,720 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>009 - Go CPU 性能优化</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Golang/index.html">Golang</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Golang/04-高级/index.html">Golang高级</a>
+</nav>
+<h1>009 - Go CPU 性能优化</h1>
+<div class="meta">
+<span>📂 Golang高级</span>
+<span>🏷️ Golang</span>
+</div>
+<article>
+
+
+<h1>Go CPU 性能优化</h1>
+
+<blockquote><p><strong>难度：🔴 高级</strong> | 预计阅读：25 分钟 | 前置知识：pprof、算法复杂度、并发</p></blockquote>
+
+<h2>概念讲解</h2>
+
+<p>Go CPU 性能优化是在保证正确性的前提下，减少程序执行时间的系统性工程。核心思路：<strong>先测量，再优化</strong>。</p>
+
+<h3>性能优化的黄金法则</h3>
+
+<ol>
+<li><strong>Don't guess, measure</strong> — 用 pprof/benchmark 找到真正的瓶颈</li>
+</ul>
+<ol>
+<li><strong>优化最热的代码</strong> — 80/20 法则，20% 的代码占 80% 的 CPU</li>
+</ul>
+<ol>
+<li><strong>算法优先</strong> — 再多的微优化也比不上 O(n) → O(log n)</li>
+</ul>
+<ol>
+<li><strong>数据局部性</strong> — CPU 缓存友好的数据结构胜过复杂算法</li>
+
+<h3>Go 特有的 CPU 优化方向</h3>
+
+<table><thead><tr>
+<th>方向</th>
+<th>典型优化</th>
+<th>预期提升</th>
+</tr></thead><tbody>
+<tr>
+<td>算法复杂度</td>
+<td>换算法/数据结构</td>
+<td>10x-100x</td>
+</tr>
+<tr>
+<td>减少内存分配</td>
+<td>sync.Pool、预分配、逃逸优化</td>
+<td>2x-5x</td>
+</tr>
+<tr>
+<td>并行化</td>
+<td>goroutine + 分区</td>
+<td>接近核心数倍</td>
+</tr>
+<tr>
+<td>内联优化</td>
+<td>小函数、避免接口调用</td>
+<td>1.2x-2x</td>
+</tr>
+<tr>
+<td>SIMD / 汇编</td>
+<td>热循环用 SIMD</td>
+<td>4x-8x</td>
+</tr>
+<tr>
+<td>编译优化</td>
+<td>编译标志、PGO（Go 1.21+）</td>
+<td>1.1x-1.3x</td>
+</tr>
+</tbody></table>
+
+<h2>脑图</h2>
+
+<pre><code>Go CPU 性能优化
+├── 测量先行
+│   ├── Benchmark (testing.B)
+│   ├── pprof CPU profile
+│   ├── go tool trace
+│   └── benchstat 对比
+├── 算法层优化
+│   ├── 复杂度降低（O(n²)→O(n log n)）
+│   ├── 合理选择数据结构
+│   ├── 提前终止 / 剪枝
+│   └── 空间换时间（缓存/查表）
+├── Go 语言层优化
+│   ├── 减少逃逸（escape analysis）
+│   ├── 内联友好（小函数、避免接口）
+│   ├── slice 预分配
+│   ├── strings.Builder
+│   └── 避免 reflect
+├── 并发层优化
+│   ├── CPU 密集型 → worker pool
+│   ├── IO 密集型 → goroutine per request
+│   ├── 分区锁 / sync.Map
+│   └── 避免 false sharing（cache line）
+└── 编译/运行时层
+    ├── PGO (Profile-Guided Optimization)
+    ├── GOARCH 优化（amd64 vs arm64）
+    └── 环境变量调优（GOMAXPROCS）</code></pre>
+
+<h2>完整 Go 代码</h2>
+
+<pre><code class="language-go">package main
+
+import (
+	&quot;bytes&quot;
+	&quot;fmt&quot;
+	&quot;sort&quot;
+	&quot;strconv&quot;
+	&quot;strings&quot;
+	&quot;sync&quot;
+	&quot;testing&quot;
+	&quot;unicode&quot;
+)
+
+// ============================================================
+// Optimization 1: Algorithm choice - string concatenation
+// ============================================================
+
+// SLOW: O(n²) due to string copy
+func concatSlow(parts []string) string {
+	result := &quot;&quot;
+	for _, p := range parts {
+		result += p // Each += copies entire string
+	}
+	return result
+}
+
+// FAST: O(n) with strings.Builder
+func concatFast(parts []string) string {
+	// Pre-calculate total size for pre-allocation
+	total := 0
+	for _, p := range parts {
+		total += len(p)
+	}
+
+	var b strings.Builder
+	b.Grow(total) // Pre-allocate once
+	for _, p := range parts {
+		b.WriteString(p)
+	}
+	return b.String()
+}
+
+// ============================================================
+// Optimization 2: Reduce allocations - sync.Pool
+// ============================================================
+
+var bufPool = sync.Pool{
+	New: func() interface{} {
+		return bytes.NewBuffer(make([]byte, 0, 1024))
+	},
+}
+
+// SLOW: allocate new buffer each time
+func formatSlow(items []int) string {
+	var buf bytes.Buffer
+	for _, item := range items {
+		buf.WriteString(strconv.Itoa(item))
+		buf.WriteByte(&#x27;,&#x27;)
+	}
+	return buf.String()
+}
+
+// FAST: reuse buffer from pool
+func formatFast(items []int) string {
+	buf := bufPool.Get().(*bytes.Buffer)
+	defer func() {
+		buf.Reset()
+		bufPool.Put(buf)
+	}()
+
+	for _, item := range items {
+		buf.WriteString(strconv.Itoa(item))
+		buf.WriteByte(&#x27;,&#x27;)
+	}
+	return buf.String()
+}
+
+// ============================================================
+// Optimization 3: Avoid interface / reflect - type-specific code
+// ============================================================
+
+// SLOW: fmt.Sprintf uses reflection
+func intToStrSlow(n int) string {
+	return fmt.Sprintf(&quot;%d&quot;, n)
+}
+
+// FAST: direct conversion, no reflection
+func intToStrFast(n int) string {
+	return strconv.Itoa(n)
+}
+
+// ============================================================
+// Optimization 4: Slice pre-allocation
+// ============================================================
+
+// SLOW: append grows slice multiple times
+func filterSlow(nums []int, pred func(int) bool) []int {
+	var result []int
+	for _, n := range nums {
+		if pred(n) {
+			result = append(result, n)
+		}
+	}
+	return result
+}
+
+// FAST: pre-allocate with max possible size
+func filterFast(nums []int, pred func(int) bool) []int {
+	result := make([]int, 0, len(nums)) // Max possible capacity
+	for _, n := range nums {
+		if pred(n) {
+			result = append(result, n)
+		}
+	}
+	return result
+}
+
+// ============================================================
+// Optimization 5: Parallel computation with worker pool
+// ============================================================
+
+// SLOW: sequential processing
+func processSequential(data []float64) float64 {
+	sum := 0.0
+	for _, v := range data {
+		sum += heavyComputation(v)
+	}
+	return sum
+}
+
+// FAST: parallel with worker pool
+func processParallel(data []float64, workers int) float64 {
+	chunkSize := (len(data) + workers - 1) / workers
+	results := make([]float64, workers)
+	var wg sync.WaitGroup
+
+	for i := 0; i &lt; workers; i++ {
+		start := i * chunkSize
+		end := start + chunkSize
+		if end &gt; len(data) {
+			end = len(data)
+		}
+		if start &gt;= end {
+			break
+		}
+
+		wg.Add(1)
+		go func(idx, s, e int) {
+			defer wg.Done()
+			sum := 0.0
+			for _, v := range data[s:e] {
+				sum += heavyComputation(v)
+			}
+			results[idx] = sum
+		}(i, start, end)
+	}
+
+	wg.Wait()
+	total := 0.0
+	for _, r := range results {
+		total += r
+	}
+	return total
+}
+
+func heavyComputation(v float64) float64 {
+	// Simulate CPU-intensive work
+	result := v
+	for i := 0; i &lt; 1000; i++ {
+		result += float64(i) * v / (float64(i) + 1)
+	}
+	return result
+}
+
+// ============================================================
+// Optimization 6: Data-oriented design - cache friendly
+// ============================================================
+
+type EntitySOA struct {
+	X, Y, Z []float64 // Structure of Arrays
+}
+
+type EntityAOS struct {
+	X, Y, Z float64 // Array of Structures
+}
+
+// AOS: poor cache locality when accessing only X
+func sumXAOS(entities []EntityAOS) float64 {
+	sum := 0.0
+	for _, e := range entities {
+		sum += e.X // Each access jumps over Y, Z in memory
+	}
+	return sum
+}
+
+// SOA: excellent cache locality for X
+func sumXSOA(entities EntitySOA) float64 {
+	sum := 0.0
+	for _, x := range entities.X { // Contiguous in memory
+		sum += x
+	}
+	return sum
+}
+
+// ============================================================
+// Optimization 7: String processing with Rune optimization
+// ============================================================
+
+// SLOW: allocate rune slice for every string
+func isAlphaSlow(s string) bool {
+	runes := []rune(s) // Allocates!
+	for _, r := range runes {
+		if !unicode.IsLetter(r) {
+			return false
+		}
+	}
+	return true
+}
+
+// FAST: range over string directly (no allocation)
+func isAlphaFast(s string) bool {
+	for _, r := range s { // Range over string yields runes directly
+		if !unicode.IsLetter(r) {
+			return false
+		}
+	}
+	return true
+}
+
+// ============================================================
+// Optimization 8: Sort optimization
+// ============================================================
+
+// SLOW: sort with comparison function allocation
+func sortSlow(nums []int) {
+	sort.Slice(nums, func(i, j int) bool {
+		return nums[i] &lt; nums[j]
+	})
+}
+
+// FAST: use sort.Ints (optimized native sort)
+func sortFast(nums []int) {
+	sort.Ints(nums)
+}
+
+// ============================================================
+// Benchmarks
+// ============================================================
+
+func BenchmarkConcatSlow(b *testing.B) {
+	parts := make([]string, 1000)
+	for i := range parts {
+		parts[i] = &quot;hello&quot;
+	}
+	b.ResetTimer()
+	for i := 0; i &lt; b.N; i++ {
+		concatSlow(parts)
+	}
+}
+
+func BenchmarkConcatFast(b *testing.B) {
+	parts := make([]string, 1000)
+	for i := range parts {
+		parts[i] = &quot;hello&quot;
+	}
+	b.ResetTimer()
+	for i := 0; i &lt; b.N; i++ {
+		concatFast(parts)
+	}
+}
+
+func BenchmarkIntToStrSlow(b *testing.B) {
+	for i := 0; i &lt; b.N; i++ {
+		intToStrSlow(i)
+	}
+}
+
+func BenchmarkIntToStrFast(b *testing.B) {
+	for i := 0; i &lt; b.N; i++ {
+		intToStrFast(i)
+	}
+}
+
+func BenchmarkProcessSequential(b *testing.B) {
+	data := make([]float64, 10000)
+	for i := range data {
+		data[i] = float64(i)
+	}
+	b.ResetTimer()
+	for i := 0; i &lt; b.N; i++ {
+		processSequential(data)
+	}
+}
+
+func BenchmarkProcessParallel(b *testing.B) {
+	data := make([]float64, 10000)
+	for i := range data {
+		data[i] = float64(i)
+	}
+	b.ResetTimer()
+	for i := 0; i &lt; b.N; i++ {
+		processParallel(data, 8)
+	}
+}
+
+// ============================================================
+// Main: demonstrate optimizations
+// ============================================================
+
+func main() {
+	parts := make([]string, 10000)
+	for i := range parts {
+		parts[i] = &quot;Go&quot;
+	}
+
+	// String concat comparison
+	result := concatFast(parts)
+	fmt.Printf(&quot;Concat result length: %d\n&quot;, len(result))
+
+	// Parallel processing
+	data := make([]float64, 100000)
+	for i := range data {
+		data[i] = float64(i) * 0.01
+	}
+
+	seqResult := processSequential(data[:1000])
+	parResult := processParallel(data[:1000], 8)
+	fmt.Printf(&quot;Sequential: %.2f, Parallel: %.2f\n&quot;, seqResult, parResult)
+
+	// Filter optimization
+	nums := make([]int, 100000)
+	for i := range nums {
+		nums[i] = i
+	}
+	filtered := filterFast(nums, func(n int) bool { return n%2 == 0 })
+	fmt.Printf(&quot;Filtered: %d items\n&quot;, len(filtered))
+
+	fmt.Println(&quot;\nRun benchmarks:&quot;)
+	fmt.Println(&quot;  go test -bench=. -benchmem&quot;)
+}</code></pre>
+
+<h2>执行预览</h2>
+
+<pre><code>$ go test -bench=. -benchmem -count=3
+BenchmarkConcatSlow-8          1000   2184521 ns/op  533568 B/op   999 allocs/op
+BenchmarkConcatFast-8         10000    152341 ns/op   32768 B/op     1 allocs/op
+
+BenchmarkIntToStrSlow-8      5000000      312 ns/op      48 B/op     2 allocs/op
+BenchmarkIntToStrFast-8     20000000       58 ns/op      16 B/op     1 allocs/op
+
+BenchmarkProcessSequential-8    100  12345678 ns/op       0 B/op     0 allocs/op
+BenchmarkProcessParallel-8      300   2109876 ns/op       0 B/op     0 allocs/op  (~6x speedup on 8 cores)
+
+$ benchstat old.txt new.txt
+name           old time/op    new time/op    delta
+Concat-8         2.18ms ± 1%    0.15ms ± 2%  -93.1%  (p=0.000 n=3+3)
+IntToStr-8        312ns ± 3%      58ns ± 1%  -81.4%  (p=0.000 n=3+3)
+Process-8        12.3ms ± 2%     2.1ms ± 5%  -82.9%  (p=0.000 n=3+3)</code></pre>
+
+<h2>注意事项</h2>
+
+<table><thead><tr>
+<th>主题</th>
+<th>说明</th>
+<th>建议</th>
+</tr></thead><tbody>
+<tr>
+<td>Benchmark 稳定性</td>
+<td>受系统负载影响</td>
+<td>跑至少 3 次，用 benchstat 对比</td>
+</tr>
+<tr>
+<td>逃逸分析</td>
+<td>堆分配比栈分配慢 10-100x</td>
+<td><code>go build -gcflags=-m</code> 查看</td>
+</tr>
+<tr>
+<td>内联</td>
+<td>小函数（<80 个 AST node）可内联</td>
+<td><code>go build -gcflags=-m</code> 查看内联决策</td>
+</tr>
+<tr>
+<td>GOMAXPROCS</td>
+<td>默认 = CPU 核心数</td>
+<td>容器中可能不准确，建议显式设置</td>
+</tr>
+<tr>
+<td>false sharing</td>
+<td>多 goroutine 写相邻内存</td>
+<td>对齐到 64B cache line</td>
+</tr>
+<tr>
+<td>PGO</td>
+<td>Go 1.21+ 支持自动 PGO</td>
+<td>传入 CPU profile 可提升 2-7%</td>
+</tr>
+</tbody></table>
+
+<h2>避坑指南</h2>
+
+<p>❌ <strong>凭直觉优化，不看 profile 数据</strong></p>
+<p>✅ 先用 pprof 找到真正的热点，再针对性优化</p>
+
+<p>❌ <strong>过度优化不重要的代码路径</strong></p>
+<p>✅ 专注优化热路径（hot path），冷路径可读性优先</p>
+
+<p>❌ <strong>Benchmark 忘记 <code>b.ResetTimer()</code></strong></p>
+<p>✅ 在 setup 完成后调用 ResetTimer，避免统计初始化开销</p>
+
+<p>❌ <strong>并行优化用于非 CPU 密集任务</strong></p>
+<p>✅ IO 密集用 goroutine-per-request，CPU 密集用固定 worker pool</p>
+
+<p>❌ <strong>忽略 <code>benchmem</code> 信息</strong></p>
+<p>✅ 每次优化都看 allocs/op，减少分配 = 减少 GC 压力</p>
+
+<h2>练习题</h2>
+
+<p>🟢 <strong>基础题：Benchmark 编写</strong></p>
+<p>为 <code>strings.Builder</code> vs <code>+</code> 拼接编写 benchmark，用 benchstat 量化差异。</p>
+
+<p>🟡 <strong>中级题：逃逸优化</strong></p>
+<p>编写一个函数，使用 <code>go build -gcflags=-m</code> 找到逃逸点，通过参数调整消除逃逸，对比优化前后的 benchmark 结果。</p>
+
+<p>🔴 <strong>高级题：端到端优化</strong></p>
+<p>优化一个 JSON 解析函数（<code>json.Unmarshal</code> → 手写解析器），记录每步优化的 benchmark 结果，最终达到 3x 以上提升。</p>
+
+<h2>知识点总结</h2>
+
+<pre><code>Go CPU 优化体系
+├── 测量工具
+│   ├── go test -bench
+│   ├── go tool pprof
+│   ├── benchstat（统计对比）
+│   └── go build -gcflags=-m（逃逸分析）
+├── 优化层次（从高到低 ROI）
+│   ├── 算法复杂度（最高 ROI）
+│   ├── 数据结构选择
+│   ├── 并行化
+│   ├── 减少分配
+│   ├── 内联 / 编译优化
+│   └── SIMD / 汇编（最低 ROI）
+├── Go 特有技巧
+│   ├── strings.Builder 替代 +
+│   ├── strconv 替代 fmt
+│   ├── sync.Pool 复用
+│   ├── slice/map 预分配
+│   └── range string 不转 []rune
+└── 生产实践
+    ├── PGO（Go 1.21+）
+    ├── GOMAXPROCS 调优
+    └── 持续 Benchmark CI</code></pre>
+
+<h2>举一反三</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>优化策略</th>
+<th>工具</th>
+<th>预期效果</th>
+</tr></thead><tbody>
+<tr>
+<td>JSON 序列化慢</td>
+<td>easyjson/codegen</td>
+<td>pprof CPU</td>
+<td>3-5x</td>
+</tr>
+<tr>
+<td>字符串拼接慢</td>
+<td>strings.Builder</td>
+<td>benchstat</td>
+<td>10-50x</td>
+</tr>
+<tr>
+<td>排序耗时</td>
+<td>sort.Ints + 预分配</td>
+<td>pprof</td>
+<td>2-3x</td>
+</tr>
+<tr>
+<td>CPU 密集计算</td>
+<td>goroutine worker pool</td>
+<td>trace</td>
+<td>~N核倍</td>
+</tr>
+<tr>
+<td>大量小对象分配</td>
+<td>sync.Pool</td>
+<td>heap profile</td>
+<td>2-5x</td>
+</tr>
+<tr>
+<td>接口调用开销</td>
+<td>泛型/类型特化</td>
+<td>benchmark</td>
+<td>1.2-2x</td>
+</tr>
+</tbody></table>
+
+<h2>参考资料</h2>
+
+<ul>
+<li><a href="https://github.com/golang/go/wiki/Performance">Go Performance Tips (Official Wiki)</a></li>
+<li><a href="https://filippo.io/fast-and-safe-json-in-go/">Fast JSON in Go (Filippo)</a></li>
+<li><a href="https://teivah.medium.com/">Go Optimizations 101 (Teiva Harsanyi)</a></li>
+<li><a href="https://go.dev/doc/pgo">Profile-Guided Optimization in Go 1.21</a></li>
+
+<h2>代码演进</h2>
+
+<h3>v1: 基础 — Naive 实现</h3>
+
+<pre><code class="language-go">func process(items []string) string {
+    result := &quot;&quot;
+    for _, item := range items {
+        result += fmt.Sprintf(&quot;%s,&quot;, item) // Slow concat + reflection
+    }
+    return result
+}</code></pre>
+
+<h3>v2: 进阶 — 减少分配</h3>
+
+<pre><code class="language-go">func process(items []string) string {
+    var b strings.Builder
+    b.Grow(len(items) * 10) // Pre-allocate
+    for _, item := range items {
+        b.WriteString(item)
+        b.WriteByte(&#x27;,&#x27;)
+    }
+    return b.String()
+}</code></pre>
+
+<h3>v3: 生产级 — 并行 + Pool + Benchmark CI</h3>
+
+<pre><code class="language-go">func process(items []string) string {
+    chunks := splitChunks(items, runtime.NumCPU())
+    results := make([]string, len(chunks))
+    var wg sync.WaitGroup
+    for i, chunk := range chunks {
+        wg.Add(1)
+        go func(idx int, c []string) {
+            defer wg.Done()
+            buf := bufPool.Get().(*strings.Builder)
+            defer func() { buf.Reset(); bufPool.Put(buf) }()
+            for _, item := range c {
+                buf.WriteString(item)
+                buf.WriteByte(&#x27;,&#x27;)
+            }
+            results[idx] = buf.String()
+        }(i, chunk)
+    }
+    wg.Wait()
+    return strings.Join(results, &quot;&quot;)
+}</code></pre>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

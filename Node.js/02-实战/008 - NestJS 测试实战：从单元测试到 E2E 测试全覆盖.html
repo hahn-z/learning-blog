@@ -1,0 +1,812 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>008 - NestJS 测试实战：从单元测试到 E2E 测试全覆盖</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Node.js/index.html">Node.js</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Node.js/02-实战/index.html">Node.js实战</a>
+</nav>
+<h1>008 - NestJS 测试实战：从单元测试到 E2E 测试全覆盖</h1>
+<div class="meta">
+<span>📂 Node.js实战</span>
+<span>🏷️ Node.js</span>
+</div>
+<article>
+
+
+<h2>难度标注</h2>
+
+<blockquote><p>⭐⭐⭐☆☆ 中等 | 需要了解 NestJS 基础和测试概念</p></blockquote>
+
+<h2>概念讲解</h2>
+
+<h3>为什么需要测试？</h3>
+
+<p>测试不是负担，而是安全网。当你修改代码时，测试能快速告诉你是否破坏了已有功能。NestJS 提供了完整的测试工具链，让单元测试和 E2E 测试都变得简单。</p>
+
+<h3>NestJS 测试体系</h3>
+
+<p>NestJS 默认使用 <strong>Jest</strong> 作为测试框架，并提供了 <code>@nestjs/testing</code> 包来简化测试编写。</p>
+
+<p><strong>三种测试类型：</strong></p>
+
+<table><thead><tr>
+<th>类型</th>
+<th>范围</th>
+<th>速度</th>
+<th>目的</th>
+</tr></thead><tbody>
+<tr>
+<td>单元测试</td>
+<td>单个类/函数</td>
+<td>⚡ 极快</td>
+<td>验证逻辑正确性</td>
+</tr>
+<tr>
+<td>集成测试</td>
+<td>模块内多组件</td>
+<td>🏃 较快</td>
+<td>验证组件协作</td>
+</tr>
+<tr>
+<td>E2E 测试</td>
+<td>完整应用</td>
+<td>🐢 较慢</td>
+<td>验证用户场景</td>
+</tr>
+</tbody></table>
+
+<p><strong>核心概念：</strong></p>
+<ul>
+<li><strong>Test Module</strong>：用 <code>Test.createTestingModule()</code> 创建测试用的 Nest 模块</li>
+<li><strong>Mock / Stub</strong>：替换真实依赖，隔离测试目标</li>
+<li><strong>Supertest</strong>：E2E 测试中模拟 HTTP 请求</li>
+
+<h3>测试金字塔</h3>
+
+<pre><code>        /  E2E  \           ← 少量，慢
+       / 集成测试  \         ← 适量
+      /   单元测试    \      ← 大量，快</code></pre>
+
+<h2>脑图</h2>
+
+<pre><code>NestJS Testing
+├── 单元测试
+│   ├── Test.createTestingModule()
+│   ├── Jest Mock (jest.fn / jest.mock)
+│   ├── Controller 测试
+│   └── Service 测试
+├── E2E 测试
+│   ├── supertest (request)
+│   ├── app.init() / app.close()
+│   └── 数据库测试策略
+├── Mock 策略
+│   ├── 手动 Mock
+│   ├── jest.fn()
+│   ├── jest.mock()
+│   └── Custom Provider
+├── 测试技巧
+│   ├── beforeEach / afterEach
+│   ├── 覆盖率配置
+│   ├── 异步测试
+│   └── 环境变量模拟
+└── 最佳实践
+    ├── AAA 模式 (Arrange-Act-Assert)
+    ├── 命名规范
+    ├── 测试独立性
+    └── CI/CD 集成</code></pre>
+
+<h2>完整代码</h2>
+
+<h3>被测代码</h3>
+
+<pre><code class="language-typescript">// src/cats/cats.service.ts
+import { Injectable, NotFoundException } from &#x27;@nestjs/common&#x27;;
+import { CreateCatDto } from &#x27;./dto/create-cat.dto&#x27;;
+import { Cat } from &#x27;./interfaces/cat.interface&#x27;;
+
+@Injectable()
+export class CatsService {
+  private readonly cats: Cat[] = [];
+
+  create(createCatDto: CreateCatDto): Cat {
+    const cat: Cat = {
+      id: this.cats.length + 1,
+      ...createCatDto,
+      createdAt: new Date(),
+    };
+    this.cats.push(cat);
+    return cat;
+  }
+
+  findAll(): Cat[] {
+    return this.cats;
+  }
+
+  findOne(id: number): Cat {
+    const cat = this.cats.find((c) =&gt; c.id === id);
+    if (!cat) {
+      throw new NotFoundException(`Cat #${id} not found`);
+    }
+    return cat;
+  }
+
+  update(id: number, updateDto: Partial&lt;CreateCatDto&gt;): Cat {
+    const cat = this.findOne(id);
+    Object.assign(cat, updateDto);
+    return cat;
+  }
+
+  remove(id: number): void {
+    const index = this.cats.findIndex((c) =&gt; c.id === id);
+    if (index === -1) {
+      throw new NotFoundException(`Cat #${id} not found`);
+    }
+    this.cats.splice(index, 1);
+  }
+}</code></pre>
+
+<pre><code class="language-typescript">// src/cats/cats.controller.ts
+import { Controller, Get, Post, Body, Param, Delete, Patch } from &#x27;@nestjs/common&#x27;;
+import { CatsService } from &#x27;./cats.service&#x27;;
+import { CreateCatDto } from &#x27;./dto/create-cat.dto&#x27;;
+import { Cat } from &#x27;./interfaces/cat.interface&#x27;;
+
+@Controller(&#x27;cats&#x27;)
+export class CatsController {
+  constructor(private readonly catsService: CatsService) {}
+
+  @Post()
+  create(@Body() createCatDto: CreateCatDto): Cat {
+    return this.catsService.create(createCatDto);
+  }
+
+  @Get()
+  findAll(): Cat[] {
+    return this.catsService.findAll();
+  }
+
+  @Get(&#x27;:id&#x27;)
+  findOne(@Param(&#x27;id&#x27;) id: string): Cat {
+    return this.catsService.findOne(+id);
+  }
+
+  @Patch(&#x27;:id&#x27;)
+  update(@Param(&#x27;id&#x27;) id: string, @Body() updateDto: Partial&lt;CreateCatDto&gt;): Cat {
+    return this.catsService.update(+id, updateDto);
+  }
+
+  @Delete(&#x27;:id&#x27;)
+  remove(@Param(&#x27;id&#x27;) id: string): void {
+    this.catsService.remove(+id);
+  }
+}</code></pre>
+
+<pre><code class="language-typescript">// src/cats/dto/create-cat.dto.ts
+export class CreateCatDto {
+  name: string;
+  age: number;
+  breed: string;
+}</code></pre>
+
+<pre><code class="language-typescript">// src/cats/interfaces/cat.interface.ts
+export interface Cat {
+  id: number;
+  name: string;
+  age: number;
+  breed: string;
+  createdAt: Date;
+}</code></pre>
+
+<h3>v1：单元测试</h3>
+
+<pre><code class="language-typescript">// src/cats/cats.service.spec.ts
+import { Test, TestingModule } from &#x27;@nestjs/testing&#x27;;
+import { NotFoundException } from &#x27;@nestjs/common&#x27;;
+import { CatsService } from &#x27;./cats.service&#x27;;
+
+describe(&#x27;CatsService&#x27;, () =&gt; {
+  let service: CatsService;
+
+  beforeEach(async () =&gt; {
+    // Create a fresh module for each test
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [CatsService],
+    }).compile();
+
+    service = module.get&lt;CatsService&gt;(CatsService);
+  });
+
+  describe(&#x27;create&#x27;, () =&gt; {
+    it(&#x27;should create a cat and return it with an id&#x27;, () =&gt; {
+      // Arrange
+      const dto = { name: &#x27;Whiskers&#x27;, age: 3, breed: &#x27;Siamese&#x27; };
+
+      // Act
+      const result = service.create(dto);
+
+      // Assert
+      expect(result).toEqual({
+        id: 1,
+        name: &#x27;Whiskers&#x27;,
+        age: 3,
+        breed: &#x27;Siamese&#x27;,
+        createdAt: expect.any(Date),
+      });
+    });
+
+    it(&#x27;should auto-increment id&#x27;, () =&gt; {
+      service.create({ name: &#x27;Cat1&#x27;, age: 1, breed: &#x27;A&#x27; });
+      const cat2 = service.create({ name: &#x27;Cat2&#x27;, age: 2, breed: &#x27;B&#x27; });
+
+      expect(cat2.id).toBe(2);
+    });
+  });
+
+  describe(&#x27;findAll&#x27;, () =&gt; {
+    it(&#x27;should return empty array initially&#x27;, () =&gt; {
+      expect(service.findAll()).toEqual([]);
+    });
+
+    it(&#x27;should return all created cats&#x27;, () =&gt; {
+      service.create({ name: &#x27;Cat1&#x27;, age: 1, breed: &#x27;A&#x27; });
+      service.create({ name: &#x27;Cat2&#x27;, age: 2, breed: &#x27;B&#x27; });
+
+      expect(service.findAll()).toHaveLength(2);
+    });
+  });
+
+  describe(&#x27;findOne&#x27;, () =&gt; {
+    it(&#x27;should return cat by id&#x27;, () =&gt; {
+      const created = service.create({ name: &#x27;Tom&#x27;, age: 4, breed: &#x27;Persian&#x27; });
+      const found = service.findOne(created.id);
+      expect(found.name).toBe(&#x27;Tom&#x27;);
+    });
+
+    it(&#x27;should throw NotFoundException for missing id&#x27;, () =&gt; {
+      expect(() =&gt; service.findOne(999)).toThrow(NotFoundException);
+      expect(() =&gt; service.findOne(999)).toThrow(&#x27;Cat #999 not found&#x27;);
+    });
+  });
+
+  describe(&#x27;update&#x27;, () =&gt; {
+    it(&#x27;should update cat fields&#x27;, () =&gt; {
+      const cat = service.create({ name: &#x27;Tom&#x27;, age: 4, breed: &#x27;Persian&#x27; });
+      const updated = service.update(cat.id, { age: 5 });
+      expect(updated.age).toBe(5);
+      expect(updated.name).toBe(&#x27;Tom&#x27;); // Unchanged
+    });
+  });
+
+  describe(&#x27;remove&#x27;, () =&gt; {
+    it(&#x27;should remove cat from list&#x27;, () =&gt; {
+      const cat = service.create({ name: &#x27;Tom&#x27;, age: 4, breed: &#x27;Persian&#x27; });
+      service.remove(cat.id);
+      expect(service.findAll()).toHaveLength(0);
+    });
+
+    it(&#x27;should throw when removing non-existent cat&#x27;, () =&gt; {
+      expect(() =&gt; service.remove(999)).toThrow(NotFoundException);
+    });
+  });
+});</code></pre>
+
+<pre><code class="language-typescript">// src/cats/cats.controller.spec.ts
+import { Test, TestingModule } from &#x27;@nestjs/testing&#x27;;
+import { CatsController } from &#x27;./cats.controller&#x27;;
+import { CatsService } from &#x27;./cats.service&#x27;;
+
+describe(&#x27;CatsController&#x27;, () =&gt; {
+  let controller: CatsController;
+  let service: CatsService;
+
+  beforeEach(async () =&gt; {
+    const module: TestingModule = await Test.createTestingModule({
+      controllers: [CatsController],
+      providers: [CatsService], // Use real service for controller test
+    }).compile();
+
+    controller = module.get&lt;CatsController&gt;(CatsController);
+    service = module.get&lt;CatsService&gt;(CatsService);
+  });
+
+  it(&#x27;should be defined&#x27;, () =&gt; {
+    expect(controller).toBeDefined();
+  });
+
+  describe(&#x27;create&#x27;, () =&gt; {
+    it(&#x27;should call service.create and return result&#x27;, () =&gt; {
+      const dto = { name: &#x27;Tom&#x27;, age: 3, breed: &#x27;Persian&#x27; };
+      const result = controller.create(dto);
+      expect(result.name).toBe(&#x27;Tom&#x27;);
+      expect(service.findAll()).toHaveLength(1);
+    });
+  });
+
+  describe(&#x27;findOne&#x27;, () =&gt; {
+    it(&#x27;should convert string id to number&#x27;, () =&gt; {
+      const cat = service.create({ name: &#x27;Tom&#x27;, age: 3, breed: &#x27;Persian&#x27; });
+      const result = controller.findOne(&#x27;1&#x27;);
+      expect(result.id).toBe(1);
+    });
+  });
+});</code></pre>
+
+<h3>v2：带 Mock 的单元测试</h3>
+
+<pre><code class="language-typescript">// src/cats/cats.controller.spec.ts (v2 - with mocks)
+import { Test, TestingModule } from &#x27;@nestjs/testing&#x27;;
+import { CatsController } from &#x27;./cats.controller&#x27;;
+import { CatsService } from &#x27;./cats.service&#x27;;
+
+describe(&#x27;CatsController (with mocks)&#x27;, () =&gt; {
+  let controller: CatsController;
+  // Fully mocked service
+  let service: jest.Mocked&lt;CatsService&gt;;
+
+  beforeEach(async () =&gt; {
+    // Create mock for each service method
+    const mockService = {
+      create: jest.fn(),
+      findAll: jest.fn(),
+      findOne: jest.fn(),
+      update: jest.fn(),
+      remove: jest.fn(),
+    };
+
+    const module: TestingModule = await Test.createTestingModule({
+      controllers: [CatsController],
+      providers: [
+        {
+          provide: CatsService,
+          useValue: mockService,
+        },
+      ],
+    }).compile();
+
+    controller = module.get&lt;CatsController&gt;(CatsController);
+    service = module.get(CatsService);
+  });
+
+  describe(&#x27;create&#x27;, () =&gt; {
+    it(&#x27;should delegate to service.create&#x27;, () =&gt; {
+      const dto = { name: &#x27;Tom&#x27;, age: 3, breed: &#x27;Persian&#x27; };
+      const expected = { id: 1, ...dto, createdAt: new Date() };
+      service.create.mockReturnValue(expected);
+
+      const result = controller.create(dto);
+
+      expect(service.create).toHaveBeenCalledWith(dto);
+      expect(result).toEqual(expected);
+    });
+  });
+
+  describe(&#x27;findAll&#x27;, () =&gt; {
+    it(&#x27;should return array from service&#x27;, () =&gt; {
+      const cats = [{ id: 1, name: &#x27;Tom&#x27;, age: 3, breed: &#x27;P&#x27;, createdAt: new Date() }];
+      service.findAll.mockReturnValue(cats);
+
+      expect(controller.findAll()).toEqual(cats);
+      expect(service.findAll).toHaveBeenCalled();
+    });
+  });
+
+  describe(&#x27;findOne&#x27;, () =&gt; {
+    it(&#x27;should convert id param to number&#x27;, () =&gt; {
+      service.findOne.mockReturnValue({ id: 1 } as any);
+      controller.findOne(&#x27;1&#x27;);
+      expect(service.findOne).toHaveBeenCalledWith(1);
+    });
+  });
+});</code></pre>
+
+<h3>v3：E2E 测试</h3>
+
+<pre><code class="language-typescript">// test/cats.e2e-spec.ts
+import { Test, TestingModule } from &#x27;@nestjs/testing&#x27;;
+import { INestApplication, ValidationPipe } from &#x27;@nestjs/common&#x27;;
+import * as request from &#x27;supertest&#x27;;
+import { AppModule } from &#x27;../src/app.module&#x27;;
+
+describe(&#x27;Cats API (e2e)&#x27;, () =&gt; {
+  let app: INestApplication;
+
+  beforeAll(async () =&gt; {
+    const moduleFixture: TestingModule = await Test.createTestingModule({
+      imports: [AppModule],
+    }).compile();
+
+    app = moduleFixture.createNestApplication();
+    // Apply same pipes as production
+    app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
+    await app.init();
+  });
+
+  afterAll(async () =&gt; {
+    await app.close();
+  });
+
+  const testCat = { name: &#x27;Tom&#x27;, age: 3, breed: &#x27;Persian&#x27; };
+
+  describe(&#x27;POST /cats&#x27;, () =&gt; {
+    it(&#x27;should create a cat&#x27;, () =&gt; {
+      return request(app.getHttpServer())
+        .post(&#x27;/cats&#x27;)
+        .send(testCat)
+        .expect(201)
+        .expect((res) =&gt; {
+          expect(res.body.name).toBe(&#x27;Tom&#x27;);
+          expect(res.body.id).toBeDefined();
+        });
+    });
+  });
+
+  describe(&#x27;GET /cats&#x27;, () =&gt; {
+    it(&#x27;should return array of cats&#x27;, () =&gt; {
+      return request(app.getHttpServer())
+        .get(&#x27;/cats&#x27;)
+        .expect(200)
+        .expect((res) =&gt; {
+          expect(Array.isArray(res.body)).toBe(true);
+        });
+    });
+  });
+
+  describe(&#x27;GET /cats/:id&#x27;, () =&gt; {
+    it(&#x27;should return 404 for non-existent cat&#x27;, () =&gt; {
+      return request(app.getHttpServer())
+        .get(&#x27;/cats/9999&#x27;)
+        .expect(404);
+    });
+  });
+
+  describe(&#x27;Full CRUD flow&#x27;, () =&gt; {
+    let catId: number;
+
+    it(&#x27;should complete full CRUD lifecycle&#x27;, async () =&gt; {
+      // Create
+      const createRes = await request(app.getHttpServer())
+        .post(&#x27;/cats&#x27;)
+        .send({ name: &#x27;Lifecycle Cat&#x27;, age: 1, breed: &#x27;Test&#x27; });
+      expect(createRes.status).toBe(201);
+      catId = createRes.body.id;
+
+      // Read
+      const getRes = await request(app.getHttpServer())
+        .get(`/cats/${catId}`);
+      expect(getRes.status).toBe(200);
+      expect(getRes.body.name).toBe(&#x27;Lifecycle Cat&#x27;);
+
+      // Update
+      const updateRes = await request(app.getHttpServer())
+        .patch(`/cats/${catId}`)
+        .send({ age: 2 });
+      expect(updateRes.status).toBe(200);
+      expect(updateRes.body.age).toBe(2);
+
+      // Delete
+      const deleteRes = await request(app.getHttpServer())
+        .delete(`/cats/${catId}`);
+      expect(deleteRes.status).toBe(200);
+
+      // Verify deleted
+      await request(app.getHttpServer())
+        .get(`/cats/${catId}`)
+        .expect(404);
+    });
+  });
+});</code></pre>
+
+<h2>执行预览</h2>
+
+<pre><code class="language-bash"># 运行单元测试
+$ npm run test
+
+ PASS  src/cats/cats.service.spec.ts
+  CatsService
+    create
+      ✓ should create a cat and return it with an id (3 ms)
+      ✓ should auto-increment id (1 ms)
+    findAll
+      ✓ should return empty array initially
+      ✓ should return all created cats (1 ms)
+    findOne
+      ✓ should return cat by id (1 ms)
+      ✓ should throw NotFoundException for missing id (2 ms)
+    update
+      ✓ should update cat fields (1 ms)
+    remove
+      ✓ should remove cat from list (1 ms)
+      ✓ should throw when removing non-existent cat
+
+ PASS  src/cats/cats.controller.spec.ts
+  CatsController (with mocks)
+    ✓ should delegate to service.create (2 ms)
+    ✓ should return array from service (1 ms)
+    ✓ should convert id param to number
+
+Test Suites: 2 passed, 2 total
+Tests:       12 passed, 12 total
+
+# 运行 E2E 测试
+$ npm run test:e2e
+
+ PASS  test/cats.e2e-spec.ts
+  Cats API (e2e)
+    POST /cats
+      ✓ should create a cat (45 ms)
+    GET /cats
+      ✓ should return array of cats (8 ms)
+    GET /cats/:id
+      ✓ should return 404 for non-existent cat (5 ms)
+    Full CRUD flow
+      ✓ should complete full CRUD lifecycle (32 ms)
+
+Test Suites: 1 passed, 1 total
+Tests:       4 passed, 4 total</code></pre>
+
+<h2>注意事项</h2>
+
+<table><thead><tr>
+<th>项目</th>
+<th>说明</th>
+</tr></thead><tbody>
+<tr>
+<td>测试隔离</td>
+<td>每个 <code>it</code> 块应该独立运行，不依赖其他测试的执行顺序</td>
+</tr>
+<tr>
+<td>beforeEach</td>
+<td>用它重置状态，确保每次测试都从干净的状态开始</td>
+</tr>
+<tr>
+<td>Mock 边界</td>
+<td>Controller 测试 Mock Service，Service 测试 Mock Repository</td>
+</tr>
+<tr>
+<td>E2E 环境</td>
+<td>E2E 测试可能需要独立的测试数据库，避免污染开发数据</td>
+</tr>
+<tr>
+<td>覆盖率</td>
+<td>目标 80%+ 覆盖率，核心业务逻辑争取 95%+</td>
+</tr>
+<tr>
+<td>异步测试</td>
+<td>注意 <code>async/await</code>，忘记 <code>await</code> 会导致假通过</td>
+</tr>
+<tr>
+<td>jest.useFakeTimers</td>
+<td>涉及定时器的代码需要 mock 时间</td>
+</tr>
+</tbody></table>
+
+<h2>避坑指南</h2>
+
+<table><thead><tr>
+<th>❌ 错误做法</th>
+<th>✅ 正确做法</th>
+</tr></thead><tbody>
+<tr>
+<td>测试之间共享可变状态</td>
+<td>每个测试独立创建数据，用 <code>beforeEach</code> 重置</td>
+</tr>
+<tr>
+<td>测试实现细节（私有方法）</td>
+<td>测试公开的 API 行为和输出</td>
+</tr>
+<tr>
+<td><code>expect</code> 放在 <code>catch</code> 块中</td>
+<td>使用 <code>expect().rejects.toThrow()</code> 或 <code>expect(() => fn()).toThrow()</code></td>
+</tr>
+<tr>
+<td>E2E 测试依赖执行顺序</td>
+<td>每个测试自包含，或用 <code>describe</code> 分组确保顺序</td>
+</tr>
+<tr>
+<td>忽略 TypeScript 类型</td>
+<td>用 <code>as any</code> 仅在必要时，尽量保持类型安全</td>
+</tr>
+<tr>
+<td>Mock 一切导致测试无意义</td>
+<td>关键路径用真实依赖，仅 Mock 外部 I/O（DB、HTTP）</td>
+</tr>
+<tr>
+<td><code>setTimeout</code> 中写断言</td>
+<td>用 <code>jest.useFakeTimers()</code> 或 <code>waitFor()</code> 工具</td>
+</tr>
+</tbody></table>
+
+<h2>练习题</h2>
+
+<h3>🟢 初级</h3>
+
+<ol>
+<li>为 <code>CatsService</code> 编写 <code>findAll</code> 返回空数组的测试</li>
+</ul>
+<ol>
+<li>编写测试验证 <code>create</code> 方法返回的对象包含 <code>id</code> 字段</li>
+</ul>
+<ol>
+<li>编写 Controller 测试，验证 <code>findOne</code> 正确调用 Service</li>
+
+<h3>🟡 中级</h3>
+
+<ol>
+<li>使用 <code>jest.fn()</code> Mock <code>CatsService</code>，编写 Controller 的完整测试</li>
+</ul>
+<ol>
+<li>编写测试验证 <code>NotFoundException</code> 在查询不存在记录时被抛出</li>
+</ul>
+<ol>
+<li>为 E2E 测试添加验证管道（ValidationPipe）的测试用例</li>
+
+<h3>🔴 高级</h3>
+
+<ol>
+<li>编写数据库相关的集成测试，使用内存 SQLite</li>
+</ul>
+<ol>
+<li>实现 <code>@nestjs/testing</code> 的自定义 Provider 覆盖外部服务</li>
+</ul>
+<ol>
+<li>配置 CI 流水线，实现覆盖率门禁（低于 80% 则构建失败）</li>
+
+<h2>知识点总结</h2>
+
+<pre><code>NestJS Testing 知识树
+├── 单元测试
+│   ├── Test.createTestingModule()
+│   ├── module.get&lt;T&gt;() 获取实例
+│   ├── jest.fn() 创建 Mock
+│   └── expect() 断言
+├── Mock 策略
+│   ├── useValue - 对象 Mock
+│   ├── useFactory - 动态 Mock
+│   ├── useExisting - 别名
+│   └── jest.spyOn() - 部分 Mock
+├── E2E 测试
+│   ├── supertest request()
+│   ├── app.init() / app.close()
+│   ├── httpServer 模拟请求
+│   └── 状态码 + 响应体断言
+├── 配置
+│   ├── jest-e2e.json
+│   ├── 覆盖率 collectCoverageFrom
+│   └── moduleNameMapper 路径别名
+└── 模式
+    ├── AAA (Arrange-Act-Assert)
+    ├── Given-When-Then
+    └── 测试夹具 (Fixtures)</code></pre>
+
+<h2>举一反三</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>本文方法</th>
+<th>迁移场景</th>
+<th>迁移方案</th>
+</tr></thead><tbody>
+<tr>
+<td>Service 测试</td>
+<td>直接实例化</td>
+<td>第三方 API 调用</td>
+<td>Mock axios/fetch</td>
+</tr>
+<tr>
+<td>Controller 测试</td>
+<td>Mock Service</td>
+<td>Guard/Interceptor</td>
+<td>用 <code>overrideGuard</code> 跳过或 Mock</td>
+</tr>
+<tr>
+<td>E2E 测试</td>
+<td>supertest</td>
+<td>GraphQL API</td>
+<td>用 <code>request().send({ query })</code></td>
+</tr>
+<tr>
+<td>Mock Provider</td>
+<td>useValue</td>
+<td>TypeORM Repository</td>
+<td>Mock <code>find</code>/<code>save</code>/<code>findOne</code></td>
+</tr>
+<tr>
+<td>覆盖率</td>
+<td>Jest 配置</td>
+<td>前端组件</td>
+<td>加 <code>@testing-library</code></td>
+</tr>
+</tbody></table>
+
+<h2>参考资料</h2>
+
+<ul>
+<li><a href="https://docs.nestjs.com/fundamentals/testing">NestJS Testing 官方文档</a></li>
+<li><a href="https://jestjs.io/docs/getting-started">Jest 官方文档</a></li>
+<li><a href="https://github.com/visionmedia/supertest">Supertest GitHub</a></li>
+<li><a href="https://javascript.plainenglish.io/testing-nestjs-apps-with-jest-7553296e2f0b">Testing NestJS 系列</a></li>
+
+<h2>代码演进</h2>
+
+<pre><code>v1 (纯单元测试)
+├── Service 直接测试
+├── Controller 用真实 Service
+├── 简单断言
+└── 无 Mock
+
+       ↓ 引入 Mock
+
+v2 (Mock 隔离)
+├── jest.fn() Mock Service
+├── Controller 完全隔离
+├── 验证调用参数
+└── 验证调用次数
+
+       ↓ 完整覆盖
+
+v3 (E2E + 集成)
+├── supertest HTTP 模拟
+├── 完整 CRUD 生命周期
+├── 验证管道和异常
+└── CI 覆盖率门禁</code></pre>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

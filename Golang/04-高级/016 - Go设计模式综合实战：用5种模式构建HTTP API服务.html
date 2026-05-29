@@ -1,0 +1,752 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>016 - Go设计模式综合实战：用5种模式构建HTTP API服务</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Golang/index.html">Golang</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Golang/04-高级/index.html">Golang高级</a>
+</nav>
+<h1>016 - Go设计模式综合实战：用5种模式构建HTTP API服务</h1>
+<div class="meta">
+<span>📂 Golang高级</span>
+<span>🏷️ Golang</span>
+</div>
+<article>
+
+
+<h1>Go设计模式综合实战：用5种模式构建HTTP API服务</h1>
+
+<blockquote><p><strong>难度标注：</strong> ⭐⭐⭐⭐☆ 高级<br><strong>前置知识：</strong> Go基础、HTTP服务、接口、并发<br><strong>预计用时：</strong> 60分钟</p></blockquote>
+
+<hr>
+
+<h2>一、概念讲解</h2>
+
+<p>设计模式不是教条，而是解决特定问题的工具箱。本文通过一个真实场景——构建一个支持多种认证方式、多种存储后端的HTTP API服务——综合运用5种经典设计模式。</p>
+
+<table><thead><tr>
+<th>模式</th>
+<th>解决的问题</th>
+<th>本场景应用</th>
+</tr></thead><tbody>
+<tr>
+<td>策略模式</td>
+<td>算法族切换</td>
+<td>认证方式（JWT/Session/APIKey）</td>
+</tr>
+<tr>
+<td>工厂模式</td>
+<td>对象创建解耦</td>
+<td>存储后端（MySQL/Redis/Mongo）</td>
+</tr>
+<tr>
+<td>中间件模式</td>
+<td>横切关注点分离</td>
+<td>日志、限流、认证链</td>
+</tr>
+<tr>
+<td>单例模式</td>
+<td>全局唯一实例</td>
+<td>配置管理、连接池</td>
+</tr>
+<tr>
+<td>观察者模式</td>
+<td>事件驱动通信</td>
+<td>操作审计、缓存失效</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>二、脑图（ASCII）</h2>
+
+<pre><code>                    ┌──────────────┐
+                    │  API Server  │
+                    └──────┬───────┘
+                           │
+            ┌──────────────┼──────────────┐
+            │              │              │
+     ┌──────┴──────┐ ┌────┴────┐ ┌──────┴──────┐
+     │  Middleware  │ │ Handler │ │   Storage   │
+     │    Chain    │ │  Router  │ │   Factory   │
+     └──────┬──────┘ └────┬────┘ └──────┬──────┘
+            │              │              │
+     ┌──────┼──────┐      │       ┌──────┼──────┐
+     │      │      │      │       │      │      │
+   Auth  Logger  Rate   Route   MySQL  Redis  Mongo
+  Strategy          Limit  Handler
+     │
+  ┌──┼──┐
+  │  │  │
+ JWT Ses Key</code></pre>
+
+<hr>
+
+<h2>三、完整Go代码</h2>
+
+<h3>v1 基础版本：策略模式 + 工厂模式</h3>
+
+<pre><code class="language-go">package main
+
+import (
+	&quot;encoding/json&quot;
+	&quot;fmt&quot;
+	&quot;log&quot;
+	&quot;net/http&quot;
+	&quot;sync&quot;
+	&quot;time&quot;
+)
+
+// ============================================================
+// Strategy Pattern: Authentication strategies
+// ============================================================
+
+// AuthStrategy defines how to authenticate a request
+type AuthStrategy interface {
+	Authenticate(r *http.Request) (userID string, err error)
+	Name() string
+}
+
+// JWTAuth implements token-based authentication
+type JWTAuth struct {
+	secret string
+}
+
+func (j *JWTAuth) Authenticate(r *http.Request) (string, error) {
+	token := r.Header.Get(&quot;Authorization&quot;)
+	if token == &quot;&quot; {
+		return &quot;&quot;, fmt.Errorf(&quot;missing authorization header&quot;)
+	}
+	// Simplified JWT validation (use golang-jwt in production)
+	if len(token) &lt; 10 {
+		return &quot;&quot;, fmt.Errorf(&quot;invalid token&quot;)
+	}
+	return &quot;user_from_jwt&quot;, nil
+}
+
+func (j *JWTAuth) Name() string { return &quot;JWT&quot; }
+
+// APIKeyAuth implements API key authentication
+type APIKeyAuth struct {
+	keys map[string]string // apiKey -&gt; userID
+}
+
+func (a *APIKeyAuth) Authenticate(r *http.Request) (string, error) {
+	key := r.Header.Get(&quot;X-API-Key&quot;)
+	if key == &quot;&quot; {
+		return &quot;&quot;, fmt.Errorf(&quot;missing API key&quot;)
+	}
+	if uid, ok := a.keys[key]; ok {
+		return uid, nil
+	}
+	return &quot;&quot;, fmt.Errorf(&quot;invalid API key&quot;)
+}
+
+func (a *APIKeyAuth) Name() string { return &quot;APIKey&quot; }
+
+// ============================================================
+// Factory Pattern: Storage backends
+// ============================================================
+
+// Storage defines data persistence interface
+type Storage interface {
+	Get(key string) (string, error)
+	Set(key, value string) error
+	Delete(key string) error
+	Name() string
+}
+
+// MemoryStorage is an in-memory implementation
+type MemoryStorage struct {
+	mu   sync.RWMutex
+	data map[string]string
+}
+
+func NewMemoryStorage() *MemoryStorage {
+	return &amp;MemoryStorage{data: make(map[string]string)}
+}
+
+func (m *MemoryStorage) Get(key string) (string, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	v, ok := m.data[key]
+	if !ok {
+		return &quot;&quot;, fmt.Errorf(&quot;key not found: %s&quot;, key)
+	}
+	return v, nil
+}
+
+func (m *MemoryStorage) Set(key, value string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.data[key] = value
+	return nil
+}
+
+func (m *MemoryStorage) Delete(key string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	delete(m.data, key)
+	return nil
+}
+
+func (m *MemoryStorage) Name() string { return &quot;Memory&quot; }
+
+// StorageFactory creates storage by type name
+type StorageFactory struct{}
+
+func (f *StorageFactory) Create(storageType string) Storage {
+	switch storageType {
+	case &quot;memory&quot;:
+		return NewMemoryStorage()
+	default:
+		return NewMemoryStorage() // default fallback
+	}
+}
+
+// ============================================================
+// Singleton Pattern: Configuration manager
+// ============================================================
+
+type Config struct {
+	AuthType    string
+	StorageType string
+	Port        string
+}
+
+var (
+	config     *Config
+	configOnce sync.Once
+)
+
+func GetConfig() *Config {
+	configOnce.Do(func() {
+		config = &amp;Config{
+			AuthType:    &quot;jwt&quot;,
+			StorageType: &quot;memory&quot;,
+			Port:        &quot;:8080&quot;,
+		}
+	})
+	return config
+}
+
+// ============================================================
+// Middleware Pattern: Chain of responsibility
+// ============================================================
+
+// Middleware is a function that wraps an http.Handler
+type Middleware func(http.Handler) http.Handler
+
+// Chain builds a middleware chain
+func Chain(middlewares ...Middleware) Middleware {
+	return func(final http.Handler) http.Handler {
+		for i := len(middlewares) - 1; i &gt;= 0; i-- {
+			final = middlewares[i](final)
+		}
+		return final
+	}
+}
+
+// LoggingMiddleware logs request details
+func LoggingMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		start := time.Now()
+		next.ServeHTTP(w, r)
+		log.Printf(&quot;[%s] %s %v&quot;, r.Method, r.URL.Path, time.Since(start))
+	})
+}
+
+// AuthMiddleware authenticates requests using the configured strategy
+func AuthMiddleware(strategy AuthStrategy) Middleware {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			uid, err := strategy.Authenticate(r)
+			if err != nil {
+				http.Error(w, `{&quot;error&quot;:&quot;unauthorized&quot;}`, http.StatusUnauthorized)
+				return
+			}
+			r.Header.Set(&quot;X-User-ID&quot;, uid)
+			next.ServeHTTP(w, r)
+		})
+	}
+}
+
+// ============================================================
+// Observer Pattern: Event system
+// ============================================================
+
+// Event represents something that happened
+type Event struct {
+	Type string
+	Data map[string]interface{}
+}
+
+// Observer listens for events
+type Observer interface {
+	Notify(event Event)
+}
+
+// EventBus distributes events to observers
+type EventBus struct {
+	mu        sync.RWMutex
+	observers map[string][]Observer
+}
+
+func NewEventBus() *EventBus {
+	return &amp;EventBus{
+		observers: make(map[string][]Observer),
+	}
+}
+
+func (eb *EventBus) Subscribe(eventType string, o Observer) {
+	eb.mu.Lock()
+	defer eb.mu.Unlock()
+	eb.observers[eventType] = append(eb.observers[eventType], o)
+}
+
+func (eb *EventBus) Publish(event Event) {
+	eb.mu.RLock()
+	defer eb.mu.RUnlock()
+	for _, o := range eb.observers[event.Type] {
+		go o.Notify(event) // async notification
+	}
+}
+
+// AuditLogger is an observer that logs all events
+type AuditLogger struct{}
+
+func (a *AuditLogger) Notify(event Event) {
+	log.Printf(&quot;[AUDIT] %s: %v&quot;, event.Type, event.Data)
+}
+
+// ============================================================
+// HTTP Handlers
+// ============================================================
+
+type API struct {
+	storage  Storage
+	eventBus *EventBus
+}
+
+func (api *API) HandleGet(w http.ResponseWriter, r *http.Request) {
+	key := r.URL.Query().Get(&quot;key&quot;)
+	val, err := api.storage.Get(key)
+	if err != nil {
+		json.NewEncoder(w).Encode(map[string]string{&quot;error&quot;: err.Error()})
+		return
+	}
+	api.eventBus.Publish(Event{
+		Type: &quot;data.access&quot;,
+		Data: map[string]interface{}{&quot;key&quot;: key, &quot;user&quot;: r.Header.Get(&quot;X-User-ID&quot;)},
+	})
+	json.NewEncoder(w).Encode(map[string]string{&quot;key&quot;: key, &quot;value&quot;: val})
+}
+
+func (api *API) HandleSet(w http.ResponseWriter, r *http.Request) {
+	var body struct {
+		Key   string `json:&quot;key&quot;`
+		Value string `json:&quot;value&quot;`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&amp;body); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	api.storage.Set(body.Key, body.Value)
+	api.eventBus.Publish(Event{
+		Type: &quot;data.update&quot;,
+		Data: map[string]interface{}{&quot;key&quot;: body.Key, &quot;user&quot;: r.Header.Get(&quot;X-User-ID&quot;)},
+	})
+	json.NewEncoder(w).Encode(map[string]string{&quot;status&quot;: &quot;ok&quot;})
+}
+
+// ============================================================
+// Main: Wire everything together
+// ============================================================
+
+func main() {
+	cfg := GetConfig()
+
+	// Factory creates storage
+	factory := &amp;StorageFactory{}
+	storage := factory.Create(cfg.StorageType)
+
+	// Strategy for auth
+	var authStrategy AuthStrategy
+	switch cfg.AuthType {
+	case &quot;jwt&quot;:
+		authStrategy = &amp;JWTAuth{secret: &quot;my-secret&quot;}
+	case &quot;apikey&quot;:
+		authStrategy = &amp;APIKeyAuth{keys: map[string]string{&quot;test-key&quot;: &quot;user1&quot;}}
+	default:
+		authStrategy = &amp;JWTAuth{secret: &quot;my-secret&quot;}
+	}
+
+	// Observer: event bus
+	eventBus := NewEventBus()
+	eventBus.Subscribe(&quot;data.update&quot;, &amp;AuditLogger{})
+	eventBus.Subscribe(&quot;data.access&quot;, &amp;AuditLogger{})
+
+	// Build API
+	api := &amp;API{storage: storage, eventBus: eventBus}
+
+	mux := http.NewServeMux()
+	mux.HandleFunc(&quot;/get&quot;, api.HandleGet)
+	mux.HandleFunc(&quot;/set&quot;, api.HandleSet)
+
+	// Middleware chain
+	handler := Chain(
+		LoggingMiddleware,
+		AuthMiddleware(authStrategy),
+	)(mux)
+
+	log.Printf(&quot;Server starting on %s (auth=%s, storage=%s)&quot;, cfg.Port, authStrategy.Name(), storage.Name())
+	log.Fatal(http.ListenAndServe(cfg.Port, handler))
+}</code></pre>
+
+<h3>v2 增强版本：加入限流中间件 + 优雅关闭</h3>
+
+<pre><code class="language-go">// Add to v1 code:
+
+// RateLimitMiddleware throttles requests per IP
+func RateLimitMiddleware(rps int) Middleware {
+	type visitor struct {
+		limit  int
+		count  int
+		window time.Time
+	}
+	var (
+		mu       sync.Mutex
+		visitors = make(map[string]*visitor)
+	)
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			ip := r.RemoteAddr
+			mu.Lock()
+			v, ok := visitors[ip]
+			if !ok || time.Since(v.window) &gt; time.Second {
+				visitors[ip] = &amp;visitor{limit: rps, count: 1, window: time.Now()}
+				mu.Unlock()
+				next.ServeHTTP(w, r)
+				return
+			}
+			v.count++
+			if v.count &gt; v.limit {
+				mu.Unlock()
+				http.Error(w, `{&quot;error&quot;:&quot;rate limited&quot;}`, http.StatusTooManyRequests)
+				return
+			}
+			mu.Unlock()
+			next.ServeHTTP(w, r)
+		})
+	}
+}
+
+// Update main() to add graceful shutdown:
+func runServer() {
+	// ... same setup as v1 ...
+	handler := Chain(
+		LoggingMiddleware,
+		RateLimitMiddleware(100),
+		AuthMiddleware(authStrategy),
+	)(mux)
+
+	srv := &amp;http.Server{Addr: cfg.Port, Handler: handler}
+
+	// Graceful shutdown on signal
+	go func() {
+		sig := make(chan os.Signal, 1)
+		signal.Notify(sig, syscall.SIGINT, syscall.SIGTERM)
+		&lt;-sig
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		srv.Shutdown(ctx)
+	}()
+
+	log.Fatal(srv.ListenAndServe())
+}</code></pre>
+
+<h3>v3 生产版本：配置外部化 + 健康检查</h3>
+
+<pre><code class="language-go">// Add health check and config from environment
+func healthHandler(w http.ResponseWriter, r *http.Request) {
+	json.NewEncoder(w).Encode(map[string]string{
+		&quot;status&quot;: &quot;ok&quot;,
+		&quot;time&quot;:   time.Now().Format(time.RFC3339),
+	})
+}
+
+// In main(), add:
+mux.HandleFunc(&quot;/health&quot;, healthHandler)
+// Read config from env:
+cfg.AuthType = os.Getenv(&quot;AUTH_TYPE&quot;)
+cfg.StorageType = os.Getenv(&quot;STORAGE_TYPE&quot;)</code></pre>
+
+<hr>
+
+<h2>四、执行预览</h2>
+
+<pre><code class="language-bash"># Start server
+$ go run main.go
+Server starting on :8080 (auth=JWT, storage=Memory)
+
+# Set data (with JWT token)
+$ curl -X POST http://localhost:8080/set \
+  -H &quot;Authorization: Bearer my-jwt-token&quot; \
+  -d &#x27;{&quot;key&quot;:&quot;hello&quot;,&quot;value&quot;:&quot;world&quot;}&#x27;
+{&quot;status&quot;:&quot;ok&quot;}
+
+# Get data
+$ curl &quot;http://localhost:8080/get?key=hello&quot; \
+  -H &quot;Authorization: Bearer my-jwt-token&quot;
+{&quot;key&quot;:&quot;hello&quot;,&quot;value&quot;:&quot;world&quot;}
+
+# Server logs
+[POST] /set 120µs
+[AUDIT] data.update: map[key:hello user:user_from_jwt]
+[GET] /get?key=hello 45µs
+[AUDIT] data.access: map[key:hello user:user_from_jwt]</code></pre>
+
+<hr>
+
+<h2>五、注意事项</h2>
+
+<table><thead><tr>
+<th>注意点</th>
+<th>说明</th>
+</tr></thead><tbody>
+<tr>
+<td>接口设计</td>
+<td>接口要小而专注，遵循ISP原则</td>
+</tr>
+<tr>
+<td>并发安全</td>
+<td>MemoryStorage用sync.RWMutex保护map</td>
+</tr>
+<tr>
+<td>内存泄漏</td>
+<td>EventBus的goroutine要有退出机制</td>
+</tr>
+<tr>
+<td>中间件顺序</td>
+<td>认证应在业务处理之前，限流应在认证之前</td>
+</tr>
+<tr>
+<td>错误处理</td>
+<td>每层中间件都要处理错误，不要吞掉</td>
+</tr>
+<tr>
+<td>单例初始化</td>
+<td>sync.Once保证只初始化一次，即使并发调用</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>六、避坑指南</h2>
+
+<table><thead><tr>
+<th>❌ 错误做法</th>
+<th>✅ 正确做法</th>
+</tr></thead><tbody>
+<tr>
+<td>用继承实现模式</td>
+<td>Go没有继承，用组合和接口</td>
+</tr>
+<tr>
+<td>把所有逻辑塞进一个handler</td>
+<td>用中间件分层，职责单一</td>
+</tr>
+<tr>
+<td>sync.Once里做耗时初始化</td>
+<td>Once只做轻量初始化，重活放init</td>
+</tr>
+<tr>
+<td>观察者同步通知</td>
+<td>用goroutine异步通知避免阻塞</td>
+</tr>
+<tr>
+<td>工厂返回具体类型</td>
+<td>工厂返回接口类型</td>
+</tr>
+<tr>
+<td>全局变量当单例</td>
+<td>用sync.Once保证线程安全</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>七、练习题</h2>
+
+<h3>🟢 基础题</h3>
+<ol>
+<li>为Storage添加一个Redis实现，使用工厂模式创建</li>
+</ul>
+<ol>
+<li>添加一个日志中间件，记录请求体大小</li>
+
+<h3>🟡 进阶题</h3>
+<ol>
+<li>实现一个缓存观察者：当data.update事件触发时，自动清除对应缓存</li>
+</ul>
+<ol>
+<li>为限流中间件添加滑动窗口算法</li>
+
+<h3>🔴 挑战题</h3>
+<ol>
+<li>实现插件机制：通过配置文件动态加载中间件链，无需重新编译</li>
+
+<hr>
+
+<h2>八、知识点总结</h2>
+
+<pre><code>设计模式实战
+├── 创建型
+│   ├── 单例模式（sync.Once）
+│   └── 工厂模式（StorageFactory）
+├── 行为型
+│   ├── 策略模式（AuthStrategy）
+│   ├── 观察者模式（EventBus）
+│   └── 中间件模式（Chain）
+└── Go特色实现
+    ├── 接口隐式实现
+    ├── 函数类型做中间件
+    └── goroutine做异步通知</code></pre>
+
+<hr>
+
+<h2>九、举一反三</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>可用模式</th>
+<th>Go实现方式</th>
+</tr></thead><tbody>
+<tr>
+<td>多种支付方式</td>
+<td>策略模式</td>
+<td>PaymentStrategy接口</td>
+</tr>
+<tr>
+<td>多种消息推送</td>
+<td>观察者模式</td>
+<td>channel+select</td>
+</tr>
+<tr>
+<td>插件系统</td>
+<td>工厂+策略</td>
+<td>plugin包或接口注册</td>
+</tr>
+<tr>
+<td>请求处理流水线</td>
+<td>中间件/责任链</td>
+<td>HandlerFunc嵌套</td>
+</tr>
+<tr>
+<td>全局配置</td>
+<td>单例模式</td>
+<td>sync.Once</td>
+</tr>
+<tr>
+<td>数据库连接池</td>
+<td>单例+工厂</td>
+<td>sql.DB + init函数</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>十、参考资料</h2>
+
+<ul>
+<li><a href="https://github.com/tmrts/go-patterns">Go Design Patterns (GitHub)</a></li>
+<li><a href="https://go.dev/doc/effective_go#interfaces">Effective Go - Interfaces</a></li>
+<li><a href="https://pkg.go.dev/net/http#Handler">Go标准库http.Handler设计</a></li>
+
+<hr>
+
+<h2>十一、代码演进总结</h2>
+
+<table><thead><tr>
+<th>版本</th>
+<th>内容</th>
+<th>复杂度</th>
+</tr></thead><tbody>
+<tr>
+<td>v1</td>
+<td>5种模式基础实现</td>
+<td>⭐⭐⭐</td>
+</tr>
+<tr>
+<td>v2</td>
+<td>加入限流+优雅关闭</td>
+<td>⭐⭐⭐⭐</td>
+</tr>
+<tr>
+<td>v3</td>
+<td>配置外部化+健康检查</td>
+<td>⭐⭐⭐⭐⭐</td>
+</tr>
+</tbody></table>
+
+<blockquote><p><strong>核心思想：</strong> 设计模式不是生搬硬套，而是根据问题选择合适的工具。Go的接口和组合让很多模式比传统OOP更简洁。</p></blockquote>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

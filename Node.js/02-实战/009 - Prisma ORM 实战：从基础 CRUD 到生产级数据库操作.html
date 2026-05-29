@@ -1,0 +1,845 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>009 - Prisma ORM 实战：从基础 CRUD 到生产级数据库操作</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Node.js/index.html">Node.js</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Node.js/02-实战/index.html">Node.js实战</a>
+</nav>
+<h1>009 - Prisma ORM 实战：从基础 CRUD 到生产级数据库操作</h1>
+<div class="meta">
+<span>📂 Node.js实战</span>
+<span>🏷️ Node.js</span>
+</div>
+<article>
+
+
+<h2>难度标注</h2>
+
+<blockquote><p>⭐⭐⭐☆☆ 中等 | 需要了解 Node.js 和数据库基础</p></blockquote>
+
+<h2>概念讲解</h2>
+
+<h3>什么是 Prisma？</h3>
+
+<p>Prisma 是下一代 Node.js/TypeScript ORM，它不使用传统的装饰器或模型类，而是通过 <strong>Schema 声明式定义</strong> 数据模型，然后自动生成类型安全的客户端代码。</p>
+
+<h3>Prisma vs 其他 ORM</h3>
+
+<table><thead><tr>
+<th>特性</th>
+<th>Prisma</th>
+<th>TypeORM</th>
+<th>Sequelize</th>
+<th>Mongoose</th>
+</tr></thead><tbody>
+<tr>
+<td>类型安全</td>
+<td>✅ 自动生成</td>
+<td>⚠️ 需手动</td>
+<td>❌ 弱</td>
+<td>⚠️ 需手动</td>
+</tr>
+<tr>
+<td>Schema 定义</td>
+<td><code>.prisma</code> 文件</td>
+<td>装饰器</td>
+<td>JS 对象</td>
+<td>Schema</td>
+</tr>
+<tr>
+<td>迁移工具</td>
+<td>✅ 内置</td>
+<td>✅ 内置</td>
+<td>❌ 手动</td>
+<td>❌ 无</td>
+</tr>
+<tr>
+<td>查询方式</td>
+<td>链式 API</td>
+<td>QueryBuilder</td>
+<td>链式/原始</td>
+<td>链式</td>
+</tr>
+<tr>
+<td>学习曲线</td>
+<td>低</td>
+<td>中</td>
+<td>中</td>
+<td>中</td>
+</tr>
+<tr>
+<td>多数据库</td>
+<td>✅</td>
+<td>✅</td>
+<td>✅</td>
+<td>MongoDB only</td>
+</tr>
+</tbody></table>
+
+<h3>核心组件</h3>
+
+<ul>
+<li><strong>Prisma Schema</strong>（<code>schema.prisma</code>）：声明式数据模型定义</li>
+<li><strong>Prisma Client</strong>：自动生成的类型安全查询客户端</li>
+<li><strong>Prisma Migrate</strong>：数据库迁移管理工具</li>
+<li><strong>Prisma Studio</strong>：可视化数据库管理界面</li>
+
+<h2>脑图</h2>
+
+<pre><code>Prisma ORM
+├── 核心概念
+│   ├── Schema 定义 (schema.prisma)
+│   ├── 数据源 (datasource)
+│   ├── 生成器 (generator)
+│   └── 模型 (model)
+├── CRUD 操作
+│   ├── create / createMany
+│   ├── findUnique / findFirst / findMany
+│   ├── update / updateMany / upsert
+│   └── delete / deleteMany
+├── 高级查询
+│   ├── 过滤 (where)
+│   ├── 排序 (orderBy)
+│   ├── 分页 (skip/take/cursor)
+│   ├── 关联查询 (include/select)
+│   └── 原始 SQL ($queryRaw)
+├── 关系
+│   ├── 一对一 (1:1)
+│   ├── 一对多 (1:N)
+│   └── 多对多 (M:N)
+├── 迁移
+│   ├── prisma migrate dev
+│   ├── prisma migrate deploy
+│   └── prisma db push
+└── 最佳实践
+    ├── 事务 ($transaction)
+    ├── 中间件/扩展
+    ├── 连接池管理
+    └── N+1 优化</code></pre>
+
+<h2>完整代码</h2>
+
+<h3>项目初始化</h3>
+
+<pre><code class="language-bash">mkdir prisma-demo &amp;&amp; cd prisma-demo
+npm init -y
+npm install prisma @prisma/client express
+npx prisma init --datasource-provider postgresql</code></pre>
+
+<h3>Schema 定义</h3>
+
+<pre><code class="language-prisma">// prisma/schema.prisma
+
+generator client {
+  provider = &quot;prisma-client-js&quot;
+}
+
+datasource db {
+  provider = &quot;postgresql&quot;
+  url      = env(&quot;DATABASE_URL&quot;)
+}
+
+model User {
+  id        Int      @id @default(autoincrement())
+  email     String   @unique
+  name      String?
+  avatar    String?
+  role      Role     @default(USER)
+  posts     Post[]
+  profile   Profile?
+  createdAt DateTime @default(now()) @map(&quot;created_at&quot;)
+  updatedAt DateTime @updatedAt @map(&quot;updated_at&quot;)
+
+  @@map(&quot;users&quot;) // Map to table name &quot;users&quot;
+}
+
+model Profile {
+  id     Int     @id @default(autoincrement())
+  bio    String?
+  user   User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId Int     @unique @map(&quot;user_id&quot;)
+
+  @@map(&quot;profiles&quot;)
+}
+
+model Post {
+  id        Int       @id @default(autoincrement())
+  title     String
+  content   String?
+  published Boolean   @default(false)
+  author    User      @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  authorId  Int       @map(&quot;author_id&quot;)
+  tags      Tag[]
+  createdAt DateTime  @default(now()) @map(&quot;created_at&quot;)
+  updatedAt DateTime  @updatedAt @map(&quot;updated_at&quot;)
+
+  @@index([authorId]) // Add index for foreign key
+  @@map(&quot;posts&quot;)
+}
+
+model Tag {
+  id    Int    @id @default(autoincrement())
+  name  String @unique
+  posts Post[]
+
+  @@map(&quot;tags&quot;)
+}
+
+enum Role {
+  USER
+  ADMIN
+}</code></pre>
+
+<h3>v1：基础 CRUD</h3>
+
+<pre><code class="language-typescript">// src/database.ts
+import { PrismaClient } from &#x27;@prisma/client&#x27;;
+
+// Singleton pattern for Prisma Client
+const prisma = new PrismaClient({
+  log: [&#x27;query&#x27;, &#x27;info&#x27;, &#x27;warn&#x27;, &#x27;error&#x27;], // Enable logging
+});
+
+export default prisma;</code></pre>
+
+<pre><code class="language-typescript">// src/user.service.ts
+import prisma from &#x27;./database&#x27;;
+
+export class UserService {
+  // Create a new user
+  async create(data: { email: string; name?: string }) {
+    return prisma.user.create({ data });
+  }
+
+  // Find user by ID with profile
+  async findById(id: number) {
+    return prisma.user.findUnique({
+      where: { id },
+      include: {
+        profile: true,
+        posts: {
+          where: { published: true },
+          orderBy: { createdAt: &#x27;desc&#x27; },
+          take: 10,
+        },
+      },
+    });
+  }
+
+  // Find user by email
+  async findByEmail(email: string) {
+    return prisma.user.findUnique({ where: { email } });
+  }
+
+  // List users with pagination
+  async findMany(page: number = 1, limit: number = 20) {
+    const skip = (page - 1) * limit;
+    const [users, total] = await Promise.all([
+      prisma.user.findMany({
+        skip,
+        take: limit,
+        select: {
+          id: true,
+          email: true,
+          name: true,
+          role: true,
+          createdAt: true,
+          _count: { select: { posts: true } },
+        },
+        orderBy: { createdAt: &#x27;desc&#x27; },
+      }),
+      prisma.user.count(),
+    ]);
+
+    return {
+      data: users,
+      pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
+    };
+  }
+
+  // Update user
+  async update(id: number, data: { name?: string; email?: string }) {
+    return prisma.user.update({ where: { id }, data });
+  }
+
+  // Delete user (cascade deletes profile and posts)
+  async remove(id: number) {
+    return prisma.user.delete({ where: { id } });
+  }
+}</code></pre>
+
+<pre><code class="language-typescript">// src/post.service.ts
+import prisma from &#x27;./database&#x27;;
+import { Prisma } from &#x27;@prisma/client&#x27;;
+
+export class PostService {
+  // Create post with tags (connect or create)
+  async create(data: {
+    title: string;
+    content?: string;
+    authorId: number;
+    tagNames?: string[];
+  }) {
+    return prisma.post.create({
+      data: {
+        title: data.title,
+        content: data.content,
+        authorId: data.authorId,
+        tags: {
+          connectOrCreate: data.tagNames?.map((name) =&gt; ({
+            where: { name },
+            create: { name },
+          })),
+        },
+      },
+      include: { tags: true, author: { select: { id: true, name: true } } },
+    });
+  }
+
+  // Search posts with dynamic filters
+  async search(params: {
+    keyword?: string;
+    tag?: string;
+    authorId?: number;
+    published?: boolean;
+    page?: number;
+    limit?: number;
+  }) {
+    const { keyword, tag, authorId, published, page = 1, limit = 20 } = params;
+    const skip = (page - 1) * limit;
+
+    // Build dynamic where clause
+    const where: Prisma.PostWhereInput = {};
+    if (keyword) {
+      where.OR = [
+        { title: { contains: keyword, mode: &#x27;insensitive&#x27; } },
+        { content: { contains: keyword, mode: &#x27;insensitive&#x27; } },
+      ];
+    }
+    if (tag) where.tags = { some: { name: tag } };
+    if (authorId) where.authorId = authorId;
+    if (published !== undefined) where.published = published;
+
+    const [posts, total] = await Promise.all([
+      prisma.post.findMany({
+        where,
+        skip,
+        take: limit,
+        include: { tags: true, author: { select: { id: true, name: true } } },
+        orderBy: { createdAt: &#x27;desc&#x27; },
+      }),
+      prisma.post.count({ where }),
+    ]);
+
+    return { data: posts, pagination: { page, limit, total, totalPages: Math.ceil(total / limit) } };
+  }
+
+  // Publish a post
+  async publish(id: number) {
+    return prisma.post.update({ where: { id }, data: { published: true } });
+  }
+}</code></pre>
+
+<h3>v2：事务和高级查询</h3>
+
+<pre><code class="language-typescript">// src/advanced.service.ts
+import prisma from &#x27;./database&#x27;;
+
+export class AdvancedService {
+  /**
+   * Interactive transaction: create user + profile atomically
+   * Rolls back both if either fails
+   */
+  async createUserWithProfile(data: {
+    email: string;
+    name: string;
+    bio?: string;
+  }) {
+    return prisma.$transaction(async (tx) =&gt; {
+      // Check if email already exists
+      const existing = await tx.user.findUnique({ where: { email: data.email } });
+      if (existing) throw new Error(`Email ${data.email} already registered`);
+
+      // Create user
+      const user = await tx.user.create({
+        data: { email: data.email, name: data.name },
+      });
+
+      // Create profile
+      const profile = await tx.profile.create({
+        data: { bio: data.bio || &#x27;&#x27;, userId: user.id },
+      });
+
+      return { user, profile };
+    });
+  }
+
+  /**
+   * Batch transaction: create multiple posts atomically
+   */
+  async batchCreatePosts(posts: Array&lt;{ title: string; authorId: number }&gt;) {
+    return prisma.$transaction(
+      posts.map((post) =&gt; prisma.post.create({ data: post })),
+    );
+  }
+
+  /**
+   * Aggregation: get post count by author, ordered by most posts
+   */
+  async getAuthorStats() {
+    return prisma.user.findMany({
+      select: {
+        id: true,
+        name: true,
+        _count: { select: { posts: true } },
+      },
+      orderBy: { posts: { _count: &#x27;desc&#x27; } },
+    });
+  }
+
+  /**
+   * Raw SQL for complex full-text search (PostgreSQL)
+   */
+  async searchWithRank(keyword: string) {
+    return prisma.$queryRaw`
+      SELECT p.id, p.title, p.content,
+             ts_rank_cd(
+               to_tsvector(&#x27;english&#x27;, p.title || &#x27; &#x27; || COALESCE(p.content, &#x27;&#x27;)),
+               plainto_tsquery(&#x27;english&#x27;, ${keyword})
+             ) AS rank
+      FROM posts p
+      WHERE to_tsvector(&#x27;english&#x27;, p.title || &#x27; &#x27; || COALESCE(p.content, &#x27;&#x27;))
+            @@ plainto_tsquery(&#x27;english&#x27;, ${keyword})
+      ORDER BY rank DESC
+      LIMIT 20
+    `;
+  }
+
+  /**
+   * Upsert: insert if not exists, update if exists
+   */
+  async upsertUser(email: string, name: string) {
+    return prisma.user.upsert({
+      where: { email },
+      update: { name },
+      create: { email, name },
+    });
+  }
+}</code></pre>
+
+<h3>v3：Express API + 错误处理</h3>
+
+<pre><code class="language-typescript">// src/app.ts
+import express from &#x27;express&#x27;;
+import prisma from &#x27;./database&#x27;;
+import { UserService } from &#x27;./user.service&#x27;;
+import { PostService } from &#x27;./post.service&#x27;;
+
+const app = express();
+app.use(express.json());
+
+const userService = new UserService();
+const postService = new PostService();
+
+// User routes
+app.post(&#x27;/users&#x27;, async (req, res, next) =&gt; {
+  try {
+    const user = await userService.create(req.body);
+    res.status(201).json(user);
+  } catch (err) { next(err); }
+});
+
+app.get(&#x27;/users&#x27;, async (req, res, next) =&gt; {
+  try {
+    const result = await userService.findMany(
+      Number(req.query.page) || 1,
+      Number(req.query.limit) || 20,
+    );
+    res.json(result);
+  } catch (err) { next(err); }
+});
+
+app.get(&#x27;/users/:id&#x27;, async (req, res, next) =&gt; {
+  try {
+    const user = await userService.findById(Number(req.params.id));
+    if (!user) return res.status(404).json({ error: &#x27;User not found&#x27; });
+    res.json(user);
+  } catch (err) { next(err); }
+});
+
+// Post routes
+app.post(&#x27;/posts&#x27;, async (req, res, next) =&gt; {
+  try {
+    const post = await postService.create(req.body);
+    res.status(201).json(post);
+  } catch (err) { next(err); }
+});
+
+app.get(&#x27;/posts&#x27;, async (req, res, next) =&gt; {
+  try {
+    const result = await postService.search({
+      keyword: req.query.keyword as string,
+      tag: req.query.tag as string,
+      authorId: req.query.authorId ? Number(req.query.authorId) : undefined,
+      published: req.query.published === &#x27;true&#x27; ? true : undefined,
+      page: Number(req.query.page) || 1,
+    });
+    res.json(result);
+  } catch (err) { next(err); }
+});
+
+app.patch(&#x27;/posts/:id/publish&#x27;, async (req, res, next) =&gt; {
+  try {
+    const post = await postService.publish(Number(req.params.id));
+    res.json(post);
+  } catch (err) { next(err); }
+});
+
+// Prisma error handler
+app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) =&gt; {
+  console.error(err);
+  if (err.code === &#x27;P2002&#x27;) {
+    // Unique constraint violation
+    return res.status(409).json({ error: &#x27;Duplicate entry&#x27;, field: err.meta?.target });
+  }
+  if (err.code === &#x27;P2025&#x27;) {
+    // Record not found
+    return res.status(404).json({ error: &#x27;Record not found&#x27; });
+  }
+  res.status(500).json({ error: &#x27;Internal server error&#x27; });
+});
+
+// Graceful shutdown: disconnect Prisma
+process.on(&#x27;beforeExit&#x27;, async () =&gt; {
+  await prisma.$disconnect();
+});
+
+app.listen(3000, () =&gt; console.log(&#x27;Server running on http://localhost:3000&#x27;));</code></pre>
+
+<h2>执行预览</h2>
+
+<pre><code class="language-bash"># 生成迁移
+$ npx prisma migrate dev --name init
+
+Applying migration `20260429_init`
+The following migration(s) have been applied:
+migrations/
+  └─ 20260429_init/
+    └─ migration.sql
+
+✔ Generated Prisma Client
+
+# 生成客户端
+$ npx prisma generate
+✔ Prisma Client generated successfully
+
+# 打开可视化界面
+$ npx prisma studio
+✔ Prisma Studio is up on http://localhost:5555
+
+# 启动服务
+$ npx ts-node src/app.ts
+Server running on http://localhost:3000
+
+# API 测试
+$ curl -X POST http://localhost:3000/users \
+  -H &quot;Content-Type: application/json&quot; \
+  -d &#x27;{&quot;email&quot;:&quot;alice@example.com&quot;,&quot;name&quot;:&quot;Alice&quot;}&#x27;
+
+{&quot;id&quot;:1,&quot;email&quot;:&quot;alice@example.com&quot;,&quot;name&quot;:&quot;Alice&quot;,&quot;role&quot;:&quot;USER&quot;,...}
+
+$ curl http://localhost:3000/users
+{&quot;data&quot;:[{&quot;id&quot;:1,&quot;email&quot;:&quot;alice@example.com&quot;,...}],&quot;pagination&quot;:{&quot;page&quot;:1,&quot;limit&quot;:20,&quot;total&quot;:1,&quot;totalPages&quot;:1}}
+
+$ curl -X POST http://localhost:3000/posts \
+  -H &quot;Content-Type: application/json&quot; \
+  -d &#x27;{&quot;title&quot;:&quot;Hello Prisma&quot;,&quot;content&quot;:&quot;My first post&quot;,&quot;authorId&quot;:1,&quot;tagNames&quot;:[&quot;typescript&quot;,&quot;orm&quot;]}&#x27;
+
+{&quot;id&quot;:1,&quot;title&quot;:&quot;Hello Prisma&quot;,&quot;tags&quot;:[{&quot;id&quot;:1,&quot;name&quot;:&quot;typescript&quot;},{&quot;id&quot;:2,&quot;name&quot;:&quot;orm&quot;}],...}</code></pre>
+
+<h2>注意事项</h2>
+
+<table><thead><tr>
+<th>项目</th>
+<th>说明</th>
+</tr></thead><tbody>
+<tr>
+<td>连接池</td>
+<td>PostgreSQL 默认连接数 <code>num_cpus * 2 + 1</code>，可通过 <code>connection_limit</code> 调整</td>
+</tr>
+<tr>
+<td>N+1 问题</td>
+<td>用 <code>include</code> 预加载关联，避免循环中查询</td>
+</tr>
+<tr>
+<td>事务超时</td>
+<td>交互式事务默认 5 秒超时，可配置 <code>timeout</code> 参数</td>
+</tr>
+<tr>
+<td>软删除</td>
+<td>Prisma 不内置软删除，需在 Schema 中加 <code>deletedAt</code> 字段</td>
+</tr>
+<tr>
+<td>连接管理</td>
+<td>API 服务用单例 PrismaClient，Serverless 每次新建</td>
+</tr>
+<tr>
+<td>Schema 变更</td>
+<td>改完 Schema 后必须 <code>npx prisma migrate dev</code> 生成迁移</td>
+</tr>
+<tr>
+<td>枚举限制</td>
+<td><code>enum</code> 在 MySQL 中是真实 ENUM 类型，SQLite 不支持</td>
+</tr>
+</tbody></table>
+
+<h2>避坑指南</h2>
+
+<table><thead><tr>
+<th>❌ 错误做法</th>
+<th>✅ 正确做法</th>
+</tr></thead><tbody>
+<tr>
+<td>每个 API 请求 <code>new PrismaClient()</code></td>
+<td>应用级别单例，复用连接池</td>
+</tr>
+<tr>
+<td>在循环中查询关联数据</td>
+<td>用 <code>include</code> 一次加载，或用 <code>$queryRaw</code> JOIN</td>
+</tr>
+<tr>
+<td>忽略 Prisma 错误码</td>
+<td>根据 <code>err.code</code>（P2002、P2025 等）做精准处理</td>
+</tr>
+<tr>
+<td>直接拼接 SQL 字符串</td>
+<td>用 <code>$queryRaw</code> 标签模板，自动参数化防注入</td>
+</tr>
+<tr>
+<td><code>findMany</code> 不加 <code>take</code> 限制</td>
+<td>始终设置分页限制，避免一次加载全量数据</td>
+</tr>
+<tr>
+<td>生产环境用 <code>migrate dev</code></td>
+<td>生产用 <code>migrate deploy</code>，不会重置数据</td>
+</tr>
+<tr>
+<td>忘记 <code>$disconnect()</code></td>
+<td>应用关闭时断开连接，避免连接泄漏</td>
+</tr>
+</tbody></table>
+
+<h2>练习题</h2>
+
+<h3>🟢 初级</h3>
+
+<ol>
+<li>定义一个 <code>Comment</code> 模型，关联到 <code>Post</code> 和 <code>User</code>（多对一关系）</li>
+</ul>
+<ol>
+<li>编写查询：获取所有已发布的文章，按创建时间倒序排列</li>
+</ul>
+<ol>
+<li>使用 <code>createMany</code> 批量插入 10 条测试数据</li>
+
+<h3>🟡 中级</h3>
+
+<ol>
+<li>实现标签的多对多查询：获取包含特定标签的所有文章</li>
+</ul>
+<ol>
+<li>编写交互式事务：创建文章时同时更新用户的文章计数缓存</li>
+</ul>
+<ol>
+<li>实现光标分页（cursor-based pagination），替代 offset 分页</li>
+
+<h3>🔴 高级</h3>
+
+<ol>
+<li>使用 Prisma Middleware 实现自动软删除（查询时自动过滤 <code>deletedAt</code>）</li>
+</ul>
+<ol>
+<li>编写数据库 seeding 脚本（<code>prisma/seed.ts</code>），生成测试数据</li>
+</ul>
+<ol>
+<li>实现乐观锁：使用 <code>version</code> 字段防止并发更新冲突</li>
+
+<h2>知识点总结</h2>
+
+<pre><code>Prisma ORM 知识树
+├── Schema
+│   ├── model 定义
+│   ├── @id @unique @default
+│   ├── @map @@map (字段/表映射)
+│   ├── @relation (关联关系)
+│   ├── enum 枚举
+│   └── @@index 索引
+├── 查询 API
+│   ├── findUnique (唯一键查询)
+│   ├── findFirst (条件首条)
+│   ├── findMany (条件列表)
+│   ├── create / createMany
+│   ├── update / updateMany / upsert
+│   └── delete / deleteMany
+├── 关联操作
+│   ├── include (预加载)
+│   ├── select (字段选择)
+│   ├── connect / connectOrCreate
+│   └── create (嵌套创建)
+├── 高级功能
+│   ├── $transaction (事务)
+│   ├── $queryRaw (原始 SQL)
+│   ├── _count (聚合计数)
+│   └── Prisma Middleware
+├── 迁移
+│   ├── prisma migrate dev
+│   ├── prisma migrate deploy
+│   └── prisma db push (原型)
+└── 工具链
+    ├── prisma studio
+    ├── prisma generate
+    ├── prisma seed
+    └── prisma validate</code></pre>
+
+<h2>举一反三</h2>
+
+<table><thead><tr>
+<th>Prisma 特性</th>
+<th>本文用法</th>
+<th>其他场景</th>
+<th>迁移方案</th>
+</tr></thead><tbody>
+<tr>
+<td>关联查询</td>
+<td>include 预加载</td>
+<td>多层嵌套关联</td>
+<td>多级 <code>include</code> 或 <code>select</code></td>
+</tr>
+<tr>
+<td>事务</td>
+<td>交互式 $transaction</td>
+<td>批量转账</td>
+<td>批量事务 + 乐观锁</td>
+</tr>
+<tr>
+<td>动态过滤</td>
+<td>Prisma.WhereInput</td>
+<td>多条件搜索</td>
+<td>构建动态 where 对象</td>
+</tr>
+<tr>
+<td>原始 SQL</td>
+<td>全文搜索</td>
+<td>复杂报表统计</td>
+<td><code>$queryRaw</code> + 类型映射</td>
+</tr>
+<tr>
+<td>connectOrCreate</td>
+<td>标签自动创建</td>
+<td>用户设置</td>
+<td>确保唯一字段有索引</td>
+</tr>
+<tr>
+<td>分页</td>
+<td>skip/take</td>
+<td>无限滚动</td>
+<td>cursor-based 分页</td>
+</tr>
+</tbody></table>
+
+<h2>参考资料</h2>
+
+<ul>
+<li><a href="https://www.prisma.io/docs">Prisma 官方文档</a></li>
+<li><a href="https://www.prisma.io/docs/reference/api-reference/prisma-schema-reference">Prisma Schema Reference</a></li>
+<li><a href="https://www.prisma.io/docs/reference/api-reference/prisma-client-reference">Prisma Client API</a></li>
+<li><a href="https://www.prisma.io/docs/concepts/components/prisma-migrate">Prisma Migrate</a></li>
+<li><a href="https://www.prisma.io/docs/concepts/more/comparisons/prisma-and-typeorm">Prisma vs TypeORM 对比</a></li>
+
+<h2>代码演进</h2>
+
+<pre><code>v1 (基础 CRUD)
+├── Schema 定义
+├── PrismaClient 单例
+├── User/Post Service
+├── 分页查询
+└── 关联预加载
+
+       ↓ 加入事务
+
+v2 (高级查询)
+├── 交互式事务
+├── 批量操作
+├── 聚合统计
+├── 原始 SQL
+└── Upsert
+
+       ↓ 生产集成
+
+v3 (Express API)
+├── RESTful 路由
+├── Prisma 错误处理
+├── 动态过滤搜索
+├── 优雅关闭
+└── 连接池管理</code></pre>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

@@ -1,0 +1,660 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>008 - Node.js EventEmitter 事件系统详解</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Node.js/index.html">Node.js</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Node.js/01-入门/index.html">Node.js入门</a>
+</nav>
+<h1>008 - Node.js EventEmitter 事件系统详解</h1>
+<div class="meta">
+<span>📂 Node.js入门</span>
+<span>🏷️ Node.js</span>
+</div>
+<article>
+
+
+<h1>Node.js EventEmitter 事件系统详解</h1>
+
+<blockquote><p><strong>难度：</strong> ⭐⭐ 入门偏中<br><strong>前置知识：</strong> JavaScript 回调函数、对象基础<br><strong>阅读时间：</strong> 约 20 分钟</p></blockquote>
+
+<hr>
+
+<h2>一、概念讲解</h2>
+
+<h3>什么是 EventEmitter？</h3>
+
+<p>Node.js 的核心设计模式是<strong>事件驱动</strong>，而 <code>EventEmitter</code> 是这个模式的基石。</p>
+
+<p>类比：就像学校广播站——有人想广播就去登记（<code>on</code>），广播站发通知时所有登记的人都能听到（<code>emit</code>），不想听了可以取消登记（<code>off</code>）。</p>
+
+<pre><code class="language-js">const EventEmitter = require(&#x27;events&#x27;);
+const emitter = new EventEmitter();
+
+// Listen (subscribe)
+emitter.on(&#x27;bell&#x27;, () =&gt; console.log(&#x27;Class starts!&#x27;));
+
+// Emit (publish)
+emitter.emit(&#x27;bell&#x27;); // Output: Class starts!</code></pre>
+
+<h3>核心概念</h3>
+
+<table><thead><tr>
+<th>概念</th>
+<th>说明</th>
+<th>方法</th>
+</tr></thead><tbody>
+<tr>
+<td><strong>事件名</strong></td>
+<td>字符串标识，如 <code>'data'</code>, <code>'error'</code></td>
+<td>—</td>
+</tr>
+<tr>
+<td><strong>监听器（Listener）</strong></td>
+<td>事件触发时执行的回调函数</td>
+<td><code>on()</code>, <code>once()</code></td>
+</tr>
+<tr>
+<td><strong>触发（Emit）</strong></td>
+<td>手动触发一个事件</td>
+<td><code>emit()</code></td>
+</tr>
+<tr>
+<td><strong>移除（Remove）</strong></td>
+<td>取消监听</td>
+<td><code>off()</code>, <code>removeAllListeners()</code></td>
+</tr>
+<tr>
+<td><strong>错误处理</strong></td>
+<td>特殊事件，无监听器会抛异常</td>
+<td><code>on('error', ...)</code></td>
+</tr>
+</tbody></table>
+
+<h3>EventEmitter 的应用场景</h3>
+
+<p>Node.js 内部大量使用 EventEmitter：</p>
+
+<ul>
+<li><code>http.Server</code> — <code>request</code>, <code>connection</code>, <code>close</code></li>
+<li><code>fs.ReadStream</code> — <code>data</code>, <code>end</code>, <code>error</code></li>
+<li><code>process</code> — <code>exit</code>, <code>uncaughtException</code></li>
+<li><code>net.Socket</code> — <code>connect</code>, <code>data</code>, <code>end</code></li>
+
+<hr>
+
+<h2>二、脑图</h2>
+
+<pre><code>EventEmitter
+├── 核心概念
+│   ├── 发布-订阅模式
+│   ├── 事件名 (string)
+│   └── 监听器 (function)
+├── 常用方法
+│   ├── on(event, listener)     → 绑定
+│   ├── once(event, listener)   → 一次性绑定
+│   ├── emit(event, ...args)    → 触发
+│   ├── off(event, listener)    → 移除
+│   └── removeAllListeners()    → 全部移除
+├── 高级用法
+│   ├── 继承 EventEmitter
+│   ├── error 事件 (特殊处理)
+│   ├── newListener 事件
+│   └── listenerCount / getMaxListeners
+├── 实际应用
+│   ├── HTTP 服务器
+│   ├── Stream 流
+│   └── 自定义业务事件
+└── 注意事项
+    ├── 内存泄漏 (maxListeners)
+    ├── error 必须处理
+    └── 同步执行监听器</code></pre>
+
+<hr>
+
+<h2>三、完整代码示例</h2>
+
+<h3>示例 1：基础用法</h3>
+
+<pre><code class="language-js">// emitter-basics.js
+// Basic EventEmitter usage: on, once, emit, off
+
+const EventEmitter = require(&#x27;events&#x27;);
+const emitter = new EventEmitter();
+
+// Register a listener
+emitter.on(&#x27;greet&#x27;, (name) =&gt; {
+  console.log(`Hello, ${name}!`);
+});
+
+// Register a one-time listener
+emitter.once(&#x27;welcome&#x27;, () =&gt; {
+  console.log(&#x27;Welcome! (This only shows once)&#x27;);
+});
+
+// Emit events
+emitter.emit(&#x27;greet&#x27;, &#x27;Alice&#x27;);
+emitter.emit(&#x27;greet&#x27;, &#x27;Bob&#x27;);
+emitter.emit(&#x27;welcome&#x27;);
+emitter.emit(&#x27;welcome&#x27;); // No output - already consumed
+
+// Remove a specific listener
+const onLog = (msg) =&gt; console.log(`Log: ${msg}`);
+emitter.on(&#x27;log&#x27;, onLog);
+emitter.emit(&#x27;log&#x27;, &#x27;First message&#x27;);
+emitter.off(&#x27;log&#x27;, onLog);
+emitter.emit(&#x27;log&#x27;, &#x27;Second message&#x27;); // No output - removed</code></pre>
+
+<h3>示例 2：自定义 EventEmitter 类</h3>
+
+<pre><code class="language-js">// custom-emitter.js
+// Create a custom class that extends EventEmitter
+
+const EventEmitter = require(&#x27;events&#x27;);
+
+class ChatRoom extends EventEmitter {
+  constructor(name) {
+    super();
+    this.name = name;
+    this.users = new Set();
+  }
+
+  join(user) {
+    this.users.add(user);
+    this.emit(&#x27;join&#x27;, user); // Trigger event
+  }
+
+  leave(user) {
+    this.users.delete(user);
+    this.emit(&#x27;leave&#x27;, user);
+  }
+
+  send(user, message) {
+    if (!this.users.has(user)) {
+      this.emit(&#x27;error&#x27;, new Error(`${user} is not in the room`));
+      return;
+    }
+    this.emit(&#x27;message&#x27;, { user, message, time: new Date() });
+  }
+
+  getOnlineUsers() {
+    return [...this.users];
+  }
+}
+
+// Usage
+const room = new ChatRoom(&#x27;Node.js Discussion&#x27;);
+
+room.on(&#x27;join&#x27;, (user) =&gt; console.log(`✅ ${user} joined`));
+room.on(&#x27;leave&#x27;, (user) =&gt; console.log(`👋 ${user} left`));
+room.on(&#x27;message&#x27;, ({ user, message, time }) =&gt; {
+  console.log(`[${time.toLocaleTimeString()}] ${user}: ${message}`);
+});
+room.on(&#x27;error&#x27;, (err) =&gt; console.error(`❌ Error: ${err.message}`));
+
+room.join(&#x27;Alice&#x27;);
+room.join(&#x27;Bob&#x27;);
+room.send(&#x27;Alice&#x27;, &#x27;Hello everyone!&#x27;);
+room.send(&#x27;Charlie&#x27;, &#x27;Hi!&#x27;); // Error: Charlie not in room
+room.leave(&#x27;Bob&#x27;);</code></pre>
+
+<h3>示例 3：事件总线模式</h3>
+
+<pre><code class="language-js">// event-bus.js
+// Singleton event bus for cross-module communication
+
+const EventEmitter = require(&#x27;events&#x27;);
+
+class EventBus extends EventEmitter {
+  constructor() {
+    super();
+    this.setMaxListeners(20); // Increase limit for complex apps
+  }
+
+  // Type-safe channel helpers
+  channel(name) {
+    return {
+      publish: (...args) =&gt; this.emit(name, ...args),
+      subscribe: (fn) =&gt; {
+        this.on(name, fn);
+        return () =&gt; this.off(name, fn); // Return unsubscribe function
+      }
+    };
+  }
+}
+
+// Singleton instance
+const bus = new EventBus();
+
+// Module A: Publisher
+const userChannel = bus.channel(&#x27;user&#x27;);
+setTimeout(() =&gt; {
+  userChannel.publish({ id: 1, name: &#x27;Alice&#x27;, action: &#x27;login&#x27; });
+}, 1000);
+
+// Module B: Subscriber
+const unsubscribe = userChannel.subscribe((data) =&gt; {
+  console.log(`User event: ${data.name} ${data.action}`);
+});
+
+// Cleanup when done
+setTimeout(() =&gt; {
+  unsubscribe();
+  console.log(&#x27;Unsubscribed&#x27;);
+}, 3000);</code></pre>
+
+<hr>
+
+<h2>四、执行预览</h2>
+
+<p><strong>示例 1 运行结果：</strong></p>
+
+<pre><code>$ node emitter-basics.js
+Hello, Alice!
+Hello, Bob!
+Welcome! (This only shows once)
+Log: First message</code></pre>
+
+<p><strong>示例 2 运行结果：</strong></p>
+
+<pre><code>$ node custom-emitter.js
+✅ Alice joined
+✅ Bob joined
+[10:30:15 AM] Alice: Hello everyone!
+❌ Error: Charlie is not in the room
+👋 Bob left</code></pre>
+
+<p><strong>示例 3 运行结果：</strong></p>
+
+<pre><code>$ node event-bus.js
+User event: Alice login
+Unsubscribed</code></pre>
+
+<hr>
+
+<h2>五、注意事项</h2>
+
+<table><thead><tr>
+<th>注意点</th>
+<th>说明</th>
+<th>建议</th>
+</tr></thead><tbody>
+<tr>
+<td>error 事件</td>
+<td>没有监听器时，emit('error') 会抛出异常终止进程</td>
+<td>始终注册 error 监听器</td>
+</tr>
+<tr>
+<td>监听器上限</td>
+<td>默认最多 10 个，超过会警告</td>
+<td>用 <code>setMaxListeners()</code> 调整，或检查是否泄漏</td>
+</tr>
+<tr>
+<td>同步执行</td>
+<td>所有监听器按注册顺序同步执行</td>
+<td>不要假设异步；需要异步用 <code>setImmediate</code> 包装</td>
+</tr>
+<tr>
+<td>内存泄漏</td>
+<td>忘记移除监听器是常见泄漏源</td>
+<td>用 <code>once</code> 或确保 <code>off</code> 配对</td>
+</tr>
+<tr>
+<td>事件名冲突</td>
+<td>字符串事件名容易冲突</td>
+<td>用常量或 Symbol 管理事件名</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>六、避坑指南</h2>
+
+<h3>❌ 陷阱 1：忘记处理 error 事件</h3>
+
+<pre><code class="language-js">// ❌ Wrong: No error listener → process crashes
+const emitter = new EventEmitter();
+emitter.emit(&#x27;error&#x27;, new Error(&#x27;Boom&#x27;));
+// Throws: Unhandled &#x27;error&#x27; event</code></pre>
+
+<pre><code class="language-js">// ✅ Correct: Always handle errors
+const emitter = new EventEmitter();
+emitter.on(&#x27;error&#x27;, (err) =&gt; {
+  console.error(&#x27;Caught:&#x27;, err.message);
+});
+emitter.emit(&#x27;error&#x27;, new Error(&#x27;Handled gracefully&#x27;));</code></pre>
+
+<h3>❌ 陷阱 2：监听器泄漏</h3>
+
+<pre><code class="language-js">// ❌ Wrong: Adding listeners in a loop without cleanup
+function handleRequest(req) {
+  emitter.on(&#x27;data&#x27;, (chunk) =&gt; {
+    process.stdout.write(chunk);
+  });
+  // Every request adds a new listener! Memory leak!
+}</code></pre>
+
+<pre><code class="language-js">// ✅ Correct: Use once or clean up
+function handleRequest(req) {
+  const handler = (chunk) =&gt; process.stdout.write(chunk);
+  emitter.on(&#x27;data&#x27;, handler);
+  emitter.once(&#x27;end&#x27;, () =&gt; emitter.off(&#x27;data&#x27;, handler));
+}</code></pre>
+
+<h3>❌ 陷阱 3：箭头函数导致无法 off</h3>
+
+<pre><code class="language-js">// ❌ Wrong: Anonymous arrow function can&#x27;t be removed
+emitter.on(&#x27;ping&#x27;, () =&gt; console.log(&#x27;pong&#x27;));
+emitter.off(&#x27;ping&#x27;, () =&gt; console.log(&#x27;pong&#x27;)); // Does NOT remove!
+// Different function reference</code></pre>
+
+<pre><code class="language-js">// ✅ Correct: Store reference for removal
+const onPing = () =&gt; console.log(&#x27;pong&#x27;);
+emitter.on(&#x27;ping&#x27;, onPing);
+emitter.off(&#x27;ping&#x27;, onPing); // Now it works!</code></pre>
+
+<hr>
+
+<h2>七、练习题</h2>
+
+<h3>🟢 入门：计数器</h3>
+
+<p>创建一个 EventEmitter，实现：</p>
+<ul>
+<li><code>on('increment')</code> → 计数加 1</li>
+<li><code>on('decrement')</code> → 计数减 1</li>
+<li><code>on('count')</code> → 打印当前计数</li>
+
+<p><details></p>
+<p><summary>参考答案</summary></p>
+
+<pre><code class="language-js">const EventEmitter = require(&#x27;events&#x27;);
+const counter = new EventEmitter();
+let count = 0;
+
+counter.on(&#x27;increment&#x27;, () =&gt; { count++; });
+counter.on(&#x27;decrement&#x27;, () =&gt; { count--; });
+counter.on(&#x27;count&#x27;, () =&gt; { console.log(`Count: ${count}`); });
+
+counter.emit(&#x27;increment&#x27;);
+counter.emit(&#x27;increment&#x27;);
+counter.emit(&#x27;count&#x27;);    // Count: 2
+counter.emit(&#x27;decrement&#x27;);
+counter.emit(&#x27;count&#x27;);    // Count: 1</code></pre>
+<p></details></p>
+
+<h3>🟡 进阶：带超时的事件</h3>
+
+<p>实现一个函数 <code>waitFor(emitter, event, timeout)</code>：</p>
+<ul>
+<li>等待事件触发，返回 Promise</li>
+<li>超时未触发则 reject</li>
+
+<p><details></p>
+<p><summary>参考答案</summary></p>
+
+<pre><code class="language-js">function waitFor(emitter, event, timeout) {
+  return new Promise((resolve, reject) =&gt; {
+    const timer = setTimeout(() =&gt; {
+      emitter.off(event, handler);
+      reject(new Error(`Timeout waiting for &quot;${event}&quot;`));
+    }, timeout);
+
+    const handler = (...args) =&gt; {
+      clearTimeout(timer);
+      resolve(args.length === 1 ? args[0] : args);
+    };
+
+    emitter.once(event, handler);
+  });
+}
+
+// Usage
+const ee = new EventEmitter();
+setTimeout(() =&gt; ee.emit(&#x27;done&#x27;, &#x27;result&#x27;), 500);
+waitFor(ee, &#x27;done&#x27;, 1000).then(console.log); // &#x27;result&#x27;</code></pre>
+<p></details></p>
+
+<h3>🔴 挑战：实现一个简化版 EventEmitter</h3>
+
+<p>不使用 <code>events</code> 模块，从零实现 <code>on</code>, <code>off</code>, <code>once</code>, <code>emit</code>。</p>
+
+<p><details></p>
+<p><summary>参考答案</summary></p>
+
+<pre><code class="language-js">class MyEmitter {
+  constructor() {
+    this._events = new Map();
+  }
+
+  on(event, listener) {
+    if (!this._events.has(event)) {
+      this._events.set(event, []);
+    }
+    this._events.get(event).push(listener);
+    return this;
+  }
+
+  off(event, listener) {
+    if (!this._events.has(event)) return this;
+    const list = this._events.get(event).filter(fn =&gt; fn !== listener);
+    this._events.set(event, list);
+    return this;
+  }
+
+  once(event, listener) {
+    const wrapper = (...args) =&gt; {
+      this.off(event, wrapper);
+      listener(...args);
+    };
+    return this.on(event, wrapper);
+  }
+
+  emit(event, ...args) {
+    if (!this._events.has(event)) return false;
+    // Copy array to avoid mutation during iteration
+    [...this._events.get(event)].forEach(fn =&gt; fn(...args));
+    return true;
+  }
+}</code></pre>
+<p></details></p>
+
+<hr>
+
+<h2>八、知识点总结</h2>
+
+<pre><code>EventEmitter
+├── 发布-订阅模式
+├── 核心方法
+│   ├── on / addListener → 注册
+│   ├── once → 一次性注册
+│   ├── emit → 触发
+│   ├── off / removeListener → 移除
+│   └── removeAllListeners → 清空
+├── 特殊事件
+│   ├── error → 无监听则崩溃
+│   ├── newListener → 监听器注册时触发
+│   └── removeListener → 监听器移除时触发
+├── 继承方式
+│   ├── class extends EventEmitter
+│   └── Object.assign / mixin
+└── 实践要点
+    ├── 始终处理 error
+    ├── 防止内存泄漏
+    └── 监听器是同步执行的</code></pre>
+
+<hr>
+
+<h2>九、举一反三</h2>
+
+<table><thead><tr>
+<th>模式</th>
+<th>EventEmitter 对应</th>
+<th>生活类比</th>
+</tr></thead><tbody>
+<tr>
+<td>发布-订阅</td>
+<td><code>emit</code> + <code>on</code></td>
+<td>报纸订阅：报社发布，订户收到</td>
+</tr>
+<tr>
+<td>观察者模式</td>
+<td>EventEmitter 类</td>
+<td>股票行情：价格变化通知所有关注者</td>
+</tr>
+<tr>
+<td>信号槽</td>
+<td><code>on</code> = 连接信号槽</td>
+<td>遥控器：按下按钮(emit)，电视响应(listener)</td>
+</tr>
+<tr>
+<td>中间件链</td>
+<td>顺序注册的监听器</td>
+<td>快递分拣：每站处理再传下一站</td>
+</tr>
+<tr>
+<td>Promise</td>
+<td><code>once</code> + 单次 emit</td>
+<td>叫号器：等到叫你的号，只响一次</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>十、参考资料</h2>
+
+<ul>
+<li><a href="https://nodejs.org/api/events.html">Node.js 官方文档 - Events</a></li>
+<li><a href="https://www.nodejsdesignpatterns.com/">Node.js Design Patterns</a></li>
+<li><a href="https://en.wikipedia.org/wiki/Observer_pattern">Observer Pattern - Wikipedia</a></li>
+
+<hr>
+
+<h2>十一、代码演进</h2>
+
+<h3>v1：基本使用</h3>
+
+<pre><code class="language-js">// v1: Raw EventEmitter usage
+const EventEmitter = require(&#x27;events&#x27;);
+const ee = new EventEmitter();
+
+ee.on(&#x27;ping&#x27;, () =&gt; console.log(&#x27;pong&#x27;));
+ee.emit(&#x27;ping&#x27;);</code></pre>
+
+<h3>v2：自定义类继承</h3>
+
+<pre><code class="language-js">// v2: Custom class extends EventEmitter
+const EventEmitter = require(&#x27;events&#x27;);
+
+class Timer extends EventEmitter {
+  start(seconds) {
+    console.log(`Timer: ${seconds}s`);
+    setTimeout(() =&gt; this.emit(&#x27;done&#x27;), seconds * 1000);
+  }
+}
+
+const timer = new Timer();
+timer.on(&#x27;done&#x27;, () =&gt; console.log(&#x27;Time is up!&#x27;));
+timer.start(3);</code></pre>
+
+<h3>v3：完整事件总线</h3>
+
+<pre><code class="language-js">// v3: Production-ready event bus with typed channels
+const EventEmitter = require(&#x27;events&#x27;);
+
+class EventBus extends EventEmitter {
+  constructor() {
+    super();
+    this.setMaxListeners(50);
+  }
+
+  // Safe emit that catches listener errors
+  safeEmit(event, ...args) {
+    const listeners = this.listeners(event);
+    listeners.forEach(fn =&gt; {
+      try { fn(...args); }
+      catch (err) { this.emit(&#x27;error&#x27;, err); }
+    });
+  }
+
+  // Awaitable event
+  onceAsync(event, timeout = 5000) {
+    return new Promise((resolve, reject) =&gt; {
+      const timer = setTimeout(
+        () =&gt; reject(new Error(`Timeout: ${event}`)), timeout
+      );
+      this.once(event, (...args) =&gt; {
+        clearTimeout(timer);
+        resolve(args);
+      });
+    });
+  }
+}
+
+module.exports = new EventBus();</code></pre>
+
+<p><strong>演进总结：</strong> v1 认识 API → v2 学会继承 → v3 生产级封装。</p>
+
+<hr>
+
+<p><em>事件驱动是 Node.js 的灵魂，EventEmitter 是理解这一切的起点。</em> 🎯</p>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

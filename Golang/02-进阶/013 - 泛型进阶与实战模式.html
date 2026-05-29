@@ -1,0 +1,851 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>013 - 泛型进阶与实战模式</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Golang/index.html">Golang</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Golang/02-进阶/index.html">Golang进阶</a>
+</nav>
+<h1>013 - 泛型进阶与实战模式</h1>
+<div class="meta">
+<span>📂 Golang进阶</span>
+<span>🏷️ Golang</span>
+</div>
+<article>
+
+
+<h1>043 - 泛型进阶与实战模式</h1>
+
+<blockquote><p><strong>难度：</strong> ⭐⭐⭐⭐（进阶）<br><br><strong>前提：</strong> 已掌握 Go 泛型基础语法（类型参数、基础约束），希望深入实战应用。</p></blockquote>
+
+<hr>
+
+<h2>一、概念讲解</h2>
+
+<p>Go 1.18 引入泛型后，社区经历了从狂热到理性的过程。泛型不是银弹，但在数据结构和工具函数场景中确实能大幅减少重复代码。本文聚焦<strong>泛型结构体、约束进阶、泛型与接口的配合</strong>三大实战方向。</p>
+
+<h3>1.1 泛型结构体</h3>
+
+<p>泛型最自然的应用场景是<strong>容器类型</strong>：栈、集合、有序映射等。这些结构体对元素类型无关，但对行为有统一要求。</p>
+
+<h3>1.2 泛型方法约束</h3>
+
+<p>Go 的泛型方法不能引入新的类型参数（这是语言限制），但可以利用结构体的类型参数实现通用方法。</p>
+
+<h3>1.3 泛型与接口配合</h3>
+
+<p>泛型约束（constraint）本质上是一个接口，可以包含方法签名。这意味着你可以要求类型参数既满足底层类型约束，又实现特定方法。</p>
+
+<h3>1.4 泛型 Channel</h3>
+
+<p>Channel 天然支持泛型——<code>chan T</code> 中的 <code>T</code> 可以是任意类型参数。</p>
+
+<h3>1.5 约束进阶</h3>
+
+<ul>
+<li><strong>联合类型（Union）：</strong> <code>int | int32 | int64</code></li>
+<li><strong>近似类型（Approximation）：</strong> <code>~int</code> 匹配所有底层类型为 int 的自定义类型</li>
+<li><strong>组合约束：</strong> 将联合与接口方法组合</li>
+
+<hr>
+
+<h2>二、脑图（ASCII）</h2>
+
+<pre><code>Go 泛型进阶
+├── 泛型结构体
+│   ├── OrderedMap（有序映射）
+│   ├── Stack（栈）
+│   └── Set（集合）
+├── 约束进阶
+│   ├── 联合类型 |
+│   ├── 近似类型 ~
+│   ├── 接口约束（方法集）
+│   └── 组合约束
+├── 泛型与接口配合
+│   ├── 类型断言 + 泛型
+│   └── 接口作为约束
+├── 泛型 Channel
+│   └── Fan-In / Fan-Out
+├── 类型推断
+│   └── 编译器自动推导
+└── 实战模式
+    ├── 通用排序
+    └── 通用堆（Heap）</code></pre>
+
+<hr>
+
+<h2>三、完整 Go 代码</h2>
+
+<h3>3.1 泛型 Stack</h3>
+
+<pre><code class="language-go">package main
+
+import &quot;fmt&quot;
+
+// Stack is a generic LIFO data structure.
+type Stack[T any] struct {
+    items []T
+}
+
+// Push adds an element to the top of the stack.
+func (s *Stack[T]) Push(v T) {
+    s.items = append(s.items, v)
+}
+
+// Pop removes and returns the top element. Returns zero value and false if empty.
+func (s *Stack[T]) Pop() (T, bool) {
+    if len(s.items) == 0 {
+        var zero T
+        return zero, false
+    }
+    top := s.items[len(s.items)-1]
+    s.items = s.items[:len(s.items)-1]
+    return top, true
+}
+
+// Peek returns the top element without removing it.
+func (s *Stack[T]) Peek() (T, bool) {
+    if len(s.items) == 0 {
+        var zero T
+        return zero, false
+    }
+    return s.items[len(s.items)-1], true
+}
+
+// Len returns the number of elements.
+func (s *Stack[T]) Len() int {
+    return len(s.items)
+}
+
+func main() {
+    // String stack
+    s := Stack[string]{}
+    s.Push(&quot;hello&quot;)
+    s.Push(&quot;world&quot;)
+    
+    for v, ok := s.Pop(); ok; v, ok = s.Pop() {
+        fmt.Println(v)
+    }
+}</code></pre>
+
+<h3>3.2 泛型 Set</h3>
+
+<pre><code class="language-go">package main
+
+import &quot;fmt&quot;
+
+// Set is a generic collection with unique elements.
+// K must be comparable (supports == and !=).
+type Set[K comparable] struct {
+    m map[K]struct{}
+}
+
+// NewSet creates a new Set.
+func NewSet[K comparable]() *Set[K] {
+    return &amp;Set[K]{m: make(map[K]struct{})}
+}
+
+// Add inserts an element. Returns false if already exists.
+func (s *Set[K]) Add(k K) bool {
+    if _, ok := s.m[k]; ok {
+        return false
+    }
+    s.m[k] = struct{}{}
+    return true
+}
+
+// Contains checks if an element exists.
+func (s *Set[K]) Contains(k K) bool {
+    _, ok := s.m[k]
+    return ok
+}
+
+// Remove deletes an element.
+func (s *Set[K]) Remove(k K) {
+    delete(s.m, k)
+}
+
+// Union returns a new Set with elements from both sets.
+func (s *Set[K]) Union(other *Set[K]) *Set[K] {
+    result := NewSet[K]()
+    for k := range s.m {
+        result.Add(k)
+    }
+    for k := range other.m {
+        result.Add(k)
+    }
+    return result
+}
+
+// Slice returns all elements as a slice (order not guaranteed).
+func (s *Set[K]) Slice() []K {
+    result := make([]K, 0, len(s.m))
+    for k := range s.m {
+        result = append(result, k)
+    }
+    return result
+}
+
+func main() {
+    s := NewSet[int]()
+    s.Add(1)
+    s.Add(2)
+    s.Add(1) // duplicate
+    
+    fmt.Printf(&quot;Contains 1: %v\n&quot;, s.Contains(1))
+    fmt.Printf(&quot;Elements: %v\n&quot;, s.Slice())
+}</code></pre>
+
+<h3>3.3 泛型 OrderedMap</h3>
+
+<pre><code class="language-go">package main
+
+import &quot;fmt&quot;
+
+// OrderedMap preserves insertion order, unlike built-in map.
+type OrderedMap[K comparable, V any] struct {
+    keys   []K
+    entries map[K]V
+}
+
+func NewOrderedMap[K comparable, V any]() *OrderedMap[K, V] {
+    return &amp;OrderedMap[K, V]{
+        entries: make(map[K]V),
+    }
+}
+
+// Set stores a key-value pair. Updates value if key exists.
+func (m *OrderedMap[K, V]) Set(k K, v V) {
+    if _, exists := m.entries[k]; !exists {
+        m.keys = append(m.keys, k)
+    }
+    m.entries[k] = v
+}
+
+// Get retrieves a value by key.
+func (m *OrderedMap[K, V]) Get(k K) (V, bool) {
+    v, ok := m.entries[k]
+    return v, ok
+}
+
+// Range iterates in insertion order.
+func (m *OrderedMap[K, V]) Range(fn func(k K, v V) bool) {
+    for _, k := range m.keys {
+        if !fn(k, m.entries[k]) {
+            break
+        }
+    }
+}
+
+func main() {
+    om := NewOrderedMap[string, int]()
+    om.Set(&quot;banana&quot;, 2)
+    om.Set(&quot;apple&quot;, 5)
+    om.Set(&quot;cherry&quot;, 3)
+    
+    om.Range(func(k string, v int) bool {
+        fmt.Printf(&quot;%s: %d\n&quot;, k, v)
+        return true
+    })
+}</code></pre>
+
+<h3>3.4 约束进阶：通用排序</h3>
+
+<pre><code class="language-go">package main
+
+import (
+    &quot;cmp&quot;
+    &quot;fmt&quot;
+    &quot;slices&quot;
+)
+
+// Ordered is a constraint for types that can be ordered.
+// cmp.Ordered is built-in since Go 1.21.
+type Number interface {
+    ~int | ~int8 | ~int16 | ~int32 | ~int64 |
+    ~float32 | ~float64
+}
+
+// Sum adds all numbers in a slice.
+func Sum[T Number](nums []T) T {
+    var total T
+    for _, n := range nums {
+        total += n
+    }
+    return total
+}
+
+// Sortable constraint: must be ordered.
+type Sortable interface {
+    cmp.Ordered
+}
+
+// GenericSort sorts any ordered slice.
+func GenericSort[T Sortable](s []T) {
+    slices.Sort(s)
+}
+
+// Clamp restricts a value to [min, max].
+func Clamp[T Number](val, min, max T) T {
+    if val &lt; min {
+        return min
+    }
+    if val &gt; max {
+        return max
+    }
+    return val
+}
+
+type Celsius float64 // ~float64, satisfies Number constraint
+
+func main() {
+    nums := []int{5, 3, 8, 1, 9}
+    GenericSort(nums)
+    fmt.Printf(&quot;Sorted: %v\n&quot;, nums)
+    fmt.Printf(&quot;Sum: %d\n&quot;, Sum(nums))
+    fmt.Printf(&quot;Clamp(15, 0, 10) = %d\n&quot;, Clamp(15, 0, 10))
+    
+    // Custom type with ~float64
+    temps := []Celsius{36.5, 38.2, 37.0}
+    fmt.Printf(&quot;Temp sum: %.1f\n&quot;, Sum(temps))
+}</code></pre>
+
+<h3>3.5 泛型与接口配合</h3>
+
+<pre><code class="language-go">package main
+
+import &quot;fmt&quot;
+
+// Stringer constraint: type must have a String() method.
+type Stringer interface {
+    String() string
+}
+
+// Join concatenates Stringer elements.
+func Join[T Stringer](items []T, sep string) string {
+    if len(items) == 0 {
+        return &quot;&quot;
+    }
+    result := items[0].String()
+    for _, item := range items[1:] {
+        result += sep + item.String()
+    }
+    return result
+}
+
+// Person implements Stringer.
+type Person struct {
+    Name string
+    Age  int
+}
+
+func (p Person) String() string {
+    return fmt.Sprintf(&quot;%s(%d)&quot;, p.Name, p.Age)
+}
+
+// Combined constraint: ordered AND has a String method
+type OrderedStringer interface {
+    ~int | ~float64 | ~string
+    String() string
+}
+
+func main() {
+    people := []Person{
+        {&quot;Alice&quot;, 30},
+        {&quot;Bob&quot;, 25},
+        {&quot;Charlie&quot;, 35},
+    }
+    fmt.Println(Join(people, &quot;, &quot;))
+}</code></pre>
+
+<h3>3.6 泛型 Channel：Fan-In</h3>
+
+<pre><code class="language-go">package main
+
+import (
+    &quot;fmt&quot;
+    &quot;sync&quot;
+)
+
+// FanIn merges multiple channels into one.
+func FanIn[T any](channels ...&lt;-chan T) &lt;-chan T {
+    out := make(chan T)
+    var wg sync.WaitGroup
+    
+    for _, ch := range channels {
+        wg.Add(1)
+        go func(c &lt;-chan T) {
+            defer wg.Done()
+            for v := range c {
+                out &lt;- v
+            }
+        }(ch)
+    }
+    
+    go func() {
+        wg.Wait()
+        close(out)
+    }()
+    
+    return out
+}
+
+func main() {
+    ch1 := make(chan string, 3)
+    ch2 := make(chan string, 3)
+    
+    ch1 &lt;- &quot;A1&quot;
+    ch1 &lt;- &quot;A2&quot;
+    ch2 &lt;- &quot;B1&quot;
+    ch2 &lt;- &quot;B2&quot;
+    close(ch1)
+    close(ch2)
+    
+    merged := FanIn(ch1, ch2)
+    for v := range merged {
+        fmt.Println(v)
+    }
+}</code></pre>
+
+<h3>3.7 通用堆（Min-Heap）</h3>
+
+<pre><code class="language-go">package main
+
+import &quot;fmt&quot;
+
+// Heap is a generic min-heap implementation.
+type Heap[T any] struct {
+    data []T
+    less func(a, b T) bool // comparator function
+}
+
+// NewHeap creates a min-heap with a custom comparator.
+func NewHeap[T any](less func(a, b T) bool) *Heap[T] {
+    return &amp;Heap[T]{less: less}
+}
+
+// Push inserts an element.
+func (h *Heap[T]) Push(v T) {
+    h.data = append(h.data, v)
+    h.siftUp(len(h.data) - 1)
+}
+
+// Pop removes and returns the minimum element.
+func (h *Heap[T]) Pop() (T, bool) {
+    if len(h.data) == 0 {
+        var zero T
+        return zero, false
+    }
+    root := h.data[0]
+    last := h.data[len(h.data)-1]
+    h.data = h.data[:len(h.data)-1]
+    if len(h.data) &gt; 0 {
+        h.data[0] = last
+        h.siftDown(0)
+    }
+    return root, true
+}
+
+func (h *Heap[T]) siftUp(i int) {
+    for i &gt; 0 {
+        parent := (i - 1) / 2
+        if h.less(h.data[i], h.data[parent]) {
+            h.data[i], h.data[parent] = h.data[parent], h.data[i]
+            i = parent
+        } else {
+            break
+        }
+    }
+}
+
+func (h *Heap[T]) siftDown(i int) {
+    n := len(h.data)
+    for {
+        smallest := i
+        left := 2*i + 1
+        right := 2*i + 2
+        if left &lt; n &amp;&amp; h.less(h.data[left], h.data[smallest]) {
+            smallest = left
+        }
+        if right &lt; n &amp;&amp; h.less(h.data[right], h.data[smallest]) {
+            smallest = right
+        }
+        if smallest == i {
+            break
+        }
+        h.data[i], h.data[smallest] = h.data[smallest], h.data[i]
+        i = smallest
+    }
+}
+
+func (h *Heap[T]) Len() int {
+    return len(h.data)
+}
+
+func main() {
+    // Min-heap of integers
+    h := NewHeap[int](func(a, b int) bool { return a &lt; b })
+    h.Push(5)
+    h.Push(3)
+    h.Push(8)
+    h.Push(1)
+    
+    fmt.Println(&quot;Min-Heap pop order:&quot;)
+    for h.Len() &gt; 0 {
+        v, _ := h.Pop()
+        fmt.Printf(&quot;%d &quot;, v)
+    }
+    fmt.Println()
+    
+    // Max-heap (just flip the comparator)
+    maxH := NewHeap[int](func(a, b int) bool { return a &gt; b })
+    maxH.Push(5)
+    maxH.Push(3)
+    maxH.Push(8)
+    maxH.Push(1)
+    
+    fmt.Println(&quot;Max-Heap pop order:&quot;)
+    for maxH.Len() &gt; 0 {
+        v, _ := maxH.Pop()
+        fmt.Printf(&quot;%d &quot;, v)
+    }
+    fmt.Println()
+}</code></pre>
+
+<hr>
+
+<h2>四、执行预览</h2>
+
+<pre><code># Stack
+world
+hello
+
+# Set
+Contains 1: true
+Elements: [1 2]
+
+# OrderedMap
+banana: 2
+apple: 5
+cherry: 3
+
+# GenericSort + Sum
+Sorted: [1 3 5 8 9]
+Sum: 26
+Clamp(15, 0, 10) = 10
+Temp sum: 111.7
+
+# Join
+Alice(30), Bob(25), Charlie(35)
+
+# FanIn
+A1
+A2
+B1
+B2
+
+# Heap
+Min-Heap pop order: 1 3 5 8
+Max-Heap pop order: 8 5 3 1</code></pre>
+
+<hr>
+
+<h2>五、注意事项</h2>
+
+<table><thead><tr>
+<th>项目</th>
+<th>说明</th>
+</tr></thead><tbody>
+<tr>
+<td>性能</td>
+<td>泛型在 Go 中通过单态化（monomorphization）实现，每种具体类型生成一份代码，无运行时开销</td>
+</tr>
+<tr>
+<td>方法限制</td>
+<td>泛型方法不能引入新的类型参数，只能使用结构体上的类型参数</td>
+</tr>
+<tr>
+<td>接口 vs 泛型</td>
+<td>接口适合运行时多态；泛型适合编译时多态和类型安全</td>
+</tr>
+<tr>
+<td>约束设计</td>
+<td>约束要尽量宽松（<code>any</code> > <code>comparable</code> > 自定义），避免过度约束</td>
+</tr>
+<tr>
+<td>代码膨胀</td>
+<td>过多泛型特化会增加二进制体积，对于热路径需关注</td>
+</tr>
+<tr>
+<td><code>any</code> vs <code>interface{}</code></td>
+<td>泛型中 <code>any</code> 是类型约束，<code>interface{}</code> 是具体类型，语义不同</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>六、避坑指南</h2>
+
+<table><thead><tr>
+<th>❌ 错误做法</th>
+<th>✅ 正确做法</th>
+</tr></thead><tbody>
+<tr>
+<td>泛型方法添加新类型参数 <code>func (s S[T]) Foo[U any]()</code></td>
+<td>用包级函数 <code>func Foo<a href="s S[T]">T, U any</a></code></td>
+</tr>
+<tr>
+<td>用 <code>interface{}</code> 做泛型约束</td>
+<td>使用 <code>any</code> 或自定义约束接口</td>
+</tr>
+<tr>
+<td>忘记 <code>~</code> 导致自定义类型不满足约束</td>
+<td>约束中使用近似类型 <code>~int</code> 而非 <code>int</code></td>
+</tr>
+<tr>
+<td>泛型结构体做 map key</td>
+<td>泛型结构体本身不可比较，需用具体字段</td>
+</tr>
+<tr>
+<td>在约束中写联合类型时遗漏类型</td>
+<td>使用 <code>cmp.Ordered</code> 等标准库约束</td>
+</tr>
+<tr>
+<td>过度使用泛型导致代码可读性下降</td>
+<td>简单场景用接口，复杂容器用泛型</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>七、练习题</h2>
+
+<h3>🟢 简单</h3>
+
+<p>实现一个泛型 <code>Queue[T any]</code>，包含 <code>Enqueue</code>、<code>Dequeue</code>、<code>Len</code> 方法。</p>
+
+<h3>🟡 中等</h3>
+
+<p>实现 <code>MapKeys<a href="m map[K]V">K comparable, V any</a> []K</code>，返回 map 的所有 key（顺序不限）。再实现 <code>Filter<a href="s []T, pred func(T">T any</a> bool) []T</code>。</p>
+
+<h3>🔰 困难</h3>
+
+<p>实现一个泛型 <code>LRUCache[K comparable, V any]</code>，支持 <code>Get</code>、<code>Put</code>、容量限制和 O(1) 淘汰。提示：结合 <code>map[K]*list.Element</code> 和 <code>container/list</code>。</p>
+
+<hr>
+
+<h2>八、知识点总结</h2>
+
+<pre><code>Go 泛型进阶
+├── 类型参数语法
+│   ├── [T any]
+│   ├── [K comparable, V any]
+│   └── [T ~int | ~float64]
+├── 约束类型
+│   ├── any（无约束）
+│   ├── comparable（== !=）
+│   ├── 联合类型 |
+│   ├── 近似类型 ~
+│   └── 接口方法约束
+├── 泛型结构体
+│   ├── Stack[T]
+│   ├── Set[K]
+│   └── OrderedMap[K,V]
+├── 泛型函数
+│   ├── Sum[T Number]()
+│   └── FanIn[T any]()
+└── 实战模式
+    ├── 通用排序（slices.Sort）
+    └── 通用堆（comparator func）</code></pre>
+
+<hr>
+
+<h2>九、举一反三</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>泛型方案</th>
+<th>替代方案（非泛型）</th>
+</tr></thead><tbody>
+<tr>
+<td>LRU 缓存</td>
+<td><code>LRUCache[K,V]</code></td>
+<td><code>map[interface{}]interface{}</code> + 类型断言</td>
+</tr>
+<tr>
+<td>优先队列</td>
+<td><code>Heap[T]</code> + comparator</td>
+<td><code>heap.Interface</code> + 自定义类型</td>
+</tr>
+<tr>
+<td>发布订阅</td>
+<td><code>PubSub[T any]</code></td>
+<td><code>chan interface{}</code> + 断言</td>
+</tr>
+<tr>
+<td>JSON 解码</td>
+<td><code>Decode<a href="r io.Reader">T any</a> (T, error)</code></td>
+<td><code>json.Unmarshal</code> 到 <code>map[string]interface{}</code></td>
+</tr>
+<tr>
+<td>通用最大值</td>
+<td><code>Max<a href="a, b T">T cmp.Ordered</a> T</code></td>
+<td><code>if/else</code> 每种类型写一遍</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>十、参考资料</h2>
+
+<ol>
+<li><a href="https://go.googlesource.com/proposal/+/refs/heads/master/design/43651-type-parameters.md">Go 泛型官方提案</a></li>
+</ul>
+<ol>
+<li><a href="https://go.dev/doc/go1.18">Go 1.18 Release Notes - Generics</a></li>
+</ul>
+<ol>
+<li><a href="https://pkg.go.dev/cmp">cmp 包文档</a></li>
+</ul>
+<ol>
+<li><a href="https://pkg.go.dev/slices">slices 包文档</a></li>
+</ul>
+<ol>
+<li><a href="https://go.dev/doc/tutorial/generics">Go Generics Tutorial - go.dev</a></li>
+
+<hr>
+
+<h2>十一、代码演进</h2>
+
+<h3>v1：接口方案（泛型前）</h3>
+
+<pre><code class="language-go">// Type-unsafe, requires assertions
+type Stack struct {
+    items []interface{}
+}
+
+func (s *Stack) Push(v interface{}) {
+    s.items = append(s.items, v)
+}
+
+func (s *Stack) Pop() (interface{}, bool) {
+    if len(s.items) == 0 {
+        return nil, false
+    }
+    top := s.items[len(s.items)-1]
+    s.items = s.items[:len(s.items)-1]
+    return top, true
+}
+
+// Usage: need type assertion everywhere
+// val, ok := s.Pop().(string) // risky!</code></pre>
+
+<h3>v2：基础泛型（类型安全）</h3>
+
+<pre><code class="language-go">type Stack[T any] struct {
+    items []T
+}
+
+func (s *Stack[T]) Push(v T) {
+    s.items = append(s.items, v)
+}
+
+func (s *Stack[T]) Pop() (T, bool) {
+    if len(s.items) == 0 {
+        var zero T
+        return zero, false
+    }
+    top := s.items[len(s.items)-1]
+    s.items = s.items[:len(s.items)-1]
+    return top, true
+}
+
+// Usage: type-safe, no assertions needed</code></pre>
+
+<h3>v3：约束 + 标准库集成（生产级）</h3>
+
+<pre><code class="language-go">type Stack[T any] struct {
+    items []T
+}
+
+func (s *Stack[T]) Push(v T)          { s.items = append(s.items, v) }
+func (s *Stack[T]) Pop() (T, bool)    { /* same */ }
+func (s *Stack[T]) Len() int          { return len(s.items) }
+func (s *Stack[T]) IsEmpty() bool     { return len(s.items) == 0 }
+func (s *Stack[T]) ToSlice() []T      { return append([]T{}, s.items...) }
+
+// Integration with standard library constraints
+func (s *Stack[T]) Contains(eq func(a, b T) bool, target T) bool {
+    for _, item := range s.items {
+        if eq(item, target) {
+            return true
+        }
+    }
+    return false
+}</code></pre>
+
+<hr>
+
+<h2>十二、总结</h2>
+
+<p>泛型在 Go 中的定位很明确：<strong>减少重复代码，提供编译时类型安全</strong>。它不会取代接口，而是与接口互补。实战中，泛型最适合数据结构（Stack/Set/Map）、工具函数（Sort/Filter/Map）和类型安全的管道模式。掌握约束的设计（联合、近似、接口方法）是泛型进阶的关键。</p>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

@@ -1,0 +1,643 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>034 - 实战：毫秒级定时任务</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Swoole/index.html">Swoole</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Swoole/01-从入门到精通/index.html">Swoole从入门到精通</a>
+</nav>
+<h1>034 - 实战：毫秒级定时任务</h1>
+<div class="meta">
+<span>📂 Swoole从入门到精通</span>
+<span>🏷️ Swoole</span>
+</div>
+<article>
+
+
+<hr>
+<p>slug: 034-cron-tasks</p>
+<p>title: 实战：毫秒级定时任务</p>
+<p>category: Swoole深度实战</p>
+<p>difficulty: ⭐⭐⭐中级</p>
+<p>tags: [Swoole, 定时器, Cron, 毫秒级, Timer]</p>
+<hr>
+
+<h1>实战：毫秒级定时任务</h1>
+
+<blockquote><p><strong>难度：⭐⭐⭐中级</strong> | 预计阅读时间：20分钟</p></blockquote>
+
+<h2>一、概念讲解</h2>
+
+<p>传统PHP的定时任务依赖系统crontab，最小粒度只有1分钟。Swoole内置的定时器基于epoll/kqueue实现，支持<strong>毫秒级精度</strong>，彻底改变了PHP在定时任务领域的能力边界。</p>
+
+<h3>核心概念</h3>
+
+<table><thead><tr>
+<th>概念</th>
+<th>说明</th>
+</tr></thead><tbody>
+<tr>
+<td><code>tick</code></td>
+<td>周期性定时器，每隔N毫秒执行一次</td>
+</tr>
+<tr>
+<td><code>after</code></td>
+<td>一次性定时器，N毫秒后执行一次</td>
+</tr>
+<tr>
+<td>Timer Wheel</td>
+<td>Swoole内部的时间轮算法，O(1)插入/删除</td>
+</tr>
+<tr>
+<td>协程定时器</td>
+<td>在协程环境中使用的定时器API</td>
+</tr>
+</tbody></table>
+
+<p><strong>Swoole定时器 vs 传统Crontab：</strong></p>
+
+<table><thead><tr>
+<th>维度</th>
+<th>Crontab</th>
+<th>Swoole Timer</th>
+</tr></thead><tbody>
+<tr>
+<td>最小粒度</td>
+<td>1分钟</td>
+<td>1毫秒</td>
+</tr>
+<tr>
+<td>进程模型</td>
+<td>每次fork新进程</td>
+<td>进程内回调</td>
+</tr>
+<tr>
+<td>性能开销</td>
+<td>高（进程创建）</td>
+<td>极低（epoll事件）</td>
+</tr>
+<tr>
+<td>精度</td>
+<td>±1分钟</td>
+<td>±1毫秒</td>
+</tr>
+<tr>
+<td>适用场景</td>
+<td>日常运维</td>
+<td>实时监控、心跳检测</td>
+</tr>
+</tbody></table>
+
+<h2>二、脑图</h2>
+
+<pre><code>Swoole定时任务
+├── 一次性定时器 after()
+│   ├── 超时控制
+│   ├── 延迟执行
+│   └── 异步回调
+├── 周期性定时器 tick()
+│   ├── 心跳检测
+│   ├── 数据同步
+│   ├── 监控采集
+│   └── 缓存刷新
+├── 定时器管理
+│   ├── clear() 清除
+│   ├── info() 查询
+│   └── list() 列表
+└── 高级模式
+    ├── 多级定时器
+    ├── 动态调整间隔
+    └── 分布式定时任务</code></pre>
+
+<h2>三、代码演进</h2>
+
+<h3>v1: 基础定时器</h3>
+
+<pre><code class="language-php">&lt;?php
+// v1_basic_timer.php - Basic timer usage
+
+$server = new Swoole\Timer();
+
+// One-shot timer: execute after 2000ms
+Swoole\Timer::after(2000, function () {
+    echo &quot;[After] 2 seconds passed!\n&quot;;
+});
+
+// Periodic timer: execute every 1000ms
+$timerId = Swoole\Timer::tick(1000, function ($id) {
+    static $count = 0;
+    $count++;
+    echo &quot;[Tick #{$count}] Timer ID: {$id}, Time: &quot; . date(&#x27;H:i:s&#x27;) . &quot;\n&quot;;
+    
+    // Stop after 5 ticks
+    if ($count &gt;= 5) {
+        Swoole\Timer::clear($id);
+        echo &quot;[Tick] Timer cleared.\n&quot;;
+    }
+});
+
+echo &quot;Timers started. Waiting...\n&quot;;</code></pre>
+
+<p><strong>执行预览：</strong></p>
+<pre><code>$ php v1_basic_timer.php
+Timers started. Waiting...
+[After] 2 seconds passed!
+[Tick #1] Timer ID: 1, Time: 14:30:01
+[Tick #2] Timer ID: 1, Time: 14:30:02
+[Tick #3] Timer ID: 1, Time: 14:30:03
+[Tick #4] Timer ID: 1, Time: 14:30:04
+[Tick #5] Timer ID: 1, Time: 14:30:05
+[Tick] Timer cleared.</code></pre>
+
+<h3>v2: Server中的定时任务</h3>
+
+<pre><code class="language-php">&lt;?php
+// v2_server_timer.php - Timers inside Swoole Server
+
+$server = new Swoole\WebSocket\Server(&quot;0.0.0.0&quot;, 9501);
+
+// Track connected clients and their last heartbeat
+$clients = [];
+
+$server-&gt;on(&#x27;open&#x27;, function ($server, $request) use (&amp;$clients) {
+    $clients[$request-&gt;fd] = [
+        &#x27;fd&#x27; =&gt; $request-&gt;fd,
+        &#x27;last_heartbeat&#x27; =&gt; time(),
+        &#x27;connect_time&#x27; =&gt; time(),
+    ];
+    echo &quot;[Open] Client #{$request-&gt;fd} connected. Total: &quot; . count($clients) . &quot;\n&quot;;
+});
+
+$server-&gt;on(&#x27;message&#x27;, function ($server, $frame) use (&amp;$clients) {
+    if ($frame-&gt;data === &#x27;ping&#x27;) {
+        $clients[$frame-&gt;fd][&#x27;last_heartbeat&#x27;] = time();
+        $server-&gt;push($frame-&gt;fd, &#x27;pong&#x27;);
+    }
+});
+
+$server-&gt;on(&#x27;close&#x27;, function ($server, $fd) use (&amp;$clients) {
+    unset($clients[$fd]);
+    echo &quot;[Close] Client #{$fd} disconnected. Total: &quot; . count($clients) . &quot;\n&quot;;
+});
+
+$server-&gt;on(&#x27;workerStart&#x27;, function ($server, $workerId) use (&amp;$clients) {
+    // Heartbeat check every 10 seconds
+    $server-&gt;tick(10000, function () use ($server, &amp;$clients) {
+        $now = time();
+        $timeout = 30; // 30 seconds timeout
+        
+        foreach ($clients as $fd =&gt; $info) {
+            if ($now - $info[&#x27;last_heartbeat&#x27;] &gt; $timeout) {
+                echo &quot;[Heartbeat] Client #{$fd} timeout, closing.\n&quot;;
+                $server-&gt;close($fd);
+                unset($clients[$fd]);
+            }
+        }
+    });
+    
+    // Stats reporter every 60 seconds
+    $server-&gt;tick(60000, function () use ($server, &amp;$clients) {
+        $count = count($clients);
+        $mem = memory_get_usage(true) / 1024 / 1024;
+        echo &quot;[Stats] Connections: {$count}, Memory: &quot; . round($mem, 2) . &quot; MB\n&quot;;
+    });
+    
+    echo &quot;[Worker #{$workerId}] Timers started.\n&quot;;
+});
+
+$server-&gt;start();</code></pre>
+
+<h3>v3: 企业级定时任务管理器</h3>
+
+<pre><code class="language-php">&lt;?php
+// v3_task_manager.php - Enterprise-grade cron task manager
+
+class CronTaskManager
+{
+    private array $tasks = [];
+    private array $timers = [];
+    private Swoole\Table $statusTable;
+    
+    public function __construct()
+    {
+        // Shared memory table for cross-worker status
+        $this-&gt;statusTable = new Swoole\Table(1024);
+        $this-&gt;statusTable-&gt;column(&#x27;task_name&#x27;, Swoole\Table::TYPE_STRING, 64);
+        $this-&gt;statusTable-&gt;column(&#x27;last_run&#x27;, Swoole\Table::TYPE_INT);
+        $this-&gt;statusTable-&gt;column(&#x27;run_count&#x27;, Swoole\Table::TYPE_INT);
+        $this-&gt;statusTable-&gt;column(&#x27;status&#x27;, Swoole\Table::TYPE_STRING, 16);
+        $this-&gt;statusTable-&gt;column(&#x27;error&#x27;, Swoole\Table::TYPE_STRING, 255);
+        $this-&gt;statusTable-&gt;create();
+    }
+    
+    /**
+     * Register a cron task
+     */
+    public function register(string $name, int $intervalMs, callable $callback, array $options = []): void
+    {
+        $this-&gt;tasks[$name] = [
+            &#x27;name&#x27; =&gt; $name,
+            &#x27;interval&#x27; =&gt; $intervalMs,
+            &#x27;callback&#x27; =&gt; $callback,
+            &#x27;timeout&#x27; =&gt; $options[&#x27;timeout&#x27;] ?? 5000,
+            &#x27;retry&#x27; =&gt; $options[&#x27;retry&#x27;] ?? 0,
+            &#x27;retry_delay&#x27; =&gt; $options[&#x27;retry_delay&#x27;] ?? 1000,
+        ];
+    }
+    
+    /**
+     * Start all registered tasks
+     */
+    public function start(): void
+    {
+        foreach ($this-&gt;tasks as $name =&gt; $task) {
+            $this-&gt;startTask($task);
+        }
+        echo &quot;[CronManager] &quot; . count($this-&gt;tasks) . &quot; tasks started.\n&quot;;
+    }
+    
+    private function startTask(array $task): void
+    {
+        $timerId = Swoole\Timer::tick($task[&#x27;interval&#x27;], function () use ($task) {
+            $this-&gt;executeTask($task);
+        });
+        $this-&gt;timers[$task[&#x27;name&#x27;]] = $timerId;
+        
+        // Initialize status
+        $this-&gt;statusTable-&gt;set($task[&#x27;name&#x27;], [
+            &#x27;task_name&#x27; =&gt; $task[&#x27;name&#x27;],
+            &#x27;last_run&#x27; =&gt; 0,
+            &#x27;run_count&#x27; =&gt; 0,
+            &#x27;status&#x27; =&gt; &#x27;idle&#x27;,
+            &#x27;error&#x27; =&gt; &#x27;&#x27;,
+        ]);
+    }
+    
+    private function executeTask(array $task): void
+    {
+        $name = $task[&#x27;name&#x27;];
+        
+        // Check if previous run is still active
+        $status = $this-&gt;statusTable-&gt;get($name);
+        if ($status &amp;&amp; $status[&#x27;status&#x27;] === &#x27;running&#x27;) {
+            echo &quot;[CronManager] Task &#x27;{$name}&#x27; skipped (previous run still active).\n&quot;;
+            return;
+        }
+        
+        $this-&gt;statusTable-&gt;set($name, [
+            &#x27;status&#x27; =&gt; &#x27;running&#x27;,
+            &#x27;task_name&#x27; =&gt; $name,
+            &#x27;last_run&#x27; =&gt; time(),
+            &#x27;run_count&#x27; =&gt; ($status[&#x27;run_count&#x27;] ?? 0) + 1,
+            &#x27;error&#x27; =&gt; &#x27;&#x27;,
+        ]);
+        
+        try {
+            // Execute with timeout protection
+            $timeout = $task[&#x27;timeout&#x27;];
+            $result = Swoole\Coroutine\run(function () use ($task, $timeout) {
+                $chan = new Swoole\Coroutine\Channel(1);
+                
+                go(function () use ($task, $chan) {
+                    try {
+                        $task[&#x27;callback&#x27;]();
+                        $chan-&gt;push([&#x27;success&#x27; =&gt; true]);
+                    } catch (Throwable $e) {
+                        $chan-&gt;push([&#x27;success&#x27; =&gt; false, &#x27;error&#x27; =&gt; $e-&gt;getMessage()]);
+                    }
+                });
+                
+                $result = $chan-&gt;pop($timeout / 1000);
+                return $result ?: [&#x27;success&#x27; =&gt; false, &#x27;error&#x27; =&gt; &#x27;Timeout&#x27;];
+            });
+            
+            if (!$result[&#x27;success&#x27;]) {
+                throw new RuntimeException($result[&#x27;error&#x27;] ?? &#x27;Unknown error&#x27;);
+            }
+            
+            $this-&gt;statusTable-&gt;set($name, [
+                &#x27;status&#x27; =&gt; &#x27;success&#x27;,
+                &#x27;task_name&#x27; =&gt; $name,
+                &#x27;error&#x27; =&gt; &#x27;&#x27;,
+            ]);
+            
+            echo &quot;[CronManager] Task &#x27;{$name}&#x27; completed successfully.\n&quot;;
+            
+        } catch (Throwable $e) {
+            $this-&gt;statusTable-&gt;set($name, [
+                &#x27;status&#x27; =&gt; &#x27;error&#x27;,
+                &#x27;task_name&#x27; =&gt; $name,
+                &#x27;error&#x27; =&gt; $e-&gt;getMessage(),
+            ]);
+            echo &quot;[CronManager] Task &#x27;{$name}&#x27; failed: {$e-&gt;getMessage()}.\n&quot;;
+            
+            // Retry logic
+            if ($task[&#x27;retry&#x27;] &gt; 0) {
+                $this-&gt;scheduleRetry($task, $task[&#x27;retry&#x27;]);
+            }
+        }
+    }
+    
+    private function scheduleRetry(array $task, int $remaining): void
+    {
+        Swoole\Timer::after($task[&#x27;retry_delay&#x27;], function () use ($task, $remaining) {
+            echo &quot;[CronManager] Retrying task &#x27;{$task[&#x27;name&#x27;]}&#x27; ({$remaining} attempts left).\n&quot;;
+            $this-&gt;executeTask(array_merge($task, [&#x27;retry&#x27; =&gt; $remaining - 1]));
+        });
+    }
+    
+    /**
+     * Get status of all tasks
+     */
+    public function getStatus(): array
+    {
+        $statuses = [];
+        foreach ($this-&gt;statusTable as $key =&gt; $row) {
+            $statuses[] = $row;
+        }
+        return $statuses;
+    }
+    
+    /**
+     * Stop a specific task
+     */
+    public function stop(string $name): bool
+    {
+        if (isset($this-&gt;timers[$name])) {
+            Swoole\Timer::clear($this-&gt;timers[$name]);
+            unset($this-&gt;timers[$name]);
+            echo &quot;[CronManager] Task &#x27;{$name}&#x27; stopped.\n&quot;;
+            return true;
+        }
+        return false;
+    }
+}
+
+// === Usage Example ===
+$manager = new CronTaskManager();
+
+// Register tasks with different intervals
+$manager-&gt;register(&#x27;cache_warmup&#x27;, 60000, function () {
+    // Refresh cache every 60 seconds
+    $redis = new Swoole\Coroutine\Redis();
+    $redis-&gt;connect(&#x27;127.0.0.1&#x27;, 6379);
+    $redis-&gt;set(&#x27;cache:warmup:time&#x27;, date(&#x27;Y-m-d H:i:s&#x27;));
+    echo &quot;  -&gt; Cache warmed up.\n&quot;;
+}, [&#x27;timeout&#x27; =&gt; 3000, &#x27;retry&#x27; =&gt; 2]);
+
+$manager-&gt;register(&#x27;metrics_collect&#x27;, 5000, function () {
+    // Collect metrics every 5 seconds
+    $mem = memory_get_usage(true);
+    echo &quot;  -&gt; Memory: &quot; . round($mem / 1024 / 1024, 2) . &quot; MB\n&quot;;
+});
+
+$manager-&gt;register(&#x27;data_sync&#x27;, 30000, function () {
+    // Sync data every 30 seconds
+    echo &quot;  -&gt; Data sync completed.\n&quot;;
+}, [&#x27;timeout&#x27; =&gt; 10000]);
+
+$manager-&gt;start();
+
+// Keep the process running
+Swoole\Event::wait();</code></pre>
+
+<h2>四、注意事项</h2>
+
+<table><thead><tr>
+<th>项目</th>
+<th>说明</th>
+</tr></thead><tbody>
+<tr>
+<td>定时器精度</td>
+<td>实际精度受事件循环影响，通常误差在±1ms内</td>
+</tr>
+<tr>
+<td>Worker进程</td>
+<td>定时器在Worker进程中运行，不要在Task进程中创建</td>
+</tr>
+<tr>
+<td>内存泄漏</td>
+<td>定时器回调中创建的对象会在回调结束后释放，注意闭包引用</td>
+</tr>
+<tr>
+<td>最大数量</td>
+<td>默认最多65535个定时器，可通过<code>max_timer</code>调整</td>
+</tr>
+<tr>
+<td>信号冲突</td>
+<td><code>Swoole\Timer</code>与PCNTL信号不兼容，不要混用</td>
+</tr>
+<tr>
+<td>协程环境</td>
+<td>在协程中优先使用<code>Coroutine::sleep()</code>替代<code>Timer::after()</code></td>
+</tr>
+</tbody></table>
+
+<h2>五、避坑指南</h2>
+
+<table><thead><tr>
+<th>❌ 错误做法</th>
+<th>✅ 正确做法</th>
+</tr></thead><tbody>
+<tr>
+<td><code>Timer::tick(1, ...)</code> 设置1ms间隔做重IO</td>
+<td>根据任务耗时设置合理间隔，≥100ms</td>
+</tr>
+<tr>
+<td>在定时器回调中使用<code>sleep()</code></td>
+<td>使用<code>Swoole\Coroutine\sleep()</code>或Timer</td>
+</tr>
+<tr>
+<td>定时器内抛出异常不捕获</td>
+<td>所有回调必须try-catch包裹</td>
+</tr>
+<tr>
+<td>在onReceive中创建定时器不清理</td>
+<td>使用workerStart统一管理定时器</td>
+</tr>
+<tr>
+<td>用全局变量在多个定时器间共享状态</td>
+<td>使用Swoole\Table或Redis共享状态</td>
+</tr>
+<tr>
+<td>忘记clear导致定时器泄漏</td>
+<td>注册时记录timerId，结束时clear</td>
+</tr>
+</tbody></table>
+
+<h2>六、练习题</h2>
+
+<h3>🟢 入门</h3>
+<ol>
+<li>创建一个定时器，每500ms打印当前时间，运行10秒后自动停止</li>
+</ul>
+<ol>
+<li>使用<code>after</code>实现一个5秒倒计时，每秒打印剩余秒数</li>
+
+<h3>🟡 进阶</h3>
+<ol>
+<li>实现一个可暂停/恢复的定时任务管理器</li>
+</ul>
+<ol>
+<li>用Swoole\Table记录定时器执行历史，支持HTTP查询</li>
+
+<h3>🔴 挑战</h3>
+<ol>
+<li>实现分布式定时任务：多进程只有一个执行任务（用Redis锁）</li>
+</ul>
+<ol>
+<li>实现Cron表达式解析器，支持<code><em>/5 </em> <em> </em> *</code>风格配置</li>
+
+<h2>七、知识点总结</h2>
+
+<pre><code>Swoole定时任务知识点
+├── API层
+│   ├── Timer::after(ms, callback) → 一次性
+│   ├── Timer::tick(ms, callback) → 周期性
+│   ├── Timer::clear(id) → 清除
+│   ├── Timer::info(id) → 查询信息
+│   └── Timer::list() → 获取所有定时器
+├── 原理层
+│   ├── 时间轮算法（Hashed Wheel Timer）
+│   ├── epoll_wait超时驱动
+│   └── 回调在事件循环中执行
+├── 实践层
+│   ├── 心跳检测（10-30s tick）
+│   ├── 缓存预热（60s tick）
+│   ├── 监控采集（5s tick）
+│   └── 超时控制（after + Channel）
+└── 架构层
+    ├── 多Worker独立定时器
+    ├── Swoole\Table跨Worker状态
+    └── 分布式锁防重复执行</code></pre>
+
+<h2>八、举一反三</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>推荐方案</th>
+<th>关键参数</th>
+</tr></thead><tbody>
+<tr>
+<td>用户会话过期清理</td>
+<td>tick(60_000) + Redis SCAN</td>
+<td>60s间隔，批量处理</td>
+</tr>
+<tr>
+<td>实时股票行情推送</td>
+<td>tick(100) + WebSocket push</td>
+<td>100ms高频，注意流量</td>
+</tr>
+<tr>
+<td>订单超时自动取消</td>
+<td>after(30<em>60</em>000) + 数据库</td>
+<td>30分钟，用after非tick</td>
+</tr>
+<tr>
+<td>服务健康检查</td>
+<td>tick(5000) + HTTP客户端</td>
+<td>5s间隔，超时3s</td>
+</tr>
+<tr>
+<td>日志定时切割</td>
+<td>tick(3600_000) + rename</td>
+<td>整点触发，需锁</td>
+</tr>
+<tr>
+<td>消息队列延迟投递</td>
+<td>after(delay_ms) + Queue</td>
+<td>支持任意延迟</td>
+</tr>
+</tbody></table>
+
+<h2>九、参考资料</h2>
+
+<ul>
+<li><a href="https://wiki.swoole.com/#/timer">Swoole官方文档 - Timer</a></li>
+<li><a href="https://course.swoole-cloud.com/">Swoole进阶课程 - 毫秒级定时器</a></li>
+<li><a href="https://www.cs.columbia.edu/~nahum/w6998/papers/sosp87-timing-wheels.pdf">Hashed and Hierarchical Timing Wheels</a></li>
+<li><a href="https://man7.org/linux/man-pages/man2/timerfd_create.2.html">Linux timerfd系统调用</a></li>
+
+<h2>十、代码演进总结</h2>
+
+<table><thead><tr>
+<th>版本</th>
+<th>特点</th>
+<th>适用场景</th>
+</tr></thead><tbody>
+<tr>
+<td>v1 基础定时器</td>
+<td>after + tick，简单直接</td>
+<td>学习、简单脚本</td>
+</tr>
+<tr>
+<td>v2 Server定时器</td>
+<td>集成WebSocket，心跳检测</td>
+<td>即时通讯、实时应用</td>
+</tr>
+<tr>
+<td>v3 任务管理器</td>
+<td>企业级管理，超时重试，状态追踪</td>
+<td>生产环境定时任务系统</td>
+</tr>
+</tbody></table>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

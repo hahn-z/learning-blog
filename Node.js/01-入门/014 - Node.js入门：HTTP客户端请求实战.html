@@ -1,0 +1,581 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>014 - Node.js入门：HTTP客户端请求实战</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Node.js/index.html">Node.js</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Node.js/01-入门/index.html">Node.js入门</a>
+</nav>
+<h1>014 - Node.js入门：HTTP客户端请求实战</h1>
+<div class="meta">
+<span>📂 Node.js入门</span>
+<span>🏷️ Node.js</span>
+</div>
+<article>
+
+
+<h2>难度标注</h2>
+
+<blockquote><p>🟢 入门级 | 预计学习时间：30分钟 | 前置知识：JavaScript基础、HTTP协议基础</p></blockquote>
+
+<hr>
+
+<h2>概念讲解</h2>
+
+<h3>什么是HTTP客户端？</h3>
+
+<p>HTTP客户端就是<strong>发起网络请求的程序</strong>。浏览器是最常见的HTTP客户端，但在Node.js中，我们也可以编写程序去请求其他服务器的API、下载网页内容、上传文件等。</p>
+
+<h3>为什么需要HTTP客户端？</h3>
+
+<p>实际开发中，Node.js经常需要与其他服务通信：</p>
+
+<ul>
+<li>调用第三方API（微信支付、天气接口、AI接口）</li>
+<li>微服务之间的内部调用</li>
+<li>爬取网页数据</li>
+<li>健康检查和监控</li>
+
+<h3>Node.js发起HTTP请求的三种方式</h3>
+
+<ol>
+<li><strong>内置<code>http</code>/<code>https</code>模块</strong> — 无需安装，但API较底层</li>
+</ul>
+<ol>
+<li><strong>第三方库<code>node-fetch</code></strong> — 浏览器fetch API的Node.js实现</li>
+</ul>
+<ol>
+<li><strong>第三方库<code>axios</code></strong> — 功能最全，使用最广泛</li>
+
+<p>本文从内置模块讲起，逐步过渡到现代方案。</p>
+
+<hr>
+
+<h2>脑图（ASCII）</h2>
+
+<pre><code>                    ┌───────────────────────┐
+                    │  Node.js HTTP Client   │
+                    └───────────┬───────────┘
+                                │
+         ┌──────────────────────┼──────────────────────┐
+         │                      │                      │
+  ┌──────┴──────┐      ┌───────┴───────┐      ┌───────┴───────┐
+  │ http模块     │      │ URL解析       │      │ 第三方库       │
+  └──────┬──────┘      └───────┬───────┘      └───────┬───────┘
+         │                     │                      │
+  ┌──────┴──────┐      ┌──────┴──────┐       ┌───────┴───────┐
+  │http.get()   │      │new URL()    │       │axios          │
+  │http.request │      │url.hostname │       │node-fetch     │
+  │https.get()  │      │url.pathname │       │got            │
+  └─────────────┘      │url.searchParams│    └───────────────┘
+                       └─────────────┘</code></pre>
+
+<hr>
+
+<h2>完整Node.js代码</h2>
+
+<h3>v1：最简GET请求</h3>
+
+<pre><code class="language-js">// v1-simple-get.js - Simplest GET request using http module
+const https = require(&#x27;https&#x27;);
+
+https.get(&#x27;https://jsonplaceholder.typicode.com/todos/1&#x27;, (res) =&gt; {
+  let data = &#x27;&#x27;;
+  res.on(&#x27;data&#x27;, (chunk) =&gt; { data += chunk; });
+  res.on(&#x27;end&#x27;, () =&gt; {
+    console.log(JSON.parse(data));
+  });
+}).on(&#x27;error&#x27;, (err) =&gt; {
+  console.error(&#x27;Request failed:&#x27;, err.message);
+});</code></pre>
+
+<h3>v2：封装通用请求函数 + POST支持</h3>
+
+<pre><code class="language-js">// v2-request-helper.js - Reusable HTTP request helper
+const http = require(&#x27;http&#x27;);
+const https = require(&#x27;https&#x27;);
+
+/**
+ * Generic HTTP request function
+ * @param {string} urlStr - Full URL
+ * @param {object} options - { method, headers, body }
+ * @returns {Promise&lt;object&gt;} - { statusCode, headers, data }
+ */
+function request(urlStr, options = {}) {
+  return new Promise((resolve, reject) =&gt; {
+    const parsedUrl = new URL(urlStr);
+    const isHttps = parsedUrl.protocol === &#x27;https:&#x27;;
+    const lib = isHttps ? https : http;
+
+    const reqOptions = {
+      hostname: parsedUrl.hostname,
+      port: parsedUrl.port || (isHttps ? 443 : 80),
+      path: parsedUrl.pathname + parsedUrl.search,
+      method: options.method || &#x27;GET&#x27;,
+      headers: options.headers || {},
+    };
+
+    const req = lib.request(reqOptions, (res) =&gt; {
+      let data = &#x27;&#x27;;
+      res.on(&#x27;data&#x27;, (chunk) =&gt; { data += chunk; });
+      res.on(&#x27;end&#x27;, () =&gt; {
+        resolve({
+          statusCode: res.statusCode,
+          headers: res.headers,
+          data: data,
+        });
+      });
+    });
+
+    req.on(&#x27;error&#x27;, reject);
+
+    // Set timeout (5 seconds)
+    req.setTimeout(5000, () =&gt; {
+      req.destroy(new Error(&#x27;Request timeout&#x27;));
+    });
+
+    // Send request body if provided
+    if (options.body) {
+      req.write(typeof options.body === &#x27;string&#x27; ? options.body : JSON.stringify(options.body));
+    }
+
+    req.end();
+  });
+}
+
+// === Usage Examples ===
+async function main() {
+  // Example 1: GET request
+  const getRes = await request(&#x27;https://jsonplaceholder.typicode.com/todos/1&#x27;);
+  console.log(&#x27;GET response:&#x27;, JSON.parse(getRes.data));
+
+  // Example 2: POST request with JSON body
+  const postRes = await request(&#x27;https://jsonplaceholder.typicode.com/posts&#x27;, {
+    method: &#x27;POST&#x27;,
+    headers: { &#x27;Content-Type&#x27;: &#x27;application/json&#x27; },
+    body: JSON.stringify({ title: &#x27;Hello&#x27;, body: &#x27;World&#x27;, userId: 1 }),
+  });
+  console.log(&#x27;POST response:&#x27;, JSON.parse(postRes.data));
+
+  // Example 3: Fetch multiple resources concurrently
+  const urls = [
+    &#x27;https://jsonplaceholder.typicode.com/todos/1&#x27;,
+    &#x27;https://jsonplaceholder.typicode.com/todos/2&#x27;,
+    &#x27;https://jsonplaceholder.typicode.com/todos/3&#x27;,
+  ];
+  const results = await Promise.all(urls.map((u) =&gt; request(u)));
+  console.log(&#x27;Concurrent results:&#x27;, results.map((r) =&gt; JSON.parse(r.data)));
+}
+
+main().catch(console.error);</code></pre>
+
+<h3>v3：实用工具类 + 重试机制 + 并发控制</h3>
+
+<pre><code class="language-js">// v3-http-client.js - Production-ready HTTP client class
+const http = require(&#x27;http&#x27;);
+const https = require(&#x27;https&#x27;);
+
+class HttpClient {
+  constructor(defaults = {}) {
+    this.baseURL = defaults.baseURL || &#x27;&#x27;;
+    this.defaultHeaders = defaults.headers || {};
+    this.timeout = defaults.timeout || 10000;
+    this.maxRetries = defaults.maxRetries || 0;
+    this.retryDelay = defaults.retryDelay || 1000;
+  }
+
+  // Core request method
+  async request(method, path, options = {}) {
+    const url = this.baseURL + path;
+    let lastError;
+
+    for (let attempt = 0; attempt &lt;= this.maxRetries; attempt++) {
+      try {
+        return await this._doRequest(method, url, options);
+      } catch (err) {
+        lastError = err;
+        if (attempt &lt; this.maxRetries) {
+          await this._sleep(this.retryDelay * (attempt + 1));
+          console.log(`Retry ${attempt + 1}/${this.maxRetries} for ${url}`);
+        }
+      }
+    }
+    throw lastError;
+  }
+
+  // Internal: perform single request
+  _doRequest(method, urlStr, options) {
+    return new Promise((resolve, reject) =&gt; {
+      const parsedUrl = new URL(urlStr);
+      const isHttps = parsedUrl.protocol === &#x27;https:&#x27;;
+      const lib = isHttps ? https : http;
+
+      const headers = { ...this.defaultHeaders, ...options.headers };
+
+      const req = lib.request({
+        hostname: parsedUrl.hostname,
+        port: parsedUrl.port || (isHttps ? 443 : 80),
+        path: parsedUrl.pathname + parsedUrl.search,
+        method,
+        headers,
+      }, (res) =&gt; {
+        let data = &#x27;&#x27;;
+        res.on(&#x27;data&#x27;, (chunk) =&gt; { data += chunk; });
+        res.on(&#x27;end&#x27;, () =&gt; {
+          const result = {
+            status: res.statusCode,
+            headers: res.headers,
+            data: this._tryParse(data),
+          };
+          // Throw on HTTP errors (4xx, 5xx)
+          if (res.statusCode &gt;= 400) {
+            const err = new Error(`HTTP ${res.statusCode}: ${urlStr}`);
+            err.response = result;
+            reject(err);
+          } else {
+            resolve(result);
+          }
+        });
+      });
+
+      req.on(&#x27;error&#x27;, reject);
+      req.setTimeout(this.timeout, () =&gt; req.destroy(new Error(&#x27;Timeout&#x27;)));
+
+      if (options.body) {
+        const payload = typeof options.body === &#x27;string&#x27;
+          ? options.body : JSON.stringify(options.body);
+        req.write(payload);
+      }
+      req.end();
+    });
+  }
+
+  // Convenience methods
+  get(path, options) { return this.request(&#x27;GET&#x27;, path, options); }
+  post(path, body, options = {}) {
+    return this.request(&#x27;POST&#x27;, path, { ...options, body });
+  }
+  put(path, body, options = {}) {
+    return this.request(&#x27;PUT&#x27;, path, { ...options, body });
+  }
+  delete(path, options) { return this.request(&#x27;DELETE&#x27;, path, options); }
+
+  // Utility: concurrent requests with limit
+  static async concurrent(tasks, limit = 3) {
+    const results = [];
+    for (let i = 0; i &lt; tasks.length; i += limit) {
+      const batch = tasks.slice(i, i + limit);
+      const batchResults = await Promise.all(batch.map((t) =&gt; t()));
+      results.push(...batchResults);
+    }
+    return results;
+  }
+
+  // Helpers
+  _tryParse(str) {
+    try { return JSON.parse(str); } catch { return str; }
+  }
+  _sleep(ms) { return new Promise((r) =&gt; setTimeout(r, ms)); }
+}
+
+// === Usage ===
+async function main() {
+  const client = new HttpClient({
+    baseURL: &#x27;https://jsonplaceholder.typicode.com&#x27;,
+    timeout: 5000,
+    maxRetries: 2,
+    retryDelay: 500,
+  });
+
+  // GET single resource
+  const todo = await client.get(&#x27;/todos/1&#x27;);
+  console.log(&#x27;Todo:&#x27;, todo.data);
+
+  // POST create resource
+  const created = await client.post(&#x27;/posts&#x27;, {
+    title: &#x27;Hello Node.js&#x27;,
+    body: &#x27;HTTP Client in action&#x27;,
+    userId: 1,
+  });
+  console.log(&#x27;Created:&#x27;, created.data);
+
+  // Concurrent requests with limit
+  const tasks = [1, 2, 3, 4, 5].map(
+    (id) =&gt; () =&gt; client.get(`/todos/${id}`)
+  );
+  const all = await HttpClient.concurrent(tasks, 2);
+  console.log(&#x27;All todos:&#x27;, all.map((r) =&gt; r.data.title));
+}
+
+main().catch(console.error);</code></pre>
+
+<hr>
+
+<h2>执行预览</h2>
+
+<pre><code class="language-bash">$ node v1-simple-get.js
+{ userId: 1, id: 1, title: &#x27;delectus aut autem&#x27;, completed: false }
+
+$ node v2-request-helper.js
+GET response: { userId: 1, id: 1, title: &#x27;delectus aut autem&#x27;, completed: false }
+POST response: { title: &#x27;Hello&#x27;, body: &#x27;World&#x27;, userId: 1, id: 101 }
+Concurrent results: [
+  { userId: 1, id: 1, title: &#x27;delectus aut autem&#x27;, completed: false },
+  { userId: 1, id: 2, title: &#x27;quis ut nam facilis...&#x27;, completed: false },
+  { userId: 1, id: 3, title: &#x27;fugiat veniam minus&#x27;, completed: false }
+]
+
+$ node v3-http-client.js
+Todo: { userId: 1, id: 1, title: &#x27;delectus aut autem&#x27;, completed: false }
+Created: { title: &#x27;Hello Node.js&#x27;, body: &#x27;HTTP Client in action&#x27;, userId: 1, id: 101 }
+All todos: [ &#x27;delectus aut autem&#x27;, &#x27;quis ut nam facilis...&#x27;, &#x27;fugiat veniam minus&#x27;, ... ]</code></pre>
+
+<hr>
+
+<h2>注意事项</h2>
+
+<table><thead><tr>
+<th>项目</th>
+<th>说明</th>
+</tr></thead><tbody>
+<tr>
+<td>http vs https</td>
+<td>请求<code>https://</code>开头的URL必须用<code>https</code>模块，否则会报协议错误</td>
+</tr>
+<tr>
+<td>请求体类型</td>
+<td>POST请求要设置<code>Content-Type</code>，否则服务端可能无法解析</td>
+</tr>
+<tr>
+<td>超时处理</td>
+<td>默认没有超时，必须手动设置<code>req.setTimeout()</code>防止请求永远挂起</td>
+</tr>
+<tr>
+<td>并发数量</td>
+<td>不要同时发起数百个请求，用并发控制或连接池</td>
+</tr>
+<tr>
+<td>错误重试</td>
+<td>只有网络错误和5xx才应该重试，4xx是客户端错误不需要重试</td>
+</tr>
+<tr>
+<td>内存占用</td>
+<td>大响应体会占用大量内存，考虑使用流式处理</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>避坑指南</h2>
+
+<table><thead><tr>
+<th>❌ 常见错误</th>
+<th>✅ 正确做法</th>
+</tr></thead><tbody>
+<tr>
+<td>用<code>http.get()</code>请求HTTPS地址</td>
+<td>用<code>https.get()</code>或<code>https.request()</code>请求HTTPS资源</td>
+</tr>
+<tr>
+<td>忘记调用<code>req.end()</code></td>
+<td><code>http.request()</code>必须手动调用<code>req.end()</code>，<code>http.get()</code>会自动调用</td>
+</tr>
+<tr>
+<td>同步获取响应数据</td>
+<td>响应是流式的，必须监听<code>data</code>和<code>end</code>事件拼接数据</td>
+</tr>
+<tr>
+<td>不处理错误事件</td>
+<td>监听<code>req.on('error')</code>防止进程崩溃</td>
+</tr>
+<tr>
+<td>Promise.all不限并发</td>
+<td>用并发控制限制同时请求数，避免打爆目标服务器</td>
+</tr>
+<tr>
+<td>忽略状态码</td>
+<td>检查<code>res.statusCode</code>，200以外可能是错误</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>练习题</h2>
+
+<h3>🟢 初级（理解概念）</h3>
+
+<ol>
+<li>使用<code>https.get()</code>获取<code>https://jsonplaceholder.typicode.com/users/1</code>并打印用户名</li>
+</ul>
+<ol>
+<li>分别获取两个API的数据，按顺序打印结果</li>
+
+<h3>🟡 中级（动手实践）</h3>
+
+<ol>
+<li>封装一个<code>fetchJSON(url)</code>函数，返回解析后的JSON对象（Promise版本）</li>
+</ul>
+<ol>
+<li>实现一个简单爬虫：获取某个网页HTML，提取所有<code><a></code>标签的href属性</li>
+
+<h3>🔴 高级（综合挑战）</h3>
+
+<ol>
+<li>给HttpClient类添加缓存功能：相同URL在30秒内返回缓存结果</li>
+</ul>
+<ol>
+<li>实现下载进度显示：请求大文件时，实时显示已下载字节数和百分比</li>
+
+<hr>
+
+<h2>知识点总结（树状）</h2>
+
+<pre><code>Node.js HTTP客户端
+├── 内置模块
+│   ├── http.get(url, callback) → 简单GET请求
+│   ├── http.request(options, callback) → 通用请求
+│   ├── https模块 → HTTPS协议支持
+│   └── URL类 → URL解析工具
+├── 请求配置
+│   ├── method → GET/POST/PUT/DELETE
+│   ├── headers → 请求头
+│   ├── body → 请求体（POST/PUT）
+│   └── timeout → 超时设置
+├── 响应处理
+│   ├── statusCode → 状态码
+│   ├── headers → 响应头
+│   ├── data事件 → 分块接收
+│   └── end事件 → 接收完成
+├── 高级特性
+│   ├── Promise封装 → async/await
+│   ├── 重试机制 → 指数退避
+│   ├── 并发控制 → 限流请求
+│   └── 错误处理 → 分类处理
+└── 第三方库
+    ├── axios → 功能最全
+    ├── node-fetch → 浏览器API风格
+    └── got → 现代化设计</code></pre>
+
+<hr>
+
+<h2>举一反三</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>核心思路</th>
+<th>关键API</th>
+</tr></thead><tbody>
+<tr>
+<td>调用REST API</td>
+<td>设置JSON Content-Type，序列化请求体</td>
+<td><code>JSON.stringify()</code> + <code>Content-Type</code></td>
+</tr>
+<tr>
+<td>文件下载</td>
+<td>监听data事件，用fs写入文件</td>
+<td><code>res.on('data')</code> + <code>fs.createWriteStream()</code></td>
+</tr>
+<tr>
+<td>文件上传</td>
+<td>设置multipart/form-data</td>
+<td><code>form-data</code>库或手动构造boundary</td>
+</tr>
+<tr>
+<td>带认证的请求</td>
+<td>在headers中添加Authorization</td>
+<td><code>Authorization: Bearer <token></code></td>
+</tr>
+<tr>
+<td>代理请求</td>
+<td>设置hostname为代理地址</td>
+<td><code>http.request({ hostname: proxy })</code></td>
+</tr>
+<tr>
+<td>流式处理大响应</td>
+<td>pipe到文件或转换流</td>
+<td><code>res.pipe(fs.createWriteStream())</code></td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>参考资料</h2>
+
+<ul>
+<li><a href="https://nodejs.org/api/http.html">Node.js http模块文档</a></li>
+<li><a href="https://nodejs.org/api/https.html">Node.js https模块文档</a></li>
+<li><a href="https://axios-http.com/docs/intro">axios官方文档</a></li>
+<li><a href="https://developer.mozilla.org/zh-CN/docs/Web/HTTP/Methods">MDN - HTTP请求方法</a></li>
+
+<hr>
+
+<h2>代码演进</h2>
+
+<pre><code>v1（10行）──── v2（60行）──── v3（130行）
+ │              │               │
+单次GET请求   通用request函数  HttpClient类
+无错误处理    POST/并发支持    重试+并发控制
+回调风格      Promise封装      便捷方法+错误分类</code></pre>
+
+<p><strong>v1 → v2 关键变化：</strong> Promise封装、支持所有HTTP方法、超时处理、并发请求</p>
+<p><strong>v2 → v3 关键变化：</strong> 面向对象封装、重试机制、并发控制、HTTP错误自动分类</p>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

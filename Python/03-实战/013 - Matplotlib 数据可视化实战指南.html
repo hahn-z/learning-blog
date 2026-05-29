@@ -1,0 +1,581 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>013 - Matplotlib 数据可视化实战指南</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Python/index.html">Python</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Python/03-实战/index.html">Python实战</a>
+</nav>
+<h1>013 - Matplotlib 数据可视化实战指南</h1>
+<div class="meta">
+<span>📂 Python实战</span>
+<span>🏷️ Python</span>
+</div>
+<article>
+
+
+<h1>Matplotlib 数据可视化实战指南</h1>
+
+<blockquote><p><strong>难度：</strong> ⭐⭐ 中级 | <strong>预计阅读：</strong> 25 分钟 | <strong>标签：</strong> Python, 数据可视化, Matplotlib</p></blockquote>
+
+<hr>
+
+<h2>一、概念讲解</h2>
+
+<p>Matplotlib 是 Python 生态中最经典的数据可视化库，由 John Hunter 于 2003 年创建。它提供了从简单折线图到复杂 3D 图表的完整绘图能力，是数据分析和科学计算的标配工具。</p>
+
+<h3>核心架构</h3>
+
+<p>Matplotlib 采用三层架构：</p>
+
+<ul>
+<li><strong>Backend Layer</strong>：处理渲染（Agg、Qt、TkAgg 等）</li>
+<li><strong>Artist Layer</strong>：所有可见元素都是 Artist（Figure、Axes、Line2D 等）</li>
+<li><strong>Scripting Layer</strong>：<code>pyplot</code> 接口，面向用户的便捷 API</li>
+
+<p>关键概念辨析：</p>
+
+<table><thead><tr>
+<th>概念</th>
+<th>说明</th>
+</tr></thead><tbody>
+<tr>
+<td>Figure</td>
+<td>画布，最顶层的容器</td>
+</tr>
+<tr>
+<td>Axes</td>
+<td>坐标系（不是 Axis），一个 Figure 可包含多个</td>
+</tr>
+<tr>
+<td>Axis</td>
+<td>坐标轴（X 轴、Y 轴）</td>
+</tr>
+<tr>
+<td>Artist</td>
+<td>所有在画布上渲染的对象</td>
+</tr>
+</tbody></table>
+
+<p>两种接口风格：<strong>Pyplot 风格</strong>（MATLAB 式，快速出图）和 <strong>面向对象风格</strong>（精细控制，推荐用于复杂场景）。</p>
+
+<hr>
+
+<h2>二、知识脑图</h2>
+
+<pre><code>Matplotlib
+├── 基础图表
+│   ├── 折线图 plot()
+│   ├── 柱状图 bar() / barh()
+│   ├── 散点图 scatter()
+│   ├── 直方图 hist()
+│   └── 饼图 pie()
+├── 样式定制
+│   ├── 颜色 / 线型 / 标记
+│   ├── 字体 / 标签 / 图例
+│   ├── 网格 / 边框
+│   └── 样式表 style.use()
+├── 子图布局
+│   ├── subplot() 等分布局
+│   ├── subplots() 批量创建
+│   └── GridSpec 不规则布局
+├── 进阶图表
+│   ├── 热力图 imshow()
+│   ├── 箱线图 boxplot()
+│   ├── 小提琴图 violinplot()
+│   └── 极坐标图 polar()
+└── 输出
+    ├── savefig() 保存文件
+    └── show() 交互显示</code></pre>
+
+<hr>
+
+<h2>三、完整代码实战</h2>
+
+<h3>项目：电商销售数据可视化仪表盘</h3>
+
+<pre><code class="language-python">&#x27;&#x27;&#x27;
+E-commerce Sales Dashboard with Matplotlib
+Demonstrates: line, bar, scatter, pie, heatmap charts
+&#x27;&#x27;&#x27;
+import matplotlib.pyplot as plt
+import matplotlib.gridspec as gridspec
+import numpy as np
+
+# ---------- Sample Data Generation ----------
+np.random.seed(42)
+months = [&#x27;Jan&#x27;, &#x27;Feb&#x27;, &#x27;Mar&#x27;, &#x27;Apr&#x27;, &#x27;May&#x27;, &#x27;Jun&#x27;,
+          &#x27;Jul&#x27;, &#x27;Aug&#x27;, &#x27;Sep&#x27;, &#x27;Oct&#x27;, &#x27;Nov&#x27;, &#x27;Dec&#x27;]
+
+# Monthly revenue (10k CNY)
+revenue = np.cumsum(np.random.randn(12) * 5 + 10)
+revenue = np.abs(revenue) + 50
+
+# Product category sales
+categories = [&#x27;Electronics&#x27;, &#x27;Clothing&#x27;, &#x27;Food&#x27;, &#x27;Books&#x27;, &#x27;Sports&#x27;]
+cat_sales = [np.random.randint(100, 500) for _ in categories]
+
+# Customer data: spending vs visit frequency
+visits = np.random.randint(1, 50, 100)
+spending = visits * np.random.uniform(80, 200, 100) + np.random.randn(100) * 500
+spending = np.abs(spending)
+
+# Daily heatmap data (7 days x 24 hours)
+heat_data = np.random.poisson(lam=15, size=(7, 24))
+
+# ---------- Color Theme ----------
+COLORS = [&#x27;#FF6B6B&#x27;, &#x27;#4ECDC4&#x27;, &#x27;#45B7D1&#x27;, &#x27;#96CEB4&#x27;, &#x27;#FFEAA7&#x27;, &#x27;#DDA0DD&#x27;]
+
+# ---------- Create Dashboard ----------
+fig = plt.figure(figsize=(18, 12), facecolor=&#x27;#FAFAFA&#x27;)
+fig.suptitle(&#x27;E-commerce Sales Dashboard 2024&#x27;,
+             fontsize=20, fontweight=&#x27;bold&#x27;, y=0.98)
+
+gs = gridspec.GridSpec(2, 3, hspace=0.35, wspace=0.3,
+                       left=0.06, right=0.96, top=0.92, bottom=0.06)
+
+# --- 1. Line Chart: Monthly Revenue Trend ---
+ax1 = fig.add_subplot(gs[0, 0])
+ax1.plot(months, revenue, &#x27;o-&#x27;, color=COLORS[0], linewidth=2.5,
+         markersize=6, markerfacecolor=&#x27;white&#x27;, markeredgewidth=2)
+ax1.fill_between(months, revenue, alpha=0.15, color=COLORS[0])
+ax1.set_title(&#x27;Monthly Revenue Trend (10k CNY)&#x27;, fontsize=12, pad=10)
+ax1.set_ylabel(&#x27;Revenue (10k)&#x27;)
+ax1.grid(True, alpha=0.3, linestyle=&#x27;--&#x27;)
+ax1.tick_params(axis=&#x27;x&#x27;, rotation=45)
+
+# Annotate peak
+peak_idx = np.argmax(revenue)
+ax1.annotate(f&#x27;Peak: {revenue[peak_idx]:.1f}&#x27;,
+             xy=(months[peak_idx], revenue[peak_idx]),
+             xytext=(20, 15), textcoords=&#x27;offset points&#x27;,
+             arrowprops=dict(arrowstyle=&#x27;-&gt;&#x27;, color=&#x27;red&#x27;),
+             fontsize=9, color=&#x27;red&#x27;, fontweight=&#x27;bold&#x27;)
+
+# --- 2. Bar Chart: Category Sales ---
+ax2 = fig.add_subplot(gs[0, 1])
+bars = ax2.bar(categories, cat_sales, color=COLORS[:5],
+               edgecolor=&#x27;white&#x27;, linewidth=1.5)
+ax2.set_title(&#x27;Sales by Category&#x27;, fontsize=12, pad=10)
+ax2.set_ylabel(&#x27;Units Sold&#x27;)
+ax2.tick_params(axis=&#x27;x&#x27;, rotation=30)
+
+# Add value labels on bars
+for bar, val in zip(bars, cat_sales):
+    ax2.text(bar.get_x() + bar.get_width() / 2, bar.get_height() + 5,
+             str(val), ha=&#x27;center&#x27;, va=&#x27;bottom&#x27;, fontsize=9, fontweight=&#x27;bold&#x27;)
+
+# --- 3. Scatter Plot: Customer Analysis ---
+ax3 = fig.add_subplot(gs[0, 2])
+scatter = ax3.scatter(visits, spending, c=visits, cmap=&#x27;viridis&#x27;,
+                      alpha=0.6, s=30, edgecolors=&#x27;white&#x27;, linewidth=0.5)
+ax3.set_title(&#x27;Customer: Visits vs Spending&#x27;, fontsize=12, pad=10)
+ax3.set_xlabel(&#x27;Visit Count&#x27;)
+ax3.set_ylabel(&#x27;Spending (CNY)&#x27;)
+fig.colorbar(scatter, ax=ax3, label=&#x27;Visits&#x27;, shrink=0.8)
+
+# Trend line
+z = np.polyfit(visits, spending, 1)
+p = np.poly1d(z)
+x_line = np.linspace(visits.min(), visits.max(), 100)
+ax3.plot(x_line, p(x_line), &#x27;--&#x27;, color=&#x27;red&#x27;, alpha=0.8, linewidth=1.5,
+         label=&#x27;Trend&#x27;)
+ax3.legend(fontsize=8)
+
+# --- 4. Pie Chart: Market Share ---
+ax4 = fig.add_subplot(gs[1, 0])
+explode = [0.05] * 5
+wedges, texts, autotexts = ax4.pie(
+    cat_sales, labels=categories, autopct=&#x27;%1.1f%%&#x27;,
+    colors=COLORS[:5], explode=explode,
+    shadow=True, startangle=90, pctdistance=0.8
+)
+for t in autotexts:
+    t.set_fontsize(8)
+    t.set_fontweight(&#x27;bold&#x27;)
+ax4.set_title(&#x27;Market Share Distribution&#x27;, fontsize=12, pad=10)
+
+# --- 5. Heatmap: Traffic by Hour &amp; Day ---
+ax5 = fig.add_subplot(gs[1, 1:])
+days = [&#x27;Mon&#x27;, &#x27;Tue&#x27;, &#x27;Wed&#x27;, &#x27;Thu&#x27;, &#x27;Fri&#x27;, &#x27;Sat&#x27;, &#x27;Sun&#x27;]
+im = ax5.imshow(heat_data, cmap=&#x27;YlOrRd&#x27;, aspect=&#x27;auto&#x27;)
+ax5.set_xticks(range(24))
+ax5.set_xticklabels([f&#x27;{h}:00&#x27; for h in range(24)], fontsize=7, rotation=45)
+ax5.set_yticks(range(7))
+ax5.set_yticklabels(days)
+ax5.set_title(&#x27;Site Traffic Heatmap (by Hour &amp; Day)&#x27;, fontsize=12, pad=10)
+fig.colorbar(im, ax=ax5, label=&#x27;Visits&#x27;, shrink=0.8)
+
+# Add text annotations for peak hours
+for i in range(7):
+    for j in range(24):
+        val = heat_data[i, j]
+        if val &gt; 25:
+            ax5.text(j, i, str(val), ha=&#x27;center&#x27;, va=&#x27;center&#x27;,
+                     fontsize=6, color=&#x27;white&#x27;, fontweight=&#x27;bold&#x27;)
+
+plt.savefig(&#x27;/tmp/dashboard.png&#x27;, dpi=150, bbox_inches=&#x27;tight&#x27;)
+print(&quot;Dashboard saved to /tmp/dashboard.png&quot;)
+plt.close()</code></pre>
+
+<hr>
+
+<h2>四、执行预览</h2>
+
+<pre><code>Dashboard saved to /tmp/dashboard.png
+
+[生成的图表包含]
++---------------------------------------------+
+|  E-commerce Sales Dashboard 2024            |
++--------------+--------------+---------------+
+| Revenue Line | Category Bar | Scatter Plot  |
+| 上升趋势     | 对比柱状     | 相关分析       |
++--------------+--------------+---------------+
+| Pie Chart    | Traffic Heatmap (wide)        |
+| 份额分布     | 24h x 7day 热力图             |
++--------------+------------------------------+</code></pre>
+
+<p>图表效果：</p>
+<ul>
+<li>折线图：带填充区域，峰值标注</li>
+<li>柱状图：每根柱子颜色不同，顶部有数值</li>
+<li>散点图：颜色映射 + 趋势线</li>
+<li>饼图：阴影 + 突出显示</li>
+<li>热力图：高峰时段标注白色数字</li>
+
+<hr>
+
+<h2>五、注意事项</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>注意事项</th>
+<th>说明</th>
+</tr></thead><tbody>
+<tr>
+<td>中文字体</td>
+<td>需手动配置</td>
+<td><code>plt.rcParams['font.sans-serif'] = ['SimHei']</code></td>
+</tr>
+<tr>
+<td>内存泄漏</td>
+<td>大量绘图时</td>
+<td>每次用完 <code>plt.close()</code> 关闭 Figure</td>
+</tr>
+<tr>
+<td>DPI 设置</td>
+<td>保存图片时</td>
+<td>屏幕 72dpi，论文 300dpi，海报 600dpi</td>
+</tr>
+<tr>
+<td>交互模式</td>
+<td>Jupyter 中</td>
+<td>用 <code>%%matplotlib inline</code> 或 <code>notebook</code></td>
+</tr>
+<tr>
+<td>性能</td>
+<td>大数据量散点图</td>
+<td>超过 10 万点考虑降采样或用 <code>hexbin</code></td>
+</tr>
+<tr>
+<td>样式冲突</td>
+<td>多图绘制</td>
+<td>每次 <code>plt.style.use()</code> 影响全局</td>
+</tr>
+<tr>
+<td>文件格式</td>
+<td>savefig</td>
+<td>PNG 通用，SVG 矢量无损，PDF 印刷级</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>六、避坑指南</h2>
+
+<h3>错误：中文显示方块 → 正确：配置字体</h3>
+
+<pre><code class="language-python"># Wrong: Chinese shows as squares
+plt.title(&#x27;销售趋势&#x27;)
+
+# Correct: Configure font explicitly
+plt.rcParams[&#x27;font.sans-serif&#x27;] = [&#x27;SimHei&#x27;, &#x27;Arial Unicode MS&#x27;]
+plt.rcParams[&#x27;axes.unicode_minus&#x27;] = False  # Fix minus sign
+plt.title(&#x27;销售趋势&#x27;)</code></pre>
+
+<h3>错误：子图重叠 → 正确：用 tight_layout</h3>
+
+<pre><code class="language-python"># Wrong: Labels overlap between subplots
+fig, axes = plt.subplots(2, 2)
+
+# Correct: Auto-adjust spacing
+fig, axes = plt.subplots(2, 2)
+fig.tight_layout(pad=2.0)
+
+# Best: Use GridSpec for full control
+gs = gridspec.GridSpec(2, 2, hspace=0.3, wspace=0.3)</code></pre>
+
+<h3>错误：颜色不够用 → 正确：使用 colormap</h3>
+
+<pre><code class="language-python"># Wrong: Hard-coding colors manually
+colors = [&#x27;red&#x27;, &#x27;blue&#x27;, &#x27;green&#x27;, &#x27;orange&#x27;, &#x27;purple&#x27;, &#x27;pink&#x27;]
+
+# Correct: Use built-in colormaps
+cmap = plt.cm.get_cmap(&#x27;Set2&#x27;, 8)
+colors = [cmap(i) for i in range(8)]</code></pre>
+
+<h3>错误：图例遮挡数据 → 正确：精确定位</h3>
+
+<pre><code class="language-python"># Wrong: Legend covers data points
+plt.legend()
+
+# Correct: Place outside or specify position
+plt.legend(loc=&#x27;upper left&#x27;, bbox_to_anchor=(1.02, 1), borderaxespad=0)</code></pre>
+
+<hr>
+
+<h2>七、练习题</h2>
+
+<h3>入门级</h3>
+
+<ol>
+<li>绘制一条正弦曲线 <code>y = sin(x)</code>，x 范围 <code>[0, 2*pi]</code>，设置标题、坐标轴标签和网格</li>
+</ul>
+<ol>
+<li>生成一组随机数据（100 个点），绘制直方图，设置 20 个 bin，添加均值竖线</li>
+
+<h3>中级</h3>
+
+<ol>
+<li>创建 2x2 子图布局，分别绘制折线图、柱状图、散点图、饼图，使用 <code>tight_layout</code> 防止重叠</li>
+</ul>
+<ol>
+<li>读取 CSV 文件，绘制某列数据的时间序列图，标注最大值和最小值点</li>
+
+<h3>高级</h3>
+
+<ol>
+<li>使用 <code>GridSpec</code> 创建不规则布局：上方一个宽图占满，下方两个窄图并排，模拟仪表盘布局</li>
+</ul>
+<ol>
+<li>用 <code>FuncAnimation</code> 制作一个动态折线图，实时展示随机数据的滚动更新</li>
+
+<hr>
+
+<h2>八、知识点总结</h2>
+
+<pre><code>Matplotlib 核心知识树
+├── Figure（画布）
+│   ├── 创建：plt.figure(figsize, dpi)
+│   ├── 保存：savefig(path, dpi, bbox_inches)
+│   └── 显示：show() / close()
+├── Axes（坐标系）
+│   ├── 创建：add_subplot() / subplots()
+│   ├── 标题：set_title() / suptitle()
+│   ├── 范围：set_xlim() / set_ylim()
+│   └── 刻度：set_xticks() / tick_params()
+├── 基础绘图
+│   ├── plot() → 折线图
+│   ├── bar() → 柱状图
+│   ├── scatter() → 散点图
+│   ├── hist() → 直方图
+│   ├── pie() → 饼图
+│   ├── imshow() → 热力图
+│   ├── boxplot() → 箱线图
+│   └── fill_between() → 填充区域
+├── 装饰元素
+│   ├── legend() → 图例
+│   ├── colorbar() → 颜色条
+│   ├── annotate() → 标注
+│   ├── text() → 文本
+│   └── grid() → 网格
+└── 样式系统
+    ├── style.use() → 预设样式
+    ├── rcParams → 全局配置
+    └── colormap → 颜色映射</code></pre>
+
+<hr>
+
+<h2>九、举一反三</h2>
+
+<table><thead><tr>
+<th>技能</th>
+<th>基础用法</th>
+<th>进阶场景</th>
+<th>实战扩展</th>
+</tr></thead><tbody>
+<tr>
+<td>折线图</td>
+<td>单线趋势</td>
+<td>多线对比 + 双 Y 轴</td>
+<td>股票 K 线图 + 成交量</td>
+</tr>
+<tr>
+<td>柱状图</td>
+<td>简单计数</td>
+<td>堆叠/分组 + 误差棒</td>
+<td>月度报表自动生成</td>
+</tr>
+<tr>
+<td>散点图</td>
+<td>两维关系</td>
+<td>气泡图（三维度）</td>
+<td>聚类结果可视化</td>
+</tr>
+<tr>
+<td>热力图</td>
+<td>矩阵展示</td>
+<td>相关性矩阵</td>
+<td>用户行为时序分析</td>
+</tr>
+<tr>
+<td>子图</td>
+<td>规则排列</td>
+<td>GridSpec 自定义</td>
+<td>完整数据仪表盘</td>
+</tr>
+<tr>
+<td>动画</td>
+<td>静态图</td>
+<td>FuncAnimation</td>
+<td>实时监控面板</td>
+</tr>
+</tbody></table>
+
+<p><strong>替代库对比：</strong></p>
+
+<table><thead><tr>
+<th>库</th>
+<th>优势</th>
+<th>劣势</th>
+<th>适用场景</th>
+</tr></thead><tbody>
+<tr>
+<td>Matplotlib</td>
+<td>全面、可控、出版级</td>
+<td>API 繁琐、交互弱</td>
+<td>论文、报表、精细控制</td>
+</tr>
+<tr>
+<td>Seaborn</td>
+<td>统计图表、美观</td>
+<td>封装层限制</td>
+<td>数据探索、统计分析</td>
+</tr>
+<tr>
+<td>Plotly</td>
+<td>交互、Web 友好</td>
+<td>大数据慢</td>
+<td>Web 仪表盘、演示</td>
+</tr>
+<tr>
+<td>Bokeh</td>
+<td>大数据、流式</td>
+<td>学习曲线</td>
+<td>实时监控、大数据可视化</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>十、参考资料</h2>
+
+<ul>
+<li><a href="https://matplotlib.org/stable/index.html">Matplotlib 官方文档</a></li>
+<li><a href="https://matplotlib.org/stable/gallery/index.html">Matplotlib Gallery</a> — 最实用的示例集</li>
+<li><a href="https://jakevdp.github.io/PythonDataScienceHandbook/">Python Data Science Handbook</a> — Jake VanderPlas</li>
+<li><a href="https://github.com/matplotlib/cheatsheets">Matplotlib Cheatsheet</a> — 官方速查表</li>
+
+<hr>
+
+<h2>十一、代码演进</h2>
+
+<h3>v1：最简折线图（5 行搞定）</h3>
+
+<pre><code class="language-python">import matplotlib.pyplot as plt
+plt.plot([1, 2, 3, 4], [10, 20, 25, 30])
+plt.title(&#x27;Simple Line&#x27;)
+plt.show()</code></pre>
+
+<h3>v2：面向对象 + 样式定制</h3>
+
+<pre><code class="language-python">import matplotlib.pyplot as plt
+import numpy as np
+
+fig, ax = plt.subplots(figsize=(8, 5))
+x = np.linspace(0, 2 * np.pi, 100)
+ax.plot(x, np.sin(x), &#x27;-&#x27;, label=&#x27;sin(x)&#x27;, linewidth=2)
+ax.plot(x, np.cos(x), &#x27;--&#x27;, label=&#x27;cos(x)&#x27;, linewidth=2)
+ax.set_title(&#x27;Trigonometric Functions&#x27;, fontsize=14)
+ax.legend()
+ax.grid(True, alpha=0.3)
+fig.tight_layout()
+plt.savefig(&#x27;trig.png&#x27;, dpi=150)</code></pre>
+
+<h3>v3：完整仪表盘（本文实战代码）</h3>
+
+<ul>
+<li>GridSpec 不规则布局</li>
+<li>5 种图表类型组合</li>
+<li>颜色主题 + 自动标注</li>
+<li>高 DPI 输出</li>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

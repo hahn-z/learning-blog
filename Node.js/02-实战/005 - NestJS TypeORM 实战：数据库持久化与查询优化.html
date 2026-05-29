@@ -1,0 +1,751 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>005 - NestJS TypeORM 实战：数据库持久化与查询优化</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Node.js/index.html">Node.js</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Node.js/02-实战/index.html">Node.js实战</a>
+</nav>
+<h1>005 - NestJS TypeORM 实战：数据库持久化与查询优化</h1>
+<div class="meta">
+<span>📂 Node.js实战</span>
+<span>🏷️ Node.js</span>
+</div>
+<article>
+
+
+<h2>🎯 难度标注</h2>
+
+<p><strong>难度等级：⭐⭐⭐ 中级</strong></p>
+
+<blockquote><p>前置要求：已完成 NestJS RESTful API 基础篇、了解 SQL 基础、熟悉 TypeScript 装饰器。本文将在上篇基础上集成 TypeORM。</p></blockquote>
+
+<hr>
+
+<h2>📖 概念讲解</h2>
+
+<h3>什么是 TypeORM？</h3>
+
+<p>TypeORM 是 TypeScript 和 JavaScript (ES7+) 的 ORM 框架，支持多种数据库（MySQL、PostgreSQL、SQLite、MongoDB 等）。它的核心思想是用 TypeScript 装饰器定义数据库模型，让开发者用面向对象的方式操作数据库。</p>
+
+<h3>ORM vs 原生 SQL</h3>
+
+<table><thead><tr>
+<th>维度</th>
+<th>ORM (TypeORM)</th>
+<th>原生 SQL</th>
+</tr></thead><tbody>
+<tr>
+<td>开发效率</td>
+<td>高（自动生成 SQL）</td>
+<td>低（手写每条语句）</td>
+</tr>
+<tr>
+<td>类型安全</td>
+<td>✅ TypeScript 强类型</td>
+<td>❌ 字符串拼接</td>
+</tr>
+<tr>
+<td>数据库迁移</td>
+<td>内置支持</td>
+<td>需要第三方工具</td>
+</tr>
+<tr>
+<td>复杂查询</td>
+<td>繁琐（QueryBuilder）</td>
+<td>灵活直观</td>
+</tr>
+<tr>
+<td>性能</td>
+<td>略有损耗</td>
+<td>最优</td>
+</tr>
+<tr>
+<td>可维护性</td>
+<td>高（代码即文档）</td>
+<td>低（SQL 散落各处）</td>
+</tr>
+</tbody></table>
+
+<h3>NestJS 集成 TypeORM 的方式</h3>
+
+<pre><code>方式一（推荐）：@nestjs/typeorm 模块 + forRootAsync
+方式二（简单）：TypeORM CLI 配置文件</code></pre>
+
+<hr>
+
+<h2>🧠 知识脑图</h2>
+
+<pre><code>NestJS + TypeORM
+├── 配置集成
+│   ├── @nestjs/typeorm
+│   ├── forRoot / forRootAsync
+│   └── 环境变量配置
+├── 实体定义
+│   ├── @Entity / @Column
+│   ├── 主键策略 (@PrimaryGeneratedColumn)
+│   └── 时间戳 (@CreateDateColumn / @UpdateDateColumn)
+├── 关联关系
+│   ├── OneToOne
+│   ├── OneToMany / ManyToOne
+│   └── ManyToMany
+├── 仓库模式
+│   ├── @InjectRepository
+│   ├── Repository API
+│   └── 自定义 Repository
+├── 查询
+│   ├── find / findOne
+│   ├── QueryBuilder
+│   └── 分页与排序
+├── 迁移
+│   ├── 生成迁移文件
+│   ├── 执行迁移
+│   └── 回滚迁移
+└── 优化
+    ├── 索引设计
+    ├── 懒加载关联
+    └── 查询缓存</code></pre>
+
+<hr>
+
+<h2>💻 完整代码实现</h2>
+
+<h3>项目准备</h3>
+
+<pre><code class="language-bash"># Install TypeORM dependencies
+npm install @nestjs/typeorm typeorm mysql2
+# Or for PostgreSQL: npm install pg
+# Or for SQLite (dev): npm install better-sqlite3
+
+npm install @nestjs/config  # Environment config</code></pre>
+
+<h3>v1：基础配置与实体</h3>
+
+<pre><code class="language-typescript">// src/config/database.config.ts
+import { TypeOrmModuleOptions } from &#x27;@nestjs/typeorm&#x27;;
+import { ConfigService } from &#x27;@nestjs/config&#x27;;
+
+export const getDatabaseConfig = (
+  configService: ConfigService,
+): TypeOrmModuleOptions =&gt; ({
+  type: &#x27;mysql&#x27;,
+  host: configService.get&lt;string&gt;(&#x27;DB_HOST&#x27;, &#x27;localhost&#x27;),
+  port: configService.get&lt;number&gt;(&#x27;DB_PORT&#x27;, 3306),
+  username: configService.get&lt;string&gt;(&#x27;DB_USER&#x27;, &#x27;root&#x27;),
+  password: configService.get&lt;string&gt;(&#x27;DB_PASS&#x27;, &#x27;&#x27;),
+  database: configService.get&lt;string&gt;(&#x27;DB_NAME&#x27;, &#x27;blog_db&#x27;),
+  // Auto-load entities
+  autoLoadEntities: true,
+  // Sync schema in dev only!
+  synchronize: configService.get&lt;string&gt;(&#x27;NODE_ENV&#x27;) === &#x27;development&#x27;,
+  // Logging
+  logging: configService.get&lt;string&gt;(&#x27;NODE_ENV&#x27;) === &#x27;development&#x27;,
+});</code></pre>
+
+<pre><code class="language-typescript">// src/app.module.ts
+import { Module } from &#x27;@nestjs/common&#x27;;
+import { ConfigModule, ConfigService } from &#x27;@nestjs/config&#x27;;
+import { TypeOrmModule } from &#x27;@nestjs/typeorm&#x27;;
+import { PostsModule } from &#x27;./posts/posts.module&#x27;;
+import { getDatabaseConfig } from &#x27;./config/database.config&#x27;;
+
+@Module({
+  imports: [
+    // Load .env file
+    ConfigModule.forRoot({ isGlobal: true }),
+    // TypeORM with async config
+    TypeOrmModule.forRootAsync({
+      inject: [ConfigService],
+      useFactory: getDatabaseConfig,
+    }),
+    PostsModule,
+  ],
+})
+export class AppModule {}</code></pre>
+
+<pre><code class="language-typescript">// src/posts/entities/post.entity.ts
+import {
+  Entity, PrimaryGeneratedColumn, Column,
+  CreateDateColumn, UpdateDateColumn, Index,
+} from &#x27;typeorm&#x27;;
+
+@Entity(&#x27;posts&#x27;)
+export class Post {
+  @PrimaryGeneratedColumn()
+  id: number;
+
+  @Column({ length: 200 })
+  @Index() // Add index for search
+  title: string;
+
+  @Column({ type: &#x27;text&#x27; })
+  content: string;
+
+  @Column({ default: &#x27;uncategorized&#x27; })
+  @Index()
+  category: string;
+
+  @Column({ default: true })
+  isPublished: boolean;
+
+  @CreateDateColumn({ name: &#x27;created_at&#x27; })
+  createdAt: Date;
+
+  @UpdateDateColumn({ name: &#x27;updated_at&#x27; })
+  updatedAt: Date;
+}</code></pre>
+
+<pre><code class="language-typescript">// src/posts/posts.module.ts (updated for TypeORM)
+import { Module } from &#x27;@nestjs/common&#x27;;
+import { TypeOrmModule } from &#x27;@nestjs/typeorm&#x27;;
+import { PostsController } from &#x27;./posts.controller&#x27;;
+import { PostsService } from &#x27;./posts.service&#x27;;
+import { Post } from &#x27;./entities/post.entity&#x27;;
+
+@Module({
+  imports: [TypeOrmModule.forFeature([Post])],
+  controllers: [PostsController],
+  providers: [PostsService],
+})
+export class PostsModule {}</code></pre>
+
+<pre><code class="language-typescript">// src/posts/posts.service.ts (v1 - basic TypeORM)
+import { Injectable, NotFoundException } from &#x27;@nestjs/common&#x27;;
+import { InjectRepository } from &#x27;@nestjs/typeorm&#x27;;
+import { Repository } from &#x27;typeorm&#x27;;
+import { Post } from &#x27;./entities/post.entity&#x27;;
+import { CreatePostDto } from &#x27;./dto/create-post.dto&#x27;;
+import { UpdatePostDto } from &#x27;./dto/update-post.dto&#x27;;
+
+@Injectable()
+export class PostsService {
+  constructor(
+    @InjectRepository(Post)
+    private readonly postRepo: Repository&lt;Post&gt;,
+  ) {}
+
+  async create(dto: CreatePostDto): Promise&lt;Post&gt; {
+    const post = this.postRepo.create(dto);
+    return this.postRepo.save(post);
+  }
+
+  async findAll(page = 1, limit = 10): Promise&lt;{ data: Post[]; total: number }&gt; {
+    const [data, total] = await this.postRepo.findAndCount({
+      skip: (page - 1) * limit,
+      take: limit,
+      order: { createdAt: &#x27;DESC&#x27; },
+    });
+    return { data, total };
+  }
+
+  async findOne(id: number): Promise&lt;Post&gt; {
+    const post = await this.postRepo.findOne({ where: { id } });
+    if (!post) throw new NotFoundException(`Post #${id} not found`);
+    return post;
+  }
+
+  async update(id: number, dto: UpdatePostDto): Promise&lt;Post&gt; {
+    const post = await this.findOne(id);
+    Object.assign(post, dto);
+    return this.postRepo.save(post);
+  }
+
+  async remove(id: number): Promise&lt;void&gt; {
+    const result = await this.postRepo.delete(id);
+    if (result.affected === 0) {
+      throw new NotFoundException(`Post #${id} not found`);
+    }
+  }
+}</code></pre>
+
+<h3>v2：关联关系 + QueryBuilder</h3>
+
+<pre><code class="language-typescript">// src/users/entities/user.entity.ts
+import {
+  Entity, PrimaryGeneratedColumn, Column,
+  CreateDateColumn, OneToMany,
+} from &#x27;typeorm&#x27;;
+import { Post } from &#x27;../../posts/entities/post.entity&#x27;;
+
+@Entity(&#x27;users&#x27;)
+export class User {
+  @PrimaryGeneratedColumn()
+  id: number;
+
+  @Column({ unique: true })
+  email: string;
+
+  @Column()
+  username: string;
+
+  @Column({ select: false }) // Exclude from default queries
+  password: string;
+
+  @OneToMany(() =&gt; Post, (post) =&gt; post.author)
+  posts: Post[];
+
+  @CreateDateColumn({ name: &#x27;created_at&#x27; })
+  createdAt: Date;
+}</code></pre>
+
+<pre><code class="language-typescript">// Updated post entity with author relation
+// src/posts/entities/post.entity.ts (add these fields)
+import { ManyToOne } from &#x27;typeorm&#x27;;
+import { User } from &#x27;../../users/entities/user.entity&#x27;;
+
+// Add to Post entity class:
+@ManyToOne(() =&gt; User, (user) =&gt; user.posts)
+author: User;
+
+@Column({ name: &#x27;author_id&#x27; })
+authorId: number;</code></pre>
+
+<pre><code class="language-typescript">// src/tags/entities/tag.entity.ts
+import {
+  Entity, PrimaryGeneratedColumn, Column,
+  ManyToMany, JoinTable,
+} from &#x27;typeorm&#x27;;
+import { Post } from &#x27;../../posts/entities/post.entity&#x27;;
+
+@Entity(&#x27;tags&#x27;)
+export class Tag {
+  @PrimaryGeneratedColumn()
+  id: number;
+
+  @Column({ unique: true })
+  name: string;
+
+  @ManyToMany(() =&gt; Post, (post) =&gt; post.tags)
+  @JoinTable()
+  posts: Post[];
+}</code></pre>
+
+<pre><code class="language-typescript">// Add tags relation to Post entity
+@ManyToMany(() =&gt; Tag, (tag) =&gt; tag.posts)
+@JoinTable()
+tags: Tag[];</code></pre>
+
+<pre><code class="language-typescript">// src/posts/posts.service.ts (v2 - advanced queries)
+async findByCategory(category: string, page = 1, limit = 10) {
+  return this.postRepo.findAndCount({
+    where: { category },
+    skip: (page - 1) * limit,
+    take: limit,
+    relations: [&#x27;author&#x27;, &#x27;tags&#x27;],  // Eager load relations
+    order: { createdAt: &#x27;DESC&#x27; },
+  });
+}
+
+// Search using QueryBuilder
+async search(keyword: string, page = 1, limit = 10) {
+  const qb = this.postRepo.createQueryBuilder(&#x27;post&#x27;);
+
+  qb.where(&#x27;post.title LIKE :keyword&#x27;, { keyword: `%${keyword}%` })
+    .orWhere(&#x27;post.content LIKE :keyword&#x27;, { keyword: `%${keyword}%` })
+    .leftJoinAndSelect(&#x27;post.author&#x27;, &#x27;author&#x27;)
+    .leftJoinAndSelect(&#x27;post.tags&#x27;, &#x27;tags&#x27;)
+    .orderBy(&#x27;post.created_at&#x27;, &#x27;DESC&#x27;)
+    .skip((page - 1) * limit)
+    .take(limit);
+
+  const [data, total] = await qb.getManyAndCount();
+  return { data, total };
+}</code></pre>
+
+<h3>v3：迁移管理 + 优化</h3>
+
+<pre><code class="language-bash"># Generate a migration
+npx typeorm migration:generate -d src/data-source.ts src/migrations/AddPostTags
+
+# Run migrations
+npx typeorm migration:run -d src/data-source.ts
+
+# Revert last migration
+npx typeorm migration:revert -d src/data-source.ts</code></pre>
+
+<pre><code class="language-typescript">// src/migrations/1705312000000-CreatePostsTable.ts
+import { MigrationInterface, QueryRunner, Table, TableIndex } from &#x27;typeorm&#x27;;
+
+export class CreatePostsTable1705312000000 implements MigrationInterface {
+  public async up(queryRunner: QueryRunner): Promise&lt;void&gt; {
+    await queryRunner.createTable(
+      new Table({
+        name: &#x27;posts&#x27;,
+        columns: [
+          { name: &#x27;id&#x27;, type: &#x27;int&#x27;, isPrimary: true, isGenerated: true, generationStrategy: &#x27;increment&#x27; },
+          { name: &#x27;title&#x27;, type: &#x27;varchar&#x27;, length: &#x27;200&#x27; },
+          { name: &#x27;content&#x27;, type: &#x27;text&#x27; },
+          { name: &#x27;category&#x27;, type: &#x27;varchar&#x27;, default: &quot;&#x27;uncategorized&#x27;&quot; },
+          { name: &#x27;is_published&#x27;, type: &#x27;boolean&#x27;, default: true },
+          { name: &#x27;author_id&#x27;, type: &#x27;int&#x27;, isNullable: true },
+          { name: &#x27;created_at&#x27;, type: &#x27;timestamp&#x27;, default: &#x27;CURRENT_TIMESTAMP&#x27; },
+          { name: &#x27;updated_at&#x27;, type: &#x27;timestamp&#x27;, default: &#x27;CURRENT_TIMESTAMP&#x27;, onUpdate: &#x27;CURRENT_TIMESTAMP&#x27; },
+        ],
+      }),
+      true,
+    );
+
+    // Add indexes
+    await queryRunner.createIndex(&#x27;posts&#x27;, new TableIndex({
+      name: &#x27;IDX_posts_title&#x27;,
+      columnNames: [&#x27;title&#x27;],
+    }));
+    await queryRunner.createIndex(&#x27;posts&#x27;, new TableIndex({
+      name: &#x27;IDX_posts_category&#x27;,
+      columnNames: [&#x27;category&#x27;],
+    }));
+  }
+
+  public async down(queryRunner: QueryRunner): Promise&lt;void&gt; {
+    await queryRunner.dropTable(&#x27;posts&#x27;);
+  }
+}</code></pre>
+
+<pre><code class="language-typescript">// Environment config
+// .env
+DB_HOST=localhost
+DB_PORT=3306
+DB_USER=root
+DB_PASS=secret
+DB_NAME=blog_db
+NODE_ENV=development</code></pre>
+
+<hr>
+
+<h2>🔍 执行预览</h2>
+
+<pre><code class="language-bash"># Run migrations
+$ npx typeorm migration:run -d src/data-source.ts
+query: SELECT * FROM `information_schema`.`COLUMNS` ...
+query: CREATE TABLE `posts` (`id` int NOT NULL AUTO_INCREMENT, ...)
+Migration CreatePostsTable1705312000000 has been executed successfully.
+
+# Start the server
+$ npm run start:dev
+[Nest] 12345  - 04/15/2024 LOG [NestFactory] Starting Nest application...
+[Nest] 12345  - 04/15/2024 LOG [InstanceLoader] TypeOrmModule dependencies initialized
+[Nest] 12345  - 04/15/2024 LOG [NestApplication] Nest application successfully started
+
+# Create a post
+$ curl -X POST http://localhost:3000/posts \
+  -H &quot;Content-Type: application/json&quot; \
+  -d &#x27;{&quot;title&quot;:&quot;TypeORM Guide&quot;,&quot;content&quot;:&quot;Learn TypeORM with NestJS step by step...&quot;,&quot;category&quot;:&quot;database&quot;}&#x27;
+
+# Response:
+{
+  &quot;success&quot;: true,
+  &quot;data&quot;: {
+    &quot;id&quot;: 1,
+    &quot;title&quot;: &quot;TypeORM Guide&quot;,
+    &quot;content&quot;: &quot;Learn TypeORM with NestJS step by step...&quot;,
+    &quot;category&quot;: &quot;database&quot;,
+    &quot;isPublished&quot;: true,
+    &quot;createdAt&quot;: &quot;2024-04-15T10:00:00.000Z&quot;,
+    &quot;updatedAt&quot;: &quot;2024-04-15T10:00:00.000Z&quot;
+  }
+}
+
+# Search posts
+$ curl &quot;http://localhost:3000/posts/search?keyword=TypeORM&quot;
+{
+  &quot;success&quot;: true,
+  &quot;data&quot;: { &quot;data&quot;: [...], &quot;total&quot;: 1 }
+}</code></pre>
+
+<hr>
+
+<h2>⚠️ 注意事项</h2>
+
+<table><thead><tr>
+<th>事项</th>
+<th>说明</th>
+<th>建议</th>
+</tr></thead><tbody>
+<tr>
+<td>synchronize</td>
+<td>自动同步表结构</td>
+<td><strong>仅开发环境使用</strong>，生产用迁移</td>
+</tr>
+<tr>
+<td>select: false</td>
+<td>敏感字段排除默认查询</td>
+<td>密码等敏感字段必须设置</td>
+</tr>
+<tr>
+<td>Eager vs Lazy</td>
+<td>关联加载策略</td>
+<td>按需选择，避免 N+1 问题</td>
+</tr>
+<tr>
+<td>连接池</td>
+<td>默认连接池大小</td>
+<td>生产环境需根据负载调整</td>
+</tr>
+<tr>
+<td>事务</td>
+<td>多表操作需保证一致性</td>
+<td>使用 <code>@Transaction()</code> 或 EntityManager</td>
+</tr>
+<tr>
+<td>软删除</td>
+<td><code>@DeleteDateColumn</code></td>
+<td>重要数据推荐软删除</td>
+</tr>
+<tr>
+<td>迁移顺序</td>
+<td>文件名带时间戳排序</td>
+<td>命名规范：<code>Timestamp-Description</code></td>
+</tr>
+<tr>
+<td>SQL 注入</td>
+<td>QueryBuilder 参数绑定</td>
+<td>用 <code>:param</code> 占位符，不要拼接字符串</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>🚫 避坑指南</h2>
+
+<h3>❌ 生产环境开启 synchronize</h3>
+<pre><code class="language-typescript">// BAD: Auto-sync in production - can cause data loss!
+TypeOrmModule.forRoot({
+  synchronize: true,  // DANGER!
+})</code></pre>
+
+<h3>✅ 开发用 synchronize，生产用 migration</h3>
+<pre><code class="language-typescript">// GOOD: Conditional sync
+{
+  synchronize: configService.get(&#x27;NODE_ENV&#x27;) === &#x27;development&#x27;,
+}</code></pre>
+
+<h3>❌ N+1 查询问题</h3>
+<pre><code class="language-typescript">// BAD: N+1 queries - 1 query for posts + N queries for authors
+const posts = await this.postRepo.find();
+for (const post of posts) {
+  // Each access triggers a separate query!
+  console.log(post.author.name);
+}</code></pre>
+
+<h3>✅ 使用 relations 或 JoinFetcher</h3>
+<pre><code class="language-typescript">// GOOD: Single query with JOIN
+const posts = await this.postRepo.find({
+  relations: [&#x27;author&#x27;, &#x27;tags&#x27;],
+});</code></pre>
+
+<h3>❌ 直接拼接 SQL 搜索</h3>
+<pre><code class="language-typescript">// BAD: SQL injection vulnerable
+qb.where(`title LIKE &#x27;%${keyword}%&#x27;`);</code></pre>
+
+<h3>✅ 使用参数绑定</h3>
+<pre><code class="language-typescript">// GOOD: Parameterized query
+qb.where(&#x27;post.title LIKE :keyword&#x27;, { keyword: `%${keyword}%` });</code></pre>
+
+<hr>
+
+<h2>🏋️ 练习题</h2>
+
+<h3>🟢 基础题</h3>
+
+<ol>
+<li><strong>创建 Comment 实体</strong>：设计评论表，包含 <code>content</code>、<code>postId</code>（外键关联 Post）、<code>authorName</code>，并实现 CRUD API。</li>
+
+<ol>
+<li><strong>添加软删除</strong>：给 Post 实体添加 <code>@DeleteDateColumn</code>，修改 remove 方法使用 <code>softDelete()</code>。</li>
+
+<h3>🟡 进阶题</h3>
+
+<ol>
+<li><strong>多条件筛选</strong>：实现 <code>GET /posts?category=xxx&isPublished=true&search=keyword</code> 多条件组合查询，使用 QueryBuilder 动态构建 WHERE 子句。</li>
+
+<ol>
+<li><strong>数据库事务</strong>：创建文章时同时创建标签（如果标签不存在），用事务保证原子性。</li>
+
+<h3>🔴 挑战题</h3>
+
+<ol>
+<li><strong>读写分离</strong>：配置 TypeORM 主从复制，写操作走主库，读操作走从库，实现数据库读写分离架构。</li>
+
+<hr>
+
+<h2>📝 知识点总结</h2>
+
+<pre><code>NestJS + TypeORM
+├── 基础配置
+│   ├── TypeOrmModule.forRootAsync()
+│   ├── ConfigModule 环境变量
+│   └── autoLoadEntities
+├── 实体定义
+│   ├── @Entity / @Column
+│   ├── @PrimaryGeneratedColumn
+│   ├── @CreateDateColumn / @UpdateDateColumn
+│   └── @Index 索引
+├── 关联关系
+│   ├── @ManyToOne / @OneToMany (一对多)
+│   ├── @ManyToMany (多对多)
+│   ├── @JoinTable / @JoinColumn
+│   └── relations 选项
+├── 查询
+│   ├── find / findOne / findAndCount
+│   ├── QueryBuilder
+│   ├── 分页 (skip/take)
+│   └── 排序 (order)
+├── 迁移
+│   ├── migration:generate
+│   ├── migration:run
+│   └── migration:revert
+└── 优化
+    ├── 索引设计
+    ├── 避免 N+1
+    └── select: false 敏感字段</code></pre>
+
+<hr>
+
+<h2>🔄 举一反三</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>TypeORM 方案</th>
+<th>Prisma 方案</th>
+</tr></thead><tbody>
+<tr>
+<td>实体定义</td>
+<td>装饰器 @Entity</td>
+<td>schema.prisma 文件</td>
+</tr>
+<tr>
+<td>数据库迁移</td>
+<td>CLI migration 命令</td>
+<td>prisma migrate</td>
+</tr>
+<tr>
+<td>关联查询</td>
+<td>relations / QueryBuilder</td>
+<td>include 选项</td>
+</tr>
+<tr>
+<td>事务</td>
+<td>EntityManager.transaction</td>
+<td>prisma.$transaction</td>
+</tr>
+<tr>
+<td>类型安全</td>
+<td>TypeScript 装饰器</td>
+<td>自动生成类型</td>
+</tr>
+<tr>
+<td>查询构建</td>
+<td>QueryBuilder (OOP风格)</td>
+<td>prisma.xxx.findMany (链式)</td>
+</tr>
+<tr>
+<td>多数据库</td>
+<td>支持</td>
+<td>支持</td>
+</tr>
+<tr>
+<td>社区活跃度</td>
+<td>★★★★★</td>
+<td>★★★★★</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>📚 参考资料</h2>
+
+<ul>
+<li><a href="https://typeorm.io/">TypeORM 官方文档</a></li>
+<li><a href="https://docs.nestjs.com/techniques/database">NestJS TypeORM 集成</a></li>
+<li><a href="https://typeorm.io/entities">TypeORM Entity 参考</a></li>
+<li><a href="https://typeorm.io/relations">TypeORM Relations</a></li>
+<li><a href="https://typeorm.io/migrations">TypeORM Migrations</a></li>
+
+<hr>
+
+<h2>🛤️ 代码演进路线</h2>
+
+<h3>v1 → 基础集成（本文已覆盖）</h3>
+<ul>
+<li>TypeORM 模块配置</li>
+<li>实体定义与基本 CRUD</li>
+<li>Repository 模式</li>
+<li>环境变量配置</li>
+
+<h3>v2 → 关联关系（本文已覆盖）</h3>
+<ul>
+<li>OneToMany / ManyToOne 关联</li>
+<li>ManyToMany 多对多</li>
+<li>QueryBuilder 高级查询</li>
+<li>搜索功能</li>
+
+<h3>v3 → 生产优化（后续展开）</h3>
+<ul>
+<li>数据库迁移管理</li>
+<li>事务处理</li>
+<li>读写分离</li>
+<li>查询缓存</li>
+<li>连接池调优</li>
+<li>数据库索引优化</li>
+
+<blockquote><p><strong>上一篇</strong>：<a href="/posts/024-nestjs-rest">NestJS RESTful API → 基础实战</a><br><strong>下一篇</strong>：<a href="/posts/026-nestjs-auth">NestJS 认证JWT → 身份验证实战</a></p></blockquote>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

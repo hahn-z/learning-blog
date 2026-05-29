@@ -1,0 +1,634 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>013 - init函数与执行顺序 ⭐⭐</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/learning-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/learning-blog/Golang/index.html">Golang</a>
+<span class="sep">›</span>
+<a href="/learning-blog/Golang/01-入门/index.html">Golang入门</a>
+</nav>
+<h1>013 - init函数与执行顺序 ⭐⭐</h1>
+<div class="meta">
+<span>📂 Golang入门</span>
+<span>🏷️ Golang</span>
+</div>
+<article>
+
+
+
+<h2>难度标注</h2>
+
+<blockquote><p>⭐⭐ 中等 | 涉及包初始化机制、执行顺序规则，需要理解Go程序的启动流程</p></blockquote>
+
+<h2>概念讲解</h2>
+
+<h3>什么是 init 函数？</h3>
+
+<p>在 Go 语言中，<code>init()</code> 是一个特殊的函数，它在包（package）被导入时自动执行，且<strong>无法被手动调用</strong>。每个 Go 文件可以包含一个或多个 <code>init</code> 函数，它们在 <code>main</code> 函数之前执行。</p>
+
+<p><code>init</code> 函数的核心特性：</p>
+
+<ul>
+<li><strong>无参数、无返回值</strong></li>
+<li><strong>自动执行</strong>，不可被代码显式调用</li>
+<li><strong>每个文件可以有多个 init 函数</strong></li>
+<li><strong>在包级别变量初始化之后执行</strong></li>
+<li><strong>在 main 函数之前执行</strong></li>
+
+<pre><code class="language-go">// init function signature - no params, no return
+func init() {
+    // initialization logic here
+}</code></pre>
+
+<h3>init 的执行时机</h3>
+
+<p>Go 程序的初始化和执行遵循严格的顺序：</p>
+
+<pre><code>导入的包初始化（递归）
+        ↓
+包级别变量/常量初始化
+        ↓
+init() 函数执行（按声明顺序）
+        ↓
+main() 函数执行</code></pre>
+
+<h3>为什么需要 init？</h3>
+
+<p><code>init</code> 的设计哲学是：<strong>在程序正式运行前，完成所有必要的初始化工作</strong>。常见的使用场景包括：</p>
+
+<ol>
+<li><strong>配置加载</strong> — 读取环境变量、配置文件</li>
+</ul>
+<ol>
+<li><strong>数据库连接池初始化</strong></li>
+</ul>
+<ol>
+<li><strong>全局变量校验</strong></li>
+</ul>
+<ol>
+<li><strong>注册驱动/插件（database/sql 的驱动注册）</strong></li>
+</ul>
+<ol>
+<li><strong>日志系统初始化</strong></li>
+
+<h3>init vs main</h3>
+
+<table><thead><tr>
+<th>特性</th>
+<th>init()</th>
+<th>main()</th>
+</tr></thead><tbody>
+<tr>
+<td>参数</td>
+<td>无</td>
+<td>无</td>
+</tr>
+<tr>
+<td>返回值</td>
+<td>无</td>
+<td>无</td>
+</tr>
+<tr>
+<td>调用方式</td>
+<td>自动执行</td>
+<td>自动执行</td>
+</tr>
+<tr>
+<td>数量</td>
+<td>每文件可多个</td>
+<td>每个可执行程序仅一个</td>
+</tr>
+<tr>
+<td>所在包</td>
+<td>任意包</td>
+<td>必须在 package main</td>
+</tr>
+<tr>
+<td>执行顺序</td>
+<td>main 之前</td>
+<td>init 之后</td>
+</tr>
+<tr>
+<td>可显式调用</td>
+<td>❌ 不可以</td>
+<td>❌ 不可以</td>
+</tr>
+</tbody></table>
+
+<h2>脑图</h2>
+
+<pre><code>init 函数
+├── 基本特性
+│   ├── 无参数无返回值
+│   ├── 自动执行，不可调用
+│   ├── 每文件可定义多个
+│   └── 只在包被导入时执行
+├── 执行顺序
+│   ├── 被导入包先初始化（递归）
+│   ├── 包级变量 → init()
+│   ├── 同文件按声明顺序
+│   └── 同包多文件按文件名字母序
+├── 使用场景
+│   ├── 配置加载
+│   ├── 数据库初始化
+│   ├── 驱动注册
+│   ├── 变量校验
+│   └── 日志初始化
+└── 反模式
+    ├── 在 init 中做复杂逻辑
+    ├── 依赖 init 的执行顺序
+    ├── 在 init 中创建 goroutine
+    └── 用 init 代替显式初始化</code></pre>
+
+<h2>完整 Go 代码</h2>
+
+<h3>代码演进 v1：基础 init 函数</h3>
+
+<pre><code class="language-go">package main
+
+import (
+    &quot;fmt&quot;
+    &quot;os&quot;
+)
+
+// Package-level variable initialized before init()
+var version = &quot;1.0.0&quot;
+
+// First init function
+func init() {
+    fmt.Println(&quot;init 1: version =&quot;, version)
+}
+
+// Second init function in the same file
+func init() {
+    fmt.Println(&quot;init 2: checking environment...&quot;)
+    if os.Getenv(&quot;APP_ENV&quot;) == &quot;&quot; {
+        // Only set default, don&#x27;t panic in init
+        os.Setenv(&quot;APP_ENV&quot;, &quot;development&quot;)
+    }
+    fmt.Println(&quot;init 2: APP_ENV =&quot;, os.Getenv(&quot;APP_ENV&quot;))
+}
+
+func main() {
+    fmt.Println(&quot;main: application started&quot;)
+    fmt.Println(&quot;main: running version&quot;, version)
+}</code></pre>
+
+<h3>代码演进 v2：多文件 init 顺序 + 配置加载</h3>
+
+<pre><code class="language-go">// ---------- main.go ----------
+package main
+
+import &quot;fmt&quot;
+
+// Variable initialization happens before init()
+var config = loadDefaultConfig()
+
+type AppConfig struct {
+    Port    string
+    Env     string
+    Debug   bool
+}
+
+func loadDefaultConfig() AppConfig {
+    fmt.Println(&quot;loadDefaultConfig: loading defaults...&quot;)
+    return AppConfig{
+        Port:  &quot;8080&quot;,
+        Env:   &quot;development&quot;,
+        Debug: false,
+    }
+}
+
+func init() {
+    fmt.Println(&quot;main.go init: validating config...&quot;)
+    if config.Port == &quot;&quot; {
+        panic(&quot;port cannot be empty&quot;) // Panic only for fatal misconfiguration
+    }
+}
+
+func main() {
+    fmt.Printf(&quot;main: server starting on :%s (%s)\n&quot;, config.Port, config.Env)
+}
+
+// ---------- db.go (same package, filename sorts after main.go) ----------
+package main
+
+import &quot;fmt&quot;
+
+func init() {
+    // This init runs after main.go&#x27;s init because &quot;db.go&quot; &gt; &quot;main.go&quot; alphabetically
+    fmt.Println(&quot;db.go init: initializing database connection...&quot;)
+}
+
+// ---------- logger.go (same package, sorts before main.go) ----------
+package main
+
+import &quot;fmt&quot;
+
+func init() {
+    // This init runs before main.go&#x27;s init because &quot;logger.go&quot; &lt; &quot;main.go&quot;
+    fmt.Println(&quot;logger.go init: setting up logger...&quot;)
+}</code></pre>
+
+<h3>代码演进 v3：实际的配置加载模式（推荐）</h3>
+
+<pre><code class="language-go">package main
+
+import (
+    &quot;encoding/json&quot;
+    &quot;fmt&quot;
+    &quot;log&quot;
+    &quot;os&quot;
+    &quot;sync&quot;
+)
+
+// Config holds application configuration
+type Config struct {
+    Port     string `json:&quot;port&quot;`
+    DBUrl    string `json:&quot;db_url&quot;`
+    LogLevel string `json:&quot;log_level&quot;`
+}
+
+var (
+    appConfig *Config
+    once      sync.Once
+)
+
+// GetConfig returns the singleton config instance (lazy init, NOT in init())
+func GetConfig() *Config {
+    once.Do(func() {
+        appConfig = &amp;Config{
+            Port:     &quot;8080&quot;,
+            DBUrl:    &quot;postgres://localhost/mydb&quot;,
+            LogLevel: &quot;info&quot;,
+        }
+        // Try loading from file
+        if data, err := os.ReadFile(&quot;config.json&quot;); err == nil {
+            if err := json.Unmarshal(data, appConfig); err != nil {
+                log.Printf(&quot;warning: failed to parse config.json: %v&quot;, err)
+            }
+        }
+    })
+    return appConfig
+}
+
+// init only registers defaults, no heavy logic
+func init() {
+    log.SetFlags(log.LstdFlags | log.Lshortfile)
+    log.Println(&quot;init: log format configured&quot;)
+}
+
+func main() {
+    // Explicit initialization - clear and testable
+    cfg := GetConfig()
+    fmt.Printf(&quot;Server starting on :%s\n&quot;, cfg.Port)
+    fmt.Printf(&quot;Database: %s\n&quot;, cfg.DBUrl)
+    fmt.Printf(&quot;Log Level: %s\n&quot;, cfg.LogLevel)
+}</code></pre>
+
+<h2>执行预览</h2>
+
+<h3>v1 执行结果</h3>
+
+<pre><code>$ APP_ENV=production go run main.go
+init 1: version = 1.0.0
+init 2: checking environment...
+init 2: APP_ENV = production
+main: application started
+main: running version 1.0.0</code></pre>
+
+<h3>v2 执行结果（注意文件名字母序）</h3>
+
+<pre><code>$ go run .
+logger.go init: setting up logger...
+main.go init: validating config...
+db.go init: initializing database connection...
+main: server starting on :8080 (development)</code></pre>
+
+<h3>v3 执行结果</h3>
+
+<pre><code>$ go run .
+2026/04/28 18:00:00 init: log format configured
+Server starting on :8080
+Database: postgres://localhost/mydb
+Log Level: info</code></pre>
+
+<h2>注意事项</h2>
+
+<table><thead><tr>
+<th>注意点</th>
+<th>说明</th>
+<th>严重程度</th>
+</tr></thead><tbody>
+<tr>
+<td>init 不可调用</td>
+<td><code>init()</code> 不能被显式调用，编译器会报错</td>
+<td>⚠️ 编译错误</td>
+</tr>
+<tr>
+<td>执行顺序依赖文件名</td>
+<td>同包多文件的 init 按文件名字母序执行，不要依赖这个顺序</td>
+<td>🔴 严重</td>
+</tr>
+<tr>
+<td>init 中 panic</td>
+<td>init 中 panic 会导致程序直接崩溃，无法 recover</td>
+<td>🔴 严重</td>
+</tr>
+<tr>
+<td>循环导入</td>
+<td>包 A 的 init 导入包 B，包 B 又导入包 A → 编译错误</td>
+<td>⚠️ 编译错误</td>
+</tr>
+<tr>
+<td>多个 init 的可读性</td>
+<td>同一文件多个 init 降低可读性，建议合并</td>
+<td>🟡 建议</td>
+</tr>
+<tr>
+<td>测试中的 init</td>
+<td><code>_test.go</code> 文件中的 init 也会执行</td>
+<td>🟡 注意</td>
+</tr>
+<tr>
+<td>init 中启动 goroutine</td>
+<td>init 返回后 main 才开始，goroutine 可能还没启动完</td>
+<td>🔴 严重</td>
+</tr>
+</tbody></table>
+
+<h2>避坑指南</h2>
+
+<h3>❌ 在 init 中做重量级操作</h3>
+
+<pre><code class="language-go">// ❌ BAD: init 中连接数据库，失败则程序无法启动
+func init() {
+    db, err := sql.Open(&quot;postgres&quot;, connStr)
+    if err != nil {
+        log.Fatal(err) // program dies
+    }
+    // db 连接状态不可控
+}</code></pre>
+
+<pre><code class="language-go">// ✅ GOOD: 使用显式初始化函数，错误可处理
+func NewDatabase(cfg Config) (*sql.DB, error) {
+    return sql.Open(&quot;postgres&quot;, cfg.DBUrl)
+}
+
+func main() {
+    db, err := NewDatabase(cfg)
+    if err != nil {
+        // 可以优雅处理
+        log.Fatalf(&quot;database init failed: %v&quot;, err)
+    }
+    defer db.Close()
+}</code></pre>
+
+<h3>❌ 依赖跨文件的 init 执行顺序</h3>
+
+<pre><code class="language-go">// ❌ BAD: db.go 的 init 依赖 logger.go 的 init 已经执行
+// db.go
+func init() {
+    logger.Info(&quot;connecting to db...&quot;) // logger 可能还没初始化！
+}</code></pre>
+
+<pre><code class="language-go">// ✅ GOOD: 用显式的初始化链
+func main() {
+    logger := NewLogger()
+    db := NewDB(logger)
+    // 顺序清晰，可测试
+}</code></pre>
+
+<h3>❌ 用 init 注册太多副作用</h3>
+
+<pre><code class="language-go">// ❌ BAD: 到处都是 init 注册，调试困难
+// handler.go
+func init() { registry[&quot;user&quot;] = handleUser }
+// middleware.go
+func init() { registry[&quot;auth&quot;] = handleAuth }
+// 不知道哪些被注册了，难以追踪</code></pre>
+
+<pre><code class="language-go">// ✅ GOOD: 集中注册，一目了然
+func RegisterHandlers(r *mux.Router) {
+    r.HandleFunc(&quot;/user&quot;, handleUser)
+    r.HandleFunc(&quot;/auth&quot;, handleAuth)
+}</code></pre>
+
+<h2>练习题</h2>
+
+<h3>🟢 基础题</h3>
+
+<p><strong>题目 1：</strong> 以下代码的输出顺序是什么？</p>
+
+<pre><code class="language-go">var x = printAndReturn(&quot;x init&quot;)
+
+func init() {
+    fmt.Println(&quot;init 1&quot;)
+}
+
+var y = printAndReturn(&quot;y init&quot;)
+
+func init() {
+    fmt.Println(&quot;init 2&quot;)
+}
+
+func printAndReturn(s string) string {
+    fmt.Println(s)
+    return s
+}
+
+func main() {
+    fmt.Println(&quot;main&quot;)
+}</code></pre>
+
+<p><details></p>
+<p><summary>参考答案</summary></p>
+
+<pre><code>x init
+y init
+init 1
+init 2
+main</code></pre>
+
+<p>变量初始化先于所有 init 函数。变量按声明顺序初始化。</p>
+<p></details></p>
+
+<h3>🟡 进阶题</h3>
+
+<p><strong>题目 2：</strong> 如果包 A 导入包 B，包 B 导入包 C，每个包都有一个 init 函数，执行顺序是什么？</p>
+
+<p><details></p>
+<p><summary>参考答案</summary></p>
+
+<pre><code>C.init() → B.init() → A.init() → main()</code></pre>
+
+<p>Go 采用深度优先的导入顺序，被导入的包先初始化。依赖链最底层的包最先执行 init。</p>
+<p></details></p>
+
+<h3>🔴 挑战题</h3>
+
+<p><strong>题目 3：</strong> 设计一个插件注册系统，使用 init 函数注册插件，但要求能列出所有已注册插件，且支持插件的延迟初始化（首次使用时才初始化）。</p>
+
+<p><details></p>
+<p><summary>参考答案</summary></p>
+
+<pre><code class="language-go">package plugin
+
+import &quot;sync&quot;
+
+// Plugin represents a lazily-initialized plugin
+type Plugin struct {
+    Name string
+    Init func() error
+}
+
+var (
+    plugins = make(map[string]*Plugin)
+    mu      sync.RWMutex
+)
+
+// Register is called from init() in plugin files
+func Register(name string, initFn func() error) {
+    mu.Lock()
+    defer mu.Unlock()
+    plugins[name] = &amp;Plugin{Name: name, Init: initFn}
+}
+
+// List returns all registered plugin names
+func List() []string {
+    mu.RLock()
+    defer mu.RUnlock()
+    names := make([]string, 0, len(plugins))
+    for name := range plugins {
+        names = append(names, name)
+    }
+    return names
+}</code></pre>
+
+<p>关键点：Register 只记录元信息，Init 函数在需要时才调用。这样 init 很轻量，真正的初始化延迟到使用时。</p>
+<p></details></p>
+
+<h2>知识点总结</h2>
+
+<pre><code>init 函数
+├── 定义：func init() { ... }
+├── 执行顺序
+│   ├── 1. 被导入的包（递归，深度优先）
+│   ├── 2. 包级变量/常量（按声明顺序）
+│   ├── 3. init 函数（同文件按声明顺序）
+│   └── 4. main 函数
+├── 规则
+│   ├── 无参数无返回值
+│   ├── 不可被调用
+│   ├── 每文件可多个
+│   └── 同包多文件按文件名字母序
+├── 适用场景 ✅
+│   ├── 日志格式配置
+│   ├── database/sql 驱动注册
+│   ├── 环境变量默认值
+│   └── flag 参数注册
+└── 不适用场景 ❌
+    ├── 数据库连接（用显式初始化）
+    ├── 复杂业务逻辑
+    ├── 需要错误处理的操作
+    └── 依赖执行顺序的初始化</code></pre>
+
+<h2>举一反三</h2>
+
+<table><thead><tr>
+<th>语言</th>
+<th>类似机制</th>
+<th>区别</th>
+</tr></thead><tbody>
+<tr>
+<td>Go init()</td>
+<td>包初始化</td>
+<td>自动执行，不可调用，每文件可多个</td>
+</tr>
+<tr>
+<td>Java static {}</td>
+<td>类静态初始化块</td>
+<td>按类加载时机执行</td>
+</tr>
+<tr>
+<td>C++ 全局构造函数</td>
+<td>全局/静态对象构造</td>
+<td>main 之前执行，顺序不完全确定</td>
+</tr>
+<tr>
+<td>Python 模块级代码</td>
+<td>import 时执行</td>
+<td>模块级代码直接运行</td>
+</tr>
+<tr>
+<td>Rust std::sync::Once</td>
+<td>延迟初始化</td>
+<td>非自动，显式调用</td>
+</tr>
+</tbody></table>
+
+<h2>参考资料</h2>
+
+<ul>
+<li><a href="https://go.dev/ref/spec#Package_initialization">Go 语言规范 - Package initialization</a></li>
+<li><a href="https://go.dev/doc/effective_go#init">Effective Go - init</a></li>
+<li><a href="https://go.dev/blog/organizing-go-code">Go 博客 - Organization of Go code</a></li>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

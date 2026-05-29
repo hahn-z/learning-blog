@@ -1,0 +1,614 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>020 - Go 安全编程实战：防御常见 Web 攻击</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Golang/index.html">Golang</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Golang/03-实战/index.html">Golang实战</a>
+</nav>
+<h1>020 - Go 安全编程实战：防御常见 Web 攻击</h1>
+<div class="meta">
+<span>📂 Golang实战</span>
+<span>🏷️ Golang</span>
+</div>
+<article>
+
+
+<h2>难度标注</h2>
+
+<blockquote><p>🟡 <strong>中级</strong> | 需要了解 Go Web 开发、HTTP 协议基础</p></blockquote>
+
+<h2>概念讲解</h2>
+
+<h3>Web 安全全景图</h3>
+
+<p>Go Web 应用面临的主要安全威胁：</p>
+
+<ul>
+<li><strong>SQL 注入</strong>：恶意 SQL 通过输入参数注入到查询中</li>
+<li><strong>XSS（跨站脚本）</strong>：恶意脚本注入到页面中执行</li>
+<li><strong>CSRF（跨站请求伪造）</strong>：诱导用户执行非预期操作</li>
+<li><strong>命令注入</strong>：恶意系统命令通过输入参数执行</li>
+<li><strong>路径遍历</strong>：非法访问文件系统中的敏感文件</li>
+
+<p>Go 的 <code>net/http</code> 标准库和常见框架（Gin、Echo）提供了一定的安全保障，但开发者仍需主动防御。</p>
+
+<h3>防御核心原则</h3>
+
+<ol>
+<li><strong>永不信任用户输入</strong>：所有输入都必须验证和净化</li>
+</ul>
+<ol>
+<li><strong>参数化查询</strong>：数据库操作永远用占位符</li>
+</ul>
+<ol>
+<li><strong>输出编码</strong>：根据上下文对输出进行 HTML/JS/URL 编码</li>
+</ul>
+<ol>
+<li><strong>最小权限</strong>：进程和数据库用户只授予必要权限</li>
+
+<h2>脑图</h2>
+
+<pre><code>Go Web 安全
+├── SQL 注入防御
+│   ├── 参数化查询 (database/sql)
+│   ├── ORM 使用
+│   └── 输入验证
+├── XSS 防御
+│   ├── HTML 模板自动转义
+│   ├── CSP 头
+│   └── 输入过滤
+├── CSRF 防御
+│   ├── Token 验证
+│   ├── SameSite Cookie
+│   └── Origin 检查
+├── 命令注入防御
+│   ├── exec.Command 参数化
+│   ├── 输入白名单
+│   └── 沙箱执行
+├── 路径遍历防御
+│   ├── filepath.Clean
+│   ├── 白名单目录
+│   └── 路径前缀检查
+└── 安全中间件
+    ├── Rate Limiting
+    ├── HTTPS 强制
+    └── 安全响应头</code></pre>
+
+<h2>完整 Go 代码：安全防护中间件</h2>
+
+<pre><code class="language-go">// Package main demonstrates common web security defenses in Go.
+package main
+
+import (
+	&quot;crypto/hmac&quot;
+	&quot;crypto/rand&quot;
+	&quot;crypto/sha256&quot;
+	&quot;database/sql&quot;
+	&quot;encoding/hex&quot;
+	&quot;fmt&quot;
+	&quot;html/template&quot;
+	&quot;io&quot;
+	&quot;log&quot;
+	&quot;net/http&quot;
+	&quot;os/exec&quot;
+	&quot;path/filepath&quot;
+	&quot;regexp&quot;
+	&quot;strings&quot;
+	&quot;time&quot;
+
+	_ &quot;github.com/mattn/go-sqlite3&quot;
+)
+
+// ============================================================
+// 1. SQL Injection Defense
+// ============================================================
+
+// UserDB wraps database operations with safe query methods.
+type UserDB struct {
+	db *sql.DB
+}
+
+// SafeLogin uses parameterized queries to prevent SQL injection.
+func (udb *UserDB) SafeLogin(username, password string) (string, error) {
+	var userID string
+	// SAFE: parameterized query with placeholders
+	err := udb.db.QueryRow(
+		&quot;SELECT id FROM users WHERE username = ? AND password = ?&quot;,
+		username, password,
+	).Scan(&amp;userID)
+	if err != nil {
+		return &quot;&quot;, fmt.Errorf(&quot;invalid credentials&quot;)
+	}
+	return userID, nil
+}
+
+// UnsafeLogin demonstrates VULNERABLE code - NEVER do this!
+func (udb *UserDB) UnsafeLogin(username, password string) (string, error) {
+	// DANGEROUS: string concatenation allows SQL injection
+	query := fmt.Sprintf(
+		&quot;SELECT id FROM users WHERE username = &#x27;%s&#x27; AND password = &#x27;%s&#x27;&quot;,
+		username, password,
+	)
+	var userID string
+	err := udb.db.QueryRow(query).Scan(&amp;userID)
+	return userID, err
+}
+
+// ============================================================
+// 2. XSS Defense
+// ============================================================
+
+// XSSSafeHandler uses html/template which auto-escapes by default.
+func XSSSafeHandler(w http.ResponseWriter, r *http.Request) {
+	userInput := r.URL.Query().Get(&quot;name&quot;)
+
+	// html/template auto-escapes HTML entities
+	tmpl := template.Must(template.New(&quot;greet&quot;).Parse(
+		`&lt;html&gt;&lt;body&gt;&lt;h1&gt;Hello, {{.Name}}!&lt;/h1&gt;&lt;/body&gt;&lt;/html&gt;`,
+	))
+
+	w.Header().Set(&quot;Content-Type&quot;, &quot;text/html; charset=utf-8&quot;)
+	tmpl.Execute(w, struct{ Name string }{Name: userInput})
+}
+
+// SanitizeString provides basic input sanitization.
+func SanitizeString(input string) string {
+	// Remove script tags and event handlers
+	re := regexp.MustCompile(`(?i)&lt;script[^&gt;]*&gt;.*?&lt;/script&gt;`)
+	input = re.ReplaceAllString(input, &quot;&quot;)
+	re = regexp.MustCompile(`(?i)on\w+\s*=`)
+	input = re.ReplaceAllString(input, &quot;&quot;)
+	return input
+}
+
+// ============================================================
+// 3. CSRF Defense
+// ============================================================
+
+var csrfSecret = generateSecret()
+
+func generateSecret() string {
+	b := make([]byte, 32)
+	rand.Read(b)
+	return hex.EncodeToString(b)
+}
+
+// GenerateCSRFToken creates a new CSRF token.
+func GenerateCSRFToken(sessionID string) string {
+	h := hmac.New(sha256.New, []byte(csrfSecret))
+	timestamp := time.Now().Unix()
+	h.Write([]byte(fmt.Sprintf(&quot;%s:%d&quot;, sessionID, timestamp)))
+	return fmt.Sprintf(&quot;%x:%d&quot;, h.Sum(nil), timestamp)
+}
+
+// ValidateCSRFToken checks if a CSRF token is valid.
+func ValidateCSRFToken(sessionID, token string) bool {
+	parts := strings.SplitN(token, &quot;:&quot;, 2)
+	if len(parts) != 2 {
+		return false
+	}
+
+	var timestamp int64
+	fmt.Sscanf(parts[1], &quot;%d&quot;, &amp;timestamp)
+
+	// Token expires after 1 hour
+	if time.Now().Unix()-timestamp &gt; 3600 {
+		return false
+	}
+
+	h := hmac.New(sha256.New, []byte(csrfSecret))
+	h.Write([]byte(fmt.Sprintf(&quot;%s:%d&quot;, sessionID, timestamp)))
+	expected := fmt.Sprintf(&quot;%x&quot;, h.Sum(nil))
+
+	return hmac.Equal([]byte(parts[0]), []byte(expected))
+}
+
+// CSRFMiddleware validates CSRF tokens on state-changing requests.
+func CSRFMiddleware(sessionID string, next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost || r.Method == http.MethodPut || r.Method == http.MethodDelete {
+			token := r.Header.Get(&quot;X-CSRF-Token&quot;)
+			if token == &quot;&quot; {
+				token = r.FormValue(&quot;csrf_token&quot;)
+			}
+			if !ValidateCSRFToken(sessionID, token) {
+				http.Error(w, &quot;Invalid CSRF token&quot;, http.StatusForbidden)
+				return
+			}
+		}
+		next(w, r)
+	}
+}
+
+// ============================================================
+// 4. Command Injection Defense
+// ============================================================
+
+// SafeLookup uses exec.Command with separate arguments (no shell injection).
+func SafeLookup(domain string) (string, error) {
+	// Validate domain format with whitelist regex
+	validDomain := regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9\-\.]+\.[a-zA-Z]{2,}$`)
+	if !validDomain.MatchString(domain) {
+		return &quot;&quot;, fmt.Errorf(&quot;invalid domain format&quot;)
+	}
+
+	// SAFE: arguments passed separately, no shell interpretation
+	cmd := exec.Command(&quot;nslookup&quot;, domain)
+	output, err := cmd.Output()
+	return string(output), err
+}
+
+// UnsafeLookup demonstrates VULNERABLE code.
+func UnsafeLookup(domain string) (string, error) {
+	// DANGEROUS: shell interprets the full string
+	cmd := exec.Command(&quot;sh&quot;, &quot;-c&quot;, &quot;nslookup &quot;+domain)
+	output, err := cmd.Output()
+	return string(output), err
+}
+
+// ============================================================
+// 5. Path Traversal Defense
+// ============================================================
+
+// SafeFileRead prevents path traversal attacks.
+func SafeFileRead(baseDir, filename string) ([]byte, error) {
+	// Clean the path to remove ../ etc.
+	cleanPath := filepath.Clean(filepath.Join(baseDir, filename))
+
+	// Ensure the resolved path is still within baseDir
+	absBase, _ := filepath.Abs(baseDir)
+	absPath, _ := filepath.Abs(cleanPath)
+
+	if !strings.HasPrefix(absPath, absBase+string(filepath.Separator)) {
+		return nil, fmt.Errorf(&quot;access denied: path traversal detected&quot;)
+	}
+
+	return nil, fmt.Errorf(&quot;file reading disabled in demo&quot;)
+}
+
+// ============================================================
+// 6. Security Headers Middleware
+// ============================================================
+
+// SecurityHeaders adds common security headers to responses.
+func SecurityHeaders(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set(&quot;X-Content-Type-Options&quot;, &quot;nosniff&quot;)
+		w.Header().Set(&quot;X-Frame-Options&quot;, &quot;DENY&quot;)
+		w.Header().Set(&quot;X-XSS-Protection&quot;, &quot;1; mode=block&quot;)
+		w.Header().Set(&quot;Content-Security-Policy&quot;, &quot;default-src &#x27;self&#x27;&quot;)
+		w.Header().Set(&quot;Strict-Transport-Security&quot;, &quot;max-age=31536000; includeSubDomains&quot;)
+		w.Header().Set(&quot;Referrer-Policy&quot;, &quot;strict-origin-when-cross-origin&quot;)
+		next.ServeHTTP(w, r)
+	})
+}
+
+// ============================================================
+// 7. Rate Limiter (simple token bucket)
+// ============================================================
+
+// RateLimiter provides a simple in-memory rate limiter.
+type RateLimiter struct {
+	tokens    map[string]int
+	lastRefill map[string]time.Time
+	mu        sync.Mutex
+	limit     int
+	interval  time.Duration
+}
+
+func NewRateLimiter(limit int, interval time.Duration) *RateLimiter {
+	return &amp;RateLimiter{
+		tokens:    make(map[string]int),
+		lastRefill: make(map[string]time.Time),
+		limit:     limit,
+		interval:  interval,
+	}
+}
+
+func (rl *RateLimiter) Allow(key string) bool {
+	rl.mu.Lock()
+	defer rl.mu.Unlock()
+
+	now := time.Now()
+	last, exists := rl.lastRefill[key]
+	if !exists || now.Sub(last) &gt;= rl.interval {
+		rl.tokens[key] = rl.limit
+		rl.lastRefill[key] = now
+	}
+
+	if rl.tokens[key] &gt; 0 {
+		rl.tokens[key]--
+		return true
+	}
+	return false
+}
+
+// ============================================================
+// Demo Main
+// ============================================================
+
+func main() {
+	mux := http.NewServeMux()
+
+	// XSS safe handler
+	mux.HandleFunc(&quot;/greet&quot;, XSSSafeHandler)
+
+	// CSRF protected endpoint
+	mux.HandleFunc(&quot;/api/update&quot;, CSRFMiddleware(&quot;demo-session&quot;, func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprintf(w, `{&quot;status&quot;:&quot;ok&quot;}`)
+	}))
+
+	// Safe command execution
+	mux.HandleFunc(&quot;/lookup&quot;, func(w http.ResponseWriter, r *http.Request) {
+		domain := r.URL.Query().Get(&quot;domain&quot;)
+		result, err := SafeLookup(domain)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		fmt.Fprintf(w, &quot;&lt;pre&gt;%s&lt;/pre&gt;&quot;, result)
+	})
+
+	// Apply security headers to all routes
+	handler := SecurityHeaders(mux)
+
+	fmt.Println(&quot;Security demo server running on :8080&quot;)
+	log.Fatal(http.ListenAndServe(&quot;:8080&quot;, handler))
+}</code></pre>
+
+<h2>执行预览</h2>
+
+<pre><code class="language-bash"># Test XSS defense - input is auto-escaped
+curl &quot;http://localhost:8080/greet?name=&lt;script&gt;alert(1)&lt;/script&gt;&quot;
+# Output: &lt;h1&gt;Hello, &amp;lt;script&amp;gt;alert(1)&amp;lt;/script&amp;gt;!&lt;/h1&gt;
+
+# Test CSRF - missing token
+curl -X POST http://localhost:8080/api/update
+# Output: Invalid CSRF token
+
+# Test path traversal defense
+# SafeFileRead(&quot;/data&quot;, &quot;../../etc/passwd&quot;) → &quot;access denied&quot;</code></pre>
+
+<h2>注意事项</h2>
+
+<table><thead><tr>
+<th>安全威胁</th>
+<th>Go 防御方式</th>
+<th>关键函数/包</th>
+</tr></thead><tbody>
+<tr>
+<td>SQL 注入</td>
+<td>参数化查询</td>
+<td><code>database/sql</code> 占位符 <code>?</code></td>
+</tr>
+<tr>
+<td>XSS</td>
+<td>模板自动转义</td>
+<td><code>html/template</code></td>
+</tr>
+<tr>
+<td>CSRF</td>
+<td>HMAC Token</td>
+<td><code>crypto/hmac</code></td>
+</tr>
+<tr>
+<td>命令注入</td>
+<td>参数分离</td>
+<td><code>exec.Command</code></td>
+</tr>
+<tr>
+<td>路径遍历</td>
+<td>路径清洗</td>
+<td><code>filepath.Clean</code></td>
+</tr>
+<tr>
+<td>中间人</td>
+<td>HTTPS</td>
+<td><code>crypto/tls</code></td>
+</tr>
+</tbody></table>
+
+<h2>避坑指南</h2>
+
+<table><thead><tr>
+<th>❌ 错误做法</th>
+<th>✅ 正确做法</th>
+</tr></thead><tbody>
+<tr>
+<td><code>fmt.Sprintf</code> 拼接 SQL</td>
+<td><code>db.Query("... WHERE x=?", val)</code></td>
+</tr>
+<tr>
+<td><code>template/html</code> 的 <code>template.JS</code> 直接输出</td>
+<td>使用 <code>html/template</code> 自动转义</td>
+</tr>
+<tr>
+<td><code>exec.Command("sh", "-c", cmd+input)</code></td>
+<td><code>exec.Command("tool", input)</code></td>
+</tr>
+<tr>
+<td>直接拼接文件路径</td>
+<td><code>filepath.Clean</code> + 前缀检查</td>
+</tr>
+<tr>
+<td>明文存储密码</td>
+<td><code>bcrypt.GenerateFromPassword</code></td>
+</tr>
+<tr>
+<td>HTTP 明文传输</td>
+<td>强制 HTTPS + HSTS</td>
+</tr>
+</tbody></table>
+
+<h2>练习题</h2>
+
+<h3>🟢 基础题</h3>
+<ol>
+<li>为什么 <code>database/sql</code> 的占位符能防止 SQL 注入？</li>
+</ul>
+<ol>
+<li><code>html/template</code> 和 <code>text/template</code> 的安全区别是什么？</li>
+
+<h3>🟡 进阶题</h3>
+<ol>
+<li>实现一个基于 Redis 的分布式 Rate Limiter。</li>
+</ul>
+<ol>
+<li>为上面的 CSRF 防护添加 Double Submit Cookie 模式。</li>
+
+<h3>🔴 挑战题</h3>
+<ol>
+<li>实现一个完整的 JWT 认证中间件，支持 Token 刷新和黑名单。</li>
+</ul>
+<ol>
+<li>设计一个安全审计日志系统，记录所有敏感操作。</li>
+
+<h2>知识点总结</h2>
+
+<pre><code>Go Web 安全防御
+├── 输入层
+│   ├── 参数验证 (正则/长度/类型)
+│   ├── SQL 参数化
+│   └── 命令参数分离
+├── 处理层
+│   ├── CSRF Token (HMAC)
+│   ├── Rate Limiting
+│   └── 权限检查
+├── 输出层
+│   ├── HTML 转义 (template)
+│   ├── CSP 响应头
+│   └── JSON 编码
+└── 传输层
+    ├── HTTPS (TLS)
+    ├── HSTS
+    └── Cookie Secure flag</code></pre>
+
+<h2>举一反三</h2>
+
+<table><thead><tr>
+<th>攻击类型</th>
+<th>Go 防御库</th>
+<th>框架集成</th>
+</tr></thead><tbody>
+<tr>
+<td>SQL 注入</td>
+<td><code>database/sql</code></td>
+<td>GORM/Echo</td>
+</tr>
+<tr>
+<td>XSS</td>
+<td><code>html/template</code></td>
+<td>Gin/ego</td>
+</tr>
+<tr>
+<td>CSRF</td>
+<td><code>gorilla/csrf</code></td>
+<td>中间件</td>
+</tr>
+<tr>
+<td>暴力破解</td>
+<td><code>golang.org/x/time/rate</code></td>
+<td>Rate Limiter</td>
+</tr>
+<tr>
+<td>密码泄露</td>
+<td><code>golang.org/x/crypto/bcrypt</code></td>
+<td>认证模块</td>
+</tr>
+</tbody></table>
+
+<h2>参考资料</h2>
+
+<ol>
+<li><a href="https://owasp.org/www-project-top-ten/">OWASP Top 10</a></li>
+</ul>
+<ol>
+<li><a href="https://github.com/guardrailsio/awesome-golang-security">Go Security Checklist</a></li>
+</ul>
+<ol>
+<li><a href="https://github.com/gorilla/csrf">gorilla/csrf</a></li>
+</ul>
+<ol>
+<li><a href="https://checkmarx.gitbooks.io/go-scp/">Go Secure Coding Practices</a></li>
+
+<h2>代码演进</h2>
+
+<h3>v1：基础参数化查询</h3>
+
+<pre><code class="language-go">// Basic SQL injection defense only
+db.QueryRow(&quot;SELECT id FROM users WHERE name = ?&quot;, username)</code></pre>
+
+<h3>v2：全面安全防护（本文代码）</h3>
+
+<p>加入 XSS、CSRF、命令注入、路径遍历、安全头、Rate Limiting 全链路防护。</p>
+
+<h3>v3：生产级安全框架</h3>
+
+<pre><code class="language-go">// Production-grade security:
+// 1. JWT with RS256 (asymmetric)
+// 2. OAuth2 / OpenID Connect integration
+// 3. Content-Security-Policy with nonce
+// 4. CORS with strict origin validation
+// 5. Audit logging with tamper-proof storage
+// 6. Dependency vulnerability scanning (govulncheck)</code></pre>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>007 - JavaScript数据类型与类型转换深度解析</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/JavaScript/index.html">JavaScript</a>
+<span class="sep">›</span>
+<a href="/tech-blog/JavaScript/01-ES6+/index.html">JavaScript ES6+</a>
+</nav>
+<h1>007 - JavaScript数据类型与类型转换深度解析</h1>
+<div class="meta">
+<span>📂 JavaScript ES6+</span>
+<span>🏷️ JavaScript</span>
+</div>
+<article>
+
+
+
+<h1>JavaScript数据类型与类型转换深度解析</h1>
+
+<blockquote><p><strong>难度标注：</strong> 🟡 中级 | <strong>前置知识：</strong> 基本JS语法<br><strong>阅读时间：</strong> 约18分钟 | <strong>代码量：</strong> 约150行</p></blockquote>
+
+<hr>
+
+<h2>一、概念讲解</h2>
+
+<p>JavaScript有<strong>8种数据类型</strong>：7种原始类型（<code>undefined</code>、<code>null</code>、<code>boolean</code>、<code>number</code>、<code>bigint</code>、<code>string</code>、<code>symbol</code>）+ 1种引用类型（<code>object</code>）。</p>
+
+<h3>1.1 原始类型 vs 引用类型</h3>
+
+<p><strong>原始类型</strong>存储在栈上，比较的是值；<strong>引用类型</strong>存储在堆上，比较的是引用地址。</p>
+
+<h3>1.2 类型转换三剑客</h3>
+
+<ul>
+<li><strong>显式转换：</strong> <code>Number()</code>、<code>String()</code>、<code>Boolean()</code></li>
+<li><strong>隐式转换：</strong> <code>+</code>运算符、<code>==</code>松散比较</li>
+<li><strong>对象转原始：</strong> <code>valueOf()</code> → <code>toString()</code> → <code>Symbol.toPrimitive</code></li>
+
+<hr>
+
+<h2>二、脑图</h2>
+
+<pre><code>                      JS数据类型
+                     /           \
+                原始类型(7)      引用类型(1)
+               /  |  |  \  \  \    \
+          undef null bool num bigint str sym  Object
+                                       /    |    \
+                                    Array  Function  Map/Set</code></pre>
+
+<hr>
+
+<h2>三、完整代码示例</h2>
+
+<pre><code class="language-javascript">// ============================================
+// 1. typeof operator
+// ============================================
+console.log(typeof undefined);  // &quot;undefined&quot;
+console.log(typeof null);       // &quot;object&quot; (historic bug!)
+console.log(typeof 42);         // &quot;number&quot;
+console.log(typeof &quot;hello&quot;);    // &quot;string&quot;
+console.log(typeof true);       // &quot;boolean&quot;
+console.log(typeof 10n);        // &quot;bigint&quot;
+console.log(typeof Symbol());   // &quot;symbol&quot;
+console.log(typeof {});         // &quot;object&quot;
+console.log(typeof function(){}); // &quot;function&quot;
+
+// ============================================
+// 2. Explicit conversion
+// ============================================
+// To Number
+console.log(Number(&quot;42&quot;));      // 42
+console.log(Number(&quot;&quot;));        // 0
+console.log(Number(&quot;hello&quot;));   // NaN
+console.log(Number(true));      // 1
+console.log(Number(null));      // 0
+console.log(Number(undefined)); // NaN
+console.log(parseInt(&quot;42px&quot;));  // 42
+console.log(parseFloat(&quot;3.14&quot;));// 3.14
+
+// To String
+console.log(String(42));        // &quot;42&quot;
+console.log(String(true));      // &quot;true&quot;
+console.log(String(null));      // &quot;null&quot;
+console.log(String(undefined)); // &quot;undefined&quot;
+console.log(String([1,2,3]));   // &quot;1,2,3&quot;
+
+// To Boolean (falsy values)
+console.log(Boolean(0));        // false
+console.log(Boolean(&quot;&quot;));       // false
+console.log(Boolean(null));     // false
+console.log(Boolean(undefined));// false
+console.log(Boolean(NaN));      // false
+console.log(Boolean(&quot;0&quot;));      // true (non-empty string!)
+console.log(Boolean([]));       // true (empty array is truthy!)
+
+// ============================================
+// 3. Implicit conversion pitfalls
+// ============================================
+console.log(1 + &quot;2&quot;);           // &quot;12&quot; (string concat)
+console.log(&quot;3&quot; - 1);          // 2 (numeric subtraction)
+console.log(true + true);      // 2 (boolean to number)
+console.log([] + []);           // &quot;&quot; (both convert to &quot;&quot;)
+console.log([] + {});           // &quot;[object Object]&quot;
+console.log({} + []);           // 0 or &quot;[object Object]&quot; (depends on context)
+console.log(&quot;1&quot; == 1);         // true (loose equality)
+console.log(null == undefined); // true
+console.log(null === undefined);// false
+
+// ============================================
+// 4. BigInt
+// ============================================
+const big = 9007199254740993n; // beyond Number.MAX_SAFE_INTEGER
+console.log(big);               // 9007199254740993n
+console.log(9007199254740993n === 9007199254740993n); // true
+// console.log(big + 1);        // TypeError: can&#x27;t mix BigInt and Number
+
+// ============================================
+// 5. Symbol — unique identifiers
+// ============================================
+const s1 = Symbol(&quot;id&quot;);
+const s2 = Symbol(&quot;id&quot;);
+console.log(s1 === s2);         // false (always unique)
+const obj = {};
+obj[s1] = &quot;secret&quot;;
+console.log(obj[s1]);           // &quot;secret&quot;
+console.log(Object.keys(obj));  // [] (symbols are non-enumerable)</code></pre>
+
+<hr>
+
+<h2>四、执行预览</h2>
+
+<pre><code>undefined
+object
+number
+string
+boolean
+bigint
+symbol
+object
+function
+42
+0
+NaN
+1
+0
+NaN
+42
+3.14
+42
+true
+null
+undefined
+1,2,3
+false
+false
+false
+false
+false
+true
+true
+12
+2
+2
+
+[object Object]
+0
+true
+true
+false
+9007199254740993n
+true
+false
+secret
+[]</code></pre>
+
+<hr>
+
+<h2>五、注意事项</h2>
+
+<table><thead><tr>
+<th>转换规则</th>
+<th>结果</th>
+<th>注意</th>
+</tr></thead><tbody>
+<tr>
+<td><code>Number("")</code></td>
+<td><code>0</code></td>
+<td>空字符串转0</td>
+</tr>
+<tr>
+<td><code>Number("  ")</code></td>
+<td><code>0</code></td>
+<td>纯空格也是0</td>
+</tr>
+<tr>
+<td><code>Number(null)</code></td>
+<td><code>0</code></td>
+<td>null转0</td>
+</tr>
+<tr>
+<td><code>Number(undefined)</code></td>
+<td><code>NaN</code></td>
+<td>undefined转NaN</td>
+</tr>
+<tr>
+<td><code>Boolean([])</code></td>
+<td><code>true</code></td>
+<td>空数组是truthy！</td>
+</tr>
+<tr>
+<td><code>Boolean("0")</code></td>
+<td><code>true</code></td>
+<td>非空字符串都是truthy</td>
+</tr>
+<tr>
+<td><code>typeof null</code></td>
+<td><code>"object"</code></td>
+<td>历史遗留bug</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>六、避坑指南</h2>
+
+<h3>❌ 用 == 比较不同类型</h3>
+<pre><code class="language-javascript">[] == false    // true
+&quot;&quot; == false    // true
+null == 0      // false (surprise!)</code></pre>
+<h3>✅ 始终用 === 严格比较</h3>
+<pre><code class="language-javascript">[] === false   // false
+&quot;&quot; === false   // false
+null === 0     // false</code></pre>
+
+<h3>❌ 用 + 做加法却触发字符串拼接</h3>
+<pre><code class="language-javascript">function add(a, b) { return a + b; }
+add(1, &quot;2&quot;) // &quot;12&quot; not 3</code></pre>
+<h3>✅ 显式转换参数</h3>
+<pre><code class="language-javascript">function add(a, b) { return Number(a) + Number(b); }
+add(1, &quot;2&quot;) // 3</code></pre>
+
+<hr>
+
+<h2>七、练习题</h2>
+
+<h3>🟢 基础</h3>
+<ol>
+<li>写出以下表达式的值和类型：</li>
+<pre><code class="language-javascript">typeof typeof 42
+typeof (1 + &quot;2&quot;)
+Boolean(&quot;false&quot;)  // 注意！</code></pre>
+
+<h3>🟡 进阶</h3>
+<ol>
+<li>实现一个<code>typeOf(value)</code>函数，正确区分所有8种类型（包括<code>null</code>返回<code>"null"</code>）。</li>
+
+<h3>🔴 挑战</h3>
+<ol>
+<li>解释并预测以下输出：</li>
+<pre><code class="language-javascript">console.log(+[]);
+console.log(+[&quot;&quot;]);
+console.log(+[&quot;1&quot;]);
+console.log(+[&quot;1&quot;,&quot;2&quot;]);
+console.log(+{});
+console.log([] == ![]);</code></pre>
+
+<hr>
+
+<h2>八、知识点总结</h2>
+
+<pre><code>数据类型体系
+├── 原始类型（栈存储，值比较）
+│   ├── undefined（未定义）
+│   ├── null（空值，typeof为object的bug）
+│   ├── boolean（true/false）
+│   ├── number（64位浮点，IEEE 754）
+│   ├── bigint（任意精度整数，ES2020）
+│   ├── string（UTF-16，不可变）
+│   └── symbol（唯一标识符，ES6）
+├── 引用类型（堆存储，引用比较）
+│   └── Object（Array/Function/Map/Set/Date...）
+└── 类型转换
+    ├── 显式：Number()/String()/Boolean()
+    ├── 隐式：+/== 等运算符触发
+    └── 对象转原始：valueOf → toString → toPrimitive</code></pre>
+
+<hr>
+
+<h2>九、举一反三</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>推荐方法</th>
+<th>原因</th>
+</tr></thead><tbody>
+<tr>
+<td>字符串转整数</td>
+<td><code>parseInt(str, 10)</code></td>
+<td>指定进制，安全</td>
+</tr>
+<tr>
+<td>任意值转布尔</td>
+<td><code>Boolean(val)</code> 或 <code>!!val</code></td>
+<td>显式优于隐式</td>
+</tr>
+<tr>
+<td>检查NaN</td>
+<td><code>Number.isNaN(val)</code></td>
+<td>全局<code>isNaN()</code>会先转换</td>
+</tr>
+<tr>
+<td>安全整数运算</td>
+<td><code>BigInt</code></td>
+<td>超过MAX_SAFE_INTEGER时必须</td>
+</tr>
+<tr>
+<td>对象深比较</td>
+<td>自定义或lodash</td>
+<td><code>===</code>只比较引用</td>
+</tr>
+<tr>
+<td>类型守卫</td>
+<td><code>typeof</code> + <code>===</code></td>
+<td>函数用typeof，null用<code>=== null</code></td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>十、参考资料</h2>
+
+<ul>
+<li><a href="https://developer.mozilla.org/zh-CN/docs/Web/JavaScript/Data_structures">MDN: JavaScript数据类型和数据结构</a></li>
+<li><a href="https://developer.mozilla.org/en-US/docs/Glossary/Type_coercion">MDN: 类型转换</a></li>
+<li><a href="https://tc39.es/ecma262/#sec-toprimitive">ECMAScript规范: ToPrimitive</a></li>
+
+<hr>
+
+<h2>十一、代码演进</h2>
+
+<h3>v1: 隐式转换（易出bug）</h3>
+<pre><code class="language-javascript">function multiply(a, b) {
+  return a * b; // &quot;2&quot; * &quot;3&quot; =&gt; 6, but what about &quot;2&quot; * &quot;abc&quot;?
+}</code></pre>
+
+<h3>v2: 显式转换</h3>
+<pre><code class="language-javascript">function multiply(a, b) {
+  const x = Number(a);
+  const y = Number(b);
+  if (Number.isNaN(x) || Number.isNaN(y)) {
+    throw new TypeError(&quot;Arguments must be numbers&quot;);
+  }
+  return x * y;
+}</code></pre>
+
+<h3>v3: TypeScript（编译时检查）</h3>
+<pre><code class="language-typescript">function multiply(a: number, b: number): number {
+  return a * b; // TypeScript prevents non-number input
+}</code></pre>
+
+<hr>
+
+<h2>十二、总结</h2>
+
+<table><thead><tr>
+<th>核心要点</th>
+<th>说明</th>
+</tr></thead><tbody>
+<tr>
+<td><strong>8种类型</strong></td>
+<td>7原始 + 1引用（object）</td>
+</tr>
+<tr>
+<td><strong>typeof null</strong></td>
+<td>返回"object"，是历史bug</td>
+</tr>
+<tr>
+<td><strong>=== 优先</strong></td>
+<td>永远用严格相等</td>
+</tr>
+<tr>
+<td><strong>显式转换</strong></td>
+<td>比隐式更安全可读</td>
+</tr>
+<tr>
+<td><strong>falsy值</strong></td>
+<td>只有6个：<code>0 "" null undefined NaN false</code></td>
+</tr>
+</tbody></table>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

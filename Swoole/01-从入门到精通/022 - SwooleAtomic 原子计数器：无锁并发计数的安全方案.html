@@ -1,0 +1,622 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>022 - Swoole\Atomic 原子计数器：无锁并发计数的安全方案</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Swoole/index.html">Swoole</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Swoole/01-从入门到精通/index.html">Swoole从入门到精通</a>
+</nav>
+<h1>022 - Swoole\Atomic 原子计数器：无锁并发计数的安全方案</h1>
+<div class="meta">
+<span>📂 Swoole从入门到精通</span>
+<span>🏷️ Swoole</span>
+</div>
+<article>
+
+
+<h1>Swoole\Atomic 原子计数器：无锁并发计数的安全方案</h1>
+
+<blockquote><p><strong>难度：</strong> ⭐☆☆☆☆ 入门<br><strong>适用版本：</strong> Swoole 4.x+ / 5.x<br><strong>关键词：</strong> 原子操作、无锁计数、并发安全、CAS</p></blockquote>
+
+<hr>
+
+<h2>一、概念讲解</h2>
+
+<h3>什么是 Swoole\Atomic？</h3>
+
+<p>Swoole\Atomic 是基于 CPU 原子指令的整数计数器，专为多进程/多线程并发场景设计。它能保证加减操作不会被中断，<strong>无需加锁</strong> 即可实现安全的并发计数。</p>
+
+<p><strong>核心特点：</strong></p>
+
+<ul>
+<li><strong>无锁实现</strong>：基于 CPU CAS（Compare-And-Swap）指令</li>
+<li><strong>极高性能</strong>：纳秒级操作，无锁竞争</li>
+<li><strong>32位整数</strong>：范围 -2^31 ~ 2^31-1（约 ±21亿）</li>
+<li><strong>进程/线程安全</strong>：多进程共享，无需额外同步</li>
+<li><strong>简单易用</strong>：只有 add/sub/get/set/cmpset 五个操作</li>
+
+<p><strong>为什么需要原子操作？</strong></p>
+
+<pre><code class="language-php">// 普通变量在多进程下不安全：
+$count = 0;
+
+// Worker 1: $count = $count + 1  (读到0，加1，写回1)
+// Worker 2: $count = $count + 1  (也读到0，加1，写回1)
+// 结果: 1，但期望是 2！这就是竞态条件（Race Condition）</code></pre>
+
+<p>原子操作保证"读-改-写"三步不可分割，不存在中间状态。</p>
+
+<h3>原理对比</h3>
+
+<pre><code>普通操作（非原子）：
+  Read(0) → Modify(+1) → Write(1)  ← 可被中断！
+  Read(0) → Modify(+1) → Write(1)  ← 覆盖了！
+
+原子操作（CAS）：
+  CAS(expected=0, new=1) → 成功，返回true
+  CAS(expected=0, new=1) → 失败(expected≠1)，重试 → CAS(1,2) → 成功</code></pre>
+
+<hr>
+
+<h2>二、脑图（ASCII）</h2>
+
+<pre><code>Swoole\Atomic
+├── 基础操作
+│   ├── new Atomic(初始值默认0)
+│   ├── add($increment) 返回新值
+│   ├── sub($decrement) 返回新值
+│   ├── get() 获取当前值
+│   ├── set($value) 设置值
+│   └── cmpset($expected, $new) CAS操作
+├── 原理
+│   ├── CPU原子指令（x86: LOCK前缀）
+│   ├── CAS (Compare-And-Swap)
+│   └── 共享内存（fork继承）
+├── 典型场景
+│   ├── 请求计数器
+│   ├── 并发控制（限流）
+│   ├── 状态标志位
+│   ├── 简易信号量
+│   └── 统计在线人数
+├── Atomic\Long
+│   ├── 64位整数
+│   └── 范围更大（±9.2×10^18）
+└── vs 替代方案
+    ├── vs Table\incr() → 更轻量
+    ├── vs Lock+变量 → 无锁更快
+    └── vs Redis INCR → 无网络开销</code></pre>
+
+<hr>
+
+<h2>三、完整代码示例</h2>
+
+<h3>v1：基础操作 — 五个API</h3>
+
+<pre><code class="language-php">&lt;?php
+// atomic_basic.php
+// Basic Swoole\Atomic operations
+
+// Create atomic counter with initial value 0
+$counter = new Swoole\Atomic(0);
+
+// set() - set value directly
+$counter-&gt;set(10);
+echo &quot;After set(10): &quot; . $counter-&gt;get() . &quot;\n&quot;; // 10
+
+// add() - atomic increment, returns new value
+$newVal = $counter-&gt;add(5);
+echo &quot;After add(5): {$newVal}, get: &quot; . $counter-&gt;get() . &quot;\n&quot;; // 15
+
+// sub() - atomic decrement
+$newVal = $counter-&gt;sub(3);
+echo &quot;After sub(3): {$newVal}, get: &quot; . $counter-&gt;get() . &quot;\n&quot;; // 12
+
+// cmpset() - CAS: compare and swap
+// Only sets to new value if current == expected
+$result = $counter-&gt;cmpset(12, 100); // current is 12, expected 12 → set to 100
+echo &quot;cmpset(12, 100): &quot; . ($result ? &quot;true&quot; : &quot;false&quot;) . &quot;, value: &quot; . $counter-&gt;get() . &quot;\n&quot;; // true, 100
+
+$result = $counter-&gt;cmpset(12, 200); // current is 100, expected 12 → fail
+echo &quot;cmpset(12, 200): &quot; . ($result ? &quot;true&quot; : &quot;false&quot;) . &quot;, value: &quot; . $counter-&gt;get() . &quot;\n&quot;; // false, still 100
+
+// Atomic\Long for 64-bit integers
+$longCounter = new Swoole\Atomic\Long(0);
+$longCounter-&gt;add(PHP_INT_MAX - 100);
+echo &quot;Long counter: &quot; . $longCounter-&gt;get() . &quot;\n&quot;; // Large number</code></pre>
+
+<h3>v2：多进程计数 — Server 请求统计</h3>
+
+<pre><code class="language-php">&lt;?php
+// atomic_server.php
+// Multi-process request counting with Atomic
+
+// Create atomic counters BEFORE server start
+$totalRequests  = new Swoole\Atomic(0);
+$activeWorkers  = new Swoole\Atomic(0);
+$errorCount     = new Swoole\Atomic(0);
+$startTime      = new Swoole\Atomic(time());
+
+$server = new Swoole\Http\Server(&#x27;0.0.0.0&#x27;, 9503);
+
+// Attach counters to server
+$server-&gt;totalRequests = $totalRequests;
+$server-&gt;activeWorkers = $activeWorkers;
+$server-&gt;errorCount    = $errorCount;
+$server-&gt;startTime     = $startTime;
+
+$server-&gt;on(&#x27;WorkerStart&#x27;, function ($serv, $workerId) {
+    $serv-&gt;activeWorkers-&gt;add(1);
+    echo &quot;[Worker {$workerId}] Started, active: {$serv-&gt;activeWorkers-&gt;get()}\n&quot;;
+});
+
+$server-&gt;on(&#x27;WorkerStop&#x27;, function ($serv, $workerId) {
+    $serv-&gt;activeWorkers-&gt;sub(1);
+    echo &quot;[Worker {$workerId}] Stopped, active: {$serv-&gt;activeWorkers-&gt;get()}\n&quot;;
+});
+
+$server-&gt;on(&#x27;Request&#x27;, function ($request, $response) use ($server) {
+    // Increment total request counter
+    $server-&gt;totalRequests-&gt;add(1);
+
+    $path = $request-&gt;server[&#x27;request_uri&#x27;];
+
+    // Status endpoint - view all counters
+    if ($path === &#x27;/status&#x27;) {
+        $uptime = time() - $server-&gt;startTime-&gt;get();
+        $rps = $uptime &gt; 0 ? round($server-&gt;totalRequests-&gt;get() / $uptime, 2) : 0;
+
+        $response-&gt;header(&#x27;Content-Type&#x27;, &#x27;application/json&#x27;);
+        $response-&gt;end(json_encode([
+            &#x27;total_requests&#x27; =&gt; $server-&gt;totalRequests-&gt;get(),
+            &#x27;error_count&#x27;    =&gt; $server-&gt;errorCount-&gt;get(),
+            &#x27;active_workers&#x27; =&gt; $server-&gt;activeWorkers-&gt;get(),
+            &#x27;uptime_seconds&#x27; =&gt; $uptime,
+            &#x27;requests_per_sec&#x27; =&gt; $rps,
+        ]));
+        return;
+    }
+
+    // Simulate occasional errors
+    if (random_int(1, 20) === 1) {
+        $server-&gt;errorCount-&gt;add(1);
+        $response-&gt;status(500);
+        $response-&gt;end(&#x27;Internal Server Error&#x27;);
+        return;
+    }
+
+    // Normal response
+    $response-&gt;header(&#x27;Content-Type&#x27;, &#x27;application/json&#x27;);
+    $response-&gt;end(json_encode([
+        &#x27;message&#x27;   =&gt; &#x27;Hello from Swoole!&#x27;,
+        &#x27;request_id&#x27; =&gt; $server-&gt;totalRequests-&gt;get(),
+        &#x27;worker&#x27;    =&gt; $server-&gt;getWorkerId(),
+    ]));
+});
+
+echo &quot;Server on http://0.0.0.0:9503 | Status: http://localhost:9503/status\n&quot;;
+$server-&gt;start();</code></pre>
+
+<h3>v3：高级应用 — 并发限流 + 优雅关闭</h3>
+
+<pre><code class="language-php">&lt;?php
+// atomic_advanced.php
+// Advanced: concurrent limiter + graceful shutdown with Atomic
+
+// Shared atomics
+$maxConcurrent   = 1000;
+$currentConcurrent = new Swoole\Atomic(0);
+$isShuttingDown  = new Swoole\Atomic(0);  // 0=running, 1=shutting down
+$totalProcessed  = new Swoole\Atomic(0);
+$rejectedCount   = new Swoole\Atomic(0);
+
+$server = new Swoole\Http\Server(&#x27;0.0.0.0&#x27;, 9504, SWOOLE_BASE);
+$server-&gt;set([
+    &#x27;worker_num&#x27;            =&gt; 4,
+    &#x27;max_request&#x27;           =&gt; 10000,  // Restart worker after N requests
+    &#x27;dispatch_mode&#x27;         =&gt; 1,       // Round-robin
+]);
+
+$server-&gt;currentConcurrent = $currentConcurrent;
+$server-&gt;isShuttingDown    = $isShuttingDown;
+$server-&gt;totalProcessed    = $totalProcessed;
+$server-&gt;rejectedCount     = $rejectedCount;
+
+$server-&gt;on(&#x27;Request&#x27;, function ($request, $response) use ($server, $maxConcurrent) {
+    // Check graceful shutdown flag
+    if ($server-&gt;isShuttingDown-&gt;get() === 1) {
+        $response-&gt;status(503);
+        $response-&gt;header(&#x27;Connection&#x27;, &#x27;close&#x27;);
+        $response-&gt;end(json_encode([&#x27;error&#x27; =&gt; &#x27;Server is shutting down&#x27;]));
+        return;
+    }
+
+    // Concurrent limiter using CAS loop
+    $admitted = false;
+    for ($i = 0; $i &lt; 3; $i++) { // Retry up to 3 times
+        $current = $server-&gt;currentConcurrent-&gt;get();
+        if ($current &gt;= $maxConcurrent) {
+            break; // Over limit
+        }
+        // Try to increment atomically via CAS
+        if ($server-&gt;currentConcurrent-&gt;cmpset($current, $current + 1)) {
+            $admitted = true;
+            break;
+        }
+        // CAS failed, another worker changed it, retry
+    }
+
+    if (!$admitted) {
+        $server-&gt;rejectedCount-&gt;add(1);
+        $response-&gt;status(429);
+        $response-&gt;header(&#x27;Retry-After&#x27;, &#x27;1&#x27;);
+        $response-&gt;end(json_encode([
+            &#x27;error&#x27;     =&gt; &#x27;Too many concurrent requests&#x27;,
+            &#x27;current&#x27;   =&gt; $server-&gt;currentConcurrent-&gt;get(),
+            &#x27;max&#x27;       =&gt; $maxConcurrent,
+        ]));
+        return;
+    }
+
+    try {
+        // Simulate business logic (50-200ms)
+        usleep(random_int(50000, 200000));
+
+        $server-&gt;totalProcessed-&gt;add(1);
+        $response-&gt;header(&#x27;Content-Type&#x27;, &#x27;application/json&#x27;);
+        $response-&gt;end(json_encode([
+            &#x27;status&#x27;    =&gt; &#x27;ok&#x27;,
+            &#x27;current&#x27;   =&gt; $server-&gt;currentConcurrent-&gt;get(),
+            &#x27;processed&#x27; =&gt; $server-&gt;totalProcessed-&gt;get(),
+        ]));
+    } finally {
+        // Always decrement concurrent counter
+        $server-&gt;currentConcurrent-&gt;sub(1);
+    }
+});
+
+// Handle reload signal for graceful restart
+$server-&gt;on(&#x27;WorkerStop&#x27;, function ($serv, $workerId) {
+    echo &quot;[Worker {$workerId}] Processed: {$serv-&gt;totalProcessed-&gt;get()}, Rejected: {$serv-&gt;rejectedCount-&gt;get()}\n&quot;;
+});
+
+echo &quot;Server on http://0.0.0.0:9504\n&quot;;
+echo &quot;Max concurrent: {$maxConcurrent}\n&quot;;
+$server-&gt;start();</code></pre>
+
+<hr>
+
+<h2>四、执行预览</h2>
+
+<h3>v1 基础运行</h3>
+
+<pre><code class="language-bash">$ php atomic_basic.php
+After set(10): 10
+After add(5): 15, get: 15
+After sub(3): 12, get: 12
+cmpset(12, 100): true, value: 100
+cmpset(12, 200): false, value: 100
+Long counter: 9223372036854775707</code></pre>
+
+<h3>v2 服务运行 + 压测</h3>
+
+<pre><code class="language-bash">$ php atomic_server.php &amp;
+Server on http://0.0.0.0:9503 | Status: http://localhost:9503/status
+
+# 并发100请求
+$ ab -n 10000 -c 100 http://localhost:9503/
+
+# 查看状态
+$ curl http://localhost:9503/status
+{
+  &quot;total_requests&quot;: 10000,
+  &quot;error_count&quot;: 517,
+  &quot;active_workers&quot;: 4,
+  &quot;uptime_seconds&quot;: 3,
+  &quot;requests_per_sec&quot;: 3333.33
+}</code></pre>
+
+<h3>v3 限流测试</h3>
+
+<pre><code class="language-bash">$ php atomic_advanced.php
+Server on http://0.0.0.0:9504
+Max concurrent: 1000
+
+# 模拟高并发
+$ ab -n 5000 -c 500 http://localhost:9504/
+
+# 部分请求被限流返回 429</code></pre>
+
+<hr>
+
+<h2>五、注意事项</h2>
+
+<table><thead><tr>
+<th>项目</th>
+<th>说明</th>
+<th>建议</th>
+</tr></thead><tbody>
+<tr>
+<td>数值范围</td>
+<td>32位 ±21亿</td>
+<td>超出用 <code>Atomic\Long</code>（64位）</td>
+</tr>
+<tr>
+<td>只能存整数</td>
+<td>不支持浮点数</td>
+<td>浮点计数用 Table 的 float 字段</td>
+</tr>
+<tr>
+<td>创建时机</td>
+<td>必须在 fork 之前</td>
+<td>全局位置创建</td>
+</tr>
+<tr>
+<td>CAS 重试</td>
+<td>cmpset 失败需自行重试</td>
+<td>循环重试，设上限避免活锁</td>
+</tr>
+<tr>
+<td>初始值</td>
+<td>默认0，可指定</td>
+<td>按业务设置合理初始值</td>
+</tr>
+<tr>
+<td>多原子变量</td>
+<td>可创建多个独立计数器</td>
+<td>按功能分类管理</td>
+</tr>
+<tr>
+<td>内存占用</td>
+<td>每个 Atomic 约 8字节</td>
+<td>极轻量</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>六、避坑指南</h2>
+
+<h3>❌ 坑1：非原子"先读后写"</h3>
+
+<pre><code class="language-php">// ❌ 错误：get() 和 set() 之间有竞态窗口
+$current = $atomic-&gt;get();
+$current += 1;
+$atomic-&gt;set($current);  // 另一个进程可能已经改了值！</code></pre>
+
+<pre><code class="language-php">// ✅ 正确：用 add() 原子操作
+$atomic-&gt;add(1);  // 一条指令搞定，无竞态
+
+// 或者用 CAS 保证条件更新
+while (true) {
+    $expected = $atomic-&gt;get();
+    if ($atomic-&gt;cmpset($expected, $expected + 1)) {
+        break; // 成功
+    }
+    // 失败自动重试
+}</code></pre>
+
+<h3>❌ 坑2：用 Atomic 存复杂状态</h3>
+
+<pre><code class="language-php">// ❌ 错误：想用整数编码多种状态
+// 0=空闲, 1=处理中, 2=完成, 3=错误
+$atomic-&gt;set(3); // 覆盖了状态，丢失了&quot;处理中&quot;信息</code></pre>
+
+<pre><code class="language-php">// ✅ 正确：简单状态用 Atomic，复杂状态用 Table
+$status = new Swoole\Atomic(0);  // 只做简单的标志位
+// 0=running, 1=stopped，二选一
+
+// 复杂状态用 Table
+$stateTable = new Swoole\Table(256);
+$stateTable-&gt;column(&#x27;status&#x27;, Swoole\Table::TYPE_STRING, 16);
+$stateTable-&gt;column(&#x27;updated_at&#x27;, Swoole\Table::TYPE_INT);
+$stateTable-&gt;create();</code></pre>
+
+<h3>❌ 坑3：忘记 Atomic\Long 的大数场景</h3>
+
+<pre><code class="language-php">// ❌ 危险：32位溢出
+$counter = new Swoole\Atomic(0);
+for ($i = 0; $i &lt; PHP_INT_MAX; $i++) {
+    $counter-&gt;add(1); // 到21亿就溢出了！
+}</code></pre>
+
+<pre><code class="language-php">// ✅ 正确：大数用 Atomic\Long
+$counter = new Swoole\Atomic\Long(0);
+$counter-&gt;add(PHP_INT_MAX);
+echo $counter-&gt;get(); // 安全，64位</code></pre>
+
+<hr>
+
+<h2>七、练习题</h2>
+
+<h3>🟢 基础题</h3>
+
+<ol>
+<li>创建一个 Atomic 计数器，使用 4 个进程并发执行 <code>add(1)</code> 各 10000 次，验证最终值是否为 40000。</li>
+
+<ol>
+<li>使用 cmpset 实现一个简单的"一次性开关"：初始为 0，只能被设置为 1 一次。</li>
+
+<h3>🟡 进阶题</h3>
+
+<ol>
+<li>在 HTTP Server 中实现一个"每分钟请求统计"：用 Atomic 记录当前分钟请求数，每分钟归零重置。</li>
+
+<ol>
+<li>用 CAS 循环实现"不超过上限的递增"：当计数器 >= 100 时不允许再增加。</li>
+
+<h3>🔴 挑战题</h3>
+
+<ol>
+<li>实现一个简易"读写锁"：用多个 Atomic 变量配合 CAS，实现多个读者同时读、但写者独占的锁机制。</li>
+
+<hr>
+
+<h2>八、知识点总结</h2>
+
+<pre><code>Swoole\Atomic 知识树
+├── API（5个操作）
+│   ├── get()     → 读取当前值
+│   ├── set($v)   → 直接设置（非条件性）
+│   ├── add($n)   → 原子加，返回新值
+│   ├── sub($n)   → 原子减，返回新值
+│   └── cmpset($expected, $new) → CAS条件更新
+├── Atomic\Long
+│   ├── 64位整数
+│   ├── 相同 API
+│   └── 适用于大数计数
+├── 原理
+│   ├── CPU LOCK 前缀指令
+│   ├── CAS (Compare-And-Swap)
+│   └── 共享内存（fork继承）
+├── 多进程使用
+│   ├── 在 start() 前创建
+│   ├── 所有 Worker 共享
+│   └── 无需序列化/IPC
+└── 典型场景
+    ├── 请求计数 → add(1)
+    ├── 并发限制 → CAS循环
+    ├── 状态标志 → cmpset(0,1)
+    └── 统计指标 → add/sub</code></pre>
+
+<hr>
+
+<h2>九、举一反三</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>推荐方案</th>
+<th>替代方案</th>
+<th>说明</th>
+</tr></thead><tbody>
+<tr>
+<td>简单计数器</td>
+<td><code>Atomic</code></td>
+<td>Redis INCR</td>
+<td>单机用 Atomic，分布式用 Redis</td>
+</tr>
+<tr>
+<td>并发限制</td>
+<td><code>Atomic</code> + CAS</td>
+<td><code>Table</code> + incr</td>
+<td>都可以，Atomic 更轻量</td>
+</tr>
+<tr>
+<td>状态标志位</td>
+<td><code>Atomic</code> (0/1)</td>
+<td>全局变量</td>
+<td>多进程必须用 Atomic</td>
+</tr>
+<tr>
+<td>速率统计</td>
+<td><code>Atomic</code> + 定时重置</td>
+<td><code>Table</code></td>
+<td>按分钟/秒，Atomic 足够</td>
+</tr>
+<tr>
+<td>复杂计数（多字段）</td>
+<td><code>Swoole\Table</code></td>
+<td>多个 Atomic</td>
+<td>多个独立计数用多个 Atomic</td>
+</tr>
+<tr>
+<td>分布式计数</td>
+<td><code>Redis INCR</code></td>
+<td>~~Atomic~~</td>
+<td>Atomic 仅限单机</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>十、参考资料</h2>
+
+<ul>
+<li><a href="https://wiki.swoole.com/#/memory/atomic">Swoole 官方文档 - Swoole\Atomic</a></li>
+<li><a href="https://en.wikipedia.org/wiki/Compare-and-swap">CAS 原理详解 - Wikipedia</a></li>
+<li><a href="https://www.felixcloutier.com/x86/lock">x86 LOCK 指令前缀</a></li>
+<li><a href="https://wiki.swoole.com/#/memory/atomic?id=atomic_long">Swoole\Atomic\Long 文档</a></li>
+
+<hr>
+
+<h2>十一、代码演进路线</h2>
+
+<pre><code>v1 基础操作
+├── 5个API演示（get/set/add/sub/cmpset）
+├── Atomic\Long 大数支持
+└── CAS 基本概念
+    │
+    ▼
+v2 多进程统计
+├── Server 集成
+├── 多个 Atomic 联合使用
+├── 实时状态监控（/status接口）
+└── Worker 生命周期跟踪
+    │
+    ▼
+v3 生产级方案
+├── CAS 循环并发控制
+├── 优雅关闭标志位
+├── 限流 + 请求统计
+└── 异常安全（try/finally 递减）</code></pre>
+
+<p><strong>核心脉络：</strong> 从理解原子操作 → 实际多进程应用 → 生产级可靠性保障。Atomic 虽小，却是并发编程的基石。</p>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

@@ -1,0 +1,538 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>004 - ES6+新增数据结构与迭代器完全解析</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/JavaScript/index.html">JavaScript</a>
+<span class="sep">›</span>
+<a href="/tech-blog/JavaScript/01-ES6+/index.html">JavaScript ES6+</a>
+</nav>
+<h1>004 - ES6+新增数据结构与迭代器完全解析</h1>
+<div class="meta">
+<span>📂 JavaScript ES6+</span>
+<span>🏷️ JavaScript</span>
+</div>
+<article>
+
+
+
+<h1>ES6+新增数据结构与迭代器完全解析</h1>
+
+<blockquote><p><strong>难度标注：</strong> 🟡 中级→🔴 高级 | <strong>前置知识：</strong> 对象、数组、函数、ES6基础<br><strong>阅读时间：</strong> 约20分钟 | <strong>代码量：</strong> 约170行</p></blockquote>
+
+<hr>
+
+<h2>一、概念讲解</h2>
+
+<h3>1.1 新数据结构</h3>
+
+<ul>
+<li><strong>Map：</strong> 键值对集合，任意类型作键（vs Object只允许字符串/Symbol）</li>
+<li><strong>Set：</strong> 值的唯一集合，自动去重</li>
+<li><strong>WeakMap/WeakSet：</strong> 键必须是对象，且是弱引用（不阻止GC）</li>
+
+<h3>1.2 迭代协议</h3>
+
+<ul>
+<li><strong>可迭代协议：</strong> 对象实现<code>[Symbol.iterator]()</code>方法，返回迭代器</li>
+<li><strong>迭代器协议：</strong> 对象实现<code>next()</code>方法，返回<code>{ value, done }</code></li>
+
+<h3>1.3 Generator</h3>
+
+<p><code>function*</code>声明的函数，可通过<code>yield</code>暂停和恢复执行。天然实现迭代器协议。</p>
+
+<hr>
+
+<h2>二、脑图</h2>
+
+<pre><code>        ES6+数据结构与迭代
+        /       |        \
+    数据结构   迭代器    生成器
+    /  |  \     |         |
+  Map Set Weak  Symbol    function*
+  Map  Set  Map .iterator  yield
+   |    |   |     |        |
+  键值  唯一 弱引用 for...of  惰性求值
+  对    集   不阻止   展开    无限序列
+                GC    解构    异步流</code></pre>
+
+<hr>
+
+<h2>三、完整代码示例</h2>
+
+<pre><code class="language-javascript">// ============================================
+// 1. Map — key-value pairs with any key type
+// ============================================
+const userRoles = new Map();
+
+// Set entries
+userRoles.set(&quot;alice&quot;, &quot;admin&quot;);
+userRoles.set(&quot;bob&quot;, &quot;editor&quot;);
+userRoles.set(42, &quot;the answer&quot;); // non-string key
+
+console.log(userRoles.get(&quot;alice&quot;));  // &quot;admin&quot;
+console.log(userRoles.has(&quot;bob&quot;));    // true
+console.log(userRoles.size);          // 3
+
+// Iteration
+for (const [key, value] of userRoles) {
+  console.log(`${key} =&gt; ${value}`);
+}
+
+// Initialize from entries
+const config = new Map([
+  [&quot;host&quot;, &quot;localhost&quot;],
+  [&quot;port&quot;, 3000],
+]);
+console.log(config.get(&quot;port&quot;)); // 3000
+
+// Convert to object/array
+console.log(Object.fromEntries(userRoles));
+console.log([...userRoles.keys()]);
+console.log([...userRoles.values()]);
+
+// ============================================
+// 2. Set — unique values
+// ============================================
+const tags = new Set([&quot;js&quot;, &quot;es6&quot;, &quot;js&quot;, &quot;web&quot;]);
+console.log(tags.size); // 3 (duplicates removed)
+
+tags.add(&quot;node&quot;);
+tags.delete(&quot;web&quot;);
+console.log(tags.has(&quot;es6&quot;)); // true
+
+// Set operations
+const a = new Set([1, 2, 3]);
+const b = new Set([2, 3, 4]);
+
+const union = new Set([...a, ...b]);
+console.log([...union]); // [1, 2, 3, 4]
+
+const intersection = new Set([...a].filter(x =&gt; b.has(x)));
+console.log([...intersection]); // [2, 3]
+
+const difference = new Set([...a].filter(x =&gt; !b.has(x)));
+console.log([...difference]); // [1]
+
+// ============================================
+// 3. WeakMap — weak-referenced keys
+// ============================================
+const privateData = new WeakMap();
+
+function createSecret(obj, secret) {
+  privateData.set(obj, secret);
+}
+function getSecret(obj) {
+  return privateData.get(obj);
+}
+
+const myObj = { id: 1 };
+createSecret(myObj, &quot;hidden value&quot;);
+console.log(getSecret(myObj)); // &quot;hidden value&quot;
+// When myObj is GC&#x27;d, the WeakMap entry is also cleaned up
+
+// ============================================
+// 4. Iterators &amp; Iterable protocol
+// ============================================
+// Custom iterable
+class NumberRange {
+  constructor(start, end, step = 1) {
+    this.start = start;
+    this.end = end;
+    this.step = step;
+  }
+
+  [Symbol.iterator]() {
+    let current = this.start;
+    const { end, step } = this;
+    return {
+      next() {
+        if (current &lt; end) {
+          const value = current;
+          current += step;
+          return { value, done: false };
+        }
+        return { value: undefined, done: true };
+      },
+    };
+  }
+}
+
+const range = new NumberRange(0, 5, 2);
+console.log([...range]); // [0, 2, 4]
+
+for (const num of range) {
+  console.log(num); // 0, 2, 4
+}
+
+// ============================================
+// 5. Generator functions
+// ============================================
+function* idGenerator() {
+  let id = 1;
+  while (true) {
+    yield id++;
+  }
+}
+
+const gen = idGenerator();
+console.log(gen.next()); // { value: 1, done: false }
+console.log(gen.next()); // { value: 2, done: false }
+console.log(gen.next()); // { value: 3, done: false }
+
+// Fibonacci generator
+function* fibonacci() {
+  let [prev, curr] = [0, 1];
+  while (true) {
+    yield curr;
+    [prev, curr] = [curr, prev + curr];
+  }
+}
+
+// Take first 8 Fibonacci numbers
+const fib = fibonacci();
+const first8 = Array.from({ length: 8 }, () =&gt; fib.next().value);
+console.log(first8); // [1, 1, 2, 3, 5, 8, 13, 21]
+
+// Generator with delegation
+function* concatIterables(...iterables) {
+  for (const iter of iterables) {
+    yield* iter;
+  }
+}
+
+const combined = concatIterables([1, 2], &quot;hi&quot;, new Set([3, 4]));
+console.log([...combined]); // [1, 2, &#x27;h&#x27;, &#x27;i&#x27;, 3, 4]
+
+// ============================================
+// 6. Async generators (ES2018)
+// ============================================
+async function* asyncCounter(max) {
+  for (let i = 1; i &lt;= max; i++) {
+    await new Promise(r =&gt; setTimeout(r, 10));
+    yield i;
+  }
+}
+
+(async () =&gt; {
+  const results = [];
+  for await (const num of asyncCounter(3)) {
+    results.push(num);
+  }
+  console.log(&quot;Async gen:&quot;, results); // [1, 2, 3]
+})();</code></pre>
+
+<hr>
+
+<h2>四、执行预览</h2>
+
+<pre><code>admin
+true
+3
+alice =&gt; admin
+bob =&gt; editor
+42 =&gt; the answer
+3000
+{ &#x27;42&#x27;: &#x27;the answer&#x27;, alice: &#x27;admin&#x27;, bob: &#x27;editor&#x27; }
+[ &#x27;alice&#x27;, &#x27;bob&#x27;, 42 ]
+[ &#x27;admin&#x27;, &#x27;editor&#x27;, &#x27;the answer&#x27; ]
+3
+true
+[ 1, 2, 3, 4 ]
+[ 2, 3 ]
+[ 1 ]
+hidden value
+[ 0, 2, 4 ]
+0
+2
+4
+{ value: 1, done: false }
+{ value: 2, done: false }
+{ value: 3, done: false }
+[ 1, 1, 2, 3, 5, 8, 13, 21 ]
+[ 1, 2, &#x27;h&#x27;, &#x27;i&#x27;, 3, 4 ]
+Async gen: [ 1, 2, 3 ]</code></pre>
+
+<hr>
+
+<h2>五、注意事项</h2>
+
+<table><thead><tr>
+<th>结构</th>
+<th>特点</th>
+<th>适用场景</th>
+<th>注意</th>
+</tr></thead><tbody>
+<tr>
+<td>Map</td>
+<td>任意键类型</td>
+<td>频繁增删的键值对</td>
+<td>比Object更安全</td>
+</tr>
+<tr>
+<td>Set</td>
+<td>自动去重</td>
+<td>去重、成员检测</td>
+<td>NaN === NaN在Set中</td>
+</tr>
+<tr>
+<td>WeakMap</td>
+<td>弱引用键</td>
+<td>私有数据、缓存</td>
+<td>不可遍历</td>
+</tr>
+<tr>
+<td>WeakSet</td>
+<td>弱引用值</td>
+<td>标记对象</td>
+<td>不可遍历</td>
+</tr>
+<tr>
+<td>Generator</td>
+<td>惰性求值</td>
+<td>无限序列、异步流</td>
+<td>需手动调用next()</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>六、避坑指南</h2>
+
+<h3>❌ 用Object做频繁增删的字典</h3>
+<pre><code class="language-javascript">const dict = {};
+dict[key] = value;
+delete dict[key]; // slow, triggers V8 deoptimization</code></pre>
+<h3>✅ 用Map</h3>
+<pre><code class="language-javascript">const dict = new Map();
+dict.set(key, value);
+dict.delete(key); // optimized for frequent changes</code></pre>
+
+<h3>❌ Generator只遍历一次</h3>
+<pre><code class="language-javascript">function* gen() { yield 1; yield 2; }
+const g = gen();
+console.log([...g]); // [1, 2]
+console.log([...g]); // [] — exhausted!</code></pre>
+<h3>✅ 创建新的Generator实例</h3>
+<pre><code class="language-javascript">const g1 = gen();
+const g2 = gen();
+console.log([...g1]); // [1, 2]
+console.log([...g2]); // [1, 2]</code></pre>
+
+<hr>
+
+<h2>七、练习题</h2>
+
+<h3>🟢 基础</h3>
+<ol>
+<li>用Set实现数组去重函数<code>unique(arr)</code>。</li>
+
+<h3>🟡 进阶</h3>
+<ol>
+<li>实现一个<code>LRUCache</code>类（最近最少使用缓存），使用Map，支持<code>get(key)</code>、<code>set(key, value)</code>和<code>maxSize</code>限制。</li>
+
+<h3>🔴 挑战</h3>
+<ol>
+<li>实现一个Generator函数<code>treeTraversal(node)</code>，支持深度优先遍历DOM树或嵌套对象：</li>
+<pre><code class="language-javascript">const tree = { val: 1, children: [
+  { val: 2, children: [{ val: 4 }, { val: 5 }] },
+  { val: 3 },
+]};
+// [...treeTraversal(tree)] =&gt; [1, 2, 4, 5, 3]</code></pre>
+
+<hr>
+
+<h2>八、知识点总结</h2>
+
+<pre><code>ES6+数据结构与迭代
+├── 数据结构
+│   ├── Map（任意键、有序、可遍历）
+│   ├── Set（唯一值、有序、可遍历）
+│   ├── WeakMap（对象键、弱引用、不可遍历）
+│   └── WeakSet（对象值、弱引用、不可遍历）
+├── 迭代协议
+│   ├── 可迭代协议 [Symbol.iterator]()
+│   └── 迭代器协议 next() → {value, done}
+├── Generator
+│   ├── function* / yield
+│   ├── yield* 委托
+│   ├── 惰性求值
+│   └── async function* / for await...of
+└── 内置可迭代对象
+    ├── Array, String, Map, Set
+    ├── arguments, NodeList
+    └── TypedArray</code></pre>
+
+<hr>
+
+<h2>九、举一反三</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>推荐</th>
+<th>原因</th>
+</tr></thead><tbody>
+<tr>
+<td>配置字典</td>
+<td>Map</td>
+<td>键类型灵活</td>
+</tr>
+<tr>
+<td>去重</td>
+<td>Set</td>
+<td>自动去重</td>
+</tr>
+<tr>
+<td>对象私有数据</td>
+<td>WeakMap</td>
+<td>不阻止GC</td>
+</tr>
+<tr>
+<td>缓存</td>
+<td>Map + LRU</td>
+<td>有序+快速查找</td>
+</tr>
+<tr>
+<td>标签/分组</td>
+<td>Set</td>
+<td>快速成员检测</td>
+</tr>
+<tr>
+<td>惰性序列</td>
+<td>Generator</td>
+<td>按需生成</td>
+</tr>
+<tr>
+<td>异步数据流</td>
+<td>AsyncGenerator</td>
+<td>流式处理</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>十、参考资料</h2>
+
+<ul>
+<li><a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Map">MDN: Map</a></li>
+<li><a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Set">MDN: Set</a></li>
+<li><a href="https://developer.mozilla.org/zh-CN/docs/Web/JavaScript/Reference/Iteration_protocols">MDN: 迭代协议</a></li>
+<li><a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Generator">MDN: Generator</a></li>
+
+<hr>
+
+<h2>十一、代码演进</h2>
+
+<h3>v1: 用Object模拟Map</h3>
+<pre><code class="language-javascript">const cache = {};
+cache[&quot;key1&quot;] = &quot;value1&quot;;
+// Problem: keys are always strings, prototype pollution risk</code></pre>
+
+<h3>v2: ES6 Map</h3>
+<pre><code class="language-javascript">const cache = new Map();
+cache.set(objKey, &quot;value1&quot;);
+cache.set(42, &quot;value2&quot;);
+// Any key type, no prototype issues</code></pre>
+
+<h3>v3: WeakMap私有 + Map缓存 + Generator</h3>
+<pre><code class="language-javascript">const privateStore = new WeakMap();
+const cache = new Map();
+
+function* cachedIterator(key, generator) {
+  if (cache.has(key)) yield* cache.get(key);
+  const results = [];
+  for (const item of generator()) {
+    results.push(item);
+    yield item;
+  }
+  cache.set(key, results);
+}</code></pre>
+
+<hr>
+
+<h2>十二、总结</h2>
+
+<table><thead><tr>
+<th>核心要点</th>
+<th>说明</th>
+</tr></thead><tbody>
+<tr>
+<td><strong>Map vs Object</strong></td>
+<td>Map键类型灵活、有序、大小可查</td>
+</tr>
+<tr>
+<td><strong>Set去重</strong></td>
+<td>自动去重，比<code>[...new Set(arr)]</code>更优雅</td>
+</tr>
+<tr>
+<td><strong>WeakMap</strong></td>
+<td>私有数据存储，不阻止垃圾回收</td>
+</tr>
+<tr>
+<td><strong>迭代协议</strong></td>
+<td>自定义可迭代对象的关键</td>
+</tr>
+<tr>
+<td><strong>Generator</strong></td>
+<td>惰性求值、无限序列、异步流</td>
+</tr>
+</tbody></table>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

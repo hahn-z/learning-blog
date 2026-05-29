@@ -1,0 +1,479 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>011 - 类型体操入门</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/TypeScript/index.html">TypeScript</a>
+<span class="sep">›</span>
+<a href="/tech-blog/TypeScript/01-TypeScript/index.html">TypeScript</a>
+</nav>
+<h1>011 - 类型体操入门</h1>
+<div class="meta">
+<span>📂 TypeScript</span>
+<span>🏷️ TypeScript</span>
+</div>
+<article>
+
+
+<h1>038-类型体操入门</h1>
+
+<blockquote><p><strong>难度：</strong> 🔴 高级 | <strong>阅读时间：</strong> 25分钟 | <strong>前置知识：</strong> 泛型、条件类型基础</p></blockquote>
+
+<hr>
+
+<h2>一、概念讲解</h2>
+
+<h3>什么是类型体操？</h3>
+
+<p>类型体操（Type Gymnastics）指利用TypeScript类型系统实现<strong>编译时计算</strong>——在类型层面做逻辑判断、字符串操作、递归等。</p>
+
+<h3>核心工具</h3>
+
+<ol>
+<li><strong>条件类型</strong> — <code>T extends U ? X : Y</code></li>
+</ul>
+<ol>
+<li><strong>infer</strong> — 在条件类型中<strong>提取</strong>类型</li>
+</ul>
+<ol>
+<li><strong>映射类型</strong> — <code>{[K in keyof T]: V}</code></li>
+</ul>
+<ol>
+<li><strong>递归类型</strong> — 类型引用自身</li>
+</ul>
+<ol>
+<li><strong>模板字面量类型</strong> — `<code> </code>prefix${T}<code> </code>`</li>
+
+<h3>条件类型的分发特性</h3>
+
+<pre><code class="language-typescript">// Distributive: applied to each member of union
+type ToArray&lt;T&gt; = T extends unknown ? T[] : never;
+type Result = ToArray&lt;string | number&gt;; // string[] | number[]
+
+// Non-distributive: wrap in tuple to prevent
+type ToArrayND&lt;T&gt; = [T] extends [unknown] ? T[] : never;
+type ResultND = ToArrayND&lt;string | number&gt;; // (string | number)[]</code></pre>
+
+<hr>
+
+<h2>二、思维导图</h2>
+
+<pre><code>类型体操
+├── 基础操作
+│   ├── 条件类型 (extends ? :)
+│   ├── infer 提取
+│   ├── 映射类型
+│   └── keyof + in
+├── 进阶技巧
+│   ├── 递归类型
+│   ├── 元组操作
+│   ├── 模板字面量
+│   └── 分布式条件类型
+├── 常见题型
+│   ├── DeepPartial / DeepReadonly
+│   ├── Tuple to Union
+│   ├── String操作(Uppercase等)
+│   └── 类型推导(ReturnType等)
+└── 实战价值
+    ├── 类型安全API
+    ├── 自动补全
+    └── 减少运行时代码</code></pre>
+
+<hr>
+
+<h2>三、完整代码示例</h2>
+
+<pre><code class="language-typescript">// ============================================
+// Type Gymnastics - From Beginner to Practical
+// ============================================
+
+// --- 1. Basic Conditional Types ---
+
+// Is it a string?
+type IsString&lt;T&gt; = T extends string ? &#x27;yes&#x27; : &#x27;no&#x27;;
+type T1 = IsString&lt;&#x27;hello&#x27;&gt;;  // &#x27;yes&#x27;
+type T2 = IsString&lt;42&gt;;        // &#x27;no&#x27;
+
+// --- 2. infer: Extract Types ---
+
+// Extract return type of a function
+type MyReturnType&lt;T&gt; = T extends (...args: any[]) =&gt; infer R ? R : never;
+type FnReturn = MyReturnType&lt;() =&gt; string&gt;; // string
+
+// Extract first element of tuple
+type Head&lt;T extends any[]&gt; = T extends [infer H, ...any[]] ? H : never;
+type H = Head&lt;[1, 2, 3]&gt;; // 1
+
+// Extract last element
+type Last&lt;T extends any[]&gt; = T extends [...any[], infer L] ? L : never;
+type L = Last&lt;[1, 2, 3]&gt;; // 3
+
+// --- 3. Recursive Types ---
+
+// DeepPartial: make all nested properties optional
+type DeepPartial&lt;T&gt; = {
+  [K in keyof T]?: T[K] extends object
+    ? T[K] extends Function
+      ? T[K]
+      : DeepPartial&lt;T[K]&gt;
+    : T[K];
+};
+
+// DeepReadonly: recursively readonly
+type DeepReadonly&lt;T&gt; = {
+  readonly [K in keyof T]: T[K] extends object
+    ? T[K] extends Function
+      ? T[K]
+      : DeepReadonly&lt;T[K]&gt;
+    : T[K];
+};
+
+interface Config {
+  db: { host: string; port: number };
+  cache: { enabled: boolean; ttl: number };
+}
+
+type PartialConfig = DeepPartial&lt;Config&gt;;
+// { db?: { host?: string; port?: number }; cache?: { enabled?: boolean; ttl?: number } }
+
+// --- 4. Tuple Operations ---
+
+// Tuple length
+type Length&lt;T extends any[]&gt; = T[&#x27;length&#x27;];
+type Len = Length&lt;[1, 2, 3]&gt;; // 3
+
+// Concat two tuples
+type Concat&lt;T extends any[], U extends any[]&gt; = [...T, ...U];
+type C = Concat&lt;[1, 2], [3, 4]&gt;; // [1, 2, 3, 4]
+
+// Drop first N elements
+type Drop&lt;T extends any[], N extends number, Acc extends any[] = []&gt; =
+  Acc[&#x27;length&#x27;] extends N
+    ? T
+    : T extends [infer _, ...infer Rest]
+      ? Drop&lt;Rest, N, [...Acc, unknown]&gt;
+      : [];
+
+type Dropped = Drop&lt;[1, 2, 3, 4], 2&gt;; // [3, 4]
+
+// --- 5. String Manipulation Types ---
+
+// Reverse a string type
+type Reverse&lt;S extends string&gt; = S extends `${infer First}${infer Rest}`
+  ? `${Reverse&lt;Rest&gt;}${First}`
+  : S;
+type Rev = Reverse&lt;&#x27;hello&#x27;&gt;; // &#x27;olleh&#x27;
+
+// Trim whitespace
+type TrimLeft&lt;S extends string&gt; = S extends ` ${infer Rest}` ? TrimLeft&lt;Rest&gt; : S;
+type TrimRight&lt;S extends string&gt; = S extends `${infer Rest} ` ? TrimRight&lt;Rest&gt; : S;
+type Trim&lt;S extends string&gt; = TrimRight&lt;TrimLeft&lt;S&gt;&gt;;
+
+type Trimmed = Trim&lt;&#x27;  hello  &#x27;&gt;; // &#x27;hello&#x27;
+
+// Replace
+type Replace&lt;S extends string, From extends string, To extends string&gt; =
+  From extends &#x27;&#x27;
+    ? S
+    : S extends `${infer Before}${From}${infer After}`
+      ? `${Before}${To}${After}`
+      : S;
+
+type Replaced = Replace&lt;&#x27;hello world&#x27;, &#x27;world&#x27;, &#x27;TS&#x27;&gt;; // &#x27;hello TS&#x27;
+
+// CamelCase
+type CamelCase&lt;S extends string&gt; = S extends `${infer First}-${infer Rest}`
+  ? `${First}${Capitalize&lt;CamelCase&lt;Rest&gt;&gt;}`
+  : S;
+
+type Camel = CamelCase&lt;&#x27;my-component-name&#x27;&gt;; // &#x27;myComponentName&#x27;
+
+// --- 6. Object Type Operations ---
+
+// Pick by value type
+type PickByType&lt;T, V&gt; = {
+  [K in keyof T as T[K] extends V ? K : never]: T[K];
+};
+
+interface Mixed {
+  name: string;
+  age: number;
+  email: string;
+  score: number;
+}
+
+type StringProps = PickByType&lt;Mixed, string&gt;; // { name: string; email: string }
+
+// Omit by value type
+type OmitByType&lt;T, V&gt; = {
+  [K in keyof T as T[K] extends V ? never : K]: T[K];
+};
+
+// Make specific keys required
+type RequireKeys&lt;T, K extends keyof T&gt; = T &amp; Required&lt;Pick&lt;T, K&gt;&gt;;
+
+// Optional specific keys
+type PartialKeys&lt;T, K extends keyof T&gt; = Omit&lt;T, K&gt; &amp; Partial&lt;Pick&lt;T, K&gt;&gt;;
+
+// --- 7. Type-level Boolean ---
+type Bool = { true: true; false: false };
+type Not&lt;B extends keyof Bool&gt; = B extends &#x27;true&#x27; ? false : true;
+type N = Not&lt;&#x27;true&#x27;&gt;; // false
+
+// --- 8. Practical: Typed Event System ---
+type EventMap = {
+  click: { x: number; y: number };
+  keydown: { key: string; code: string };
+  resize: { width: number; height: number };
+};
+
+type EventHandler&lt;T extends keyof EventMap&gt; = (payload: EventMap[T]) =&gt; void;
+
+function on&lt;T extends keyof EventMap&gt;(event: T, handler: EventHandler&lt;T&gt;): void {
+  console.log(`Registered ${event} handler`);
+}
+
+on(&#x27;click&#x27;, (payload) =&gt; {
+  console.log(payload.x, payload.y); // fully typed!
+});
+
+console.log(&#x27;Type gymnastics examples compiled successfully!&#x27;);</code></pre>
+
+<hr>
+
+<h2>四、执行预览</h2>
+
+<pre><code class="language-bash">$ npx tsc --noEmit type-gymnastics.ts
+# No errors - all types resolve correctly!
+
+# Try in editor: hover over type aliases to see resolved types
+# type Rev = Reverse&lt;&#x27;hello&#x27;&gt; → &#x27;olleh&#x27;
+# type Camel = CamelCase&lt;&#x27;my-component-name&#x27;&gt; → &#x27;myComponentName&#x27;</code></pre>
+
+<hr>
+
+<h2>五、注意事项</h2>
+
+<table><thead><tr>
+<th>注意点</th>
+<th>说明</th>
+</tr></thead><tbody>
+<tr>
+<td>递归深度有限制</td>
+<td>TS递归类型大约支持~45层</td>
+</tr>
+<tr>
+<td>类型体操不产生运行时代码</td>
+<td>纯编译时，不影响bundle大小</td>
+</tr>
+<tr>
+<td>不要过度设计</td>
+<td>实用性优先，炫技次之</td>
+</tr>
+<tr>
+<td>infer可以嵌套</td>
+<td>但可读性下降，注意注释</td>
+</tr>
+<tr>
+<td>分布式只在裸类型参数上触发</td>
+<td><code>[T] extends [U]</code>阻止分发</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>六、避坑指南</h2>
+
+<table><thead><tr>
+<th>❌ 常见错误</th>
+<th>✅ 正确做法</th>
+</tr></thead><tbody>
+<tr>
+<td>忘记约束泛型参数</td>
+<td><code>T extends string</code>等约束防止无意义类型</td>
+</tr>
+<tr>
+<td>递归没有终止条件</td>
+<td>空字符串<code>''</code>或空元组<code>[]</code>作为base case</td>
+</tr>
+<tr>
+<td>滥用any做中间类型</td>
+<td>用<code>unknown</code>或具体约束更安全</td>
+</tr>
+<tr>
+<td>条件类型没有考虑分发</td>
+<td>理解分发，需要时用<code>[T]</code>阻止</td>
+</tr>
+<tr>
+<td>类型太复杂无法调试</td>
+<td>分步定义中间类型，逐步验证</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>七、练习题</h2>
+
+<h3>🟢 基础</h3>
+<ol>
+<li>实现<code>If<C, T, F></code>：C为true返回T，否则返回F。</li>
+</ul>
+<ol>
+<li>实现<code>Flatten<T></code>：将嵌套数组<code>T[][]</code>变为一维<code>T[]</code>。</li>
+
+<h3>🟡 进阶</h3>
+<ol>
+<li>实现<code>TupleToUnion<T></code>：<code>[1, 2, 3]</code> → <code>1 | 2 | 3</code>。</li>
+</ul>
+<ol>
+<li>实现<code>AppendArgument<Fn, Arg></code>：给函数类型追加一个参数。</li>
+
+<h3>🔴 挑战</h3>
+<ol>
+<li>实现<code>DeepMerge<A, B></code>：递归合并两个对象类型，冲突时B优先。</li>
+
+<hr>
+
+<h2>八、知识点总结</h2>
+
+<pre><code>类型体操
+├── 条件类型
+│   ├── T extends U ? X : Y
+│   ├── 分布式条件类型
+│   └── [T] extends [U] 阻止分发
+├── infer
+│   ├── 函数返回值 infer R
+│   ├── 元组解构 [infer H, ...infer T]
+│   ├── 字符串解构 `${infer A}${infer B}`
+│   └── 多infer
+├── 递归类型
+│   ├── DeepPartial / DeepReadonly
+│   ├── 字符串反转/转换
+│   └── 深度限制
+├── 映射类型
+│   ├── 键重映射 as
+│   ├── 条件键过滤
+│   └── 模板字面量键
+└── 实战模式
+    ├── 类型安全事件系统
+    ├── 自动类型推导
+    └── 条件类型分发</code></pre>
+
+<hr>
+
+<h2>九、举一反三</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>类型体操模式</th>
+</tr></thead><tbody>
+<tr>
+<td>深层Partial</td>
+<td><code>DeepPartial<T></code> 递归</td>
+</tr>
+<tr>
+<td>路由类型推导</td>
+<td>模板字面量类型解析路径</td>
+</tr>
+<tr>
+<td>API参数推导</td>
+<td><code>infer</code>提取函数参数</td>
+</tr>
+<tr>
+<td>CSS属性类型</td>
+<td>字面量联合+映射</td>
+</tr>
+<tr>
+<td>状态机</td>
+<td>可辨识联合+穷尽检查</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>十、参考资料</h2>
+
+<ul>
+<li><a href="https://github.com/type-challenges/type-challenges">Type Challenge</a></li>
+<li><a href="https://www.typescriptlang.org/docs/handbook/2/conditional-types.html">TypeScript Handbook - Conditional Types</a></li>
+<li><a href="https://www.typescriptlang.org/docs/handbook/2/mapped-types.html">TypeScript Handbook - Mapped Types</a></li>
+
+<hr>
+
+<h2>十一、代码演进</h2>
+
+<h3>v1 — 简单条件类型</h3>
+<pre><code class="language-typescript">type IsString&lt;T&gt; = T extends string ? true : false;</code></pre>
+
+<h3>v2 — infer提取</h3>
+<pre><code class="language-typescript">type UnwrapPromise&lt;T&gt; = T extends Promise&lt;infer U&gt; ? U : T;</code></pre>
+
+<h3>v3 — 递归+模式匹配</h3>
+<pre><code class="language-typescript">type DeepAwaited&lt;T&gt; = T extends Promise&lt;infer U&gt;
+  ? DeepAwaited&lt;U&gt;
+  : T extends object
+    ? { [K in keyof T]: DeepAwaited&lt;T[K]&gt; }
+    : T;</code></pre>
+
+<hr>
+
+<p><strong>总结：</strong> 类型体操是TypeScript类型系统的极致运用。不是为了炫技，而是为了在编译时捕获更多错误。从简单条件类型开始，逐步掌握infer、递归和映射类型，你的类型编程能力将大幅提升。</p>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

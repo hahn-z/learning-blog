@@ -1,0 +1,742 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>017 - Express模板引擎</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Node.js/index.html">Node.js</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Node.js/01-入门/index.html">Node.js入门</a>
+</nav>
+<h1>017 - Express模板引擎</h1>
+<div class="meta">
+<span>📂 Node.js入门</span>
+<span>🏷️ Node.js</span>
+</div>
+<article>
+
+
+<h1>Express模板引擎</h1>
+
+<blockquote><p><strong>难度标注：</strong> ⭐⭐ 初级 | 适合有Express基础的开发者<br><strong>阅读时间：</strong> 约18分钟 | <strong>上手时间：</strong> 约25分钟</p></blockquote>
+
+<hr>
+
+<h2>一、概念讲解</h2>
+
+<h3>什么是模板引擎？</h3>
+
+<p>模板引擎让你在HTML中嵌入动态数据，服务端渲染后再发送给客户端。Express支持多种模板引擎，最常用的是 <strong>EJS</strong> 和 <strong>Pug</strong>。</p>
+
+<p><strong>核心流程：</strong></p>
+
+<pre><code>模板文件 (.ejs/.pug) + 数据 (JavaScript对象) → 模板引擎渲染 → HTML字符串 → 发送给浏览器</code></pre>
+
+<p><strong>为什么需要模板引擎？</strong></p>
+
+<ul>
+<li>不用手动拼接HTML字符串</li>
+<li>模板可复用（布局、组件）</li>
+<li>数据和展示分离，更好维护</li>
+
+<h3>EJS vs Pug 对比</h3>
+
+<table><thead><tr>
+<th>特性</th>
+<th>EJS</th>
+<th>Pug</th>
+</tr></thead><tbody>
+<tr>
+<td>语法</td>
+<td><code><% %></code> 嵌入JS</td>
+<td>缩进式，无标签闭合</td>
+</tr>
+<tr>
+<td>学习曲线</td>
+<td>低（就是HTML+JS）</td>
+<td>中（需要学新语法）</td>
+</tr>
+<tr>
+<td>可读性</td>
+<td>高，所见即所得</td>
+<td>中，需要适应缩进</td>
+</tr>
+<tr>
+<td>灵活性</td>
+<td>高，直接写JS逻辑</td>
+<td>中，逻辑受限于Pug语法</td>
+</tr>
+<tr>
+<td>社区</td>
+<td>大</td>
+<td>大</td>
+</tr>
+</tbody></table>
+
+<p><strong>本篇以EJS为主</strong>，因为学习成本最低，适合入门。</p>
+
+<hr>
+
+<h2>二、脑图（ASCII）</h2>
+
+<pre><code>Express模板引擎
+├── 基础概念
+│   ├── 服务端渲染 (SSR)
+│   ├── 模板 + 数据 → HTML
+│   └── res.render() 渲染方法
+├── EJS 语法
+│   ├── &lt;%= %&gt; 输出（转义）
+│   ├── &lt;%- %&gt; 输出（不转义）
+│   ├── &lt;% %&gt; 执行JS逻辑
+│   ├── &lt;%- include() %&gt; 包含子模板
+│   └── 注释 &lt;%# %&gt;
+├── 布局与复用
+│   ├── include 公共组件
+│   ├── layout 模板继承
+│   └── partial 局部模板
+├── 数据传递
+│   ├── res.render(&#x27;view&#x27;, { data })
+│   ├── app.locals 全局变量
+│   └── res.locals 请求级变量
+└── 项目结构
+    ├── views/ 模板目录
+    │   ├── partials/ 公共组件
+    │   ├── layouts/ 布局模板
+    │   └── pages/ 页面模板
+    └── public/ 静态资源</code></pre>
+
+<hr>
+
+<h2>三、完整代码</h2>
+
+<h3>v1：基础EJS渲染</h3>
+
+<pre><code class="language-javascript">// v1-basic-ejs.js - Basic EJS template rendering
+const express = require(&#x27;express&#x27;);
+const app = express();
+const PORT = 3000;
+
+// Set EJS as template engine
+app.set(&#x27;view engine&#x27;, &#x27;ejs&#x27;);
+// Set views directory (default is &#x27;./views&#x27;)
+app.set(&#x27;views&#x27;, &#x27;./views&#x27;);
+
+// Serve static files
+app.use(express.static(&#x27;public&#x27;));
+
+// Route: render a simple template with data
+app.get(&#x27;/&#x27;, (req, res) =&gt; {
+  res.render(&#x27;index&#x27;, {
+    title: &#x27;My Blog&#x27;,
+    posts: [
+      { id: 1, title: &#x27;Learning EJS&#x27;, author: &#x27;Alice&#x27;, date: &#x27;2026-04-28&#x27; },
+      { id: 2, title: &#x27;Express Tips&#x27;, author: &#x27;Bob&#x27;, date: &#x27;2026-04-29&#x27; },
+      { id: 3, title: &#x27;Node.js Best Practices&#x27;, author: &#x27;Charlie&#x27;, date: &#x27;2026-04-30&#x27; }
+    ]
+  });
+});
+
+// Route: render a single post page
+app.get(&#x27;/post/:id&#x27;, (req, res) =&gt; {
+  const posts = [
+    { id: 1, title: &#x27;Learning EJS&#x27;, author: &#x27;Alice&#x27;, content: &#x27;EJS makes templating easy and intuitive...&#x27;, date: &#x27;2026-04-28&#x27; },
+    { id: 2, title: &#x27;Express Tips&#x27;, author: &#x27;Bob&#x27;, content: &#x27;Here are some tips for Express development...&#x27;, date: &#x27;2026-04-29&#x27; },
+    { id: 3, title: &#x27;Node.js Best Practices&#x27;, author: &#x27;Charlie&#x27;, content: &#x27;Follow these practices for better Node.js code...&#x27;, date: &#x27;2026-04-30&#x27; }
+  ];
+  const post = posts.find(p =&gt; p.id === parseInt(req.params.id));
+  if (!post) {
+    return res.status(404).render(&#x27;error&#x27;, { title: &#x27;404&#x27;, message: &#x27;Post not found&#x27; });
+  }
+  res.render(&#x27;post&#x27;, { title: post.title, post });
+});
+
+app.listen(PORT, () =&gt; {
+  console.log(`Server running at http://localhost:${PORT}`);
+});</code></pre>
+
+<p><strong>views/index.ejs:</strong></p>
+<pre><code class="language-html">&lt;!DOCTYPE html&gt;
+&lt;html lang=&quot;zh&quot;&gt;
+&lt;head&gt;
+  &lt;meta charset=&quot;UTF-8&quot;&gt;
+  &lt;title&gt;&lt;%= title %&gt;&lt;/title&gt;
+  &lt;style&gt;
+    body { font-family: sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }
+    .post { border: 1px solid #ddd; padding: 15px; margin: 10px 0; border-radius: 8px; }
+    .post h3 { margin: 0 0 8px; }
+    .meta { color: #666; font-size: 0.9em; }
+  &lt;/style&gt;
+&lt;/head&gt;
+&lt;body&gt;
+  &lt;h1&gt;&lt;%= title %&gt;&lt;/h1&gt;
+  
+  &lt;% if (posts.length === 0) { %&gt;
+    &lt;p&gt;No posts yet.&lt;/p&gt;
+  &lt;% } else { %&gt;
+    &lt;% posts.forEach(function(post) { %&gt;
+      &lt;div class=&quot;post&quot;&gt;
+        &lt;h3&gt;&lt;a href=&quot;/post/&lt;%= post.id %&gt;&quot;&gt;&lt;%= post.title %&gt;&lt;/a&gt;&lt;/h3&gt;
+        &lt;p class=&quot;meta&quot;&gt;By &lt;%= post.author %&gt; | &lt;%= post.date %&gt;&lt;/p&gt;
+      &lt;/div&gt;
+    &lt;% }); %&gt;
+  &lt;% } %&gt;
+&lt;/body&gt;
+&lt;/html&gt;</code></pre>
+
+<p><strong>views/post.ejs:</strong></p>
+<pre><code class="language-html">&lt;!DOCTYPE html&gt;
+&lt;html lang=&quot;zh&quot;&gt;
+&lt;head&gt;
+  &lt;meta charset=&quot;UTF-8&quot;&gt;
+  &lt;title&gt;&lt;%= title %&gt;&lt;/title&gt;
+  &lt;style&gt;
+    body { font-family: sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }
+    .meta { color: #666; margin-bottom: 20px; }
+    .content { line-height: 1.8; }
+    a.back { display: inline-block; margin-top: 20px; }
+  &lt;/style&gt;
+&lt;/head&gt;
+&lt;body&gt;
+  &lt;h1&gt;&lt;%= post.title %&gt;&lt;/h1&gt;
+  &lt;p class=&quot;meta&quot;&gt;By &lt;%= post.author %&gt; | &lt;%= post.date %&gt;&lt;/p&gt;
+  &lt;div class=&quot;content&quot;&gt;&lt;p&gt;&lt;%= post.content %&gt;&lt;/p&gt;&lt;/div&gt;
+  &lt;a class=&quot;back&quot; href=&quot;/&quot;&gt;&amp;larr; Back to Home&lt;/a&gt;
+&lt;/body&gt;
+&lt;/html&gt;</code></pre>
+
+<p><strong>views/error.ejs:</strong></p>
+<pre><code class="language-html">&lt;!DOCTYPE html&gt;
+&lt;html lang=&quot;zh&quot;&gt;
+&lt;head&gt;&lt;meta charset=&quot;UTF-8&quot;&gt;&lt;title&gt;&lt;%= title %&gt;&lt;/title&gt;&lt;/head&gt;
+&lt;body&gt;
+  &lt;h1&gt;&lt;%= title %&gt;&lt;/h1&gt;
+  &lt;p&gt;&lt;%= message %&gt;&lt;/p&gt;
+  &lt;a href=&quot;/&quot;&gt;&amp;larr; Go Home&lt;/a&gt;
+&lt;/body&gt;
+&lt;/html&gt;</code></pre>
+
+<h3>v2：模板复用 + include</h3>
+
+<pre><code class="language-javascript">// v2-partials-ejs.js - EJS with partials and layout
+const express = require(&#x27;express&#x27;);
+const app = express();
+const PORT = 3000;
+
+app.set(&#x27;view engine&#x27;, &#x27;ejs&#x27;);
+app.use(express.static(&#x27;public&#x27;));
+app.use(express.urlencoded({ extended: true })); // Parse form data
+
+// Global data available in all templates
+app.locals.siteName = &#x27;My Blog&#x27;;
+app.locals.currentYear = new Date().getFullYear();
+
+// In-memory data store
+let posts = [
+  { id: 1, title: &#x27;First Post&#x27;, body: &#x27;Hello World! This is my first blog post.&#x27;, author: &#x27;Alice&#x27;, createdAt: new Date(&#x27;2026-04-28&#x27;) },
+  { id: 2, title: &#x27;EJS Partials&#x27;, body: &#x27;Partials help you reuse template components.&#x27;, author: &#x27;Bob&#x27;, createdAt: new Date(&#x27;2026-04-29&#x27;) }
+];
+let nextId = 3;
+
+// List all posts
+app.get(&#x27;/&#x27;, (req, res) =&gt; {
+  res.render(&#x27;pages/index&#x27;, { posts });
+});
+
+// Show new post form
+app.get(&#x27;/posts/new&#x27;, (req, res) =&gt; {
+  res.render(&#x27;pages/new&#x27;, { errors: [] });
+});
+
+// Create a new post
+app.post(&#x27;/posts&#x27;, (req, res) =&gt; {
+  const { title, body, author } = req.body;
+  const errors = [];
+  if (!title || title.trim().length &lt; 3) errors.push(&#x27;Title must be at least 3 characters&#x27;);
+  if (!body || body.trim().length &lt; 10) errors.push(&#x27;Body must be at least 10 characters&#x27;);
+  if (!author) errors.push(&#x27;Author is required&#x27;);
+  
+  if (errors.length &gt; 0) {
+    return res.render(&#x27;pages/new&#x27;, { errors, title, body, author });
+  }
+  
+  posts.push({ id: nextId++, title, body, author, createdAt: new Date() });
+  res.redirect(&#x27;/&#x27;);
+});
+
+// Show single post
+app.get(&#x27;/posts/:id&#x27;, (req, res) =&gt; {
+  const post = posts.find(p =&gt; p.id === parseInt(req.params.id));
+  if (!post) return res.status(404).render(&#x27;pages/error&#x27;, { message: &#x27;Post not found&#x27; });
+  res.render(&#x27;pages/show&#x27;, { post });
+});
+
+app.listen(PORT, () =&gt; {
+  console.log(`Server running at http://localhost:${PORT}`);
+});</code></pre>
+
+<p><strong>views/partials/header.ejs:</strong></p>
+<pre><code class="language-html">&lt;head&gt;
+  &lt;meta charset=&quot;UTF-8&quot;&gt;
+  &lt;meta name=&quot;viewport&quot; content=&quot;width=device-width, initial-scale=1.0&quot;&gt;
+  &lt;title&gt;&lt;%= typeof title !== &#x27;undefined&#x27; ? title + &#x27; | &#x27; + siteName : siteName %&gt;&lt;/title&gt;
+  &lt;style&gt;
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: -apple-system, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }
+    nav { display: flex; justify-content: space-between; align-items: center; padding: 15px 0; border-bottom: 2px solid #eee; margin-bottom: 20px; }
+    nav a { text-decoration: none; color: #333; }
+    .btn { display: inline-block; padding: 8px 16px; background: #007bff; color: white; text-decoration: none; border: none; border-radius: 4px; cursor: pointer; }
+    .btn:hover { background: #0056b3; }
+  &lt;/style&gt;
+&lt;/head&gt;
+&lt;body&gt;
+  &lt;nav&gt;
+    &lt;h1&gt;&lt;a href=&quot;/&quot;&gt;&lt;%= siteName %&gt;&lt;/a&gt;&lt;/h1&gt;
+    &lt;a href=&quot;/posts/new&quot; class=&quot;btn&quot;&gt;New Post&lt;/a&gt;
+  &lt;/nav&gt;</code></pre>
+
+<p><strong>views/partials/footer.ejs:</strong></p>
+<pre><code class="language-html">  &lt;footer style=&quot;margin-top: 40px; padding-top: 20px; border-top: 1px solid #eee; color: #666; font-size: 0.9em;&quot;&gt;
+    &amp;copy; &lt;%= currentYear %&gt; &lt;%= siteName %&gt;
+  &lt;/footer&gt;
+&lt;/body&gt;
+&lt;/html&gt;</code></pre>
+
+<p><strong>views/pages/index.ejs:</strong></p>
+<pre><code class="language-html">&lt;!DOCTYPE html&gt;
+&lt;html lang=&quot;zh&quot;&gt;
+&lt;%- include(&#x27;../partials/header&#x27;) %&gt;
+  &lt;% posts.forEach(function(post) { %&gt;
+    &lt;article style=&quot;border: 1px solid #eee; padding: 15px; margin: 10px 0; border-radius: 8px;&quot;&gt;
+      &lt;h2&gt;&lt;a href=&quot;/posts/&lt;%= post.id %&gt;&quot;&gt;&lt;%= post.title %&gt;&lt;/a&gt;&lt;/h2&gt;
+      &lt;p style=&quot;color: #666; font-size: 0.9em;&quot;&gt;By &lt;%= post.author %&gt; | &lt;%= post.createdAt.toLocaleDateString() %&gt;&lt;/p&gt;
+      &lt;p&gt;&lt;%= post.body.substring(0, 100) %&gt;&lt;%= post.body.length &gt; 100 ? &#x27;...&#x27; : &#x27;&#x27; %&gt;&lt;/p&gt;
+    &lt;/article&gt;
+  &lt;% }); %&gt;
+  &lt;% if (posts.length === 0) { %&gt;
+    &lt;p&gt;No posts yet. &lt;a href=&quot;/posts/new&quot;&gt;Create one!&lt;/a&gt;&lt;/p&gt;
+  &lt;% } %&gt;
+&lt;%- include(&#x27;../partials/footer&#x27;) %&gt;</code></pre>
+
+<p><strong>views/pages/show.ejs:</strong></p>
+<pre><code class="language-html">&lt;!DOCTYPE html&gt;
+&lt;html lang=&quot;zh&quot;&gt;
+&lt;%- include(&#x27;../partials/header&#x27;, { title: post.title }) %&gt;
+  &lt;article&gt;
+    &lt;h2&gt;&lt;%= post.title %&gt;&lt;/h2&gt;
+    &lt;p style=&quot;color: #666;&quot;&gt;By &lt;%= post.author %&gt; | &lt;%= post.createdAt.toLocaleDateString() %&gt;&lt;/p&gt;
+    &lt;div style=&quot;margin-top: 15px; line-height: 1.8;&quot;&gt;&lt;%= post.body %&gt;&lt;/div&gt;
+  &lt;/article&gt;
+  &lt;a href=&quot;/&quot; style=&quot;display: inline-block; margin-top: 20px;&quot;&gt;&amp;larr; Back to Home&lt;/a&gt;
+&lt;%- include(&#x27;../partials/footer&#x27;) %&gt;</code></pre>
+
+<p><strong>views/pages/new.ejs:</strong></p>
+<pre><code class="language-html">&lt;!DOCTYPE html&gt;
+&lt;html lang=&quot;zh&quot;&gt;
+&lt;%- include(&#x27;../partials/header&#x27;, { title: &#x27;New Post&#x27; }) %&gt;
+  &lt;h2&gt;Create New Post&lt;/h2&gt;
+  &lt;% if (errors &amp;&amp; errors.length &gt; 0) { %&gt;
+    &lt;div style=&quot;background: #fdd; padding: 10px; border-radius: 4px; margin: 10px 0;&quot;&gt;
+      &lt;% errors.forEach(function(err) { %&gt;&lt;p style=&quot;color: red;&quot;&gt;&lt;%= err %&gt;&lt;/p&gt;&lt;% }); %&gt;
+    &lt;/div&gt;
+  &lt;% } %&gt;
+  &lt;form action=&quot;/posts&quot; method=&quot;POST&quot; style=&quot;display: flex; flex-direction: column; gap: 10px; max-width: 500px;&quot;&gt;
+    &lt;input name=&quot;title&quot; placeholder=&quot;Title&quot; value=&quot;&lt;%= typeof title !== &#x27;undefined&#x27; ? title : &#x27;&#x27; %&gt;&quot; style=&quot;padding: 8px; font-size: 16px;&quot;&gt;
+    &lt;input name=&quot;author&quot; placeholder=&quot;Author&quot; value=&quot;&lt;%= typeof author !== &#x27;undefined&#x27; ? author : &#x27;&#x27; %&gt;&quot; style=&quot;padding: 8px; font-size: 16px;&quot;&gt;
+    &lt;textarea name=&quot;body&quot; placeholder=&quot;Write your post...&quot; rows=&quot;10&quot; style=&quot;padding: 8px; font-size: 16px;&quot;&gt;&lt;%= typeof body !== &#x27;undefined&#x27; ? body : &#x27;&#x27; %&gt;&lt;/textarea&gt;
+    &lt;button type=&quot;submit&quot; class=&quot;btn&quot;&gt;Publish&lt;/button&gt;
+  &lt;/form&gt;
+&lt;%- include(&#x27;../partials/footer&#x27;) %&gt;</code></pre>
+
+<h3>v3：布局系统 + 高级特性</h3>
+
+<pre><code class="language-javascript">// v3-layout-system.js - Layout system with express-ejs-layouts
+const express = require(&#x27;express&#x27;);
+const expressLayouts = require(&#x27;express-ejs-layouts&#x27;);
+const app = express();
+const PORT = 3000;
+
+// EJS + Layout setup
+app.set(&#x27;view engine&#x27;, &#x27;ejs&#x27;);
+app.set(&#x27;views&#x27;, &#x27;./views&#x27;);
+app.use(expressLayouts);
+app.set(&#x27;layout&#x27;, &#x27;layouts/main&#x27;); // Default layout
+app.use(express.static(&#x27;public&#x27;));
+app.use(express.urlencoded({ extended: true }));
+
+// Simulated data
+let products = [
+  { id: 1, name: &#x27;Laptop&#x27;, price: 5999, category: &#x27;Electronics&#x27;, stock: 15, description: &#x27;High-performance laptop for developers&#x27; },
+  { id: 2, name: &#x27;Mouse&#x27;, price: 99, category: &#x27;Accessories&#x27;, stock: 50, description: &#x27;Ergonomic wireless mouse&#x27; },
+  { id: 3, name: &#x27;Keyboard&#x27;, price: 399, category: &#x27;Accessories&#x27;, stock: 30, description: &#x27;Mechanical keyboard with RGB&#x27; }
+];
+
+app.locals.siteName = &#x27;Product Store&#x27;;
+app.locals.formatPrice = (price) =&gt; `¥${price.toFixed(2)}`;
+
+// Routes
+app.get(&#x27;/&#x27;, (req, res) =&gt; {
+  res.render(&#x27;pages/home&#x27;, { title: &#x27;Home&#x27;, products });
+});
+
+app.get(&#x27;/products/:id&#x27;, (req, res) =&gt; {
+  const product = products.find(p =&gt; p.id === parseInt(req.params.id));
+  if (!product) return res.status(404).render(&#x27;pages/404&#x27;, { title: &#x27;Not Found&#x27; });
+  res.render(&#x27;pages/product&#x27;, { title: product.name, product });
+});
+
+// Use a different layout for admin pages
+app.get(&#x27;/admin&#x27;, (req, res) =&gt; {
+  res.render(&#x27;pages/admin&#x27;, { title: &#x27;Admin&#x27;, products, layout: &#x27;layouts/admin&#x27; });
+});
+
+app.listen(PORT, () =&gt; {
+  console.log(`Server running at http://localhost:${PORT}`);
+});</code></pre>
+
+<p><strong>views/layouts/main.ejs:</strong></p>
+<pre><code class="language-html">&lt;!DOCTYPE html&gt;
+&lt;html lang=&quot;zh&quot;&gt;
+&lt;head&gt;
+  &lt;meta charset=&quot;UTF-8&quot;&gt;
+  &lt;title&gt;&lt;%= title %&gt; | &lt;%= siteName %&gt;&lt;/title&gt;
+  &lt;link rel=&quot;stylesheet&quot; href=&quot;/css/style.css&quot;&gt;
+&lt;/head&gt;
+&lt;body&gt;
+  &lt;nav&gt;
+    &lt;a href=&quot;/&quot;&gt;&lt;%= siteName %&gt;&lt;/a&gt;
+    &lt;a href=&quot;/admin&quot;&gt;Admin&lt;/a&gt;
+  &lt;/nav&gt;
+  &lt;main&gt;
+    &lt;%- body %&gt;  &lt;!-- Page content injected here --&gt;
+  &lt;/main&gt;
+&lt;/body&gt;
+&lt;/html&gt;</code></pre>
+
+<p><strong>views/layouts/admin.ejs:</strong></p>
+<pre><code class="language-html">&lt;!DOCTYPE html&gt;
+&lt;html lang=&quot;zh&quot;&gt;
+&lt;head&gt;
+  &lt;meta charset=&quot;UTF-8&quot;&gt;
+  &lt;title&gt;&lt;%= title %&gt; | Admin&lt;/title&gt;
+&lt;/head&gt;
+&lt;body style=&quot;background: #f5f5f5;&quot;&gt;
+  &lt;nav style=&quot;background: #333; color: white; padding: 10px 20px;&quot;&gt;
+    &lt;strong&gt;Admin Panel&lt;/strong&gt; | &lt;a href=&quot;/&quot; style=&quot;color: white;&quot;&gt;Back to Site&lt;/a&gt;
+  &lt;/nav&gt;
+  &lt;div style=&quot;padding: 20px;&quot;&gt;
+    &lt;%- body %&gt;
+  &lt;/div&gt;
+&lt;/body&gt;
+&lt;/html&gt;</code></pre>
+
+<hr>
+
+<h2>四、执行预览</h2>
+
+<pre><code class="language-bash"># 项目结构
+$ tree views/ public/
+views/
+├── layouts/
+│   └── main.ejs
+├── partials/
+│   ├── header.ejs
+│   └── footer.ejs
+├── pages/
+│   ├── index.ejs
+│   ├── show.ejs
+│   ├── new.ejs
+│   └── error.ejs
+public/
+└── css/
+    └── style.css
+
+# 启动v2
+$ node v2-partials-ejs.js
+Server running at http://localhost:3000
+
+# 浏览器访问
+# http://localhost:3000       → 文章列表
+# http://localhost:3000/posts/new → 新建文章表单
+# http://localhost:3000/posts/1   → 文章详情
+
+# curl 预览
+$ curl -s http://localhost:3000 | head -20
+&lt;!DOCTYPE html&gt;
+&lt;html lang=&quot;zh&quot;&gt;
+&lt;head&gt;
+  &lt;meta charset=&quot;UTF-8&quot;&gt;
+  &lt;title&gt;My Blog&lt;/title&gt;
+  ...
+  &lt;nav&gt;
+    &lt;h1&gt;&lt;a href=&quot;/&quot;&gt;My Blog&lt;/a&gt;&lt;/h1&gt;
+    &lt;a href=&quot;/posts/new&quot; class=&quot;btn&quot;&gt;New Post&lt;/a&gt;
+  &lt;/nav&gt;</code></pre>
+
+<hr>
+
+<h2>五、注意事项</h2>
+
+<table><thead><tr>
+<th>项目</th>
+<th>说明</th>
+<th>建议</th>
+</tr></thead><tbody>
+<tr>
+<td><code><%=</code> vs <code><%-</code></td>
+<td><code>=</code> 转义HTML，<code>-</code> 不转义</td>
+<td>用户输入用 <code><%=</code> 防XSS，渲染HTML用 <code><%-</code></td>
+</tr>
+<tr>
+<td>include路径</td>
+<td>相对于当前模板文件</td>
+<td>用相对路径 <code>../partials/header</code></td>
+</tr>
+<tr>
+<td>变量未定义</td>
+<td>直接用会报错</td>
+<td>用 <code>typeof var !== 'undefined'</code> 检查</td>
+</tr>
+<tr>
+<td>模板缓存</td>
+<td>生产环境默认开启</td>
+<td>开发时用 <code>nodemon</code> 自动重启</td>
+</tr>
+<tr>
+<td>express-ejs-layouts</td>
+<td>需额外安装</td>
+<td><code>npm install express-ejs-layouts</code></td>
+</tr>
+<tr>
+<td>静态文件</td>
+<td>需配置 <code>express.static</code></td>
+<td>CSS/JS/图片放public目录</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>六、避坑指南</h2>
+
+<h3>❌ 用 <code><%-</code> 输出用户输入</h3>
+<pre><code class="language-ejs">&lt;!-- ❌ XSS漏洞：用户输入的HTML会被直接渲染 --&gt;
+&lt;div&gt;&lt;%- userComment %&gt;&lt;/div&gt;</code></pre>
+<pre><code class="language-ejs">&lt;!-- ✅ 用 &lt;%= 转义输出，防止XSS --&gt;
+&lt;div&gt;&lt;%= userComment %&gt;&lt;/div&gt;</code></pre>
+
+<h3>❌ include 路径写错</h3>
+<pre><code class="language-ejs">&lt;!-- ❌ 相对于项目根目录（错误） --&gt;
+&lt;%- include(&#x27;views/partials/header&#x27;) %&gt;</code></pre>
+<pre><code class="language-ejs">&lt;!-- ✅ 相对于当前模板文件 --&gt;
+&lt;%- include(&#x27;../partials/header&#x27;) %&gt;</code></pre>
+
+<h3>❌ 忘记设置 view engine</h3>
+<pre><code class="language-javascript">// ❌ 报错：Cannot find module &#x27;ejs&#x27;
+app.get(&#x27;/&#x27;, (req, res) =&gt; {
+  res.render(&#x27;index&#x27;); // No engine configured!
+});</code></pre>
+<pre><code class="language-javascript">// ✅ 先安装再配置
+// npm install ejs
+app.set(&#x27;view engine&#x27;, &#x27;ejs&#x27;);</code></pre>
+
+<h3>❌ 模板中直接用未定义变量</h3>
+<pre><code class="language-ejs">&lt;!-- ❌ ReferenceError: description is not defined --&gt;
+&lt;p&gt;&lt;%= description %&gt;&lt;/p&gt;</code></pre>
+<pre><code class="language-ejs">&lt;!-- ✅ 安全访问 --&gt;
+&lt;p&gt;&lt;%= typeof description !== &#x27;undefined&#x27; ? description : &#x27;&#x27; %&gt;&lt;/p&gt;</code></pre>
+
+<hr>
+
+<h2>七、练习题</h2>
+
+<h3>🟢 初级</h3>
+<ol>
+<li>创建一个Express应用，使用EJS渲染一个显示当前时间的页面</li>
+</ul>
+<ol>
+<li>创建一个 <code>/users</code> 页面，用表格展示用户列表数据</li>
+</ul>
+<ol>
+<li>创建一个 <code>/about</code> 页面，使用 include 引入公共 header 和 footer</li>
+
+<h3>🟡 中级</h3>
+<ol>
+<li>实现一个简单的博客：列表页 + 详情页 + 新建表单页</li>
+</ul>
+<ol>
+<li>创建一个可切换亮色/暗色主题的布局系统（通过查询参数 <code>?theme=dark</code>）</li>
+</ul>
+<ol>
+<li>实现分页功能：每页显示5篇文章，底部有页码导航</li>
+
+<h3>🔴 高级</h3>
+<ol>
+<li>创建一个灵活的布局系统，支持多种布局模板（默认、宽屏、简洁）</li>
+</ul>
+<ol>
+<li>实现一个模板辅助函数库（formatDate, truncate, slugify），注册到 app.locals</li>
+</ul>
+<ol>
+<li>用EJS实现一个组件化的UI库：card, alert, pagination, breadcrumb</li>
+
+<hr>
+
+<h2>八、知识点总结</h2>
+
+<pre><code>Express模板引擎
+├── 1. EJS 基础
+│   ├── &lt;%= %&gt; 转义输出
+│   ├── &lt;%- %&gt; 原始输出
+│   ├── &lt;% %&gt; JS逻辑
+│   └── &lt;%- include() %&gt; 包含
+├── 2. 数据传递
+│   ├── res.render(view, data)
+│   ├── app.locals → 全局
+│   └── res.locals → 请求级
+├── 3. 模板复用
+│   ├── include 局部模板
+│   ├── layout 布局系统
+│   └── 区分页面/组件/布局
+├── 4. 项目结构
+│   ├── views/pages/ 页面
+│   ├── views/partials/ 组件
+│   ├── views/layouts/ 布局
+│   └── public/ 静态资源
+└── 5. 安全与性能
+    ├── 转义防XSS
+    ├── 生产环境缓存
+    └── 错误处理</code></pre>
+
+<hr>
+
+<h2>九、举一反三</h2>
+
+<table><thead><tr>
+<th>应用场景</th>
+<th>模板结构</th>
+<th>关键技术点</th>
+</tr></thead><tbody>
+<tr>
+<td>个人博客</td>
+<td>layout + post列表 + 详情 + 表单</td>
+<td>include, 分页, Markdown渲染</td>
+</tr>
+<tr>
+<td>企业官网</td>
+<td>多布局（首页/内页） + 导航</td>
+<td>layout切换, SEO meta</td>
+</tr>
+<tr>
+<td>电商产品页</td>
+<td>布局 + 产品卡片组件 + 购物车</td>
+<td>局部缓存, 动态价格</td>
+</tr>
+<tr>
+<td>后台管理</td>
+<td>admin布局 + 侧边栏 + 表格</td>
+<td>权限判断, 数据表格</td>
+</tr>
+<tr>
+<td>邮件模板</td>
+<td>独立模板 + 样式内联</td>
+<td>邮件兼容性, 动态内容</td>
+</tr>
+<tr>
+<td>文档站</td>
+<td>布局 + 侧边导航 + 搜索</td>
+<td>多级导航, 高亮当前页</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>十、参考资料</h2>
+
+<ul>
+<li><a href="https://ejs.co/">EJS 官方文档</a></li>
+<li><a href="https://expressjs.com/en/guide/using-template-engines.html">Express 模板引擎指南</a></li>
+<li><a href="https://github.com/Soarez/express-ejs-layouts">express-ejs-layouts</a></li>
+<li><a href="https://developer.mozilla.org/zh-CN/docs/Glossary/Cross-site_scripting">MDN - XSS 防护</a></li>
+
+<hr>
+
+<h2>十一、代码演进路线</h2>
+
+<pre><code>v1 基础EJS渲染
+├── 单页面，数据直接传给模板
+├── EJS基本语法（输出、循环、条件）
+├── 每个页面都是完整HTML
+└── 适合：理解模板引擎基本原理
+        ↓
+v2 模板复用 + include
+├── partials（header, footer）
+├── include 引入公共组件
+├── 表单处理 + 数据验证
+├── app.locals 全局变量
+└── 适合：小型Web应用，博客
+        ↓
+v3 布局系统 + 高级特性
+├── express-ejs-layouts 布局系统
+├── 多布局切换（默认/admin）
+├── 辅助函数注册到 locals
+├── 模块化项目结构
+└── 适合：中型项目，多页面应用</code></pre>
+
+<p><strong>关键演进思路：</strong> 从"每个页面写完整HTML"到"复用公共部分"到"系统化的布局管理"。核心是 <strong>DRY原则（Don't Repeat Yourself）</strong>。</p>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

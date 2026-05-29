@@ -1,0 +1,545 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>017 - 路由守卫与元信息</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Vue.js/index.html">Vue.js</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Vue.js/01-入门到实战/index.html">Vue.js入门到实战</a>
+</nav>
+<h1>017 - 路由守卫与元信息</h1>
+<div class="meta">
+<span>📂 Vue.js入门到实战</span>
+<span>🏷️ Vue.js</span>
+</div>
+<article>
+
+
+<h1>055-路由守卫与元信息</h1>
+
+<blockquote><p>📌 <strong>难度标注</strong>：⭐⭐⭐ 中级（需要理解Vue Router基础与异步操作）</p></blockquote>
+
+<h2>一、概念讲解</h2>
+
+<p>路由守卫（Navigation Guards）是 Vue Router 提供的路由跳转控制机制，允许你在路由发生跳转前、后执行自定义逻辑。常见的使用场景包括：</p>
+
+<ul>
+<li><strong>登录鉴权</strong>：未登录用户不能访问特定页面</li>
+<li><strong>权限控制</strong>：不同角色访问不同路由</li>
+<li><strong>数据预加载</strong>：在进入页面前获取必要数据</li>
+<li><strong>页面标题管理</strong>：根据路由动态修改 document.title</li>
+<li><strong>离开确认</strong>：表单未保存时提醒用户</li>
+
+<h3>三类守卫</h3>
+
+<table><thead><tr>
+<th>类型</th>
+<th>定义位置</th>
+<th>说明</th>
+</tr></thead><tbody>
+<tr>
+<td>全局守卫</td>
+<td>router 实例上</td>
+<td>所有路由跳转都会触发</td>
+</tr>
+<tr>
+<td>路由独享守卫</td>
+<td>路由配置中</td>
+<td>只在进入特定路由时触发</td>
+</tr>
+<tr>
+<td>组件内守卫</td>
+<td>组件选项中</td>
+<td>在组件内部定义，与组件生命周期相关</td>
+</tr>
+</tbody></table>
+
+<h3>路由元信息（Meta）</h3>
+
+<p>每个路由可以配置 <code>meta</code> 字段，存放自定义数据，如权限标识、页面标题等。守卫中通过 <code>to.meta</code> 读取。</p>
+
+<h2>二、脑图</h2>
+
+<pre><code>路由守卫与元信息
+├── 全局守卫
+│   ├── beforeEach  -- 每次跳转前
+│   ├── beforeResolve -- 导航确认前
+│   └── afterEach   -- 每次跳转后
+├── 路由独享守卫
+│   └── beforeEnter -- 进入该路由前
+├── 组件内守卫
+│   ├── onBeforeRouteEnter  -- 进入组件前
+│   ├── onBeforeRouteUpdate -- 路由参数变化时
+│   └── onBeforeRouteLeave  -- 离开组件前
+└── 路由元信息 meta
+    ├── requiresAuth  -- 是否需要登录
+    ├── title         -- 页面标题
+    ├── roles         -- 允许的角色列表
+    └── keepAlive     -- 是否缓存组件</code></pre>
+
+<h2>三、完整代码</h2>
+
+<pre><code class="language-javascript">// router/index.js
+import { createRouter, createWebHistory } from &#x27;vue-router&#x27;
+
+// Simulated auth store
+const authStore = {
+  isLoggedIn: false,
+  userRole: &#x27;guest&#x27;, // &#x27;guest&#x27; | &#x27;user&#x27; | &#x27;admin&#x27;
+  login(role = &#x27;user&#x27;) {
+    this.isLoggedIn = true
+    this.userRole = role
+  },
+  logout() {
+    this.isLoggedIn = false
+    this.userRole = &#x27;guest&#x27;
+  }
+}
+
+// Lazy-loaded route components
+const Home = () =&gt; import(&#x27;../views/Home.vue&#x27;)
+const About = () =&gt; import(&#x27;../views/About.vue&#x27;)
+const Login = () =&gt; import(&#x27;../views/Login.vue&#x27;)
+const Dashboard = () =&gt; import(&#x27;../views/Dashboard.vue&#x27;)
+const Admin = () =&gt; import(&#x27;../views/Admin.vue&#x27;)
+const Editor = () =&gt; import(&#x27;../views/Editor.vue&#x27;)
+const Forbidden = () =&gt; import(&#x27;../views/Forbidden.vue&#x27;)
+const UserProfile = () =&gt; import(&#x27;../views/UserProfile.vue&#x27;)
+
+const routes = [
+  {
+    path: &#x27;/&#x27;,
+    name: &#x27;Home&#x27;,
+    component: Home,
+    meta: { title: &#x27;首页&#x27; }
+  },
+  {
+    path: &#x27;/about&#x27;,
+    name: &#x27;About&#x27;,
+    component: About,
+    meta: { title: &#x27;关于我们&#x27; }
+  },
+  {
+    path: &#x27;/login&#x27;,
+    name: &#x27;Login&#x27;,
+    component: Login,
+    meta: { title: &#x27;登录&#x27;, guestOnly: true }
+  },
+  {
+    path: &#x27;/dashboard&#x27;,
+    name: &#x27;Dashboard&#x27;,
+    component: Dashboard,
+    meta: { title: &#x27;控制台&#x27;, requiresAuth: true }
+  },
+  {
+    path: &#x27;/admin&#x27;,
+    name: &#x27;Admin&#x27;,
+    component: Admin,
+    meta: { title: &#x27;管理后台&#x27;, requiresAuth: true, roles: [&#x27;admin&#x27;] }
+  },
+  {
+    path: &#x27;/editor&#x27;,
+    name: &#x27;Editor&#x27;,
+    component: Editor,
+    meta: { title: &#x27;编辑器&#x27;, requiresAuth: true }
+  },
+  {
+    path: &#x27;/user/:id&#x27;,
+    name: &#x27;UserProfile&#x27;,
+    component: UserProfile,
+    meta: { title: &#x27;用户主页&#x27;, requiresAuth: true },
+    // Route-level guard: validate user ID format
+    beforeEnter: (to, from) =&gt; {
+      const id = parseInt(to.params.id)
+      if (isNaN(id) || id &lt; 1) {
+        return { name: &#x27;Home&#x27; }
+      }
+    }
+  },
+  {
+    path: &#x27;/403&#x27;,
+    name: &#x27;Forbidden&#x27;,
+    component: Forbidden,
+    meta: { title: &#x27;无权限&#x27; }
+  }
+]
+
+const router = createRouter({
+  history: createWebHistory(),
+  routes
+})
+
+// --- Global beforeEach guard ---
+router.beforeEach((to, from) =&gt; {
+  // Update page title
+  document.title = to.meta.title || &#x27;Vue App&#x27;
+
+  // Check if route requires authentication
+  if (to.meta.requiresAuth &amp;&amp; !authStore.isLoggedIn) {
+    return { name: &#x27;Login&#x27;, query: { redirect: to.fullPath } }
+  }
+
+  // Check role-based access
+  if (to.meta.roles &amp;&amp; !to.meta.roles.includes(authStore.userRole)) {
+    return { name: &#x27;Forbidden&#x27; }
+  }
+
+  // Already logged in? Redirect away from guest-only pages
+  if (to.meta.guestOnly &amp;&amp; authStore.isLoggedIn) {
+    return { name: &#x27;Dashboard&#x27; }
+  }
+})
+
+// --- Global afterEach guard ---
+router.afterEach((to, from) =&gt; {
+  console.log(`Navigated: ${from.path} -&gt; ${to.path}`)
+  window.scrollTo(0, 0)
+})
+
+export { router, authStore }</code></pre>
+
+<pre><code class="language-vue">&lt;!-- views/Editor.vue - Component-level guard --&gt;
+&lt;template&gt;
+  &lt;div class=&quot;editor&quot;&gt;
+    &lt;h1&gt;文章编辑器&lt;/h1&gt;
+    &lt;textarea v-model=&quot;content&quot; placeholder=&quot;写点什么...&quot; rows=&quot;10&quot; cols=&quot;50&quot; /&gt;
+    &lt;div class=&quot;actions&quot;&gt;
+      &lt;button @click=&quot;handleSave&quot;&gt;保存&lt;/button&gt;
+      &lt;button @click=&quot;$router.back()&quot;&gt;返回&lt;/button&gt;
+    &lt;/div&gt;
+    &lt;p v-if=&quot;saved&quot; class=&quot;saved-msg&quot;&gt;已保存&lt;/p&gt;
+  &lt;/div&gt;
+&lt;/template&gt;
+
+&lt;script setup&gt;
+import { ref } from &#x27;vue&#x27;
+import { onBeforeRouteLeave } from &#x27;vue-router&#x27;
+
+const content = ref(&#x27;&#x27;)
+const saved = ref(false)
+
+const handleSave = () =&gt; { saved.value = true }
+
+// Warn user before leaving with unsaved changes
+onBeforeRouteLeave((to, from) =&gt; {
+  if (content.value &amp;&amp; !saved.value) {
+    if (!window.confirm(&#x27;你有未保存的内容，确定要离开吗？&#x27;)) {
+      return false // Cancel navigation
+    }
+  }
+})
+&lt;/script&gt;</code></pre>
+
+<pre><code class="language-vue">&lt;!-- views/UserProfile.vue - Route update guard --&gt;
+&lt;template&gt;
+  &lt;div class=&quot;profile&quot;&gt;
+    &lt;h1&gt;用户 {{ userId }} 的主页&lt;/h1&gt;
+    &lt;p&gt;用户名：{{ userName }}&lt;/p&gt;
+    &lt;nav&gt;
+      &lt;router-link :to=&quot;&#x27;/user/&#x27; + (Number(userId) - 1)&quot;&gt;上一个&lt;/router-link&gt;
+      &lt;router-link :to=&quot;&#x27;/user/&#x27; + (Number(userId) + 1)&quot;&gt;下一个&lt;/router-link&gt;
+    &lt;/nav&gt;
+  &lt;/div&gt;
+&lt;/template&gt;
+
+&lt;script setup&gt;
+import { ref } from &#x27;vue&#x27;
+import { useRoute, onBeforeRouteUpdate } from &#x27;vue-router&#x27;
+
+const route = useRoute()
+const userId = ref(route.params.id)
+const userName = ref(&#x27;&#x27;)
+
+const fetchUser = async (id) =&gt; {
+  userName.value = &#x27;user_&#x27; + id
+}
+
+// Triggered when same component, different params
+onBeforeRouteUpdate(async (to) =&gt; {
+  if (to.params.id !== userId.value) {
+    userId.value = to.params.id
+    await fetchUser(to.params.id)
+  }
+})
+
+fetchUser(userId.value)
+&lt;/script&gt;</code></pre>
+
+<h2>四、执行预览</h2>
+
+<pre><code>用户操作流程：
+
+1. 访问 /admin（未登录）
+   -&gt; beforeEach 拦截 -&gt; 跳转 /login?redirect=/admin
+   -&gt; 登录后自动跳回 /admin
+
+2. 以普通用户访问 /admin
+   -&gt; beforeEach 检测角色不符 -&gt; 跳转 /403
+
+3. 在编辑器页面输入内容后点返回
+   -&gt; onBeforeRouteLeave 弹出确认框
+   -&gt; 确认离开 or 取消留下
+
+4. 在 /user/1 页面点击&quot;下一个用户&quot;
+   -&gt; onBeforeRouteUpdate 触发，组件不销毁
+   -&gt; 数据更新为 user/2 的信息</code></pre>
+
+<h2>五、注意事项</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>注意事项</th>
+<th>推荐做法</th>
+</tr></thead><tbody>
+<tr>
+<td>多个全局守卫</td>
+<td>按注册顺序执行</td>
+<td>集中在一个 beforeEach 中处理</td>
+</tr>
+<tr>
+<td>守卫中异步操作</td>
+<td>必须返回 Promise</td>
+<td>使用 async 函数</td>
+</tr>
+<tr>
+<td>next() 函数</td>
+<td>Vue Router 4 推荐 return 替代</td>
+<td>return false 取消，return 路由跳转</td>
+</tr>
+<tr>
+<td>onBeforeRouteEnter</td>
+<td>无法访问组件实例</td>
+<td>在 onMounted 中处理初始化</td>
+</tr>
+<tr>
+<td>循环重定向</td>
+<td>A守卫跳B，B守卫跳A</td>
+<td>确保守卫逻辑有终止条件</td>
+</tr>
+<tr>
+<td>meta 字段合并</td>
+<td>嵌套路由 meta 不自动合并</td>
+<td>遍历 matched 数组合并</td>
+</tr>
+</tbody></table>
+
+<h2>六、避坑指南</h2>
+
+<h3>❌ 坑1：忘记 return 导致导航卡住</h3>
+
+<pre><code class="language-javascript">// ❌ 什么都没返回，导航行为不可预期
+router.beforeEach((to, from) =&gt; {
+  if (to.meta.requiresAuth &amp;&amp; !isLoggedIn) {
+    router.push(&#x27;/login&#x27;)  // Direct push while navigation is pending
+  }
+})
+
+// ✅ return 路由对象来中断当前导航
+router.beforeEach((to, from) =&gt; {
+  if (to.meta.requiresAuth &amp;&amp; !isLoggedIn) {
+    return { name: &#x27;Login&#x27; }
+  }
+})</code></pre>
+
+<h3>❌ 坑2：onBeforeRouteEnter 中访问 this</h3>
+
+<pre><code class="language-javascript">// ❌ 组件还没创建，this 是 undefined
+onBeforeRouteEnter((to, from) =&gt; {
+  this.loadData() // TypeError!
+})
+
+// ✅ 在 onMounted 中处理初始化逻辑
+onMounted(() =&gt; {
+  loadData()
+})</code></pre>
+
+<h3>❌ 坑3：嵌套路由 meta 没有合并</h3>
+
+<pre><code class="language-javascript">// ❌ 只检查 to.meta，子路由覆盖父路由
+if (to.meta.requiresAuth) { ... }
+
+// ✅ 遍历所有匹配的路由记录
+if (to.matched.some(record =&gt; record.meta.requiresAuth)) { ... }</code></pre>
+
+<h2>七、练习题</h2>
+
+<h3>🟢 入门：基础登录拦截</h3>
+<p>实现一个全局前置守卫，未登录时所有页面跳转到 <code>/login</code>，登录后可正常访问。</p>
+
+<h3>🟡 进阶：带角色的权限系统</h3>
+<p>扩展登录系统，支持 admin/user/guest 三种角色。<code>/admin</code> 只允许 admin，<code>/dashboard</code> 允许 admin 和 user。</p>
+
+<h3>🔴 挑战：数据预加载 + 进度条</h3>
+<p>在路由跳转前异步加载数据，显示顶部进度条，数据加载完成后再渲染页面。</p>
+
+<h2>八、知识点总结</h2>
+
+<pre><code>路由守卫
+├── 执行顺序
+│   ├── beforeEach -&gt; beforeEnter -&gt; beforeRouteEnter
+│   ├── beforeResolve -&gt; afterEach
+│   └── 离开时：beforeRouteLeave -&gt; beforeEach -&gt; ...
+├── 导航解析流程（完整10步）
+│   1. 导航被触发
+│   2. 失活组件 beforeRouteLeave
+│   3. 全局 beforeEach
+│   4. 重用组件 beforeRouteUpdate
+│   5. 路由配置 beforeEnter
+│   6. 解析异步路由组件
+│   7. 激活组件 beforeRouteEnter
+│   8. 全局 beforeResolve
+│   9. 导航确认
+│   10. 全局 afterEach + DOM更新
+├── 返回值
+│   ├── undefined/true -&gt; 放行
+│   ├── false -&gt; 取消
+│   ├── 路由对象 -&gt; 重定向
+│   └── Promise -&gt; 等待解析
+└── meta 元信息
+    ├── 定义在 routes 配置中
+    ├── 嵌套路由需手动合并 matched
+    └── 常用于权限、标题、缓存标识</code></pre>
+
+<h2>九、举一反三</h2>
+
+<table><thead><tr>
+<th>守卫类型</th>
+<th>适用场景</th>
+<th>示例</th>
+</tr></thead><tbody>
+<tr>
+<td>beforeEach</td>
+<td>登录检查、权限验证</td>
+<td>未登录跳转登录页</td>
+</tr>
+<tr>
+<td>beforeResolve</td>
+<td>确保所有数据预加载完成</td>
+<td>等待异步钩子完成</td>
+</tr>
+<tr>
+<td>afterEach</td>
+<td>页面统计、滚动复位</td>
+<td>发送 PV 统计</td>
+</tr>
+<tr>
+<td>beforeEnter</td>
+<td>路由级独立验证</td>
+<td>验证参数格式</td>
+</tr>
+<tr>
+<td>onBeforeRouteLeave</td>
+<td>离开确认</td>
+<td>表单未保存提醒</td>
+</tr>
+<tr>
+<td>onBeforeRouteUpdate</td>
+<td>同组件参数变化</td>
+<td>/user/1 -> /user/2</td>
+</tr>
+</tbody></table>
+
+<h2>十、参考资料</h2>
+
+<ul>
+<li><a href="https://router.vuejs.org/zh/guide/advanced/navigation-guards.html">Vue Router 官方文档 - 导航守卫</a></li>
+<li><a href="https://router.vuejs.org/zh/guide/advanced/meta.html">Vue Router 官方文档 - 路由元信息</a></li>
+<li><a href="https://router.vuejs.org/zh/guide/migration/index.html">Vue Router 4 迁移指南</a></li>
+
+<h2>十一、代码演进</h2>
+
+<h3>v1：基础登录拦截</h3>
+<pre><code class="language-javascript">router.beforeEach((to, from, next) =&gt; {
+  if (to.path !== &#x27;/login&#x27; &amp;&amp; !isLoggedIn) {
+    next(&#x27;/login&#x27;)
+  } else {
+    next()
+  }
+})</code></pre>
+
+<h3>v2：引入 meta + 角色</h3>
+<pre><code class="language-javascript">router.beforeEach((to, from) =&gt; {
+  document.title = to.meta.title || &#x27;App&#x27;
+  if (to.meta.requiresAuth &amp;&amp; !authStore.isLoggedIn) {
+    return { name: &#x27;Login&#x27;, query: { redirect: to.fullPath } }
+  }
+  if (to.meta.roles &amp;&amp; !to.meta.roles.includes(authStore.userRole)) {
+    return { name: &#x27;Forbidden&#x27; }
+  }
+})</code></pre>
+
+<h3>v3：完整方案 + 嵌套路由 + 异步</h3>
+<pre><code class="language-javascript">import NProgress from &#x27;nprogress&#x27;
+
+router.beforeEach(async (to) =&gt; {
+  NProgress.start()
+  const requiresAuth = to.matched.some(r =&gt; r.meta.requiresAuth)
+  const roles = to.matched.flatMap(r =&gt; r.meta.roles || [])
+  if (requiresAuth) {
+    const user = await getCurrentUser()
+    if (!user) return { name: &#x27;Login&#x27;, query: { redirect: to.fullPath } }
+    if (roles.length &amp;&amp; !roles.includes(user.role)) return { name: &#x27;Forbidden&#x27; }
+  }
+})
+router.afterEach(() =&gt; NProgress.done())</code></pre>
+
+<blockquote><p>💡 <strong>总结</strong>：路由守卫是 Vue Router 的核心安全机制。掌握三类守卫的执行顺序、正确使用 return 替代 next()、以及通过 meta 实现声明式权限控制，是构建健壮前端应用的基础。</p></blockquote>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

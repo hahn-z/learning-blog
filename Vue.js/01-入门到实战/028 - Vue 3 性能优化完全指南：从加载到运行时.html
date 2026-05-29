@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>028 - Vue 3 性能优化完全指南：从加载到运行时</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Vue.js/index.html">Vue.js</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Vue.js/01-入门到实战/index.html">Vue.js入门到实战</a>
+</nav>
+<h1>028 - Vue 3 性能优化完全指南：从加载到运行时</h1>
+<div class="meta">
+<span>📂 Vue.js入门到实战</span>
+<span>🏷️ Vue.js</span>
+</div>
+<article>
+
+
+<h2>难度标注</h2>
+
+<blockquote><p><strong>难度：⭐⭐⭐⭐（中高级）</strong><br>前置知识：Vue 3核心概念、Webpack/Vite基础、浏览器渲染原理<br>适合人群：需要优化大型Vue应用性能、或准备面试的开发者</p></blockquote>
+
+<hr>
+
+<h2>概念讲解</h2>
+
+<h3>性能优化三大维度</h3>
+
+<pre><code>性能优化
+├── 加载性能 → 用户看到内容的时间
+├── 运行时性能 → 交互流畅度
+└── 内存性能 → 长时间运行的稳定性</code></pre>
+
+<h3>Vue 3 自身的性能提升</h3>
+
+<table><thead><tr>
+<th>特性</th>
+<th>说明</th>
+</tr></thead><tbody>
+<tr>
+<td>Proxy代理</td>
+<td>惰性响应式，只在访问时创建依赖</td>
+</tr>
+<tr>
+<td>静态提升</td>
+<td>模板中的静态节点只创建一次</td>
+</tr>
+<tr>
+<td>Patch Flag</td>
+<td>编译时标记动态节点，diff时跳过静态部分</td>
+</tr>
+<tr>
+<td>Block Tree</td>
+<td>扁平化虚拟DOM树，减少递递</td>
+</tr>
+<tr>
+<td>Tree-shaking</td>
+<td>未使用的API不打包</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>脑图</h2>
+
+<pre><code>Vue 3 性能优化
+├── 编译优化
+│   ├── 静态提升 (hoistStatic)
+│   ├── Patch Flags
+│   └── Block Tree
+├── 加载优化
+│   ├── 路由懒加载
+│   ├── 异步组件 defineAsyncComponent
+│   └── 代码分割 dynamic import
+├── 运行时优化
+│   ├── computed缓存
+│   ├── shallowRef / shallowReactive
+│   ├── 虚拟滚动
+│   └── v-show vs v-if
+└── 分析工具
+    ├── Chrome DevTools Performance
+    ├── Vue DevTools
+    └── Lighthouse</code></pre>
+
+<hr>
+
+<h2>完整代码示例</h2>
+
+<pre><code class="language-vue">&lt;!-- PerformanceDemo.vue --&gt;
+&lt;template&gt;
+  &lt;div class=&quot;perf-demo&quot;&gt;
+    &lt;h2&gt;Vue 3 性能优化演示&lt;/h2&gt;
+
+    &lt;section&gt;
+      &lt;h3&gt;1. v-memo 条件缓存&lt;/h3&gt;
+      &lt;div
+        v-for=&quot;item in items&quot;
+        :key=&quot;item.id&quot;
+        v-memo=&quot;[item.id, selectedId === item.id]&quot;
+        :class=&quot;{ selected: selectedId === item.id }&quot;
+        @click=&quot;selectedId = item.id&quot;
+      &gt;
+        {{ item.name }}
+      &lt;/div&gt;
+      &lt;button @click=&quot;shuffleItems&quot;&gt;打乱顺序&lt;/button&gt;
+    &lt;/section&gt;
+
+    &lt;section&gt;
+      &lt;h3&gt;2. shallowRef vs ref 性能对比&lt;/h3&gt;
+      &lt;button @click=&quot;updateDeep&quot;&gt;深更新 (ref)&lt;/button&gt;
+      &lt;button @click=&quot;updateShallow&quot;&gt;浅更新 (shallowRef)&lt;/button&gt;
+      &lt;p&gt;ref更新耗时: {{ refTime }}ms&lt;/p&gt;
+      &lt;p&gt;shallowRef更新耗时: {{ shallowTime }}ms&lt;/p&gt;
+    &lt;/section&gt;
+  &lt;/div&gt;
+&lt;/template&gt;
+
+&lt;script setup&gt;
+import { ref, shallowRef } from &#x27;vue&#x27;
+
+const items = ref(
+  Array.from({ length: 20 }, (_, i) =&gt; ({ id: i, name: `项目${i}` }))
+)
+const selectedId = ref(-1)
+
+function shuffleItems() {
+  items.value = [...items.value].sort(() =&gt; Math.random() - 0.5)
+}
+
+const refTime = ref(0)
+const shallowTime = ref(0)
+
+const deepData = ref(Array.from({ length: 1000 }, (_, i) =&gt; ({ id: i, value: i })))
+const shallowData = shallowRef(Array.from({ length: 1000 }, (_, i) =&gt; ({ id: i, value: i })))
+
+function updateDeep() {
+  const start = performance.now()
+  for (let i = 0; i &lt; 1000; i++) { deepData.value[i].value = Math.random() }
+  refTime.value = Math.round(performance.now() - start)
+}
+
+function updateShallow() {
+  const start = performance.now()
+  const arr = [...shallowData.value]
+  for (let i = 0; i &lt; 1000; i++) { arr[i] = { ...arr[i], value: Math.random() } }
+  shallowData.value = arr
+  shallowTime.value = Math.round(performance.now() - start)
+}
+&lt;/script&gt;</code></pre>
+
+<hr>
+
+<h2>执行预览</h2>
+
+<pre><code>点击&quot;打乱顺序&quot;后，v-memo阻止未变化项重渲染
+点击&quot;深更新&quot;和&quot;浅更新&quot;，对比性能差异</code></pre>
+
+<hr>
+
+<h2>注意事项</h2>
+
+<table><thead><tr>
+<th>优化策略</th>
+<th>适用场景</th>
+<th>过度使用的风险</th>
+</tr></thead><tbody>
+<tr>
+<td>shallowRef</td>
+<td>大型不可变数据</td>
+<td>失去深层响应式</td>
+</tr>
+<tr>
+<td>v-memo</td>
+<td>纯展示型列表项</td>
+<td>增加内存开销</td>
+</tr>
+<tr>
+<td>虚拟滚动</td>
+<td>1000+条列表</td>
+<td>50条以下没必要</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>避坑指南</h2>
+
+<h3>❌ 列表不用key或用index作key</h3>
+<pre><code class="language-vue">&lt;!-- ❌ index作key导致diff错误 --&gt;
+&lt;li v-for=&quot;(item, i) in list&quot; :key=&quot;i&quot;&gt;</code></pre>
+
+<hr>
+
+<h2>练习题</h2>
+
+<h3>🟢 初级</h3>
+<ol>
+<li><strong>选择题</strong>：Vue 3的模板编译优化不包括？</li>
+<li>A. 静态提升</li>
+<li>B. Patch Flags</li>
+<li>C. 双向绑定优化</li>
+
+<p><details><summary>答案</summary>C</details></p>
+
+<hr>
+
+<h2>知识点总结</h2>
+
+<pre><code>性能优化知识树
+├── 编译期优化 (自动)
+│   ├── 静态提升 (Static Hoisting)
+│   ├── Patch Flags (动态标记)
+│   └── Tree-shaking
+├── 代码层面
+│   ├── v-memo / v-once
+│   ├── computed缓存
+│   └── shallowRef / shallowReactive
+└── 加载层面
+    ├── 路由懒加载
+    └── 异步组件</code></pre>
+
+<hr>
+
+<h2>举一反三</h2>
+
+<table><thead><tr>
+<th>问题</th>
+<th>诊断方法</th>
+<th>优化方案</th>
+</tr></thead><tbody>
+<tr>
+<td>首屏白屏时间长</td>
+<td>Lighthouse + Network面板</td>
+<td>代码分割 + SSR/预渲染</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>参考资料</h2>
+
+<ul>
+<li><a href="https://cn.vuejs.org/guide/best-practices/performance.html">Vue 3 官方文档 - 性能优化</a></li>
+
+<hr>
+
+<h2>代码演进</h2>
+
+<h3>v1：基础优化（路由懒加载）</h3>
+<pre><code class="language-javascript">const routes = [
+  { path: &#x27;/about&#x27;, component: () =&gt; import(&#x27;./About.vue&#x27;) }
+]</code></pre>
+
+<h3>v2：组件级优化</h3>
+<pre><code class="language-vue">&lt;div v-for=&quot;item in list&quot; :key=&quot;item.id&quot; v-memo=&quot;[item.changed]&quot;&gt;</code></pre>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

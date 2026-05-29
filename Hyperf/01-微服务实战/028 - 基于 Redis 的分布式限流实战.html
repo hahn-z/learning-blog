@@ -1,0 +1,651 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>028 - 基于 Redis 的分布式限流实战</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Hyperf/index.html">Hyperf</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Hyperf/01-微服务实战/index.html">Hyperf微服务实战</a>
+</nav>
+<h1>028 - 基于 Redis 的分布式限流实战</h1>
+<div class="meta">
+<span>📂 Hyperf微服务实战</span>
+<span>🏷️ Hyperf</span>
+</div>
+<article>
+
+
+<h1>基于 Redis 的分布式限流实战</h1>
+
+<h2>难度标注</h2>
+
+<p>⭐⭐⭐⭐（中高级）</p>
+
+<p><strong>前置知识：</strong> 限流算法基础、Redis、Hyperf 中间件</p>
+
+<p><strong>预估用时：</strong> 50-60 分钟</p>
+
+<hr>
+
+<h2>概念讲解</h2>
+
+<p><strong>分布式限流</strong> 是在多实例部署环境下，通过集中式存储（如 Redis）共享限流状态，确保所有服务实例遵循统一的限流规则。与单机限流不同，分布式限流需要处理网络延迟、时钟偏差和原子性等问题。</p>
+
+<p><strong>现实类比：</strong> 游乐园的过山车限流。如果是单机限流，就是每个入口各自数人数——东门放 50 个，南门也放 50 个，总共进来 100 个，超了。分布式限流就是所有入口共享一块电子计数板（Redis），总数到 50 就所有入口同时停。</p>
+
+<p><strong>技术场景：</strong> 用户服务部署了 3 个实例，注册接口限流 50 QPS。如果每个实例各自限 50，总共可能 150 QPS 打到数据库。需要用 Redis 集中计数，3 个实例共享 50 QPS 的总额度。</p>
+
+<hr>
+
+<h2>实时脑图</h2>
+
+<pre><code>         Instance A ───┐
+         Instance B ───┼──► Redis (Shared State) ──► Lua Script
+         Instance C ───┘         │
+                                │
+                    ┌───────────▼───────────┐
+                    │   Token Bucket State  │
+                    │   tokens: 45          │
+                    │   last_refill: 1234.5 │
+                    │                       │
+                    │   Sliding Window      │
+                    │   ZSET: timestamps    │
+                    │   count: 32           │
+                    └───────────────────────┘
+                          │
+                    ┌─────▼──────┐
+                    │  Allow /   │
+                    │  Deny      │
+                    │  (atomic)  │
+                    └────────────┘</code></pre>
+
+<hr>
+
+<h2>完整代码</h2>
+
+<h3>1. 分布式限流服务</h3>
+
+<pre><code class="language-php">&lt;?php
+// app/Service/RateLimit/DistributedRateLimiter.php
+
+declare(strict_types=1);
+
+namespace App\Service\RateLimit;
+
+use Hyperf\Redis\Redis;
+use Hyperf\Redis\RedisFactory;
+
+class DistributedRateLimiter
+{
+    private const KEY_PREFIX = &#x27;ratelimit:&#x27;;
+
+    public function __construct(
+        private RedisFactory $redisFactory
+    ) {}
+
+    /**
+     * ✅ Distributed sliding window with Lua atomicity
+     * Uses Redis Sorted Set for precise time-based counting
+     */
+    public function slidingWindow(
+        string $resource,
+        string $identity,
+        int $limit,
+        int $windowSeconds
+    ): RateLimitResult {
+        $redis = $this-&gt;redisFactory-&gt;get(&#x27;default&#x27;);
+        $key = self::KEY_PREFIX . &quot;sw:{$resource}:{$identity}&quot;;
+        $now = time();
+        $windowStart = $now - $windowSeconds;
+
+        // ✅ Atomic Lua script: cleanup + count + add
+        $script = &lt;&lt;&lt;&#x27;LUA&#x27;
+local key = KEYS[1]
+local limit = tonumber(ARGV[1])
+local window_start = tonumber(ARGV[2])
+local now = tonumber(ARGV[3])
+local member = ARGV[4]
+
+-- Remove expired entries
+redis.call(&#x27;ZREMRANGEBYSCORE&#x27;, key, &#x27;-inf&#x27;, window_start)
+
+-- Count current entries
+local count = redis.call(&#x27;ZCARD&#x27;, key)
+
+if count &lt; limit then
+    redis.call(&#x27;ZADD&#x27;, key, now, member)
+    redis.call(&#x27;EXPIRE&#x27;, key, window_start * -1 + now + 1)
+    return count + 1
+else
+    return -1
+end
+LUA;
+
+        // ✅ Unique member: timestamp + random to avoid collision
+        $member = &quot;{$now}:&quot; . bin2hex(random_bytes(4));
+
+        $result = $redis-&gt;eval($script, [$key, $limit, $windowStart, $now, $member], 1);
+
+        if ((int)$result === -1) {
+            // 🔴 Rate limit exceeded
+            $ttl = $redis-&gt;ttl($key);
+            return new RateLimitResult(
+                allowed: false,
+                remaining: 0,
+                limit: $limit,
+                retryAfter: max($ttl, 1),
+            );
+        }
+
+        // ✅ Request allowed
+        return new RateLimitResult(
+            allowed: true,
+            remaining: max(0, $limit - (int)$result),
+            limit: $limit,
+            retryAfter: 0,
+        );
+    }
+
+    /**
+     * ✅ Distributed token bucket with Lua atomicity
+     */
+    public function tokenBucket(
+        string $resource,
+        string $identity,
+        int $maxTokens,
+        int $refillPerSecond,
+        int $cost = 1
+    ): RateLimitResult {
+        $redis = $this-&gt;redisFactory-&gt;get(&#x27;default&#x27;);
+        $key = self::KEY_PREFIX . &quot;tb:{$resource}:{$identity}&quot;;
+        $now = sprintf(&#x27;%.3f&#x27;, microtime(true));
+
+        $script = &lt;&lt;&lt;&#x27;LUA&#x27;
+local key = KEYS[1]
+local max_tokens = tonumber(ARGV[1])
+local refill_rate = tonumber(ARGV[2])
+local cost = tonumber(ARGV[3])
+local now = tonumber(ARGV[4])
+
+local data = redis.call(&#x27;HMGET&#x27;, key, &#x27;tokens&#x27;, &#x27;last_time&#x27;)
+local tokens = tonumber(data[1])
+local last_time = tonumber(data[2])
+
+-- Initialize if not exists
+if tokens == nil then
+    tokens = max_tokens
+    last_time = now
+end
+
+-- ✅ Refill tokens based on elapsed time
+local elapsed = math.max(0, now - last_time)
+tokens = math.min(max_tokens, tokens + elapsed * refill_rate)
+last_time = now
+
+local allowed = 0
+local remaining = tokens
+
+if tokens &gt;= cost then
+    tokens = tokens - cost
+    remaining = tokens
+    allowed = 1
+end
+
+-- Save state
+redis.call(&#x27;HMSET&#x27;, key, &#x27;tokens&#x27;, tokens, &#x27;last_time&#x27;, now)
+redis.call(&#x27;EXPIRE&#x27;, key, math.ceil(max_tokens / refill_rate) + 2)
+
+return {allowed, math.floor(remaining)}
+LUA;
+
+        $result = $redis-&gt;eval($script, [$key, $maxTokens, $refillPerSecond, $cost, $now], 1);
+
+        $allowed = (int)$result[0] === 1;
+        $remaining = (int)$result[1];
+
+        return new RateLimitResult(
+            allowed: $allowed,
+            remaining: $remaining,
+            limit: $maxTokens,
+            retryAfter: $allowed ? 0 : (int)ceil(($cost - $remaining) / $refillPerSecond),
+        );
+    }
+}</code></pre>
+
+<h3>2. 限流结果对象</h3>
+
+<pre><code class="language-php">&lt;?php
+// app/Service/RateLimit/RateLimitResult.php
+
+declare(strict_types=1);
+
+namespace App\Service\RateLimit;
+
+readonly class RateLimitResult
+{
+    public function __construct(
+        public bool $allowed,
+        public int $remaining,
+        public int $limit,
+        public int $retryAfter,
+    ) {}
+
+    /**
+     * ✅ Convert to HTTP response headers
+     */
+    public function toHeaders(): array
+    {
+        return [
+            &#x27;X-RateLimit-Limit&#x27; =&gt; (string)$this-&gt;limit,
+            &#x27;X-RateLimit-Remaining&#x27; =&gt; (string)$this-&gt;remaining,
+            &#x27;Retry-After&#x27; =&gt; $this-&gt;retryAfter &gt; 0 ? (string)$this-&gt;retryAfter : &#x27;&#x27;,
+        ];
+    }
+}</code></pre>
+
+<h3>3. 限流中间件</h3>
+
+<pre><code class="language-php">&lt;?php
+// app/Middleware/DistributedRateLimitMiddleware.php
+
+declare(strict_types=1);
+
+namespace App\Middleware;
+
+use App\Service\RateLimit\DistributedRateLimiter;
+use Hyperf\HttpMessage\Exception\TooManyRequestsHttpException;
+use Psr\Http\Message\ResponseInterface;
+use Psr\Http\Message\ServerRequestInterface;
+use Psr\Http\Server\MiddlewareInterface;
+use Psr\Http\Server\RequestHandlerInterface;
+
+class DistributedRateLimitMiddleware implements MiddlewareInterface
+{
+    // ✅ Rate limit rules per route pattern
+    private const RULES = [
+        [&#x27;pattern&#x27; =&gt; &#x27;#^/api/users/register#&#x27;, &#x27;algorithm&#x27; =&gt; &#x27;sliding_window&#x27;, &#x27;limit&#x27; =&gt; 50, &#x27;window&#x27; =&gt; 1],
+        [&#x27;pattern&#x27; =&gt; &#x27;#^/api/users/login#&#x27;, &#x27;algorithm&#x27; =&gt; &#x27;sliding_window&#x27;, &#x27;limit&#x27; =&gt; 30, &#x27;window&#x27; =&gt; 1],
+        [&#x27;pattern&#x27; =&gt; &#x27;#^/api/users/\d+$#&#x27;, &#x27;algorithm&#x27; =&gt; &#x27;token_bucket&#x27;, &#x27;max&#x27; =&gt; 200, &#x27;refill&#x27; =&gt; 50],
+        [&#x27;pattern&#x27; =&gt; &#x27;#^/api/users#&#x27;, &#x27;algorithm&#x27; =&gt; &#x27;token_bucket&#x27;, &#x27;max&#x27; =&gt; 500, &#x27;refill&#x27; =&gt; 100],
+    ];
+
+    public function __construct(
+        private DistributedRateLimiter $limiter
+    ) {}
+
+    public function process(
+        ServerRequestInterface $request,
+        RequestHandlerInterface $handler
+    ): ResponseInterface {
+        $path = $request-&gt;getUri()-&gt;getPath();
+        $rule = $this-&gt;matchRule($path);
+
+        if ($rule === null) {
+            return $handler-&gt;handle($request);
+        }
+
+        // ✅ Build identity: user_id &gt; API key &gt; IP
+        $identity = $this-&gt;resolveIdentity($request);
+
+        // Apply rate limit
+        $result = match ($rule[&#x27;algorithm&#x27;]) {
+            &#x27;sliding_window&#x27; =&gt; $this-&gt;limiter-&gt;slidingWindow(
+                $path, $identity, $rule[&#x27;limit&#x27;], $rule[&#x27;window&#x27;]
+            ),
+            &#x27;token_bucket&#x27; =&gt; $this-&gt;limiter-&gt;tokenBucket(
+                $path, $identity, $rule[&#x27;max&#x27;], $rule[&#x27;refill&#x27;]
+            ),
+        };
+
+        if (!$result-&gt;allowed) {
+            // 🔴 Return 429 with rate limit headers
+            throw new TooManyRequestsHttpException(
+                $result-&gt;retryAfter &gt; 0 ? $result-&gt;retryAfter : null,
+                &#x27;Rate limit exceeded. Please retry later.&#x27;
+            );
+        }
+
+        // ✅ Continue processing
+        $response = $handler-&gt;handle($request);
+
+        // 🟢 Add rate limit info headers to response
+        foreach ($result-&gt;toHeaders() as $name =&gt; $value) {
+            if ($value !== &#x27;&#x27;) {
+                $response = $response-&gt;withHeader($name, $value);
+            }
+        }
+
+        return $response;
+    }
+
+    private function matchRule(string $path): ?array
+    {
+        foreach (self::RULES as $rule) {
+            if (preg_match($rule[&#x27;pattern&#x27;], $path)) {
+                return $rule;
+            }
+        }
+        return null;
+    }
+
+    private function resolveIdentity(ServerRequestInterface $request): string
+    {
+        // ✅ Priority: authenticated user &gt; API key &gt; client IP
+        $userId = $request-&gt;getAttribute(&#x27;user_id&#x27;);
+        if ($userId) {
+            return &quot;user:{$userId}&quot;;
+        }
+
+        $apiKey = $request-&gt;getHeaderLine(&#x27;x-api-key&#x27;);
+        if ($apiKey) {
+            return &quot;key:&quot; . md5($apiKey);
+        }
+
+        $ip = $request-&gt;getServerParams()[&#x27;remote_addr&#x27;] ?? &#x27;unknown&#x27;;
+        return &quot;ip:{$ip}&quot;;
+    }
+}</code></pre>
+
+<h3>4. 注册中间件</h3>
+
+<pre><code class="language-php">&lt;?php
+// config/autoload/middlewares.php
+
+declare(strict_types=1);
+
+return [
+    &#x27;http&#x27; =&gt; [
+        \App\Middleware\TracePropagationMiddleware::class,
+        // ✅ Rate limiting before auth (for public endpoints)
+        \App\Middleware\DistributedRateLimitMiddleware::class,
+        \App\Middleware\AuthMiddleware::class,
+    ],
+];</code></pre>
+
+<hr>
+
+<h2>执行预览</h2>
+
+<pre><code class="language-bash"># Normal request - rate limit headers in response
+$ curl -v http://localhost:9501/api/users/1 2&gt;&amp;1 | grep -i rate
+&lt; X-RateLimit-Limit: 200
+&lt; X-RateLimit-Remaining: 199
+
+# Burst 50 register requests
+$ for i in $(seq 1 55); do
+  curl -s -o /dev/null -w &quot;%{http_code}&quot; -X POST http://localhost:9501/api/users/register
+  echo
+done
+200 200 200 ... 200 429 429 429 429 429
+# 50 succeed, 5 get 429
+
+# Check rate limit with remaining count
+$ curl -v http://localhost:9501/api/users/1 2&gt;&amp;1 | grep -E &quot;RateLimit|Retry&quot;
+&lt; X-RateLimit-Limit: 200
+&lt; X-RateLimit-Remaining: 150
+&lt; Retry-After: 
+
+# When limited:
+$ curl -v http://localhost:9501/api/users/register 2&gt;&amp;1 | grep Retry
+&lt; Retry-After: 1</code></pre>
+
+<hr>
+
+<h2>注意事项</h2>
+
+<table><thead><tr>
+<th>约束</th>
+<th>说明</th>
+<th>违反后果</th>
+</tr></thead><tbody>
+<tr>
+<td>Lua 脚本必须原子</td>
+<td>EVAL 是 Redis 原子操作</td>
+<td>并发竞态导致超限</td>
+</tr>
+<tr>
+<td>Key 必须设过期</td>
+<td>ZSET/HSET 都要设 TTL</td>
+<td>Redis 内存无限增长</td>
+</tr>
+<tr>
+<td>时钟偏差容忍</td>
+<td>多实例时钟可能有毫秒级偏差</td>
+<td>限流不精确</td>
+</tr>
+<tr>
+<td>Redis 高可用</td>
+<td>限流依赖 Redis 可用性</td>
+<td>Redis 挂了限流失效</td>
+</tr>
+<tr>
+<td>降级策略</td>
+<td>Redis 不可用时的兜底</td>
+<td>要么全放行要么全拒绝</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>避坑指南</h2>
+
+<table><thead><tr>
+<th>典型错误</th>
+<th>现象</th>
+<th>正确做法</th>
+</tr></thead><tbody>
+<tr>
+<td>ZSET member 不唯一</td>
+<td>同一秒的请求互相覆盖</td>
+<td>member 加随机后缀</td>
+</tr>
+<tr>
+<td>HMSET 不设过期</td>
+<td>数据永久残留</td>
+<td>每次 eval 后设 EXPIRE</td>
+</tr>
+<tr>
+<td>refillRate 算错</td>
+<td>令牌生成速度不符合预期</td>
+<td>单位统一：tokens/second</td>
+</tr>
+<tr>
+<td>多实例用不同 Redis</td>
+<td>限流状态不共享</td>
+<td>所有实例连同一个 Redis</td>
+</tr>
+<tr>
+<td>Redis 超时不处理</td>
+<td>限流请求卡住</td>
+<td>设 Redis 超时 + 降级逻辑</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>练习题</h2>
+
+<h3>🟢 基础题</h3>
+
+<ol>
+<li><strong>压测验证</strong>：用 wrk 对注册接口压测，验证限流是否精确在 50 QPS。</li>
+
+<ol>
+<li><strong>多实例测试</strong>：启动 3 个 Hyperf 实例共享同一个 Redis，验证总限流生效。</li>
+
+<h3>🟡 进阶题</h3>
+
+<ol>
+<li><strong>分级限流</strong>：实现 IP 级 1000 QPS + 用户级 100 QPS 的双层限流，先检查 IP 再检查用户。</li>
+
+<h3>🔴 开放题</h3>
+
+<ol>
+<li><strong>Redis 集群限流</strong>：设计一个支持 Redis Cluster 的分布式限流方案，处理 hash slot 迁移和跨 slot 的问题。</li>
+
+<hr>
+
+<h2>知识点总结</h2>
+
+<pre><code>Redis 分布式限流
+├── 核心依赖
+│   ├── Redis EVAL（Lua 原子执行）
+│   ├── Sorted Set（滑动窗口）
+│   └── Hash + 过期时间（令牌桶）
+├── 实现
+│   ├── DistributedRateLimiter
+│   ├── RateLimitResult（结果对象）
+│   ├── DistributedRateLimitMiddleware
+│   └── 路由规则匹配
+├── Identity 策略
+│   ├── 用户 ID（已认证）
+│   ├── API Key
+│   └── 客户端 IP
+└── 运维
+    ├── Rate Limit Headers（标准）
+    ├── Redis 高可用
+    └── 降级策略</code></pre>
+
+<hr>
+
+<h2>举一反三</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>变种说明</th>
+<th>关键差异</th>
+</tr></thead><tbody>
+<tr>
+<td>Redis → Memcached</td>
+<td>不同存储引擎</td>
+<td>Memcached 不支持 Lua</td>
+</tr>
+<tr>
+<td>单 Redis → Redis Cluster</td>
+<td>分布式存储</td>
+<td>Key hash slot 必须相同</td>
+</tr>
+<tr>
+<td>限流 → 配额管理</td>
+<td>按月/按天的配额</td>
+<td>时间窗口更大，持久化要求高</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>参考资料</h2>
+
+<table><thead><tr>
+<th>资料</th>
+<th>链接</th>
+<th>权威等级</th>
+</tr></thead><tbody>
+<tr>
+<td>Redis EVAL 命令</td>
+<td>https://redis.io/commands/eval/</td>
+<td>⭐⭐⭐⭐⭐</td>
+</tr>
+<tr>
+<td>Redis 限流模式</td>
+<td>https://redis.io/commands/INCR/#pattern-rate-limiter-3</td>
+<td>⭐⭐⭐⭐</td>
+</tr>
+<tr>
+<td>HTTP Rate Limit Headers</td>
+<td>https://datatracker.ietf.org/doc/html/draft-ietf-httpapi-ratelimit-headers</td>
+<td>⭐⭐⭐⭐⭐</td>
+</tr>
+<tr>
+<td>Hyperf Redis 组件</td>
+<td>https://hyperf.wiki/3.0/#/zh-cn/redis</td>
+<td>⭐⭐⭐⭐</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>代码演进</h2>
+
+<h3>v1 ❌ 每个实例各自计数</h3>
+
+<pre><code class="language-php">// ❌ Each instance has its own counter
+// 3 instances × 50 QPS = 150 QPS actual (exceeds 50 limit!)
+static $count = 0;
+$count++;
+if ($count &gt; 50) {
+    throw new TooManyRequestsHttpException();
+}</code></pre>
+
+<h3>v2 ✅ Redis 集中计数 + Lua 原子</h3>
+
+<pre><code class="language-php">// ✅ All instances share Redis state
+// Lua script ensures atomicity
+$result = $redis-&gt;eval($luaScript, [$key, $limit, $window, $now, $member], 1);
+return new RateLimitResult(allowed: (int)$result !== -1, ...);</code></pre>
+
+<h3>v3 🟢 标准化中间件 + Headers + 降级</h3>
+
+<pre><code class="language-php">// + Rate limit response headers (X-RateLimit-*)
+// + Identity resolution (user &gt; key &gt; IP)
+// + Redis timeout + fallback on failure
+// + Prometheus metrics for denied requests</code></pre>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

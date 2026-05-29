@@ -1,0 +1,660 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>015 - 服务发现机制与负载均衡策略</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Hyperf/index.html">Hyperf</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Hyperf/01-微服务实战/index.html">Hyperf微服务实战</a>
+</nav>
+<h1>015 - 服务发现机制与负载均衡策略</h1>
+<div class="meta">
+<span>📂 Hyperf微服务实战</span>
+<span>🏷️ Hyperf</span>
+</div>
+<article>
+
+
+<h1>015 - 服务发现机制与负载均衡策略</h1>
+
+<blockquote><p><strong>难度：</strong> ⭐⭐⭐ | <strong>前置知识：</strong> 服务注册（014）、Nacos 基础（011）| <strong>预估用时：</strong> 50 分钟</p></blockquote>
+
+<h2>概念讲解</h2>
+
+<p><strong>一句话定义：</strong> 服务发现是指从注册中心获取目标服务的所有可用实例列表，负载均衡则是根据特定策略选择其中一个实例发起调用。</p>
+
+<p><strong>现实类比：</strong> 就像你点外卖——平台帮你找到附近所有营业中的餐厅（服务发现），然后根据距离、销量、评分等因素推荐一家（负载均衡）。如果推荐的餐厅打烊了，平台会自动换一家（故障转移）。</p>
+
+<p><strong>技术场景：</strong> 订单服务需要调用用户服务获取用户信息。Nacos 返回 3 个用户服务实例，负载均衡器根据随机/轮询/权重策略选择一个。被选中的实例响应慢或超时，重试时切换到另一个实例。</p>
+
+<h2>实时脑图</h2>
+
+<pre><code>Order Service (Consumer)
+         │
+         │ 1. Query instances from Nacos
+         ▼
+    ┌─────────────┐
+    │ Nacos      │ ───────► List:
+    │ Registry    │          - 10.0.1.11:9501 (weight=1)
+    └─────────────┘          - 10.0.1.12:9501 (weight=1)
+                             - 10.0.1.13:9501 (weight=2)
+         │
+         │ 2. Load balancer selects instance
+         ▼
+    ┌────────────────────┐
+    │ Load Balancer      │
+    │ ┌────────────────┐ │
+    │ │ Strategy:      │ │
+    │ │ - Random      │ │
+    │ │ - Round Robin │ │
+    │ │ - Weighted    │ │
+    │ │ - Consistent  │ │
+    │ └────────────────┘ │
+    └─────────┬──────────┘
+              │
+              │ 3. Request to selected instance
+              ▼
+    ┌──────────────────────┐
+    │ User Service Instance │
+    │ (10.0.1.12:9501)     │
+    └──────────────────────┘</code></pre>
+
+<h2>完整代码</h2>
+
+<h3>负载均衡策略配置 — config/autoload/services.php</h3>
+
+<pre><code class="language-php">&lt;?php
+// ✅ Service discovery with load balancing configuration
+
+declare(strict_types=1);
+
+return [
+    &#x27;enable&#x27; =&gt; [
+        &#x27;discovery&#x27; =&gt; true,
+        &#x27;register&#x27; =&gt; true,
+    ],
+    &#x27;consumers&#x27; =&gt; [
+        [
+            &#x27;name&#x27; =&gt; &#x27;user-service&#x27;,
+            &#x27;registry&#x27; =&gt; [
+                &#x27;protocol&#x27; =&gt; &#x27;nacos&#x27;,
+            ],
+            &#x27;load_balancer&#x27; =&gt; &#x27;random&#x27;,  // ✅ Strategy: random / round / weight / consistent-hash
+            &#x27;pool&#x27; =&gt; [
+                &#x27;min_connections&#x27; =&gt; 2,
+                &#x27;max_connections&#x27; =&gt; 20,
+            ],
+        ],
+        [
+            &#x27;name&#x27; =&gt; &#x27;order-service&#x27;,
+            &#x27;load_balancer&#x27; =&gt; &#x27;weight&#x27;,  // 🟡 Weighted for uneven resources
+        ],
+    ],
+    &#x27;drivers&#x27; =&gt; [
+        &#x27;nacos&#x27; =&gt; [
+            &#x27;host&#x27; =&gt; env(&#x27;NACOS_HOST&#x27;, &#x27;127.0.0.1&#x27;),
+            &#x27;port&#x27; =&gt; (int) env(&#x27;NACOS_PORT&#x27;, 8848),
+            &#x27;username&#x27; =&gt; env(&#x27;NACOS_USERNAME&#x27;, &#x27;nacos&#x27;),
+            &#x27;password&#x27; =&gt; env(&#x27;NACOS_PASSWORD&#x27;, &#x27;nacos&#x27;),
+            &#x27;group_name&#x27; =&gt; env(&#x27;NACOS_SERVICE_GROUP&#x27;, &#x27;DEFAULT_GROUP&#x27;),
+            &#x27;namespace_id&#x27; =&gt; env(&#x27;NACOS_NAMESPACE&#x27;, &#x27;&#x27;),
+        ],
+    ],
+];</code></pre>
+
+<h3>自定义负载均衡器 — WeightedRandomBalancer.php</h3>
+
+<pre><code class="language-php">&lt;?php
+
+declare(strict_types=1);
+
+namespace App\LoadBalancer;
+
+use Hyperf\LoadBalancer\LoadBalancerInterface;
+use Hyperf\LoadBalancer\LoadBalancerManager;
+use Hyperf\LoadBalancer\Node;
+
+class WeightedRandomBalancer implements LoadBalancerInterface
+{
+    private ?LoadBalancerManager $manager = null;
+
+    public function setManager(LoadBalancerManager $manager): void
+    {
+        $this-&gt;manager = $manager;
+    }
+
+    /**
+     * ✅ Select instance based on weight from Nacos metadata
+     */
+    public function select(array ...$arguments): ?Node
+    {
+        if ($this-&gt;manager === null) {
+            return null;
+        }
+
+        $nodes = $this-&gt;manager-&gt;getNodes();
+
+        if (empty($nodes)) {
+            return null;
+        }
+
+        // Calculate total weight
+        $totalWeight = 0;
+        foreach ($nodes as $node) {
+            $weight = $node-&gt;weight ?? 1;
+            $totalWeight += $weight;
+        }
+
+        if ($totalWeight &lt;= 0) {
+            // Fallback to random if no weights
+            return $nodes[array_rand($nodes)];
+        }
+
+        // Weighted random selection
+        $random = mt_rand(1, $totalWeight);
+        $currentWeight = 0;
+
+        foreach ($nodes as $node) {
+            $weight = $node-&gt;weight ?? 1;
+            $currentWeight += $weight;
+
+            if ($random &lt;= $currentWeight) {
+                return $node;
+            }
+        }
+
+        return $nodes[array_rand($nodes)];
+    }
+}</code></pre>
+
+<h3>一致性哈希负载均衡器 — ConsistentHashBalancer.php</h3>
+
+<pre><code class="language-php">&lt;?php
+
+declare(strict_types=1);
+
+namespace App\LoadBalancer;
+
+use Hyperf\LoadBalancer\LoadBalancerInterface;
+use Hyperf\LoadBalancer\LoadBalancerManager;
+use Hyperf\LoadBalancer\Node;
+use Swoole\Coroutine;
+
+class ConsistentHashBalancer implements LoadBalancerInterface
+{
+    private ?LoadBalancerManager $manager = null;
+    private int $virtualNodes = 150;  // 🟡 Virtual nodes for better distribution
+    private array $hashRing = [];
+
+    public function setManager(LoadBalancerManager $manager): void
+    {
+        $this-&gt;manager = $manager;
+        $this-&gt;buildHashRing();
+    }
+
+    /**
+     * ✅ Consistent hashing for sticky sessions or cache-friendly routing
+     * Same key always routes to same instance (until instances change)
+     */
+    public function select(array ...$arguments): ?Node
+    {
+        if ($this-&gt;manager === null) {
+            return null;
+        }
+
+        $nodes = $this-&gt;manager-&gt;getNodes();
+
+        if (empty($nodes)) {
+            return null;
+        }
+
+        // Use first argument as hash key (e.g., user_id)
+        $hashKey = $arguments[0][&#x27;hash_key&#x27;] ?? &#x27;default&#x27;;
+        $hash = crc32((string) $hashKey);
+
+        // Find next node in hash ring
+        foreach ($this-&gt;hashRing as $ringHash =&gt; $node) {
+            if ($ringHash &gt;= $hash) {
+                return $node;
+            }
+        }
+
+        // Wrap around to first node
+        return $this-&gt;hashRing[array_key_first($this-&gt;hashRing)];
+    }
+
+    private function buildHashRing(): void
+    {
+        $this-&gt;hashRing = [];
+        $nodes = $this-&gt;manager-&gt;getNodes();
+
+        foreach ($nodes as $node) {
+            $nodeKey = $node-&gt;host . &#x27;:&#x27; . $node-&gt;port;
+
+            for ($i = 0; $i &lt; $this-&gt;virtualNodes; $i++) {
+                $virtualKey = &quot;{$nodeKey}#{$i}&quot;;
+                $hash = crc32($virtualKey);
+                $this-&gt;hashRing[$hash] = $node;
+            }
+        }
+
+        ksort($this-&gt;hashRing);
+    }
+}</code></pre>
+
+<h3>RPC 客户端使用服务发现 — UserServiceClient.php</h3>
+
+<pre><code class="language-php">&lt;?php
+
+declare(strict_types=1);
+
+namespace App\Service;
+
+use Hyperf\Guzzle\ClientFactory;
+use Hyperf\LoadBalancer\LoadBalancerInterface;
+use Hyperf\LoadBalancer\LoadBalancerManager;
+use Hyperf\ServiceGovernance\DriverInterface;
+use Psr\Log\LoggerInterface;
+
+class UserServiceClient
+{
+    public function __construct(
+        private ClientFactory $clientFactory,
+        private LoggerInterface $logger,
+        private DriverInterface $driver
+    ) {}
+
+    /**
+     * ✅ Call user service with automatic service discovery and load balancing
+     */
+    public function getUser(int $userId): ?array
+    {
+        $serviceName = &#x27;user-service&#x27;;
+
+        // 1. Get instances from Nacos
+        $instances = $this-&gt;driver-&gt;getNodes($serviceName);
+
+        if (empty($instances)) {
+            $this-&gt;logger-&gt;error(&#x27;No instances found&#x27;, [&#x27;service&#x27; =&gt; $serviceName]);
+            return null;
+        }
+
+        // 2. Load balancer selects instance
+        $selected = $instances[array_rand($instances)];
+
+        $url = &quot;http://{$selected-&gt;host}:{$selected-&gt;port}/api/users/{$userId}&quot;;
+
+        // 3. Make request with retry
+        $client = $this-&gt;clientFactory-&gt;create();
+
+        for ($attempt = 1; $attempt &lt;= 3; $attempt++) {
+            try {
+                $response = $client-&gt;get($url, [&#x27;timeout&#x27; =&gt; 2]);
+
+                $data = json_decode($response-&gt;getBody()-&gt;getContents(), true);
+
+                if ($data[&#x27;code&#x27;] === 0) {
+                    return $data[&#x27;data&#x27;];
+                }
+
+                $this-&gt;logger-&gt;warning(&#x27;User service returned error&#x27;, [
+                    &#x27;url&#x27; =&gt; $url,
+                    &#x27;response&#x27; =&gt; $data,
+                ]);
+
+                break;
+            } catch (\Throwable $e) {
+                $this-&gt;logger-&gt;error(&#x27;User service request failed&#x27;, [
+                    &#x27;attempt&#x27; =&gt; $attempt,
+                    &#x27;url&#x27; =&gt; $url,
+                    &#x27;error&#x27; =&gt; $e-&gt;getMessage(),
+                ]);
+
+                // 🟡 Retry with different instance
+                $selected = $instances[array_rand($instances)];
+                $url = &quot;http://{$selected-&gt;host}:{$selected-&gt;port}/api/users/{$userId}&quot;;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * ✅ Call with sticky routing (consistent hash)
+     */
+    public function getUserSticky(int $userId): ?array
+    {
+        $serviceName = &#x27;user-service&#x27;;
+        $instances = $this-&gt;driver-&gt;getNodes($serviceName);
+
+        if (empty($instances)) {
+            return null;
+        }
+
+        // Use user ID as hash key for sticky routing
+        $hash = crc32((string) $userId);
+        $selected = $instances[$hash % count($instances)];
+
+        $url = &quot;http://{$selected-&gt;host}:{$selected-&gt;port}/api/users/{$userId}&quot;;
+
+        $client = $this-&gt;clientFactory-&gt;create();
+
+        try {
+            $response = $client-&gt;get($url, [&#x27;timeout&#x27; =&gt; 2]);
+            $data = json_decode($response-&gt;getBody()-&gt;getContents(), true);
+
+            return $data[&#x27;code&#x27;] === 0 ? $data[&#x27;data&#x27;] : null;
+        } catch (\Throwable $e) {
+            $this-&gt;logger-&gt;error(&#x27;User service sticky call failed&#x27;, [
+                &#x27;user_id&#x27; =&gt; $userId,
+                &#x27;instance&#x27; =&gt; &quot;{$selected-&gt;host}:{$selected-&gt;port}&quot;,
+                &#x27;error&#x27; =&gt; $e-&gt;getMessage(),
+            ]);
+            return null;
+        }
+    }
+}</code></pre>
+
+<h3>负载均衡测试脚本 — test-loadbalancer.php</h3>
+
+<pre><code class="language-php">&lt;?php
+// ✅ Test load balancer strategies
+
+declare(strict_types=1);
+
+$iterations = 1000;
+
+echo &quot;🧪 Load Balancer Strategy Test\n&quot;;
+echo &quot;Iterations: {$iterations}\n\n&quot;;
+
+// Mock instances with different weights
+$instances = [
+    [&#x27;ip&#x27; =&gt; &#x27;10.0.1.11&#x27;, &#x27;port&#x27; =&gt; 9501, &#x27;weight&#x27; =&gt; 1],
+    [&#x27;ip&#x27; =&gt; &#x27;10.0.1.12&#x27;, &#x27;port&#x27; =&gt; 9501, &#x27;weight&#x27; =&gt; 2],
+    [&#x27;ip&#x27; =&gt; &#x27;10.0.1.13&#x27;, &#x27;port&#x27; =&gt; 9501, &#x27;weight&#x27; =&gt; 3],
+];
+
+// 1. Random strategy
+echo &quot;1️⃣ Random Strategy:\n&quot;;
+$counts = [&#x27;11&#x27; =&gt; 0, &#x27;12&#x27; =&gt; 0, &#x27;13&#x27; =&gt; 0];
+
+for ($i = 0; $i &lt; $iterations; $i++) {
+    $selected = $instances[array_rand($instances)];
+    $key = substr($selected[&#x27;ip&#x27;], -2);
+    $counts[$key]++;
+}
+
+foreach ($counts as $ip =&gt; $count) {
+    $percent = round($count / $iterations * 100, 1);
+    echo &quot;   10.0.1.{$ip}: {$count} ({$percent}%)\n&quot;;
+}
+
+// 2. Weighted random
+echo &quot;\n2️⃣ Weighted Random Strategy:\n&quot;;
+$counts = [&#x27;11&#x27; =&gt; 0, &#x27;12&#x27; =&gt; 0, &#x27;13&#x27; =&gt; 0];
+$totalWeight = array_sum(array_column($instances, &#x27;weight&#x27;));
+
+for ($i = 0; $i &lt; $iterations; $i++) {
+    $random = mt_rand(1, $totalWeight);
+    $currentWeight = 0;
+
+    foreach ($instances as $instance) {
+        $currentWeight += $instance[&#x27;weight&#x27;];
+        if ($random &lt;= $currentWeight) {
+            $key = substr($instance[&#x27;ip&#x27;], -2);
+            $counts[$key]++;
+            break;
+        }
+    }
+}
+
+foreach ($counts as $ip =&gt; $count) {
+    $percent = round($count / $iterations * 100, 1);
+    echo &quot;   10.0.1.{$ip}: {$count} ({$percent}%)\n&quot;;
+}
+
+echo &quot;\n✅ Test complete!\n&quot;;</code></pre>
+
+<h2>执行预览</h2>
+
+<pre><code class="language-bash">$ php test-loadbalancer.php
+🧪 Load Balancer Strategy Test
+Iterations: 1000
+
+1️⃣ Random Strategy:
+   10.0.1.11: 328 (32.8%)
+   10.0.1.12: 342 (34.2%)
+   10.0.1.13: 330 (33.0%)
+
+2️⃣ Weighted Random Strategy:
+   10.0.1.11: 166 (16.6%)  ← weight=1 (1/6)
+   10.0.1.12: 332 (33.2%)  ← weight=2 (2/6)
+   10.0.1.13: 502 (50.2%)  ← weight=3 (3/6)
+
+✅ Test complete!</code></pre>
+
+<h2>注意事项</h2>
+
+<table><thead><tr>
+<th>约束</th>
+<th>说明</th>
+<th>违反后果</th>
+</tr></thead><tbody>
+<tr>
+<td>🔴 健康检查过滤</td>
+<td>只选择 healthy=true 的实例</td>
+<td>调用已下线/异常实例</td>
+</tr>
+<tr>
+<td>🟡 权重范围</td>
+<td>权重建议 1-10，避免过大</td>
+<td>权重过大导致分配不均</td>
+</tr>
+<tr>
+<td>🟢 实例缓存</td>
+<td>本地缓存实例列表，避免频繁请求 Nacos</td>
+<td>每次都查 Nacos，性能差</td>
+</tr>
+<tr>
+<td>🔴 超时重试</td>
+<td>重试要换实例，不能重试同一实例</td>
+<td>雪崩效应</td>
+</tr>
+<tr>
+<td>🟡 一致性哈希</td>
+<td>虚拟节点数影响分布均匀度</td>
+<td>虚拟节点太少导致倾斜</td>
+</tr>
+</tbody></table>
+
+<h2>避坑指南</h2>
+
+<table><thead><tr>
+<th>错误</th>
+<th>现象</th>
+<th>正确做法</th>
+</tr></thead><tbody>
+<tr>
+<td>未缓存实例</td>
+<td>每次请求都查 Nacos</td>
+<td>用本地缓存，定期刷新</td>
+</tr>
+<tr>
+<td>重试同一实例</td>
+<td>超时后继续重试同一 IP</td>
+<td>重试前随机选择新实例</td>
+</tr>
+<tr>
+<td>权重为 0</td>
+<td>实例永远不会被选中</td>
+<td>权重最小设为 1</td>
+</tr>
+<tr>
+<td>未过滤健康状态</td>
+<td>调用不健康的实例</td>
+<td>只选择 healthy=true</td>
+</tr>
+<tr>
+<td>一致性哈希无虚拟节点</td>
+<td>实例上下线导致大量路由变动</td>
+<td>设置 100-200 个虚拟节点</td>
+</tr>
+</tbody></table>
+
+<h2>练习题</h2>
+
+<h3>🟢 基础</h3>
+<ol>
+<li>实现一个简单的随机负载均衡器，从 3 个实例中选择一个。</li>
+</ul>
+<ol>
+<li>修改实例权重，验证加权随机策略的分布是否符合预期。</li>
+
+<h3>🟡 进阶</h3>
+<ol>
+<li>实现一个基于响应时间的自适应负载均衡：响应快的实例获得更高权重。</li>
+
+<h3>🔴 开放</h3>
+<ol>
+<li>设计一个方案：当某个实例错误率超过阈值时，暂时将其从负载均衡中摘除（熔断机制）。</li>
+
+<h2>知识点总结</h2>
+
+<pre><code>服务发现与负载均衡
+├── 服务发现
+│   ├── 从 Nacos 拉取实例列表
+│   ├── 本地缓存
+│   └── 定时刷新
+├── 负载均衡策略
+│   ├── 随机（Random）
+│   ├── 轮询（Round Robin）
+│   ├── 加权（Weighted）
+│   └── 一致性哈希（Consistent Hash）
+├── Hyperf 集成
+│   ├── config/autoload/services.php
+│   ├── LoadBalancerInterface
+│   └── 自定义策略实现
+└── 最佳实践
+    ├── 健康检查过滤
+    ├── 实例缓存
+    ├── 换实例重试
+    └── 合理设置权重</code></pre>
+
+<h2>举一反三</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>适配方式</th>
+<th>关键差异</th>
+</tr></thead><tbody>
+<tr>
+<td>会话保持</td>
+<td>使用一致性哈希或基于 IP 路由</td>
+<td>确保同一用户访问同一实例</td>
+</tr>
+<tr>
+<td>地域优化</td>
+<td>优先选择同地域实例</td>
+<td>减少跨地域延迟</td>
+</tr>
+<tr>
+<td>灰度发布</td>
+<td>按用户 ID 或权重分配到不同版本</td>
+<td>实现金丝雀发布</td>
+</tr>
+</tbody></table>
+
+<h2>参考资料</h2>
+
+<ul>
+<li>⭐⭐⭐ <a href="https://hyperf.wiki/3.1/#/zh-cn/service-governance">Hyperf 服务治理文档</a></li>
+<li>⭐⭐ <a href="https://nacos.io/zh-cn/docs/cluster-mode-quick-start.html">Nacos 负载均衡配置</a></li>
+<li>⭐⭐ <a href="https://en.wikipedia.org/wiki/Consistent_hashing">一致性哈希算法</a></li>
+
+<h2>代码演进</h2>
+
+<h3>v1 ❌ 硬编码 IP</h3>
+
+<pre><code class="language-php">// ❌ Hardcoded IP — no service discovery
+$url = &#x27;http://10.0.1.11:9501/api/users/123&#x27;;
+$response = $client-&gt;get($url);</code></pre>
+
+<h3>v2 ✅ 简单服务发现</h3>
+
+<pre><code class="language-php">// ✅ Service discovery with random selection
+$instances = $this-&gt;driver-&gt;getNodes(&#x27;user-service&#x27;);
+$selected = $instances[array_rand($instances)];
+$url = &quot;http://{$selected-&gt;host}:{$selected-&gt;port}/api/users/123&quot;;</code></pre>
+
+<h3>v3 🟢 完整负载均衡 + 重试 + 熔断</h3>
+
+<pre><code class="language-php">// 🟢 Full load balancer with retry and circuit breaker
+for ($attempt = 1; $attempt &lt;= 3; $attempt++) {
+    try {
+        $selected = $this-&gt;loadBalancer-&gt;select([&#x27;hash_key&#x27; =&gt; (string) $userId]);
+        $response = $this-&gt;client-&gt;get(&quot;http://{$selected-&gt;host}:{$selected-&gt;port}/...&quot;);
+        return $response;
+    } catch (\Throwable $e) {
+        $this-&gt;circuitBreaker-&gt;recordFailure($selected);
+        continue;
+    }
+}</code></pre>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>022 - 模板引用ref</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Vue.js/index.html">Vue.js</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Vue.js/01-入门到实战/index.html">Vue.js入门到实战</a>
+</nav>
+<h1>022 - 模板引用ref</h1>
+<div class="meta">
+<span>📂 Vue.js入门到实战</span>
+<span>🏷️ Vue.js</span>
+</div>
+<article>
+
+
+<h2>难度标注</h2>
+
+<blockquote><p>🟢 <strong>初级</strong> — Vue 3 基础即可</p></blockquote>
+
+<h2>概念讲解</h2>
+
+<h3>什么是模板引用？</h3>
+
+<p>模板引用（Template Ref）是 Vue 中<strong>直接访问 DOM 元素或子组件实例</strong>的方式。通过 <code>ref</code> attribute 和 <code>ref()</code> 函数配合使用。</p>
+
+<h3>何时使用？</h3>
+
+<ul>
+<li>需要直接操作 DOM（聚焦、滚动、测量尺寸）</li>
+<li>需要调用子组件的方法</li>
+<li>使用第三方 DOM 库（图表、地图等）</li>
+<li>v-for 场景获取元素列表</li>
+
+<h3>核心规则</h3>
+
+<blockquote><p>模板引用是<strong>逃生舱</strong>，优先使用声明式的 Vue 方式（v-bind、v-on），只在必要时使用 ref。</p></blockquote>
+
+<h2>脑图</h2>
+
+<pre><code>模板引用 ref
+├── DOM 引用
+│   ├── &lt;input ref=&quot;inputRef&quot;&gt;
+│   └── const inputRef = ref(null)
+├── 组件引用
+│   ├── &lt;Child ref=&quot;childRef&quot;&gt;
+│   └── childRef.value.childMethod()
+├── v-for 中的 ref
+│   ├── &lt;div v-for ref=&quot;itemRefs&quot;&gt;
+│   └── itemRefs.value = [] (自动填充)
+├── 函数 ref
+│   ├── &lt;div :ref=&quot;el =&gt; node = el&quot;&gt;
+│   └── 动态绑定
+└── 注意事项
+    ├── onMounted 后才能访问
+    ├── defineExpose 暴露组件方法
+    └── v-if 导致 ref 为 null</code></pre>
+
+<h2>完整代码</h2>
+
+<pre><code class="language-vue">&lt;!-- components/TemplateRefDemo.vue — Basic DOM ref --&gt;
+&lt;script setup&gt;
+import { ref, onMounted } from &#x27;vue&#x27;
+
+// Declare a ref to hold the DOM element
+const inputRef = ref(null)
+
+onMounted(() =&gt; {
+  // Auto-focus the input after mount
+  inputRef.value?.focus()
+})
+
+function clearInput() {
+  inputRef.value.value = &#x27;&#x27;
+  inputRef.value.focus()
+}
+&lt;/script&gt;
+
+&lt;template&gt;
+  &lt;div&gt;
+    &lt;input ref=&quot;inputRef&quot; placeholder=&quot;Auto-focused on mount&quot; /&gt;
+    &lt;button @click=&quot;clearInput&quot;&gt;Clear&lt;/button&gt;
+  &lt;/div&gt;
+&lt;/template&gt;</code></pre>
+
+<pre><code class="language-vue">&lt;!-- components/MeasureBox.vue — Measuring DOM dimensions --&gt;
+&lt;script setup&gt;
+import { ref, onMounted } from &#x27;vue&#x27;
+
+const boxRef = ref(null)
+const dimensions = ref({ width: 0, height: 0 })
+
+onMounted(() =&gt; {
+  updateDimensions()
+  // Observe size changes
+  const observer = new ResizeObserver(() =&gt; updateDimensions())
+  observer.observe(boxRef.value)
+})
+
+function updateDimensions() {
+  if (boxRef.value) {
+    const rect = boxRef.value.getBoundingClientRect()
+    dimensions.value = {
+      width: Math.round(rect.width),
+      height: Math.round(rect.height)
+    }
+  }
+}
+&lt;/script&gt;
+
+&lt;template&gt;
+  &lt;div
+    ref=&quot;boxRef&quot;
+    class=&quot;resize-box&quot;
+    :style=&quot;{ width: &#x27;50%&#x27;, minHeight: &#x27;100px&#x27; }&quot;
+  &gt;
+    &lt;p&gt;Width: {{ dimensions.width }}px&lt;/p&gt;
+    &lt;p&gt;Height: {{ dimensions.height }}px&lt;/p&gt;
+    &lt;p&gt;Try resizing the window!&lt;/p&gt;
+  &lt;/div&gt;
+&lt;/template&gt;
+
+&lt;style scoped&gt;
+.resize-box {
+  border: 2px dashed #42b883;
+  padding: 20px;
+  resize: both;
+  overflow: auto;
+}
+&lt;/style&gt;</code></pre>
+
+<pre><code class="language-vue">&lt;!-- components/ChildWithExpose.vue — Component ref with defineExpose --&gt;
+&lt;script setup&gt;
+import { ref } from &#x27;vue&#x27;
+
+const count = ref(0)
+
+// Internal state — not exposed by default
+const secret = ref(&#x27;hidden&#x27;)
+
+// Expose specific methods and state to parent
+defineExpose({
+  count,
+  increment() { count.value++ },
+  reset() { count.value = 0 }
+})
+&lt;/script&gt;
+
+&lt;template&gt;
+  &lt;div&gt;Child Count: {{ count }}&lt;/div&gt;
+&lt;/template&gt;</code></pre>
+
+<pre><code class="language-vue">&lt;!-- components/ParentComponent.vue — Using child component ref --&gt;
+&lt;script setup&gt;
+import { ref } from &#x27;vue&#x27;
+import ChildWithExpose from &#x27;./ChildWithExpose.vue&#x27;
+
+const childRef = ref(null)
+
+function callChildMethod() {
+  // Access exposed child methods
+  childRef.value?.increment()
+}
+
+function resetChild() {
+  childRef.value?.reset()
+}
+&lt;/script&gt;
+
+&lt;template&gt;
+  &lt;div&gt;
+    &lt;ChildWithExpose ref=&quot;childRef&quot; /&gt;
+    &lt;button @click=&quot;callChildMethod&quot;&gt;Call Child.increment()&lt;/button&gt;
+    &lt;button @click=&quot;resetChild&quot;&gt;Reset Child&lt;/button&gt;
+  &lt;/div&gt;
+&lt;/template&gt;</code></pre>
+
+<pre><code class="language-vue">&lt;!-- components/VForRefs.vue — Refs in v-for --&gt;
+&lt;script setup&gt;
+import { ref, onMounted } from &#x27;vue&#x27;
+
+const items = ref([&#x27;Apple&#x27;, &#x27;Banana&#x27;, &#x27;Cherry&#x27;])
+const itemRefs = ref([])
+
+// itemRefs is automatically populated after render
+onMounted(() =&gt; {
+  console.log(&#x27;All items:&#x27;, itemRefs.value)
+  // Scroll to the second item
+  itemRefs.value[1]?.scrollIntoView({ behavior: &#x27;smooth&#x27; })
+})
+
+function scrollToItem(index) {
+  itemRefs.value[index]?.scrollIntoView({ behavior: &#x27;smooth&#x27; })
+}
+&lt;/script&gt;
+
+&lt;template&gt;
+  &lt;div class=&quot;list-container&quot;&gt;
+    &lt;div
+      v-for=&quot;(item, index) in items&quot;
+      :key=&quot;item&quot;
+      :ref=&quot;el =&gt; { if (el) itemRefs[index] = el }&quot;
+      class=&quot;list-item&quot;
+    &gt;
+      {{ item }}
+      &lt;button @click=&quot;scrollToItem(index)&quot;&gt;Scroll here&lt;/button&gt;
+    &lt;/div&gt;
+  &lt;/div&gt;
+&lt;/template&gt;
+
+&lt;style scoped&gt;
+.list-container { height: 200px; overflow-y: auto; }
+.list-item { padding: 40px; border: 1px solid #eee; }
+&lt;/style&gt;</code></pre>
+
+<h2>执行预览</h2>
+
+<pre><code>页面加载:
+  → inputRef.value.focus() 自动聚焦输入框
+  → MeasureBox 显示初始尺寸: 400x100
+
+用户调整窗口:
+  → ResizeObserver 触发
+  → dimensions 更新为新尺寸
+
+点击 &quot;Call Child.increment()&quot;:
+  → childRef.value.increment() 调用子组件方法
+  → 子组件 count: 0 → 1
+
+v-for refs:
+  → itemRefs = [div, div, div]
+  → scrollToItem(1) 平滑滚动到 Banana</code></pre>
+
+<h2>注意事项</h2>
+
+<table><thead><tr>
+<th>注意点</th>
+<th>说明</th>
+</tr></thead><tbody>
+<tr>
+<td>初始值 null</td>
+<td>ref 挂载前为 null，使用可选链 <code>?.</code></td>
+</tr>
+<tr>
+<td>onMounted 访问</td>
+<td>DOM ref 只在 onMounted 后可用</td>
+</tr>
+<tr>
+<td>defineExpose</td>
+<td><code><script setup></code> 组件默认不暴露任何内容，需显式 defineExpose</td>
+</tr>
+<tr>
+<td>v-if 影响</td>
+<td>v-if 为 false 时 ref 为 null，注意空值判断</td>
+</tr>
+<tr>
+<td>函数 ref 更安全</td>
+<td>v-for 中推荐使用函数 ref <code>:ref="el => ..."</code></td>
+</tr>
+<tr>
+<td>不滥用</td>
+<td>优先用 v-model、emit 等声明式方式，ref 是逃生舱</td>
+</tr>
+</tbody></table>
+
+<h2>避坑指南</h2>
+
+<table><thead><tr>
+<th>❌ 错误做法</th>
+<th>✅ 正确做法</th>
+</tr></thead><tbody>
+<tr>
+<td><code>const el = ref(null); console.log(el.value)</code> 在 setup 中</td>
+<td>在 onMounted 中访问</td>
+</tr>
+<tr>
+<td>直接访问子组件私有状态</td>
+<td>使用 defineExpose 暴露公共接口</td>
+</tr>
+<tr>
+<td>v-for 中 <code>ref="items"</code> 期望数组</td>
+<td>使用函数 ref <code>:ref="el => list[i] = el"</code></td>
+</tr>
+<tr>
+<td>不检查 null 直接 <code>.focus()</code></td>
+<td>用可选链 <code>inputRef.value?.focus()</code></td>
+</tr>
+<tr>
+<td>用 ref 替代 v-model</td>
+<td>能用 v-model 就不用 ref 操作 DOM</td>
+</tr>
+</tbody></table>
+
+<h2>练习题</h2>
+
+<h3>🟢 基础</h3>
+<ol>
+<li>创建一个自动聚焦的 input 组件</li>
+</ul>
+<ol>
+<li>创建一个子组件，通过 ref 从父组件调用其方法</li>
+
+<h3>🟡 进阶</h3>
+<ol>
+<li>实现一个 useElementSize composable，自动获取元素尺寸并响应窗口变化</li>
+</ul>
+<ol>
+<li>在 v-for 列表中实现"滚动到指定项"功能</li>
+
+<h3>🔴 挑战</h3>
+<ol>
+<li>实现一个点击外部关闭的下拉菜单组件，使用 ref 获取容器元素判断点击是否在外部</li>
+
+<h2>知识点总结</h2>
+
+<pre><code>模板引用
+├── DOM ref
+│   ├── &lt;input ref=&quot;el&quot;&gt;
+│   ├── const el = ref(null)
+│   └── onMounted → el.value 可用
+├── 组件 ref
+│   ├── &lt;Child ref=&quot;child&quot;&gt;
+│   ├── defineExpose({ method })
+│   └── child.value.method()
+├── v-for ref
+│   ├── :ref=&quot;el =&gt; list[i] = el&quot;
+│   └── 函数 ref 模式
+└── 原则
+    ├── 声明式优先
+    ├── ref 是逃生舱
+    └── 必须检查 null</code></pre>
+
+<h2>举一反三</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>ref 类型</th>
+<th>关键点</th>
+</tr></thead><tbody>
+<tr>
+<td>自动聚焦输入框</td>
+<td>DOM ref</td>
+<td>onMounted + focus()</td>
+</tr>
+<tr>
+<td>调用子组件方法</td>
+<td>组件 ref</td>
+<td>defineExpose</td>
+</tr>
+<tr>
+<td>图表初始化</td>
+<td>DOM ref</td>
+<td>new Chart(el)</td>
+</tr>
+<tr>
+<td>测量元素尺寸</td>
+<td>DOM ref</td>
+<td>getBoundingClientRect()</td>
+</tr>
+<tr>
+<td>列表滚动定位</td>
+<td>v-for ref</td>
+<td>scrollIntoView()</td>
+</tr>
+<tr>
+<td>点击外部关闭</td>
+<td>DOM ref</td>
+<td>contains(event.target)</td>
+</tr>
+</tbody></table>
+
+<h2>参考资料</h2>
+
+<ul>
+<li><a href="https://vuejs.org/guide/essentials/template-refs.html">Vue 3 官方文档 - Template Refs</a></li>
+<li><a href="https://vuejs.org/api/sfc-macros.html#defineexpose">Vue 3 API - defineExpose</a></li>
+
+<h2>代码演进</h2>
+
+<h3>v1 — 基础 DOM ref</h3>
+<pre><code class="language-vue">&lt;input ref=&quot;input&quot; /&gt;
+&lt;script setup&gt;const input = ref(null)&lt;/script&gt;</code></pre>
+
+<h3>v2 — 组件 ref + defineExpose</h3>
+<pre><code class="language-vue">&lt;Child ref=&quot;child&quot; /&gt;
+&lt;script setup&gt;
+  // Child: defineExpose({ method })
+  // Parent: child.value.method()
+&lt;/script&gt;</code></pre>
+
+<h3>v3 — 完整方案（本文代码）</h3>
+<ul>
+<li>函数 ref</li>
+<li>ResizeObserver</li>
+<li>v-for ref</li>
+<li>composable 模式</li>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

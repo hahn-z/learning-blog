@@ -1,0 +1,659 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>004 - Swoole实战教程004：UDP服务器</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Swoole/index.html">Swoole</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Swoole/01-从入门到精通/index.html">Swoole从入门到精通</a>
+</nav>
+<h1>004 - Swoole实战教程004：UDP服务器</h1>
+<div class="meta">
+<span>📂 Swoole从入门到精通</span>
+<span>🏷️ Swoole</span>
+</div>
+<article>
+
+
+<h1>Swoole实战教程004：UDP服务器</h1>
+
+<blockquote><p><strong>难度标注：</strong> 🟡 中级 | 预计学习时间：40分钟</p></blockquote>
+
+<h2>一、概念讲解</h2>
+
+<h3>UDP vs TCP</h3>
+
+<p>UDP（User Datagram Protocol）是面向无连接的传输层协议：</p>
+
+<table><thead><tr>
+<th>对比维度</th>
+<th>TCP</th>
+<th>UDP</th>
+</tr></thead><tbody>
+<tr>
+<td>连接</td>
+<td>面向连接（三次握手）</td>
+<td>无连接</td>
+</tr>
+<tr>
+<td>可靠性</td>
+<td>可靠传输</td>
+<td>不保证送达</td>
+</tr>
+<tr>
+<td>顺序</td>
+<td>保证顺序</td>
+<td>不保证</td>
+</tr>
+<tr>
+<td>速度</td>
+<td>较慢（握手/确认）</td>
+<td>快速</td>
+</tr>
+<tr>
+<td>头部</td>
+<td>20字节</td>
+<td>8字节</td>
+</tr>
+<tr>
+<td>适用</td>
+<td>文件传输、Web</td>
+<td>DNS、视频流、游戏</td>
+</tr>
+</tbody></table>
+
+<h3>UDP适用场景</h3>
+
+<ul>
+<li><strong>DNS服务</strong>：查询快、无状态</li>
+<li><strong>日志采集</strong>：允许少量丢失，追求吞吐</li>
+<li><strong>实时监控</strong>：指标上报，不需要确认</li>
+<li><strong>音视频流</strong>：实时性 > 可靠性</li>
+<li><strong>游戏同步</strong>：位置更新，允许丢帧</li>
+<li><strong>服务发现</strong>：广播/多播通知</li>
+
+<h3>Swoole UDP Server特点</h3>
+
+<ul>
+<li>事件：<code>onPacket</code>（而非onReceive）</li>
+<li>每个数据包独立，无连接概念</li>
+<li>使用<code>sendto()</code>发送（而非send）</li>
+<li>不需要心跳机制（无连接）</li>
+<li>可以和TCP Server共享同一个Swoole\Server实例</li>
+
+<h2>二、脑图</h2>
+
+<pre><code>UDP服务器
+├── 核心概念
+│   ├── 无连接 (connectionless)
+│   ├── 不可靠 (unreliable)
+│   └── 数据报 (datagram)
+├── Swoole实现
+│   ├── SWOOLE_UDP 模式
+│   ├── onPacket 事件
+│   ├── sendto() 方法
+│   └── 多端口监听 (TCP+UDP)
+├── 典型应用
+│   ├── DNS服务模拟
+│   ├── 日志采集 Agent
+│   ├── 监控指标上报
+│   └── 广播/多播
+└── 注意事项
+    ├── 包大小限制 (64KB)
+    ├── 不保证送达
+    └── MTU分片问题</code></pre>
+
+<h2>三、完整代码</h2>
+
+<h3>基础UDP服务器</h3>
+
+<pre><code class="language-php">&lt;?php
+// udp_server.php - Basic UDP echo server
+
+$server = new Swoole\Server(&#x27;0.0.0.0&#x27;, 9502, SWOOLE_PROCESS, SWOOLE_UDP);
+
+$server-&gt;set([
+    &#x27;worker_num&#x27; =&gt; 2,
+    &#x27;log_file&#x27;   =&gt; &#x27;/tmp/udp_server.log&#x27;,
+]);
+
+// UDP uses onPacket event, not onReceive
+$server-&gt;on(&#x27;packet&#x27;, function (Swoole\Server $server, string $data, array $clientInfo) {
+    $addr = $clientInfo[&#x27;address&#x27;];
+    $port = $clientInfo[&#x27;port&#x27;];
+    $msg  = trim($data);
+
+    echo &quot;[Packet] From {$addr}:{$port} → {$msg}\n&quot;;
+
+    // Echo back
+    $server-&gt;sendto($addr, $port, &quot;UDP Echo: {$msg}\n&quot;);
+});
+
+$server-&gt;start();</code></pre>
+
+<h3>完整监控指标服务</h3>
+
+<pre><code class="language-php">&lt;?php
+// metrics_server.php - UDP metrics collection server
+
+class MetricsServer
+{
+    private Swoole\Server $server;
+    private Swoole\Table $metrics;
+
+    // Supported metric types
+    private const TYPE_COUNTER = &#x27;counter&#x27;;
+    private const TYPE_GAUGE   = &#x27;gauge&#x27;;
+    private const TYPE_HISTOGRAM = &#x27;histogram&#x27;;
+
+    public function __construct()
+    {
+        // Shared metrics storage
+        $this-&gt;metrics = new Swoole\Table(1024);
+        $this-&gt;metrics-&gt;column(&#x27;name&#x27;, Swoole\Table::TYPE_STRING, 64);
+        $this-&gt;metrics-&gt;column(&#x27;type&#x27;, Swoole\Table::TYPE_STRING, 16);
+        $this-&gt;metrics-&gt;column(&#x27;value&#x27;, Swoole\Table::TYPE_FLOAT);
+        $this-&gt;metrics-&gt;column(&#x27;count&#x27;, Swoole\Table::TYPE_INT);
+        $this-&gt;metrics-&gt;column(&#x27;updated&#x27;, Swoole\Table::TYPE_INT);
+        $this-&gt;metrics-&gt;create();
+
+        // Create TCP+UDP hybrid server
+        $this-&gt;server = new Swoole\Server(&#x27;0.0.0.0&#x27;, 9502, SWOOLE_PROCESS, SWOOLE_UDP);
+        $this-&gt;server-&gt;set([
+            &#x27;worker_num&#x27; =&gt; 2,
+            &#x27;log_file&#x27;   =&gt; &#x27;/tmp/metrics_server.log&#x27;,
+        ]);
+
+        $this-&gt;registerEvents();
+    }
+
+    private function registerEvents(): void
+    {
+        $this-&gt;server-&gt;on(&#x27;packet&#x27;, [$this, &#x27;onPacket&#x27;]);
+
+        // Add a TCP port for querying metrics
+        $tcpPort = $this-&gt;server-&gt;listen(&#x27;0.0.0.0&#x27;, 9503, SWOOLE_TCP);
+        $tcpPort-&gt;set([
+            &#x27;open_eof_check&#x27; =&gt; true,
+            &#x27;package_eof&#x27;    =&gt; &quot;\n&quot;,
+        ]);
+        $tcpPort-&gt;on(&#x27;receive&#x27;, [$this, &#x27;onTcpReceive&#x27;]);
+    }
+
+    public function onPacket(Swoole\Server $server, string $data, array $clientInfo): void
+    {
+        $payload = json_decode(trim($data), true);
+
+        if (!$payload || !isset($payload[&#x27;name&#x27;])) {
+            $server-&gt;sendto(
+                $clientInfo[&#x27;address&#x27;],
+                $clientInfo[&#x27;port&#x27;],
+                json_encode([&#x27;error&#x27; =&gt; &#x27;Invalid payload&#x27;])
+            );
+            return;
+        }
+
+        $name  = $payload[&#x27;name&#x27;];
+        $type  = $payload[&#x27;type&#x27;] ?? self::TYPE_COUNTER;
+        $value = (float)($payload[&#x27;value&#x27;] ?? 1);
+
+        $this-&gt;updateMetric($name, $type, $value);
+
+        // Optional acknowledgment
+        if (!empty($payload[&#x27;ack&#x27;])) {
+            $server-&gt;sendto(
+                $clientInfo[&#x27;address&#x27;],
+                $clientInfo[&#x27;port&#x27;],
+                json_encode([&#x27;status&#x27; =&gt; &#x27;ok&#x27;, &#x27;name&#x27; =&gt; $name])
+            );
+        }
+    }
+
+    public function onTcpReceive(Swoole\Server $server, int $fd, int $rid, string $data): void
+    {
+        $cmd = trim($data);
+
+        switch ($cmd) {
+            case &#x27;all&#x27;:
+                $result = [];
+                foreach ($this-&gt;metrics as $row) {
+                    $result[] = $row;
+                }
+                $server-&gt;send($fd, json_encode($result, JSON_PRETTY_PRINT) . &quot;\n&quot;);
+                break;
+
+            case &#x27;count&#x27;:
+                $server-&gt;send($fd, json_encode([&#x27;count&#x27; =&gt; $this-&gt;metrics-&gt;count()]) . &quot;\n&quot;);
+                break;
+
+            default:
+                // Query specific metric: &quot;get:metric_name&quot;
+                if (str_starts_with($cmd, &#x27;get:&#x27;)) {
+                    $name = substr($cmd, 4);
+                    $row = $this-&gt;metrics-&gt;get($name);
+                    $server-&gt;send($fd, json_encode($row ?: [&#x27;error&#x27; =&gt; &#x27;Not found&#x27;]) . &quot;\n&quot;);
+                } else {
+                    $server-&gt;send($fd, &quot;Commands: all, count, get:&lt;name&gt;\n&quot;);
+                }
+                break;
+        }
+    }
+
+    private function updateMetric(string $name, string $type, float $value): void
+    {
+        $existing = $this-&gt;metrics-&gt;get($name);
+
+        if ($existing) {
+            $newValue = match ($type) {
+                self::TYPE_COUNTER =&gt; $existing[&#x27;value&#x27;] + $value,
+                self::TYPE_GAUGE   =&gt; $value,
+                self::TYPE_HISTOGRAM =&gt; $existing[&#x27;value&#x27;] + $value,
+                default =&gt; $existing[&#x27;value&#x27;] + $value,
+            };
+            $this-&gt;metrics-&gt;set($name, [
+                &#x27;value&#x27;   =&gt; $newValue,
+                &#x27;count&#x27;   =&gt; $existing[&#x27;count&#x27;] + 1,
+                &#x27;updated&#x27; =&gt; time(),
+            ]);
+        } else {
+            $this-&gt;metrics-&gt;set($name, [
+                &#x27;name&#x27;    =&gt; $name,
+                &#x27;type&#x27;    =&gt; $type,
+                &#x27;value&#x27;   =&gt; $value,
+                &#x27;count&#x27;   =&gt; 1,
+                &#x27;updated&#x27; =&gt; time(),
+            ]);
+        }
+    }
+
+    public function start(): void
+    {
+        echo &quot;Metrics UDP server on :9502, TCP query on :9503\n&quot;;
+        $this-&gt;server-&gt;start();
+    }
+}
+
+$server = new MetricsServer();
+$server-&gt;start();</code></pre>
+
+<h3>UDP指标上报Client</h3>
+
+<pre><code class="language-php">&lt;?php
+// metrics_client.php - UDP metrics reporting client
+
+Swoole\Coroutine\run(function () {
+    // Create UDP client
+    $client = new Swoole\Coroutine\Client(SWOOLE_SOCK_UDP);
+    $client-&gt;connect(&#x27;127.0.0.1&#x27;, 9502, 5);
+
+    // Report various metrics
+    $metrics = [
+        [&#x27;name&#x27; =&gt; &#x27;api.requests&#x27;, &#x27;type&#x27; =&gt; &#x27;counter&#x27;, &#x27;value&#x27; =&gt; 1, &#x27;ack&#x27; =&gt; true],
+        [&#x27;name&#x27; =&gt; &#x27;api.latency_ms&#x27;, &#x27;type&#x27; =&gt; &#x27;gauge&#x27;, &#x27;value&#x27; =&gt; 42.5],
+        [&#x27;name&#x27; =&gt; &#x27;api.errors&#x27;, &#x27;type&#x27; =&gt; &#x27;counter&#x27;, &#x27;value&#x27; =&gt; 1],
+        [&#x27;name&#x27; =&gt; &#x27;cpu.usage&#x27;, &#x27;type&#x27; =&gt; &#x27;gauge&#x27;, &#x27;value&#x27; =&gt; 65.3],
+        [&#x27;name&#x27; =&gt; &#x27;memory.mb&#x27;, &#x27;type&#x27; =&gt; &#x27;gauge&#x27;, &#x27;value&#x27; =&gt; 512],
+    ];
+
+    foreach ($metrics as $metric) {
+        $payload = json_encode($metric);
+        $client-&gt;send($payload);
+        echo &quot;Sent: {$metric[&#x27;name&#x27;]} = {$metric[&#x27;value&#x27;]}\n&quot;;
+
+        // Wait for ack if requested
+        if (!empty($metric[&#x27;ack&#x27;])) {
+            $resp = $client-&gt;recv(2);
+            if ($resp) echo &quot;  Ack: &quot; . trim($resp) . &quot;\n&quot;;
+        }
+
+        Swoole\Coroutine\System::sleep(0.1);
+    }
+
+    $client-&gt;close();
+    echo &quot;\nAll metrics sent!\n&quot;;
+});</code></pre>
+
+<h3>DNS服务模拟</h3>
+
+<pre><code class="language-php">&lt;?php
+// dns_simulator.php - Simple DNS-like UDP service
+
+$server = new Swoole\Server(&#x27;0.0.0.0&#x27;, 9504, SWOOLE_PROCESS, SWOOLE_UDP);
+
+// Simulated DNS records
+$records = [
+    &#x27;example.com&#x27;  =&gt; [&#x27;A&#x27; =&gt; &#x27;93.184.216.34&#x27;, &#x27;TTL&#x27; =&gt; 300],
+    &#x27;google.com&#x27;   =&gt; [&#x27;A&#x27; =&gt; &#x27;142.250.80.46&#x27;, &#x27;TTL&#x27; =&gt; 300],
+    &#x27;localhost&#x27;    =&gt; [&#x27;A&#x27; =&gt; &#x27;127.0.0.1&#x27;, &#x27;TTL&#x27; =&gt; 60],
+    &#x27;test.local&#x27;   =&gt; [&#x27;A&#x27; =&gt; &#x27;192.168.1.100&#x27;, &#x27;TTL&#x27; =&gt; 60],
+];
+
+$server-&gt;on(&#x27;packet&#x27;, function ($server, $data, $clientInfo) use ($records) {
+    $query = trim($data);
+    echo &quot;[DNS Query] {$query} from {$clientInfo[&#x27;address&#x27;]}:{$clientInfo[&#x27;port&#x27;]}\n&quot;;
+
+    // Parse query: &quot;example.com A&quot; or just &quot;example.com&quot;
+    $parts = explode(&#x27; &#x27;, $query);
+    $domain = strtolower($parts[0]);
+    $type   = $parts[1] ?? &#x27;A&#x27;;
+
+    if (isset($records[$domain])) {
+        $record = $records[$domain];
+        $response = json_encode([
+            &#x27;domain&#x27; =&gt; $domain,
+            &#x27;type&#x27;   =&gt; $type,
+            &#x27;ip&#x27;     =&gt; $record[&#x27;A&#x27;],
+            &#x27;ttl&#x27;    =&gt; $record[&#x27;TTL&#x27;],
+        ]);
+    } else {
+        $response = json_encode([
+            &#x27;domain&#x27; =&gt; $domain,
+            &#x27;error&#x27;  =&gt; &#x27;NXDOMAIN&#x27;,
+        ]);
+    }
+
+    $server-&gt;sendto($clientInfo[&#x27;address&#x27;], $clientInfo[&#x27;port&#x27;], $response);
+});
+
+$server-&gt;start();</code></pre>
+
+<h2>四、执行预览</h2>
+
+<p><strong>终端1：启动监控服务</strong></p>
+<pre><code class="language-bash">$ php metrics_server.php
+Metrics UDP server on :9502, TCP query on :9503</code></pre>
+
+<p><strong>终端2：上报指标</strong></p>
+<pre><code class="language-bash">$ php metrics_client.php
+Sent: api.requests = 1
+  Ack: {&quot;status&quot;:&quot;ok&quot;,&quot;name&quot;:&quot;api.requests&quot;}
+Sent: api.latency_ms = 42.5
+Sent: api.errors = 1
+Sent: cpu.usage = 65.3
+Sent: memory.mb = 512
+
+All metrics sent!</code></pre>
+
+<p><strong>终端3：查询指标</strong></p>
+<pre><code class="language-bash">$ echo &quot;all&quot; | nc 127.0.0.1 9503
+[
+    {&quot;name&quot;:&quot;api.requests&quot;,&quot;type&quot;:&quot;counter&quot;,&quot;value&quot;:1,&quot;count&quot;:1,&quot;updated&quot;:1745856000},
+    {&quot;name&quot;:&quot;api.latency_ms&quot;,&quot;type&quot;:&quot;gauge&quot;,&quot;value&quot;:42.5,&quot;count&quot;:1,&quot;updated&quot;:1745856000}
+]
+
+$ echo &quot;get:cpu.usage&quot; | nc 127.0.0.1 9503
+{&quot;name&quot;:&quot;cpu.usage&quot;,&quot;type&quot;:&quot;gauge&quot;,&quot;value&quot;:65.3,&quot;count&quot;:1,&quot;updated&quot;:1745856000}</code></pre>
+
+<h2>五、注意事项</h2>
+
+<table><thead><tr>
+<th>事项</th>
+<th>说明</th>
+<th>建议</th>
+</tr></thead><tbody>
+<tr>
+<td>包大小</td>
+<td>UDP最大64KB（实际建议<1400字节避免分片）</td>
+<td>超过MTU会分片，增加丢包率</td>
+</tr>
+<tr>
+<td>可靠性</td>
+<td>UDP不保证送达</td>
+<td>关键数据加ACK或用TCP</td>
+</tr>
+<tr>
+<td>顺序</td>
+<td>数据包可能乱序到达</td>
+<td>加序列号处理</td>
+</tr>
+<tr>
+<td>安全</td>
+<td>UDP易被伪造源地址</td>
+<td>生产环境加认证</td>
+</tr>
+<tr>
+<td>缓冲区</td>
+<td>系统UDP缓冲区有限</td>
+<td>调整net.core.rmem_max</td>
+</tr>
+<tr>
+<td>事件名</td>
+<td>UDP用onPacket，不是onReceive</td>
+<td>注意区分</td>
+</tr>
+</tbody></table>
+
+<h2>六、避坑指南</h2>
+
+<h3>❌ 坑1：用UDP发送大量数据</h3>
+<pre><code class="language-php">&lt;?php
+// ❌ Wrong: Large UDP packets will fragment and likely fail
+$data = str_repeat(&#x27;x&#x27;, 60000);
+$client-&gt;send($data); // Likely lost or truncated</code></pre>
+
+<pre><code class="language-php">&lt;?php
+// ✅ Correct: Keep UDP payloads under 1400 bytes (safe MTU)
+$maxPayload = 1400;
+$chunks = str_split($data, $maxPayload);
+foreach ($chunks as $i =&gt; $chunk) {
+    $packet = json_encode([&#x27;seq&#x27; =&gt; $i, &#x27;total&#x27; =&gt; count($chunks), &#x27;data&#x27; =&gt; $chunk]);
+    $client-&gt;send($packet);
+}</code></pre>
+
+<h3>❌ 坑2：用onReceive接收UDP数据</h3>
+<pre><code class="language-php">&lt;?php
+// ❌ Wrong: UDP server uses onPacket, not onReceive
+$server = new Swoole\Server(&#x27;0.0.0.0&#x27;, 9502, SWOOLE_PROCESS, SWOOLE_UDP);
+$server-&gt;on(&#x27;receive&#x27;, function (...) { }); // Never triggered!
+$server-&gt;start();</code></pre>
+
+<pre><code class="language-php">&lt;?php
+// ✅ Correct: Use onPacket for UDP
+$server-&gt;on(&#x27;packet&#x27;, function ($server, $data, $clientInfo) {
+    // $clientInfo contains &#x27;address&#x27; and &#x27;port&#x27;
+});</code></pre>
+
+<h3>❌ 坑3：UDP客户端不connect也能发，但recv需要connect</h3>
+<pre><code class="language-php">&lt;?php
+// ❌ Wrong: recv() without connect() will not work as expected
+$client = new Swoole\Coroutine\Client(SWOOLE_SOCK_UDP);
+$client-&gt;sendto(&#x27;127.0.0.1&#x27;, 9502, &#x27;hello&#x27;);
+$resp = $client-&gt;recv(); // May fail</code></pre>
+
+<pre><code class="language-php">&lt;?php
+// ✅ Correct: connect() first for bidirectional communication
+$client = new Swoole\Coroutine\Client(SWOOLE_SOCK_UDP);
+$client-&gt;connect(&#x27;127.0.0.1&#x27;, 9502, 5);
+$client-&gt;send(&#x27;hello&#x27;);
+$resp = $client-&gt;recv(2); // 2 second timeout</code></pre>
+
+<h2>七、练习题</h2>
+
+<h3>🟢 基础题</h3>
+<ol>
+<li>创建一个UDP Echo服务器，监听9502端口，将收到的消息原样返回</li>
+</ul>
+<ol>
+<li>编写一个UDP客户端，向服务器发送10条消息并接收回复</li>
+
+<h3>🟡 进阶题</h3>
+<ol>
+<li>实现一个简单的Syslog收集器：通过UDP接收日志，按级别（INFO/WARN/ERROR）分类存储</li>
+</ul>
+<ol>
+<li>实现一个心跳检测工具：客户端定时发UDP包，服务端统计丢包率</li>
+
+<h3>🔴 挑战题</h3>
+<ol>
+<li>实现一个简单的服务发现系统：服务启动时通过UDP广播注册，客户端通过UDP多播查询可用服务</li>
+
+<p><details></p>
+<p><summary>参考答案（基础题1）</summary></p>
+
+<pre><code class="language-php">&lt;?php
+$server = new Swoole\Server(&#x27;0.0.0.0&#x27;, 9502, SWOOLE_PROCESS, SWOOLE_UDP);
+$server-&gt;on(&#x27;packet&#x27;, function ($server, $data, $info) {
+    $server-&gt;sendto($info[&#x27;address&#x27;], $info[&#x27;port&#x27;], $data);
+});
+$server-&gt;start();</code></pre>
+<p></details></p>
+
+<h2>八、知识点总结</h2>
+
+<pre><code>UDP服务器知识树
+├── 核心概念
+│   ├── 无连接 → onPacket事件
+│   ├── sendto(addr, port, data)
+│   └── 无序/不可靠
+├── Swoole UDP
+│   ├── SWOOLE_UDP模式
+│   ├── 多端口 TCP+UDP
+│   └── Coroutine\Client(SWOOLE_SOCK_UDP)
+├── 典型应用
+│   ├── 监控指标上报 ★
+│   ├── 日志收集
+│   ├── DNS模拟
+│   └── 服务发现/广播
+└── 限制
+    ├── 64KB最大包
+    ├── MTU分片 (建议&lt;1400B)
+    └── 不保证送达</code></pre>
+
+<h2>九、举一反三</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>UDP适用性</th>
+<th>实现方式</th>
+</tr></thead><tbody>
+<tr>
+<td>监控指标</td>
+<td>★★★ 最佳</td>
+<td>fire-and-forget上报</td>
+</tr>
+<tr>
+<td>日志采集</td>
+<td>★★★ 最佳</td>
+<td>批量压缩后UDP发送</td>
+</tr>
+<tr>
+<td>DNS查询</td>
+<td>★★★ 标准</td>
+<td>UDP查询+响应</td>
+</tr>
+<tr>
+<td>文件传输</td>
+<td>★ 不适合</td>
+<td>用TCP</td>
+</tr>
+<tr>
+<td>实时游戏</td>
+<td>★★★ 常见</td>
+<td>位置同步用UDP，关键操作用TCP</td>
+</tr>
+<tr>
+<td>API服务</td>
+<td>★★ 需ACK</td>
+<td>UDP+应用层ACK</td>
+</tr>
+</tbody></table>
+
+<h2>十、参考资料</h2>
+
+<ul>
+<li><a href="https://wiki.swoole.com/#/server/udp">Swoole UDP Server文档</a></li>
+<li><a href="https://wiki.swoole.com/#/server/events?id=onpacket">Swoole onPacket事件</a></li>
+<li><a href="https://tools.ietf.org/html/rfc768">UDP协议RFC 768</a></li>
+<li><a href="https://access.redhat.com/documentation/en-us/red_hat_enterprise_linux/7/html/performance_tuning_guide/network-udp">Linux UDP性能调优</a></li>
+
+<h2>十一、代码演进</h2>
+
+<h3>v1：最简UDP Echo</h3>
+<pre><code class="language-php">&lt;?php
+// v1: Minimal UDP echo
+$server = new Swoole\Server(&#x27;0.0.0.0&#x27;, 9502, SWOOLE_PROCESS, SWOOLE_UDP);
+$server-&gt;on(&#x27;packet&#x27;, function ($server, $data, $info) {
+    $server-&gt;sendto($info[&#x27;address&#x27;], $info[&#x27;port&#x27;], $data);
+});
+$server-&gt;start();</code></pre>
+
+<h3>v2：带JSON解析的UDP服务</h3>
+<pre><code class="language-php">&lt;?php
+// v2: JSON-based UDP service
+$server = new Swoole\Server(&#x27;0.0.0.0&#x27;, 9502, SWOOLE_PROCESS, SWOOLE_UDP);
+$server-&gt;on(&#x27;packet&#x27;, function ($server, $data, $info) {
+    $payload = json_decode(trim($data), true);
+    if (!$payload) {
+        $server-&gt;sendto($info[&#x27;address&#x27;], $info[&#x27;port&#x27;], &#x27;{&quot;error&quot;:&quot;invalid JSON&quot;}&#x27;);
+        return;
+    }
+    $response = json_encode([&#x27;echo&#x27; =&gt; $payload, &#x27;ts&#x27; =&gt; time()]);
+    $server-&gt;sendto($info[&#x27;address&#x27;], $info[&#x27;port&#x27;], $response);
+});
+$server-&gt;start();</code></pre>
+
+<h3>v3：完整监控服务（TCP查询+UDP上报+指标存储）</h3>
+<p>见上方「完整监控指标服务」代码。</p>
+
+<hr>
+
+<p><strong>下期预告：</strong> 005-HTTP服务器，将讲解Swoole HTTP Server的开发、路由设计、性能优化等核心内容。</p>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

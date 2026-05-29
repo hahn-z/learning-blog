@@ -1,0 +1,452 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>016 - 切片进阶：容量与底层原理</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/learning-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/learning-blog/Golang/index.html">Golang</a>
+<span class="sep">›</span>
+<a href="/learning-blog/Golang/01-入门/index.html">Golang入门</a>
+</nav>
+<h1>016 - 切片进阶：容量与底层原理</h1>
+<div class="meta">
+<span>📂 Golang入门</span>
+<span>🏷️ Golang</span>
+</div>
+<article>
+
+
+<h1>016-切片进阶：容量与底层原理</h1>
+
+<blockquote><p><strong>难度：⭐⭐⭐</strong> | 适合已掌握基础切片用法，想深入理解底层机制的开发者</p></blockquote>
+
+<h2>一、概念讲解</h2>
+
+<p>Go 的切片（slice）是对底层数组的一层封装，它本身是一个<strong>轻量级的数据结构</strong>，包含三个字段：</p>
+
+<ul>
+<li><strong>指针（pointer）</strong>：指向底层数组的起始地址</li>
+<li><strong>长度（len）</strong>：当前切片中元素的个数</li>
+<li><strong>容量（cap）</strong>：从切片起始位置到底层数组末尾的元素总数</li>
+
+<pre><code>slice header {
+    pointer: *array  →  [x x x x x x x x x x]
+    len:     3          ^--- 切片可见范围 ---^
+    cap:     7          ^------ 容量范围 --------^
+}</code></pre>
+
+<p>理解 len 和 cap 的关系是掌握切片的关键。<code>len <= cap</code> 永远成立，切片只能在容量范围内通过 <code>s[i]</code> 访问元素。</p>
+
+<h2>二、脑图（ASCII）</h2>
+
+<pre><code>                    切片进阶
+                       │
+       ┌───────────────┼───────────────┐
+       │               │               │
+   底层结构          扩容机制         实战技巧
+       │               │               │
+   ┌───┼───┐      ┌────┼────┐     ┌────┼────┐
+   │   │   │      │    │    │     │    │    │
+  ptr len cap  1.18前 1.18后 内存  删除 插入 去重
+              2倍扩  1.25x  泄漏  元素 元素 
+                           优化</code></pre>
+
+<h2>三、完整 Go 代码</h2>
+
+<pre><code class="language-go">package main
+
+import &quot;fmt&quot;
+
+// DemoSliceStruct shows the internal structure of a slice
+func DemoSliceStruct() {
+	// Create a slice with make: len=3, cap=5
+	s := make([]int, 3, 5)
+	fmt.Printf(&quot;slice: %v, len: %d, cap: %d\n&quot;, s, len(s), cap(s))
+
+	// Append beyond capacity triggers reallocation
+	s = append(s, 1, 2, 3)
+	fmt.Printf(&quot;after append: %v, len: %d, cap: %d\n&quot;, s, len(s), cap(s))
+}
+
+// DemoGrowthPolicy demonstrates slice growth behavior
+func DemoGrowthPolicy() {
+	var s []int
+	prevCap := 0
+	for i := 0; i &lt; 1000; i++ {
+		s = append(s, i)
+		if cap(s) != prevCap {
+			fmt.Printf(&quot;len=%4d  old_cap=%4d  new_cap=%4d\n&quot;, len(s), prevCap, cap(s))
+			prevCap = cap(s)
+		}
+	}
+}
+
+// DemoMemoryLeak shows the classic memory leak with large array slicing
+func DemoMemoryLeak() {
+	// Simulate a large data source
+	bigData := make([]byte, 1&lt;&lt;20) // 1MB
+	// Only need a small piece - but the whole 1MB stays in memory!
+	small := bigData[:10]
+
+	// Fix: copy to a new slice to allow GC to collect bigData
+	fixed := make([]byte, 10)
+	copy(fixed, small)
+	// Now bigData can be garbage collected
+	_ = fixed
+	fmt.Println(&quot;Memory leak demo: copy small slices from large arrays&quot;)
+}
+
+// DemoSharedBackingArray shows the shared backing array trap
+func DemoSharedBackingArray() {
+	original := []int{1, 2, 3, 4, 5}
+	slice1 := original[1:3] // [2, 3], shares backing array
+
+	fmt.Printf(&quot;Before: slice1=%v, original=%v\n&quot;, slice1, original)
+	slice1[0] = 99
+	fmt.Printf(&quot;After:  slice1=%v, original=%v\n&quot;, slice1, original)
+	// original is now [1, 99, 3, 4, 5] — surprise!
+
+	// Fix: use full slice expression or copy
+	safe := make([]int, 2)
+	copy(safe, original[1:3])
+	_ = safe
+}
+
+// DemoPreallocation shows performance benefit of preallocation
+func DemoPreallocation() {
+	// Without preallocation
+	s1 := make([]int, 0)
+	for i := 0; i &lt; 10000; i++ {
+		s1 = append(s1, i)
+	}
+
+	// With preallocation — avoids multiple reallocations
+	s2 := make([]int, 0, 10000)
+	for i := 0; i &lt; 10000; i++ {
+		s2 = append(s2, i)
+	}
+	fmt.Printf(&quot;Without prealloc: len=%d, cap=%d\n&quot;, len(s1), cap(s1))
+	fmt.Printf(&quot;With prealloc:    len=%d, cap=%d\n&quot;, len(s2), cap(s2))
+}
+
+// DemoDeleteElement shows how to delete an element from a slice
+func DemoDeleteElement() {
+	s := []int{1, 2, 3, 4, 5}
+	i := 2 // remove index 2 (value 3)
+
+	// Method: shift elements left and reslice
+	s = append(s[:i], s[i+1:]...)
+	fmt.Printf(&quot;After delete index %d: %v\n&quot;, i, s)
+}
+
+// DemoInsertElement shows how to insert an element into a slice
+func DemoInsertElement() {
+	s := []int{1, 2, 4, 5}
+	i := 2      // insert position
+	val := 3    // value to insert
+
+	// Expand slice, shift right, then assign
+	s = append(s, 0)       // make room
+	copy(s[i+1:], s[i:])   // shift right
+	s[i] = val             // insert
+
+	fmt.Printf(&quot;After insert %d at index %d: %v\n&quot;, val, i, s)
+}
+
+// DemoDeduplicate shows deduplication for sorted slices
+func DemoDeduplicate() {
+	s := []int{1, 1, 2, 3, 3, 3, 4, 5, 5}
+
+	result := s[:1]
+	for _, v := range s[1:] {
+		if v != result[len(result)-1] {
+			result = append(result, v)
+		}
+	}
+	fmt.Printf(&quot;Deduplicated: %v\n&quot;, result)
+}
+
+func main() {
+	fmt.Println(&quot;=== Slice Structure ===&quot;)
+	DemoSliceStruct()
+
+	fmt.Println(&quot;\n=== Growth Policy ===&quot;)
+	DemoGrowthPolicy()
+
+	fmt.Println(&quot;\n=== Memory Leak ===&quot;)
+	DemoMemoryLeak()
+
+	fmt.Println(&quot;\n=== Shared Backing Array ===&quot;)
+	DemoSharedBackingArray()
+
+	fmt.Println(&quot;\n=== Preallocation ===&quot;)
+	DemoPreallocation()
+
+	fmt.Println(&quot;\n=== Delete Element ===&quot;)
+	DemoDeleteElement()
+
+	fmt.Println(&quot;\n=== Insert Element ===&quot;)
+	DemoInsertElement()
+
+	fmt.Println(&quot;\n=== Deduplicate ===&quot;)
+	DemoDeduplicate()
+}</code></pre>
+
+<h2>四、执行预览</h2>
+
+<pre><code>=== Slice Structure ===
+slice: [0 0 0], len: 3, cap: 5
+after append: [0 0 0 1 2 3], len: 6, cap: 10
+
+=== Growth Policy ===
+len=   1  old_cap=   0  new_cap=   1
+len=   2  old_cap=   1  new_cap=   2
+len=   4  old_cap=   2  new_cap=   4
+len=   8  old_cap=   4  new_cap=   8
+len=  17  old_cap=   8  new_cap=  16
+len=  33  old_cap=  16  new_cap=  32
+len=  65  old_cap=  32  new_cap=  64
+len= 129  old_cap=  64  new_cap= 128
+len= 257  old_cap= 128  new_cap= 256
+len= 513  old_cap= 256  new_cap= 512
+
+=== Shared Backing Array ===
+Before: slice1=[2 3], original=[1 2 3 4 5]
+After:  slice1=[99 3], original=[1 99 3 4 5]
+
+=== Delete Element ===
+After delete index 2: [1 2 4 5]
+
+=== Insert Element ===
+After insert 3 at index 2: [1 2 3 4 5]
+
+=== Deduplicate ===
+Deduplicated: [1 2 3 4 5]</code></pre>
+
+<h2>五、注意事项（表格）</h2>
+
+<table><thead><tr>
+<th>注意点</th>
+<th>说明</th>
+<th>影响</th>
+</tr></thead><tbody>
+<tr>
+<td>切片是引用类型</td>
+<td>赋值和传参只复制 header</td>
+<td>修改会影响原切片</td>
+</tr>
+<tr>
+<td>nil 切片 vs 空切片</td>
+<td><code>var s []int</code> vs <code>s := []int{}</code></td>
+<td>JSON 序列化结果不同</td>
+</tr>
+<tr>
+<td>扩容会复制数据</td>
+<td>触发扩容时底层数组会重新分配</td>
+<td>旧切片不受影响</td>
+</tr>
+<tr>
+<td><code>s[low:high]</code> 不会复制</td>
+<td>只是新建 header 指向同个数组</td>
+<td>共享底层数组陷阱</td>
+</tr>
+<tr>
+<td><code>copy</code> 的返回值</td>
+<td>返回实际复制的元素数</td>
+<td>取 min(dst, src) 的 len</td>
+</tr>
+</tbody></table>
+
+<h2>六、避坑指南</h2>
+
+<table><thead><tr>
+<th>❌ 错误写法</th>
+<th>✅ 正确写法</th>
+<th>说明</th>
+</tr></thead><tbody>
+<tr>
+<td><code>s := bigData[:10]</code> 保留大数组引用</td>
+<td><code>copy</code> 到新切片</td>
+<td>内存泄漏</td>
+</tr>
+<tr>
+<td><code>newSlice := oldSlice[1:3]</code> 直接修改</td>
+<td>用 <code>copy</code> 或 full slice <code>arr[1:3:3]</code></td>
+<td>共享底层数组</td>
+</tr>
+<tr>
+<td><code>append</code> 后不接收返回值</td>
+<td><code>s = append(s, x)</code></td>
+<td>扩容后旧地址失效</td>
+</tr>
+<tr>
+<td>在循环中不断 <code>append</code> 不预分配</td>
+<td><code>make([]T, 0, n)</code> 预分配</td>
+<td>多次扩容影响性能</td>
+</tr>
+<tr>
+<td><code>s = s[:cap(s)]</code> 盲目扩展</td>
+<td>检查元素是否合法</td>
+<td>访问未初始化的内存</td>
+</tr>
+</tbody></table>
+
+<h2>七、练习题</h2>
+
+<p>🟢 <strong>基础题：</strong> 编写函数 <code>Remove(s []int, i int) []int</code>，从切片中删除指定索引的元素，保持顺序不变。</p>
+
+<p>🟡 <strong>进阶题：</strong> 实现一个 <code>RingBuffer</code> 结构体，使用固定容量的切片实现环形缓冲区，支持 <code>Push</code> 和 <code>Pop</code> 操作。</p>
+
+<p>🔴 <strong>挑战题：</strong> 编写函数 <code>Chunk(s []int, size int) [][]int</code>，将切片按 size 分块。要求：不预分配结果切片的情况下，每个 chunk 不共享底层数组。</p>
+
+<h2>八、知识点总结（树状）</h2>
+
+<pre><code>切片（Slice）
+├── 底层结构
+│   ├── pointer → 底层数组
+│   ├── len → 元素数量
+│   └── cap → 容量
+├── 扩容机制
+│   ├── Go 1.18 前：≤1024 翻倍，&gt;1024 ×1.25
+│   └── Go 1.18+：更平滑的增长策略
+├── 常见陷阱
+│   ├── 内存泄漏（大数组小切片）
+│   └── 共享底层数组
+└── 实用技巧
+    ├── 预分配 make([]T, 0, n)
+    ├── 删除 append(s[:i], s[i+1:]...)
+    ├── 插入 append + copy
+    └── 去重（排序后遍历）</code></pre>
+
+<h2>九、举一反三（表格）</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>方案</th>
+<th>关键点</th>
+</tr></thead><tbody>
+<tr>
+<td>大文件读取后只保留部分</td>
+<td><code>copy</code> 到新切片</td>
+<td>释放原底层数组</td>
+</tr>
+<tr>
+<td>函数返回子切片</td>
+<td>使用 full slice expression <code>a[low:high:max]</code></td>
+<td>限制 cap 防误操作</td>
+</tr>
+<tr>
+<td>高频 append</td>
+<td>预分配 cap</td>
+<td>减少扩容次数</td>
+</tr>
+<tr>
+<td>多协程读切片</td>
+<td>安全（只读）</td>
+<td>写操作需要加锁</td>
+</tr>
+<tr>
+<td>去重</td>
+<td>map 或排序后遍历</td>
+<td>根据数据规模选择</td>
+</tr>
+</tbody></table>
+
+<h2>十、参考资料</h2>
+
+<ul>
+<li><a href="https://go.dev/blog/slices-intro">Go 官方 Blog - Go Slices</a></li>
+<li><a href="https://go.dev/blog/slices">Go 官方 Blog - Arrays, slices and strings</a></li>
+<li><a href="https://go.dev/doc/go1.18">Go 1.18 Release Notes - Slice Growth</a></li>
+<li>《Go 程序设计语言》第 4 章</li>
+
+<h2>十一、代码演进</h2>
+
+<h3>v1 — 基础：append 不关心容量</h3>
+
+<pre><code class="language-go">func addItems(s []int, items ...int) []int {
+    return append(s, items...)
+}
+// 问题：多次扩容，性能差</code></pre>
+
+<h3>v2 — 预分配容量</h3>
+
+<pre><code class="language-go">func addItems(s []int, items ...int) []int {
+    if cap(s)-len(s) &lt; len(items) {
+        newSlice := make([]int, len(s), len(s)+len(items))
+        copy(newSlice, s)
+        s = newSlice
+    }
+    return append(s, items...)
+}
+// 改进：手动控制扩容，减少分配次数</code></pre>
+
+<h3>v3 — 泛型版本（Go 1.18+）</h3>
+
+<pre><code class="language-go">func addItems[T any](s []T, items ...T) []T {
+    if cap(s)-len(s) &lt; len(items) {
+        newSlice := make([]T, len(s), len(s)+len(items))
+        copy(newSlice, s)
+        s = newSlice
+    }
+    return append(s, items...)
+}
+// 改进：支持任意类型，更通用</code></pre>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

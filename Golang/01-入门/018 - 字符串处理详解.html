@@ -1,0 +1,561 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>018 - 字符串处理详解</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/learning-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/learning-blog/Golang/index.html">Golang</a>
+<span class="sep">›</span>
+<a href="/learning-blog/Golang/01-入门/index.html">Golang入门</a>
+</nav>
+<h1>018 - 字符串处理详解</h1>
+<div class="meta">
+<span>📂 Golang入门</span>
+<span>🏷️ Golang</span>
+</div>
+<article>
+
+
+<h1>018-字符串处理详解</h1>
+
+<blockquote><p><strong>难度：⭐⭐</strong> | 适合掌握基础语法，想系统学习字符串操作的开发者</p></blockquote>
+
+<h2>一、概念讲解</h2>
+
+<p>Go 的字符串是<strong>不可变的字节序列</strong>，底层是一个只读的 <code>byte</code> 切片。关键概念：</p>
+
+<ul>
+<li><strong>string = 只读 []byte</strong>：字符串的内容在编译时就确定了，运行时不可修改</li>
+<li><strong>UTF-8 编码</strong>：Go 源码默认 UTF-8，字符串字面量也是 UTF-8</li>
+<li><strong>rune = int32</strong>：代表一个 Unicode 码点，一个中文字符 = 一个 rune</li>
+<li><strong>byte 和 rune 的区别</strong>：<code>byte</code> 是 <code>uint8</code>（ASCII），<code>rune</code> 是 <code>int32</code>（Unicode）</li>
+
+<pre><code>字符串 &quot;Go语言&quot;
+├── bytes: [G] [o] [语] [语] [言] [言]  →  6 bytes（UTF-8）
+│         47  6F  E8 AF AD  E8 A8 80
+├── runes: [&#x27;G&#x27;] [&#x27;o&#x27;] [&#x27;语&#x27;] [&#x27;言&#x27;]     →  4 runes
+└── len() = 6 (字节数，不是字符数！)</code></pre>
+
+<h2>二、脑图（ASCII）</h2>
+
+<pre><code>                  字符串处理
+                     │
+      ┌──────────────┼──────────────┐
+      │              │              │
+   底层原理       标准库操作       性能优化
+      │              │              │
+   ┌──┼──┐       ┌───┼───┐      ┌──┼──┐
+   │     │       │   │   │      │     │
+  byte  rune  strings strconv 拼接  多行
+                 包     包     Builder 原生</code></pre>
+
+<h2>三、完整 Go 代码</h2>
+
+<pre><code class="language-go">package main
+
+import (
+	&quot;fmt&quot;
+	&quot;strconv&quot;
+	&quot;strings&quot;
+)
+
+// DemoStringBasics shows string internal representation
+func DemoStringBasics() {
+	s := &quot;Go语言&quot;
+
+	// len returns byte count, not character count
+	fmt.Printf(&quot;string: %q\n&quot;, s)
+	fmt.Printf(&quot;bytes:  %d (len)\n&quot;, len(s))
+	fmt.Printf(&quot;runes:  %d (utf8.RuneCountInString)\n&quot;, len([]rune(s)))
+
+	// Access by index gives bytes, not characters
+	fmt.Printf(&quot;s[0]=%c (byte)\n&quot;, s[0]) // &#x27;G&#x27;
+
+	// Range iterates over runes
+	fmt.Print(&quot;Runes: &quot;)
+	for i, r := range s {
+		fmt.Printf(&quot;[%d:%c] &quot;, i, r)
+	}
+	fmt.Println()
+}
+
+// DemoRuneVsByte shows the difference between byte and rune
+func DemoRuneVsByte() {
+	s := &quot;Hello,世界&quot;
+
+	// Byte slice — each position is one byte
+	fmt.Printf(&quot;Bytes: %v\n&quot;, []byte(s))
+
+	// Rune slice — each position is one character
+	fmt.Printf(&quot;Runes: %v\n&quot;, []rune(s))
+
+	// Convert between string and rune slice
+	runes := []rune(s)
+	runes[0] = &#x27;h&#x27; // Change &#x27;H&#x27; to &#x27;h&#x27;
+	fmt.Printf(&quot;Modified: %s\n&quot;, string(runes))
+}
+
+// DemoStringsPkg demonstrates common strings package functions
+func DemoStringsPkg() {
+	s := &quot;Hello, Go Programming!&quot;
+
+	// Search functions
+	fmt.Printf(&quot;Contains: %v\n&quot;, strings.Contains(s, &quot;Go&quot;))
+	fmt.Printf(&quot;HasPrefix: %v\n&quot;, strings.HasPrefix(s, &quot;Hello&quot;))
+	fmt.Printf(&quot;HasSuffix: %v\n&quot;, strings.HasSuffix(s, &quot;!&quot;))
+	fmt.Printf(&quot;Index: %d\n&quot;, strings.Index(s, &quot;Go&quot;))
+	fmt.Printf(&quot;Count: %d\n&quot;, strings.Count(s, &quot;o&quot;))
+
+	// Transform functions
+	fmt.Printf(&quot;ToUpper: %s\n&quot;, strings.ToUpper(s))
+	fmt.Printf(&quot;ToLower: %s\n&quot;, strings.ToLower(s))
+	fmt.Printf(&quot;TrimSpace: [%s]\n&quot;, strings.TrimSpace(&quot;  hi  &quot;))
+	fmt.Printf(&quot;Trim: [%s]\n&quot;, strings.Trim(&quot;xxxhiyyy&quot;, &quot;xy&quot;))
+	fmt.Printf(&quot;Replace: %s\n&quot;, strings.Replace(s, &quot;Go&quot;, &quot;Golang&quot;, 1))
+	fmt.Printf(&quot;ReplaceAll: %s\n&quot;, strings.ReplaceAll(&quot;aaa&quot;, &quot;a&quot;, &quot;b&quot;))
+
+	// Split and Join
+	parts := strings.Split(&quot;a,b,c,d&quot;, &quot;,&quot;)
+	fmt.Printf(&quot;Split: %v (len=%d)\n&quot;, parts, len(parts))
+
+	joined := strings.Join(parts, &quot;-&quot;)
+	fmt.Printf(&quot;Join: %s\n&quot;, joined)
+
+	// Repeat
+	fmt.Printf(&quot;Repeat: %s\n&quot;, strings.Repeat(&quot;Go&quot;, 3))
+
+	// Fields (split by whitespace)
+	words := strings.Fields(&quot;  hello   world  go  &quot;)
+	fmt.Printf(&quot;Fields: %v\n&quot;, words)
+}
+
+// DemoStrconvPkg shows string conversions using strconv
+func DemoStrconvPkg() {
+	// int to string
+	s1 := strconv.Itoa(42)
+	fmt.Printf(&quot;Itoa: %q\n&quot;, s1)
+
+	// string to int
+	n, err := strconv.Atoi(&quot;42&quot;)
+	if err != nil {
+		fmt.Println(&quot;Parse error:&quot;, err)
+	} else {
+		fmt.Printf(&quot;Atoi: %d (type: %T)\n&quot;, n, n)
+	}
+
+	// FormatFloat
+	pi := strconv.FormatFloat(3.14159, &#x27;f&#x27;, 2, 64)
+	fmt.Printf(&quot;FormatFloat: %s\n&quot;, pi)
+
+	// ParseFloat
+	f, _ := strconv.ParseFloat(&quot;3.14&quot;, 64)
+	fmt.Printf(&quot;ParseFloat: %v\n&quot;, f)
+
+	// ParseBool
+	b, _ := strconv.ParseBool(&quot;true&quot;)
+	fmt.Printf(&quot;ParseBool: %v\n&quot;, b)
+
+	// Quote (for debugging)
+	fmt.Printf(&quot;Quote: %s\n&quot;, strconv.Quote(`hello &quot;world&quot;`))
+}
+
+// DemoStringBuilder shows efficient string concatenation
+func DemoStringBuilder() {
+	// Inefficient: + operator in loop
+	result := &quot;&quot;
+	for i := 0; i &lt; 5; i++ {
+		result += &quot;Go&quot;
+	}
+	fmt.Printf(&quot;+ operator: %s\n&quot;, result)
+
+	// Efficient: strings.Builder
+	var sb strings.Builder
+	for i := 0; i &lt; 5; i++ {
+		sb.WriteString(&quot;Go&quot;)
+	}
+	fmt.Printf(&quot;Builder: %s\n&quot;, sb.String())
+
+	// Builder also supports WriteRune, WriteByte, Grow
+	var sb2 strings.Builder
+	sb2.Grow(100) // preallocate
+	sb2.WriteString(&quot;Hello&quot;)
+	sb2.WriteRune(&#x27; &#x27;)
+	sb2.WriteString(&quot;世界&quot;)
+	fmt.Printf(&quot;Builder2: %s (len=%d, cap=%d)\n&quot;,
+		sb2.String(), sb2.Len(), sb2.Cap())
+}
+
+// DemoMultilineStrings shows raw string literals
+func DemoMultilineStrings() {
+	// Raw string literal (backtick) — no escape processing
+	multiline := `Line 1
+Line 2
+Line 3
+	Tab indented`
+	fmt.Println(&quot;Raw string:&quot;)
+	fmt.Println(multiline)
+
+	// Interpret string literal (double quote) — needs \n
+	regular := &quot;Line 1\nLine 2\nLine 3&quot;
+	fmt.Println(&quot;\nRegular string:&quot;)
+	fmt.Println(regular)
+
+	// Useful for regex, JSON templates, SQL
+	sql := `SELECT * FROM users WHERE name = ?`
+	_ = sql
+}
+
+// DemoStringSlicing shows safe string slicing with UTF-8 awareness
+func DemoStringSlicing() {
+	s := &quot;Go语言&quot;
+
+	// Byte slicing — can break UTF-8 characters!
+	fmt.Printf(&quot;s[0:4] = %q (might be broken)\n&quot;, s[0:4])
+
+	// Safe: convert to rune slice first
+	runes := []rune(s)
+	fmt.Printf(&quot;runes[0:2] = %q\n&quot;, string(runes[0:2]))
+
+	// Using range to safely iterate
+	for i, r := range s {
+		fmt.Printf(&quot;byte_idx=%d rune=%c\n&quot;, i, r)
+	}
+}
+
+func main() {
+	fmt.Println(&quot;=== String Basics ===&quot;)
+	DemoStringBasics()
+
+	fmt.Println(&quot;\n=== Rune vs Byte ===&quot;)
+	DemoRuneVsByte()
+
+	fmt.Println(&quot;\n=== strings Package ===&quot;)
+	DemoStringsPkg()
+
+	fmt.Println(&quot;\n=== strconv Package ===&quot;)
+	DemoStrconvPkg()
+
+	fmt.Println(&quot;\n=== strings.Builder ===&quot;)
+	DemoStringBuilder()
+
+	fmt.Println(&quot;\n=== Multiline Strings ===&quot;)
+	DemoMultilineStrings()
+
+	fmt.Println(&quot;\n=== String Slicing ===&quot;)
+	DemoStringSlicing()
+}</code></pre>
+
+<h2>四、执行预览</h2>
+
+<pre><code>=== String Basics ===
+string: &quot;Go语言&quot;
+bytes:  6 (len)
+runes:  4 (utf8.RuneCountInString)
+s[0]=G (byte)
+Runes: [0:G] [1:o] [2:语] [5:言] 
+
+=== Rune vs Byte ===
+Bytes: [72 101 108 108 111 44 228 184 150 231 149 140]
+Runes: [72 101 108 108 111 44 19990 30028]
+Modified: hello,世界
+
+=== strings Package ===
+Contains: true
+HasPrefix: true
+HasSuffix: true
+Index: 7
+Count: 2
+ToUpper: HELLO, GO PROGRAMMING!
+ToLower: hello, go programming!
+TrimSpace: [hi]
+Trim: [hi]
+Replace: Hello, Golang Programming!
+ReplaceAll: bbb
+Split: [a b c d] (len=4)
+Join: a-b-c-d
+Repeat: GoGoGo
+Fields: [hello world go]
+
+=== strconv Package ===
+Itoa: &quot;42&quot;
+Atoi: 42 (type: int)
+FormatFloat: 3.14
+ParseFloat: 3.14
+ParseBool: true
+Quote: &quot;hello \&quot;world\&quot;&quot;
+
+=== strings.Builder ===
++ operator: GoGoGoGoGo
+Builder: GoGoGoGoGo
+Builder2: Hello 世界 (len=12, cap=100)
+
+=== Multiline Strings ===
+Raw string:
+Line 1
+Line 2
+Line 3
+	Tab indented
+
+=== String Slicing ===
+s[0:4] = &quot;Go\xe8\xaf&quot; (might be broken)
+runes[0:2] = &quot;Go&quot;
+byte_idx=0 rune=G
+byte_idx=1 rune=o
+byte_idx=2 rune=语
+byte_idx=5 rune=言</code></pre>
+
+<h2>五、注意事项（表格）</h2>
+
+<table><thead><tr>
+<th>注意点</th>
+<th>说明</th>
+<th>影响</th>
+</tr></thead><tbody>
+<tr>
+<td><code>len(string)</code> 返回字节数</td>
+<td>不是字符数</td>
+<td>中文字符占 3 字节</td>
+</tr>
+<tr>
+<td>字符串不可变</td>
+<td>不能修改 <code>s[0]</code></td>
+<td>需要转 <code>[]rune</code> 或 <code>[]byte</code></td>
+</tr>
+<tr>
+<td><code>range</code> 按 rune 遍历</td>
+<td>索引是字节位置</td>
+<td>索引可能跳跃</td>
+</tr>
+<tr>
+<td>字符串拼接性能</td>
+<td><code>+</code> 在循环中低效</td>
+<td>每次都分配新内存</td>
+</tr>
+<tr>
+<td><code>strings.Builder</code> 非 goroutine 安全</td>
+<td>不要并发调用 Write</td>
+<td>需要外部加锁</td>
+</tr>
+</tbody></table>
+
+<h2>六、避坑指南</h2>
+
+<table><thead><tr>
+<th>❌ 错误写法</th>
+<th>✅ 正确写法</th>
+<th>说明</th>
+</tr></thead><tbody>
+<tr>
+<td><code>len(s)</code> 获取字符数</td>
+<td><code>utf8.RuneCountInString(s)</code></td>
+<td>len 返回字节数</td>
+</tr>
+<tr>
+<td><code>s[i]</code> 取中文字符</td>
+<td><code>[]rune(s)[i]</code></td>
+<td>按字节索引会乱码</td>
+</tr>
+<tr>
+<td>循环中 <code>s += "x"</code></td>
+<td><code>strings.Builder</code></td>
+<td>拼接性能差</td>
+</tr>
+<tr>
+<td><code>s[0] = 'h'</code></td>
+<td>转 <code>[]byte</code> 或 <code>[]rune</code> 修改</td>
+<td>字符串不可变</td>
+</tr>
+<tr>
+<td><code>==</code> 比较 byte slice 和 string</td>
+<td><code>string(bs) == s</code></td>
+<td>类型不同</td>
+</tr>
+</tbody></table>
+
+<h2>七、练习题</h2>
+
+<p>🟢 <strong>基础题：</strong> 编写函数 <code>Reverse(s string) string</code>，反转字符串中的字符（注意 Unicode）。</p>
+
+<p>🟡 <strong>进阶题：</strong> 实现一个简单的模板引擎，将 <code>{{name}}</code> 替换为 map 中的值，使用 <code>strings.Builder</code> 优化性能。</p>
+
+<p>🔴 <strong>挑战题：</strong> 实现 <code>WordWrap(s string, width int) string</code>，支持中英文混合文本的自动换行（CJK 字符占 2 宽度）。</p>
+
+<h2>八、知识点总结（树状）</h2>
+
+<pre><code>字符串（String）
+├── 底层
+│   ├── 只读 byte 切片
+│   ├── UTF-8 编码
+│   └── byte (uint8) vs rune (int32)
+├── 标准库
+│   ├── strings — Contains/Split/Join/Replace/Trim...
+│   ├── strconv — Itoa/Atoi/FormatFloat/ParseFloat...
+│   └── unicode/utf8 — RuneCount/DecodeRune/Valid...
+├── 拼接
+│   ├── + 运算符（少量用）
+│   ├── fmt.Sprintf（格式化）
+│   └── strings.Builder（大量拼接）
+└── 特殊语法
+    ├── 反引号 `` — 原始字符串
+    └── 双引号 &quot;&quot; — 解释字符串</code></pre>
+
+<h2>九、举一反三（表格）</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>方案</th>
+<th>关键点</th>
+</tr></thead><tbody>
+<tr>
+<td>统计字符数</td>
+<td><code>utf8.RuneCountInString</code></td>
+<td>不要用 <code>len</code></td>
+</tr>
+<tr>
+<td>按字符遍历</td>
+<td><code>for i, r := range s</code></td>
+<td><code>i</code> 是字节偏移</td>
+</tr>
+<tr>
+<td>大量拼接</td>
+<td><code>strings.Builder</code> + <code>Grow</code></td>
+<td>预分配更优</td>
+</tr>
+<tr>
+<td>格式化字符串</td>
+<td><code>fmt.Sprintf</code></td>
+<td>灵活但略慢</td>
+</tr>
+<tr>
+<td>JSON/SQL 模板</td>
+<td>反引号多行字符串</td>
+<td>无需转义</td>
+</tr>
+<tr>
+<td>字符串转数字</td>
+<td><code>strconv.Atoi</code></td>
+<td>处理 error</td>
+</tr>
+</tbody></table>
+
+<h2>十、参考资料</h2>
+
+<ul>
+<li><a href="https://go.dev/blog/strings">Go 官方 Blog - Strings, bytes, runes and characters</a></li>
+<li><a href="https://pkg.go.dev/strings">strings 包文档</a></li>
+<li><a href="https://pkg.go.dev/strconv">strconv 包文档</a></li>
+<li><a href="https://pkg.go.dev/unicode/utf8">unicode/utf8 包文档</a></li>
+
+<h2>十一、代码演进</h2>
+
+<h3>v1 — 基础：循环拼接字符串</h3>
+
+<pre><code class="language-go">func buildQuery(items []string) string {
+    q := &quot;SELECT * FROM t WHERE id IN (&quot;
+    for i, item := range items {
+        if i &gt; 0 {
+            q += &quot;,&quot;
+        }
+        q += item
+    }
+    q += &quot;)&quot;
+    return q
+}
+// 问题：每次 + 都分配新内存，O(n²) 复杂度</code></pre>
+
+<h3>v2 — 使用 strings.Builder</h3>
+
+<pre><code class="language-go">func buildQuery(items []string) string {
+    var sb strings.Builder
+    sb.WriteString(&quot;SELECT * FROM t WHERE id IN (&quot;)
+    for i, item := range items {
+        if i &gt; 0 {
+            sb.WriteByte(&#x27;,&#x27;)
+        }
+        sb.WriteString(item)
+    }
+    sb.WriteString(&quot;)&quot;)
+    return sb.String()
+}
+// 改进：O(n) 复杂度，内存分配少</code></pre>
+
+<h3>v3 — 预分配 + 泛型</h3>
+
+<pre><code class="language-go">func join[T ~string](sep string, items ...T) string {
+    if len(items) == 0 {
+        return &quot;&quot;
+    }
+    // Estimate size for preallocation
+    total := len(sep) * (len(items) - 1)
+    for _, item := range items {
+        total += len(string(item))
+    }
+    var sb strings.Builder
+    sb.Grow(total)
+    for i, item := range items {
+        if i &gt; 0 {
+            sb.WriteString(sep)
+        }
+        sb.WriteString(string(item))
+    }
+    return sb.String()
+}
+// 改进：泛型支持 + 预分配 + 零额外分配</code></pre>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

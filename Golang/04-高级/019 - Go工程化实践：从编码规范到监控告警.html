@@ -1,0 +1,577 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>019 - Go工程化实践：从编码规范到监控告警</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Golang/index.html">Golang</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Golang/04-高级/index.html">Golang高级</a>
+</nav>
+<h1>019 - Go工程化实践：从编码规范到监控告警</h1>
+<div class="meta">
+<span>📂 Golang高级</span>
+<span>🏷️ Golang</span>
+</div>
+<article>
+
+
+<h1>Go工程化实践：从编码规范到监控告警</h1>
+
+<blockquote><p><strong>难度标注：</strong> ⭐⭐⭐⭐☆ 高级<br><strong>前置知识：</strong> Go基础、Linux基础、Git<br><strong>预计用时：</strong> 75分钟</p></blockquote>
+
+<hr>
+
+<h2>一、概念讲解</h2>
+
+<p>工程化不是某个工具或规范，而是让代码从"能跑"变成"可持续运行"的完整体系。</p>
+
+<h3>工程化全景图</h3>
+
+<pre><code>代码 → 规范 → 测试 → CI/CD → 部署 → 监控 → 告警 → 改进
+ ↑                                                      │
+ └──────────────────── 反馈循环 ←───────────────────────┘</code></pre>
+
+<table><thead><tr>
+<th>层次</th>
+<th>内容</th>
+<th>工具</th>
+</tr></thead><tbody>
+<tr>
+<td>代码规范</td>
+<td>lint、format、review</td>
+<td>golangci-lint, gofmt</td>
+</tr>
+<tr>
+<td>项目结构</td>
+<td>标准布局</td>
+<td>cmd/, internal/, pkg/</td>
+</tr>
+<tr>
+<td>测试</td>
+<td>单元、集成、E2E</td>
+<td>testing, testify</td>
+</tr>
+<tr>
+<td>CI/CD</td>
+<td>自动化构建部署</td>
+<td>GitHub Actions, Makefile</td>
+</tr>
+<tr>
+<td>日志</td>
+<td>结构化日志</td>
+<td>slog, zap</td>
+</tr>
+<tr>
+<td>指标</td>
+<td>应用指标</td>
+<td>Prometheus client</td>
+</tr>
+<tr>
+<td>告警</td>
+<td>规则引擎</td>
+<td>Alertmanager</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>二、脑图（ASCII）</h2>
+
+<pre><code>Go工程化
+├── 代码规范
+│   ├── gofmt / goimports
+│   ├── golangci-lint
+│   └── Code Review规范
+├── 项目结构
+│   ├── cmd/ (入口)
+│   ├── internal/ (私有)
+│   ├── pkg/ (可复用)
+│   └── api/ (proto/定义)
+├── 测试
+│   ├── 单元测试
+│   ├── 集成测试
+│   └── 基准测试
+├── CI/CD
+│   ├── Makefile
+│   ├── Docker多阶段构建
+│   └── GitHub Actions
+├── 可观测性
+│   ├── 结构化日志 (slog)
+│   ├── Prometheus指标
+│   └── 健康检查
+└── 告警
+    ├── 告警规则
+    └── 分级通知</code></pre>
+
+<hr>
+
+<h2>三、完整Go代码</h2>
+
+<h3>v1 基础工程结构</h3>
+
+<pre><code>myapp/
+├── cmd/
+│   └── server/
+│       └── main.go
+├── internal/
+│   ├── handler/
+│   │   └── user.go
+│   ├── service/
+│   │   └── user.go
+│   └── repository/
+│       └── user.go
+├── pkg/
+│   └── response/
+│       └── response.go
+├── Makefile
+├── Dockerfile
+└── .golangci.yml</code></pre>
+
+<p><strong>Makefile：</strong></p>
+
+<pre><code class="language-makefile">.PHONY: build test lint run docker
+
+APP_NAME := myapp
+VERSION := $(shell git describe --tags --always --dirty)
+
+build:
+	go build -ldflags=&quot;-s -w -X main.Version=$(VERSION)&quot; -o bin/$(APP_NAME) ./cmd/server
+
+test:
+	go test -race -coverprofile=coverage.out ./...
+
+lint:
+	golangci-lint run ./...
+
+run: build
+	./bin/$(APP_NAME)
+
+docker:
+	docker build -t $(APP_NAME):$(VERSION) .
+
+coverage: test
+	go tool cover -html=coverage.out -o coverage.html</code></pre>
+
+<p><strong>结构化日志（slog）：</strong></p>
+
+<pre><code class="language-go">package main
+
+import (
+	&quot;log/slog&quot;
+	&quot;net/http&quot;
+	&quot;os&quot;
+)
+
+func setupLogger() *slog.Logger {
+	handler := slog.NewJSONHandler(os.Stdout, &amp;slog.HandlerOptions{
+		Level: slog.LevelInfo,
+	})
+	return slog.New(handler)
+}
+
+// RequestLogger returns middleware that logs each request
+func RequestLogger(logger *slog.Logger) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			logger.Info(&quot;request received&quot;,
+				slog.String(&quot;method&quot;, r.Method),
+				slog.String(&quot;path&quot;, r.URL.Path),
+				slog.String(&quot;remote_addr&quot;, r.RemoteAddr),
+			)
+			next.ServeHTTP(w, r)
+		})
+	}
+}</code></pre>
+
+<h3>v2 增强版本：Prometheus指标 + 健康检查</h3>
+
+<pre><code class="language-go">package main
+
+import (
+	&quot;log/slog&quot;
+	&quot;net/http&quot;
+	&quot;time&quot;
+
+	&quot;github.com/prometheus/client_golang/prometheus&quot;
+	&quot;github.com/prometheus/client_golang/prometheus/promhttp&quot;
+)
+
+var (
+	httpRequestsTotal = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: &quot;http_requests_total&quot;,
+			Help: &quot;Total number of HTTP requests&quot;,
+		},
+		[]string{&quot;method&quot;, &quot;path&quot;, &quot;status&quot;},
+	)
+	httpRequestDuration = prometheus.NewHistogramVec(
+		prometheus.HistogramOpts{
+			Name:    &quot;http_request_duration_seconds&quot;,
+			Help:    &quot;HTTP request duration in seconds&quot;,
+			Buckets: prometheus.DefBuckets,
+		},
+		[]string{&quot;method&quot;, &quot;path&quot;},
+	)
+)
+
+func init() {
+	prometheus.MustRegister(httpRequestsTotal, httpRequestDuration)
+}
+
+// MetricsMiddleware records request metrics
+func MetricsMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		start := time.Now()
+		
+		// Wrap ResponseWriter to capture status code
+		wrapped := &amp;responseWriter{ResponseWriter: w, statusCode: 200}
+		next.ServeHTTP(wrapped, r)
+		
+		duration := time.Since(start).Seconds()
+		httpRequestsTotal.WithLabelValues(r.Method, r.URL.Path, http.StatusText(wrapped.statusCode)).Inc()
+		httpRequestDuration.WithLabelValues(r.Method, r.URL.Path).Observe(duration)
+	})
+}
+
+type responseWriter struct {
+	http.ResponseWriter
+	statusCode int
+}
+
+func (rw *responseWriter) WriteHeader(code int) {
+	rw.statusCode = code
+	rw.ResponseWriter.WriteHeader(code)
+}
+
+// HealthHandler returns service health status
+func HealthHandler(w http.ResponseWriter, r *http.Request) {
+	// Check dependencies here (DB, Redis, etc.)
+	w.Header().Set(&quot;Content-Type&quot;, &quot;application/json&quot;)
+	w.Write([]byte(`{&quot;status&quot;:&quot;ok&quot;,&quot;uptime&quot;:&quot;running&quot;}`))
+}
+
+func main() {
+	logger := setupLogger()
+	mux := http.NewServeMux()
+	
+	mux.HandleFunc(&quot;/health&quot;, HealthHandler)
+	mux.Handle(&quot;/metrics&quot;, promhttp.Handler())
+	mux.HandleFunc(&quot;/api/users&quot;, func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte(`{&quot;users&quot;:[]}`))
+	})
+	
+	handler := MetricsMiddleware(RequestLogger(logger)(mux))
+	
+	logger.Info(&quot;server starting&quot;, slog.String(&quot;port&quot;, &quot;:8080&quot;))
+	http.ListenAndServe(&quot;:8080&quot;, handler)
+}</code></pre>
+
+<h3>v3 生产版本：Docker多阶段构建 + GitHub Actions</h3>
+
+<p><strong>Dockerfile：</strong></p>
+
+<pre><code class="language-dockerfile"># Build stage
+FROM golang:1.22-alpine AS builder
+WORKDIR /app
+COPY go.mod go.sum ./
+RUN go mod download
+COPY . .
+RUN CGO_ENABLED=0 GOOS=linux go build -ldflags=&quot;-s -w&quot; -o /myapp ./cmd/server
+
+# Runtime stage
+FROM alpine:3.19
+RUN apk --no-cache add ca-certificates
+COPY --from=builder /myapp /usr/local/bin/myapp
+EXPOSE 8080
+ENTRYPOINT [&quot;myapp&quot;]</code></pre>
+
+<p><strong>GitHub Actions CI：</strong></p>
+
+<pre><code class="language-yaml"># .github/workflows/ci.yml
+name: CI
+on: [push, pull_request]
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with: { go-version: &#x27;1.22&#x27; }
+      - run: go test -race -coverprofile=coverage.out ./...
+      - run: go vet ./...
+      - uses: golangci/golangci-lint-action@v4
+  build:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build -t myapp:${{ github.sha }} .</code></pre>
+
+<hr>
+
+<h2>四、执行预览</h2>
+
+<pre><code class="language-bash"># Run with Make
+$ make lint &amp;&amp; make test &amp;&amp; make build
+golangci-lint run ./...
+ok  github.com/myapp/internal/service  0.012s  coverage: 85%
+go build -o bin/myapp ./cmd/server
+
+# Run with Docker
+$ docker build -t myapp:latest .
+$ docker run -p 8080:8080 myapp:latest
+{&quot;time&quot;:&quot;...&quot;,&quot;level&quot;:&quot;INFO&quot;,&quot;msg&quot;:&quot;server starting&quot;,&quot;port&quot;:&quot;:8080&quot;}
+
+# Check metrics
+$ curl http://localhost:8080/metrics
+http_requests_total{method=&quot;GET&quot;,path=&quot;/api/users&quot;,status=&quot;OK&quot;} 5
+http_request_duration_seconds_sum{method=&quot;GET&quot;,path=&quot;/api/users&quot;} 0.0023
+
+# Health check
+$ curl http://localhost:8080/health
+{&quot;status&quot;:&quot;ok&quot;,&quot;uptime&quot;:&quot;running&quot;}</code></pre>
+
+<hr>
+
+<h2>五、注意事项</h2>
+
+<table><thead><tr>
+<th>注意点</th>
+<th>说明</th>
+</tr></thead><tbody>
+<tr>
+<td>日志不要过度</td>
+<td>日志量要控制，避免I/O瓶颈</td>
+</tr>
+<tr>
+<td>指标命名</td>
+<td>遵循Prometheus命名规范（snake_case, 带单位后缀）</td>
+</tr>
+<tr>
+<td>多阶段构建</td>
+<td>最终镜像要小，alpine就够了</td>
+</tr>
+<tr>
+<td>CI缓存</td>
+<td>缓存go mod download加速CI</td>
+</tr>
+<tr>
+<td>Secret管理</td>
+<td>不要把密钥写在代码或Dockerfile里</td>
+</tr>
+<tr>
+<td>Graceful shutdown</td>
+<td>监听信号，优雅关闭连接</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>六、避坑指南</h2>
+
+<table><thead><tr>
+<th>❌ 错误做法</th>
+<th>✅ 正确做法</th>
+</tr></thead><tbody>
+<tr>
+<td>用fmt.Println做日志</td>
+<td>用slog/zap做结构化日志</td>
+</tr>
+<tr>
+<td>所有日志一个级别</td>
+<td>区分Debug/Info/Warn/Error</td>
+</tr>
+<tr>
+<td>不写Makefile</td>
+<td>用Makefile统一构建命令</td>
+</tr>
+<tr>
+<td>Docker镜像用golang:latest</td>
+<td>多阶段构建，runtime用alpine</td>
+</tr>
+<tr>
+<td>CI只做build</td>
+<td>lint + test + vet + security scan</td>
+</tr>
+<tr>
+<td>忽略go vet</td>
+<td>vet能发现很多常见错误</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>七、练习题</h2>
+
+<h3>🟢 基础题</h3>
+<ol>
+<li>为现有项目添加Makefile（build/test/lint/run）</li>
+</ul>
+<ol>
+<li>添加slog结构化日志，输出JSON格式</li>
+
+<h3>🟡 进阶题</h3>
+<ol>
+<li>添加Prometheus指标：QPS、延迟P99、错误率</li>
+</ul>
+<ol>
+<li>编写Dockerfile多阶段构建</li>
+
+<h3>🔴 挑战题</h3>
+<ol>
+<li>配置GitHub Actions：lint → test → build → push Docker镜像到Registry</li>
+
+<hr>
+
+<h2>八、知识点总结</h2>
+
+<pre><code>Go工程化
+├── 代码质量
+│   ├── gofmt / goimports
+│   ├── golangci-lint
+│   └── go vet
+├── 构建部署
+│   ├── Makefile
+│   ├── Docker多阶段构建
+│   └── CI/CD Pipeline
+├── 可观测性
+│   ├── slog结构化日志
+│   ├── Prometheus指标
+│   └── /health + /metrics
+└── 规范
+    ├── 项目目录结构
+    ├── Commit规范
+    └── Code Review规范</code></pre>
+
+<hr>
+
+<h2>九、举一反三</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>工程化方案</th>
+<th>工具</th>
+</tr></thead><tbody>
+<tr>
+<td>小项目</td>
+<td>Makefile + Docker</td>
+<td>goreleaser</td>
+</tr>
+<tr>
+<td>团队项目</td>
+<td>CI/CD + Lint + Review</td>
+<td>GitHub Actions</td>
+</tr>
+<tr>
+<td>微服务</td>
+<td>每个服务独立CI/CD</td>
+<td>ArgoCD + K8s</td>
+</tr>
+<tr>
+<td>开源项目</td>
+<td>CONTRIBUTING.md + CI</td>
+<td>GitHub Actions</td>
+</tr>
+<tr>
+<td>企业级</td>
+<td>全链路：规范→测试→部署→监控</td>
+<td>GitLab CI + Prometheus</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>十、参考资料</h2>
+
+<ul>
+<li><a href="https://github.com/golang-standards/project-layout">Standard Go Project Layout</a></li>
+<li><a href="https://golangci-lint.run/">golangci-lint</a></li>
+<li><a href="https://github.com/prometheus/client_golang">Prometheus Go Client</a></li>
+<li><a href="https://go.dev/blog/slog">Go slog</a></li>
+
+<hr>
+
+<h2>十一、代码演进总结</h2>
+
+<table><thead><tr>
+<th>版本</th>
+<th>内容</th>
+<th>适用场景</th>
+</tr></thead><tbody>
+<tr>
+<td>v1</td>
+<td>项目结构 + Makefile + 日志</td>
+<td>项目起步</td>
+</tr>
+<tr>
+<td>v2</td>
+<td>Prometheus指标 + 健康检查</td>
+<td>上线准备</td>
+</tr>
+<tr>
+<td>v3</td>
+<td>Docker + CI/CD</td>
+<td>团队协作生产级</td>
+</tr>
+</tbody></table>
+
+<blockquote><p><strong>核心思想：</strong> 工程化不是一次性的，是持续改进的过程。从最基础的gofmt开始，逐步加层，每层解决一个具体问题。</p></blockquote>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

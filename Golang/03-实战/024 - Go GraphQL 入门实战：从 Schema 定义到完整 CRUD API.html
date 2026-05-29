@@ -1,0 +1,816 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>024 - Go GraphQL 入门实战：从 Schema 定义到完整 CRUD API</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Golang/index.html">Golang</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Golang/03-实战/index.html">Golang实战</a>
+</nav>
+<h1>024 - Go GraphQL 入门实战：从 Schema 定义到完整 CRUD API</h1>
+<div class="meta">
+<span>📂 Golang实战</span>
+<span>🏷️ Golang</span>
+</div>
+<article>
+
+
+<h1>Go GraphQL 入门实战</h1>
+
+<blockquote><p><strong>难度标注</strong>：⭐⭐⭐（中级）<br><strong>预计阅读时间</strong>：20 分钟<br><strong>适用版本</strong>：Go 1.21+ / graphql-go v0.8+</p></blockquote>
+
+<h2>一、概念讲解</h2>
+
+<h3>什么是 GraphQL？</h3>
+
+<p>GraphQL 是 Facebook 开发的一种 <strong>API 查询语言</strong>，与 REST 的核心区别：</p>
+
+<table><thead><tr>
+<th>对比项</th>
+<th>REST</th>
+<th>GraphQL</th>
+</tr></thead><tbody>
+<tr>
+<td>接口数量</td>
+<td>多个 URL，每个资源一个</td>
+<td><strong>单一端点</strong> <code>/graphql</code></td>
+</tr>
+<tr>
+<td>数据获取</td>
+<td>固定返回结构</td>
+<td><strong>客户端指定字段</strong></td>
+</tr>
+<tr>
+<td>过度获取</td>
+<td>常见（返回不需要的数据）</td>
+<td><strong>按需获取</strong></td>
+</tr>
+<tr>
+<td>欠获取</td>
+<td>需要多次请求</td>
+<td><strong>一次请求搞定</strong></td>
+</tr>
+<tr>
+<td>版本管理</td>
+<td>v1/v2/v3</td>
+<td><strong>无版本，演进式 Schema</strong></td>
+</tr>
+<tr>
+<td>文档</td>
+<td>需额外维护</td>
+<td><strong>Schema 即文档</strong></td>
+</tr>
+</tbody></table>
+
+<h3>核心概念</h3>
+
+<pre><code>Query → 读数据（类比 GET）
+Mutation → 写数据（类比 POST/PUT/DELETE）
+Subscription → 实时推送（类比 WebSocket）
+Schema → 类型定义（数据库表结构的 API 版）
+Resolver → 解析函数（每个字段的实际逻辑）</code></pre>
+
+<h3>Go GraphQL 库对比</h3>
+
+<table><thead><tr>
+<th>库</th>
+<th>特点</th>
+<th>推荐度</th>
+</tr></thead><tbody>
+<tr>
+<td><strong>graphql-go/graphql</strong></td>
+<td>原生实现，功能完整</td>
+<td>⭐⭐⭐⭐⭐</td>
+</tr>
+<tr>
+<td><strong>gqlgen</strong></td>
+<td>代码生成，类型安全</td>
+<td>⭐⭐⭐⭐⭐</td>
+</tr>
+<tr>
+<td><strong>graph-gophers</strong></td>
+<td>轻量，简单</td>
+<td>⭐⭐⭐</td>
+</tr>
+<tr>
+<td><strong>c/graphql-go</strong></td>
+<td>基础实现</td>
+<td>⭐⭐</td>
+</tr>
+</tbody></table>
+
+<p><strong>本文使用 <code>graphql-go/graphql</code>，最经典最直观。生产推荐 <code>gqlgen</code>。</strong></p>
+
+<h2>二、脑图（ASCII）</h2>
+
+<pre><code>Go GraphQL
+├── 核心概念
+│   ├── Schema (类型系统)
+│   ├── Query (查询)
+│   ├── Mutation (变更)
+│   ├── Subscription (订阅)
+│   └── Resolver (解析器)
+├── graphql-go 库
+│   ├── Scalar 类型
+│   │   ├── String, Int, Float, Boolean, ID
+│   │   └── DateTime (自定义)
+│   ├── Object 类型
+│   │   ├── 字段定义
+│   │   └── 嵌套对象
+│   ├── List/NonNull
+│   └── 输入类型 (InputObject)
+├── Schema 定义
+│   ├── QueryType
+│   ├── MutationType
+│   └── RootSchema
+├── Resolver 实现
+│   ├── 数据获取
+│   ├── 参数处理
+│   └── 错误处理
+└── HTTP 集成
+    ├── handler 集成
+    ├── Playground (调试UI)
+    └── CORS 配置</code></pre>
+
+<h2>三、完整实战代码</h2>
+
+<h3>3.1 项目初始化</h3>
+
+<pre><code class="language-bash">mkdir graphql-demo &amp;&amp; cd graphql-demo
+go mod init graphql-demo
+
+go get github.com/graphql-go/graphql
+go get github.com/graphql-go/handler</code></pre>
+
+<h3>3.2 数据模型与存储（model/todo.go）</h3>
+
+<pre><code class="language-go">package model
+
+import &quot;time&quot;
+
+// Todo represents a task item
+type Todo struct {
+	ID        string    `json:&quot;id&quot;`
+	Title     string    `json:&quot;title&quot;`
+	Completed bool      `json:&quot;completed&quot;`
+	CreatedAt time.Time `json:&quot;createdAt&quot;`
+	UserID    string    `json:&quot;userId&quot;`
+}
+
+// User represents a user
+type User struct {
+	ID   string `json:&quot;id&quot;`
+	Name string `json:&quot;name&quot;`
+	Email string `json:&quot;email&quot;`
+}</code></pre>
+
+<h3>3.3 GraphQL Schema（schema/schema.go）</h3>
+
+<pre><code class="language-go">package schema
+
+import (
+	&quot;graphql-demo/model&quot;
+	&quot;time&quot;
+
+	&quot;github.com/graphql-go/graphql&quot;
+)
+
+// In-memory data stores
+var (
+	todos = []model.Todo{
+		{ID: &quot;1&quot;, Title: &quot;Learn GraphQL&quot;, Completed: false, CreatedAt: time.Now(), UserID: &quot;1&quot;},
+		{ID: &quot;2&quot;, Title: &quot;Build a Go API&quot;, Completed: true, CreatedAt: time.Now(), UserID: &quot;1&quot;},
+		{ID: &quot;3&quot;, Title: &quot;Write tests&quot;, Completed: false, CreatedAt: time.Now(), UserID: &quot;2&quot;},
+	}
+	users = []model.User{
+		{ID: &quot;1&quot;, Name: &quot;Alice&quot;, Email: &quot;alice@example.com&quot;},
+		{ID: &quot;2&quot;, Name: &quot;Bob&quot;, Email: &quot;bob@example.com&quot;},
+	}
+	nextTodoID = 4
+)
+
+// UserType defines the GraphQL User type
+var UserType = graphql.NewObject(graphql.ObjectConfig{
+	Name: &quot;User&quot;,
+	Fields: graphql.Fields{
+		&quot;id&quot;:    &amp;graphql.Field{Type: graphql.ID},
+		&quot;name&quot;:  &amp;graphql.Field{Type: graphql.String},
+		&quot;email&quot;: &amp;graphql.Field{Type: graphql.String},
+	},
+})
+
+// TodoType defines the GraphQL Todo type
+var TodoType = graphql.NewObject(graphql.ObjectConfig{
+	Name: &quot;Todo&quot;,
+	Fields: graphql.Fields{
+		&quot;id&quot;:        &amp;graphql.Field{Type: graphql.ID},
+		&quot;title&quot;:     &amp;graphql.Field{Type: graphql.String},
+		&quot;completed&quot;: &amp;graphql.Field{Type: graphql.Boolean},
+		&quot;createdAt&quot;: &amp;graphql.Field{Type: graphql.DateTime},
+		&quot;userId&quot;:    &amp;graphql.Field{Type: graphql.ID},
+		// Nested resolver: resolve user from todo
+		&quot;user&quot;: &amp;graphql.Field{
+			Type: UserType,
+			Resolve: func(p graphql.ResolveParams) (interface{}, error) {
+				todo := p.Source.(model.Todo)
+				for _, u := range users {
+					if u.ID == todo.UserID {
+						return u, nil
+					}
+				}
+				return nil, nil
+			},
+		},
+	},
+})
+
+// TodoInputType for creating/updating todos
+var TodoInputType = graphql.NewInputObject(graphql.InputObjectConfig{
+	Name: &quot;TodoInput&quot;,
+	Fields: graphql.InputObjectConfigFieldMap{
+		&quot;title&quot;:     &amp;graphql.InputObjectFieldConfig{Type: graphql.NewNonNull(graphql.String)},
+		&quot;completed&quot;: &amp;graphql.InputObjectFieldConfig{Type: graphql.Boolean},
+	},
+})
+
+// RootQuery defines all read operations
+var RootQuery = graphql.NewObject(graphql.ObjectConfig{
+	Name: &quot;Query&quot;,
+	Fields: graphql.Fields{
+		// Get all todos, with optional filtering
+		&quot;todos&quot;: &amp;graphql.Field{
+			Type: graphql.NewList(TodoType),
+			Args: graphql.FieldConfigArgument{
+				&quot;completed&quot;: &amp;graphql.ArgumentConfig{Type: graphql.Boolean},
+				&quot;userId&quot;:    &amp;graphql.ArgumentConfig{Type: graphql.ID},
+				&quot;limit&quot;:     &amp;graphql.ArgumentConfig{Type: graphql.Int, DefaultValue: 10},
+			},
+			Resolve: func(p graphql.ResolveParams) (interface{}, error) {
+				completed, hasCompleted := p.Args[&quot;completed&quot;].(bool)
+				userID, hasUserID := p.Args[&quot;userId&quot;].(string)
+				limit := p.Args[&quot;limit&quot;].(int)
+
+				var result []model.Todo
+				for _, t := range todos {
+					if hasCompleted &amp;&amp; t.Completed != completed {
+						continue
+					}
+					if hasUserID &amp;&amp; t.UserID != userID {
+						continue
+					}
+					result = append(result, t)
+				}
+				if limit &gt; 0 &amp;&amp; len(result) &gt; limit {
+					result = result[:limit]
+				}
+				return result, nil
+			},
+		},
+		// Get a single todo by ID
+		&quot;todo&quot;: &amp;graphql.Field{
+			Type: TodoType,
+			Args: graphql.FieldConfigArgument{
+				&quot;id&quot;: &amp;graphql.ArgumentConfig{Type: graphql.NewNonNull(graphql.ID)},
+			},
+			Resolve: func(p graphql.ResolveParams) (interface{}, error) {
+				id := p.Args[&quot;id&quot;].(string)
+				for _, t := range todos {
+					if t.ID == id {
+						return t, nil
+					}
+				}
+				return nil, nil
+			},
+		},
+		// Get all users
+		&quot;users&quot;: &amp;graphql.Field{
+			Type: graphql.NewList(UserType),
+			Resolve: func(p graphql.ResolveParams) (interface{}, error) {
+				return users, nil
+			},
+		},
+		// Get user by ID
+		&quot;user&quot;: &amp;graphql.Field{
+			Type: UserType,
+			Args: graphql.FieldConfigArgument{
+				&quot;id&quot;: &amp;graphql.ArgumentConfig{Type: graphql.NewNonNull(graphql.ID)},
+			},
+			Resolve: func(p graphql.ResolveParams) (interface{}, error) {
+				id := p.Args[&quot;id&quot;].(string)
+				for _, u := range users {
+					if u.ID == id {
+						return u, nil
+					}
+				}
+				return nil, nil
+			},
+		},
+	},
+})
+
+// RootMutation defines all write operations
+var RootMutation = graphql.NewObject(graphql.ObjectConfig{
+	Name: &quot;Mutation&quot;,
+	Fields: graphql.Fields{
+		// Create a new todo
+		&quot;createTodo&quot;: &amp;graphql.Field{
+			Type: TodoType,
+			Args: graphql.FieldConfigArgument{
+				&quot;title&quot;:  &amp;graphql.ArgumentConfig{Type: graphql.NewNonNull(graphql.String)},
+				&quot;userId&quot;: &amp;graphql.ArgumentConfig{Type: graphql.NewNonNull(graphql.ID)},
+			},
+			Resolve: func(p graphql.ResolveParams) (interface{}, error) {
+				title := p.Args[&quot;title&quot;].(string)
+				userID := p.Args[&quot;userId&quot;].(string)
+				todo := model.Todo{
+					ID:        string(rune(nextTodoID)),
+					Title:     title,
+					Completed: false,
+					CreatedAt: time.Now(),
+					UserID:    userID,
+				}
+				nextTodoID++
+				todos = append(todos, todo)
+				return todo, nil
+			},
+		},
+		// Update a todo
+		&quot;updateTodo&quot;: &amp;graphql.Field{
+			Type: TodoType,
+			Args: graphql.FieldConfigArgument{
+				&quot;id&quot;:        &amp;graphql.ArgumentConfig{Type: graphql.NewNonNull(graphql.ID)},
+				&quot;title&quot;:     &amp;graphql.ArgumentConfig{Type: graphql.String},
+				&quot;completed&quot;: &amp;graphql.ArgumentConfig{Type: graphql.Boolean},
+			},
+			Resolve: func(p graphql.ResolveParams) (interface{}, error) {
+				id := p.Args[&quot;id&quot;].(string)
+				for i, t := range todos {
+					if t.ID == id {
+						if title, ok := p.Args[&quot;title&quot;].(string); ok {
+							todos[i].Title = title
+						}
+						if completed, ok := p.Args[&quot;completed&quot;].(bool); ok {
+							todos[i].Completed = completed
+						}
+						return todos[i], nil
+					}
+				}
+				return nil, nil
+			},
+		},
+		// Delete a todo
+		&quot;deleteTodo&quot;: &amp;graphql.Field{
+			Type: TodoType,
+			Args: graphql.FieldConfigArgument{
+				&quot;id&quot;: &amp;graphql.ArgumentConfig{Type: graphql.NewNonNull(graphql.ID)},
+			},
+			Resolve: func(p graphql.ResolveParams) (interface{}, error) {
+				id := p.Args[&quot;id&quot;].(string)
+				for i, t := range todos {
+					if t.ID == id {
+						todos = append(todos[:i], todos[i+1:]...)
+						return t, nil
+					}
+				}
+				return nil, nil
+			},
+		},
+	},
+})
+
+// Schema is the root GraphQL schema
+var Schema, _ = graphql.NewSchema(graphql.SchemaConfig{
+	Query:    RootQuery,
+	Mutation: RootMutation,
+})</code></pre>
+
+<h3>3.4 HTTP 服务（main.go）</h3>
+
+<pre><code class="language-go">package main
+
+import (
+	&quot;fmt&quot;
+	&quot;log&quot;
+	&quot;net/http&quot;
+
+	&quot;graphql-demo/schema&quot;
+
+	&quot;github.com/graphql-go/handler&quot;
+)
+
+func main() {
+	// Create GraphQL HTTP handler
+	h := handler.New(&amp;handler.Config{
+		Schema:   &amp;schema.Schema,
+		Pretty:   true,
+		GraphiQL: true, // Enable GraphiQL playground
+	})
+
+	// Setup routes
+	http.Handle(&quot;/graphql&quot;, h)
+	http.HandleFunc(&quot;/&quot;, func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set(&quot;Content-Type&quot;, &quot;text/html&quot;)
+		fmt.Fprintf(w, `
+		&lt;html&gt;
+		&lt;body&gt;
+			&lt;h1&gt;GraphQL Demo&lt;/h1&gt;
+			&lt;p&gt;Open &lt;a href=&quot;/graphql&quot;&gt;GraphiQL Playground&lt;/a&gt;&lt;/p&gt;
+			&lt;h2&gt;Example Queries:&lt;/h2&gt;
+			&lt;pre&gt;
+query {
+  todos(completed: false) {
+    id
+    title
+    completed
+    user { name email }
+  }
+}
+			&lt;/pre&gt;
+		&lt;/body&gt;
+		&lt;/html&gt;
+		`)
+	})
+
+	addr := &quot;:8080&quot;
+	fmt.Printf(&quot;🚀 GraphQL server running at http://localhost%s/graphql\n&quot;, addr)
+	fmt.Printf(&quot;🎮 GraphiQL playground at http://localhost%s/graphql\n&quot;, addr)
+	log.Fatal(http.ListenAndServe(addr, nil))
+}</code></pre>
+
+<h3>3.5 进阶：带 Gin 集成</h3>
+
+<pre><code class="language-go">package main
+
+import (
+	&quot;encoding/json&quot;
+	&quot;net/http&quot;
+
+	&quot;graphql-demo/schema&quot;
+
+	&quot;github.com/gin-gonic/gin&quot;
+	&quot;github.com/graphql-go/graphql&quot;
+)
+
+// GraphQLRequest represents a GraphQL HTTP request
+type GraphQLRequest struct {
+	Query         string                 `json:&quot;query&quot;`
+	OperationName string                 `json:&quot;operationName&quot;`
+	Variables     map[string]interface{} `json:&quot;variables&quot;`
+}
+
+func main() {
+	r := gin.Default()
+
+	// GraphQL endpoint
+	r.POST(&quot;/graphql&quot;, func(c *gin.Context) {
+		var req GraphQLRequest
+		if err := c.ShouldBindJSON(&amp;req); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{&quot;error&quot;: err.Error()})
+			return
+		}
+
+		result := graphql.Do(graphql.Params{
+			Schema:         schema.Schema,
+			RequestString:  req.Query,
+			OperationName:  req.OperationName,
+			VariableValues: req.Variables,
+		})
+
+		c.JSON(http.StatusOK, result)
+	})
+
+	// GraphiQL playground (GET serves the UI)
+	r.GET(&quot;/graphql&quot;, func(c *gin.Context) {
+		c.Header(&quot;Content-Type&quot;, &quot;text/html&quot;)
+		c.String(http.StatusOK, graphiQLHTML())
+	})
+
+	r.Run(&quot;:8080&quot;)
+}
+
+func graphiQLHTML() string {
+	return `&lt;!DOCTYPE html&gt;
+&lt;html&gt;
+&lt;head&gt;&lt;title&gt;GraphiQL&lt;/title&gt;
+&lt;link rel=&quot;stylesheet&quot; href=&quot;https://cdn.jsdelivr.net/npm/graphiql@3/graphiql.min.css&quot;&gt;
+&lt;/head&gt;
+&lt;body style=&quot;margin:0&quot;&gt;
+&lt;div id=&quot;graphiql&quot; style=&quot;height:100vh&quot;&gt;&lt;/div&gt;
+&lt;script src=&quot;https://cdn.jsdelivr.net/npm/graphiql@3/graphiql.min.js&quot;&gt;&lt;/script&gt;
+&lt;script&gt;ReactDOM.createRoot(document.getElementById(&#x27;graphiql&#x27;)).render(
+  React.createElement(GraphiQL, { fetcher: GraphiQL.createFetcher({url:&#x27;/graphql&#x27;}) })
+);&lt;/script&gt;
+&lt;/body&gt;&lt;/html&gt;`
+}</code></pre>
+
+<h2>四、执行预览</h2>
+
+<pre><code class="language-bash">$ go run main.go
+🚀 GraphQL server running at http://localhost:8080/graphql
+🎮 GraphiQL playground at http://localhost:8080/graphql</code></pre>
+
+<pre><code class="language-bash"># 查询所有未完成的 Todo（按需获取字段）
+$ curl -X POST http://localhost:8080/graphql \
+  -H &quot;Content-Type: application/json&quot; \
+  -d &#x27;{&quot;query&quot;:&quot;{ todos(completed: false) { id title user { name } }}&quot;}&#x27;
+
+{
+  &quot;data&quot;: {
+    &quot;todos&quot;: [
+      {&quot;id&quot;: &quot;1&quot;, &quot;title&quot;: &quot;Learn GraphQL&quot;, &quot;user&quot;: {&quot;name&quot;: &quot;Alice&quot;}},
+      {&quot;id&quot;: &quot;3&quot;, &quot;title&quot;: &quot;Write tests&quot;, &quot;user&quot;: {&quot;name&quot;: &quot;Bob&quot;}}
+    ]
+  }
+}
+
+# 创建新 Todo
+$ curl -X POST http://localhost:8080/graphql \
+  -H &quot;Content-Type: application/json&quot; \
+  -d &#x27;{&quot;query&quot;:&quot;mutation { createTodo(title:\&quot;Deploy to prod\&quot;, userId:\&quot;1\&quot;) { id title completed }}&quot;}&#x27;
+
+{
+  &quot;data&quot;: {
+    &quot;createTodo&quot;: {&quot;id&quot;: &quot;4&quot;, &quot;title&quot;: &quot;Deploy to prod&quot;, &quot;completed&quot;: false}
+  }
+}
+
+# 更新 Todo
+$ curl -X POST http://localhost:8080/graphql \
+  -d &#x27;{&quot;query&quot;:&quot;mutation { updateTodo(id:\&quot;1\&quot;, completed: true) { id title completed }}&quot;}&#x27;
+
+# 删除 Todo
+$ curl -X POST http://localhost:8080/graphql \
+  -d &#x27;{&quot;query&quot;:&quot;mutation { deleteTodo(id:\&quot;2\&quot;) { id title }}&quot;}&#x27;</code></pre>
+
+<h2>五、注意事项</h2>
+
+<table><thead><tr>
+<th>注意点</th>
+<th>说明</th>
+</tr></thead><tbody>
+<tr>
+<td>Schema 与 Resolver 对应</td>
+<td>Schema 中定义的每个字段都需要有 Resolver</td>
+</tr>
+<tr>
+<td>并发安全</td>
+<td>Resolver 可被并发调用，注意共享状态的线程安全</td>
+</tr>
+<tr>
+<td>N+1 查询</td>
+<td>嵌套 Resolver 可能触发 N+1 问题，考虑 DataLoader</td>
+</tr>
+<tr>
+<td>错误处理</td>
+<td>Resolver 返回 error 时 GraphQL 会自动包装到 <code>errors</code> 字段</td>
+</tr>
+<tr>
+<td>Context 传递</td>
+<td>使用 <code>p.Context</code> 传递认证、数据库连接等</td>
+</tr>
+<tr>
+<td>性能</td>
+<td>深层嵌套查询可能导致性能问题，限制查询深度</td>
+</tr>
+<tr>
+<td>ID 类型</td>
+<td>GraphQL 的 ID 类型序列化为字符串</td>
+</tr>
+</tbody></table>
+
+<h2>六、避坑指南</h2>
+
+<table><thead><tr>
+<th>❌ 常见错误</th>
+<th>✅ 正确做法</th>
+</tr></thead><tbody>
+<tr>
+<td>Resolver 返回 nil, nil 导致空数据</td>
+<td>明确返回 <code>nil, fmt.Errorf("not found")</code> 或空切片</td>
+</tr>
+<tr>
+<td>循环引用导致 Schema 注册死循环</td>
+<td>延迟初始化字段或使用 <code>graphql.NewObject</code> 的回调模式</td>
+</tr>
+<tr>
+<td>参数类型断言 panic</td>
+<td>使用 <code>val, ok := p.Args["key"].(string)</code> 安全断言</td>
+</tr>
+<tr>
+<td>N+1 查询性能差</td>
+<td>引入 DataLoader 批量加载数据</td>
+</tr>
+<tr>
+<td>没有限制查询深度</td>
+<td>添加 <code>graphql.MaxDepth(10)</code> 限制</td>
+</tr>
+<tr>
+<td>Mutation 不返回更新后的数据</td>
+<td>Mutation 应返回更新后的完整对象</td>
+</tr>
+<tr>
+<td>前端查询字段名与 Schema 不一致</td>
+<td>用 <code>GraphiQL</code> 调试，Schema 浏览器确认字段名</td>
+</tr>
+</tbody></table>
+
+<h2>七、练习题</h2>
+
+<h3>🟢 初级</h3>
+<ol>
+<li>实现一个 Book 的 CRUD GraphQL API（Query + Mutation）</li>
+</ul>
+<ol>
+<li>在 GraphiQL 中测试所有查询和变更</li>
+
+<h3>🟡 中级</h3>
+<ol>
+<li>添加 User ↔ Todos 的双向关联（用户下有 todo 列表，todo 下有用户信息）</li>
+</ul>
+<ol>
+<li>实现分页查询（<code>limit</code> + <code>offset</code> 参数）</li>
+
+<h3>🔴 高级</h3>
+<ol>
+<li>实现 DataLoader 解决 N+1 查询问题</li>
+</ul>
+<ol>
+<li>添加 Subscription 实现实时 Todo 更新通知（WebSocket）</li>
+
+<h2>八、知识点总结</h2>
+
+<pre><code>GraphQL 知识树
+├── 核心概念
+│   ├── Schema (类型系统)
+│   ├── Query (读操作)
+│   ├── Mutation (写操作)
+│   ├── Subscription (实时推送)
+│   └── Resolver (字段解析)
+├── 类型系统
+│   ├── Scalar (String/Int/Float/Boolean/ID)
+│   ├── Object (自定义对象)
+│   ├── List (列表)
+│   ├── NonNull (非空)
+│   ├── InputObject (输入类型)
+│   └── Enum (枚举)
+├── 进阶模式
+│   ├── DataLoader (批量加载)
+│   ├── 分页 (Relay Cursor)
+│   ├── 认证 (Context)
+│   └── 查询复杂度限制
+└── 工具链
+    ├── GraphiQL (调试)
+    ├── Code Gen (gqlgen)
+    └── Schema Stitching</code></pre>
+
+<h2>九、举一反三</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>方案</th>
+<th>关键点</th>
+</tr></thead><tbody>
+<tr>
+<td>微服务聚合</td>
+<td>Schema Stitching</td>
+<td>多个 GraphQL 服务合并为一个</td>
+</tr>
+<tr>
+<td>数据库集成</td>
+<td>GORM + Resolver</td>
+<td>Resolver 中调用 GORM 查询</td>
+</tr>
+<tr>
+<td>认证鉴权</td>
+<td>Context 中间件</td>
+<td>从 HTTP Header 提取 Token 写入 Context</td>
+</tr>
+<tr>
+<td>实时通知</td>
+<td>Subscription + WebSocket</td>
+<td><code>github.com/graphql-go/graphql</code> 的 Subscription 支持</td>
+</tr>
+<tr>
+<td>大型项目</td>
+<td>gqlgen（代码生成）</td>
+<td>类型安全，减少手动定义</td>
+</tr>
+<tr>
+<td>REST 迁移</td>
+<td>逐步添加 GraphQL</td>
+<td>先加 GraphQL 端点，REST 保持兼容</td>
+</tr>
+</tbody></table>
+
+<h2>十、参考资料</h2>
+
+<ul>
+<li><a href="https://github.com/graphql-go/graphql">graphql-go/graphql</a></li>
+<li><a href="https://graphql.org/learn/">GraphQL 官方文档</a></li>
+<li><a href="https://gqlgen.com/">gqlgen（推荐生产使用）</a></li>
+<li><a href="https://graphql.org/learn/best-practices/">GraphQL 最佳实践</a></li>
+<li><a href="https://github.com/graphql/dataloader">DataLoader 模式</a></li>
+
+<h2>十一、代码演进</h2>
+
+<h3>v1：最小 Query API</h3>
+
+<pre><code class="language-go">// 最简单的 GraphQL：只有 Query，没有 Mutation
+var queryType = graphql.NewObject(graphql.ObjectConfig{
+    Name: &quot;Query&quot;,
+    Fields: graphql.Fields{
+        &quot;hello&quot;: &amp;graphql.Field{
+            Type: graphql.String,
+            Resolve: func(p graphql.ResolveParams) (interface{}, error) {
+                return &quot;world&quot;, nil
+            },
+        },
+    },
+})</code></pre>
+
+<h3>v2：完整 CRUD + 关联查询</h3>
+
+<p>添加 Todo/User 类型、Mutation（增删改）、嵌套 Resolver（Todo → User）、参数过滤。如上面完整代码所示。</p>
+
+<h3>v3：生产级方案（gqlgen）</h3>
+
+<pre><code class="language-bash"># 使用 gqlgen 初始化项目
+go get github.com/99designs/gqlgen
+go run github.com/99designs/gqlgen init</code></pre>
+
+<pre><code class="language-graphql"># schema.graphqls - 声明式 Schema
+type Todo {
+  id: ID!
+  title: String!
+  completed: Boolean!
+  user: User!
+}
+
+type Query {
+  todos(completed: Boolean, limit: Int): [Todo!]!
+}
+
+type Mutation {
+  createTodo(input: NewTodo!): Todo!
+}</code></pre>
+
+<p>gqlgen 根据 Schema 自动生成类型安全的 Resolver 骨架代码，配合 <code>go generate</code> 自动化工作流。</p>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

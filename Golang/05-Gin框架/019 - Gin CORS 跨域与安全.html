@@ -1,0 +1,699 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>019 - Gin CORS 跨域与安全</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Golang/index.html">Golang</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Golang/05-Gin框架/index.html">Gin框架</a>
+</nav>
+<h1>019 - Gin CORS 跨域与安全</h1>
+<div class="meta">
+<span>📂 Gin框架</span>
+<span>🏷️ Golang</span>
+</div>
+<article>
+
+
+<h1>019 - Gin CORS 跨域与安全</h1>
+
+<blockquote><p><strong>难度：⭐⭐⭐</strong> | <strong>预计阅读：15 分钟</strong><br><br>理解 CORS 原理，在 Gin 中配置跨域中间件，以及 Web 安全头部、输入验证、SQL 注入防护等安全最佳实践。</p></blockquote>
+
+<hr>
+
+<h2>一、概念讲解</h2>
+
+<h3>CORS（跨域资源共享）</h3>
+
+<p>浏览器同源策略限制了不同源之间的 HTTP 请求。CORS 是一组 HTTP 头部，告诉浏览器允许哪些跨域请求。</p>
+
+<p><strong>同源 = 协议 + 域名 + 端口 都相同</strong></p>
+
+<pre><code>https://example.com:443 → https://api.example.com:443  ❌ 不同域
+https://example.com      → https://example.com:8080     ❌ 不同端口
+https://example.com      → https://example.com          ✅ 同源</code></pre>
+
+<p><strong>CORS 流程：</strong></p>
+
+<pre><code>简单请求:
+  Browser → Request (Origin header) → Server
+  Server → Response (Access-Control-Allow-Origin) → Browser ✓
+
+预检请求 (Preflight):
+  Browser → OPTIONS request → Server
+  Server → 200 + CORS headers → Browser
+  Browser → Actual Request → Server → Response → Browser ✓</code></pre>
+
+<hr>
+
+<h2>二、脑图</h2>
+
+<pre><code>CORS 跨域与安全
+├── CORS
+│   ├── 简单请求 vs 预检请求
+│   ├── Access-Control-* 头部
+│   └── gin-contrib/cors 中间件
+├── 安全头部
+│   ├── X-XSS-Protection
+│   ├── X-Content-Type-Options
+│   ├── X-Frame-Options
+│   ├── Content-Security-Policy
+│   └── Strict-Transport-Security
+├── 输入安全
+│   ├── 参数验证 (binding)
+│   ├── SQL 注入防护
+│   └── XSS 防护
+└── HTTPS
+    ├── TLS 配置
+    └── 自动证书 (Let&#x27;s Encrypt)</code></pre>
+
+<hr>
+
+<h2>三、完整代码</h2>
+
+<h3>v1：手动 CORS 中间件</h3>
+
+<pre><code class="language-go">package main
+
+import (
+	&quot;net/http&quot;
+
+	&quot;github.com/gin-gonic/gin&quot;
+)
+
+// CORSMiddleware handles cross-origin requests
+func CORSMiddleware() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		origin := c.Request.Header.Get(&quot;Origin&quot;)
+
+		// Allowed origins whitelist
+		allowed := map[string]bool{
+			&quot;http://localhost:3000&quot;: true,
+			&quot;http://localhost:5173&quot;: true,
+			&quot;https://example.com&quot;:   true,
+		}
+
+		if allowed[origin] {
+			c.Header(&quot;Access-Control-Allow-Origin&quot;, origin)
+		}
+
+		c.Header(&quot;Access-Control-Allow-Methods&quot;, &quot;GET,POST,PUT,DELETE,OPTIONS&quot;)
+		c.Header(&quot;Access-Control-Allow-Headers&quot;, &quot;Content-Type,Authorization,X-Requested-With&quot;)
+		c.Header(&quot;Access-Control-Allow-Credentials&quot;, &quot;true&quot;)
+		c.Header(&quot;Access-Control-Max-Age&quot;, &quot;86400&quot;)
+
+		// Handle preflight
+		if c.Request.Method == http.MethodOptions {
+			c.AbortWithStatus(http.StatusNoContent)
+			return
+		}
+
+		c.Next()
+	}
+}
+
+func main() {
+	r := gin.Default()
+	r.Use(CORSMiddleware())
+
+	r.GET(&quot;/api/data&quot;, func(c *gin.Context) {
+		c.JSON(200, gin.H{&quot;message&quot;: &quot;data&quot;})
+	})
+
+	r.Run(&quot;:8080&quot;)
+}</code></pre>
+
+<h3>v2：gin-contrib/cors + 安全头部中间件</h3>
+
+<pre><code class="language-go">package main
+
+import (
+	&quot;net/http&quot;
+	&quot;strings&quot;
+	&quot;time&quot;
+
+	&quot;github.com/gin-contrib/cors&quot;
+	&quot;github.com/gin-gonic/gin&quot;
+)
+
+// SecurityHeadersMiddleware adds common security headers
+func SecurityHeadersMiddleware() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		// Prevent MIME type sniffing
+		c.Header(&quot;X-Content-Type-Options&quot;, &quot;nosniff&quot;)
+		// Prevent clickjacking
+		c.Header(&quot;X-Frame-Options&quot;, &quot;DENY&quot;)
+		// Enable XSS filter in browsers
+		c.Header(&quot;X-XSS-Protection&quot;, &quot;1; mode=block&quot;)
+		// HSTS: force HTTPS (only enable with HTTPS)
+		// c.Header(&quot;Strict-Transport-Security&quot;, &quot;max-age=31536000; includeSubDomains&quot;)
+		// Content Security Policy
+		c.Header(&quot;Content-Security-Policy&quot;, &quot;default-src &#x27;self&#x27;&quot;)
+		// Referrer Policy
+		c.Header(&quot;Referrer-Policy&quot;, &quot;strict-origin-when-cross-origin&quot;)
+
+		c.Next()
+	}
+}
+
+func setupCORS() gin.HandlerFunc {
+	config := cors.Config{
+		AllowOrigins: []string{
+			&quot;http://localhost:3000&quot;,
+			&quot;http://localhost:5173&quot;,
+			&quot;https://example.com&quot;,
+		},
+		AllowMethods: []string{&quot;GET&quot;, &quot;POST&quot;, &quot;PUT&quot;, &quot;DELETE&quot;, &quot;OPTIONS&quot;},
+		AllowHeaders: []string{
+			&quot;Origin&quot;, &quot;Content-Type&quot;, &quot;Accept&quot;,
+			&quot;Authorization&quot;, &quot;X-Requested-With&quot;,
+		},
+		ExposeHeaders:    []string{&quot;Content-Length&quot;, &quot;X-Request-Id&quot;},
+		AllowCredentials: true,
+		MaxAge:           12 * time.Hour,
+	}
+	return cors.New(config)
+}
+
+// InputValidationMiddleware demonstrates input sanitization
+func InputValidationMiddleware() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		// Check Content-Type for POST/PUT
+		if c.Request.Method == http.MethodPost || c.Request.Method == http.MethodPut {
+			ct := c.ContentType()
+			if !strings.HasPrefix(ct, &quot;application/json&quot;) &amp;&amp;
+				!strings.HasPrefix(ct, &quot;multipart/form-data&quot;) {
+				c.JSON(http.StatusUnsupportedMediaType, gin.H{
+					&quot;error&quot;: &quot;Content-Type must be application/json&quot;,
+				})
+				c.Abort()
+				return
+			}
+		}
+		c.Next()
+	}
+}
+
+// CreateUserRequest with binding validation
+type CreateUserRequest struct {
+	Username string `json:&quot;username&quot; binding:&quot;required,min=3,max=50,alphanum&quot;`
+	Email    string `json:&quot;email&quot; binding:&quot;required,email&quot;`
+	Password string `json:&quot;password&quot; binding:&quot;required,min=8&quot;`
+}
+
+func main() {
+	r := gin.Default()
+
+	// Apply middleware
+	r.Use(setupCORS())
+	r.Use(SecurityHeadersMiddleware())
+	r.Use(InputValidationMiddleware())
+
+	api := r.Group(&quot;/api&quot;)
+	{
+		api.GET(&quot;/data&quot;, func(c *gin.Context) {
+			c.JSON(200, gin.H{&quot;data&quot;: &quot;public data&quot;})
+		})
+
+		api.POST(&quot;/users&quot;, func(c *gin.Context) {
+			var req CreateUserRequest
+			if err := c.ShouldBindJSON(&amp;req); err != nil {
+				c.JSON(http.StatusBadRequest, gin.H{
+					&quot;error&quot;:   &quot;validation failed&quot;,
+					&quot;details&quot;: err.Error(),
+				})
+				return
+			}
+			c.JSON(http.StatusCreated, gin.H{
+				&quot;username&quot;: req.Username,
+				&quot;email&quot;:    req.Email,
+			})
+		})
+	}
+
+	r.Run(&quot;:8080&quot;)
+}</code></pre>
+
+<h3>v3：SQL 注入防护 + HTTPS + 完整安全方案</h3>
+
+<pre><code class="language-go">package main
+
+import (
+	&quot;database/sql&quot;
+	&quot;log&quot;
+	&quot;net/http&quot;
+	&quot;regexp&quot;
+	&quot;strings&quot;
+	&quot;time&quot;
+
+	&quot;github.com/gin-contrib/cors&quot;
+	&quot;github.com/gin-gonic/gin&quot;
+	_ &quot;github.com/mattn/go-sqlite3&quot;
+)
+
+// ===== SQL Injection Prevention =====
+
+// SafeDB wraps database operations with parameterized queries
+type SafeDB struct {
+	db *sql.DB
+}
+
+// GetUserByID uses parameterized query - SAFE from SQL injection
+func (s *SafeDB) GetUserByID(id string) (*User, error) {
+	var u User
+	// ✅ Use placeholders, never concatenate user input
+	err := s.db.QueryRow(&quot;SELECT id, username, email FROM users WHERE id = ?&quot;, id).Scan(&amp;u.ID, &amp;u.Username, &amp;u.Email)
+	if err != nil {
+		return nil, err
+	}
+	return &amp;u, nil
+}
+
+// SearchUsers uses LIKE with parameter - SAFE
+func (s *SafeDB) SearchUsers(keyword string) ([]User, error) {
+	pattern := &quot;%&quot; + keyword + &quot;%&quot;
+	rows, err := s.db.Query(&quot;SELECT id, username, email FROM users WHERE username LIKE ?&quot;, pattern)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var users []User
+	for rows.Next() {
+		var u User
+		rows.Scan(&amp;u.ID, &amp;u.Username, &amp;u.Email)
+		users = append(users, u)
+	}
+	return users, nil
+}
+
+type User struct {
+	ID       int    `json:&quot;id&quot;`
+	Username string `json:&quot;username&quot;`
+	Email    string `json:&quot;email&quot;`
+}
+
+// ===== Input Sanitizer =====
+
+var htmlPattern = regexp.MustCompile(`&lt;[^&gt;]*&gt;`)
+
+// SanitizeInput removes potential XSS content
+func SanitizeInput(input string) string {
+	// Remove HTML tags
+	cleaned := htmlPattern.ReplaceAllString(input, &quot;&quot;)
+	return strings.TrimSpace(cleaned)
+}
+
+// ===== CSRF Token Middleware =====
+
+func CSRFMiddleware() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		if c.Request.Method == http.MethodGet || c.Request.Method == http.MethodOptions {
+			c.Next()
+			return
+		}
+
+		token := c.GetHeader(&quot;X-CSRF-Token&quot;)
+		cookie, err := c.Cookie(&quot;csrf_token&quot;)
+		if err != nil || token == &quot;&quot; || token != cookie {
+			c.JSON(http.StatusForbidden, gin.H{&quot;error&quot;: &quot;CSRF token mismatch&quot;})
+			c.Abort()
+			return
+		}
+		c.Next()
+	}
+}
+
+// ===== Rate Limiting for Sensitive Endpoints =====
+
+func loginRateLimit() gin.HandlerFunc {
+	type attempt struct {
+		count   int
+		lastTry time.Time
+	}
+	attempts := make(map[string]*attempt)
+
+	return func(c *gin.Context) {
+		ip := c.ClientIP()
+		a, exists := attempts[ip]
+		if !exists || time.Since(a.lastTry) &gt; 15*time.Minute {
+			attempts[ip] = &amp;attempt{count: 1, lastTry: time.Now()}
+			c.Next()
+			return
+		}
+		if a.count &gt;= 5 {
+			c.JSON(http.StatusTooManyRequests, gin.H{&quot;error&quot;: &quot;too many login attempts&quot;})
+			c.Abort()
+			return
+		}
+		a.count++
+		a.lastTry = time.Now()
+		c.Next()
+	}
+}
+
+func main() {
+	// Initialize database
+	db, err := sql.Open(&quot;sqlite3&quot;, &quot;./app.db&quot;)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer db.Close()
+
+	safeDB := &amp;SafeDB{db: db}
+
+	r := gin.Default()
+
+	// CORS
+	r.Use(cors.New(cors.Config{
+		AllowOrigins:     []string{&quot;https://example.com&quot;},
+		AllowMethods:     []string{&quot;GET&quot;, &quot;POST&quot;, &quot;PUT&quot;, &quot;DELETE&quot;},
+		AllowHeaders:     []string{&quot;Origin&quot;, &quot;Content-Type&quot;, &quot;Authorization&quot;, &quot;X-CSRF-Token&quot;},
+		AllowCredentials: true,
+		MaxAge:           12 * time.Hour,
+	}))
+
+	// Security headers
+	r.Use(func(c *gin.Context) {
+		c.Header(&quot;X-Content-Type-Options&quot;, &quot;nosniff&quot;)
+		c.Header(&quot;X-Frame-Options&quot;, &quot;DENY&quot;)
+		c.Header(&quot;X-XSS-Protection&quot;, &quot;1; mode=block&quot;)
+		c.Header(&quot;Content-Security-Policy&quot;, &quot;default-src &#x27;self&#x27;; script-src &#x27;self&#x27;&quot;)
+		c.Header(&quot;Referrer-Policy&quot;, &quot;strict-origin-when-cross-origin&quot;)
+		c.Next()
+	})
+
+	api := r.Group(&quot;/api&quot;)
+	api.Use(CSRFMiddleware())
+	{
+		api.GET(&quot;/users/:id&quot;, func(c *gin.Context) {
+			id := c.Param(&quot;id&quot;)
+			user, err := safeDB.GetUserByID(id) // Parameterized query
+			if err != nil {
+				c.JSON(http.StatusNotFound, gin.H{&quot;error&quot;: &quot;user not found&quot;})
+				return
+			}
+			c.JSON(200, user)
+		})
+
+		api.GET(&quot;/users/search&quot;, func(c *gin.Context) {
+			keyword := SanitizeInput(c.Query(&quot;q&quot;))
+			users, _ := safeDB.SearchUsers(keyword) // Safe LIKE query
+			c.JSON(200, users)
+		})
+
+		api.POST(&quot;/login&quot;, loginRateLimit(), func(c *gin.Context) {
+			var body struct {
+				Username string `json:&quot;username&quot; binding:&quot;required,alphanum&quot;`
+				Password string `json:&quot;password&quot; binding:&quot;required,min=8&quot;`
+			}
+			if err := c.ShouldBindJSON(&amp;body); err != nil {
+				c.JSON(400, gin.H{&quot;error&quot;: &quot;invalid input&quot;})
+				return
+			}
+			// Login logic...
+			c.JSON(200, gin.H{&quot;token&quot;: &quot;jwt-token&quot;})
+		})
+	}
+
+	// HTTPS with auto-generated cert (development only)
+	// Production: use nginx/caddy as reverse proxy with Let&#x27;s Encrypt
+	log.Println(&quot;Server on :8080&quot;)
+	r.Run(&quot;:8080&quot;)
+}</code></pre>
+
+<hr>
+
+<h2>四、执行预览</h2>
+
+<pre><code class="language-bash"># CORS 预检请求
+curl -X OPTIONS http://localhost:8080/api/data \
+  -H &quot;Origin: http://localhost:3000&quot; \
+  -H &quot;Access-Control-Request-Method: GET&quot; -v
+# → 204, 包含 Access-Control-Allow-Origin: http://localhost:3000
+
+# 跨域 GET 请求
+curl http://localhost:8080/api/data \
+  -H &quot;Origin: http://localhost:3000&quot;
+# → {&quot;data&quot;:&quot;public data&quot;} + CORS headers
+
+# 安全头部检查
+curl -I http://localhost:8080/api/data
+# → X-Content-Type-Options: nosniff
+# → X-Frame-Options: DENY
+# → X-XSS-Protection: 1; mode=block
+
+# 输入验证
+curl -X POST http://localhost:8080/api/users \
+  -H &quot;Content-Type: application/json&quot; \
+  -d &#x27;{&quot;username&quot;:&quot;ab&quot;,&quot;email&quot;:&quot;bad&quot;,&quot;password&quot;:&quot;123&quot;}&#x27;
+# → {&quot;error&quot;:&quot;validation failed&quot;,&quot;details&quot;:&quot;...&quot;}</code></pre>
+
+<hr>
+
+<h2>五、注意事项</h2>
+
+<table><thead><tr>
+<th>项目</th>
+<th>说明</th>
+</tr></thead><tbody>
+<tr>
+<td><code>AllowOrigins</code></td>
+<td>不要用 <code>*</code> + <code>AllowCredentials: true</code>，浏览器会拒绝</td>
+</tr>
+<tr>
+<td>预检缓存</td>
+<td><code>MaxAge</code> 设置 12h 减少 OPTIONS 请求</td>
+</tr>
+<tr>
+<td>CSRF</td>
+<td>有 CORS 并不能替代 CSRF 防护，两者独立</td>
+</tr>
+<tr>
+<td>SQL 参数化</td>
+<td>永远用 <code>?</code> 占位符，不拼接 SQL</td>
+</tr>
+<tr>
+<td>HTTPS</td>
+<td>生产环境必须 HTTPS，HSTS 头才有效</td>
+</tr>
+<tr>
+<td>CSP</td>
+<td>从 <code>default-src 'self'</code> 开始，逐步放宽</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>六、避坑指南</h2>
+
+<table><thead><tr>
+<th>❌ 错误做法</th>
+<th>✅ 正确做法</th>
+</tr></thead><tbody>
+<tr>
+<td><code>Access-Control-Allow-Origin: *</code> + Credentials</td>
+<td>指定具体域名白名单</td>
+</tr>
+<tr>
+<td>不处理 OPTIONS 预检</td>
+<td>中间件拦截 OPTIONS 返回 204</td>
+</tr>
+<tr>
+<td>字符串拼接 SQL</td>
+<td>始终用参数化查询 <code>?</code></td>
+</tr>
+<tr>
+<td><code>AllowOrigins: ["*"]</code> 通配</td>
+<td>配置白名单 + 正则匹配</td>
+</tr>
+<tr>
+<td>只依赖 CORS 防 XSS</td>
+<td>CORS 只管跨域，XSS 需输入过滤 + CSP</td>
+</tr>
+<tr>
+<td>忽略 <code>Content-Type</code> 校验</td>
+<td>POST/PUT 强制 JSON</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>七、练习题</h2>
+
+<h3>🟢 入门</h3>
+<ol>
+<li>配置 CORS 允许 <code>http://localhost:5173</code> 跨域访问</li>
+</ul>
+<ol>
+<li>添加安全头部中间件（X-Frame-Options, X-Content-Type-Options）</li>
+
+<h3>🟡 进阶</h3>
+<ol>
+<li>实现 CSRF Token 验证中间件</li>
+</ul>
+<ol>
+<li>使用 <code>binding</code> 标签实现请求参数校验（用户名3-50字符、邮箱格式）</li>
+
+<h3>🔴 挑战</h3>
+<ol>
+<li>实现 Content-Security-Policy 报告端点，收集 CSP 违规报告</li>
+</ul>
+<ol>
+<li>配置 HTTPS（自签名证书开发 + Let's Encrypt 生产）</li>
+
+<hr>
+
+<h2>八、知识点总结</h2>
+
+<pre><code>CORS 与安全知识树
+├── CORS
+│   ├── 简单请求 (GET/POST, 无自定义头)
+│   ├── 预检请求 (OPTIONS, 自定义头/PUT/DELETE)
+│   ├── Access-Control-* 头部
+│   └── gin-contrib/cors 配置
+├── 安全头部
+│   ├── X-Frame-Options (防点击劫持)
+│   ├── X-XSS-Protection (XSS 过滤)
+│   ├── Content-Security-Policy
+│   ├── Strict-Transport-Security
+│   └── X-Content-Type-Options
+├── 输入安全
+│   ├── binding 验证
+│   ├── SQL 参数化
+│   ├── XSS 过滤
+│   └── CSRF Token
+└── HTTPS
+    ├── TLS 配置
+    └── 反向代理 (Nginx/Caddy)</code></pre>
+
+<hr>
+
+<h2>九、举一反三</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>方案</th>
+<th>关键点</th>
+</tr></thead><tbody>
+<tr>
+<td>前后端分离</td>
+<td>CORS 白名单 + Credentials</td>
+<td>指定前端域名</td>
+</tr>
+<tr>
+<td>第三方 API</td>
+<td>API Key + CORS</td>
+<td>不依赖 CORS 做鉴权</td>
+</tr>
+<tr>
+<td>文件上传</td>
+<td>CORS + 文件类型校验</td>
+<td>限制 Content-Type</td>
+</tr>
+<tr>
+<td>嵌入 iframe</td>
+<td>X-Frame-Options SAMEORIGIN</td>
+<td>只允许同源嵌入</td>
+</tr>
+<tr>
+<td>移动端 API</td>
+<td>不需要 CORS（非浏览器）</td>
+<td>但需要 API Key 鉴权</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>十、参考资料</h2>
+
+<ul>
+<li><a href="https://github.com/gin-contrib/cors">gin-contrib/cors</a></li>
+<li><a href="https://developer.mozilla.org/en-US/docs/Web/HTTP/CORS">MDN - CORS</a></li>
+<li><a href="https://owasp.org/www-project-top-ten/">OWASP Top 10</a></li>
+<li><a href="https://content-security-policy.com/">Content Security Policy Reference</a></li>
+
+<hr>
+
+<h2>十一、代码演进</h2>
+
+<table><thead><tr>
+<th>版本</th>
+<th>特点</th>
+<th>适用场景</th>
+</tr></thead><tbody>
+<tr>
+<td><strong>v1</strong></td>
+<td>手动 CORS 中间件</td>
+<td>学习理解原理</td>
+</tr>
+<tr>
+<td><strong>v2</strong></td>
+<td>gin-contrib/cors + 安全头 + 输入验证</td>
+<td>通用项目</td>
+</tr>
+<tr>
+<td><strong>v3</strong></td>
+<td>完整安全方案（SQL防护/CSRF/限流/CSP）</td>
+<td>生产环境</td>
+</tr>
+</tbody></table>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

@@ -1,0 +1,811 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>035 - 实战：API网关</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Swoole/index.html">Swoole</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Swoole/01-从入门到精通/index.html">Swoole从入门到精通</a>
+</nav>
+<h1>035 - 实战：API网关</h1>
+<div class="meta">
+<span>📂 Swoole从入门到精通</span>
+<span>🏷️ Swoole</span>
+</div>
+<article>
+
+
+<hr>
+<p>slug: 035-api-gateway</p>
+<p>title: 实战：API网关</p>
+<p>category: Swoole深度实战</p>
+<p>difficulty: ⭐⭐⭐⭐高级</p>
+<p>tags: [Swoole, API网关, 反向代理, 负载均衡, 中间件]</p>
+<hr>
+
+<h1>实战：API网关</h1>
+
+<blockquote><p><strong>难度：⭐⭐⭐⭐高级</strong> | 预计阅读时间：25分钟</p></blockquote>
+
+<h2>一、概念讲解</h2>
+
+<p>API网关是微服务架构中的统一入口，负责请求路由、负载均衡、限流熔断、认证鉴权等横切关注点。用Swoole构建API网关，可以获得<strong>极高的吞吐量</strong>和<strong>毫秒级响应延迟</strong>。</p>
+
+<h3>API网关核心职责</h3>
+
+<table><thead><tr>
+<th>职责</th>
+<th>说明</th>
+<th>Swoole实现</th>
+</tr></thead><tbody>
+<tr>
+<td>路由转发</td>
+<td>URL映射到后端服务</td>
+<td>路由表 + 正则匹配</td>
+</tr>
+<tr>
+<td>负载均衡</td>
+<td>请求分发到多个实例</td>
+<td>加权轮询 / 一致性哈希</td>
+</tr>
+<tr>
+<td>限流熔断</td>
+<td>保护后端服务</td>
+<td>令牌桶 / 滑动窗口</td>
+</tr>
+<tr>
+<td>认证鉴权</td>
+<td>JWT/OAuth校验</td>
+<td>协程HTTP客户端</td>
+</tr>
+<tr>
+<td>日志监控</td>
+<td>请求追踪</td>
+<td>异步日志 + metrics</td>
+</tr>
+<tr>
+<td>协议转换</td>
+<td>HTTP ↔ gRPC等</td>
+<td>协程管道</td>
+</tr>
+</tbody></table>
+
+<h2>二、脑图</h2>
+
+<pre><code>Swoole API网关
+├── 核心组件
+│   ├── 路由引擎（Route Engine）
+│   ├── 负载均衡器（Load Balancer）
+│   ├── 中间件链（Middleware Chain）
+│   └── 服务发现（Service Discovery）
+├── 中间件
+│   ├── 认证（JWT/OAuth）
+│   ├── 限流（Rate Limiting）
+│   ├── 熔断（Circuit Breaker）
+│   ├── CORS跨域
+│   └── 请求日志
+├── 负载均衡策略
+│   ├── 轮询（Round Robin）
+│   ├── 加权轮询（Weighted）
+│   ├── 随机（Random）
+│   └── 一致性哈希（Consistent Hash）
+└── 运维能力
+    ├── 健康检查
+    ├── 热重载配置
+    └── 优雅上下线</code></pre>
+
+<h2>三、代码演进</h2>
+
+<h3>v1: 基础反向代理</h3>
+
+<pre><code class="language-php">&lt;?php
+// v1_reverse_proxy.php - Simple reverse proxy gateway
+
+$gateway = new Swoole\Http\Server(&quot;0.0.0.0&quot;, 9500);
+
+// Route table: path prefix =&gt; backend service
+$routes = [
+    &#x27;/api/users&#x27; =&gt; &#x27;http://user-service:8081&#x27;,
+    &#x27;/api/orders&#x27; =&gt; &#x27;http://order-service:8082&#x27;,
+    &#x27;/api/products&#x27; =&gt; &#x27;http://product-service:8083&#x27;,
+];
+
+$gateway-&gt;on(&#x27;request&#x27;, function ($request, $response) use ($routes) {
+    $path = $request-&gt;server[&#x27;request_uri&#x27;] ?? &#x27;/&#x27;;
+    
+    // Find matching backend
+    $backend = null;
+    foreach ($routes as $prefix =&gt; $service) {
+        if (strpos($path, $prefix) === 0) {
+            $backend = $service;
+            break;
+        }
+    }
+    
+    if (!$backend) {
+        $response-&gt;status(404);
+        $response-&gt;end(json_encode([&#x27;error&#x27; =&gt; &#x27;Route not found&#x27;]));
+        return;
+    }
+    
+    // Forward request to backend
+    go(function () use ($request, $response, $backend, $path) {
+        $client = new Swoole\Coroutine\Http\Client(
+            parse_url($backend, PHP_URL_HOST),
+            parse_url($backend, PHP_URL_PORT) ?: 80
+        );
+        
+        $client-&gt;setHeaders($request-&gt;header ?: []);
+        $client-&gt;setMethod($request-&gt;server[&#x27;request_method&#x27;] ?? &#x27;GET&#x27;);
+        
+        if ($request-&gt;rawcontent()) {
+            $client-&gt;setData($request-&gt;rawcontent());
+        }
+        
+        $fullPath = $path . &#x27;?&#x27; . ($request-&gt;server[&#x27;query_string&#x27;] ?? &#x27;&#x27;);
+        $client-&gt;execute($fullPath);
+        
+        $response-&gt;status($client-&gt;statusCode);
+        $response-&gt;header(&#x27;content-type&#x27;, $client-&gt;headers[&#x27;content-type&#x27;] ?? &#x27;application/json&#x27;);
+        $response-&gt;end($client-&gt;body);
+        $client-&gt;close();
+    });
+});
+
+echo &quot;[Gateway] Listening on 0.0.0.0:9500\n&quot;;
+$gateway-&gt;start();</code></pre>
+
+<p><strong>执行预览：</strong></p>
+<pre><code>$ php v1_reverse_proxy.php
+[Gateway] Listening on 0.0.0.0:9500
+
+# Another terminal
+$ curl http://localhost:9500/api/users/123
+{&quot;id&quot;:123,&quot;name&quot;:&quot;Alice&quot;}   # Forwarded to user-service:8081
+
+$ curl http://localhost:9500/api/unknown
+{&quot;error&quot;:&quot;Route not found&quot;}</code></pre>
+
+<h3>v2: 带中间件的网关</h3>
+
+<pre><code class="language-php">&lt;?php
+// v2_middleware_gateway.php - Gateway with middleware chain
+
+class ApiGateway
+{
+    private array $routes = [];
+    private array $middlewares = [];
+    private array $services = []; // service =&gt; [endpoints]
+    
+    public function addRoute(string $prefix, array $endpoints): void
+    {
+        $this-&gt;routes[$prefix] = [
+            &#x27;prefix&#x27; =&gt; $prefix,
+            &#x27;endpoints&#x27; =&gt; $endpoints,
+            &#x27;current&#x27; =&gt; 0, // Round-robin index
+        ];
+    }
+    
+    public function addMiddleware(callable $middleware): void
+    {
+        $this-&gt;middlewares[] = $middleware;
+    }
+    
+    public function handle(Swoole\Http\Request $request, Swoole\Http\Response $response): void
+    {
+        $path = $request-&gt;server[&#x27;request_uri&#x27;] ?? &#x27;/&#x27;;
+        $startTime = microtime(true);
+        
+        // Build context
+        $ctx = [
+            &#x27;request&#x27; =&gt; $request,
+            &#x27;response&#x27; =&gt; $response,
+            &#x27;path&#x27; =&gt; $path,
+            &#x27;method&#x27; =&gt; $request-&gt;server[&#x27;request_method&#x27;] ?? &#x27;GET&#x27;,
+            &#x27;headers&#x27; =&gt; [],
+            &#x27;status&#x27; =&gt; 200,
+            &#x27;body&#x27; =&gt; &#x27;&#x27;,
+            &#x27;start_time&#x27; =&gt; $startTime,
+        ];
+        
+        // Run middleware chain
+        $this-&gt;runMiddleware($ctx, 0);
+    }
+    
+    private function runMiddleware(array &amp;$ctx, int $index): void
+    {
+        if ($index &gt;= count($this-&gt;middlewares)) {
+            // All middleware passed, forward to backend
+            $this-&gt;forward($ctx);
+            return;
+        }
+        
+        $next = function () use (&amp;$ctx, $index) {
+            $this-&gt;runMiddleware($ctx, $index + 1);
+        };
+        
+        $this-&gt;middlewares[$index]($ctx, $next);
+    }
+    
+    private function forward(array &amp;$ctx): void
+    {
+        $path = $ctx[&#x27;path&#x27;];
+        $route = null;
+        
+        foreach ($this-&gt;routes as $prefix =&gt; $r) {
+            if (strpos($path, $prefix) === 0) {
+                $route = $r;
+                break;
+            }
+        }
+        
+        if (!$route) {
+            $this-&gt;sendError($ctx, 404, &#x27;Route not found&#x27;);
+            return;
+        }
+        
+        // Round-robin load balancing
+        $idx = $route[&#x27;current&#x27;] % count($route[&#x27;endpoints&#x27;]);
+        $endpoint = $route[&#x27;endpoints&#x27;][$idx];
+        $route[&#x27;current&#x27;]++;
+        $this-&gt;routes[$route[&#x27;prefix&#x27;]][&#x27;current&#x27;] = $route[&#x27;current&#x27;];
+        
+        go(function () use ($ctx, $endpoint) {
+            try {
+                $host = parse_url($endpoint, PHP_URL_HOST);
+                $port = parse_url($endpoint, PHP_URL_PORT) ?: 80;
+                
+                $client = new Swoole\Coroutine\Http\Client($host, $port);
+                $client-&gt;setMethod($ctx[&#x27;method&#x27;]);
+                $client-&gt;setHeaders(array_merge(
+                    $ctx[&#x27;request&#x27;]-&gt;header ?? [],
+                    [&#x27;X-Forwarded-For&#x27; =&gt; $ctx[&#x27;request&#x27;]-&gt;server[&#x27;remote_addr&#x27;] ?? &#x27;&#x27;],
+                    [&#x27;X-Request-Id&#x27; =&gt; uniqid(&#x27;req_&#x27;)],
+                ));
+                
+                if ($raw = $ctx[&#x27;request&#x27;]-&gt;rawcontent()) {
+                    $client-&gt;setData($raw);
+                }
+                
+                $query = $ctx[&#x27;request&#x27;]-&gt;server[&#x27;query_string&#x27;] ?? &#x27;&#x27;;
+                $fullPath = $ctx[&#x27;path&#x27;] . ($query ? &quot;?{$query}&quot; : &#x27;&#x27;);
+                
+                $client-&gt;execute($fullPath);
+                
+                $ctx[&#x27;status&#x27;] = $client-&gt;statusCode;
+                $ctx[&#x27;body&#x27;] = $client-&gt;body;
+                
+                $resp = $ctx[&#x27;response&#x27;];
+                $resp-&gt;status($client-&gt;statusCode);
+                foreach ($client-&gt;headers ?? [] as $k =&gt; $v) {
+                    $resp-&gt;header($k, $v);
+                }
+                $resp-&gt;end($client-&gt;body);
+                $client-&gt;close();
+                
+            } catch (Throwable $e) {
+                $this-&gt;sendError($ctx, 502, &#x27;Backend error: &#x27; . $e-&gt;getMessage());
+            }
+        });
+    }
+    
+    private function sendError(array &amp;$ctx, int $code, string $msg): void
+    {
+        $ctx[&#x27;response&#x27;]-&gt;status($code);
+        $ctx[&#x27;response&#x27;]-&gt;header(&#x27;content-type&#x27;, &#x27;application/json&#x27;);
+        $ctx[&#x27;response&#x27;]-&gt;end(json_encode([&#x27;error&#x27; =&gt; $msg, &#x27;code&#x27; =&gt; $code]));
+    }
+}
+
+// === Build Gateway ===
+$gw = new ApiGateway();
+
+// Register backend services with multiple endpoints
+$gw-&gt;addRoute(&#x27;/api/users&#x27;, [&#x27;http://user-svc-1:8081&#x27;, &#x27;http://user-svc-2:8081&#x27;]);
+$gw-&gt;addRoute(&#x27;/api/orders&#x27;, [&#x27;http://order-svc-1:8082&#x27;]);
+$gw-&gt;addRoute(&#x27;/api/products&#x27;, [&#x27;http://product-svc-1:8083&#x27;, &#x27;http://product-svc-2:8083&#x27;]);
+
+// Middleware: CORS
+$gw-&gt;addMiddleware(function ($ctx, $next) {
+    $ctx[&#x27;response&#x27;]-&gt;header(&#x27;Access-Control-Allow-Origin&#x27;, &#x27;*&#x27;);
+    $ctx[&#x27;response&#x27;]-&gt;header(&#x27;Access-Control-Allow-Methods&#x27;, &#x27;GET, POST, PUT, DELETE&#x27;);
+    if (($ctx[&#x27;method&#x27;] ?? &#x27;&#x27;) === &#x27;OPTIONS&#x27;) {
+        $ctx[&#x27;response&#x27;]-&gt;status(204);
+        $ctx[&#x27;response&#x27;]-&gt;end();
+        return;
+    }
+    $next();
+});
+
+// Middleware: Rate limiting (simple token bucket)
+$rateLimitBucket = new Swoole\Table(1024);
+$rateLimitBucket-&gt;column(&#x27;tokens&#x27;, Swoole\Table::TYPE_INT);
+$rateLimitBucket-&gt;column(&#x27;last_refill&#x27;, Swoole\Table::TYPE_INT);
+$rateLimitBucket-&gt;create();
+
+$gw-&gt;addMiddleware(function ($ctx, $next) use ($rateLimitBucket) {
+    $ip = $ctx[&#x27;request&#x27;]-&gt;server[&#x27;remote_addr&#x27;] ?? &#x27;unknown&#x27;;
+    $now = time();
+    $maxTokens = 100;
+    $refillRate = 10; // tokens per second
+    
+    $info = $rateLimitBucket-&gt;get($ip);
+    if (!$info) {
+        $rateLimitBucket-&gt;set($ip, [&#x27;tokens&#x27; =&gt; $maxTokens - 1, &#x27;last_refill&#x27; =&gt; $now]);
+        $next();
+        return;
+    }
+    
+    // Refill tokens
+    $elapsed = $now - $info[&#x27;last_refill&#x27;];
+    $tokens = min($maxTokens, $info[&#x27;tokens&#x27;] + $elapsed * $refillRate);
+    
+    if ($tokens &lt; 1) {
+        $ctx[&#x27;response&#x27;]-&gt;status(429);
+        $ctx[&#x27;response&#x27;]-&gt;end(json_encode([&#x27;error&#x27; =&gt; &#x27;Rate limit exceeded&#x27;]));
+        return;
+    }
+    
+    $rateLimitBucket-&gt;set($ip, [&#x27;tokens&#x27; =&gt; $tokens - 1, &#x27;last_refill&#x27; =&gt; $now]);
+    $next();
+});
+
+// Middleware: JWT Auth (for protected routes)
+$gw-&gt;addMiddleware(function ($ctx, $next) {
+    $path = $ctx[&#x27;path&#x27;] ?? &#x27;&#x27;;
+    $publicPaths = [&#x27;/api/products&#x27;, &#x27;/api/auth&#x27;];
+    
+    foreach ($publicPaths as $public) {
+        if (strpos($path, $public) === 0) {
+            $next();
+            return;
+        }
+    }
+    
+    $auth = $ctx[&#x27;request&#x27;]-&gt;header[&#x27;authorization&#x27;] ?? &#x27;&#x27;;
+    if (!$auth || !preg_match(&#x27;/Bearer\s+(.+)/&#x27;, $auth, $m)) {
+        $ctx[&#x27;response&#x27;]-&gt;status(401);
+        $ctx[&#x27;response&#x27;]-&gt;end(json_encode([&#x27;error&#x27; =&gt; &#x27;Missing auth token&#x27;]));
+        return;
+    }
+    
+    // Validate JWT (simplified - use firebase/php-jwt in production)
+    $token = $m[1];
+    // ... JWT validation logic ...
+    $ctx[&#x27;user_id&#x27;] = &#x27;extracted_user_id&#x27;; // From token payload
+    $next();
+});
+
+// Middleware: Access log
+$gw-&gt;addMiddleware(function ($ctx, $next) {
+    $start = microtime(true);
+    $next();
+    $duration = round((microtime(true) - $start) * 1000, 2);
+    $method = $ctx[&#x27;method&#x27;] ?? &#x27;GET&#x27;;
+    $path = $ctx[&#x27;path&#x27;] ?? &#x27;/&#x27;;
+    $status = $ctx[&#x27;status&#x27;] ?? 200;
+    echo sprintf(&quot;[%s] %s %s -&gt; %d (%.2fms)\n&quot;, date(&#x27;H:i:s&#x27;), $method, $path, $status, $duration);
+});
+
+$server = new Swoole\Http\Server(&quot;0.0.0.0&quot;, 9500);
+$server-&gt;on(&#x27;request&#x27;, [$gw, &#x27;handle&#x27;]);
+$server-&gt;set([&#x27;worker_num&#x27; =&gt; 4]);
+echo &quot;[Gateway] Listening on 0.0.0.0:9500 (4 workers)\n&quot;;
+$server-&gt;start();</code></pre>
+
+<h3>v3: 完整网关（含服务发现与熔断）</h3>
+
+<pre><code class="language-php">&lt;?php
+// v3_full_gateway.php - Production gateway with service discovery and circuit breaker
+
+class CircuitBreaker
+{
+    private Swoole\Table $states;
+    private const CLOSED = &#x27;closed&#x27;;
+    private const OPEN = &#x27;open&#x27;;
+    private const HALF_OPEN = &#x27;half_open&#x27;;
+    
+    public function __construct()
+    {
+        $this-&gt;states = new Swoole\Table(256);
+        $this-&gt;states-&gt;column(&#x27;state&#x27;, Swoole\Table::TYPE_STRING, 16);
+        $this-&gt;states-&gt;column(&#x27;failures&#x27;, Swoole\Table::TYPE_INT);
+        $this-&gt;states-&gt;column(&#x27;last_failure&#x27;, Swoole\Table::TYPE_INT);
+        $this-&gt;states-&gt;column(&#x27;successes&#x27;, Swoole\Table::TYPE_INT);
+        $this-&gt;states-&gt;create();
+    }
+    
+    public function isAvailable(string $service): bool
+    {
+        $info = $this-&gt;states-&gt;get($service);
+        if (!$info) return true;
+        
+        if ($info[&#x27;state&#x27;] === self::OPEN) {
+            // Check if cooldown period passed (30s)
+            if (time() - $info[&#x27;last_failure&#x27;] &gt; 30) {
+                $this-&gt;states-&gt;set($service, [&#x27;state&#x27; =&gt; self::HALF_OPEN, &#x27;successes&#x27; =&gt; 0]);
+                return true; // Allow one test request
+            }
+            return false;
+        }
+        return true;
+    }
+    
+    public function recordSuccess(string $service): void
+    {
+        $info = $this-&gt;states-&gt;get($service);
+        $successes = ($info[&#x27;successes&#x27;] ?? 0) + 1;
+        
+        if ($info &amp;&amp; $info[&#x27;state&#x27;] === self::HALF_OPEN &amp;&amp; $successes &gt;= 3) {
+            $this-&gt;states-&gt;set($service, [&#x27;state&#x27; =&gt; self::CLOSED, &#x27;failures&#x27; =&gt; 0, &#x27;successes&#x27; =&gt; $successes]);
+        } else {
+            $this-&gt;states-&gt;set($service, [&#x27;state&#x27; =&gt; $info[&#x27;state&#x27;] ?? self::CLOSED, &#x27;failures&#x27; =&gt; 0, &#x27;successes&#x27; =&gt; $successes]);
+        }
+    }
+    
+    public function recordFailure(string $service): void
+    {
+        $info = $this-&gt;states-&gt;get($service);
+        $failures = ($info[&#x27;failures&#x27;] ?? 0) + 1;
+        
+        if ($failures &gt;= 5) {
+            $this-&gt;states-&gt;set($service, [
+                &#x27;state&#x27; =&gt; self::OPEN,
+                &#x27;failures&#x27; =&gt; $failures,
+                &#x27;last_failure&#x27; =&gt; time(),
+                &#x27;successes&#x27; =&gt; 0,
+            ]);
+            echo &quot;[CircuitBreaker] {$service} -&gt; OPEN ({$failures} failures)\n&quot;;
+        } else {
+            $this-&gt;states-&gt;set($service, [
+                &#x27;state&#x27; =&gt; $info[&#x27;state&#x27;] ?? self::CLOSED,
+                &#x27;failures&#x27; =&gt; $failures,
+                &#x27;last_failure&#x27; =&gt; time(),
+                &#x27;successes&#x27; =&gt; 0,
+            ]);
+        }
+    }
+}
+
+class ServiceRegistry
+{
+    private Swoole\Table $services;
+    
+    public function __construct()
+    {
+        $this-&gt;services = new Swoole\Table(256);
+        $this-&gt;services-&gt;column(&#x27;endpoints&#x27;, Swoole\Table::TYPE_STRING, 1024);
+        $this-&gt;services-&gt;column(&#x27;updated_at&#x27;, Swoole\Table::TYPE_INT);
+        $this-&gt;services-&gt;create();
+    }
+    
+    public function register(string $name, array $endpoints): void
+    {
+        $this-&gt;services-&gt;set($name, [
+            &#x27;endpoints&#x27; =&gt; json_encode($endpoints),
+            &#x27;updated_at&#x27; =&gt; time(),
+        ]);
+    }
+    
+    public function getEndpoints(string $name): array
+    {
+        $info = $this-&gt;services-&gt;get($name);
+        return $info ? json_decode($info[&#x27;endpoints&#x27;], true) : [];
+    }
+}
+
+// === Production Gateway Server ===
+$registry = new ServiceRegistry();
+$breaker = new CircuitBreaker();
+
+// Register services
+$registry-&gt;register(&#x27;user-service&#x27;, [&#x27;192.168.1.10:8081&#x27;, &#x27;192.168.1.11:8081&#x27;]);
+$registry-&gt;register(&#x27;order-service&#x27;, [&#x27;192.168.1.20:8082&#x27;]);
+
+$routeMap = [
+    &#x27;/api/users&#x27; =&gt; &#x27;user-service&#x27;,
+    &#x27;/api/orders&#x27; =&gt; &#x27;order-service&#x27;,
+];
+
+$server = new Swoole\Http\Server(&quot;0.0.0.0&quot;, 9500);
+$server-&gt;set([&#x27;worker_num&#x27; =&gt; 4, &#x27;max_coroutine&#x27; =&gt; 10000]);
+
+$server-&gt;on(&#x27;request&#x27;, function ($req, $resp) use ($routeMap, $registry, $breaker) {
+    $path = $req-&gt;server[&#x27;request_uri&#x27;] ?? &#x27;/&#x27;;
+    
+    // Find service
+    $serviceName = null;
+    foreach ($routeMap as $prefix =&gt; $svc) {
+        if (strpos($path, $prefix) === 0) {
+            $serviceName = $svc;
+            break;
+        }
+    }
+    
+    if (!$serviceName) {
+        $resp-&gt;status(404)-&gt;end(json_encode([&#x27;error&#x27; =&gt; &#x27;Not found&#x27;]));
+        return;
+    }
+    
+    // Circuit breaker check
+    if (!$breaker-&gt;isAvailable($serviceName)) {
+        $resp-&gt;status(503)-&gt;end(json_encode([&#x27;error&#x27; =&gt; &#x27;Service unavailable (circuit open)&#x27;]));
+        return;
+    }
+    
+    // Get endpoints and pick one (round-robin with random)
+    $endpoints = $registry-&gt;getEndpoints($serviceName);
+    if (empty($endpoints)) {
+        $resp-&gt;status(503)-&gt;end(json_encode([&#x27;error&#x27; =&gt; &#x27;No available endpoints&#x27;]));
+        return;
+    }
+    
+    $endpoint = $endpoints[array_rand($endpoints)];
+    
+    go(function () use ($req, $resp, $endpoint, $serviceName, $breaker) {
+        try {
+            [$host, $port] = explode(&#x27;:&#x27;, $endpoint);
+            $client = new Swoole\Coroutine\Http\Client($host, (int)$port, false);
+            $client-&gt;setHeaders($req-&gt;header ?? []);
+            $client-&gt;setMethod($req-&gt;server[&#x27;request_method&#x27;] ?? &#x27;GET&#x27;);
+            $client-&gt;setData($req-&gt;rawcontent() ?: &#x27;&#x27;);
+            $client-&gt;execute($req-&gt;server[&#x27;request_uri&#x27;] ?? &#x27;/&#x27;);
+            
+            $resp-&gt;status($client-&gt;statusCode);
+            $resp-&gt;end($client-&gt;body);
+            $client-&gt;close();
+            
+            if ($client-&gt;statusCode &gt;= 500) {
+                $breaker-&gt;recordFailure($serviceName);
+            } else {
+                $breaker-&gt;recordSuccess($serviceName);
+            }
+        } catch (Throwable $e) {
+            $breaker-&gt;recordFailure($serviceName);
+            $resp-&gt;status(502)-&gt;end(json_encode([&#x27;error&#x27; =&gt; $e-&gt;getMessage()]));
+        }
+    });
+});
+
+echo &quot;[Gateway] Production gateway on :9500\n&quot;;
+$server-&gt;start();</code></pre>
+
+<h2>四、注意事项</h2>
+
+<table><thead><tr>
+<th>项目</th>
+<th>说明</th>
+</tr></thead><tbody>
+<tr>
+<td>连接池</td>
+<td>网关高并发下必须用连接池，避免频繁创建TCP连接</td>
+</tr>
+<tr>
+<td>超时设置</td>
+<td>后端请求必须设超时，否则协程会一直挂起</td>
+</tr>
+<tr>
+<td>Worker数</td>
+<td>网关属于IO密集型，worker_num建议设为CPU核心数×2</td>
+</tr>
+<tr>
+<td>请求体大小</td>
+<td>注意设置<code>package_max_length</code>防止大请求攻击</td>
+</tr>
+<tr>
+<td>热重载</td>
+<td>路由配置变更不应重启服务，用共享内存或文件watch</td>
+</tr>
+<tr>
+<td>健康检查</td>
+<td>定时检测后端服务可用性，自动摘除故障节点</td>
+</tr>
+</tbody></table>
+
+<h2>五、避坑指南</h2>
+
+<table><thead><tr>
+<th>❌ 错误做法</th>
+<th>✅ 正确做法</th>
+</tr></thead><tbody>
+<tr>
+<td>每个请求new一个HTTP Client</td>
+<td>复用连接或使用连接池</td>
+</tr>
+<tr>
+<td>网关内做复杂业务逻辑</td>
+<td>网关只做路由、转发、横切关注点</td>
+</tr>
+<tr>
+<td>不设后端超时</td>
+<td>必须设置<code>timeout</code>，建议3-5秒</td>
+</tr>
+<tr>
+<td>同步阻塞IO</td>
+<td>全部使用协程API</td>
+</tr>
+<tr>
+<td>忽略连接关闭</td>
+<td>用defer确保client->close()</td>
+</tr>
+<tr>
+<td>不做限流</td>
+<td>至少实现IP级别限流</td>
+</tr>
+</tbody></table>
+
+<h2>六、练习题</h2>
+
+<h3>🟢 入门</h3>
+<ol>
+<li>实现一个简单的URL前缀路由转发网关</li>
+</ul>
+<ol>
+<li>添加请求/响应日志中间件</li>
+
+<h3>🟡 进阶</h3>
+<ol>
+<li>实现加权轮询负载均衡算法</li>
+</ul>
+<ol>
+<li>用Redis实现分布式限流（滑动窗口）</li>
+
+<h3>🔴 挑战</h3>
+<ol>
+<li>实现完整的服务发现：服务注册 → 心跳 → 自动摘除</li>
+</ul>
+<ol>
+<li>实现请求链路追踪（类似Zipkin的Trace ID透传）</li>
+
+<h2>七、知识点总结</h2>
+
+<pre><code>Swoole API网关
+├── 核心能力
+│   ├── 路由匹配（前缀/正则/精确）
+│   ├── 反向代理（协程HTTP Client）
+│   ├── 负载均衡（轮询/加权/哈希）
+│   └── 协议转换
+├── 横切关注点（中间件）
+│   ├── 认证鉴权（JWT/OAuth）
+│   ├── 限流（令牌桶/滑动窗口）
+│   ├── 熔断降级（三态机）
+│   └── 日志追踪
+├── 服务治理
+│   ├── 服务注册与发现
+│   ├── 健康检查
+│   ├── 灰度发布
+│   └── 配置中心
+└── 运维
+    ├── 优雅重启
+    ├── 热配置更新
+    └── 监控告警</code></pre>
+
+<h2>八、举一反三</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>方案</th>
+<th>关键技术</th>
+</tr></thead><tbody>
+<tr>
+<td>BFF层</td>
+<td>为不同客户端聚合API</td>
+<td>多协程并发请求 + 合并</td>
+</tr>
+<tr>
+<td>WebSocket网关</td>
+<td>支持WS长连接代理</td>
+<td>upgrade握手 + pipe转发</td>
+</tr>
+<tr>
+<td>gRPC网关</td>
+<td>HTTP ↔ gRPC协议转换</td>
+<td>Swoole gRPC Client</td>
+</tr>
+<tr>
+<td>灰度发布</td>
+<td>按规则路由到不同版本</td>
+<td>标签路由 + 权重</td>
+</tr>
+<tr>
+<td>API缓存</td>
+<td>GET请求缓存到Redis</td>
+<td>协程Redis + TTL</td>
+</tr>
+<tr>
+<td>统一监控</td>
+<td>采集所有请求指标</td>
+<td>Prometheus metrics</td>
+</tr>
+</tbody></table>
+
+<h2>九、参考资料</h2>
+
+<ul>
+<li><a href="https://wiki.swoole.com/#/coroutine_client/http">Swoole HTTP Client</a></li>
+<li><a href="https://microservices.io/patterns/apigateway.html">API Gateway Pattern - Microservices.io</a></li>
+<li><a href="https://martinfowler.com/bliki/CircuitBreaker.html">Circuit Breaker Pattern</a></li>
+<li><a href="https://www.swoole.co.uk/article/benchmark">Nginx vs Swoole Gateway Benchmark</a></li>
+
+<h2>十、代码演进总结</h2>
+
+<table><thead><tr>
+<th>版本</th>
+<th>特点</th>
+<th>适用场景</th>
+</tr></thead><tbody>
+<tr>
+<td>v1 反向代理</td>
+<td>基础路由转发</td>
+<td>学习、内部工具</td>
+</tr>
+<tr>
+<td>v2 中间件网关</td>
+<td>中间件链+负载均衡+限流</td>
+<td>中小规模生产</td>
+</tr>
+<tr>
+<td>v3 完整网关</td>
+<td>服务发现+熔断+生产级</td>
+<td>企业级微服务</td>
+</tr>
+</tbody></table>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

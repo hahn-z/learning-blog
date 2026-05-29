@@ -1,0 +1,550 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>025 - 错误处理：error 接口</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/learning-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/learning-blog/Golang/index.html">Golang</a>
+<span class="sep">›</span>
+<a href="/learning-blog/Golang/01-入门/index.html">Golang入门</a>
+</nav>
+<h1>025 - 错误处理：error 接口</h1>
+<div class="meta">
+<span>📂 Golang入门</span>
+<span>🏷️ Golang</span>
+</div>
+<article>
+
+
+<h1>025 - 错误处理：error 接口</h1>
+
+<blockquote><p><strong>难度：⭐⭐⭐</strong> | 错误处理是 Go 的核心价值观之一，掌握它就掌握了 Go 的灵魂。</p></blockquote>
+
+<h2>一、概念讲解</h2>
+
+<p>Go 语言没有 try-catch，没有异常机制。错误就是一个普通的值，类型是 <code>error</code> 接口：</p>
+
+<pre><code class="language-go">type error interface {
+    Error() string
+}</code></pre>
+
+<p>就这么简单——任何实现了 <code>Error() string</code> 方法的类型，都是 error。</p>
+
+<h3>为什么 Go 选择显式错误处理？</h3>
+
+<ul>
+<li><strong>代码可读性</strong>：你能在每一行看到错误是否被处理</li>
+<li><strong>可控性</strong>：不会出现意外的异常跳转</li>
+<li><strong>性能</strong>：没有异常栈展开的开销</li>
+<li><strong>简单性</strong>：error 就是个值，跟 int、string 没本质区别</li>
+
+<h2>二、脑图（ASCII）</h2>
+
+<pre><code>Go Error Handling
+├── 基础
+│   ├── error 接口 (Error() string)
+│   ├── errors.New()
+│   ├── fmt.Errorf()
+│   └── sentinel errors
+├── 错误检查
+│   ├── if err != nil
+│   ├── errors.Is()  (链式比较)
+│   └── errors.As()  (类型断言)
+├── 错误包装
+│   ├── fmt.Errorf(&quot;%w&quot;, err)
+│   └── errors.Unwrap()
+├── 自定义错误
+│   ├── 自定义类型
+│   └── 实现 error 接口
+└── 最佳实践
+    ├── 及时处理
+    ├── 只处理一次
+    ├── 添加上下文
+    └── 错误包装而非替换</code></pre>
+
+<h2>三、完整 Go 代码</h2>
+
+<h3>v1：基础错误创建与检查</h3>
+
+<pre><code class="language-go">package main
+
+import (
+    &quot;errors&quot;
+    &quot;fmt&quot;
+)
+
+// Basic error creation and checking
+func divide(a, b float64) (float64, error) {
+    if b == 0 {
+        // errors.New creates a simple error with a message
+        return 0, errors.New(&quot;division by zero&quot;)
+    }
+    return a / b, nil
+}
+
+// fmt.Errorf for formatted error messages
+func findUser(id int) (string, error) {
+    if id &lt;= 0 {
+        return &quot;&quot;, fmt.Errorf(&quot;invalid user id: %d&quot;, id)
+    }
+    if id &gt; 100 {
+        return &quot;&quot;, fmt.Errorf(&quot;user %d not found&quot;, id)
+    }
+    return fmt.Sprintf(&quot;user_%d&quot;, id), nil
+}
+
+func main() {
+    // Basic error checking
+    result, err := divide(10, 3)
+    if err != nil {
+        fmt.Println(&quot;Error:&quot;, err)
+    } else {
+        fmt.Printf(&quot;10 / 3 = %.2f\n&quot;, result)
+    }
+
+    // Error with division by zero
+    _, err = divide(10, 0)
+    if err != nil {
+        fmt.Println(&quot;Error:&quot;, err)
+    }
+
+    // Formatted error
+    name, err := findUser(-1)
+    if err != nil {
+        fmt.Println(&quot;Error:&quot;, err)
+    } else {
+        fmt.Println(&quot;Found:&quot;, name)
+    }
+}</code></pre>
+
+<h3>v2：错误包装与 errors.Is/errors.As</h3>
+
+<pre><code class="language-go">package main
+
+import (
+    &quot;errors&quot;
+    &quot;fmt&quot;
+)
+
+// Sentinel errors - predefined error values
+var (
+    ErrNotFound   = errors.New(&quot;not found&quot;)
+    ErrUnauthorized = errors.New(&quot;unauthorized&quot;)
+    ErrBadRequest = errors.New(&quot;bad request&quot;)
+)
+
+// Custom error type with extra context
+type ValidationError struct {
+    Field   string
+    Message string
+}
+
+func (e *ValidationError) Error() string {
+    return fmt.Sprintf(&quot;validation failed on field %q: %s&quot;, e.Field, e.Message)
+}
+
+// Function that wraps errors with context
+func getUser(id int) (string, error) {
+    if id &lt;= 0 {
+        // Wrap error with additional context using %w
+        return &quot;&quot;, fmt.Errorf(&quot;getUser(%d): %w&quot;, id, ErrBadRequest)
+    }
+    if id &gt; 100 {
+        return &quot;&quot;, fmt.Errorf(&quot;getUser(%d): %w&quot;, id, ErrNotFound)
+    }
+    return fmt.Sprintf(&quot;user_%d&quot;, id), nil
+}
+
+// Function demonstrating custom error type
+func validateAge(age int) error {
+    if age &lt; 0 || age &gt; 150 {
+        return &amp;ValidationError{
+            Field:   &quot;age&quot;,
+            Message: fmt.Sprintf(&quot;age %d is out of valid range [0, 150]&quot;, age),
+        }
+    }
+    return nil
+}
+
+func main() {
+    // Test error wrapping + errors.Is
+    _, err := getUser(999)
+    if errors.Is(err, ErrNotFound) {
+        fmt.Println(&quot;Caught: user not found (via errors.Is)&quot;)
+    }
+
+    // Test custom error + errors.As
+    err = validateAge(-5)
+    var ve *ValidationError
+    if errors.As(err, &amp;ve) {
+        fmt.Printf(&quot;Validation error on field: %s\n&quot;, ve.Field)
+        fmt.Printf(&quot;Message: %s\n&quot;, ve.Message)
+    }
+
+    // Unwrap to see the chain
+    _, err = getUser(-1)
+    fmt.Printf(&quot;Full error: %v\n&quot;, err)
+    fmt.Printf(&quot;Unwrapped: %v\n&quot;, errors.Unwrap(err))
+}</code></pre>
+
+<h3>v3：生产级错误处理模式</h3>
+
+<pre><code class="language-go">package main
+
+import (
+    &quot;errors&quot;
+    &quot;fmt&quot;
+    &quot;strings&quot;
+)
+
+// ---- Sentinel errors grouped by domain ----
+var (
+    ErrUserNotFound   = errors.New(&quot;user not found&quot;)
+    ErrUserDuplicate  = errors.New(&quot;user already exists&quot;)
+    ErrInvalidInput   = errors.New(&quot;invalid input&quot;)
+)
+
+// ---- Custom error with stack-friendly structure ----
+type AppError struct {
+    Code    string // machine-readable code, e.g. &quot;USER_001&quot;
+    Message string // human-readable message
+    Err     error  // wrapped underlying error
+}
+
+func (e *AppError) Error() string {
+    if e.Err != nil {
+        return fmt.Sprintf(&quot;[%s] %s: %v&quot;, e.Code, e.Message, e.Err)
+    }
+    return fmt.Sprintf(&quot;[%s] %s&quot;, e.Code, e.Message)
+}
+
+func (e *AppError) Unwrap() error {
+    return e.Err
+}
+
+// Helper: wrap any error into AppError
+func WrapError(code, msg string, err error) *AppError {
+    return &amp;AppError{Code: code, Message: msg, Err: err}
+}
+
+// ---- Business logic ----
+type User struct {
+    ID   int
+    Name string
+}
+
+var users = map[int]User{
+    1: {ID: 1, Name: &quot;Alice&quot;},
+    2: {ID: 2, Name: &quot;Bob&quot;},
+}
+
+func FindUser(id int) (*User, error) {
+    if id &lt;= 0 {
+        return nil, WrapError(&quot;USER_001&quot;, &quot;invalid user id&quot;, ErrInvalidInput)
+    }
+    u, ok := users[id]
+    if !ok {
+        return nil, WrapError(&quot;USER_002&quot;, fmt.Sprintf(&quot;user %d&quot;, id), ErrUserNotFound)
+    }
+    return &amp;u, nil
+}
+
+// ---- Error handler: central place for logging/metrics ----
+func HandleError(err error) {
+    var appErr *AppError
+    if errors.As(err, &amp;appErr) {
+        fmt.Printf(&quot;[APP ERROR] code=%s msg=%s\n&quot;, appErr.Code, appErr.Message)
+    } else {
+        fmt.Printf(&quot;[GENERIC ERROR] %v\n&quot;, err)
+    }
+
+    // Check sentinel chain
+    if errors.Is(err, ErrUserNotFound) {
+        fmt.Println(&quot;  → Action: return 404 to client&quot;)
+    } else if errors.Is(err, ErrInvalidInput) {
+        fmt.Println(&quot;  → Action: return 400 to client&quot;)
+    }
+}
+
+func main() {
+    fmt.Println(strings.Repeat(&quot;=&quot;, 40))
+
+    _, err := FindUser(999)
+    HandleError(err)
+
+    fmt.Println(strings.Repeat(&quot;-&quot;, 40))
+
+    _, err = FindUser(-1)
+    HandleError(err)
+
+    fmt.Println(strings.Repeat(&quot;-&quot;, 40))
+
+    user, err := FindUser(1)
+    if err != nil {
+        HandleError(err)
+    } else {
+        fmt.Printf(&quot;Found user: %s\n&quot;, user.Name)
+    }
+}</code></pre>
+
+<h2>四、执行预览</h2>
+
+<pre><code>$ go run main_v1.go
+10 / 3 = 3.33
+Error: division by zero
+Error: invalid user id: -1
+
+$ go run main_v2.go
+Caught: user not found (via errors.Is)
+Validation error on field: age
+Message: age -5 is out of valid range [0, 150]
+Full error: getUser(-1): bad request
+Unwrapped: bad request
+
+$ go run main_v3.go
+========================================
+[APP ERROR] code=USER_002 msg=user 999
+  → Action: return 404 to client
+----------------------------------------
+[APP ERROR] code=USER_001 msg=invalid user id
+  → Action: return 400 to client
+----------------------------------------
+Found user: Alice</code></pre>
+
+<h2>五、注意事项（表格）</h2>
+
+<table><thead><tr>
+<th>事项</th>
+<th>说明</th>
+</tr></thead><tbody>
+<tr>
+<td><code>errors.Is</code> vs <code>==</code></td>
+<td><code>==</code> 只比较顶层，<code>errors.Is</code> 会遍历 wrap 链</td>
+</tr>
+<tr>
+<td><code>errors.As</code> vs 类型断言</td>
+<td><code>errors.As</code> 遍历 wrap 链，类型断言只看顶层</td>
+</tr>
+<tr>
+<td><code>%w</code> vs <code>%v</code></td>
+<td><code>%w</code> 包装错误（可 Unwrap），<code>%v</code> 只是格式化字符串</td>
+</tr>
+<tr>
+<td>多次 <code>%w</code></td>
+<td>Go 1.20+ 支持 <code>fmt.Errorf("%w + %w", e1, e2)</code></td>
+</tr>
+<tr>
+<td><code>nil</code> error</td>
+<td>函数返回 <code>nil</code> 即表示无错误</td>
+</tr>
+<tr>
+<td>error 是接口</td>
+<td>任何实现 <code>Error() string</code> 的类型都是 error</td>
+</tr>
+</tbody></table>
+
+<h2>六、避坑指南</h2>
+
+<table><thead><tr>
+<th>❌ 错误做法</th>
+<th>✅ 正确做法</th>
+</tr></thead><tbody>
+<tr>
+<td><code>if err != nil { log.Println(err) }</code> 然后继续执行</td>
+<td>要么 return，要么真的能处理</td>
+</tr>
+<tr>
+<td><code>fmt.Errorf("failed: %v", err)</code></td>
+<td><code>fmt.Errorf("failed: %w", err)</code> 用 %w 保留链</td>
+</tr>
+<tr>
+<td>用 <code>==</code> 比较错误</td>
+<td>用 <code>errors.Is()</code> 比较错误</td>
+</tr>
+<tr>
+<td>用类型断言 <code>err.(*MyError)</code></td>
+<td>用 <code>errors.As(err, &target)</code></td>
+</tr>
+<tr>
+<td>吞掉错误 <code>_ = doSomething()</code></td>
+<td>至少记录日志</td>
+</tr>
+<tr>
+<td>在循环里反复 wrap</td>
+<td>wrap 一次，带足上下文</td>
+</tr>
+</tbody></table>
+
+<h2>七、练习题</h2>
+
+<h3>🟢 入门</h3>
+
+<ol>
+<li>写一个函数 <code>sqrt(x float64) (float64, error)</code>，当 x < 0 时返回错误</li>
+</ul>
+<ol>
+<li>用 <code>errors.New</code> 和 <code>fmt.Errorf</code> 各创建一个错误，打印看看区别</li>
+
+<h3>🟡 进阶</h3>
+
+<ol>
+<li>定义一个自定义错误类型 <code>HTTPError</code> 包含 StatusCode 和 Message，实现 error 接口</li>
+</ul>
+<ol>
+<li>写一个函数用 <code>%w</code> 包装错误，然后用 <code>errors.Is</code> 和 <code>errors.Unwrap</code> 验证链路</li>
+
+<h3>🔴 挑战</h3>
+
+<ol>
+<li>实现一个简单的错误收集器：能收集多个错误，统一返回；提供 <code>HasErrors()</code> 和 <code>AllErrors()</code> 方法</li>
+</ul>
+<ol>
+<li>设计一个分层错误体系：Repository 层 → Service 层 → Handler 层，每层包装不同上下文</li>
+
+<h2>八、知识点总结（树状）</h2>
+
+<pre><code>Go Error Handling
+├── error 接口
+│   └── Error() string
+├── 创建错误
+│   ├── errors.New() — 简单字符串
+│   └── fmt.Errorf() — 格式化字符串
+├── 检查错误
+│   ├── err != nil — 基本判空
+│   ├── errors.Is() — 链式相等比较
+│   └── errors.As() — 链式类型匹配
+├── 包装错误
+│   ├── fmt.Errorf(&quot;%w&quot;, err)
+│   └── errors.Unwrap()
+├── 自定义错误
+│   ├── 结构体实现 Error()
+│   ├── 可携带额外字段
+│   └── 可实现 Unwrap()
+└── 模式
+    ├── Sentinel Error (预定义)
+    ├── Custom Error Type (结构体)
+    └── AppError (Code + Message + Err)</code></pre>
+
+<h2>九、举一反三（表格）</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>Go 方案</th>
+<th>其他语言对比</th>
+</tr></thead><tbody>
+<tr>
+<td>函数返回错误</td>
+<td><code>(value, error)</code> 返回值</td>
+<td>Java: throws Exception</td>
+</tr>
+<tr>
+<td>错误链追踪</td>
+<td><code>fmt.Errorf("%w")</code> + <code>errors.Is/As</code></td>
+<td>Java: exception.getCause()</td>
+</tr>
+<tr>
+<td>自定义错误</td>
+<td>struct + <code>Error()</code> 方法</td>
+<td>Python: class MyError(Exception)</td>
+</tr>
+<tr>
+<td>错误码体系</td>
+<td>AppError{Code, Message, Err}</td>
+<td>HTTP Status Code</td>
+</tr>
+<tr>
+<td>多错误聚合</td>
+<td><code>errors.Join()</code> (Go 1.20+)</td>
+<td>Java: Suppressed exceptions</td>
+</tr>
+</tbody></table>
+
+<h2>十、参考资料</h2>
+
+<ul>
+<li><a href="https://go.dev/blog/error-handling-and-go">Go Blog: Error handling</a></li>
+<li><a href="https://go.dev/blog/go1.13-errors">Go Blog: Working with Errors</a></li>
+<li><a href="https://go.dev/blog/go1.20">Go Blog: Error wrapping</a></li>
+<li><a href="https://go.dev/doc/effective_go#errors">Effective Go: Errors</a></li>
+
+<h2>十一、代码演进总结</h2>
+
+<table><thead><tr>
+<th>版本</th>
+<th>重点</th>
+<th>关键技术</th>
+</tr></thead><tbody>
+<tr>
+<td>v1</td>
+<td>基础创建与检查</td>
+<td><code>errors.New</code>, <code>fmt.Errorf</code>, <code>if err != nil</code></td>
+</tr>
+<tr>
+<td>v2</td>
+<td>包装与类型判断</td>
+<td><code>%w</code>, <code>errors.Is</code>, <code>errors.As</code>, 自定义类型</td>
+</tr>
+<tr>
+<td>v3</td>
+<td>生产级模式</td>
+<td>AppError, 错误码, 集中处理, 分层架构</td>
+</tr>
+</tbody></table>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

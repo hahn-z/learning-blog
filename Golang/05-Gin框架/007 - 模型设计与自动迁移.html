@@ -1,0 +1,621 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>007 - 模型设计与自动迁移</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Golang/index.html">Golang</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Golang/05-Gin框架/index.html">Gin框架</a>
+</nav>
+<h1>007 - 模型设计与自动迁移</h1>
+<div class="meta">
+<span>📂 Gin框架</span>
+<span>🏷️ Golang</span>
+</div>
+<article>
+
+
+<h1>007 - 模型设计与自动迁移</h1>
+
+<blockquote><p><strong>难度标注：</strong> ⭐⭐⭐（中级）<br><br><strong>前置知识：</strong> Go struct、GORM 基础 CRUD<br><br><strong>学习目标：</strong> 掌握 GORM 模型定义、字段标签、自动迁移、钩子函数、软删除、索引与模型关联</p></blockquote>
+
+<hr>
+
+<h2>一、概念讲解</h2>
+
+<p>在 GORM 中，<strong>模型（Model）</strong> 是 Go 的结构体，它通过标签（tags）来映射数据库表的字段。GORM 的模型设计直接决定了数据表的结构和行为。</p>
+
+<h3>模型 = Struct + Tags</h3>
+
+<pre><code class="language-go">type User struct {
+    ID    uint   `gorm:&quot;primaryKey&quot;`           // 主键
+    Name  string `gorm:&quot;size:100;not null&quot;`     // VARCHAR(100), NOT NULL
+    Email string `gorm:&quot;uniqueIndex&quot;`           // 唯一索引
+}</code></pre>
+
+<h3>核心概念</h3>
+
+<ul>
+<li><strong>字段标签（Field Tags）</strong>：用 <code>gorm:"..."</code> 控制列属性，<code>json:"..."</code> 控制 JSON 输出</li>
+<li><strong>自动迁移（AutoMigrate）</strong>：根据 struct 定义自动创建/修改表结构</li>
+<li><strong>钩子（Hooks）</strong>：在 CRUD 操作前后自动执行的回调函数</li>
+<li><strong>软删除（Soft Delete）</strong>：标记删除而非物理删除，使用 <code>gorm.DeletedAt</code></li>
+<li><strong>关联（Associations）</strong>：BelongsTo、HasMany、Many2Many 等表关系</li>
+
+<hr>
+
+<h2>二、脑图（ASCII）</h2>
+
+<pre><code>                   GORM 模型设计
+                        │
+       ┌────────┬───────┼───────┬────────┐
+       │        │       │       │        │
+    字段标签  自动迁移  钩子   软删除   模型关联
+       │        │       │       │        │
+   ┌───┴───┐    │    ┌──┴──┐    │    ┌───┴───┐
+   │       │    │    │     │    │    │       │
+ gorm:   json:  │ Before After  │ BelongsTo HasMany
+ size    omit   │ Create Update │   ↓       ↓
+ unique name    │               │ 外键    外键
+ index         AutoMigrate    DeletedAt 一对多</code></pre>
+
+<hr>
+
+<h2>三、完整 Go 代码</h2>
+
+<h3>v1：基础模型 + AutoMigrate + Hooks</h3>
+
+<pre><code class="language-go">// models/user.go - Basic model with hooks
+package models
+
+import (
+	&quot;fmt&quot;
+	&quot;strings&quot;
+	&quot;time&quot;
+
+	&quot;gorm.io/gorm&quot;
+)
+
+// User model with GORM conventions
+type User struct {
+	ID        uint           `gorm:&quot;primaryKey&quot; json:&quot;id&quot;`
+	Name      string         `gorm:&quot;size:100;not null&quot; json:&quot;name&quot;`
+	Email     string         `gorm:&quot;size:255;uniqueIndex;not null&quot; json:&quot;email&quot;`
+	Password  string         `gorm:&quot;size:255;not null&quot; json:&quot;-&quot;` // json:&quot;-&quot; hides from API
+	Age       int            `gorm:&quot;default:18&quot; json:&quot;age&quot;`
+	Status    string         `gorm:&quot;size:20;default:active&quot; json:&quot;status&quot;`
+	CreatedAt time.Time      `json:&quot;created_at&quot;`
+	UpdatedAt time.Time      `json:&quot;updated_at&quot;`
+	DeletedAt gorm.DeletedAt `gorm:&quot;index&quot; json:&quot;-&quot;` // Soft delete support
+}
+
+// TableName overrides default table name
+func (User) TableName() string {
+	return &quot;users&quot;
+}
+
+// BeforeCreate hook - runs before inserting a new record
+func (u *User) BeforeCreate(tx *gorm.DB) error {
+	u.Email = strings.ToLower(u.Email) // Normalize email
+	fmt.Printf(&quot;About to create user: %s\n&quot;, u.Name)
+	return nil
+}
+
+// AfterCreate hook - runs after inserting a new record
+func (u *User) AfterCreate(tx *gorm.DB) error {
+	fmt.Printf(&quot;Created user #%d: %s\n&quot;, u.ID, u.Name)
+	return nil
+}
+
+// BeforeUpdate hook - validate before updating
+func (u *User) BeforeUpdate(tx *gorm.DB) error {
+	if u.Age &lt; 0 || u.Age &gt; 150 {
+		return fmt.Errorf(&quot;invalid age: %d&quot;, u.Age)
+	}
+	return nil
+}</code></pre>
+
+<pre><code class="language-go">// main.go - AutoMigrate demo
+package main
+
+import (
+	&quot;fmt&quot;
+	&quot;log&quot;
+
+	&quot;gorm.io/driver/sqlite&quot;
+	&quot;gorm.io/gorm&quot;
+	&quot;myapp/models&quot;
+)
+
+func main() {
+	db, err := gorm.Open(sqlite.Open(&quot;app.db&quot;), &amp;gorm.Config{})
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// Auto migrate - creates/updates tables based on struct definitions
+	err = db.AutoMigrate(
+		&amp;models.User{},
+	)
+	if err != nil {
+		log.Fatal(&quot;Migration failed:&quot;, err)
+	}
+	fmt.Println(&quot;Migration completed successfully&quot;)
+
+	// Test hooks
+	user := models.User{
+		Name:     &quot;Alice&quot;,
+		Email:    &quot;Alice@Example.COM&quot;, // Will be lowercased by BeforeCreate
+		Password: &quot;hashed_password&quot;,
+		Age:      25,
+	}
+	db.Create(&amp;user)
+
+	// Test soft delete
+	db.Delete(&amp;user)                            // Sets deleted_at, doesn&#x27;t physically delete
+	var count int64
+	db.Model(&amp;models.User{}).Count(&amp;count)      // Excludes soft-deleted records
+	fmt.Printf(&quot;Active users: %d\n&quot;, count)
+
+	db.Unscoped().Model(&amp;models.User{}).Count(&amp;count) // Includes soft-deleted
+	fmt.Printf(&quot;All users (including deleted): %d\n&quot;, count)
+}</code></pre>
+
+<p><strong>执行预览：</strong></p>
+
+<pre><code>$ go run main.go
+Migration completed successfully
+About to create user: Alice
+Created user #1: Alice
+Active users: 0
+All users (including deleted): 1</code></pre>
+
+<h3>v2：索引 + 复合主键 + 多模型关联</h3>
+
+<pre><code class="language-go">// models/models.go - Complete model with associations
+package models
+
+import (
+	&quot;time&quot;
+
+	&quot;gorm.io/gorm&quot;
+)
+
+// ========== Base model (reusable) ==========
+type BaseModel struct {
+	ID        uint           `gorm:&quot;primaryKey&quot; json:&quot;id&quot;`
+	CreatedAt time.Time      `json:&quot;created_at&quot;`
+	UpdatedAt time.Time      `json:&quot;updated_at&quot;`
+	DeletedAt gorm.DeletedAt `gorm:&quot;index&quot; json:&quot;-&quot;`
+}
+
+// ========== User model ==========
+type User struct {
+	BaseModel
+	Name     string  `gorm:&quot;size:100;not null;index&quot; json:&quot;name&quot;` // index on name
+	Email    string  `gorm:&quot;size:255;uniqueIndex;not null&quot; json:&quot;email&quot;`
+	Age      int     `gorm:&quot;default:18&quot; json:&quot;age&quot;`
+	Profile  Profile `json:&quot;profile,omitempty&quot;`   // HasOne
+	Posts    []Post  `json:&quot;posts,omitempty&quot;`     // HasMany
+}
+
+// ========== Profile (HasOne) ==========
+type Profile struct {
+	ID     uint   `gorm:&quot;primaryKey&quot; json:&quot;id&quot;`
+	UserID uint   `gorm:&quot;uniqueIndex&quot; json:&quot;user_id&quot;` // Foreign key
+	Bio    string `gorm:&quot;size:500&quot; json:&quot;bio&quot;`
+	Avatar string `gorm:&quot;size:255&quot; json:&quot;avatar&quot;`
+}
+
+// ========== Post (HasMany) ==========
+type Post struct {
+	ID       uint      `gorm:&quot;primaryKey&quot; json:&quot;id&quot;`
+	UserID   uint      `gorm:&quot;index;not null&quot; json:&quot;user_id&quot;` // Foreign key + index
+	Title    string    `gorm:&quot;size:200;not null&quot; json:&quot;title&quot;`
+	Content  string    `gorm:&quot;type:text&quot; json:&quot;content&quot;`
+	Published bool      `gorm:&quot;default:false;index&quot; json:&quot;published&quot;` // Index for filtering
+	Tags     []Tag     `gorm:&quot;many2many:post_tags;&quot; json:&quot;tags,omitempty&quot;` // Many2Many
+}
+
+// ========== Tag (Many2Many) ==========
+type Tag struct {
+	ID   uint   `gorm:&quot;primaryKey&quot; json:&quot;id&quot;`
+	Name string `gorm:&quot;size:50;uniqueIndex;not null&quot; json:&quot;name&quot;`
+}
+
+// ========== Composite index example ==========
+type Order struct {
+	ID        uint      `gorm:&quot;primaryKey&quot; json:&quot;id&quot;`
+	UserID    uint      `gorm:&quot;not null;uniqueIndex:idx_user_product&quot; json:&quot;user_id&quot;`
+	ProductID uint      `gorm:&quot;not null;uniqueIndex:idx_user_product&quot; json:&quot;product_id&quot;` // Composite unique
+	Quantity  int       `gorm:&quot;default:1&quot; json:&quot;quantity&quot;`
+	Status    string    `gorm:&quot;size:20;default:pending&quot; json:&quot;status&quot;`
+	CreatedAt time.Time `json:&quot;created_at&quot;`
+}</code></pre>
+
+<pre><code class="language-go">// main.go - Association operations
+package main
+
+import (
+	&quot;fmt&quot;
+	&quot;log&quot;
+
+	&quot;gorm.io/driver/sqlite&quot;
+	&quot;gorm.io/gorm&quot;
+	&quot;myapp/models&quot;
+)
+
+func main() {
+	db, err := gorm.Open(sqlite.Open(&quot;blog.db&quot;), &amp;gorm.Config{})
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// AutoMigrate all models
+	db.AutoMigrate(&amp;models.User{}, &amp;models.Profile{}, &amp;models.Post{}, &amp;models.Tag{}, &amp;models.Order{})
+
+	// Create user with profile (HasOne)
+	user := models.User{
+		Name:  &quot;Bob&quot;,
+		Email: &quot;bob@example.com&quot;,
+		Profile: models.Profile{
+			Bio:    &quot;Full-stack developer&quot;,
+			Avatar: &quot;bob.png&quot;,
+		},
+	}
+	db.Create(&amp;user) // Creates user + profile
+
+	// Create posts for user (HasMany)
+	post1 := models.Post{
+		UserID:   user.ID,
+		Title:    &quot;GORM Guide&quot;,
+		Content:  &quot;Learn GORM...&quot;,
+		Published: true,
+	}
+	post2 := models.Post{
+		UserID:   user.ID,
+		Title:    &quot;Go Best Practices&quot;,
+		Content:  &quot;...&quot;,
+		Published: false,
+	}
+	db.Create(&amp;post1)
+	db.Create(&amp;post2)
+
+	// Create tags and associate (Many2Many)
+	tag1 := models.Tag{Name: &quot;Go&quot;}
+	tag2 := models.Tag{Name: &quot;GORM&quot;}
+	db.Create(&amp;tag1)
+	db.Create(&amp;tag2)
+
+	// Add tags to post
+	db.Model(&amp;post1).Association(&quot;Tags&quot;).Append([]models.Tag{tag1, tag2})
+
+	// Preload - load user with associations
+	var fullUser models.User
+	db.Preload(&quot;Profile&quot;).Preload(&quot;Posts&quot;).Preload(&quot;Posts.Tags&quot;).First(&amp;fullUser, user.ID)
+	fmt.Printf(&quot;User: %s, Profile: %s, Posts: %d\n&quot;,
+		fullUser.Name, fullUser.Profile.Bio, len(fullUser.Posts))
+
+	// Joins query - find users with published posts
+	var activeUsers []models.User
+	db.Joins(&quot;JOIN posts ON posts.user_id = users.id&quot;).
+		Where(&quot;posts.published = ?&quot;, true).
+		Group(&quot;users.id&quot;).
+		Find(&amp;activeUsers)
+	fmt.Printf(&quot;Users with published posts: %d\n&quot;, len(activeUsers))
+}</code></pre>
+
+<h3>v3：模型方法 + 作用域 + 完整项目结构</h3>
+
+<pre><code class="language-go">// models/user.go - Model with scopes and methods
+package models
+
+import &quot;gorm.io/gorm&quot;
+
+// Scopes - reusable query conditions
+func ActiveUsers(db *gorm.DB) *gorm.DB {
+	return db.Where(&quot;status = ?&quot;, &quot;active&quot;)
+}
+
+func UsersOlderThan(age int) func(db *gorm.DB) *gorm.DB {
+	return func(db *gorm.DB) *gorm.DB {
+		return db.Where(&quot;age &gt;= ?&quot;, age)
+	}
+}
+
+func Paginate(page, pageSize int) func(db *gorm.DB) *gorm.DB {
+	return func(db *gorm.DB) *gorm.DB {
+		if page &lt; 1 {
+			page = 1
+		}
+		if pageSize &lt; 1 || pageSize &gt; 100 {
+			pageSize = 10
+		}
+		return db.Offset((page - 1) * pageSize).Limit(pageSize)
+	}
+}
+
+// Model methods
+func (u *User) IsAdult() bool {
+	return u.Age &gt;= 18
+}
+
+func (u *User) DisplayName() string {
+	if u.Profile.Bio != &quot;&quot; {
+		return u.Name + &quot; - &quot; + u.Profile.Bio
+	}
+	return u.Name
+}</code></pre>
+
+<hr>
+
+<h2>四、注意事项</h2>
+
+<table><thead><tr>
+<th>项目</th>
+<th>说明</th>
+<th>建议</th>
+</tr></thead><tbody>
+<tr>
+<td>json:"-"</td>
+<td>敏感字段（密码）不输出到 API</td>
+<td>Password 字段必须加 <code>json:"-"</code></td>
+</tr>
+<tr>
+<td>AutoMigrate</td>
+<td>只加列不删列不改类型</td>
+<td>生产环境用 migration 工具（如 golang-migrate）</td>
+</tr>
+<tr>
+<td>软删除</td>
+<td>查询自动排除已删除记录</td>
+<td>需要 <code>Unscoped()</code> 查看全部</td>
+</tr>
+<tr>
+<td>索引命名</td>
+<td>GORM 自动命名，复合索引用 <code>uniqueIndex:idx_name</code></td>
+<td>显式命名便于维护</td>
+</tr>
+<tr>
+<td>钩子错误</td>
+<td>返回 error 会回滚操作</td>
+<td>钩子中避免耗时操作</td>
+</tr>
+<tr>
+<td>关联创建</td>
+<td><code>db.Create(&user)</code> 会同时创建关联</td>
+<td>注意性能，大数组关联分批处理</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>五、避坑指南</h2>
+
+<h3>❌ 忘记添加 DeletedAt 字段</h3>
+<pre><code class="language-go">type User struct {
+    ID   uint
+    Name string
+}
+db.Delete(&amp;user) // Physically deletes the record!</code></pre>
+<h3>✅ 使用 gorm.DeletedAt</h3>
+<pre><code class="language-go">type User struct {
+    ID        uint           `gorm:&quot;primaryKey&quot;`
+    Name      string
+    DeletedAt gorm.DeletedAt `gorm:&quot;index&quot;` // Enables soft delete
+}
+db.Delete(&amp;user) // Only sets deleted_at timestamp</code></pre>
+
+<h3>❌ 在钩子中查询同表导致死循环</h3>
+<pre><code class="language-go">func (u *User) AfterFind(tx *gorm.DB) error {
+    tx.Find(&amp;u.RelatedUsers) // May trigger hooks again!
+    return nil
+}</code></pre>
+<h3>✅ 使用 Session 跳过钩子</h3>
+<pre><code class="language-go">func (u *User) AfterFind(tx *gorm.DB) error {
+    tx.Session(&amp;gorm.Session{SkipHooks: true}).Find(&amp;u.RelatedUsers)
+    return nil
+}</code></pre>
+
+<h3>❌ 关联外键不正确</h3>
+<pre><code class="language-go">type Post struct {
+    UserID uint // GORM guesses: UserID -&gt; User.ID (works)
+}
+type Comment struct {
+    PostID uint // GORM guesses: PostID -&gt; Post.ID (works)
+    Post   Post `gorm:&quot;foreignKey:ID&quot;` // WRONG! Should be foreignKey:PostID
+}</code></pre>
+<h3>✅ 明确指定外键</h3>
+<pre><code class="language-go">type Comment struct {
+    PostID uint
+    Post   Post `gorm:&quot;foreignKey:PostID&quot;` // Explicit is clear
+}</code></pre>
+
+<hr>
+
+<h2>六、练习题</h2>
+
+<h3>🟢 初级</h3>
+<ol>
+<li>定义一个 <code>Product</code> 模型，包含 Name（唯一索引）、Price（默认 0）、Stock（默认 0）字段。</li>
+</ul>
+<ol>
+<li>为 <code>Product</code> 添加 <code>BeforeCreate</code> 钩子，自动将 Name 转为 Title 格式。</li>
+
+<h3>🟡 中级</h3>
+<ol>
+<li>设计 User-Post-Comment 三层关联（一个用户多篇文章，一篇文章多条评论），并实现 Preload 查询。</li>
+</ul>
+<ol>
+<li>创建一个复合唯一索引：Order 表的 (UserID, ProductID) 组合唯一。</li>
+
+<h3>🔴 高级</h3>
+<ol>
+<li>实现 <code>Paginate</code> 作用域函数，支持任意模型的分页查询。</li>
+</ul>
+<ol>
+<li>设计一个完整的博客数据模型（User、Post、Tag、Category、Comment），包含所有关联关系。</li>
+
+<hr>
+
+<h2>七、知识点总结</h2>
+
+<pre><code>GORM 模型设计与自动迁移
+├── 模型定义
+│   ├── 基础字段: uint / string / int / bool / time.Time
+│   ├── 字段标签: gorm:&quot;size;not null;default;uniqueIndex&quot;
+│   ├── JSON 标签: json:&quot;name&quot; / json:&quot;-&quot; / json:&quot;name,omitempty&quot;
+│   └── 自定义表名: TableName() string
+├── 自动迁移
+│   ├── AutoMigrate(&amp;Model{}) - 只加列不改列
+│   └── 生产建议: 使用 golang-migrate 等工具
+├── 钩子函数
+│   ├── BeforeCreate / AfterCreate
+│   ├── BeforeUpdate / AfterUpdate
+│   ├── BeforeDelete / AfterDelete
+│   └── AfterFind
+├── 软删除
+│   ├── DeletedAt gorm.DeletedAt
+│   ├── db.Unscoped() 查看全部
+│   └── db.Unscoped().Delete() 物理删除
+├── 索引
+│   ├── 单列索引: gorm:&quot;index&quot;
+│   ├── 唯一索引: gorm:&quot;uniqueIndex&quot;
+│   └── 复合索引: gorm:&quot;uniqueIndex:idx_name&quot;
+└── 模型关联
+    ├── HasOne: Profile belongs to User
+    ├── HasMany: User has many Posts
+    ├── BelongsTo: Post belongs to User
+    └── Many2Many: Post &lt;-&gt; Tag (join table)</code></pre>
+
+<hr>
+
+<h2>八、举一反三</h2>
+
+<table><thead><tr>
+<th>本文学到</th>
+<th>可应用到</th>
+<th>示例</th>
+</tr></thead><tbody>
+<tr>
+<td>字段标签</td>
+<td>所有模型定义</td>
+<td>任何需要约束的表字段</td>
+</tr>
+<tr>
+<td>钩子函数</td>
+<td>数据审计/日志</td>
+<td>BeforeCreate 记录操作日志</td>
+</tr>
+<tr>
+<td>软删除</td>
+<td>需要数据恢复的场景</td>
+<td>订单取消、文章回收站</td>
+</tr>
+<tr>
+<td>模型关联</td>
+<td>任何多表设计</td>
+<td>电商（用户-订单-商品）、社交（用户-好友-动态）</td>
+</tr>
+<tr>
+<td>复合索引</td>
+<td>联合唯一约束</td>
+<td>防止重复下单、重复关注</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>九、参考资料</h2>
+
+<ul>
+<li><a href="https://gorm.io/docs/models.html">GORM 模型定义</a></li>
+<li><a href="https://gorm.io/docs/associations.html">GORM 关联</a></li>
+<li><a href="https://gorm.io/docs/hooks.html">GORM 钩子</a></li>
+<li><a href="https://gorm.io/docs/delete.html#Soft-Delete">GORM 软删除</a></li>
+<li><a href="https://github.com/golang-migrate/migrate">golang-migrate 工具</a></li>
+
+<hr>
+
+<h2>十、代码演进</h2>
+
+<table><thead><tr>
+<th>版本</th>
+<th>特点</th>
+<th>适用场景</th>
+</tr></thead><tbody>
+<tr>
+<td><strong>v1</strong></td>
+<td>基础模型 + 钩子 + AutoMigrate</td>
+<td>快速原型、单表操作</td>
+</tr>
+<tr>
+<td><strong>v2</strong></td>
+<td>多模型 + 关联 + 索引 + Many2Many</td>
+<td>中型项目、博客/电商</td>
+</tr>
+<tr>
+<td><strong>v3</strong></td>
+<td>作用域 + 模型方法 + 复用逻辑</td>
+<td>大型项目、团队协作</td>
+</tr>
+</tbody></table>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

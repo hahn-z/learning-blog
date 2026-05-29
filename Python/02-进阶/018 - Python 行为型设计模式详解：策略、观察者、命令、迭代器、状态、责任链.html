@@ -1,0 +1,628 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>018 - Python 行为型设计模式详解：策略、观察者、命令、迭代器、状态、责任链</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Python/index.html">其他</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Python/02-进阶/index.html">Python进阶</a>
+</nav>
+<h1>018 - Python 行为型设计模式详解：策略、观察者、命令、迭代器、状态、责任链</h1>
+<div class="meta">
+<span>📂 Python进阶</span>
+<span>🏷️ 其他</span>
+</div>
+<article>
+
+
+<h1>行为型设计模式</h1>
+
+<blockquote><p><strong>难度：★★★☆☆ 中高级</strong><br>Python 行为型模式：策略、观察者、命令、迭代器、状态、模板方法、责任链七大模式。</p></blockquote>
+
+<h2>一、概念讲解</h2>
+
+<p>行为型模式关注"对象之间的通信和职责分配"，解决"谁做什么、何时做、怎么做"的问题。</p>
+
+<table><thead><tr>
+<th>模式</th>
+<th>核心思想</th>
+<th>适用场景</th>
+</tr></thead><tbody>
+<tr>
+<td>策略(Strategy)</td>
+<td>封装算法，可互换</td>
+<td>排序策略、支付方式</td>
+</tr>
+<tr>
+<td>观察者(Observer)</td>
+<td>一对多依赖通知</td>
+<td>事件系统、消息推送</td>
+</tr>
+<tr>
+<td>命令(Command)</td>
+<td>请求封装为对象</td>
+<td>撤销/重做、任务队列</td>
+</tr>
+<tr>
+<td>迭代器(Iterator)</td>
+<td>顺序访问集合元素</td>
+<td>自定义遍历、懒加载</td>
+</tr>
+<tr>
+<td>状态(State)</td>
+<td>状态驱动的行为变化</td>
+<td>状态机、工作流</td>
+</tr>
+<tr>
+<td>模板方法(Template)</td>
+<td>算法骨架，子类填充</td>
+<td>框架钩子、数据处理流水线</td>
+</tr>
+<tr>
+<td>责任链(Chain)</td>
+<td>请求沿链传递处理</td>
+<td>中间件、审批流</td>
+</tr>
+</tbody></table>
+
+<h2>二、脑图</h2>
+
+<pre><code>行为型模式
+├── 策略 Strategy
+│   ├── 策略接口
+│   └── 上下文切换
+├── 观察者 Observer
+│   ├── Subject
+│   └── Observer
+├── 命令 Command
+│   ├── Command
+│   ├── Invoker
+│   └── Receiver
+├── 迭代器 Iterator
+│   └── __iter__ + __next__
+├── 状态 State
+│   └── 状态转换
+├── 模板方法 Template
+│   └── 钩子方法
+└── 责任链 Chain
+    └── handler 链</code></pre>
+
+<h2>三、完整代码</h2>
+
+<h3>3.1 策略模式</h3>
+
+<pre><code class="language-python">&quot;&quot;&quot;Strategy pattern - interchangeable algorithms.&quot;&quot;&quot;
+
+from abc import ABC, abstractmethod
+from typing import Callable
+
+
+class SortStrategy(ABC):
+    @abstractmethod
+    def sort(self, data: list) -&gt; list: pass
+
+
+class BubbleSort(SortStrategy):
+    def sort(self, data: list) -&gt; list:
+        result = data.copy()
+        n = len(result)
+        for i in range(n):
+            for j in range(0, n - i - 1):
+                if result[j] &gt; result[j + 1]:
+                    result[j], result[j + 1] = result[j + 1], result[j]
+        return result
+
+
+class QuickSort(SortStrategy):
+    def sort(self, data: list) -&gt; list:
+        if len(data) &lt;= 1:
+            return data.copy()
+        pivot = data[len(data) // 2]
+        left = [x for x in data if x &lt; pivot]
+        mid = [x for x in data if x == pivot]
+        right = [x for x in data if x &gt; pivot]
+        return self.sort(left) + mid + self.sort(right)
+
+
+class Sorter:
+    &quot;&quot;&quot;Context that uses a sorting strategy.&quot;&quot;&quot;
+
+    def __init__(self, strategy: SortStrategy | None = None):
+        self._strategy = strategy or QuickSort()
+
+    def set_strategy(self, strategy: SortStrategy):
+        self._strategy = strategy
+
+    def sort(self, data: list) -&gt; list:
+        return self._strategy.sort(data)
+
+
+# Pythonic alternative: use plain functions
+def sort_with(data: list, key: Callable = sorted) -&gt; list:
+    return key(data)</code></pre>
+
+<h3>3.2 观察者模式</h3>
+
+<pre><code class="language-python">&quot;&quot;&quot;Observer pattern - publish/subscribe event system.&quot;&quot;&quot;
+
+from dataclasses import dataclass, field
+from typing import Callable
+
+
+@dataclass
+class EventEmitter:
+    &quot;&quot;&quot;Simple event bus using observer pattern.&quot;&quot;&quot;
+
+    _listeners: dict[str, list[Callable]] = field(default_factory=dict)
+
+    def on(self, event: str, callback: Callable) -&gt; &quot;EventEmitter&quot;:
+        if event not in self._listeners:
+            self._listeners[event] = []
+        self._listeners[event].append(callback)
+        return self
+
+    def off(self, event: str, callback: Callable) -&gt; None:
+        if event in self._listeners:
+            self._listeners[event].remove(callback)
+
+    def emit(self, event: str, *args, **kwargs) -&gt; None:
+        for callback in self._listeners.get(event, []):
+            callback(*args, **kwargs)</code></pre>
+
+<h3>3.3 命令模式</h3>
+
+<pre><code class="language-python">&quot;&quot;&quot;Command pattern - encapsulate requests as objects.&quot;&quot;&quot;
+
+from dataclasses import dataclass, field
+
+
+class Editor:
+    &quot;&quot;&quot;Receiver - knows how to perform operations.&quot;&quot;&quot;
+
+    def __init__(self):
+        self.text = &quot;&quot;
+        self._clipboard = &quot;&quot;
+
+    def copy(self) -&gt; str:
+        self._clipboard = self.text
+        return f&quot;Copied: {self._clipboard!r}&quot;
+
+    def paste(self) -&gt; str:
+        self.text += self._clipboard
+        return f&quot;Pasted. Text: {self.text!r}&quot;
+
+    def delete_last(self, n: int = 1) -&gt; str:
+        removed = self.text[-n:]
+        self.text = self.text[:-n]
+        return f&quot;Deleted: {removed!r}&quot;
+
+
+@dataclass
+class CommandHistory:
+    &quot;&quot;&quot;Undo stack.&quot;&quot;&quot;
+    _stack: list = field(default_factory=list)
+
+    def push(self, command):
+        self._stack.append(command)
+
+    def pop(self):
+        return self._stack.pop() if self._stack else None
+
+
+class CopyCommand:
+    def __init__(self, editor: Editor):
+        self.editor = editor
+        self._backup = &quot;&quot;
+
+    def execute(self) -&gt; str:
+        self._backup = self.editor.text
+        return self.editor.copy()
+
+    def undo(self) -&gt; str:
+        self.editor.text = self._backup
+        return &quot;Undo copy&quot;</code></pre>
+
+<h3>3.4 迭代器模式</h3>
+
+<pre><code class="language-python">&quot;&quot;&quot;Iterator pattern - custom traversal.&quot;&quot;&quot;
+
+
+class BinaryTree:
+    &quot;&quot;&quot;Binary tree with multiple traversal strategies.&quot;&quot;&quot;
+
+    def __init__(self, value, left=None, right=None):
+        self.value = value
+        self.left = left
+        self.right = right
+
+
+class InOrderIterator:
+    &quot;&quot;&quot;Left -&gt; Root -&gt; Right traversal.&quot;&quot;&quot;
+
+    def __init__(self, root: BinaryTree):
+        self._stack = []
+        self._current = root
+
+    def __iter__(self):
+        return self
+
+    def __next__(self):
+        while self._current or self._stack:
+            while self._current:
+                self._stack.append(self._current)
+                self._current = self._current.left
+            self._current = self._stack.pop()
+            value = self._current.value
+            self._current = self._current.right
+            return value
+        raise StopIteration</code></pre>
+
+<h3>3.5 状态模式 + 责任链</h3>
+
+<pre><code class="language-python">&quot;&quot;&quot;State pattern - state machine for order processing.&quot;&quot;&quot;
+
+
+class OrderState:
+    &quot;&quot;&quot;Base state.&quot;&quot;&quot;
+
+    def pay(self, order) -&gt; str:
+        return f&quot;Cannot pay in {self.__class__.__name__}&quot;
+
+    def ship(self, order) -&gt; str:
+        return f&quot;Cannot ship in {self.__class__.__name__}&quot;
+
+    def deliver(self, order) -&gt; str:
+        return f&quot;Cannot deliver in {self.__class__.__name__}&quot;
+
+
+class PendingState(OrderState):
+    def pay(self, order) -&gt; str:
+        order.state = PaidState()
+        return &quot;Order paid&quot;
+
+
+class PaidState(OrderState):
+    def ship(self, order) -&gt; str:
+        order.state = ShippedState()
+        return &quot;Order shipped&quot;
+
+
+class ShippedState(OrderState):
+    def deliver(self, order) -&gt; str:
+        order.state = DeliveredState()
+        return &quot;Order delivered&quot;
+
+
+class DeliveredState(OrderState):
+    pass  # Terminal state
+
+
+class Order:
+    def __init__(self):
+        self.state: OrderState = PendingState()
+
+    def pay(self) -&gt; str:
+        return self.state.pay(self)
+
+    def ship(self) -&gt; str:
+        return self.state.ship(self)
+
+    def deliver(self) -&gt; str:
+        return self.state.deliver(self)
+
+
+# Chain of Responsibility
+class Handler:
+    &quot;&quot;&quot;Base handler in the chain.&quot;&quot;&quot;
+
+    def __init__(self):
+        self._next: &quot;Handler | None&quot; = None
+
+    def set_next(self, handler: &quot;Handler&quot;) -&gt; &quot;Handler&quot;:
+        self._next = handler
+        return handler
+
+    def handle(self, request: dict) -&gt; str | None:
+        if self._next:
+            return self._next.handle(request)
+        return None
+
+
+class AuthHandler(Handler):
+    def handle(self, request: dict) -&gt; str | None:
+        if not request.get(&quot;token&quot;):
+            return &quot;Auth failed: no token&quot;
+        return super().handle(request)
+
+
+class RateLimitHandler(Handler):
+    def handle(self, request: dict) -&gt; str | None:
+        if request.get(&quot;requests&quot;, 0) &gt; 100:
+            return &quot;Rate limit exceeded&quot;
+        return super().handle(request)
+
+
+class BusinessHandler(Handler):
+    def handle(self, request: dict) -&gt; str | None:
+        return f&quot;Processed: {request.get(&#x27;action&#x27;, &#x27;unknown&#x27;)}&quot;</code></pre>
+
+<h2>四、执行预览</h2>
+
+<pre><code class="language-text"># Strategy
+&gt;&gt;&gt; sorter = Sorter(BubbleSort())
+&gt;&gt;&gt; sorter.sort([3, 1, 2])
+[1, 2, 3]
+
+# Observer
+&gt;&gt;&gt; bus = EventEmitter()
+&gt;&gt;&gt; bus.on(&quot;login&quot;, lambda name: print(f&quot;Welcome {name}&quot;))
+&gt;&gt;&gt; bus.emit(&quot;login&quot;, &quot;Alice&quot;)
+Welcome Alice
+
+# Command
+&gt;&gt;&gt; editor = Editor()
+&gt;&gt;&gt; editor.text = &quot;Hello&quot;
+&gt;&gt;&gt; cmd = CopyCommand(editor)
+&gt;&gt;&gt; cmd.execute()
+&quot;Copied: &#x27;Hello&#x27;&quot;
+
+# Iterator
+&gt;&gt;&gt; tree = BinaryTree(4, BinaryTree(2, BinaryTree(1), BinaryTree(3)), BinaryTree(5))
+&gt;&gt;&gt; list(InOrderIterator(tree))
+[1, 2, 3, 4, 5]
+
+# State
+&gt;&gt;&gt; order = Order()
+&gt;&gt;&gt; order.pay()
+&#x27;Order paid&#x27;
+&gt;&gt;&gt; order.deliver()  # Skip ship!
+&#x27;Cannot deliver in PaidState&#x27;
+&gt;&gt;&gt; order.ship()
+&#x27;Order shipped&#x27;
+&gt;&gt;&gt; order.deliver()
+&#x27;Order delivered&#x27;
+
+# Chain
+&gt;&gt;&gt; auth = AuthHandler()
+&gt;&gt;&gt; auth.set_next(RateLimitHandler()).set_next(BusinessHandler())
+&gt;&gt;&gt; auth.handle({&quot;token&quot;: &quot;abc&quot;, &quot;requests&quot;: 5, &quot;action&quot;: &quot;create&quot;})
+&#x27;Processed: create&#x27;</code></pre>
+
+<h2>五、注意事项</h2>
+
+<table><thead><tr>
+<th>要点</th>
+<th>说明</th>
+</tr></thead><tbody>
+<tr>
+<td>Python 函数即策略</td>
+<td>策略模式在 Python 中可用函数替代类</td>
+</tr>
+<tr>
+<td>观察者内存泄漏</td>
+<td>及时 <code>off</code> 取消订阅，避免回调堆积</td>
+</tr>
+<tr>
+<td>命令模式开销</td>
+<td>每个操作都封装为对象，简单场景不必用</td>
+</tr>
+<tr>
+<td>迭代器协议</td>
+<td>实现 <code>__iter__</code> + <code>__next__</code> 即可，优先用生成器</td>
+</tr>
+<tr>
+<td>责任链顺序</td>
+<td>链的顺序很重要，先快筛再慢处理</td>
+</tr>
+</tbody></table>
+
+<h2>六、避坑指南</h2>
+
+<table><thead><tr>
+<th>❌ 错误做法</th>
+<th>✅ 正确做法</th>
+</tr></thead><tbody>
+<tr>
+<td>策略用 if-else 硬编码</td>
+<td>用字典或注册表映射策略</td>
+</tr>
+<tr>
+<td>观察者同步阻塞</td>
+<td>耗时操作用 <code>asyncio</code> 或线程池</td>
+</tr>
+<tr>
+<td>状态机用大量 if-else</td>
+<td>每个状态一个类，利用多态</td>
+</tr>
+<tr>
+<td>责任链不设终点</td>
+<td>最后一个 handler 返回默认结果</td>
+</tr>
+<tr>
+<td>模板方法暴露太多钩子</td>
+<td>只开放必要的抽象方法</td>
+</tr>
+</tbody></table>
+
+<h2>七、练习题</h2>
+
+<h3>🟢 入门</h3>
+<ol>
+<li>实现一个策略模式的折扣计算器（满减、打折、无折扣）</li>
+</ul>
+<ol>
+<li>用观察者模式实现温度传感器，温度变化时通知多个显示器</li>
+
+<h3>🟡 进阶</h3>
+<ol>
+<li>实现命令模式的完整文本编辑器（输入、删除、撤销、重做）</li>
+</ul>
+<ol>
+<li>用状态模式实现红绿灯（红→绿→黄循环）</li>
+
+<h3>🔴 挑战</h3>
+<ol>
+<li>实现一个支持优先级的责任链，可以动态插入和移除 handler</li>
+</ul>
+<ol>
+<li>用迭代器模式实现图的 BFS 和 DFS 遍历</li>
+
+<h2>八、知识点总结</h2>
+
+<pre><code>行为型模式
+├── 策略 ✓ 高频
+│   └── 函数替代类
+├── 观察者 ✓ 高频
+│   └── 事件总线
+├── 命令
+│   └── 撤销/重做
+├── 迭代器
+│   └── Python 协议
+├── 状态
+│   └── 有限状态机
+├── 模板方法
+│   └── 框架钩子
+└── 责任链
+    └── 中间件 ✓ Web高频</code></pre>
+
+<h2>九、举一反三</h2>
+
+<table><thead><tr>
+<th>模式</th>
+<th>Python / 框架实例</th>
+<th>实际应用</th>
+</tr></thead><tbody>
+<tr>
+<td>策略</td>
+<td><code>sorted(key=...)</code></td>
+<td>支付方式选择、排序策略</td>
+</tr>
+<tr>
+<td>观察者</td>
+<td><code>blinker</code> 库、Django signals</td>
+<td>实时通知、消息推送</td>
+</tr>
+<tr>
+<td>命令</td>
+<td>Celery tasks</td>
+<td>任务队列、事务操作</td>
+</tr>
+<tr>
+<td>迭代器</td>
+<td><code>range()</code>, 生成器表达式</td>
+<td>流式处理、分页</td>
+</tr>
+<tr>
+<td>状态</td>
+<td>Django FSM</td>
+<td>订单流程、审批流</td>
+</tr>
+<tr>
+<td>模板方法</td>
+<td><code>sklearn</code> estimators</td>
+<td>数据处理管道</td>
+</tr>
+<tr>
+<td>责任链</td>
+<td>Django/Flask middleware</td>
+<td>认证链、过滤器链</td>
+</tr>
+</tbody></table>
+
+<h2>十、参考资料</h2>
+
+<ul>
+<li>《Design Patterns》- GoF</li>
+<li>《Python 设计模式》- Dusty Phillips</li>
+<li><a href="https://refactoring.guru/design-patterns/behavioral-patterns">Refactoring Guru - Behavioral Patterns</a></li>
+<li>《Fluent Python》第2版</li>
+
+<h2>十一、代码演进：事件系统的进化</h2>
+
+<pre><code class="language-python"># v1: Direct coupling - observer hardcoded
+class Sensor:
+    def update(self, temp):
+        self.temp = temp
+
+# Must manually call each display
+sensor = Sensor()
+display1 = Display()
+display2 = Display()
+
+
+# v2: Observer pattern
+bus = EventEmitter()
+bus.on(&quot;temp&quot;, display1.show)
+bus.on(&quot;temp&quot;, display2.show)
+bus.emit(&quot;temp&quot;, 25.5)
+
+
+# v3: Async event bus with priority
+import asyncio
+
+class AsyncEventBus:
+    def __init__(self):
+        self._handlers: dict[str, list] = {}
+
+    async def emit(self, event: str, data):
+        tasks = [h(data) for h in self._handlers.get(event, [])]
+        await asyncio.gather(*tasks)</code></pre>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

@@ -1,0 +1,673 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>003 - 无缓冲与有缓冲Channel</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Golang/index.html">Golang</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Golang/02-进阶/index.html">Golang进阶</a>
+</nav>
+<h1>003 - 无缓冲与有缓冲Channel</h1>
+<div class="meta">
+<span>📂 Golang进阶</span>
+<span>🏷️ Golang</span>
+</div>
+<article>
+
+
+<h1>033 - 无缓冲与有缓冲 Channel</h1>
+
+<blockquote><p><strong>难度：⭐⭐⭐ 中等</strong><br>理解无缓冲与有缓冲 Channel 的本质区别，是掌握 Go 并发的关键。</p></blockquote>
+
+<hr>
+
+<h2>一、概念讲解</h2>
+
+<h3>无缓冲 Channel（Unbuffered）</h3>
+
+<p>无缓冲 channel 没有缓冲区，<strong>发送和接收必须同时就绪才能完成</strong>。这就像面对面交接：发送方必须等接收方准备好，双方"握手"后才完成数据传递。</p>
+
+<pre><code class="language-go">ch := make(chan int) // 无缓冲</code></pre>
+
+<p><strong>核心特性：同步（Synchronous）</strong></p>
+<ul>
+<li>发送操作阻塞，直到有 goroutine 接收</li>
+<li>接收操作阻塞，直到有 goroutine 发送</li>
+<li>保证数据被接收时，发送方确认已交付</li>
+
+<h3>有缓冲 Channel（Buffered）</h3>
+
+<p>有缓冲 channel 有一个固定大小的缓冲区。只要缓冲区没满，发送就不会阻塞；只要缓冲区不空，接收就不会阻塞。</p>
+
+<pre><code class="language-go">ch := make(chan int, 10) // 缓冲区大小为 10</code></pre>
+
+<p><strong>核心特性：异步（Asynchronous）</strong></p>
+<ul>
+<li>缓冲区未满时，发送立即返回</li>
+<li>缓冲区不为空时，接收立即返回</li>
+<li>缓冲区满时发送阻塞，缓冲区空时接收阻塞</li>
+
+<h3>关键区别一览</h3>
+
+<table><thead><tr>
+<th>特性</th>
+<th>无缓冲</th>
+<th>有缓冲</th>
+</tr></thead><tbody>
+<tr>
+<td>创建</td>
+<td><code>make(chan T)</code></td>
+<td><code>make(chan T, n)</code></td>
+</tr>
+<tr>
+<td>缓冲区</td>
+<td>无</td>
+<td>n 个元素</td>
+</tr>
+<tr>
+<td>发送阻塞条件</td>
+<td>无接收者</td>
+<td>缓冲区满</td>
+</tr>
+<tr>
+<td>接收阻塞条件</td>
+<td>无发送者</td>
+<td>缓冲区空</td>
+</tr>
+<tr>
+<td>同步/异步</td>
+<td>同步</td>
+<td>异步</td>
+</tr>
+<tr>
+<td>容量</td>
+<td>0</td>
+<td>n</td>
+</tr>
+<tr>
+<td>适用场景</td>
+<td>强同步、信号</td>
+<td>流量缓冲、解耦</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>二、脑图（ASCII）</h2>
+
+<pre><code>无缓冲 vs 有缓冲 Channel
+├── 无缓冲 Channel
+│   ├── make(chan T)
+│   ├── 同步语义（握手式传递）
+│   ├── 发送阻塞 ↔ 等待接收者
+│   ├── 接收阻塞 ↔ 等待发送者
+│   ├── 保证数据已被接收
+│   └── 典型场景：信号通知、同步点
+├── 有缓冲 Channel
+│   ├── make(chan T, n)
+│   ├── 异步语义（邮箱式传递）
+│   ├── 发送阻塞 ↔ 缓冲区满
+│   ├── 接收阻塞 ↔ 缓冲区空
+│   ├── 解耦生产速度差异
+│   └── 典型场景：生产者-消费者、限流
+├── 容量与阻塞关系
+│   ├── cap(ch) → 缓冲区大小
+│   ├── len(ch) → 当前元素数
+│   └── 缓冲区状态：空 → 可用 → 满
+├── 生产者-消费者模式
+│   ├── 单生产者单消费者
+│   ├── 多生产者单消费者
+│   └── 多生产者多消费者
+├── Channel 选择原则
+│   ├── 需要同步 → 无缓冲
+│   ├── 需要解耦 → 有缓冲
+│   └── 需要限流 → 有缓冲（容量=并发数）
+└── 常见死锁场景
+    ├── 所有 goroutine 阻塞
+    ├── 无接收者的无缓冲发送
+    ├── 缓冲区满无消费者
+    └── 缺少 goroutine 协作</code></pre>
+
+<hr>
+
+<h2>三、完整 Go 代码</h2>
+
+<h3>v1：基础 - 无缓冲 vs 有缓冲对比</h3>
+
+<pre><code class="language-go">package main
+
+import (
+    &quot;fmt&quot;
+    &quot;time&quot;
+)
+
+func main() {
+    // --- Unbuffered channel demo ---
+    fmt.Println(&quot;=== Unbuffered Channel ===&quot;)
+    unbufCh := make(chan string)
+
+    go func() {
+        fmt.Println(&quot;Sender: preparing to send...&quot;)
+        unbufCh &lt;- &quot;hello&quot; // Blocks until receiver is ready
+        fmt.Println(&quot;Sender: message sent!&quot;)
+    }()
+
+    time.Sleep(100 * time.Millisecond) // Let sender reach send point
+    msg := &lt;-unbufCh                   // This &quot;unblocks&quot; the sender
+    fmt.Printf(&quot;Receiver: got %q\n&quot;, msg)
+
+    // --- Buffered channel demo ---
+    fmt.Println(&quot;\n=== Buffered Channel ===&quot;)
+    bufCh := make(chan string, 3) // Buffer size = 3
+
+    // Can send 3 values without any receiver
+    bufCh &lt;- &quot;msg1&quot;
+    bufCh &lt;- &quot;msg2&quot;
+    bufCh &lt;- &quot;msg3&quot;
+    fmt.Printf(&quot;Buffer: len=%d, cap=%d\n&quot;, len(bufCh), cap(bufCh))
+
+    // bufCh &lt;- &quot;msg4&quot; // Would block! Buffer is full
+
+    fmt.Println(&lt;-bufCh) // &quot;msg1&quot;
+    fmt.Println(&lt;-bufCh) // &quot;msg2&quot;
+    fmt.Println(&lt;-bufCh) // &quot;msg3&quot;
+}</code></pre>
+
+<h3>v2：进阶 - 生产者-消费者模式</h3>
+
+<pre><code class="language-go">package main
+
+import (
+    &quot;fmt&quot;
+    &quot;math/rand&quot;
+    &quot;sync&quot;
+    &quot;time&quot;
+)
+
+// producer generates items and sends them to the channel
+func producer(id int, ch chan&lt;- int, wg *sync.WaitGroup) {
+    defer wg.Done()
+    for i := 0; i &lt; 5; i++ {
+        n := rand.Intn(100)
+        ch &lt;- n
+        fmt.Printf(&quot;Producer %d → %d (len=%d)\n&quot;, id, n, len(ch))
+        time.Sleep(time.Duration(rand.Intn(50)) * time.Millisecond)
+    }
+    fmt.Printf(&quot;Producer %d: done\n&quot;, id)
+}
+
+// consumer reads from channel and processes items
+func consumer(id int, ch &lt;-chan int, wg *sync.WaitGroup) {
+    defer wg.Done()
+    for item := range ch {
+        fmt.Printf(&quot;  Consumer %d ← %d\n&quot;, id, item)
+        time.Sleep(time.Duration(rand.Intn(100)) * time.Millisecond)
+    }
+    fmt.Printf(&quot;Consumer %d: channel closed, exiting\n&quot;, id)
+}
+
+func main() {
+    // Buffered channel: acts as a queue between producers and consumers
+    ch := make(chan int, 10) // Buffer absorbs speed difference
+
+    var prodWg, consWg sync.WaitGroup
+
+    // Start 3 producers
+    for i := 1; i &lt;= 3; i++ {
+        prodWg.Add(1)
+        go producer(i, ch, &amp;prodWg)
+    }
+
+    // Start 2 consumers
+    for i := 1; i &lt;= 2; i++ {
+        consWg.Add(1)
+        go consumer(i, ch, &amp;consWg)
+    }
+
+    // Close channel after all producers are done
+    go func() {
+        prodWg.Wait()
+        close(ch)
+    }()
+
+    // Wait for consumers to finish
+    consWg.Wait()
+    fmt.Println(&quot;Main: all done&quot;)
+}</code></pre>
+
+<h3>v3：实战 - 完整并发系统 + 死锁演示</h3>
+
+<pre><code class="language-go">package main
+
+import (
+    &quot;context&quot;
+    &quot;fmt&quot;
+    &quot;sync&quot;
+    &quot;time&quot;
+)
+
+// demonstrateDeadlock shows common deadlock scenarios
+func demonstrateDeadlock() {
+    fmt.Println(&quot;=== Deadlock Scenario (commented out) ===&quot;)
+
+    // Scenario 1: Main goroutine sends on unbuffered channel with no receiver
+    // ch := make(chan int)
+    // ch &lt;- 1 // DEADLOCK! No goroutine to receive
+
+    // Scenario 2: Circular dependency
+    // ch1 := make(chan int)
+    // ch2 := make(chan int)
+    // go func() { ch1 &lt;- &lt;-ch2 }() // Waits for ch2
+    // ch2 &lt;- &lt;-ch1                   // Waits for ch1 → deadlock!
+
+    fmt.Println(&quot;(Scenarios commented out to avoid actual deadlock)&quot;)
+}
+
+// rateLimiter uses buffered channel as a semaphore
+func rateLimiter() {
+    fmt.Println(&quot;\n=== Rate Limiter (Semaphore) ===&quot;)
+    sem := make(chan struct{}, 3) // Max 3 concurrent operations
+
+    var wg sync.WaitGroup
+    for i := 1; i &lt;= 10; i++ {
+        wg.Add(1)
+        go func(id int) {
+            defer wg.Done()
+            sem &lt;- struct{}{} // Acquire slot (blocks if 3 already running)
+            defer func() { &lt;-sem }() // Release slot
+
+            fmt.Printf(&quot;Task %d: started\n&quot;, id)
+            time.Sleep(100 * time.Millisecond)
+            fmt.Printf(&quot;Task %d: done\n&quot;, id)
+        }(i)
+    }
+    wg.Wait()
+    fmt.Println(&quot;All tasks completed&quot;)
+}
+
+// gracefulShutdown demonstrates using buffered channel for result collection
+func gracefulShutdown() {
+    fmt.Println(&quot;\n=== Graceful Shutdown ===&quot;)
+    ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
+    defer cancel()
+
+    results := make(chan string, 5) // Buffered: won&#x27;t block senders
+    var wg sync.WaitGroup
+
+    // Start workers
+    for i := 1; i &lt;= 5; i++ {
+        wg.Add(1)
+        go func(id int) {
+            defer wg.Done()
+            select {
+            case &lt;-ctx.Done():
+                results &lt;- fmt.Sprintf(&quot;Worker %d: cancelled&quot;, id)
+                return
+            case &lt;-time.After(time.Duration(id*100) * time.Millisecond):
+                results &lt;- fmt.Sprintf(&quot;Worker %d: completed&quot;, id)
+            }
+        }(i)
+    }
+
+    // Closer
+    go func() {
+        wg.Wait()
+        close(results)
+    }()
+
+    // Collect all results
+    for r := range results {
+        fmt.Println(r)
+    }
+    fmt.Println(&quot;Shutdown complete&quot;)
+}
+
+func main() {
+    demonstrateDeadlock()
+    rateLimiter()
+    gracefulShutdown()
+
+    // Channel selection guidelines
+    fmt.Println(&quot;\n=== Selection Guidelines ===&quot;)
+    fmt.Println(&quot;• Need synchronization?     → Unbuffered (make(chan T))&quot;)
+    fmt.Println(&quot;• Need speed decoupling?    → Buffered  (make(chan T, N))&quot;)
+    fmt.Println(&quot;• Need concurrency limit?   → Buffered  as semaphore&quot;)
+    fmt.Println(&quot;• Need signal (no data)?    → chan struct{}&quot;)
+}</code></pre>
+
+<hr>
+
+<h2>四、执行预览</h2>
+
+<p><strong>v1 执行结果：</strong></p>
+<pre><code>=== Unbuffered Channel ===
+Sender: preparing to send...
+Receiver: got &quot;hello&quot;
+Sender: message sent!
+
+=== Buffered Channel ===
+Buffer: len=3, cap=3
+msg1
+msg2
+msg3</code></pre>
+
+<p><strong>v2 执行结果（示例）：</strong></p>
+<pre><code>Producer 1 → 47 (len=1)
+  Consumer 1 ← 47
+Producer 2 → 81 (len=1)
+  Consumer 2 ← 81
+Producer 3 → 15 (len=1)
+Producer 1 → 62 (len=2)
+  Consumer 1 ← 15
+...
+Producer 1: done
+Producer 2: done
+Producer 3: done
+Consumer 1: channel closed, exiting
+Consumer 2: channel closed, exiting
+Main: all done</code></pre>
+
+<p><strong>v3 执行结果：</strong></p>
+<pre><code>=== Deadlock Scenario (commented out) ===
+(Scenarios commented out to avoid actual deadlock)
+
+=== Rate Limiter (Semaphore) ===
+Task 1: started
+Task 2: started
+Task 3: started
+Task 1: done
+Task 4: started
+Task 2: done
+Task 5: started
+...
+All tasks completed
+
+=== Graceful Shutdown ===
+Worker 1: completed
+Worker 2: completed
+Worker 3: completed
+Worker 4: completed
+Worker 5: completed
+Shutdown complete
+
+=== Selection Guidelines ===
+• Need synchronization?     → Unbuffered (make(chan T))
+• Need speed decoupling?    → Buffered  (make(chan T, N))
+• Need concurrency limit?   → Buffered  as semaphore
+• Need signal (no data)?    → chan struct{}</code></pre>
+
+<hr>
+
+<h2>五、注意事项</h2>
+
+<table><thead><tr>
+<th>注意点</th>
+<th>说明</th>
+<th>严重程度</th>
+</tr></thead><tbody>
+<tr>
+<td>死锁</td>
+<td>所有 goroutine 阻塞在 channel 操作上</td>
+<td>🔴 严重</td>
+</tr>
+<tr>
+<td>Goroutine 泄漏</td>
+<td>发送到没人接收的 channel，goroutine 永远阻塞</td>
+<td>🔴 严重</td>
+</tr>
+<tr>
+<td>缓冲区大小选择</td>
+<td>太小→频繁阻塞；太大→内存浪费</td>
+<td>🟡 设计考量</td>
+</tr>
+<tr>
+<td>关闭时机</td>
+<td>只应由发送方关闭</td>
+<td>🔴 严重</td>
+</tr>
+<tr>
+<td>缓冲区非线程安全计数</td>
+<td><code>len(ch)</code> 只反映某一时刻的值</td>
+<td>🟢 轻微</td>
+</tr>
+<tr>
+<td>无缓冲 ≠ 慢</td>
+<td>无缓冲是同步语义，不是性能差</td>
+<td>🟢 概念澄清</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>六、避坑指南</h2>
+
+<h3>❌ 主 goroutine 直接发送到无缓冲 channel</h3>
+<pre><code class="language-go">func main() {
+    ch := make(chan int)
+    ch &lt;- 1 // DEADLOCK: no receiver, main blocks forever
+}</code></pre>
+<h3>✅ 先启动接收 goroutine</h3>
+<pre><code class="language-go">func main() {
+    ch := make(chan int)
+    go func() { fmt.Println(&lt;-ch) }()
+    ch &lt;- 1 // OK: goroutine is already waiting
+}</code></pre>
+
+<h3>❌ 缓冲区大小随意设很大</h3>
+<pre><code class="language-go">ch := make(chan int, 1000000) // Wastes memory, hides backpressure issues</code></pre>
+<h3>✅ 根据实际流量设置合理缓冲</h3>
+<pre><code class="language-go">ch := make(chan int, 100) // Reasonable: small buffer for burst absorption
+// If producers overwhelm consumers, fix the imbalance, don&#x27;t increase buffer</code></pre>
+
+<h3>❌ 忽略 channel 满导致 goroutine 泄漏</h3>
+<pre><code class="language-go">func leaky() {
+    ch := make(chan int, 1)
+    ch &lt;- 1        // OK, buffer has room
+    ch &lt;- 2        // Blocks if no consumer! Goroutine leaks
+    fmt.Println(&quot;never reached&quot;)
+}</code></pre>
+<h3>✅ 使用 select + default 或 context 防泄漏</h3>
+<pre><code class="language-go">func safe(ch chan int) {
+    select {
+    case ch &lt;- 2:
+        fmt.Println(&quot;sent&quot;)
+    default:
+        fmt.Println(&quot;channel full, dropping&quot;) // Non-blocking send
+    }
+}</code></pre>
+
+<h3>❌ 以为无缓冲 channel 有 1 个缓冲</h3>
+<pre><code class="language-go">ch := make(chan int)
+ch &lt;- 1 // BLOCKS! Unbuffered = 0 capacity, not 1</code></pre>
+<h3>✅ 理解无缓冲是零容量</h3>
+<pre><code class="language-go">ch := make(chan int, 1) // THIS has capacity 1
+ch &lt;- 1                 // OK, buffered</code></pre>
+
+<hr>
+
+<h2>七、练习题</h2>
+
+<h3>🟢 入门：阻塞观察</h3>
+<p>分别创建无缓冲和有缓冲(容量3)的 channel。在 main goroutine 中发送 4 个值，观察哪个会阻塞。用 goroutine 接收来验证。</p>
+
+<h3>🟡 中级：限流下载器</h3>
+<p>实现一个并发下载器，同时最多 3 个下载任务在运行。使用有缓冲 channel 作为信号量控制并发数。模拟 10 个下载任务，每个随机耗时。</p>
+
+<h3>🔴 高级：带背压的 Pipeline</h3>
+<p>实现一个三阶段 pipeline（Generate → Process → Collect），当 Collect 阶段处理慢时，通过有缓冲 channel + select 实现背压（backpressure），丢弃超量数据并记录丢弃数量。</p>
+
+<hr>
+
+<h2>八、知识点总结</h2>
+
+<pre><code>Channel 缓冲知识体系
+├── 无缓冲 Channel
+│   ├── make(chan T)
+│   ├── 同步传递（零容量）
+│   ├── 发送 = 等待接收者就绪
+│   ├── 适用：同步、信号、保证交付
+│   └── 风险：无协作者则死锁
+├── 有缓冲 Channel
+│   ├── make(chan T, n)
+│   ├── 异步传递（n 容量）
+│   ├── 满→发送阻塞，空→接收阻塞
+│   ├── 适用：解耦、缓冲、限流
+│   └── 风险：缓冲过大隐藏问题
+├── 容量管理
+│   ├── cap(ch) — 总容量
+│   ├── len(ch) — 当前占用
+│   └── 缓冲区是环形队列（FIFO）
+├── 死锁场景
+│   ├── 单 goroutine 自锁
+│   ├── 循环等待
+│   ├── 缺少消费者
+│   └── 检测：go run -race + 超时
+└── 设计选择
+    ├── 同步需求 → 无缓冲
+    ├── 吞吐需求 → 有缓冲
+    ├── 并发限制 → 信号量模式
+    └── 优雅关闭 → close + range</code></pre>
+
+<hr>
+
+<h2>九、举一反三</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>Channel 类型</th>
+<th>缓冲大小</th>
+<th>原因</th>
+</tr></thead><tbody>
+<tr>
+<td>函数返回单个结果</td>
+<td>无缓冲</td>
+<td>0</td>
+<td>保证结果被接收</td>
+</tr>
+<tr>
+<td>日志写入队列</td>
+<td>有缓冲</td>
+<td>100-1000</td>
+<td>吸收突发写入</td>
+</tr>
+<tr>
+<td>HTTP 请求限流</td>
+<td>有缓冲（信号量）</td>
+<td>N（并发数）</td>
+<td>控制同时运行数</td>
+</tr>
+<tr>
+<td>事件广播</td>
+<td>close channel</td>
+<td>0</td>
+<td>close 通知所有等待者</td>
+</tr>
+<tr>
+<td>Worker Pool 任务分发</td>
+<td>有缓冲</td>
+<td>Worker 数 × 2</td>
+<td>避免 worker 空闲</td>
+</tr>
+<tr>
+<td>进度通知</td>
+<td>有缓冲</td>
+<td>1</td>
+<td>最新进度，非阻塞</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>十、参考资料</h2>
+
+<ul>
+<li><a href="https://go.dev/ref/spec#Channel_types">Go Spec: Channel types</a></li>
+<li><a href="https://go.dev/blog/io2013-talk-concurrency">Go Blog: Advanced Go Concurrency Patterns</a></li>
+<li><a href="https://go.dev/blog/context">Go Blog: Go Concurrency Patterns: Context</a></li>
+<li><a href="https://golang50shad.es/">50 Shades of Go: Traps, Gotchas, and Common Mistakes</a></li>
+<li>《Concurrency in Go》Chapter 4 - Concurrency Patterns at Scale</li>
+
+<hr>
+
+<h2>十一、代码演进路线</h2>
+
+<pre><code>v1 基础对比版
+├── 无缓冲 vs 有缓冲行为演示
+├── cap/len 观察
+└── 问题：无实际应用场景
+│
+▼
+v2 生产者-消费者版
+├── 多生产者 + 多消费者
+├── 有缓冲 channel 解耦
+├── WaitGroup 协调生命周期
+└── 改进：真实并发模式
+│
+▼
+v3 生产系统版
+├── 死锁场景分析
+├── 信号量限流模式
+├── context 超时 + 优雅关闭
+├── 通道选择决策指南
+└── 特性：防泄漏 + 可观测 + 背压</code></pre>
+
+<blockquote><p><strong>上一篇：</strong> <a href="/posts/032-channel-basics">032 - Channel 通道基础</a></p></blockquote>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

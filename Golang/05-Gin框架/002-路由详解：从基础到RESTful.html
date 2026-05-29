@@ -1,0 +1,614 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>002-路由详解：从基础到RESTful</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Golang/index.html">Golang</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Golang/05-Gin框架/index.html">Gin框架</a>
+</nav>
+<h1>002-路由详解：从基础到RESTful</h1>
+<div class="meta">
+<span>📂 Gin框架</span>
+<span>🏷️ Golang</span>
+</div>
+<article>
+
+
+<h1>路由详解：从基础到RESTful</h1>
+
+<blockquote><p><strong>难度：⭐⭐ 进阶级</strong> | 预计阅读：25分钟 | 适合：已掌握Gin基础，需要系统理解路由机制的开发者</p></blockquote>
+
+<h2>一、概念讲解</h2>
+
+<h3>1.1 Gin路由底层原理</h3>
+
+<p>Gin使用<strong>基数树(Radix Tree)</strong>实现路由匹配。启动时，所有路由规则被构建成一棵树：</p>
+
+<pre><code>注册路由：
+GET /users
+GET /users/:id
+GET /users/:id/posts
+GET /users/:id/posts/:postId
+
+基数树结构：
+/users
+  ├─ (exact match) → handler
+  ├─ /:id
+  │    ├─ (param match) → handler
+  │    └─ /posts
+  │         ├─ (exact match) → handler
+  │         └─ /:postId → handler</code></pre>
+
+<p>匹配时从根节点沿树向下查找，<strong>一次遍历即可确定目标</strong>，不回溯，性能极高。</p>
+
+<h3>1.2 路由参数 vs 查询参数</h3>
+
+<table><thead><tr>
+<th>类型</th>
+<th>示例</th>
+<th>获取方式</th>
+<th>用途</th>
+</tr></thead><tbody>
+<tr>
+<td>路径参数</td>
+<td><code>/users/123</code></td>
+<td><code>c.Param("id")</code></td>
+<td>标识资源</td>
+</tr>
+<tr>
+<td>查询参数</td>
+<td><code>/users?role=admin</code></td>
+<td><code>c.Query("role")</code></td>
+<td>过滤/分页</td>
+</tr>
+<tr>
+<td>表单参数</td>
+<td><code>POST form data</code></td>
+<td><code>c.PostForm("name")</code></td>
+<td>提交数据</td>
+</tr>
+</tbody></table>
+
+<p><strong>RESTful约定：</strong> 路径参数标识资源，查询参数控制展示。</p>
+
+<h2>二、脑图</h2>
+
+<pre><code>Gin路由体系
+├── 基础路由
+│   ├── GET/POST/PUT/DELETE/PATCH
+│   ├── Any (匹配所有方法)
+│   └── Handle (指定方法)
+├── 参数类型
+│   ├── 路径参数 c.Param()
+│   ├── 查询参数 c.Query()/c.DefaultQuery()
+│   ├── 表单参数 c.PostForm()
+│   └── 数组参数 c.QueryArray()
+├── 路由分组
+│   ├── Group() 前缀分组
+│   ├── 嵌套分组
+│   └── 分组级中间件
+├── 特殊处理
+│   ├── NoRoute (404处理)
+│   ├── NoMethod (405处理)
+│   └── Static (静态文件)
+└── RESTful规范
+    ├── 资源命名(名词复数)
+    ├── HTTP方法语义
+    └── 状态码选择</code></pre>
+
+<h2>三、完整代码</h2>
+
+<h3>3.1 HTTP方法与路径参数</h3>
+
+<pre><code class="language-go">package main
+
+import (
+    &quot;net/http&quot;
+    &quot;github.com/gin-gonic/gin&quot;
+)
+
+func main() {
+    r := gin.Default()
+
+    // Basic CRUD routes for a &quot;users&quot; resource
+    r.GET(&quot;/users&quot;, func(c *gin.Context) {
+        c.JSON(http.StatusOK, gin.H{&quot;action&quot;: &quot;list all users&quot;})
+    })
+
+    r.GET(&quot;/users/:id&quot;, func(c *gin.Context) {
+        id := c.Param(&quot;id&quot;)
+        c.JSON(http.StatusOK, gin.H{&quot;action&quot;: &quot;get user&quot;, &quot;id&quot;: id})
+    })
+
+    r.POST(&quot;/users&quot;, func(c *gin.Context) {
+        c.JSON(http.StatusCreated, gin.H{&quot;action&quot;: &quot;create user&quot;})
+    })
+
+    r.PUT(&quot;/users/:id&quot;, func(c *gin.Context) {
+        id := c.Param(&quot;id&quot;)
+        c.JSON(http.StatusOK, gin.H{&quot;action&quot;: &quot;update user&quot;, &quot;id&quot;: id})
+    })
+
+    r.DELETE(&quot;/users/:id&quot;, func(c *gin.Context) {
+        id := c.Param(&quot;id&quot;)
+        c.JSON(http.StatusOK, gin.H{&quot;action&quot;: &quot;delete user&quot;, &quot;id&quot;: id})
+    })
+
+    // PATCH for partial update
+    r.PATCH(&quot;/users/:id&quot;, func(c *gin.Context) {
+        id := c.Param(&quot;id&quot;)
+        c.JSON(http.StatusOK, gin.H{&quot;action&quot;: &quot;partial update user&quot;, &quot;id&quot;: id})
+    })
+
+    r.Run(&quot;:8080&quot;)
+}</code></pre>
+
+<h3>3.2 查询参数与数组参数</h3>
+
+<pre><code class="language-go">// Query parameters demo
+r.GET(&quot;/search&quot;, func(c *gin.Context) {
+    // Single value
+    q := c.Query(&quot;q&quot;)               // Get query param, returns &quot;&quot; if missing
+    page := c.DefaultQuery(&quot;page&quot;, &quot;1&quot;) // Get with default value
+    
+    // Array values: ?tags=go&amp;tags=gin
+    tags := c.QueryArray(&quot;tags&quot;)
+    
+    // Map values: ?filter[status]=active&amp;filter[role]=admin
+    filters := c.QueryMap(&quot;filter&quot;)
+    
+    c.JSON(http.StatusOK, gin.H{
+        &quot;query&quot;:   q,
+        &quot;page&quot;:    page,
+        &quot;tags&quot;:    tags,
+        &quot;filters&quot;: filters,
+    })
+})</code></pre>
+
+<h3>3.3 路由分组</h3>
+
+<pre><code class="language-go">func main() {
+    r := gin.Default()
+    
+    // API v1 group
+    v1 := r.Group(&quot;/api/v1&quot;)
+    {
+        // /api/v1/users
+        v1.GET(&quot;/users&quot;, listUsers)
+        v1.POST(&quot;/users&quot;, createUser)
+        v1.GET(&quot;/users/:id&quot;, getUser)
+        
+        // Nested group: /api/v1/admin/*
+        admin := v1.Group(&quot;/admin&quot;)
+        admin.Use(AuthMiddleware()) // Group-level middleware
+        {
+            admin.GET(&quot;/dashboard&quot;, adminDashboard)
+            admin.GET(&quot;/settings&quot;, adminSettings)
+        }
+    }
+    
+    // API v2 group
+    v2 := r.Group(&quot;/api/v2&quot;)
+    {
+        v2.GET(&quot;/users&quot;, listUsersV2)
+    }
+    
+    r.Run(&quot;:8080&quot;)
+}</code></pre>
+
+<h3>3.4 NoRoute、NoMethod与Any</h3>
+
+<pre><code class="language-go">func main() {
+    r := gin.Default()
+    
+    // Handle 404 - No matching route
+    r.NoRoute(func(c *gin.Context) {
+        c.JSON(http.StatusNotFound, gin.H{
+            &quot;code&quot;:    404,
+            &quot;message&quot;: &quot;Route not found&quot;,
+            &quot;path&quot;:    c.Request.URL.Path,
+        })
+    })
+    
+    // Handle 405 - Method not allowed
+    r.NoMethod(func(c *gin.Context) {
+        c.JSON(http.StatusMethodNotAllowed, gin.H{
+            &quot;code&quot;:    405,
+            &quot;message&quot;: &quot;Method not allowed&quot;,
+        })
+    })
+    
+    // Match ALL HTTP methods for a path
+    r.Any(&quot;/ping&quot;, func(c *gin.Context) {
+        c.JSON(http.StatusOK, gin.H{
+            &quot;method&quot;: c.Request.Method,
+            &quot;message&quot;: &quot;pong from Any&quot;,
+        })
+    })
+    
+    // Explicitly register with Handle
+    r.Handle(&quot;GET&quot;, &quot;/health&quot;, func(c *gin.Context) {
+        c.JSON(http.StatusOK, gin.H{&quot;status&quot;: &quot;healthy&quot;})
+    })
+    
+    r.Run(&quot;:8080&quot;)
+}</code></pre>
+
+<h3>3.5 静态文件服务</h3>
+
+<pre><code class="language-go">// Serve static files
+r.Static(&quot;/assets&quot;, &quot;./public&quot;)           // Map directory
+r.StaticFile(&quot;/favicon.ico&quot;, &quot;./favicon.ico&quot;) // Single file
+r.StaticFS(&quot;/docs&quot;, gin.Dir(&quot;./swagger&quot;, false)) // File system</code></pre>
+
+<h2>四、执行预览</h2>
+
+<pre><code class="language-bash"># GET list
+$ curl http://localhost:8080/users
+{&quot;action&quot;:&quot;list all users&quot;}
+
+# GET single with path param
+$ curl http://localhost:8080/users/42
+{&quot;action&quot;:&quot;get user&quot;,&quot;id&quot;:&quot;42&quot;}
+
+# POST create
+$ curl -X POST http://localhost:8080/users
+{&quot;action&quot;:&quot;create user&quot;}
+
+# PUT update
+$ curl -X PUT http://localhost:8080/users/42
+{&quot;action&quot;:&quot;update user&quot;,&quot;id&quot;:&quot;42&quot;}
+
+# DELETE
+$ curl -X DELETE http://localhost:8080/users/42
+{&quot;action&quot;:&quot;delete user&quot;,&quot;id&quot;:&quot;42&quot;}
+
+# Query params
+$ curl &quot;http://localhost:8080/search?q=gin&amp;tags=go&amp;tags=web&amp;filter[status]=active&quot;
+{&quot;filters&quot;:{&quot;role&quot;:&quot;&quot;,&quot;status&quot;:&quot;active&quot;},&quot;page&quot;:&quot;1&quot;,&quot;query&quot;:&quot;gin&quot;,&quot;tags&quot;:[&quot;go&quot;,&quot;web&quot;]}
+
+# 404 handling
+$ curl http://localhost:8080/nonexistent
+{&quot;code&quot;:404,&quot;message&quot;:&quot;Route not found&quot;,&quot;path&quot;:&quot;/nonexistent&quot;}</code></pre>
+
+<h2>五、注意事项</h2>
+
+<table><thead><tr>
+<th>事项</th>
+<th>说明</th>
+<th>建议</th>
+</tr></thead><tbody>
+<tr>
+<td>参数冲突</td>
+<td><code>:id</code>和<code>:name</code>不能同时存在同一层级</td>
+<td>同一层级只使用一种参数名</td>
+</tr>
+<tr>
+<td>尾斜杠</td>
+<td><code>/users</code>和<code>/users/</code>是不同路由</td>
+<td>统一风格，建议不带尾斜杠</td>
+</tr>
+<tr>
+<td>路由注册顺序</td>
+<td>注册顺序不影响匹配，基数树自动优化</td>
+<td>但NoRoute必须放在最后</td>
+</tr>
+<tr>
+<td>参数获取</td>
+<td><code>c.Param()</code>返回值带前缀<code>/</code>，需要<code>strings.Trim</code></td>
+<td>或直接用，Gin内部已处理</td>
+</tr>
+<tr>
+<td>大小写</td>
+<td>路由路径大小写敏感</td>
+<td><code>/Users</code> ≠ <code>/users</code></td>
+</tr>
+</tbody></table>
+
+<h2>六、避坑指南</h2>
+
+<h3>❌ 路由参数冲突</h3>
+<pre><code class="language-go">// Bad: Panic at startup!
+r.GET(&quot;/users/:id&quot;, getUser)
+r.GET(&quot;/users/:name&quot;, getByName) // Conflict: :id and :name at same level</code></pre>
+<h3>✅ 用不同路径或查询参数</h3>
+<pre><code class="language-go">r.GET(&quot;/users/:id&quot;, getUser)           // By ID
+r.GET(&quot;/users/search&quot;, searchByName)   // Search endpoint with query param
+// Query: /users/search?name=alice</code></pre>
+
+<h3>❌ PUT当PATCH用</h3>
+<pre><code class="language-go">// Bad: PUT should replace the entire resource
+r.PUT(&quot;/users/:id&quot;, func(c *gin.Context) {
+    // Only updating one field... but it&#x27;s PUT
+    c.JSON(200, gin.H{&quot;updated&quot;: &quot;email only&quot;})
+})</code></pre>
+<h3>✅ 区分PUT和PATCH语义</h3>
+<pre><code class="language-go">// PUT: Full replacement (client sends complete resource)
+r.PUT(&quot;/users/:id&quot;, replaceUser)
+
+// PATCH: Partial update (client sends only changed fields)
+r.PATCH(&quot;/users/:id&quot;, partialUpdateUser)</code></pre>
+
+<h3>❌ 查询参数不做校验</h3>
+<pre><code class="language-go">// Bad: page could be &quot;abc&quot;, will cause issues downstream
+page := c.Query(&quot;page&quot;)
+pageNum, _ := strconv.Atoi(page) // Silently ignores error</code></pre>
+<h3>✅ 校验并提供默认值</h3>
+<pre><code class="language-go">page, err := strconv.Atoi(c.DefaultQuery(&quot;page&quot;, &quot;1&quot;))
+if err != nil || page &lt; 1 {
+    c.JSON(400, gin.H{&quot;error&quot;: &quot;invalid page parameter&quot;})
+    return
+}</code></pre>
+
+<h2>七、练习题</h2>
+
+<h3>🟢 初级：基础CRUD路由</h3>
+<ol>
+<li>实现一套完整的<code>/articles</code> CRUD路由（GET/POST/PUT/DELETE）</li>
+</ul>
+<ol>
+<li>为<code>/articles/:id</code>路径参数添加数字校验</li>
+
+<h3>🟡 中级：路由分组与中间件</h3>
+<ol>
+<li>创建<code>/api/v1</code>和<code>/api/v2</code>两个分组，v1返回旧格式数据，v2返回新格式</li>
+</ul>
+<ol>
+<li>为<code>/admin</code>分组添加认证中间件，未认证返回401</li>
+
+<h3>🔴 高级：RESTful API设计</h3>
+<ol>
+<li>设计一个博客系统的完整路由表：用户、文章、评论、标签，符合RESTful规范，输出路由表格</li>
+
+<h2>八、知识点总结</h2>
+
+<pre><code>Gin路由知识树
+├── 路由注册
+│   ├── r.GET/POST/PUT/DELETE/PATCH
+│   ├── r.Any()
+│   └── r.Handle(method, path, handlers)
+├── 参数获取
+│   ├── c.Param(&quot;key&quot;)        → 路径参数
+│   ├── c.Query(&quot;key&quot;)        → 查询参数
+│   ├── c.DefaultQuery(k, v)  → 带默认值
+│   ├── c.QueryArray(&quot;key&quot;)   → 数组参数
+│   └── c.QueryMap(&quot;key&quot;)     → Map参数
+├── 路由分组
+│   ├── r.Group(&quot;/prefix&quot;)
+│   ├── 嵌套分组
+│   └── 分组.Use() 挂中间件
+├── 特殊处理
+│   ├── NoRoute → 404
+│   ├── NoMethod → 405
+│   └── Static/StaticFile
+└── RESTful规范
+    ├── 资源用名词复数
+    ├── GET=查 POST=建 PUT=改 DELETE=删
+    └── 正确使用状态码</code></pre>
+
+<h2>九、举一反三</h2>
+
+<table><thead><tr>
+<th>Gin路由模式</th>
+<th>其他框架写法</th>
+<th>关键差异</th>
+</tr></thead><tbody>
+<tr>
+<td><code>r.GET("/users/:id", h)</code></td>
+<td>Echo: <code>e.GET("/users/:id", h)</code></td>
+<td>几乎一样</td>
+</tr>
+<tr>
+<td><code>r.Group("/api/v1")</code></td>
+<td>Chi: <code>r.Route("/api/v1", ...)</code></td>
+<td>Chi用回调嵌套</td>
+</tr>
+<tr>
+<td><code>c.Param("id")</code></td>
+<td>Fiber: <code>c.Params("id")</code></td>
+<td>Fiber多一个s</td>
+</tr>
+<tr>
+<td><code>c.DefaultQuery("page","1")</code></td>
+<td>Echo:没有，需自己判断</td>
+<td>Gin更方便</td>
+</tr>
+<tr>
+<td><code>r.NoRoute(handler)</code></td>
+<td>Chi: <code>r.NotFound(handler)</code></td>
+<td>功能相同，命名不同</td>
+</tr>
+</tbody></table>
+
+<h2>十、参考资料</h2>
+
+<ul>
+<li><a href="https://gin-gonic.com/docs/examples/routing/">Gin路由官方文档</a></li>
+<li><a href="https://restfulapi.net/">RESTful API设计指南</a></li>
+<li><a href="https://www.rfc-editor.org/rfc/rfc9110">HTTP方法语义RFC</a></li>
+
+<h2>十一、代码演进</h2>
+
+<h3>v1: 基础路由</h3>
+<pre><code class="language-go">r := gin.Default()
+r.GET(&quot;/users&quot;, listUsers)
+r.GET(&quot;/users/:id&quot;, getUser)
+r.POST(&quot;/users&quot;, createUser)
+r.Run()</code></pre>
+
+<h3>v2: 分组+特殊处理</h3>
+<pre><code class="language-go">r := gin.Default()
+api := r.Group(&quot;/api&quot;)
+api.GET(&quot;/users&quot;, listUsers)
+api.GET(&quot;/users/:id&quot;, getUser)
+
+r.NoRoute(func(c *gin.Context) {
+    c.JSON(404, gin.H{&quot;error&quot;: &quot;not found&quot;})
+})
+r.Run()</code></pre>
+
+<h3>v3: 完整RESTful API路由器</h3>
+<pre><code class="language-go">package main
+
+import (
+    &quot;net/http&quot;
+    &quot;strconv&quot;
+    &quot;github.com/gin-gonic/gin&quot;
+)
+
+type User struct {
+    ID   int    `json:&quot;id&quot;`
+    Name string `json:&quot;name&quot;`
+}
+
+// Simulated database
+var users = []User{{ID: 1, Name: &quot;Alice&quot;}, {ID: 2, Name: &quot;Bob&quot;}}
+var nextID = 3
+
+func listUsers(c *gin.Context) {
+    c.JSON(http.StatusOK, gin.H{&quot;data&quot;: users, &quot;total&quot;: len(users)})
+}
+
+func getUser(c *gin.Context) {
+    id, err := strconv.Atoi(c.Param(&quot;id&quot;))
+    if err != nil {
+        c.JSON(http.StatusBadRequest, gin.H{&quot;error&quot;: &quot;invalid user ID&quot;})
+        return
+    }
+    for _, u := range users {
+        if u.ID == id {
+            c.JSON(http.StatusOK, gin.H{&quot;data&quot;: u})
+            return
+        }
+    }
+    c.JSON(http.StatusNotFound, gin.H{&quot;error&quot;: &quot;user not found&quot;})
+}
+
+func createUser(c *gin.Context) {
+    var input struct {
+        Name string `json:&quot;name&quot; binding:&quot;required&quot;`
+    }
+    if err := c.ShouldBindJSON(&amp;input); err != nil {
+        c.JSON(http.StatusBadRequest, gin.H{&quot;error&quot;: err.Error()})
+        return
+    }
+    user := User{ID: nextID, Name: input.Name}
+    nextID++
+    users = append(users, user)
+    c.JSON(http.StatusCreated, gin.H{&quot;data&quot;: user})
+}
+
+func updateUser(c *gin.Context) {
+    id, _ := strconv.Atoi(c.Param(&quot;id&quot;))
+    var input struct {
+        Name string `json:&quot;name&quot; binding:&quot;required&quot;`
+    }
+    if err := c.ShouldBindJSON(&amp;input); err != nil {
+        c.JSON(http.StatusBadRequest, gin.H{&quot;error&quot;: err.Error()})
+        return
+    }
+    for i, u := range users {
+        if u.ID == id {
+            users[i].Name = input.Name
+            c.JSON(http.StatusOK, gin.H{&quot;data&quot;: users[i]})
+            return
+        }
+    }
+    c.JSON(http.StatusNotFound, gin.H{&quot;error&quot;: &quot;user not found&quot;})
+}
+
+func deleteUser(c *gin.Context) {
+    id, _ := strconv.Atoi(c.Param(&quot;id&quot;))
+    for i, u := range users {
+        if u.ID == id {
+            users = append(users[:i], users[i+1:]...)
+            c.JSON(http.StatusOK, gin.H{&quot;message&quot;: &quot;deleted&quot;})
+            return
+        }
+    }
+    c.JSON(http.StatusNotFound, gin.H{&quot;error&quot;: &quot;user not found&quot;})
+}
+
+func main() {
+    gin.SetMode(gin.ReleaseMode)
+    r := gin.Default()
+
+    api := r.Group(&quot;/api/v1&quot;)
+    {
+        api.GET(&quot;/users&quot;, listUsers)
+        api.GET(&quot;/users/:id&quot;, getUser)
+        api.POST(&quot;/users&quot;, createUser)
+        api.PUT(&quot;/users/:id&quot;, updateUser)
+        api.DELETE(&quot;/users/:id&quot;, deleteUser)
+    }
+
+    r.NoRoute(func(c *gin.Context) {
+        c.JSON(http.StatusNotFound, gin.H{&quot;code&quot;: 404, &quot;message&quot;: &quot;Not found&quot;})
+    })
+
+    r.Run(&quot;:8080&quot;)
+}</code></pre>
+
+<hr>
+
+<p><em>上一篇：<a href="/posts/001-gin-intro">Gin框架简介与环境搭建</a> | 下一篇：<a href="/posts/003-gin-middleware">中间件：洋葱模型与请求拦截</a> →</em></p>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

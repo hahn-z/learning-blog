@@ -1,0 +1,658 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>004-第一个Kratos服务Hello World</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Golang/index.html">Golang</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Golang/06-Kratos微服务框架/index.html">Kratos框架</a>
+</nav>
+<h1>004-第一个Kratos服务Hello World</h1>
+<div class="meta">
+<span>📂 Kratos框架</span>
+<span>🏷️ Golang</span>
+</div>
+<article>
+
+
+
+<h1>004-第一个Kratos服务Hello World</h1>
+
+<blockquote><p><strong>难度：⭐⭐（入门级）</strong><br><br>需要已完成环境搭建（001篇）。读完本文，你将独立创建并运行一个完整的Kratos微服务。</p></blockquote>
+
+<hr>
+
+<h2>一、概念讲解</h2>
+
+<h3>1.1 本文目标</h3>
+
+<p>我们要构建一个完整的Kratos服务，具备以下功能：</p>
+
+<pre><code>┌──────────────┐     HTTP      ┌─────────────────────┐
+│   curl /     │──────────────→│                     │
+│   浏览器      │               │   Kratos Service    │
+└──────────────┘               │                     │
+                               │  ┌───────────────┐  │
+┌──────────────┐    gRPC       │  │ Service Layer  │  │
+│  grpcurl /   │──────────────→│  ├───────────────┤  │
+│  Go Client   │               │  │   Biz Layer    │  │
+└──────────────┘               │  ├───────────────┤  │
+                               │  │  Data Layer    │  │
+                               │  └───────────────┘  │
+                               └─────────────────────┘</code></pre>
+
+<h3>1.2 开发流程</h3>
+
+<pre><code>1. kratos new 创建项目
+2. 编写 proto 文件（定义接口）
+3. make api（生成代码）
+4. 实现 Service 层（业务编排）
+5. 实现 Biz 层（业务逻辑）
+6. 实现 Data 层（数据存储）
+7. kratos run（启动服务）
+8. 测试 HTTP + gRPC 接口</code></pre>
+
+<hr>
+
+<h2>二、脑图（ASCII）</h2>
+
+<pre><code>               Kratos Hello World
+                     │
+      ┌──────────────┼──────────────┐
+      │              │              │
+   项目创建       核心开发        测试验证
+      │              │              │
+  kratos new    ┌────┼────┐    ┌───┼───┐
+      │         │    │    │    │       │
+  项目结构     Proto Service curl grpcurl
+  依赖下载     编写  实现     HTTP  gRPC
+              生成  Biz/Data 测试  测试</code></pre>
+
+<hr>
+
+<h2>三、完整代码</h2>
+
+<h3>3.1 创建项目</h3>
+
+<pre><code class="language-bash"># Step 1: Create project
+kratos new helloworld
+cd helloworld
+
+# Step 2: Download dependencies
+go mod tidy</code></pre>
+
+<h3>3.2 编写Proto文件</h3>
+
+<pre><code class="language-protobuf">// api/helloworld/v1/greeter.proto
+syntax = &quot;proto3&quot;;
+
+package helloworld.v1;
+
+option go_package = &quot;helloworld/api/helloworld/v1&quot;;
+
+import &quot;google/api/annotations.proto&quot;;
+
+// Greeter service definition
+service GreeterService {
+    // SayHello returns a greeting message
+    rpc SayHello (HelloRequest) returns (HelloReply) {
+        option (google.api.http) = {
+            get: &quot;/helloworld/{name}&quot;
+        };
+    }
+    
+    // BatchHello processes multiple names
+    rpc BatchHello (BatchHelloRequest) returns (BatchHelloReply) {
+        option (google.api.http) = {
+            post: &quot;/v1/helloworld/batch&quot;
+            body: &quot;*&quot;
+        };
+    }
+}
+
+// Request with a single name
+message HelloRequest {
+    string name = 1;
+}
+
+// Response with greeting message
+message HelloReply {
+    string message = 1;
+    int64 timestamp = 2;
+}
+
+// Request with multiple names
+message BatchHelloRequest {
+    repeated string names = 1;
+}
+
+// Response with multiple greetings
+message BatchHelloReply {
+    repeated HelloReply replies = 1;
+}</code></pre>
+
+<h3>3.3 生成代码</h3>
+
+<pre><code class="language-bash"># Generate protobuf code
+make api</code></pre>
+
+<p>生成后文件结构：</p>
+<pre><code>api/helloworld/v1/
+├── greeter.proto
+├── greeter.pb.go          # Message structs
+├── greeter_http.pb.go     # HTTP route registration
+└── greeter_grpc.pb.go     # gRPC stubs</code></pre>
+
+<h3>3.4 实现Biz层（业务逻辑）</h3>
+
+<pre><code class="language-go">// internal/biz/greeter.go
+package biz
+
+import (
+    &quot;context&quot;
+    &quot;fmt&quot;
+    &quot;time&quot;
+
+    &quot;github.com/go-kratos/kratos/v2/log&quot;
+)
+
+// GreeterUsecase holds business logic
+type GreeterUsecase struct {
+    log *log.Helper
+}
+
+// NewGreeterUsecase creates a new usecase
+func NewGreeterUsecase(logger log.Logger) *GreeterUsecase {
+    return &amp;GreeterUsecase{
+        log: log.NewHelper(logger),
+    }
+}
+
+// Greet generates a greeting for a single name
+func (uc *GreeterUsecase) Greet(ctx context.Context, name string) (string, int64, error) {
+    // Business rule: default name
+    if name == &quot;&quot; {
+        name = &quot;World&quot;
+    }
+    
+    // Business rule: add time-based greeting
+    hour := time.Now().Hour()
+    var prefix string
+    switch {
+    case hour &lt; 6:
+        prefix = &quot;🌙 Good night&quot;
+    case hour &lt; 12:
+        prefix = &quot;🌅 Good morning&quot;
+    case hour &lt; 18:
+        prefix = &quot;☀️ Good afternoon&quot;
+    default:
+        prefix = &quot;🌆 Good evening&quot;
+    }
+    
+    greeting := fmt.Sprintf(&quot;%s, %s!&quot;, prefix, name)
+    uc.log.WithContext(ctx).Infof(&quot;Generated greeting: %s&quot;, greeting)
+    
+    return greeting, time.Now().Unix(), nil
+}
+
+// BatchGreet generates greetings for multiple names
+func (uc *GreeterUsecase) BatchGreet(ctx context.Context, names []string) ([]struct {
+    Message   string
+    Timestamp int64
+}, error) {
+    results := make([]struct {
+        Message   string
+        Timestamp int64
+    }, 0, len(names))
+    
+    for _, name := range names {
+        msg, ts, err := uc.Greet(ctx, name)
+        if err != nil {
+            return nil, err
+        }
+        results = append(results, struct {
+            Message   string
+            Timestamp int64
+        }{Message: msg, Timestamp: ts})
+    }
+    
+    return results, nil
+}</code></pre>
+
+<h3>3.5 实现Service层</h3>
+
+<pre><code class="language-go">// internal/service/greeter.go
+package service
+
+import (
+    &quot;context&quot;
+
+    pb &quot;helloworld/api/helloworld/v1&quot;
+    &quot;helloworld/internal/biz&quot;
+
+    &quot;github.com/go-kratos/kratos/v2/log&quot;
+)
+
+// GreeterService implements the proto-defined service
+type GreeterService struct {
+    pb.UnimplementedGreeterServiceServer
+    
+    uc  *biz.GreeterUsecase
+    log *log.Helper
+}
+
+// NewGreeterService creates service with dependency injection
+func NewGreeterService(uc *biz.GreeterUsecase, logger log.Logger) *GreeterService {
+    return &amp;GreeterService{
+        uc:  uc,
+        log: log.NewHelper(logger),
+    }
+}
+
+// SayHello handles a single greeting request
+func (s *GreeterService) SayHello(ctx context.Context, req *pb.HelloRequest) (*pb.HelloReply, error) {
+    s.log.WithContext(ctx).Infof(&quot;SayHello: name=%s&quot;, req.Name)
+    
+    // Delegate to biz layer
+    message, timestamp, err := s.uc.Greet(ctx, req.Name)
+    if err != nil {
+        return nil, err
+    }
+    
+    return &amp;pb.HelloReply{
+        Message:   message,
+        Timestamp: timestamp,
+    }, nil
+}
+
+// BatchHello handles multiple greeting requests
+func (s *GreeterService) BatchHello(ctx context.Context, req *pb.BatchHelloRequest) (*pb.BatchHelloReply, error) {
+    s.log.WithContext(ctx).Infof(&quot;BatchHello: %d names&quot;, len(req.Names))
+    
+    results, err := s.uc.BatchGreet(ctx, req.Names)
+    if err != nil {
+        return nil, err
+    }
+    
+    replies := make([]*pb.HelloReply, 0, len(results))
+    for _, r := range results {
+        replies = append(replies, &amp;pb.HelloReply{
+            Message:   r.Message,
+            Timestamp: r.Timestamp,
+        })
+    }
+    
+    return &amp;pb.BatchHelloReply{Replies: replies}, nil
+}</code></pre>
+
+<h3>3.6 更新Wire注入</h3>
+
+<pre><code class="language-go">// internal/biz/biz.go
+package biz
+
+import &quot;github.com/google/wire&quot;
+
+// ProviderSet is biz layer dependency providers
+var ProviderSet = wire.NewSet(NewGreeterUsecase)</code></pre>
+
+<pre><code class="language-go">// internal/service/service.go
+package service
+
+import &quot;github.com/google/wire&quot;
+
+// ProviderSet is service layer dependency providers
+var ProviderSet = wire.NewSet(NewGreeterService)</code></pre>
+
+<h3>3.7 配置文件</h3>
+
+<pre><code class="language-yaml"># configs/config.yaml
+server:
+  http:
+    addr: 0.0.0.0:8000
+    timeout: 1s
+  grpc:
+    addr: 0.0.0.0:9000
+    timeout: 1s</code></pre>
+
+<hr>
+
+<h2>四、执行预览</h2>
+
+<pre><code>$ make api
+# Generating protobuf code...
+# Done.
+
+$ make generate  
+# Generating wire code...
+# Done.
+
+$ kratos run
+INFO msg=config loaded format: yaml
+INFO msg=server listening on [::]:8000    ← HTTP
+INFO msg=server listening on [::]:9000    ← gRPC
+
+# Test HTTP GET
+$ curl http://localhost:8000/helloworld/Kratos
+{&quot;message&quot;:&quot;☀️ Good afternoon, Kratos!&quot;,&quot;timestamp&quot;:&quot;1714032000&quot;}
+
+# Test HTTP POST batch
+$ curl -X POST http://localhost:8000/v1/helloworld/batch \
+  -H &quot;Content-Type: application/json&quot; \
+  -d &#x27;{&quot;names&quot;:[&quot;Alice&quot;,&quot;Bob&quot;,&quot;Charlie&quot;]}&#x27;
+{
+  &quot;replies&quot;: [
+    {&quot;message&quot;:&quot;☀️ Good afternoon, Alice!&quot;,&quot;timestamp&quot;:&quot;1714032000&quot;},
+    {&quot;message&quot;:&quot;☀️ Good afternoon, Bob!&quot;,&quot;timestamp&quot;:&quot;1714032000&quot;},
+    {&quot;message&quot;:&quot;☀️ Good afternoon, Charlie!&quot;,&quot;timestamp&quot;:&quot;1714032000&quot;}
+  ]
+}
+
+# Test gRPC
+$ grpcurl -plaintext -d &#x27;{&quot;name&quot;:&quot;Kratos&quot;}&#x27; localhost:9000 helloworld.v1.GreeterService/SayHello
+{
+  &quot;message&quot;: &quot;☀️ Good afternoon, Kratos!&quot;,
+  &quot;timestamp&quot;: &quot;1714032000&quot;
+}</code></pre>
+
+<h3>Go客户端调用</h3>
+
+<pre><code class="language-go">// client/main.go
+package main
+
+import (
+    &quot;context&quot;
+    &quot;fmt&quot;
+    &quot;log&quot;
+
+    pb &quot;helloworld/api/helloworld/v1&quot;
+
+    &quot;google.golang.org/grpc&quot;
+    &quot;google.golang.org/grpc/credentials/insecure&quot;
+)
+
+func main() {
+    // Connect to gRPC server
+    conn, err := grpc.Dial(&quot;localhost:9000&quot;,
+        grpc.WithTransportCredentials(insecure.NewCredentials()),
+    )
+    if err != nil {
+        log.Fatal(err)
+    }
+    defer conn.Close()
+
+    // Create client
+    client := pb.NewGreeterServiceClient(conn)
+
+    // Call SayHello
+    reply, err := client.SayHello(context.Background(), &amp;pb.HelloRequest{
+        Name: &quot;Go Client&quot;,
+    })
+    if err != nil {
+        log.Fatal(err)
+    }
+
+    fmt.Printf(&quot;Reply: %s (timestamp: %d)\n&quot;, reply.Message, reply.Timestamp)
+}</code></pre>
+
+<hr>
+
+<h2>五、注意事项</h2>
+
+<table><thead><tr>
+<th>注意点</th>
+<th>说明</th>
+<th>严重度</th>
+</tr></thead><tbody>
+<tr>
+<td>生成顺序</td>
+<td>先<code>make api</code>再<code>make generate</code></td>
+<td>🔴 高</td>
+</tr>
+<tr>
+<td>proto修改后必须重新生成</td>
+<td>否则代码和接口定义不一致</td>
+<td>🔴 高</td>
+</tr>
+<tr>
+<td>Unimplemented前缀</td>
+<td>新增RPC后需重新生成并实现</td>
+<td>🟡 中</td>
+</tr>
+<tr>
+<td>HTTP路径冲突</td>
+<td>多个RPC不要映射到相同路径</td>
+<td>🟡 中</td>
+</tr>
+<tr>
+<td>Wire注入循环依赖</td>
+<td>检查ProviderSet是否正确</td>
+<td>🔴 高</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>六、避坑指南</h2>
+
+<table><thead><tr>
+<th>❌ 常见错误</th>
+<th>✅ 正确做法</th>
+</tr></thead><tbody>
+<tr>
+<td>修改proto后不重新make api</td>
+<td>每次修改proto都执行<code>make api && make generate</code></td>
+</tr>
+<tr>
+<td>新增RPC方法后忘记实现</td>
+<td>编译会报错，根据错误实现新方法</td>
+</tr>
+<tr>
+<td>Service层直接返回硬编码</td>
+<td>通过Biz层处理逻辑</td>
+</tr>
+<tr>
+<td>配置文件路径不对</td>
+<td>使用<code>-conf</code>参数指定路径</td>
+</tr>
+<tr>
+<td>gRPC客户端连不上</td>
+<td>检查端口是否一致，是否使用plaintext</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>七、练习题</h2>
+
+<h3>🟢 入门题</h3>
+<ol>
+<li>运行本文的Hello World项目，成功调用HTTP和gRPC接口。</li>
+
+<h3>🟡 进阶题</h3>
+<ol>
+<li>新增一个<code>Goodbye</code> RPC方法，路径为<code>GET /goodbye/{name}</code>，返回<code>"Goodbye, {name}!"</code>。</li>
+
+<h3>🔴 挑战题</h3>
+<ol>
+<li>实现一个完整的<code>UserService</code>（CRUD），使用内存map存储数据，支持HTTP和gRPC双协议访问。要求：CreateUser、GetUser、UpdateUser、DeleteUser、ListUsers。</li>
+
+<hr>
+
+<h2>八、知识点总结</h2>
+
+<pre><code>Kratos Hello World
+├── 项目创建
+│   ├── kratos new &lt;name&gt;
+│   ├── go mod tidy
+│   └── 目录结构理解
+├── Proto编写
+│   ├── message定义
+│   ├── service + rpc定义
+│   └── HTTP注解映射
+├── 代码生成
+│   ├── make api → proto代码
+│   └── make generate → wire代码
+├── 业务实现
+│   ├── Service层（请求转换）
+│   ├── Biz层（业务逻辑）
+│   └── Data层（数据存储）
+└── 测试验证
+    ├── curl测试HTTP
+    ├── grpcurl测试gRPC
+    └── Go客户端调用</code></pre>
+
+<hr>
+
+<h2>九、举一反三</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>思路</th>
+<th>关键技术</th>
+</tr></thead><tbody>
+<tr>
+<td>添加新的微服务</td>
+<td>重复创建流程，定义新的proto</td>
+<td>kratos new</td>
+</tr>
+<tr>
+<td>对接前端</td>
+<td>前端调用HTTP接口（JSON）</td>
+<td>HTTP注解</td>
+</tr>
+<tr>
+<td>服务间调用</td>
+<td>使用gRPC客户端调用另一个服务</td>
+<td>gRPC client</td>
+</tr>
+<tr>
+<td>添加中间件</td>
+<td>在server层注册recovery/logging等中间件</td>
+<td>kratos middleware</td>
+</tr>
+<tr>
+<td>Docker部署</td>
+<td>编写Dockerfile，多阶段构建</td>
+<td>Docker multi-stage</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>十、参考资料</h2>
+
+<table><thead><tr>
+<th>资源</th>
+<th>链接</th>
+</tr></thead><tbody>
+<tr>
+<td>Kratos快速开始</td>
+<td>https://go-kratos.dev/docs/getting-started/start</td>
+</tr>
+<tr>
+<td>Kratos Examples</td>
+<td>https://github.com/go-kratos/examples</td>
+</tr>
+<tr>
+<td>gRPCurl工具</td>
+<td>https://github.com/fullstorydev/grpcurl</td>
+</tr>
+<tr>
+<td>Wire依赖注入</td>
+<td>https://github.com/google/wire</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>十一、代码演进</h2>
+
+<h3>v1：默认模板</h3>
+<pre><code class="language-bash">kratos new helloworld
+# 默认只有SayHello，返回硬编码字符串</code></pre>
+
+<h3>v2：添加业务逻辑</h3>
+<pre><code class="language-go">// Biz层添加时间问候逻辑
+func (uc *GreeterUsecase) Greet(ctx context.Context, name string) (string, int64, error) {
+    // Time-based greeting
+    prefix := getTimeBasedGreeting()
+    return fmt.Sprintf(&quot;%s, %s!&quot;, prefix, name), time.Now().Unix(), nil
+}</code></pre>
+
+<h3>v3：完整CRUD服务</h3>
+<pre><code class="language-go">// v3: Add batch operations, CRUD endpoints
+service UserService {
+    rpc CreateUser (CreateUserRequest) returns (User) {
+        option (google.api.http) = { post: &quot;/v1/users&quot; body: &quot;*&quot; };
+    }
+    rpc GetUser (GetUserRequest) returns (User) {
+        option (google.api.http) = { get: &quot;/v1/users/{id}&quot; };
+    }
+    rpc ListUsers (ListUsersRequest) returns (ListUsersReply) {
+        option (google.api.http) = { get: &quot;/v1/users&quot; };
+    }
+}</code></pre>
+
+<hr>
+
+<p><strong>上一篇：</strong> <a href="/posts/003-kratos-protobuf">003-Protobuf协议与代码生成</a></p>
+<p><strong>下一篇：</strong> <a href="/posts/005-kratos-config">005-Kratos配置管理详解</a></p>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

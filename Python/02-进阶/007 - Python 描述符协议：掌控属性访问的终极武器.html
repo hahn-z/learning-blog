@@ -1,0 +1,620 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>007 - Python 描述符协议：掌控属性访问的终极武器</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Python/index.html">其他</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Python/02-进阶/index.html">Python进阶</a>
+</nav>
+<h1>007 - Python 描述符协议：掌控属性访问的终极武器</h1>
+<div class="meta">
+<span>📂 Python进阶</span>
+<span>🏷️ 其他</span>
+</div>
+<article>
+
+
+<h1>Python 描述符协议：掌控属性访问的终极武器</h1>
+
+<blockquote><p><strong>难度：⭐⭐⭐⭐（高级）</strong><br><strong>前置知识：</strong> 属性访问机制、<code>__getattribute__</code>、装饰器、元类基础</p></blockquote>
+
+<hr>
+
+<h2>一、概念讲解</h2>
+
+<p>描述符（Descriptor）是 Python 中最强大的协议之一，它是 <code>property</code>、<code>classmethod</code>、<code>staticmethod</code>、<code>__slots__</code> 等特性的底层实现机制。</p>
+
+<p>简单来说：<strong>一个实现了 <code>__get__</code>、<code>__set__</code> 或 <code>__delete__</code> 方法的类，其实例可以作为另一个类的属性，并在属性访问时自动触发这些方法。</strong></p>
+
+<h3>两种描述符</h3>
+
+<table><thead><tr>
+<th>类型</th>
+<th>实现方法</th>
+<th>优先级</th>
+</tr></thead><tbody>
+<tr>
+<td><strong>数据描述符</strong></td>
+<td><code>__get__</code> + <code>__set__</code>（或 <code>__delete__</code>）</td>
+<td>高于实例字典</td>
+</tr>
+<tr>
+<td><strong>非数据描述符</strong></td>
+<td>仅 <code>__get__</code></td>
+<td>低于实例字典</td>
+</tr>
+</tbody></table>
+
+<p>这是 Python 属性查找顺序的核心规则：</p>
+
+<pre><code>数据描述符 &gt; 实例 __dict__ &gt; 非数据描述符 &gt; 类 __dict__ &gt; __getattr__</code></pre>
+
+<h3>为什么需要描述符？</h3>
+
+<ul>
+<li><strong>代码复用</strong>：多个属性共享相同的验证/计算逻辑</li>
+<li><strong>优雅 API</strong>：隐藏复杂的 get/set 逻辑，暴露简单的属性接口</li>
+<li><strong>框架基础</strong>：ORM 字段、类型验证器、延迟加载都依赖描述符</li>
+
+<hr>
+
+<h2>二、脑图（ASCII）</h2>
+
+<pre><code>描述符协议 Descriptor Protocol
+├── 核心协议方法
+│   ├── __get__(self, obj, objtype=None) → value
+│   ├── __set__(self, obj, value) → None
+│   └── __delete__(self, obj) → None
+├── 两种类型
+│   ├── 数据描述符（Data Descriptor）
+│   │   └── 同时定义 __get__ + __set__/__delete__
+│   │   └── 优先级高于实例 __dict__
+│   └── 非数据描述符（Non-Data Descriptor）
+│       └── 仅定义 __get__
+│       └── 优先级低于实例 __dict__
+├── 属性查找顺序
+│   ├── 1. 数据描述符的 __get__
+│   ├── 2. 实例 __dict__
+│   ├── 3. 非数据描述符的 __get__
+│   └── 4. 类的 __getattr__
+├── 经典应用
+│   ├── property（内置描述符）
+│   ├── classmethod / staticmethod
+│   ├── ORM 字段（SQLAlchemy, Django）
+│   ├── 类型验证
+│   └── 延迟加载（Lazy Loading）
+└── __set_name__（Python 3.6+）
+    └── 自动获取属性名</code></pre>
+
+<hr>
+
+<h2>三、完整代码示例</h2>
+
+<h3>v1：基础描述符 — 类型验证</h3>
+
+<pre><code class="language-python"># v1: Basic descriptor for type validation
+class TypedField:
+    &quot;&quot;&quot;A descriptor that enforces type checking.&quot;&quot;&quot;
+
+    def __init__(self, expected_type, name=None):
+        self.expected_type = expected_type
+        self.name = name
+
+    def __set_name__(self, owner, name):
+        # Automatically called when descriptor is assigned to a class attribute
+        if self.name is None:
+            self.name = name
+
+    def __get__(self, obj, objtype=None):
+        if obj is None:
+            return self  # Access via class returns descriptor itself
+        return obj.__dict__.get(self.name)
+
+    def __set__(self, obj, value):
+        if not isinstance(value, self.expected_type):
+            raise TypeError(
+                f&quot;{self.name} expected {self.expected_type.__name__}, &quot;
+                f&quot;got {type(value).__name__}&quot;
+            )
+        obj.__dict__[self.name] = value
+
+    def __delete__(self, obj):
+        raise AttributeError(f&quot;Cannot delete {self.name}&quot;)
+
+
+# Usage
+class Person:
+    name = TypedField(str)
+    age = TypedField(int)
+
+    def __init__(self, name, age):
+        self.name = name
+        self.age = age
+
+
+p = Person(&quot;Alice&quot;, 30)
+print(p.name)  # Alice
+try:
+    p.age = &quot;thirty&quot;  # TypeError!
+except TypeError as e:
+    print(e)</code></pre>
+
+<h3>v2：可复用的验证描述符工厂</h3>
+
+<pre><code class="language-python"># v2: Reusable descriptor factory with multiple validators
+from functools import partial
+
+
+class Validated:
+    &quot;&quot;&quot;Base descriptor with validation chain.&quot;&quot;&quot;
+
+    def __init__(self, *validators, name=None):
+        self.validators = validators
+        self.name = name
+
+    def __set_name__(self, owner, name):
+        if self.name is None:
+            self.name = name
+        # Store value in private storage key to avoid conflicts
+        self.storage_name = f&quot;_validated_{name}&quot;
+
+    def __get__(self, obj, objtype=None):
+        if obj is None:
+            return self
+        return getattr(obj, self.storage_name, None)
+
+    def __set__(self, obj, value):
+        for validator in self.validators:
+            validator(self.name, value)
+        setattr(obj, self.storage_name, value)
+
+
+# Validator functions
+def type_check(name, value, expected_type):
+    if not isinstance(value, expected_type):
+        raise TypeError(f&quot;{name} must be {expected_type.__name__}&quot;)
+
+
+def min_value(name, value, minimum):
+    if value &lt; minimum:
+        raise ValueError(f&quot;{name} must be &gt;= {minimum}&quot;)
+
+
+def max_length(name, value, maximum):
+    if len(value) &gt; maximum:
+        raise ValueError(f&quot;{name} must be &lt;= {maximum} chars&quot;)
+
+
+# Descriptor factories for convenience
+def Typed(expected_type):
+    return Validated(partial(type_check, expected_type=expected_type))
+
+
+def Bounded(expected_type, min_val=None, max_len=None):
+    validators = [partial(type_check, expected_type=expected_type)]
+    if min_val is not None:
+        validators.append(partial(min_value, minimum=min_val))
+    if max_len is not None:
+        validators.append(partial(max_length, maximum=max_len))
+    return Validated(*validators)
+
+
+class Product:
+    name = Bounded(str, max_len=100)
+    price = Bounded(int, min_val=0)
+    sku = Typed(str)
+
+    def __init__(self, name, price, sku):
+        self.name = name
+        self.price = price
+        self.sku = sku
+
+
+p = Product(&quot;Widget&quot;, 999, &quot;W-001&quot;)
+print(f&quot;{p.name}: ${p.price}&quot;)  # Widget: $999
+try:
+    p.price = -10  # ValueError!
+except ValueError as e:
+    print(e)</code></pre>
+
+<h3>v3：完整 ORM 风格描述符 + 元类</h3>
+
+<pre><code class="language-python"># v3: ORM-style descriptors with metaclass
+class Field:
+    &quot;&quot;&quot;Base field descriptor for ORM-like models.&quot;&quot;&quot;
+
+    _creation_counter = 0  # Track field order
+
+    def __init__(self, *, required=True, default=None):
+        self.required = required
+        self.default = default
+        Field._creation_counter += 1
+        self._counter = Field._creation_counter
+
+    def __set_name__(self, owner, name):
+        self.name = name
+        self.storage_key = f&quot;_field_{name}&quot;
+
+    def __get__(self, obj, objtype=None):
+        if obj is None:
+            return self
+        return getattr(obj, self.storage_key, self.default)
+
+    def __set__(self, obj, value):
+        self.validate(value)
+        setattr(obj, self.storage_key, value)
+
+    def validate(self, value):
+        if value is None and self.required:
+            raise ValueError(f&quot;{self.name} is required&quot;)
+
+
+class StringField(Field):
+    def __init__(self, min_len=0, max_len=255, **kwargs):
+        super().__init__(**kwargs)
+        self.min_len = min_len
+        self.max_len = max_len
+
+    def validate(self, value):
+        super().validate(value)
+        if value is not None:
+            if not isinstance(value, str):
+                raise TypeError(f&quot;{self.name} must be str&quot;)
+            if len(value) &lt; self.min_len:
+                raise ValueError(f&quot;{self.name} too short&quot;)
+            if len(value) &gt; self.max_len:
+                raise ValueError(f&quot;{self.name} too long&quot;)
+
+
+class IntegerField(Field):
+    def __init__(self, min_val=None, max_val=None, **kwargs):
+        super().__init__(**kwargs)
+        self.min_val = min_val
+        self.max_val = max_val
+
+    def validate(self, value):
+        super().validate(value)
+        if value is not None:
+            if not isinstance(value, int):
+                raise TypeError(f&quot;{self.name} must be int&quot;)
+            if self.min_val is not None and value &lt; self.min_val:
+                raise ValueError(f&quot;{self.name} too small&quot;)
+            if self.max_val is not None and value &gt; self.max_val:
+                raise ValueError(f&quot;{self.name} too large&quot;)
+
+
+class ModelMeta(type):
+    &quot;&quot;&quot;Metaclass that collects field descriptors.&quot;&quot;&quot;
+
+    def __new__(mcs, name, bases, namespace):
+        cls = super().__new__(mcs, name, bases, namespace)
+        fields = {}
+        for key, value in list(namespace.items()):
+            if isinstance(value, Field):
+                fields[key] = value
+        for base in bases:
+            if hasattr(base, &quot;_fields&quot;):
+                fields.update(base._fields)
+        cls._fields = fields
+        return cls
+
+
+class Model(metaclass=ModelMeta):
+    &quot;&quot;&quot;Base model using descriptors.&quot;&quot;&quot;
+
+    def __init__(self, **kwargs):
+        # Set defaults for all fields first
+        for name, field in self._fields.items():
+            if name not in kwargs:
+                if field.default is not None:
+                    setattr(self, name, field.default)
+                elif not field.required:
+                    setattr(self, name, None)
+        # Set provided values (triggers validation)
+        for key, value in kwargs.items():
+            if key in self._fields:
+                setattr(self, key, value)
+            else:
+                raise AttributeError(f&quot;Unknown field: {key}&quot;)
+
+    def to_dict(self):
+        return {name: getattr(self, name) for name in self._fields}
+
+    def __repr__(self):
+        fields = &quot;, &quot;.join(f&quot;{k}={v!r}&quot; for k, v in self.to_dict().items())
+        return f&quot;{self.__class__.__name__}({fields})&quot;
+
+
+# Define a model
+class User(Model):
+    username = StringField(min_len=3, max_len=50, required=True)
+    email = StringField(min_len=5, max_len=255, required=True)
+    age = IntegerField(min_val=0, max_val=150, required=False, default=0)
+
+
+# Usage
+u = User(username=&quot;alice&quot;, email=&quot;alice@example.com&quot;, age=28)
+print(u)
+# User(username=&#x27;alice&#x27;, email=&#x27;alice@example.com&#x27;, age=28)
+print(u.to_dict())
+# {&#x27;username&#x27;: &#x27;alice&#x27;, &#x27;email&#x27;: &#x27;alice@example.com&#x27;, &#x27;age&#x27;: 28}
+
+try:
+    bad = User(username=&quot;x&quot;, email=&quot;bad&quot;)
+except (ValueError, TypeError) as e:
+    print(f&quot;Validation failed: {e}&quot;)</code></pre>
+
+<hr>
+
+<h2>四、执行预览</h2>
+
+<pre><code>$ python descriptor_v1.py
+Alice
+age expected int, got str
+
+$ python descriptor_v2.py
+Widget: $999
+price must be &gt;= 0
+
+$ python descriptor_v3.py
+User(username=&#x27;alice&#x27;, email=&#x27;alice@example.com&#x27;, age=28)
+{&#x27;username&#x27;: &#x27;alice&#x27;, &#x27;email&#x27;: &#x27;alice@example.com&#x27;, &#x27;age&#x27;: 28}
+Validation failed: username too short</code></pre>
+
+<hr>
+
+<h2>五、注意事项</h2>
+
+<table><thead><tr>
+<th>注意点</th>
+<th>说明</th>
+</tr></thead><tbody>
+<tr>
+<td>描述符必须是类属性</td>
+<td>定义在 <code>__init__</code> 里的描述符不会工作</td>
+</tr>
+<tr>
+<td><code>__set_name__</code> 仅 3.6+</td>
+<td>旧版本需手动传 name 参数</td>
+</tr>
+<tr>
+<td>存储位置避免冲突</td>
+<td>用 <code>obj.__dict__[private_key]</code> 而非直接属性</td>
+</tr>
+<tr>
+<td><code>obj=None</code> 时返回自身</td>
+<td>类级别访问应返回描述符对象本身</td>
+</tr>
+<tr>
+<td>非数据描述符可被覆盖</td>
+<td>实例可以 <code>obj.attr = x</code> 覆盖非数据描述符</td>
+</tr>
+<tr>
+<td><code>__slots__</code> 与描述符</td>
+<td><code>__slots__</code> 中的描述符行为可能不同</td>
+</tr>
+<tr>
+<td>描述符实例共享</td>
+<td>同一个描述符实例被所有类实例共享</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>六、避坑指南</h2>
+
+<table><thead><tr>
+<th>❌ 常见错误</th>
+<th>✅ 正确做法</th>
+</tr></thead><tbody>
+<tr>
+<td>在描述符 <code>__set__</code> 中用 <code>setattr(obj, self.name, value)</code> 导致无限递归</td>
+<td>用 <code>obj.__dict__[self.storage_key] = value</code></td>
+</tr>
+<tr>
+<td>忘记处理 <code>obj is None</code> 的情况</td>
+<td>在 <code>__get__</code> 中判断，类访问返回 <code>self</code></td>
+</tr>
+<tr>
+<td>用同一个描述符实例在多个类中</td>
+<td>每个属性用独立的描述符实例</td>
+</tr>
+<tr>
+<td>只定义 <code>__set__</code> 不定义 <code>__get__</code></td>
+<td>数据描述符建议两个都实现</td>
+</tr>
+<tr>
+<td>在 <code>__set_name__</code> 中做复杂操作</td>
+<td>保持简单，仅记录名称</td>
+</tr>
+<tr>
+<td>期望描述符在实例字典中可见</td>
+<td>描述符是类属性，值存储在实例字典的自定义键中</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>七、练习题</h2>
+
+<h3>🟢 入门</h3>
+<ol>
+<li>实现一个 <code>ReadOnly</code> 描述符，首次赋值后不允许修改</li>
+</ul>
+<ol>
+<li>实现一个 <code>Positive</code> 描述符，确保数值始终为正数</li>
+
+<h3>🟡 进阶</h3>
+<ol>
+<li>实现一个 <code>Lazy</code> 描述符，首次访问时才计算值并缓存</li>
+</ul>
+<ol>
+<li>用描述符实现一个简单的单位转换（存储时转为基础单位，读取时转为显示单位）</li>
+
+<h3>🔴 挑战</h3>
+<ol>
+<li>实现一个 <code>CachedProperty</code> 描述符，支持 TTL 过期机制</li>
+</ul>
+<ol>
+<li>结合元类，实现一个自动序列化/反序列化的描述符框架</li>
+
+<hr>
+
+<h2>八、知识点总结（树状）</h2>
+
+<pre><code>描述符协议
+├── 协议方法
+│   ├── __get__(self, obj, type) → 被读取时调用
+│   ├── __set__(self, obj, value) → 被赋值时调用
+│   ├── __delete__(self, obj) → 被 del 时调用
+│   └── __set_name__(self, owner, name) → 3.6+ 自动获取属性名
+├── 分类
+│   ├── 数据描述符：有 __set__ 或 __delete__
+│   └── 非数据描述符：只有 __get__
+├── 查找优先级
+│   ├── 数据描述符 &gt; 实例字典 &gt; 非数据描述符 &gt; 类属性
+│   └── 通过 __getattribute__ 实现
+├── 实际应用
+│   ├── property = 简化的数据描述符
+│   ├── classmethod/staticmethod = 非数据描述符
+│   ├── ORM 字段映射
+│   └── 类型验证/约束
+└── 最佳实践
+    ├── 用 obj.__dict__ 存储值，避免无限递归
+    ├── 处理 obj=None 的类级别访问
+    └── 用 __set_name__ 自动获取属性名</code></pre>
+
+<hr>
+
+<h2>九、举一反三</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>描述符方案</th>
+<th>类似技术</th>
+</tr></thead><tbody>
+<tr>
+<td>属性值验证</td>
+<td><code>TypedField</code> 描述符</td>
+<td><code>property</code> + setter</td>
+</tr>
+<tr>
+<td>延迟计算</td>
+<td><code>LazyProperty</code> 描述符</td>
+<td><code>functools.cached_property</code></td>
+</tr>
+<tr>
+<td>ORM 字段映射</td>
+<td><code>Column</code> 描述符</td>
+<td>SQLAlchemy <code>Column</code></td>
+</tr>
+<tr>
+<td>访问日志</td>
+<td><code>Traced</code> 描述符</td>
+<td><code>__getattribute__</code> 覆写</td>
+</tr>
+<tr>
+<td>单位转换</td>
+<td><code>Unit</code> 描述符</td>
+<td>自定义 <code>__set__</code>/<code>__get__</code></td>
+</tr>
+<tr>
+<td>只读属性</td>
+<td><code>ReadOnly</code> 描述符</td>
+<td><code>property</code>（只定义 getter）</td>
+</tr>
+<tr>
+<td>缓存+过期</td>
+<td><code>TTLCache</code> 描述符</td>
+<td><code>cachetools.TTLCache</code></td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>十、参考资料</h2>
+
+<ul>
+<li><a href="https://docs.python.org/3/howto/descriptor.html">Python 官方文档 — Descriptor HowTo Guide</a></li>
+<li><a href="https://peps.python.org/pep-0487/">PEP 487 — Simpler customization of class creation</a></li>
+<li>《流畅的 Python》第20章：属性描述符</li>
+<li><a href="https://realpython.com/python-descriptors/">Python Descriptors Deep Dive — Real Python</a></li>
+
+<hr>
+
+<h2>十一、代码演进路线</h2>
+
+<pre><code>v1 TypedField（基础类型检查）
+ ├── 学会 __get__/__set__/__set_name__ 协议
+ └── 理解数据描述符优先级
+      │
+v2 Validated（验证器链）
+ ├── 组合多个验证器
+ └── 用 partial 构建工厂函数
+      │
+v3 Model（ORM 风格框架）
+ ├── 元类收集字段
+ ├── 自动验证 + 序列化
+ └── 逼近日产框架的架构模式</code></pre>
+
+<p><strong>核心心法：描述符是 Python 属性机制的基石，掌握它就是掌握了 Python 面向对象的精髓。</strong></p>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

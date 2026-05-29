@@ -1,0 +1,689 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>027 - 包 Package 与模块 Module</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/learning-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/learning-blog/Golang/index.html">Golang</a>
+<span class="sep">›</span>
+<a href="/learning-blog/Golang/01-入门/index.html">Golang入门</a>
+</nav>
+<h1>027 - 包 Package 与模块 Module</h1>
+<div class="meta">
+<span>📂 Golang入门</span>
+<span>🏷️ Golang</span>
+</div>
+<article>
+
+
+<h1>027 - 包 Package 与模块 Module</h1>
+
+<blockquote><p><strong>难度：⭐⭐</strong> | 包是代码组织的基本单位，模块是依赖管理的核心。理解它们，才能真正写出可维护的 Go 项目。</p></blockquote>
+
+<h2>一、概念讲解</h2>
+
+<h3>Package（包）</h3>
+
+<ul>
+<li>每个 Go 源文件第一行必须声明所属包：<code>package main</code></li>
+<li>同一个目录下所有 <code>.go</code> 文件的 package 声明必须相同</li>
+<li>包名决定访问控制：<strong>大写开头 = 导出（public），小写开头 = 未导出（private）</strong></li>
+<li><code>main</code> 包是特殊的——定义了程序的入口点</li>
+
+<h3>Module（模块）</h3>
+
+<ul>
+<li>一个模块 = 一组相关包的集合，有独立的版本号</li>
+<li>用 <code>go mod init</code> 创建，生成 <code>go.mod</code> 文件</li>
+<li><code>go.mod</code> 记录模块路径和依赖版本</li>
+<li><code>go.sum</code> 记录依赖的校验哈希</li>
+
+<h3>核心概念速查</h3>
+
+<table><thead><tr>
+<th>概念</th>
+<th>说明</th>
+</tr></thead><tbody>
+<tr>
+<td><code>package</code></td>
+<td>声明当前文件属于哪个包</td>
+</tr>
+<tr>
+<td><code>import</code></td>
+<td>导入其他包</td>
+</tr>
+<tr>
+<td>大写导出</td>
+<td>首字母大写的标识符对外可见</td>
+</tr>
+<tr>
+<td><code>go.mod</code></td>
+<td>模块定义文件</td>
+</tr>
+<tr>
+<td><code>go.sum</code></td>
+<td>依赖校验文件</td>
+</tr>
+<tr>
+<td><code>internal</code></td>
+<td>限制包只能被父模块访问</td>
+</tr>
+</tbody></table>
+
+<h2>二、脑图（ASCII）</h2>
+
+<pre><code>Package &amp; Module
+├── Package
+│   ├── 声明: package xxx
+│   ├── 导入: import &quot;path&quot;
+│   ├── 可见性
+│   │   ├── 大写 = 导出 (public)
+│   │   └── 小写 = 未导出 (private)
+│   ├── init() 函数
+│   │   ├── 自动执行，不能调用
+│   │   └── 多个 init 按文件名排序执行
+│   ├── main 包 (程序入口)
+│   └── internal 包 (访问限制)
+├── Module
+│   ├── go mod init
+│   ├── go mod tidy
+│   ├── go mod vendor
+│   ├── go.mod 文件
+│   │   ├── module 路径
+│   │   ├── go 版本
+│   │   └── require 依赖
+│   └── go.sum 文件
+├── 导入方式
+│   ├── 单行: import &quot;fmt&quot;
+│   ├── 多行: import ( &quot;fmt&quot;; &quot;os&quot; )
+│   ├── 别名: import f &quot;fmt&quot;
+│   ├── 点导入: import . &quot;fmt&quot;
+│   └── 空导入: import _ &quot;driver&quot;
+└── 规范
+    ├── 包名小写、短、有意义
+    ├── 不用下划线/驼峰
+    ├── 避免 util/common 命名
+    └── 单数不用复数</code></pre>
+
+<h2>三、完整 Go 代码</h2>
+
+<h3>v1：基础包结构、可见性、导入</h3>
+
+<pre><code class="language-go">// ---- mathutil/math.go ----
+package mathutil
+
+import &quot;errors&quot;
+
+// Exported: uppercase first letter = public
+func Add(a, b int) int {
+    return a + b
+}
+
+// Exported
+func Divide(a, b int) (int, error) {
+    if b == 0 {
+        return 0, errors.New(&quot;division by zero&quot;)
+    }
+    return a / b, nil
+}
+
+// Unexported: lowercase = private to this package
+func multiply(a, b int) int {
+    return a * b
+}
+
+// Exported function using private helper
+func Multiply(a, b int) int {
+    return multiply(a, b)
+}
+
+// Version is a package-level exported variable
+var Version = &quot;1.0.0&quot;
+
+// unexported constant
+const defaultMax = 1000
+
+// Exported constant
+const MaxValue = defaultMax</code></pre>
+
+<pre><code class="language-go">// ---- main.go ----
+package main
+
+import (
+    &quot;fmt&quot;
+    // In real project: &quot;yourmodule/mathutil&quot;
+    // For demo, we inline usage
+)
+
+// Demonstrate package concepts inline
+func main() {
+    fmt.Println(&quot;=== Package Basics ===&quot;)
+
+    // Using exported functions
+    fmt.Printf(&quot;Add(3, 5) = %d\n&quot;, 3+5)
+    fmt.Printf(&quot;Multiply(4, 6) = %d\n&quot;, 4*6)
+
+    // Exported variables
+    fmt.Println(&quot;Package version: 1.0.0&quot;)
+
+    // NOTE: multiply() and defaultMax are NOT accessible
+    // from outside the package - compiler error!
+    // fmt.Println(multiply(2, 3))  // ERROR: undefined
+    // fmt.Println(defaultMax)       // ERROR: undefined
+
+    fmt.Println(&quot;\nExported = Uppercase = Public&quot;)
+    fmt.Println(&quot;Unexported = lowercase = Private&quot;)
+}</code></pre>
+
+<h3>v2：init 函数、多种导入方式、go.mod</h3>
+
+<pre><code class="language-go">// ---- config/config.go ----
+package config
+
+import &quot;fmt&quot;
+
+// Package-level variables initialized before init
+var (
+    AppName = &quot;myapp&quot;
+    Port    = 8080
+)
+
+// init runs automatically when package is imported
+func init() {
+    fmt.Println(&quot;[config] init() called - setting defaults&quot;)
+    if Port == 0 {
+        Port = 3000
+    }
+}
+
+// Another init in the same file - both run
+func init() {
+    fmt.Printf(&quot;[config] second init() - AppName=%s, Port=%d\n&quot;, AppName, Port)
+}</code></pre>
+
+<pre><code class="language-go">// ---- greeting/greeting.go ----
+package greeting
+
+import &quot;fmt&quot;
+
+// Hello returns a greeting message
+func Hello(name string) string {
+    return fmt.Sprintf(&quot;Hello, %s!&quot;, name)
+}</code></pre>
+
+<pre><code class="language-go">// ---- main.go ----
+package main
+
+import (
+    &quot;fmt&quot;
+    // In real project:
+    // &quot;myproject/config&quot;
+    // &quot;myproject/greeting&quot;
+    // &quot;github.com/google/uuid&quot; // third-party
+)
+
+// Simulate imports inline for self-contained demo
+
+func main() {
+    fmt.Println(&quot;=== Import Styles ===&quot;)
+
+    // 1. Standard import
+    // import &quot;fmt&quot; → fmt.Println()
+
+    // 2. Alias import (avoid name collision)
+    // import f &quot;fmt&quot; → f.Println()
+
+    // 3. Dot import (use without qualifier - rare, for DSLs)
+    // import . &quot;fmt&quot; → Println() directly
+
+    // 4. Blank import (side effects only, for init())
+    // import _ &quot;github.com/lib/pq&quot; → runs init(), can&#x27;t use package
+
+    // 5. Grouped import
+    // import (
+    //     &quot;fmt&quot;
+    //     &quot;os&quot;
+    //     &quot;net/http&quot;
+    // )
+
+    fmt.Println(&quot;\n=== go.mod ===&quot;)
+    fmt.Println(`module myproject
+go 1.21
+
+require (
+    github.com/gin-gonic/gin v1.9.1
+    github.com/google/uuid v1.6.0
+)`)
+
+    fmt.Println(&quot;\nKey commands:&quot;)
+    fmt.Println(&quot;  go mod init myproject   → create go.mod&quot;)
+    fmt.Println(&quot;  go mod tidy              → add missing, remove unused&quot;)
+    fmt.Println(&quot;  go mod vendor            → copy deps to vendor/&quot;)
+    fmt.Println(&quot;  go mod download          → download deps to cache&quot;)
+}</code></pre>
+
+<h3>v3：internal 包、项目结构、循环依赖解决</h3>
+
+<pre><code class="language-go">// ==== 完整项目结构演示 ====
+// myproject/
+// ├── go.mod
+// ├── main.go
+// ├── internal/
+// │   ├── user/
+// │   │   └── user.go      (internal package)
+// │   └── db/
+// │       └── db.go         (internal package)
+// ├── pkg/
+// │   └── logger/
+// │       └── logger.go     (public reusable package)
+// └── config/
+//     └── config.go
+
+// ---- internal/user/user.go ----
+package user
+
+import &quot;fmt&quot;
+
+// User struct - exported
+type User struct {
+    ID   int
+    Name string
+    email string // unexported field!
+}
+
+// NewUser creates a user (exported constructor)
+func NewUser(id int, name, email string) *User {
+    return &amp;User{ID: id, Name: name, email: email}
+}
+
+// GetName is exported - can access unexported fields from within package
+func (u *User) GetEmail() string {
+    return u.email
+}
+
+func (u *User) String() string {
+    return fmt.Sprintf(&quot;User{id=%d, name=%s}&quot;, u.ID, u.Name)
+}
+
+// helper is unexported - only accessible within this package
+func helper() string {
+    return &quot;internal helper&quot;
+}</code></pre>
+
+<pre><code class="language-go">// ---- main.go (项目结构演示) ----
+package main
+
+import &quot;fmt&quot;
+
+// Demonstrating internal package concept
+func main() {
+    fmt.Println(&quot;=== Project Structure ===&quot;)
+    fmt.Println(`
+myproject/
+├── cmd/
+│   └── server/
+│       └── main.go        ← entry point
+├── internal/
+│   ├── user/              ← only myproject can import
+│   │   └── user.go
+│   ├── db/                ← only myproject can import
+│   │   └── db.go
+│   └── service/
+│       └── service.go
+├── pkg/
+│   └── logger/            ← anyone can import (public)
+│       └── logger.go
+├── config/
+│   └── config.go
+├── go.mod
+└── go.sum
+`)
+
+    fmt.Println(&quot;=== Internal Package Rules ===&quot;)
+    fmt.Println(&quot;internal/ packages can ONLY be imported by:&quot;)
+    fmt.Println(&quot;  - Code in the parent directory tree&quot;)
+    fmt.Println(&quot;  - NOT by external modules&quot;)
+    fmt.Println()
+    fmt.Println(&quot;Example: myproject/internal/user&quot;)
+    fmt.Println(&quot;  ✓ myproject/cmd/server can import it&quot;)
+    fmt.Println(&quot;  ✓ myproject/internal/db can import it&quot;)
+    fmt.Println(&quot;  ✗ github.com/other/project CANNOT import it&quot;)
+
+    fmt.Println(&quot;\n=== Circular Dependency ===&quot;)
+    fmt.Println(&quot;Problem: A imports B, B imports A → compiler error&quot;)
+    fmt.Println(&quot;Solutions:&quot;)
+    fmt.Println(&quot;  1. Extract shared code to C package&quot;)
+    fmt.Println(&quot;  2. Use interfaces to break the cycle&quot;)
+    fmt.Println(&quot;  3. Use dependency injection&quot;)
+
+    fmt.Println(&quot;\n=== Naming Conventions ===&quot;)
+    fmt.Println(&quot;  ✓ Short, lowercase, no underscores: user, http, json&quot;)
+    fmt.Println(&quot;  ✌ Avoid: util, common, helpers (too generic)&quot;)
+    fmt.Println(&quot;  ✌ Avoid: mypackage, pkg_user (redundant)&quot;)
+    fmt.Println(&quot;  ✌ Don&#x27;t use plural: strings → string (conflicts with stdlib!)&quot;)
+}</code></pre>
+
+<pre><code class="language-go">// ---- cmd/server/main.go ----
+package main
+
+import (
+    &quot;fmt&quot;
+    &quot;log&quot;
+)
+
+// Simulated dependency injection to avoid circular deps
+type UserRepository interface {
+    FindByID(id int) (string, error)
+}
+
+type Service struct {
+    repo UserRepository
+}
+
+// mockRepo implements UserRepository (would be in internal/db/)
+type mockRepo struct{}
+
+func (m *mockRepo) FindByID(id int) (string, error) {
+    if id == 1 {
+        return &quot;Alice&quot;, nil
+    }
+    return &quot;&quot;, fmt.Errorf(&quot;user %d not found&quot;, id)
+}
+
+func main() {
+    // Dependency injection: Service depends on interface, not concrete type
+    repo := &amp;mockRepo{}
+    svc := &amp;Service{repo: repo}
+
+    name, err := svc.repo.FindByID(1)
+    if err != nil {
+        log.Fatal(err)
+    }
+    fmt.Printf(&quot;Found user: %s\n&quot;, name)
+}</code></pre>
+
+<h2>四、执行预览</h2>
+
+<pre><code>$ go run main_v1.go
+=== Package Basics ===
+Add(3, 5) = 8
+Multiply(4, 6) = 24
+Package version: 1.0.0
+
+Exported = Uppercase = Public
+Unexported = lowercase = Private
+
+$ go run main_v2.go
+[config] init() called - setting defaults
+[config] second init() - AppName=myapp, Port=8080
+=== Import Styles ===
+=== go.mod ===
+module myproject
+go 1.21
+...
+
+$ go run cmd/server/main.go
+Found user: Alice</code></pre>
+
+<h2>五、注意事项（表格）</h2>
+
+<table><thead><tr>
+<th>事项</th>
+<th>说明</th>
+</tr></thead><tbody>
+<tr>
+<td>同目录同包名</td>
+<td>同一目录下所有 .go 文件的 package 必须一致</td>
+</tr>
+<tr>
+<td>main 包特殊</td>
+<td>main 包定义 <code>func main()</code> 作为程序入口</td>
+</tr>
+<tr>
+<td>导入未使用</td>
+<td>导入了包但未使用 → 编译错误</td>
+</tr>
+<tr>
+<td>internal 限制</td>
+<td>internal/ 只能被其父目录树内的代码导入</td>
+</tr>
+<tr>
+<td>init 自动执行</td>
+<td>init() 在包首次被导入时自动执行，且只执行一次</td>
+</tr>
+<tr>
+<td>go.sum 不要手动改</td>
+<td>它是自动生成的依赖校验文件</td>
+</tr>
+<tr>
+<td>vendor vs module</td>
+<td>module 是现代方式，vendor 用于离线或可控构建</td>
+</tr>
+</tbody></table>
+
+<h2>六、避坑指南</h2>
+
+<table><thead><tr>
+<th>❌ 错误做法</th>
+<th>✅ 正确做法</th>
+</tr></thead><tbody>
+<tr>
+<td>包名用 <code>utils</code> <code>common</code> <code>helpers</code></td>
+<td>用具体名字：<code>user</code> <code>httpclient</code> <code>converter</code></td>
+</tr>
+<tr>
+<td>循环导入 A→B→A</td>
+<td>提取公共部分到 C，或用接口解耦</td>
+</tr>
+<tr>
+<td>导入了不用</td>
+<td>删掉未使用的 import（或用 <code>_</code> 空导入）</td>
+</tr>
+<tr>
+<td>包名用下划线 <code>user_service</code></td>
+<td>用小写无分隔 <code>userservice</code> 或嵌套包 <code>user/service</code></td>
+</tr>
+<tr>
+<td>在 internal 外放业务代码</td>
+<td>internal 放内部实现，pkg 放可复用代码</td>
+</tr>
+<tr>
+<td>手动编辑 go.mod 依赖</td>
+<td>用 <code>go mod tidy</code> 自动管理</td>
+</tr>
+<tr>
+<td>不提交 go.sum</td>
+<td>go.sum 必须提交到版本控制</td>
+</tr>
+</tbody></table>
+
+<h2>七、练习题</h2>
+
+<h3>🟢 入门</h3>
+
+<ol>
+<li>创建一个 <code>math</code> 包，导出 Add、Subtract 函数，写 main 包调用</li>
+</ul>
+<ol>
+<li>实验大写/小写：尝试从 main 包访问小写函数，观察编译错误</li>
+
+<h3>🟡 进阶</h3>
+
+<ol>
+<li>创建含 init() 的包，验证 init 执行顺序（多文件多 init）</li>
+</ul>
+<ol>
+<li>用 <code>go mod init</code> 创建模块，添加第三方依赖并用 <code>go mod tidy</code></li>
+
+<h3>🔴 挑战</h3>
+
+<ol>
+<li>设计一个完整项目结构：cmd/internal/pkg，用 internal 保护核心逻辑</li>
+</ul>
+<ol>
+<li>两个包 A 和 B 存在循环依赖，用接口方式解决</li>
+
+<h2>八、知识点总结（树状）</h2>
+
+<pre><code>Package &amp; Module
+├── Package
+│   ├── 声明: package name
+│   ├── 可见性: 大写=导出, 小写=私有
+│   ├── 导入: import
+│   │   ├── 标准导入
+│   │   ├── 别名导入
+│   │   ├── 点导入(.)
+│   │   └── 空导入(_)
+│   ├── init() 函数
+│   └── internal 包
+├── Module
+│   ├── go.mod
+│   ├── go.sum
+│   ├── go mod init
+│   ├── go mod tidy
+│   └── go mod vendor
+├── 项目结构
+│   ├── cmd/ (入口)
+│   ├── internal/ (私有)
+│   ├── pkg/ (公共)
+│   └── config/
+└── 规范
+    ├── 小写短名
+    ├── 不用下划线
+    ├── 避免 util/common
+    └── 单数不用复数</code></pre>
+
+<h2>九、举一反三（表格）</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>Go 方案</th>
+<th>其他语言对比</th>
+</tr></thead><tbody>
+<tr>
+<td>代码组织</td>
+<td>package</td>
+<td>Java: package, Python: module</td>
+</tr>
+<tr>
+<td>访问控制</td>
+<td>大写/小写</td>
+<td>Java: public/private, Python: _前缀</td>
+</tr>
+<tr>
+<td>依赖管理</td>
+<td>go.mod + go.sum</td>
+<td>Node: package-lock.json, Python: requirements.txt</td>
+</tr>
+<tr>
+<td>私有包</td>
+<td>internal/</td>
+<td>Java: package-private (default)</td>
+</tr>
+<tr>
+<td>自动初始化</td>
+<td>init()</td>
+<td>Java: static {}</td>
+</tr>
+<tr>
+<td>别名导入</td>
+<td>import f "fmt"</td>
+<td>Python: import numpy as np</td>
+</tr>
+<tr>
+<td>循环依赖</td>
+<td>不允许，用接口解耦</td>
+<td>Python: 允许但不推荐</td>
+</tr>
+</tbody></table>
+
+<h2>十、参考资料</h2>
+
+<ul>
+<li><a href="https://go.dev/ref/mod">Go Modules Reference</a></li>
+<li><a href="https://go.dev/doc/effective_go#package-names">Effective Go: Package names</a></li>
+<li><a href="https://go.dev/blog/using-go-modules">Go Blog: Using Go Modules</a></li>
+<li><a href="https://github.com/golang-standards/project-layout">Project Layout</a></li>
+<li><a href="https://go.dev/doc/effective_go#names">Go Package Convention</a></li>
+
+<h2>十一、代码演进总结</h2>
+
+<table><thead><tr>
+<th>版本</th>
+<th>重点</th>
+<th>关键技术</th>
+</tr></thead><tbody>
+<tr>
+<td>v1</td>
+<td>基础包与可见性</td>
+<td>package, export/unexport, 基础结构</td>
+</tr>
+<tr>
+<td>v2</td>
+<td>init、导入方式、go.mod</td>
+<td>init(), import 别名/点/空导入</td>
+</tr>
+<tr>
+<td>v3</td>
+<td>项目结构、internal、解耦</td>
+<td>internal 包, 接口解耦, 依赖注入</td>
+</tr>
+</tbody></table>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

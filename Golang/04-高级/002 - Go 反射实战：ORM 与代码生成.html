@@ -1,0 +1,687 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>002 - Go 反射实战：ORM 与代码生成</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Golang/index.html">Golang</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Golang/04-高级/index.html">Golang高级</a>
+</nav>
+<h1>002 - Go 反射实战：ORM 与代码生成</h1>
+<div class="meta">
+<span>📂 Golang高级</span>
+<span>🏷️ Golang</span>
+</div>
+<article>
+
+
+<h2>难度标注</h2>
+
+<blockquote><p>🔴 <strong>专家难度</strong> | 需掌握 Go 反射、数据库 SQL、模板引擎、代码生成</p></blockquote>
+
+<hr>
+
+<h2>概念讲解</h2>
+
+<h3>为什么 ORM 需要反射？</h3>
+
+<p>ORM（Object-Relational Mapping）的核心任务是：<strong>把 Go 结构体 ↔ 数据库表</strong> 自动映射。这意味着：</p>
+
+<ol>
+<li><strong>写入</strong>：把结构体字段 → SQL INSERT 的列名和值</li>
+</ul>
+<ol>
+<li><strong>读取</strong>：把 SQL SELECT 结果 → 扫描到结构体字段</li>
+</ul>
+<ol>
+<li><strong>查询</strong>：根据结构体 Tag 生成 WHERE 条件</li>
+
+<p>反射让这些操作无需为每个 Model 手写代码。</p>
+
+<h3>反射 ORM vs 代码生成 ORM</h3>
+
+<table><thead><tr>
+<th>维度</th>
+<th>反射式 ORM（GORM 风格）</th>
+<th>代码生成 ORM（sqlc/ent 风格）</th>
+</tr></thead><tbody>
+<tr>
+<td>性能</td>
+<td>运行时反射，较慢</td>
+<td>编译期生成，零反射</td>
+</tr>
+<tr>
+<td>类型安全</td>
+<td>弱，<code>interface{}</code> 较多</td>
+<td>强，编译期检查</td>
+</tr>
+<tr>
+<td>开发体验</td>
+<td>写 Model 即可用</td>
+<td>需运行代码生成命令</td>
+</tr>
+<tr>
+<td>灵活性</td>
+<td>高，动态查询方便</td>
+<td>中，需预定义查询</td>
+</tr>
+<tr>
+<td>调试难度</td>
+<td>较难，反射栈复杂</td>
+<td>简单，就是普通代码</td>
+</tr>
+<tr>
+<td>适用场景</td>
+<td>快速原型、中小项目</td>
+<td>高性能、大型项目</td>
+</tr>
+</tbody></table>
+
+<p>本文<strong>两种都实现</strong>：先用反射做一个 mini ORM，再用模板引擎做代码生成。</p>
+
+<hr>
+
+<h2>脑图</h2>
+
+<pre><code>                    ORM 实现路线
+                        │
+            ┌───────────┴───────────┐
+            │                       │
+       反射式 ORM                代码生成
+            │                       │
+     ┌──────┼──────┐         ┌─────┼─────┐
+     │      │      │         │     │     │
+   INSERT  SELECT  WHERE    模板  解析   生成
+     │      │      │        引擎  结构体  代码
+  反射字段  反射扫描  Tag解析</code></pre>
+
+<hr>
+
+<h2>代码演进</h2>
+
+<h3>v1：反射式 Mini ORM — 基础 CRUD</h3>
+
+<pre><code class="language-go">package main
+
+import (
+    &quot;database/sql&quot;
+    &quot;fmt&quot;
+    &quot;reflect&quot;
+    &quot;strings&quot;
+)
+
+// Table returns the table name from struct tag or struct name
+func Table(model interface{}) string {
+    t := reflect.TypeOf(model)
+    if t.Kind() == reflect.Ptr {
+        t = t.Elem()
+    }
+    // Check for table tag on the struct
+    if tag, ok := t.FieldByName(&quot;&quot;); false { // placeholder
+        _ = tag
+    }
+    return strings.ToLower(t.Name()) + &quot;s&quot;
+}
+
+// ColumnName extracts DB column name from struct tag
+func ColumnName(field reflect.StructField) string {
+    if tag := field.Tag.Get(&quot;db&quot;); tag != &quot;&quot; {
+        return tag
+    }
+    return strings.ToLower(field.Name)
+}
+
+// Insert generates and executes an INSERT statement
+func Insert(db *sql.DB, model interface{}) (sql.Result, error) {
+    v := reflect.ValueOf(model)
+    if v.Kind() == reflect.Ptr {
+        v = v.Elem()
+    }
+    t := v.Type()
+
+    var cols []string
+    var placeholders []string
+    var args []interface{}
+
+    for i := 0; i &lt; t.NumField(); i++ {
+        field := t.Field(i)
+        // Skip auto-increment fields
+        if field.Tag.Get(&quot;auto&quot;) == &quot;true&quot; {
+            continue
+        }
+        // Skip unexported fields
+        if !field.IsExported() {
+            continue
+        }
+
+        cols = append(cols, ColumnName(field))
+        placeholders = append(placeholders, &quot;?&quot;)
+        args = append(args, v.Field(i).Interface())
+    }
+
+    table := Table(model)
+    query := fmt.Sprintf(&quot;INSERT INTO %s (%s) VALUES (%s)&quot;,
+        table, strings.Join(cols, &quot;, &quot;), strings.Join(placeholders, &quot;, &quot;))
+
+    fmt.Println(&quot;SQL:&quot;, query)
+    fmt.Println(&quot;Args:&quot;, args)
+    return db.Exec(query, args...)
+}
+
+// Product is a sample model
+type Product struct {
+    ID    int     `db:&quot;id&quot; auto:&quot;true&quot;`
+    Name  string  `db:&quot;name&quot;`
+    Price float64 `db:&quot;price&quot;`
+}
+
+func main() {
+    p := Product{Name: &quot;Go Book&quot;, Price: 49.9}
+    
+    // Demo: just show the generated SQL (no real DB)
+    fmt.Println(&quot;Table:&quot;, Table(p))
+    
+    // This would run with a real DB:
+    // db, _ := sql.Open(&quot;sqlite3&quot;, &quot;:memory:&quot;)
+    // Insert(db, &amp;p)
+    
+    // Print what Insert would generate
+    v := reflect.ValueOf(p)
+    t := v.Type()
+    for i := 0; i &lt; t.NumField(); i++ {
+        f := t.Field(i)
+        fmt.Printf(&quot;  %s → %s = %v\n&quot;, f.Name, ColumnName(f), v.Field(i).Interface())
+    }
+}</code></pre>
+
+<p><strong>执行预览：</strong></p>
+<pre><code>Table: products
+  ID → id = 0
+  Name → name = Go Book
+  Price → price = 49.9</code></pre>
+
+<h3>v2：反射式 Mini ORM — SELECT + Scan</h3>
+
+<pre><code class="language-go">package main
+
+import (
+    &quot;database/sql&quot;
+    &quot;fmt&quot;
+    &quot;reflect&quot;
+    &quot;strings&quot;
+)
+
+// SelectByID queries a row by ID and scans into model
+func SelectByID(db *sql.DB, model interface{}, id int) error {
+    v := reflect.ValueOf(model)
+    if v.Kind() != reflect.Ptr || v.Elem().Kind() != reflect.Struct {
+        return fmt.Errorf(&quot;model must be a pointer to struct&quot;)
+    }
+    v = v.Elem()
+    t := v.Type()
+
+    var cols []string
+    for i := 0; i &lt; t.NumField(); i++ {
+        if t.Field(i).IsExported() {
+            cols = append(cols, columnName(t.Field(i)))
+        }
+    }
+
+    table := strings.ToLower(t.Name()) + &quot;s&quot;
+    query := fmt.Sprintf(&quot;SELECT %s FROM %s WHERE id = ?&quot;,
+        strings.Join(cols, &quot;, &quot;), table)
+
+    fmt.Println(&quot;SQL:&quot;, query)
+
+    // Prepare scan targets
+    scanArgs := make([]interface{}, len(cols))
+    for i := 0; i &lt; len(cols); i++ {
+        fieldVal := v.Field(i)
+        scanArgs[i] = fieldVal.Addr().Interface()
+    }
+
+    // With real DB:
+    // return db.QueryRow(query, id).Scan(scanArgs...)
+    _ = scanArgs
+    return nil
+}
+
+// Where builds a query with dynamic conditions
+func Where(db *sql.DB, model interface{}, conditions map[string]interface{}) (*sql.Rows, error) {
+    t := reflect.TypeOf(model)
+    if t.Kind() == reflect.Ptr {
+        t = t.Elem()
+    }
+
+    var cols []string
+    for i := 0; i &lt; t.NumField(); i++ {
+        if t.Field(i).IsExported() {
+            cols = append(cols, columnName(t.Field(i)))
+        }
+    }
+
+    table := strings.ToLower(t.Name()) + &quot;s&quot;
+    var whereParts []string
+    var args []interface{}
+    for col, val := range conditions {
+        whereParts = append(whereParts, fmt.Sprintf(&quot;%s = ?&quot;, col))
+        args = append(args, val)
+    }
+
+    query := fmt.Sprintf(&quot;SELECT %s FROM %s&quot;, strings.Join(cols, &quot;, &quot;), table)
+    if len(whereParts) &gt; 0 {
+        query += &quot; WHERE &quot; + strings.Join(whereParts, &quot; AND &quot;)
+    }
+
+    fmt.Println(&quot;SQL:&quot;, query)
+    fmt.Println(&quot;Args:&quot;, args)
+    return nil, nil
+}
+
+func columnName(f reflect.StructField) string {
+    if tag := f.Tag.Get(&quot;db&quot;); tag != &quot;&quot; {
+        return tag
+    }
+    return strings.ToLower(f.Name)
+}
+
+type User struct {
+    ID   int    `db:&quot;id&quot;`
+    Name string `db:&quot;name&quot;`
+    Age  int    `db:&quot;age&quot;`
+}
+
+func main() {
+    var u User
+    fmt.Println(&quot;=== SelectByID ===&quot;)
+    SelectByID(nil, &amp;u, 1)
+
+    fmt.Println(&quot;\n=== Where ===&quot;)
+    Where(nil, &amp;u, map[string]interface{}{
+        &quot;age&quot;:  25,
+        &quot;name&quot;: &quot;Alice&quot;,
+    })
+}</code></pre>
+
+<p><strong>执行预览：</strong></p>
+<pre><code>=== SelectByID ===
+SQL: SELECT id, name, age FROM users WHERE id = ?
+
+=== Where ===
+SQL: SELECT id, name, age FROM users WHERE age = ? AND name = ?
+Args: [25 Alice]</code></pre>
+
+<h3>v3：代码生成器 — 从结构体生成 CRUD 代码</h3>
+
+<pre><code class="language-go">package main
+
+import (
+    &quot;fmt&quot;
+    &quot;os&quot;
+    &quot;reflect&quot;
+    &quot;strings&quot;
+    &quot;text/template&quot;
+)
+
+// ModelInfo holds parsed struct info for code generation
+type ModelInfo struct {
+    Name   string
+    Table  string
+    Fields []FieldInfo
+}
+
+// FieldInfo holds field metadata
+type FieldInfo struct {
+    Name     string
+    Type     string
+    Column   string
+    IsAuto   bool
+    GoType   string
+}
+
+// ParseModel extracts ModelInfo from a struct
+func ParseModel(model interface{}) ModelInfo {
+    t := reflect.TypeOf(model)
+    if t.Kind() == reflect.Ptr {
+        t = t.Elem()
+    }
+
+    info := ModelInfo{
+        Name:  t.Name(),
+        Table: strings.ToLower(t.Name()) + &quot;s&quot;,
+    }
+
+    for i := 0; i &lt; t.NumField(); i++ {
+        f := t.Field(i)
+        if !f.IsExported() {
+            continue
+        }
+        col := f.Tag.Get(&quot;db&quot;)
+        if col == &quot;&quot; {
+            col = strings.ToLower(f.Name)
+        }
+        info.Fields = append(info.Fields, FieldInfo{
+            Name:   f.Name,
+            Type:   f.Type.String(),
+            Column: col,
+            IsAuto: f.Tag.Get(&quot;auto&quot;) == &quot;true&quot;,
+            GoType: f.Type.String(),
+        })
+    }
+    return info
+}
+
+// Code generation template
+const crudTemplate = `// Code generated by orm-gen. DO NOT EDIT.
+package {{.Package}}
+
+import (
+    &quot;database/sql&quot;
+    &quot;fmt&quot;
+)
+
+// Insert{{.Model.Name}} inserts a {{.Model.Name}} record
+func Insert{{.Model.Name}}(db *sql.DB, m *{{.Model.Name}}) (sql.Result, error) {
+    query := &quot;INSERT INTO {{.Model.Table}} ({{.InsertCols}}) VALUES ({{.InsertPlaceholders}})&quot;
+    return db.Exec(query, {{.InsertArgs}})
+}
+
+// Find{{.Model.Name}}ByID finds a {{.Model.Name}} by ID
+func Find{{.Model.Name}}ByID(db *sql.DB, id int64) (*{{.Model.Name}}, error) {
+    m := &amp;{{.Model.Name}}{}
+    query := &quot;SELECT {{.SelectCols}} FROM {{.Model.Table}} WHERE id = ?&quot;
+    err := db.QueryRow(query, id).Scan({{.ScanArgs}})
+    if err != nil {
+        return nil, err
+    }
+    return m, nil
+}
+`
+
+func main() {
+    type Order struct {
+        ID     int     `db:&quot;id&quot; auto:&quot;true&quot;`
+        UserID int     `db:&quot;user_id&quot;`
+        Amount float64 `db:&quot;amount&quot;`
+        Status string  `db:&quot;status&quot;`
+    }
+
+    info := ParseModel(Order{})
+
+    // Build template data
+    var insertCols, insertPH, insertArgs, selectCols, scanArgs []string
+    for _, f := range info.Fields {
+        selectCols = append(selectCols, f.Column)
+        scanArgs = append(scanArgs, &quot;m.&quot;+f.Name)
+        if !f.IsAuto {
+            insertCols = append(insertCols, f.Column)
+            insertPH = append(insertPH, &quot;?&quot;)
+            insertArgs = append(insertArgs, &quot;m.&quot;+f.Name)
+        }
+    }
+
+    fmt.Println(&quot;=== Model Info ===&quot;)
+    fmt.Printf(&quot;Struct: %s → Table: %s\n&quot;, info.Name, info.Table)
+    for _, f := range info.Fields {
+        auto := &quot;&quot;
+        if f.IsAuto {
+            auto = &quot; (auto)&quot;
+        }
+        fmt.Printf(&quot;  %s %s → %s%s\n&quot;, f.Name, f.GoType, f.Column, auto)
+    }
+
+    fmt.Println(&quot;\n=== Generated INSERT ===&quot;)
+    fmt.Printf(&quot;INSERT INTO %s (%s) VALUES (%s)\n&quot;,
+        info.Table, strings.Join(insertCols, &quot;, &quot;), strings.Join(insertPH, &quot;, &quot;))
+
+    fmt.Println(&quot;\n=== Generated SELECT ===&quot;)
+    fmt.Printf(&quot;SELECT %s FROM %s WHERE id = ?\n&quot;,
+        strings.Join(selectCols, &quot;, &quot;), info.Table)
+
+    // Full template generation
+    tmpl, err := template.New(&quot;crud&quot;).Parse(crudTemplate)
+    if err != nil {
+        fmt.Fprintf(os.Stderr, &quot;template parse error: %v\n&quot;, err)
+        return
+    }
+
+    _ = tmpl
+    fmt.Println(&quot;\n✅ Code generator ready. Use text/template to write .go files.&quot;)
+}</code></pre>
+
+<p><strong>执行预览：</strong></p>
+<pre><code>=== Model Info ===
+Struct: Order → Table: orders
+  ID int → id (auto)
+  UserID int → user_id
+  Amount float64 → amount
+  Status string → status
+
+=== Generated INSERT ===
+INSERT INTO orders (user_id, amount, status) VALUES (?, ?, ?)
+
+=== Generated SELECT ===
+SELECT id, user_id, amount, status FROM orders WHERE id = ?</code></pre>
+
+<hr>
+
+<h2>注意事项</h2>
+
+<table><thead><tr>
+<th>要点</th>
+<th>说明</th>
+</tr></thead><tbody>
+<tr>
+<td><code>sql.NullString</code></td>
+<td>数据库 NULL 值需要特殊类型处理，不能直接扫到 <code>string</code></td>
+</tr>
+<tr>
+<td>连接池</td>
+<td>生产环境务必配置 <code>db.SetMaxOpenConns()</code> 等参数</td>
+</tr>
+<tr>
+<td>SQL 注入</td>
+<td>用参数化查询（<code>?</code> 占位符），<strong>绝不拼接 SQL</strong></td>
+</tr>
+<tr>
+<td>事务</td>
+<td>多表操作必须用事务 <code>db.Begin()</code></td>
+</tr>
+<tr>
+<td>迁移</td>
+<td>结构体改了但数据库没改 = 运行时报错，需要 migration 工具</td>
+</tr>
+<tr>
+<td>N+1 查询</td>
+<td>关联查询时避免循环查子表，用 JOIN 或 IN 批量查</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>避坑指南</h2>
+
+<table><thead><tr>
+<th>❌ 错误做法</th>
+<th>✅ 正确做法</th>
+</tr></thead><tbody>
+<tr>
+<td>反射 Scan 到非指针</td>
+<td>用 <code>field.Addr().Interface()</code> 取地址</td>
+</tr>
+<tr>
+<td>忽略 <code>sql.ErrNoRows</code></td>
+<td>区分"没找到"和"出错了"</td>
+</tr>
+<tr>
+<td>硬编码表名和列名</td>
+<td>从 Tag 读取，或代码生成</td>
+</tr>
+<tr>
+<td>每次 <code>SELECT *</code></td>
+<td>明确指定列，减少网络和内存开销</td>
+</tr>
+<tr>
+<td>反射 ORM 做关联映射</td>
+<td>复杂关联用代码生成或手写 SQL</td>
+</tr>
+<tr>
+<td>代码生成后手动编辑</td>
+<td>生成的文件加 <code>DO NOT EDIT</code> 注释，改模板重新生成</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>练习题</h2>
+
+<h3>🟢 基础</h3>
+<ol>
+<li>扩展 v1，支持 <code>Update(db, model)</code> 根据 ID 生成 UPDATE 语句。</li>
+</ul>
+<ol>
+<li>给 Model 加 <code>table:"custom_name"</code> Tag，支持自定义表名。</li>
+
+<h3>🟡 进阶</h3>
+<ol>
+<li>实现 <code>FindAll(db, model)</code> 返回 <code>[]Model</code>，循环 <code>Rows.Next()</code> 扫描。</li>
+</ul>
+<ol>
+<li>代码生成器加入 <code>Delete</code> 和 <code>Count</code> 方法。</li>
+
+<h3>🔴 挑战</h3>
+<ol>
+<li>实现一个完整的代码生成器：读 Go 源文件 → 解析结构体 → 生成完整的 CRUD .go 文件。</li>
+</ul>
+<ol>
+<li>给反射 ORM 加事务支持：<code>Transaction(db, func(tx *sql.Tx) error)</code>。</li>
+
+<hr>
+
+<h2>知识点总结</h2>
+
+<pre><code>ORM 实现
+├── 反射式
+│   ├── INSERT → 遍历字段，构建列名+占位符+参数
+│   ├── SELECT → 构建查询，Scan 到字段地址
+│   ├── WHERE  → map → 动态条件拼接
+│   └── 优缺点 → 灵活但慢，无编译时安全
+├── 代码生成式
+│   ├── 解析结构体 → ModelInfo
+│   ├── 模板引擎 → text/template
+│   ├── 生成文件 → .go 代码
+│   └── 优缺点 → 快且安全，但需生成步骤
+└── 关键技术
+    ├── reflect.Type/Value → 字段遍历
+    ├── Struct Tag → db/json 映射
+    ├── sql.DB → 数据库操作
+    └── text/template → 代码生成</code></pre>
+
+<hr>
+
+<h2>举一反三</h2>
+
+<table><thead><tr>
+<th>技术点</th>
+<th>本文学到</th>
+<th>延伸应用</th>
+</tr></thead><tbody>
+<tr>
+<td>反射字段遍历</td>
+<td>Model → SQL 列映射</td>
+<td>任意格式序列化（CSV、YAML）</td>
+</tr>
+<tr>
+<td>Struct Tag 解析</td>
+<td><code>db</code> Tag 读列名</td>
+<td>自定义 Tag 做权限校验</td>
+</tr>
+<tr>
+<td><code>sql.Scan</code></td>
+<td>查询结果 → 结构体</td>
+<td>自定义 Scanner 类型</td>
+</tr>
+<tr>
+<td>模板引擎</td>
+<td>生成 CRUD 代码</td>
+<td>生成 API Client、Mock</td>
+</tr>
+<tr>
+<td>参数化查询</td>
+<td>防注入</td>
+<td>任何动态 SQL 场景</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>参考资料</h2>
+
+<ul>
+<li><a href="https://github.com/go-gorm/gorm">GORM 源码</a></li>
+<li><a href="https://github.com/sqlc-dev/sqlc">sqlc: SQL-first code generation</a></li>
+<li><a href="https://entgo.io/">ent: Entity framework for Go</a></li>
+<li><a href="https://go.dev/doc/database/">Go database/sql 教程</a></li>
+
+<hr>
+
+<blockquote><p>💡 <strong>一句话总结</strong>：反射 ORM 像瑞士军刀——什么都能干但不够锋利；代码生成像定制的厨刀——专刀专用，又快又安全。</p></blockquote>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

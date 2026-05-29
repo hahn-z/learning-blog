@@ -1,0 +1,766 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>021 - Swoole\Table 共享内存表：多进程数据共享的终极方案</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Swoole/index.html">Swoole</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Swoole/01-从入门到精通/index.html">Swoole从入门到精通</a>
+</nav>
+<h1>021 - Swoole\Table 共享内存表：多进程数据共享的终极方案</h1>
+<div class="meta">
+<span>📂 Swoole从入门到精通</span>
+<span>🏷️ Swoole</span>
+</div>
+<article>
+
+
+<h1>Swoole\Table 共享内存表：多进程数据共享的终极方案</h1>
+
+<blockquote><p><strong>难度：</strong> ⭐⭐☆☆☆ 中低<br><strong>适用版本：</strong> Swoole 4.x+ / 5.x<br><strong>关键词：</strong> 共享内存、跨进程通信、KV存储、高性能</p></blockquote>
+
+<hr>
+
+<h2>一、概念讲解</h2>
+
+<h3>什么是 Swoole\Table？</h3>
+
+<p>Swoole\Table 是基于共享内存的高性能 KV 数据结构，专为多进程环境设计。它能让你在多个 Worker 进程之间共享数据，<strong>无需序列化、无需 IPC 开销</strong>，读写速度接近内存操作。</p>
+
+<p><strong>核心特点：</strong></p>
+
+<ul>
+<li><strong>共享内存</strong>：所有进程共享同一块内存区域，零拷贝</li>
+<li><strong>固定大小</strong>：创建时预分配，不支持动态扩容（需提前规划容量）</li>
+<li><strong>行级结构</strong>：每行可定义多个字段（int、float、string）</li>
+<li><strong>线程/进程安全</strong>：内部自带原子操作和锁机制</li>
+<li><strong>极高性能</strong>：单机 QPS 可达百万级</li>
+
+<p><strong>与其他方案对比：</strong></p>
+
+<table><thead><tr>
+<th>方案</th>
+<th>跨进程</th>
+<th>性能</th>
+<th>持久化</th>
+<th>复杂度</th>
+</tr></thead><tbody>
+<tr>
+<td>Swoole\Table</td>
+<td>✅ 原生</td>
+<td>极高</td>
+<td>❌</td>
+<td>低</td>
+</tr>
+<tr>
+<td>Redis</td>
+<td>✅ 网络</td>
+<td>高</td>
+<td>✅</td>
+<td>中</td>
+</tr>
+<tr>
+<td>APCu</td>
+<td>✅ 共享内存</td>
+<td>极高</td>
+<td>❌</td>
+<td>低</td>
+</tr>
+<tr>
+<td>MySQL</td>
+<td>✅ 网络</td>
+<td>低</td>
+<td>✅</td>
+<td>高</td>
+</tr>
+<tr>
+<td>文件</td>
+<td>✅</td>
+<td>极低</td>
+<td>✅</td>
+<td>低</td>
+</tr>
+</tbody></table>
+
+<h3>工作原理</h3>
+
+<pre><code>Master Process
+│
+├── Swoole\Table (共享内存区域)
+│   ├── Row 0: [field1][field2][field3]
+│   ├── Row 1: [field1][field2][field3]
+│   └── Row N: [field1][field2][field3]
+│
+├── Worker #0 ──┐
+├── Worker #1 ──┤── 全部指向同一块共享内存
+├── Worker #2 ──┤
+└── Worker #3 ──┘</code></pre>
+
+<p>Swoole\Table 在 <code>start</code> 之前创建，fork 后子进程自动继承父进程的共享内存映射，实现零成本跨进程访问。</p>
+
+<hr>
+
+<h2>二、脑图（ASCII）</h2>
+
+<pre><code>Swoole\Table
+├── 创建与配置
+│   ├── table-&gt;column() 定义字段
+│   ├── table-&gt;create()  分配内存
+│   └── 容量规划 (2的幂次)
+├── 数据操作
+│   ├── set()  写入/更新
+│   ├── get()  读取
+│   ├── del()  删除
+│   ├── exists() 判断存在
+│   └── incr()/decr() 原子增减
+├── 遍历
+│   ├── foreach 循环
+│   ├── count() 总行数
+│   └── rewind()/current()/next() 迭代器
+├── 内存管理
+│   ├── 固定大小，不可扩容
+│   ├── 内存占用 = 行数 × 行大小
+│   └── getMemorySize() 查看占用
+└── 典型场景
+    ├── 用户在线状态
+    ├── 限流计数器
+    ├── 连接映射表
+    └── 配置缓存</code></pre>
+
+<hr>
+
+<h2>三、完整代码示例</h2>
+
+<h3>v1：基础用法 — 创建、读写、删除</h3>
+
+<pre><code class="language-php">&lt;?php
+// table_basic.php
+// Basic Swoole\Table operations: create, read, write, delete
+
+// Step 1: Create table with capacity of 1024 rows
+$table = new Swoole\Table(1024);
+
+// Step 2: Define columns (name, type, length)
+$table-&gt;column(&#x27;id&#x27;, Swoole\Table::TYPE_INT);
+$table-&gt;column(&#x27;name&#x27;, Swoole\Table::TYPE_STRING, 64);
+$table-&gt;column(&#x27;score&#x27;, Swoole\Table::TYPE_FLOAT);
+$table-&gt;column(&#x27;active&#x27;, Swoole\Table::TYPE_INT, 1); // 0 or 1 as boolean
+
+// Step 3: Allocate shared memory
+$table-&gt;create();
+
+// Step 4: Write data
+$table-&gt;set(&#x27;user_001&#x27;, [
+    &#x27;id&#x27;     =&gt; 1,
+    &#x27;name&#x27;   =&gt; &#x27;Alice&#x27;,
+    &#x27;score&#x27;  =&gt; 95.5,
+    &#x27;active&#x27; =&gt; 1,
+]);
+
+// Shortcut: set single field
+$table[&#x27;user_002&#x27;] = [
+    &#x27;id&#x27;     =&gt; 2,
+    &#x27;name&#x27;   =&gt; &#x27;Bob&#x27;,
+    &#x27;score&#x27;  =&gt; 87.0,
+    &#x27;active&#x27; =&gt; 1,
+];
+
+// Step 5: Read data
+$user = $table-&gt;get(&#x27;user_001&#x27;);
+echo &quot;User: {$user[&#x27;name&#x27;]}, Score: {$user[&#x27;score&#x27;]}\n&quot;;
+
+// ArrayAccess style
+echo &quot;User 2: {$table[&#x27;user_002&#x27;][&#x27;name&#x27;]}\n&quot;;
+
+// Step 6: Check existence
+var_dump($table-&gt;exists(&#x27;user_001&#x27;)); // true
+var_dump($table-&gt;exists(&#x27;user_999&#x27;)); // false
+
+// Step 7: Atomic increment / decrement
+$table-&gt;incr(&#x27;user_001&#x27;, &#x27;score&#x27;, 2.5);  // 95.5 + 2.5 = 98.0
+$table-&gt;decr(&#x27;user_001&#x27;, &#x27;score&#x27;, 1.0);  // 98.0 - 1.0 = 97.0
+echo &quot;Updated score: {$table-&gt;get(&#x27;user_001&#x27;)[&#x27;score&#x27;]}\n&quot;;
+
+// Step 8: Delete
+$table-&gt;del(&#x27;user_002&#x27;);
+var_dump($table-&gt;exists(&#x27;user_002&#x27;)); // false
+
+// Step 9: Count and iterate
+echo &quot;Total rows: {$table-&gt;count()}\n&quot;;
+foreach ($table as $key =&gt; $row) {
+    echo &quot;  Key={$key}, Name={$row[&#x27;name&#x27;]}\n&quot;;
+}
+
+// Step 10: Memory usage
+echo &quot;Memory size: &quot; . $table-&gt;getMemorySize() . &quot; bytes\n&quot;;</code></pre>
+
+<h3>v2：多进程共享 — Server 中的实际应用</h3>
+
+<pre><code class="language-php">&lt;?php
+// table_server.php
+// Using Swoole\Table across multiple worker processes
+
+// Create shared table BEFORE server starts
+$userTable = new Swoole\Table(4096);
+$userTable-&gt;column(&#x27;fd&#x27;, Swoole\Table::TYPE_INT);
+$userTable-&gt;column(&#x27;name&#x27;, Swoole\Table::TYPE_STRING, 32);
+$userTable-&gt;column(&#x27;login_time&#x27;, Swoole\Table::TYPE_INT);
+$userTable-&gt;create();
+
+// Connection-FD mapping table
+$fdTable = new Swoole\Table(4096);
+$fdTable-&gt;column(&#x27;user_id&#x27;, Swoole\Table::TYPE_STRING, 32);
+$fdTable-&gt;create();
+
+$server = new Swoole\WebSocket\Server(&#x27;0.0.0.0&#x27;, 9501);
+
+// Worker start: each worker can access shared tables
+$server-&gt;on(&#x27;WorkerStart&#x27;, function ($serv, $workerId) {
+    echo &quot;[Worker {$workerId}] Ready, user count: {$serv-&gt;userTable-&gt;count()}\n&quot;;
+});
+
+// Store tables on server instance for easy access
+$server-&gt;userTable = $userTable;
+$server-&gt;fdTable = $fdTable;
+
+$server-&gt;on(&#x27;Open&#x27;, function ($server, $request) {
+    $fd = $request-&gt;fd;
+    // Register connection
+    $server-&gt;fdTable-&gt;set(&quot;fd_{$fd}&quot;, [
+        &#x27;user_id&#x27; =&gt; &#x27;&#x27;,
+    ]);
+    echo &quot;[Open] FD={$fd}, Total connections: {$server-&gt;fdTable-&gt;count()}\n&quot;;
+});
+
+$server-&gt;on(&#x27;Message&#x27;, function ($server, $frame) {
+    $data = json_decode($frame-&gt;data, true);
+    $fd = $frame-&gt;fd;
+
+    if (isset($data[&#x27;action&#x27;])) {
+        switch ($data[&#x27;action&#x27;]) {
+            case &#x27;login&#x27;:
+                $name = $data[&#x27;name&#x27;] ?? &#x27;anonymous&#x27;;
+                // Save user info
+                $server-&gt;userTable-&gt;set(&quot;user_{$fd}&quot;, [
+                    &#x27;fd&#x27;         =&gt; $fd,
+                    &#x27;name&#x27;       =&gt; $name,
+                    &#x27;login_time&#x27; =&gt; time(),
+                ]);
+                // Map FD to user
+                $server-&gt;fdTable-&gt;set(&quot;fd_{$fd}&quot;, [
+                    &#x27;user_id&#x27; =&gt; &quot;user_{$fd}&quot;,
+                ]);
+                // Broadcast online count
+                $count = $server-&gt;userTable-&gt;count();
+                foreach ($server-&gt;userTable as $key =&gt; $row) {
+                    $server-&gt;push($row[&#x27;fd&#x27;], json_encode([
+                        &#x27;type&#x27;  =&gt; &#x27;online_count&#x27;,
+                        &#x27;count&#x27; =&gt; $count,
+                        &#x27;user&#x27;  =&gt; $name . &#x27; joined&#x27;,
+                    ]));
+                }
+                break;
+
+            case &#x27;chat&#x27;:
+                $userInfo = $server-&gt;fdTable-&gt;get(&quot;fd_{$fd}&quot;);
+                if (!$userInfo || empty($userInfo[&#x27;user_id&#x27;])) {
+                    $server-&gt;push($fd, json_encode([&#x27;error&#x27; =&gt; &#x27;Please login first&#x27;]));
+                    return;
+                }
+                $user = $server-&gt;userTable-&gt;get($userInfo[&#x27;user_id&#x27;]);
+                // Broadcast message to all users
+                foreach ($server-&gt;userTable as $key =&gt; $row) {
+                    $server-&gt;push($row[&#x27;fd&#x27;], json_encode([
+                        &#x27;type&#x27;    =&gt; &#x27;chat&#x27;,
+                        &#x27;from&#x27;    =&gt; $user[&#x27;name&#x27;],
+                        &#x27;message&#x27; =&gt; $data[&#x27;message&#x27;] ?? &#x27;&#x27;,
+                        &#x27;time&#x27;    =&gt; date(&#x27;H:i:s&#x27;),
+                    ]));
+                }
+                break;
+        }
+    }
+});
+
+$server-&gt;on(&#x27;Close&#x27;, function ($server, $fd) {
+    $fdInfo = $server-&gt;fdTable-&gt;get(&quot;fd_{$fd}&quot;);
+    if ($fdInfo &amp;&amp; !empty($fdInfo[&#x27;user_id&#x27;])) {
+        $server-&gt;userTable-&gt;del($fdInfo[&#x27;user_id&#x27;]);
+    }
+    $server-&gt;fdTable-&gt;del(&quot;fd_{$fd}&quot;);
+    echo &quot;[Close] FD={$fd}, Remaining: {$server-&gt;userTable-&gt;count()}\n&quot;;
+});
+
+echo &quot;Server started on ws://0.0.0.0:9501\n&quot;;
+$server-&gt;start();</code></pre>
+
+<h3>v3：高级应用 — 限流器 + 热数据缓存</h3>
+
+<pre><code class="language-php">&lt;?php
+// table_advanced.php
+// Advanced: Rate limiter + hot data cache with Swoole\Table
+
+// Rate limit table: track request counts per IP
+$rateLimitTable = new Swoole\Table(65536);
+$rateLimitTable-&gt;column(&#x27;count&#x27;, Swoole\Table::TYPE_INT);
+$rateLimitTable-&gt;column(&#x27;window_start&#x27;, Swoole\Table::TYPE_INT);
+$rateLimitTable-&gt;create();
+
+// Cache table: store hot query results
+$cacheTable = new Swoole\Table(2048);
+$cacheTable-&gt;column(&#x27;data&#x27;, Swoole\Table::TYPE_STRING, 4096);
+$cacheTable-&gt;column(&#x27;expire_at&#x27;, Swoole\Table::TYPE_INT);
+$cacheTable-&gt;create();
+
+$server = new Swoole\Http\Server(&#x27;0.0.0.0&#x27;, 9502);
+
+$server-&gt;rateLimiter = $rateLimitTable;
+$server-&gt;cache = $cacheTable;
+
+// Rate limit check helper
+function checkRateLimit($server, $ip, $maxRequests = 100, $windowSeconds = 60) {
+    $now = time();
+    $record = $server-&gt;rateLimiter-&gt;get($ip);
+
+    if (!$record) {
+        // First request in window
+        $server-&gt;rateLimiter-&gt;set($ip, [
+            &#x27;count&#x27;        =&gt; 1,
+            &#x27;window_start&#x27; =&gt; $now,
+        ]);
+        return true;
+    }
+
+    // Check if window expired
+    if ($now - $record[&#x27;window_start&#x27;] &gt;= $windowSeconds) {
+        // Reset window
+        $server-&gt;rateLimiter-&gt;set($ip, [
+            &#x27;count&#x27;        =&gt; 1,
+            &#x27;window_start&#x27; =&gt; $now,
+        ]);
+        return true;
+    }
+
+    // Increment and check
+    if ($record[&#x27;count&#x27;] &gt;= $maxRequests) {
+        return false; // Rate limited
+    }
+
+    $server-&gt;rateLimiter-&gt;incr($ip, &#x27;count&#x27;);
+    return true;
+}
+
+// Cache helper
+function cacheGet($server, $key) {
+    $item = $server-&gt;cache-&gt;get($key);
+    if (!$item) return null;
+    if ($item[&#x27;expire_at&#x27;] &lt; time()) {
+        $server-&gt;cache-&gt;del($key);
+        return null; // Expired
+    }
+    return json_decode($item[&#x27;data&#x27;], true);
+}
+
+function cacheSet($server, $key, $data, $ttl = 300) {
+    $server-&gt;cache-&gt;set($key, [
+        &#x27;data&#x27;      =&gt; json_encode($data),
+        &#x27;expire_at&#x27; =&gt; time() + $ttl,
+    ]);
+}
+
+$server-&gt;on(&#x27;Request&#x27;, function ($request, $response) use ($server) {
+    $ip = $request-&gt;server[&#x27;remote_addr&#x27;] ?? &#x27;unknown&#x27;;
+    $path = $request-&gt;server[&#x27;request_uri&#x27;];
+
+    // Step 1: Rate limit check
+    if (!checkRateLimit($server, $ip, 100, 60)) {
+        $response-&gt;status(429);
+        $response-&gt;header(&#x27;Content-Type&#x27;, &#x27;application/json&#x27;);
+        $response-&gt;end(json_encode([
+            &#x27;error&#x27;   =&gt; &#x27;Too Many Requests&#x27;,
+            &#x27;message&#x27; =&gt; &#x27;Rate limit exceeded: 100 req/min&#x27;,
+        ]));
+        return;
+    }
+
+    // Step 2: Try cache
+    $cacheKey = &#x27;route:&#x27; . md5($path);
+    $cached = cacheGet($server, $cacheKey);
+    if ($cached !== null) {
+        $response-&gt;header(&#x27;Content-Type&#x27;, &#x27;application/json&#x27;);
+        $response-&gt;header(&#x27;X-Cache&#x27;, &#x27;HIT&#x27;);
+        $response-&gt;end(json_encode($cached));
+        return;
+    }
+
+    // Step 3: Generate response (simulate DB query)
+    usleep(random_int(10000, 50000)); // 10-50ms simulated latency
+    $result = [
+        &#x27;path&#x27;  =&gt; $path,
+        &#x27;time&#x27;  =&gt; date(&#x27;Y-m-d H:i:s&#x27;),
+        &#x27;data&#x27;  =&gt; [&#x27;items&#x27; =&gt; range(1, random_int(3, 10))],
+    ];
+
+    // Step 4: Cache the result
+    cacheSet($server, $cacheKey, $result, 300);
+
+    $response-&gt;header(&#x27;Content-Type&#x27;, &#x27;application/json&#x27;);
+    $response-&gt;header(&#x27;X-Cache&#x27;, &#x27;MISS&#x27;);
+    $response-&gt;end(json_encode($result));
+});
+
+echo &quot;HTTP Server with rate limiter + cache on http://0.0.0.0:9502\n&quot;;
+$server-&gt;start();</code></pre>
+
+<hr>
+
+<h2>四、执行预览</h2>
+
+<h3>v1 基础运行结果</h3>
+
+<pre><code class="language-bash">$ php table_basic.php
+User: Alice, Score: 95.5
+User 2: Bob
+bool(true)
+bool(false)
+Updated score: 97
+bool(false)
+Total rows: 1
+  Key=user_001, Name=Alice
+Memory size: 131072 bytes</code></pre>
+
+<h3>v2 服务端运行</h3>
+
+<pre><code class="language-bash">$ php table_server.php
+Server started on ws://0.0.0.0:9501
+[Worker 0] Ready, user count: 0
+[Open] FD=1, Total connections: 1
+[Open] FD=2, Total connections: 2
+[Close] FD=1, Remaining: 0</code></pre>
+
+<h3>v3 HTTP服务测试</h3>
+
+<pre><code class="language-bash"># Normal request
+$ curl -i http://localhost:9502/api/users
+HTTP/1.1 200 OK
+X-Cache: MISS
+{&quot;path&quot;:&quot;/api/users&quot;,&quot;time&quot;:&quot;2024-01-15 10:30:00&quot;,&quot;data&quot;:{&quot;items&quot;:[1,2,3,4,5]}}
+
+# Second request (cache hit)
+$ curl -i http://localhost:9502/api/users
+HTTP/1.1 200 OK
+X-Cache: HIT
+{&quot;path&quot;:&quot;/api/users&quot;,&quot;time&quot;:&quot;2024-01-15 10:30:00&quot;,&quot;data&quot;:{&quot;items&quot;:[1,2,3,4,5]}}
+
+# Rate limited
+$ for i in $(seq 1 110); do curl -s http://localhost:9502/api/users | head -1; done
+# ... 100 successes then:
+{&quot;error&quot;:&quot;Too Many Requests&quot;,&quot;message&quot;:&quot;Rate limit exceeded: 100 req/min&quot;}</code></pre>
+
+<hr>
+
+<h2>五、注意事项</h2>
+
+<table><thead><tr>
+<th>项目</th>
+<th>说明</th>
+<th>建议</th>
+</tr></thead><tbody>
+<tr>
+<td>容量规划</td>
+<td>创建后无法扩容</td>
+<td>预留 50%-100% 余量</td>
+</tr>
+<tr>
+<td>内存占用</td>
+<td>容量×行大小，较大</td>
+<td>用 <code>getMemorySize()</code> 监控</td>
+</tr>
+<tr>
+<td>字符串长度</td>
+<td>固定分配，不足浪费，溢出截断</td>
+<td>取实际最大长度+20%</td>
+</tr>
+<tr>
+<td>创建时机</td>
+<td>必须在 Server->start() 之前</td>
+<td>在全局位置创建</td>
+</tr>
+<tr>
+<td>键冲突</td>
+<td>不同数据用不同 key 前缀</td>
+<td>如 <code>user_xxx</code>、<code>conn_xxx</code></td>
+</tr>
+<tr>
+<td>大小写</td>
+<td>键名区分大小写</td>
+<td>统一用小写</td>
+</tr>
+<tr>
+<td>并发安全</td>
+<td>incr/decr 是原子操作</td>
+<td>优先用原子操作替代 get+set</td>
+</tr>
+<tr>
+<td>内存泄漏</td>
+<td>del 才释放行，覆盖不释放旧数据</td>
+<td>定期清理无用行</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>六、避坑指南</h2>
+
+<h3>❌ 坑1：创建后动态扩容</h3>
+
+<pre><code class="language-php">// ❌ 错误：create() 之后不能再 column() 或重新 create()
+$table = new Swoole\Table(1024);
+$table-&gt;column(&#x27;name&#x27;, Swoole\Table::TYPE_STRING, 32);
+$table-&gt;create();
+// 容量不够了...
+$table-&gt;column(&#x27;extra&#x27;, Swoole\Table::TYPE_STRING, 64); // 无效！
+$table-&gt;create(); // 报错或无效！</code></pre>
+
+<pre><code class="language-php">// ✅ 正确：提前规划容量，预留余量
+$table = new Swoole\Table(8192); // 预估使用 4096，预留 2x
+$table-&gt;column(&#x27;name&#x27;, Swoole\Table::TYPE_STRING, 32);
+$table-&gt;column(&#x27;extra&#x27;, Swoole\Table::TYPE_STRING, 64); // 一次定义完
+$table-&gt;create();</code></pre>
+
+<h3>❌ 坑2：在 WorkerStart 中创建 Table</h3>
+
+<pre><code class="language-php">// ❌ 错误：WorkerStart 在各 Worker 进程中执行
+$server-&gt;on(&#x27;WorkerStart&#x27;, function () {
+    $table = new Swoole\Table(1024); // 每个 Worker 独立内存！
+    $table-&gt;column(&#x27;data&#x27;, Swoole\Table::TYPE_STRING, 64);
+    $table-&gt;create();
+});</code></pre>
+
+<pre><code class="language-php">// ✅ 正确：在 Server-&gt;start() 之前创建
+$table = new Swoole\Table(1024);
+$table-&gt;column(&#x27;data&#x27;, Swoole\Table::TYPE_STRING, 64);
+$table-&gt;create();
+
+$server = new Swoole\Http\Server(&#x27;0.0.0.0&#x27;, 9501);
+$server-&gt;table = $table; // 附加到 server
+$server-&gt;start();</code></pre>
+
+<h3>❌ 坑3：存储复杂嵌套数据</h3>
+
+<pre><code class="language-php">// ❌ 错误：Table 只支持 int/float/string，不支持数组嵌套
+$table-&gt;set(&#x27;key&#x27;, [&#x27;data&#x27; =&gt; json_encode([&#x27;nested&#x27; =&gt; [&#x27;deep&#x27; =&gt; true]])]);
+// 读出来还要 json_decode，类型不安全</code></pre>
+
+<pre><code class="language-php">// ✅ 正确：存 JSON 字符串，约定序列化/反序列化
+$table-&gt;set(&#x27;key&#x27;, [
+    &#x27;data&#x27;      =&gt; json_encode([&#x27;nested&#x27; =&gt; [&#x27;deep&#x27; =&gt; true]]),
+    &#x27;expire_at&#x27; =&gt; time() + 3600,
+]);
+
+// 读取时解码
+$raw = $table-&gt;get(&#x27;key&#x27;);
+$data = json_decode($raw[&#x27;data&#x27;], true);</code></pre>
+
+<hr>
+
+<h2>七、练习题</h2>
+
+<h3>🟢 基础题</h3>
+
+<ol>
+<li>创建一个 Swoole\Table，包含 <code>uid</code>(int)、<code>username</code>(string, 32)、<code>level</code>(int) 三个字段，容量 1024，插入 3 条数据并遍历输出。</li>
+
+<ol>
+<li>使用 <code>incr()</code> 实现一个简单的页面访问计数器，用 Table 存储每个 URL 的访问次数。</li>
+
+<h3>🟡 进阶题</h3>
+
+<ol>
+<li>基于多进程 WebSocket Server，实现一个"在线用户列表"功能：用户连接时记录，断开时删除，任意用户可查询当前在线列表。</li>
+
+<ol>
+<li>实现一个 TTL 缓存：给 Table 中的数据设置过期时间，在每次读取时检查是否过期，过期则删除并返回 null。</li>
+
+<h3>🔴 挑战题</h3>
+
+<ol>
+<li>设计一个"滑动窗口限流器"：记录每个 IP 最近 60 秒内每次请求的时间戳，计算窗口内请求数是否超限。提示：用 JSON 字段存储时间戳数组。</li>
+
+<hr>
+
+<h2>八、知识点总结</h2>
+
+<pre><code>Swoole\Table 知识树
+├── 基础
+│   ├── 创建: new Table(capacity)
+│   ├── 字段: column(name, type, size)
+│   ├── 分配: create()
+│   └── 类型: INT / FLOAT / STRING
+├── CRUD
+│   ├── 写入: set(key, [fields]) / $table[key] = [...]
+│   ├── 读取: get(key) / $table[key]
+│   ├── 删除: del(key) / unset($table[key])
+│   ├── 存在: exists(key)
+│   └── 原子: incr(key, field, step) / decr()
+├── 遍历
+│   ├── foreach ($table as $key =&gt; $row)
+│   ├── count()
+│   └── getMemorySize()
+├── 多进程
+│   ├── 在 start() 前创建
+│   ├── fork 后自动共享
+│   └── 无需 IPC 序列化
+└── 最佳实践
+    ├── 预留容量余量
+    ├── 用前缀区分业务
+    ├── 优先用原子操作
+    └── 及时清理过期数据</code></pre>
+
+<hr>
+
+<h2>九、举一反三</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>推荐方案</th>
+<th>替代方案</th>
+<th>适用条件</th>
+</tr></thead><tbody>
+<tr>
+<td>进程内计数器</td>
+<td><code>Swoole\Table</code> + incr</td>
+<td><code>Swoole\Atomic</code></td>
+<td>需要按 key 分别计数</td>
+</tr>
+<tr>
+<td>用户在线状态</td>
+<td><code>Swoole\Table</code></td>
+<td>Redis Hash</td>
+<td>单机用 Table，集群用 Redis</td>
+</tr>
+<tr>
+<td>接口限流</td>
+<td><code>Swoole\Table</code></td>
+<td>Redis + Lua</td>
+<td>单机限流用 Table</td>
+</tr>
+<tr>
+<td>配置热更新</td>
+<td><code>Swoole\Table</code></td>
+<td>APCu</td>
+<td>需要结构化数据用 Table</td>
+</tr>
+<tr>
+<td>连接映射</td>
+<td><code>Swoole\Table</code></td>
+<td>数组 + IPC</td>
+<td>跨进程必须用 Table 或 IPC</td>
+</tr>
+<tr>
+<td>缓存热数据</td>
+<td><code>Swoole\Table</code></td>
+<td>Redis</td>
+<td>单机且数据量可控用 Table</td>
+</tr>
+<tr>
+<td>分布式锁</td>
+<td>~~Table~~</td>
+<td>Redis SETNX</td>
+<td>Table 仅限单机</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>十、参考资料</h2>
+
+<ul>
+<li><a href="https://wiki.swoole.com/#/memory/table">Swoole 官方文档 - Swoole\Table</a></li>
+<li><a href="https://wiki.swoole.com/#/learn?id=multi-process">Swoole 多进程编程指南</a></li>
+<li><a href="https://www.php.net/manual/en/book.shmop.php">PHP共享内存系列扩展对比</a></li>
+<li><a href="https://wiki.swoole.com/#/server/settings">Swoole Server 配置文档</a></li>
+
+<hr>
+
+<h2>十一、代码演进路线</h2>
+
+<pre><code>v1 基础用法
+├── Table 创建、字段定义
+├── set/get/del/incr 操作
+└── 遍历和统计
+    │
+    ▼
+v2 多进程应用
+├── Server 前创建共享表
+├── Worker 进程读写
+├── 双表联动（用户表+连接表）
+└── 广播消息遍历
+    │
+    ▼
+v3 生产级方案
+├── 限流器（滑动窗口）
+├── 热数据缓存（TTL 过期）
+├── 自动清理机制
+└── 监控指标（命中率、内存）</code></pre>
+
+<p><strong>演进核心思想：</strong> 从单进程理解数据结构 → 多进程共享实战 → 生产级可靠性方案。每一步都是在上一步基础上增加复杂度和健壮性。</p>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

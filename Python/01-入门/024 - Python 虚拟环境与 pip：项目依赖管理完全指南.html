@@ -1,0 +1,638 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>024 - Python 虚拟环境与 pip：项目依赖管理完全指南</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Python/index.html">Python</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Python/01-入门/index.html">Python入门</a>
+</nav>
+<h1>024 - Python 虚拟环境与 pip：项目依赖管理完全指南</h1>
+<div class="meta">
+<span>📂 Python入门</span>
+<span>🏷️ Python</span>
+</div>
+<article>
+
+
+<h1>Python 虚拟环境与 pip：项目依赖管理完全指南</h1>
+
+<blockquote><p><strong>难度：</strong> 🟢 入门 | <strong>预计阅读：</strong> 20 分钟<br><strong>前置知识：</strong> Python 基础安装、命令行操作</p></blockquote>
+
+<hr>
+
+<h2>一、概念讲解：为什么需要虚拟环境？</h2>
+
+<p>想象这个场景：</p>
+
+<pre><code>项目A 需要 Django 3.2
+项目B 需要 Django 4.2
+你的系统全局只能装一个 Django</code></pre>
+
+<p><strong>虚拟环境（Virtual Environment）</strong> 就是每个项目专属的 Python 沙箱，互不干扰。</p>
+
+<h3>核心概念对比</h3>
+
+<table><thead><tr>
+<th>概念</th>
+<th>作用</th>
+<th>类比</th>
+</tr></thead><tbody>
+<tr>
+<td>虚拟环境</td>
+<td>隔离项目依赖</td>
+<td>每个项目的独立工具箱</td>
+</tr>
+<tr>
+<td>pip</td>
+<td>Python 包管理器</td>
+<td>去商店买工具的人</td>
+</tr>
+<tr>
+<td>requirements.txt</td>
+<td>依赖清单</td>
+<td>购物清单</td>
+</tr>
+<tr>
+<td>pyproject.toml</td>
+<td>现代项目配置</td>
+<td>项目说明书</td>
+</tr>
+</tbody></table>
+
+<h3>虚拟环境解决了什么？</h3>
+
+<ul>
+<li>✅ 不同项目使用不同版本的同一个包</li>
+<li>✅ 避免全局包冲突</li>
+<li>✅ 方便复现和部署</li>
+<li>✅ 保持全局 Python 环境干净</li>
+
+<hr>
+
+<h2>二、脑图（ASCII）</h2>
+
+<pre><code>虚拟环境 &amp; pip
+├── 虚拟环境工具
+│   ├── venv ─── Python 内置（推荐）
+│   ├── virtualenv ─── 第三方，功能更强
+│   ├── conda ─── 数据科学常用
+│   └── poetry ─── 现代包管理
+├── venv 工作流
+│   ├── python -m venv .venv    (创建)
+│   ├── source .venv/bin/activate (激活)
+│   ├── pip install xxx          (安装)
+│   ├── pip freeze &gt; requirements.txt (导出)
+│   └── deactivate               (退出)
+├── pip 常用命令
+│   ├── install / uninstall
+│   ├── list / show / freeze
+│   ├── install -r requirements.txt
+│   └── install -e . (可编辑模式)
+├── 依赖管理
+│   ├── requirements.txt ─── 传统方式
+│   ├── requirements-dev.txt ─── 开发依赖
+│   ├── pyproject.toml ─── 现代方式
+│   └── pip-tools ─── 锁定精确版本
+└── 最佳实践
+    ├── .venv 加入 .gitignore
+    ├── requirements.txt 提交到 Git
+    ├── 使用 pip-tools 管理版本
+    └── Docker 中用 virtualenv 或全局安装</code></pre>
+
+<hr>
+
+<h2>三、完整代码示例</h2>
+
+<h3>v1：基础工作流（venv + pip）</h3>
+
+<pre><code class="language-bash"># v1: Basic venv + pip workflow
+
+# 1. Create a virtual environment
+python3 -m venv .venv
+
+# 2. Activate it
+# On Linux/macOS:
+source .venv/bin/activate
+# On Windows:
+# .venv\Scripts\activate
+
+# 3. Verify you&#x27;re in the venv
+which python
+# Output: /path/to/project/.venv/bin/python
+
+# 4. Install packages
+pip install requests
+pip install flask==3.0.0
+
+# 5. Check what&#x27;s installed
+pip list
+# Output:
+# Package    Version
+# flask      3.0.0
+# requests   2.31.0
+
+# 6. Save dependencies
+pip freeze &gt; requirements.txt
+
+# 7. Leave the virtual environment
+deactivate</code></pre>
+
+<pre><code class="language-python"># app.py - A simple app using our installed packages
+import requests
+from flask import Flask, jsonify
+
+app = Flask(__name__)
+
+@app.route(&quot;/weather/&lt;city&gt;&quot;)
+def get_weather(city: str):
+    &quot;&quot;&quot;Fetch weather data for a city.&quot;&quot;&quot;
+    # Using the requests package we installed
+    url = f&quot;https://wttr.in/{city}?format=j1&quot;
+    try:
+        response = requests.get(url, timeout=10)
+        response.raise_for_status()
+        data = response.json()
+        current = data[&quot;current_condition&quot;][0]
+        return jsonify({
+            &quot;city&quot;: city,
+            &quot;temp_C&quot;: current[&quot;temp_C&quot;],
+            &quot;description&quot;: current[&quot;weatherDesc&quot;][0][&quot;value&quot;],
+        })
+    except requests.RequestException as e:
+        return jsonify({&quot;error&quot;: str(e)}), 500
+
+if __name__ == &quot;__main__&quot;:
+    app.run(debug=True, port=5000)</code></pre>
+
+<h3>v2：多环境管理（dev/prod 依赖分离）</h3>
+
+<pre><code>Project structure:
+myproject/
+├── requirements/
+│   ├── base.txt        # Common dependencies
+│   ├── development.txt # Dev dependencies
+│   └── production.txt  # Prod dependencies
+├── src/
+├── tests/
+└── .venv/</code></pre>
+
+<pre><code># requirements/base.txt
+requests&gt;=2.31.0
+flask&gt;=3.0.0
+python-dotenv&gt;=1.0.0</code></pre>
+
+<pre><code># requirements/development.txt
+-r base.txt
+pytest&gt;=7.4.0
+black&gt;=23.0.0
+mypy&gt;=1.7.0
+ipython&gt;=8.0.0</code></pre>
+
+<pre><code># requirements/production.txt
+-r base.txt
+gunicorn&gt;=21.2.0
+sentry-sdk[flask]&gt;=1.0.0</code></pre>
+
+<pre><code class="language-python"># install_deps.py - Automated dependency management
+&quot;&quot;&quot;Helper script to set up the development environment.&quot;&quot;&quot;
+
+import subprocess
+import sys
+import os
+from pathlib import Path
+
+def run(cmd: str) -&gt; None:
+    &quot;&quot;&quot;Run a shell command and check for errors.&quot;&quot;&quot;
+    print(f&quot;Running: {cmd}&quot;)
+    subprocess.run(cmd, shell=True, check=True)
+
+def setup_dev_env():
+    &quot;&quot;&quot;Set up a complete development environment.&quot;&quot;&quot;
+    venv_path = Path(&quot;.venv&quot;)
+
+    # Step 1: Create venv if it doesn&#x27;t exist
+    if not venv_path.exists():
+        print(&quot;Creating virtual environment...&quot;)
+        run(f&quot;{sys.executable} -m venv .venv&quot;)
+
+    # Step 2: Determine pip path
+    if os.name == &quot;nt&quot;:
+        pip_path = str(venv_path / &quot;Scripts&quot; / &quot;pip&quot;)
+    else:
+        pip_path = str(venv_path / &quot;bin&quot; / &quot;pip&quot;)
+
+    # Step 3: Upgrade pip
+    run(f&quot;{pip_path} install --upgrade pip&quot;)
+
+    # Step 4: Install dev dependencies
+    run(f&quot;{pip_path} install -r requirements/development.txt&quot;)
+
+    print(&quot;\n Development environment ready!&quot;)
+    print(&quot;Activate with: source .venv/bin/activate&quot;)
+
+if __name__ == &quot;__main__&quot;:
+    setup_dev_env()</code></pre>
+
+<h3>v3：现代项目管理（pyproject.toml + pip-tools）</h3>
+
+<pre><code class="language-toml"># pyproject.toml - Modern Python project configuration
+[project]
+name = &quot;myproject&quot;
+version = &quot;1.0.0&quot;
+description = &quot;A modern Python project&quot;
+requires-python = &quot;&gt;=3.10&quot;
+dependencies = [
+    &quot;requests&gt;=2.31.0&quot;,
+    &quot;flask&gt;=3.0.0&quot;,
+    &quot;python-dotenv&gt;=1.0.0&quot;,
+]
+
+[project.optional-dependencies]
+dev = [
+    &quot;pytest&gt;=7.4.0&quot;,
+    &quot;black&gt;=23.0.0&quot;,
+    &quot;mypy&gt;=1.7.0&quot;,
+    &quot;ruff&gt;=0.1.0&quot;,
+]
+prod = [
+    &quot;gunicorn&gt;=21.2.0&quot;,
+    &quot;sentry-sdk[flask]&gt;=1.0.0&quot;,
+]
+
+[tool.pip-tools]
+generate-hashes = true
+
+[tool.black]
+line-length = 88
+
+[tool.ruff]
+line-length = 88
+select = [&quot;E&quot;, &quot;F&quot;, &quot;I&quot;]
+
+[tool.mypy]
+strict = true</code></pre>
+
+<pre><code class="language-bash"># v3: Using pip-tools for deterministic builds
+
+# Install pip-tools
+pip install pip-tools
+
+# Compile locked dependencies (creates requirements.txt with hashes)
+pip-compile pyproject.toml -o requirements.txt
+
+# Compile dev dependencies
+pip-compile pyproject.toml --extra dev -o requirements-dev.txt
+
+# Install from compiled requirements (deterministic)
+pip-sync requirements.txt requirements-dev.txt</code></pre>
+
+<pre><code class="language-python"># check_env.py - Verify the environment is correctly set up
+&quot;&quot;&quot;Check that the current environment meets project requirements.&quot;&quot;&quot;
+
+import sys
+import importlib
+
+def check_python_version(required: str = &quot;&gt;=3.10&quot;) -&gt; bool:
+    &quot;&quot;&quot;Check if current Python version meets requirements.&quot;&quot;&quot;
+    from packaging.specifiers import SpecifierSet
+    spec = SpecifierSet(required)
+    current = f&quot;{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}&quot;
+    ok = current in spec
+    status = &quot;OK&quot; if ok else &quot;FAIL&quot;
+    print(f&quot;[{status}] Python {current} (required: {required})&quot;)
+    return ok
+
+def check_packages(packages: list[str]) -&gt; bool:
+    &quot;&quot;&quot;Check if required packages are importable.&quot;&quot;&quot;
+    all_ok = True
+    for pkg in packages:
+        try:
+            mod = importlib.import_module(pkg)
+            version = getattr(mod, &quot;__version__&quot;, &quot;unknown&quot;)
+            print(f&quot;[OK] {pkg} ({version})&quot;)
+        except ImportError:
+            print(f&quot;[FAIL] {pkg} - NOT INSTALLED&quot;)
+            all_ok = False
+    return all_ok
+
+if __name__ == &quot;__main__&quot;:
+    print(&quot;=== Environment Check ===\n&quot;)
+    py_ok = check_python_version()
+    print()
+    pkg_ok = check_packages([&quot;requests&quot;, &quot;flask&quot;, &quot;dotenv&quot;])
+    print()
+    if py_ok and pkg_ok:
+        print(&quot;All checks passed!&quot;)
+    else:
+        print(&quot;Some checks failed. Run: pip install -r requirements.txt&quot;)</code></pre>
+
+<hr>
+
+<h2>四、执行预览</h2>
+
+<h3>v1 工作流</h3>
+
+<pre><code class="language-bash">$ python3 -m venv .venv
+$ source .venv/bin/activate
+(.venv) $ pip install requests flask==3.0.0
+Successfully installed requests-2.31.0 flask-3.0.0
+
+(.venv) $ pip freeze &gt; requirements.txt
+(.venv) $ cat requirements.txt
+flask==3.0.0
+requests==2.31.0</code></pre>
+
+<h3>v3 环境检查</h3>
+
+<pre><code>=== Environment Check ===
+
+[OK] Python 3.12.1 (required: &gt;=3.10)
+
+[OK] requests (2.31.0)
+[OK] flask (3.0.0)
+[OK] dotenv (1.0.0)
+
+All checks passed!</code></pre>
+
+<hr>
+
+<h2>五、注意事项</h2>
+
+<table><thead><tr>
+<th>事项</th>
+<th>说明</th>
+<th>建议</th>
+</tr></thead><tbody>
+<tr>
+<td>.venv 不要提交 Git</td>
+<td>虚拟环境可重建</td>
+<td>加入 <code>.gitignore</code></td>
+</tr>
+<tr>
+<td>requirements.txt 要提交</td>
+<td>他人可复现环境</td>
+<td>放入版本控制</td>
+</tr>
+<tr>
+<td>版本号锁定</td>
+<td>避免版本漂移</td>
+<td>用 <code>==</code> 精确锁定</td>
+</tr>
+<tr>
+<td>macOS/Linux vs Windows</td>
+<td>激活命令不同</td>
+<td>文档中注明两种方式</td>
+</tr>
+<tr>
+<td>pip 源速度</td>
+<td>默认 PyPI 可能慢</td>
+<td>配置国内镜像源</td>
+</tr>
+<tr>
+<td>虚拟环境迁移</td>
+<td>复制 .venv 不可用</td>
+<td>删除后重建</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>六、避坑指南</h2>
+
+<h3>❌ 坑 1：忘记激活虚拟环境</h3>
+
+<pre><code class="language-bash"># ❌ 直接 pip install，装到全局去了
+pip install requests
+
+# ✅ 先确认在虚拟环境中
+which python  # 应该指向 .venv/bin/python
+pip install requests</code></pre>
+
+<h3>❌ 坑 2：requirements.txt 不锁定版本</h3>
+
+<pre><code># ❌ 版本范围太宽，不同机器可能装不同版本
+requests&gt;=2.0.0
+
+# ✅ 精确锁定版本
+requests==2.31.0</code></pre>
+
+<h3>❌ 坑 3：不区分开发和生产依赖</h3>
+
+<pre><code class="language-bash"># ❌ 生产环境装了 pytest
+pip install pytest flask requests
+
+# ✅ 分开管理
+pip install -r requirements/production.txt  # Only production deps</code></pre>
+
+<hr>
+
+<h2>七、练习题</h2>
+
+<h3>🟢 入门：创建虚拟环境</h3>
+
+<ol>
+<li>用 <code>venv</code> 创建一个虚拟环境</li>
+</ul>
+<ol>
+<li>安装 <code>requests</code> 和 <code>beautifulsoup4</code></li>
+</ul>
+<ol>
+<li>导出 <code>requirements.txt</code></li>
+</ul>
+<ol>
+<li>在另一个目录复现这个环境</li>
+
+<h3>🟡 进阶：多环境配置</h3>
+
+<ol>
+<li>创建 <code>requirements/base.txt</code>、<code>development.txt</code>、<code>production.txt</code></li>
+</ul>
+<ol>
+<li>配置国内 pip 镜像源（如清华源）</li>
+</ul>
+<ol>
+<li>编写 <code>Makefile</code> 快速设置开发环境</li>
+
+<h3>🔴 挑战：pyproject.toml 项目</h3>
+
+<ol>
+<li>用 <code>pyproject.toml</code> 配置一个完整项目</li>
+</ul>
+<ol>
+<li>使用 <code>pip-tools</code> 编译确定性的依赖文件</li>
+</ul>
+<ol>
+<li>编写 <code>check_env.py</code> 自动验证环境</li>
+</ul>
+<ol>
+<li>配置 pre-commit hooks（black + ruff + mypy）</li>
+
+<hr>
+
+<h2>八、知识点总结（树状）</h2>
+
+<pre><code>虚拟环境 &amp; pip
+├── venv 命令
+│   ├── python -m venv .venv  ─── 创建
+│   ├── source .venv/bin/activate ─── 激活(Linux/Mac)
+│   ├── .venv\Scripts\activate ─── 激活(Windows)
+│   └── deactivate ─── 退出
+├── pip 命令
+│   ├── install ─── 安装包
+│   ├── uninstall ─── 卸载包
+│   ├── list ─── 列出已安装
+│   ├── freeze ─── 导出依赖
+│   ├── show ─── 包详情
+│   └── install -r ─── 从文件安装
+├── 依赖管理方案
+│   ├── requirements.txt ─── 传统
+│   ├── pip-tools ─── 确定性构建
+│   ├── pyproject.toml ─── 现代
+│   └── poetry/pdm ─── 全功能包管理器
+└── 镜像源配置
+    ├── 清华: https://pypi.tuna.tsinghua.edu.cn/simple
+    ├── 阿里: https://mirrors.aliyun.com/pypi/simple
+    └── pip config set global.index-url &lt;mirror&gt;</code></pre>
+
+<hr>
+
+<h2>九、举一反三</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>推荐方案</th>
+<th>关键命令</th>
+</tr></thead><tbody>
+<tr>
+<td>学习/小项目</td>
+<td>venv + requirements.txt</td>
+<td><code>python -m venv .venv</code></td>
+</tr>
+<tr>
+<td>团队项目</td>
+<td>venv + pip-tools + pyproject.toml</td>
+<td><code>pip-compile</code></td>
+</tr>
+<tr>
+<td>数据科学</td>
+<td>conda / miniconda</td>
+<td><code>conda create -n name</code></td>
+</tr>
+<tr>
+<td>Docker 部署</td>
+<td>全局安装 + requirements.txt</td>
+<td><code>pip install --no-cache-dir</code></td>
+</tr>
+<tr>
+<td>开源库</td>
+<td>pyproject.toml + poetry/pdm</td>
+<td><code>poetry build</code></td>
+</tr>
+<tr>
+<td>CI/CD</td>
+<td>缓存 .venv + pip-tools</td>
+<td><code>pip-sync</code></td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>十、参考资料</h2>
+
+<ul>
+<li>📖 <a href="https://docs.python.org/3/library/venv.html">venv 官方文档</a></li>
+<li>📖 <a href="https://pip.pypa.io/en/stable/user_guide/">pip 用户指南</a></li>
+<li>📖 <a href="https://packaging.python.org/en/latest/specifications/pyproject-toml/">pyproject.toml 规范</a></li>
+<li>📖 <a href="https://github.com/jazzband/pip-tools">pip-tools</a></li>
+<li>🔧 <a href="https://python-poetry.org/">poetry</a> - 现代 Python 包管理</li>
+<li>🔧 <a href="https://pdm-project.org/">pdm</a> - 另一个现代包管理器</li>
+
+<hr>
+
+<h2>十一、代码演进总结</h2>
+
+<table><thead><tr>
+<th>版本</th>
+<th>特点</th>
+<th>适用场景</th>
+</tr></thead><tbody>
+<tr>
+<td>v1 venv + pip</td>
+<td>最简单，5 分钟上手</td>
+<td>学习、小项目</td>
+</tr>
+<tr>
+<td>v2 多环境分离</td>
+<td>dev/prod 依赖分开</td>
+<td>团队协作</td>
+</tr>
+<tr>
+<td>v3 pyproject.toml + pip-tools</td>
+<td>现代、确定性构建</td>
+<td>生产项目</td>
+</tr>
+</tbody></table>
+
+<p><strong>演进路径：</strong> <code>venv 基础 → 多环境分离 → pyproject.toml → pip-tools/poetry</code></p>
+
+<blockquote><p>💡 <strong>一句话总结：</strong> 虚拟环境是 Python 项目的地基。不建地基就盖楼，迟早要塌。</p></blockquote>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

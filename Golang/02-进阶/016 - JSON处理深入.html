@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>016 - JSON处理深入</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Golang/index.html">Golang</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Golang/02-进阶/index.html">Golang进阶</a>
+</nav>
+<h1>016 - JSON处理深入</h1>
+<div class="meta">
+<span>📂 Golang进阶</span>
+<span>🏷️ Golang</span>
+</div>
+<article>
+
+
+<h1>046 - JSON处理深入</h1>
+
+<blockquote><p>难度：⭐⭐⭐ | 预计学习时间：30分钟</p></blockquote>
+
+<h2>一、概念讲解</h2>
+
+<p>JSON（JavaScript Object Notation）是现代Web开发中最通用的数据交换格式。Go的 <code>encoding/json</code> 包提供了完整的JSON编解码支持，包括结构体标签映射、自定义编解码、流式处理等能力。</p>
+
+<p>核心类型与函数：</p>
+<ul>
+<li><code>json.Marshal(v)</code> / <code>json.Unmarshal(data, v)</code> — 一次性编解码</li>
+<li><code>json.NewEncoder(w)</code> / <code>json.NewDecoder(r)</code> — 流式编解码</li>
+<li><code>json.RawMessage</code> — 延迟解码的原始JSON字节</li>
+<li>结构体标签 <code>json:"name,omitempty"</code> — 字段映射与空值控制</li>
+
+<h2>二、脑图</h2>
+
+<pre><code>JSON处理
+├── 基础编解码
+│   ├── Marshal → []byte
+│   ├── Unmarshal → struct/map
+│   └── 缩进输出 MarshalIndent
+├── 结构体标签
+│   ├── json:&quot;fieldName&quot;
+│   ├── json:&quot;,omitempty&quot;
+│   ├── json:&quot;-&quot; (忽略)
+│   └── json:&quot;-,&quot; (字段名为&quot;-&quot;)
+├── 自定义编解码
+│   ├── json.Marshaler 接口
+│   ├── json.Unmarshaler 接口
+│   └── time.Time 示例
+├── 动态JSON
+│   ├── json.RawMessage
+│   ├── map[string]any
+│   └── any 处理未知结构
+└── 流式编解码
+    ├── Encoder (写入 io.Writer)
+    ├── Decoder (读取 io.Reader)
+    └── 大文件/网络流处理</code></pre>
+
+<h2>三、完整Go代码</h2>
+
+<h3>v1: 基础Marshal/Unmarshal</h3>
+
+<pre><code class="language-go">package main
+
+import (
+	&quot;encoding/json&quot;
+	&quot;fmt&quot;
+)
+
+// User represents a basic user struct
+type User struct {
+	ID    int    `json:&quot;id&quot;`
+	Name  string `json:&quot;name&quot;`
+	Email string `json:&quot;email,omitempty&quot;` // omit when empty
+	Age   int    `json:&quot;age&quot;`
+}
+
+func main() {
+	// Marshal struct to JSON
+	user := User{ID: 1, Name: &quot;Alice&quot;, Age: 30}
+	data, err := json.MarshalIndent(user, &quot;&quot;, &quot;  &quot;)
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println(&quot;Marshal result:&quot;)
+	fmt.Println(string(data))
+
+	// Unmarshal JSON to struct
+	jsonStr := `{&quot;id&quot;:2,&quot;name&quot;:&quot;Bob&quot;,&quot;email&quot;:&quot;bob@test.com&quot;,&quot;age&quot;:25}`
+	var user2 User
+	if err := json.Unmarshal([]byte(jsonStr), &amp;user2); err != nil {
+		panic(err)
+	}
+	fmt.Printf(&quot;\nUnmarshal result: %+v\n&quot;, user2)
+
+	// omitempty: email is empty, so it won&#x27;t appear
+	user3 := User{ID: 3, Name: &quot;Charlie&quot;, Age: 28}
+	data3, _ := json.Marshal(user3)
+	fmt.Printf(&quot;\nOmitEmpty demo: %s\n&quot;, string(data3))
+}</code></pre>
+
+<p><strong>执行预览：</strong></p>
+<pre><code>Marshal result:
+{
+  &quot;id&quot;: 1,
+  &quot;name&quot;: &quot;Alice&quot;,
+  &quot;age&quot;: 30
+}
+
+Unmarshal result: {ID:2 Name:Bob Email:bob@test.com Age:25}
+
+OmitEmpty demo: {&quot;id&quot;:3,&quot;name&quot;:&quot;Charlie&quot;,&quot;age&quot;:28}</code></pre>
+
+<h3>v2: 自定义MarshalJSON + RawMessage</h3>
+
+<pre><code class="language-go">package main
+
+import (
+	&quot;encoding/json&quot;
+	&quot;fmt&quot;
+	&quot;strings&quot;
+	&quot;time&quot;
+)
+
+// Event with custom JSON marshaling
+type Event struct {
+	Name      string          `json:&quot;name&quot;`
+	Timestamp time.Time       `json:&quot;timestamp&quot;`
+	Details   json.RawMessage `json:&quot;details&quot;` // raw JSON payload
+}
+
+// Custom output: uppercase name, formatted time
+func (e Event) MarshalJSON() ([]byte, error) {
+	type Alias Event // prevent recursion
+	return json.Marshal(&amp;struct {
+		*Alias
+		Name      string `json:&quot;name&quot;`
+		Timestamp string `json:&quot;timestamp&quot;`
+	}{
+		Alias:     (*Alias)(&amp;e),
+		Name:      strings.ToUpper(e.Name),
+		Timestamp: e.Timestamp.Format(&quot;2006-01-02 15:04:05&quot;),
+	})
+}
+
+func main() {
+	now := time.Date(2024, 6, 15, 10, 30, 0, 0, time.UTC)
+	raw := json.RawMessage(`{&quot;type&quot;:&quot;click&quot;,&quot;x&quot;:100,&quot;y&quot;:200}`)
+
+	event := Event{Name: &quot;userAction&quot;, Timestamp: now, Details: raw}
+	data, _ := json.MarshalIndent(event, &quot;&quot;, &quot;  &quot;)
+	fmt.Println(&quot;Custom Marshal:&quot;)
+	fmt.Println(string(data))
+
+	// Unmarshal RawMessage - decode details later
+	var event2 Event
+	json.Unmarshal(data, &amp;event2)
+	fmt.Printf(&quot;\nRawMessage still raw: %s\n&quot;, string(event2.Details))
+
+	// Now decode the details
+	var details map[string]any
+	json.Unmarshal(event2.Details, &amp;details)
+	fmt.Printf(&quot;Decoded details: %v\n&quot;, details)
+}</code></pre>
+
+<p><strong>执行预览：</strong></p>
+<pre><code>Custom Marshal:
+{
+  &quot;name&quot;: &quot;USERACTION&quot;,
+  &quot;timestamp&quot;: &quot;2024-06-15 10:30:00&quot;,
+  &quot;details&quot;: {&quot;type&quot;:&quot;click&quot;,&quot;x&quot;:100,&quot;y&quot;:200}
+}
+
+RawMessage still raw: {&quot;type&quot;:&quot;click&quot;,&quot;x&quot;:100,&quot;y&quot;:200}
+Decoded details: map[type:click x:100 y:200]</code></pre>
+
+<h3>v3: 流式Encoder/Decoder + any处理</h3>
+
+<pre><code class="language-go">package main
+
+import (
+	&quot;bytes&quot;
+	&quot;encoding/json&quot;
+	&quot;fmt&quot;
+	&quot;io&quot;
+	&quot;strings&quot;
+)
+
+func main() {
+	// Stream encoding: multiple objects to one writer
+	var buf bytes.Buffer
+	enc := json.NewEncoder(&amp;buf)
+
+	records := []map[string]any{
+		{&quot;name&quot;: &quot;Alice&quot;, &quot;score&quot;: 95.5},
+		{&quot;name&quot;: &quot;Bob&quot;, &quot;score&quot;: &quot;A+&quot;},
+		{&quot;name&quot;: &quot;Charlie&quot;, &quot;score&quot;: []int{88, 92, 100}},
+	}
+	for _, r := range records {
+		if err := enc.Encode(r); err != nil {
+			panic(err)
+		}
+	}
+	fmt.Println(&quot;Stream encoded:&quot;)
+	fmt.Println(buf.String())
+
+	// Stream decoding: read objects one by one
+	dec := json.NewDecoder(&amp;buf)
+	for {
+		var result map[string]any
+		if err := dec.Decode(&amp;result); err == io.EOF {
+			break
+		} else if err != nil {
+			panic(err)
+		}
+		fmt.Printf(&quot;Decoded: name=%v, score=%v (type: %T)\n&quot;,
+			result[&quot;name&quot;], result[&quot;score&quot;], result[&quot;score&quot;])
+	}
+
+	// Handle completely unknown JSON structure
+	unknown := `{&quot;anything&quot;:&quot;goes&quot;,&quot;nested&quot;:{&quot;deep&quot;:true},&quot;list&quot;:[1,2,3]}`
+	dec2 := json.NewDecoder(strings.NewReader(unknown))
+	dec2.UseNumber() // keep numbers as json.Number instead of float64
+	var parsed any
+	dec2.Decode(&amp;parsed)
+	fmt.Printf(&quot;\nUnknown structure: %+v\n&quot;, parsed)
+}</code></pre>
+
+<p><strong>执行预览：</strong></p>
+<pre><code>Stream encoded:
+{&quot;name&quot;:&quot;Alice&quot;,&quot;score&quot;:95.5}
+{&quot;name&quot;:&quot;Bob&quot;,&quot;score&quot;:&quot;A+&quot;}
+{&quot;name&quot;:&quot;Charlie&quot;,&quot;score&quot;:[88,92,100]}
+
+Decoded: name=Alice, score=95.5 (type: float64)
+Decoded: name=Bob, score=A+ (type: string)
+Decoded: name=Charlie, score=[88 92 100] (type: []interface {})
+
+Unknown structure: map[anything:goes list:[1 2 3] nested:map[deep:true]]</code></pre>
+
+<h2>四、注意事项</h2>
+
+<table><thead><tr>
+<th>要点</th>
+<th>说明</th>
+</tr></thead><tbody>
+<tr>
+<td>字段必须导出</td>
+<td>未导出字段（小写）不会被json处理</td>
+</tr>
+<tr>
+<td>指针vs值</td>
+<td>nil指针输出null，零值会正常输出</td>
+</tr>
+<tr>
+<td>omitempty判断</td>
+<td>0、""、nil、false、空slice/map均视为空</td>
+</tr>
+<tr>
+<td>float64精度</td>
+<td>默认Unmarshal到any时数字是float64，用UseNumber避免</td>
+</tr>
+<tr>
+<td>嵌入结构体</td>
+<td>匿名嵌入的字段会被"提升"到外层</td>
+</tr>
+<tr>
+<td>循环引用</td>
+<td>互相引用的结构体Marshal会无限递归导致panic</td>
+</tr>
+</tbody></table>
+
+<h2>五、避坑指南</h2>
+
+<p>❌ 小写字段期望被序列化：</p>
+<pre><code class="language-go">type Bad struct { name string } // json看不到！</code></pre>
+<p>✅ 必须大写导出：</p>
+<pre><code class="language-go">type Good struct { Name string `json:&quot;name&quot;` }</code></pre>
+
+<p>❌ Unmarshal传值不传指针：</p>
+<pre><code class="language-go">json.Unmarshal(data, user) // 修改的是副本！</code></pre>
+<p>✅ 传指针：</p>
+<pre><code class="language-go">json.Unmarshal(data, &amp;user)</code></pre>
+
+<p>❌ 忽略数字精度问题：</p>
+<pre><code class="language-go">var v any; json.Unmarshal([]byte(&quot;9999999999999999&quot;), &amp;v)
+// v = 1e+16 (float64精度丢失)</code></pre>
+<p>✅ 使用 UseNumber：</p>
+<pre><code class="language-go">dec := json.NewDecoder(r); dec.UseNumber()</code></pre>
+
+<p>❌ time.Time直接用默认格式：</p>
+<pre><code class="language-go">// 默认输出 &quot;2024-06-15T10:30:00Z&quot; (RFC3339)</code></pre>
+<p>✅ 自定义MarshalJSON控制格式</p>
+
+<h2>六、练习题</h2>
+
+<p>🟢 <strong>基础题：</strong> 定义一个Config结构体，包含Hostname(IP默认"localhost")、Port(默认8080)、Debug(bool默认false)，实现JSON反序列化后打印配置。</p>
+
+<p>🟡 <strong>进阶题：</strong> 实现一个通用的JSON消息路由：接收 <code>{"type":"xxx","data":{...}}</code> 格式，根据type字段将data解码到不同的结构体。</p>
+
+<p>🔴 <strong>挑战题：</strong> 实现一个JSON流式处理器，从stdin逐行读取JSON，过滤出score>80的记录，写入stdout（每行一个JSON）。</p>
+
+<h2>七、知识点总结</h2>
+
+<pre><code>JSON处理知识树
+├── 编码(Marshal)
+│   ├── 基本类型 → JSON对应类型
+│   ├── struct → object (按标签映射)
+│   ├── slice/array → array
+│   ├── map → object
+│   ├── nil → null
+│   └── MarshalIndent 美化输出
+├── 解码(Unmarshal)
+│   ├── 目标必须是指针
+│   ├── 类型自动转换(数字→string等)
+│   ├── 未知字段默认忽略
+│   └── DisallowUnknownFields() 严格模式
+├── 高级特性
+│   ├── RawMessage 延迟解码
+│   ├── 自定义 Marshaler/Unmarshaler
+│   ├── Encoder/Decoder 流式处理
+│   └── UseNumber() 精确数字
+└── 实战模式
+    ├── 部分解码(先RawMessage再按需)
+    ├── 多态消息(type字段分发)
+    └── 大文件流式处理</code></pre>
+
+<h2>八、举一反三</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>方案</th>
+<th>关键点</th>
+</tr></thead><tbody>
+<tr>
+<td>配置文件读取</td>
+<td>json.Unmarshal + 默认值合并</td>
+<td>先设默认再合并</td>
+</tr>
+<tr>
+<td>API响应解析</td>
+<td>定义Response结构体 + RawMessage</td>
+<td>data字段延迟解码</td>
+</tr>
+<tr>
+<td>日志JSON化</td>
+<td>json.Marshal或自定义Marshaler</td>
+<td>控制时间格式</td>
+</tr>
+<tr>
+<td>前后端通信</td>
+<td>json.NewEncoder(w).Encode(v)</td>
+<td>流式输出到http response</td>
+</tr>
+<tr>
+<td>消息队列</td>
+<td>type字段 + RawMessage路由</td>
+<td>按类型分发到不同handler</td>
+</tr>
+</tbody></table>
+
+<h2>九、参考资料</h2>
+
+<ul>
+<li><a href="https://pkg.go.dev/encoding/json">Go官方文档：encoding/json</a></li>
+<li><a href="https://gobyexample.com/json">Go by Example: JSON</a></li>
+<li><a href="https://go.dev/doc/effective_go#json">Effective Go: JSON</a></li>
+
+<h2>十、代码演进总结</h2>
+
+<table><thead><tr>
+<th>版本</th>
+<th>重点</th>
+<th>适用场景</th>
+</tr></thead><tbody>
+<tr>
+<td>v1</td>
+<td>基础Marshal/Unmarshal + 标签</td>
+<td>简单配置、API交互</td>
+</tr>
+<tr>
+<td>v2</td>
+<td>自定义编解码 + RawMessage</td>
+<td>需要特殊格式、多态消息</td>
+</tr>
+<tr>
+<td>v3</td>
+<td>流式Encoder/Decoder + any</td>
+<td>大文件、网络流、未知结构</td>
+</tr>
+</tbody></table>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

@@ -1,0 +1,708 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>002 - Flask RESTful API实战：构建规范化的REST接口</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Python/index.html">Python</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Python/03-实战/index.html">Python实战</a>
+</nav>
+<h1>002 - Flask RESTful API实战：构建规范化的REST接口</h1>
+<div class="meta">
+<span>📂 Python实战</span>
+<span>🏷️ Python</span>
+</div>
+<article>
+
+
+<h2>难度标注</h2>
+
+<blockquote><p>🟡 中级 | 适合已掌握Flask基础，想构建RESTful API的读者</p></blockquote>
+
+<hr>
+
+<h2>概念讲解</h2>
+
+<h3>什么是RESTful API？</h3>
+
+<p>REST（Representational State Transfer）是一种软件架构风格，定义了Web服务的设计原则。RESTful API使用HTTP动词操作资源：</p>
+
+<table><thead><tr>
+<th>HTTP方法</th>
+<th>用途</th>
+<th>幂等性</th>
+<th>安全性</th>
+</tr></thead><tbody>
+<tr>
+<td>GET</td>
+<td>获取资源</td>
+<td>✅</td>
+<td>✅</td>
+</tr>
+<tr>
+<td>POST</td>
+<td>创建资源</td>
+<td>❌</td>
+<td>❌</td>
+</tr>
+<tr>
+<td>PUT</td>
+<td>全量更新</td>
+<td>✅</td>
+<td>❌</td>
+</tr>
+<tr>
+<td>PATCH</td>
+<td>部分更新</td>
+<td>✅</td>
+<td>❌</td>
+</tr>
+<tr>
+<td>DELETE</td>
+<td>删除资源</td>
+<td>✅</td>
+<td>❌</td>
+</tr>
+</tbody></table>
+
+<h3>RESTful设计原则</h3>
+
+<ol>
+<li><strong>资源导向</strong>：URL代表资源，用名词不用动词（<code>/users</code>而非<code>/getUsers</code>）</li>
+</ul>
+<ol>
+<li><strong>HTTP动词</strong>：用HTTP方法表达操作意图</li>
+</ul>
+<ol>
+<li><strong>状态码</strong>：用HTTP状态码表达结果（200成功、201创建、404未找到）</li>
+</ul>
+<ol>
+<li><strong>JSON格式</strong>：请求和响应使用JSON</li>
+</ul>
+<ol>
+<li><strong>无状态</strong>：每个请求包含所有必要信息</li>
+
+<h3>Flask构建API的几种方式</h3>
+
+<table><thead><tr>
+<th>方式</th>
+<th>优点</th>
+<th>缺点</th>
+</tr></thead><tbody>
+<tr>
+<td>原生Flask路由</td>
+<td>简单、无额外依赖</td>
+<td>需手动处理很多细节</td>
+</tr>
+<tr>
+<td>Flask-RESTful</td>
+<td>结构化、资源类</td>
+<td>项目已不太活跃</td>
+</tr>
+<tr>
+<td>Flask-RESTX</td>
+<td>自动Swagger文档</td>
+<td>较重</td>
+</tr>
+<tr>
+<td>Flask APIFairy</td>
+<td>轻量、现代</td>
+<td>社区较小</td>
+</tr>
+</tbody></table>
+
+<p>本文使用<strong>原生Flask + 手写JSON响应</strong>，最实用且无额外依赖。</p>
+
+<hr>
+
+<h2>脑图</h2>
+
+<pre><code>Flask RESTful API
+├── REST基础
+│   ├── HTTP方法语义
+│   ├── 状态码规范
+│   ├── URL设计
+│   └── JSON请求/响应
+├── API实现
+│   ├── GET - 列表/详情
+│   ├── POST - 创建
+│   ├── PUT/PATCH - 更新
+│   └── DELETE - 删除
+├── 高级特性
+│   ├── 分页
+│   ├── 过滤与排序
+│   ├── 错误处理
+│   └── 请求验证
+├── API文档
+│   └── Swagger/OpenAPI
+└── 测试
+    ├── curl命令
+    └── pytest</code></pre>
+
+<hr>
+
+<h2>完整Python代码</h2>
+
+<h3>v1: 基础CRUD API</h3>
+
+<pre><code class="language-python"># api_v1.py - Basic CRUD REST API
+from flask import Flask, request, jsonify
+
+app = Flask(__name__)
+
+# In-memory database
+books = [
+    {&quot;id&quot;: 1, &quot;title&quot;: &quot;Flask Web Development&quot;, &quot;author&quot;: &quot;Miguel Grinberg&quot;, &quot;year&quot;: 2018},
+    {&quot;id&quot;: 2, &quot;title&quot;: &quot;Python Crash Course&quot;, &quot;author&quot;: &quot;Eric Matthes&quot;, &quot;year&quot;: 2019},
+]
+next_id = 3
+
+@app.route(&quot;/api/books&quot;, methods=[&quot;GET&quot;])
+def list_books():
+    &quot;&quot;&quot;List all books&quot;&quot;&quot;
+    return jsonify(books)
+
+@app.route(&quot;/api/books/&lt;int:book_id&gt;&quot;, methods=[&quot;GET&quot;])
+def get_book(book_id):
+    &quot;&quot;&quot;Get a single book by ID&quot;&quot;&quot;
+    book = next((b for b in books if b[&quot;id&quot;] == book_id), None)
+    if not book:
+        return jsonify({&quot;error&quot;: &quot;Book not found&quot;}), 404
+    return jsonify(book)
+
+@app.route(&quot;/api/books&quot;, methods=[&quot;POST&quot;])
+def create_book():
+    &quot;&quot;&quot;Create a new book&quot;&quot;&quot;
+    global next_id
+    data = request.get_json()
+    if not data or &quot;title&quot; not in data:
+        return jsonify({&quot;error&quot;: &quot;title is required&quot;}), 400
+    book = {
+        &quot;id&quot;: next_id,
+        &quot;title&quot;: data[&quot;title&quot;],
+        &quot;author&quot;: data.get(&quot;author&quot;, &quot;&quot;),
+        &quot;year&quot;: data.get(&quot;year&quot;, 0),
+    }
+    next_id += 1
+    books.append(book)
+    return jsonify(book), 201
+
+@app.route(&quot;/api/books/&lt;int:book_id&gt;&quot;, methods=[&quot;PUT&quot;])
+def update_book(book_id):
+    &quot;&quot;&quot;Update a book (full replacement)&quot;&quot;&quot;
+    book = next((b for b in books if b[&quot;id&quot;] == book_id), None)
+    if not book:
+        return jsonify({&quot;error&quot;: &quot;Book not found&quot;}), 404
+    data = request.get_json()
+    book[&quot;title&quot;] = data.get(&quot;title&quot;, book[&quot;title&quot;])
+    book[&quot;author&quot;] = data.get(&quot;author&quot;, book[&quot;author&quot;])
+    book[&quot;year&quot;] = data.get(&quot;year&quot;, book[&quot;year&quot;])
+    return jsonify(book)
+
+@app.route(&quot;/api/books/&lt;int:book_id&gt;&quot;, methods=[&quot;DELETE&quot;])
+def delete_book(book_id):
+    &quot;&quot;&quot;Delete a book&quot;&quot;&quot;
+    global books
+    book = next((b for b in books if b[&quot;id&quot;] == book_id), None)
+    if not book:
+        return jsonify({&quot;error&quot;: &quot;Book not found&quot;}), 404
+    books = [b for b in books if b[&quot;id&quot;] != book_id]
+    return jsonify({&quot;message&quot;: &quot;deleted&quot;}), 200
+
+if __name__ == &quot;__main__&quot;:
+    app.run(debug=True, port=5000)</code></pre>
+
+<h3>v2: 添加分页、过滤、验证</h3>
+
+<pre><code class="language-python"># api_v2.py - CRUD with pagination, filtering, and validation
+from flask import Flask, request, jsonify, url_for
+from functools import wraps
+
+app = Flask(__name__)
+
+books = [
+    {&quot;id&quot;: i, &quot;title&quot;: f&quot;Book {i}&quot;, &quot;author&quot;: f&quot;Author {i % 5}&quot;, &quot;year&quot;: 2000 + i}
+    for i in range(1, 51)
+]
+next_id = 51
+
+# Validation decorator
+def validate_json(*required_fields):
+    &quot;&quot;&quot;Decorator to validate JSON request body&quot;&quot;&quot;
+    def decorator(f):
+        @wraps(f)
+        def wrapper(*args, **kwargs):
+            data = request.get_json(silent=True)
+            if not data:
+                return jsonify({&quot;error&quot;: &quot;Request body must be JSON&quot;}), 400
+            missing = [f for f in required_fields if f not in data]
+            if missing:
+                return jsonify({&quot;error&quot;: f&quot;Missing fields: {&#x27;, &#x27;.join(missing)}&quot;}), 400
+            return f(*args, **kwargs, data=data)
+        return wrapper
+    return decorator
+
+# Pagination helper
+def paginate(items, page, per_page):
+    &quot;&quot;&quot;Return a paginated subset of items&quot;&quot;&quot;
+    start = (page - 1) * per_page
+    end = start + per_page
+    return {
+        &quot;items&quot;: items[start:end],
+        &quot;page&quot;: page,
+        &quot;per_page&quot;: per_page,
+        &quot;total&quot;: len(items),
+        &quot;pages&quot;: (len(items) + per_page - 1) // per_page,
+    }
+
+@app.route(&quot;/api/books&quot;, methods=[&quot;GET&quot;])
+def list_books():
+    &quot;&quot;&quot;List books with pagination and filtering&quot;&quot;&quot;
+    # Filtering
+    author = request.args.get(&quot;author&quot;)
+    year = request.args.get(&quot;year&quot;, type=int)
+    result = books[:]
+    if author:
+        result = [b for b in result if author.lower() in b[&quot;author&quot;].lower()]
+    if year:
+        result = [b for b in result if b[&quot;year&quot;] == year]
+
+    # Pagination
+    page = request.args.get(&quot;page&quot;, 1, type=int)
+    per_page = request.args.get(&quot;per_page&quot;, 10, type=int)
+    per_page = min(per_page, 100)  # Cap at 100
+
+    return jsonify(paginate(result, page, per_page))
+
+@app.route(&quot;/api/books/&lt;int:book_id&gt;&quot;, methods=[&quot;GET&quot;])
+def get_book(book_id):
+    book = next((b for b in books if b[&quot;id&quot;] == book_id), None)
+    if not book:
+        return jsonify({&quot;error&quot;: &quot;Book not found&quot;}), 404
+    return jsonify(book)
+
+@app.route(&quot;/api/books&quot;, methods=[&quot;POST&quot;])
+@validate_json(&quot;title&quot;)
+def create_book(data):
+    global next_id
+    book = {
+        &quot;id&quot;: next_id,
+        &quot;title&quot;: data[&quot;title&quot;],
+        &quot;author&quot;: data.get(&quot;author&quot;, &quot;&quot;),
+        &quot;year&quot;: data.get(&quot;year&quot;, 0),
+    }
+    next_id += 1
+    books.append(book)
+    return jsonify(book), 201
+
+@app.route(&quot;/api/books/&lt;int:book_id&gt;&quot;, methods=[&quot;PUT&quot;])
+@validate_json()
+def update_book(book_id, data):
+    book = next((b for b in books if b[&quot;id&quot;] == book_id), None)
+    if not book:
+        return jsonify({&quot;error&quot;: &quot;Book not found&quot;}), 404
+    for key in (&quot;title&quot;, &quot;author&quot;, &quot;year&quot;):
+        if key in data:
+            book[key] = data[key]
+    return jsonify(book)
+
+@app.route(&quot;/api/books/&lt;int:book_id&gt;&quot;, methods=[&quot;DELETE&quot;])
+def delete_book(book_id):
+    global books
+    book = next((b for b in books if b[&quot;id&quot;] == book_id), None)
+    if not book:
+        return jsonify({&quot;error&quot;: &quot;Book not found&quot;}), 404
+    books = [b for b in books if b[&quot;id&quot;] != book_id]
+    return jsonify({&quot;message&quot;: &quot;deleted&quot;}), 200
+
+if __name__ == &quot;__main__&quot;:
+    app.run(debug=True, port=5000)</code></pre>
+
+<h3>v3: 完整API项目（蓝图+错误处理+版本控制）</h3>
+
+<pre><code class="language-python"># api_v3.py - Production-style API with blueprints, error handling, versioning
+from flask import Flask, Blueprint, request, jsonify
+from functools import wraps
+from datetime import datetime
+
+def create_app():
+    app = Flask(__name__)
+    app.config[&quot;JSON_SORT_KEYS&quot;] = False  # Preserve JSON key order
+
+    # Register API v1 blueprint
+    app.register_blueprint(api_v1, url_prefix=&quot;/api/v1&quot;)
+
+    # Health check at root level
+    @app.route(&quot;/health&quot;)
+    def health():
+        return jsonify({&quot;status&quot;: &quot;ok&quot;, &quot;time&quot;: datetime.now().isoformat()})
+
+    return app
+
+# Blueprint for API v1
+api_v1 = Blueprint(&quot;api_v1&quot;, __name__)
+
+# Storage
+_store = {
+    &quot;books&quot;: [
+        {&quot;id&quot;: 1, &quot;title&quot;: &quot;Flask Web Development&quot;, &quot;author&quot;: &quot;Miguel Grinberg&quot;, &quot;year&quot;: 2018},
+        {&quot;id&quot;: 2, &quot;title&quot;: &quot;Clean Code&quot;, &quot;author&quot;: &quot;Robert C. Martin&quot;, &quot;year&quot;: 2008},
+    ],
+    &quot;next_id&quot;: 3,
+}
+
+def validate_json(*required):
+    def decorator(f):
+        @wraps(f)
+        def wrapper(*args, **kwargs):
+            data = request.get_json(silent=True)
+            if not data:
+                return error_response(400, &quot;Request body must be valid JSON&quot;)
+            missing = [f for f in required if f not in data]
+            if missing:
+                return error_response(400, f&quot;Missing: {&#x27;, &#x27;.join(missing)}&quot;)
+            return f(*args, **kwargs, data=data)
+        return wrapper
+    return decorator
+
+def error_response(status_code, message):
+    return jsonify({&quot;error&quot;: message, &quot;status&quot;: status_code}), status_code
+
+def paginate(items, page=1, per_page=10):
+    start = (page - 1) * per_page
+    return {
+        &quot;data&quot;: items[start:start + per_page],
+        &quot;meta&quot;: {
+            &quot;page&quot;: page,
+            &quot;per_page&quot;: per_page,
+            &quot;total&quot;: len(items),
+            &quot;pages&quot;: max(1, (len(items) + per_page - 1) // per_page),
+        }
+    }
+
+@api_v1.route(&quot;/books&quot;, methods=[&quot;GET&quot;])
+def list_books():
+    page = request.args.get(&quot;page&quot;, 1, type=int)
+    per_page = min(request.args.get(&quot;per_page&quot;, 10, type=int), 100)
+    author = request.args.get(&quot;author&quot;)
+
+    result = _store[&quot;books&quot;][:]
+    if author:
+        result = [b for b in result if author.lower() in b[&quot;author&quot;].lower()]
+
+    return jsonify(paginate(result, page, per_page))
+
+@api_v1.route(&quot;/books/&lt;int:book_id&gt;&quot;, methods=[&quot;GET&quot;])
+def get_book(book_id):
+    book = next((b for b in _store[&quot;books&quot;] if b[&quot;id&quot;] == book_id), None)
+    if not book:
+        return error_response(404, &quot;Book not found&quot;)
+    return jsonify({&quot;data&quot;: book})
+
+@api_v1.route(&quot;/books&quot;, methods=[&quot;POST&quot;])
+@validate_json(&quot;title&quot;)
+def create_book(data):
+    book = {
+        &quot;id&quot;: _store[&quot;next_id&quot;],
+        &quot;title&quot;: data[&quot;title&quot;],
+        &quot;author&quot;: data.get(&quot;author&quot;, &quot;&quot;),
+        &quot;year&quot;: data.get(&quot;year&quot;, 0),
+    }
+    _store[&quot;next_id&quot;] += 1
+    _store[&quot;books&quot;].append(book)
+    return jsonify({&quot;data&quot;: book}), 201
+
+@api_v1.route(&quot;/books/&lt;int:book_id&gt;&quot;, methods=[&quot;PUT&quot;])
+@validate_json()
+def update_book(book_id, data):
+    book = next((b for b in _store[&quot;books&quot;] if b[&quot;id&quot;] == book_id), None)
+    if not book:
+        return error_response(404, &quot;Book not found&quot;)
+    for key in (&quot;title&quot;, &quot;author&quot;, &quot;year&quot;):
+        if key in data:
+            book[key] = data[key]
+    return jsonify({&quot;data&quot;: book})
+
+@api_v1.route(&quot;/books/&lt;int:book_id&gt;&quot;, methods=[&quot;DELETE&quot;])
+def delete_book(book_id):
+    books = _store[&quot;books&quot;]
+    book = next((b for b in books if b[&quot;id&quot;] == book_id), None)
+    if not book:
+        return error_response(404, &quot;Book not found&quot;)
+    books.remove(book)
+    return jsonify({&quot;message&quot;: &quot;deleted&quot;}), 200
+
+if __name__ == &quot;__main__&quot;:
+    app = create_app()
+    app.run(debug=True, port=5000)</code></pre>
+
+<hr>
+
+<h2>执行预览</h2>
+
+<pre><code class="language-bash"># 列出书籍（默认分页）
+$ curl http://localhost:5000/api/v1/books
+{&quot;data&quot;:[...],&quot;meta&quot;:{&quot;page&quot;:1,&quot;per_page&quot;:10,&quot;total&quot;:2,&quot;pages&quot;:1}}
+
+# 创建书籍
+$ curl -X POST http://localhost:5000/api/v1/books \
+  -H &quot;Content-Type: application/json&quot; \
+  -d &#x27;{&quot;title&quot;:&quot;New Book&quot;,&quot;author&quot;:&quot;Test&quot;,&quot;year&quot;:2024}&#x27;
+{&quot;data&quot;:{&quot;id&quot;:3,&quot;title&quot;:&quot;New Book&quot;,&quot;author&quot;:&quot;Test&quot;,&quot;year&quot;:2024}}
+
+# 获取单本书
+$ curl http://localhost:5000/api/v1/books/3
+{&quot;data&quot;:{&quot;id&quot;:3,&quot;title&quot;:&quot;New Book&quot;,&quot;author&quot;:&quot;Test&quot;,&quot;year&quot;:2024}}
+
+# 更新
+$ curl -X PUT http://localhost:5000/api/v1/books/3 \
+  -H &quot;Content-Type: application/json&quot; \
+  -d &#x27;{&quot;title&quot;:&quot;Updated Book&quot;}&#x27;
+{&quot;data&quot;:{&quot;id&quot;:3,&quot;title&quot;:&quot;Updated Book&quot;,&quot;author&quot;:&quot;Test&quot;,&quot;year&quot;:2024}}
+
+# 删除
+$ curl -X DELETE http://localhost:5000/api/v1/books/3
+{&quot;message&quot;:&quot;deleted&quot;}
+
+# 缺少必填字段
+$ curl -X POST http://localhost:5000/api/v1/books \
+  -H &quot;Content-Type: application/json&quot; \
+  -d &#x27;{&quot;author&quot;:&quot;Test&quot;}&#x27;
+{&quot;error&quot;:&quot;Missing: title&quot;,&quot;status&quot;:400}</code></pre>
+
+<hr>
+
+<h2>注意事项</h2>
+
+<table><thead><tr>
+<th>项目</th>
+<th>说明</th>
+</tr></thead><tbody>
+<tr>
+<td>Content-Type</td>
+<td>POST/PUT请求必须设置<code>application/json</code></td>
+</tr>
+<tr>
+<td>状态码</td>
+<td>201创建、204无内容（DELETE可选）、400错误请求、404未找到</td>
+</tr>
+<tr>
+<td>分页上限</td>
+<td>设置<code>per_page</code>最大值，防止一次查太多数据</td>
+</tr>
+<tr>
+<td>输入验证</td>
+<td>永远不要信任客户端输入</td>
+</tr>
+<tr>
+<td>API版本</td>
+<td>URL中加版本号<code>/api/v1/</code>，方便后续升级</td>
+</tr>
+<tr>
+<td>CORS</td>
+<td>前端调用需要配置<code>flask-cors</code></td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>避坑指南</h2>
+
+<table><thead><tr>
+<th>❌ 错误做法</th>
+<th>✅ 正确做法</th>
+</tr></thead><tbody>
+<tr>
+<td>用GET做删除/修改操作</td>
+<td>严格遵循HTTP语义，DELETE/PUT</td>
+</tr>
+<tr>
+<td>返回裸数组<code>[...]</code></td>
+<td>包裹成<code>{"data": [...]}</code>，方便扩展</td>
+</tr>
+<tr>
+<td>不做输入验证</td>
+<td>所有入口验证必填字段和类型</td>
+</tr>
+<tr>
+<td>状态码全返回200</td>
+<td>正确使用201/400/404等语义状态码</td>
+</tr>
+<tr>
+<td><code>request.json</code>直接取值</td>
+<td>用<code>get_json(silent=True)</code> + 验证</td>
+</tr>
+<tr>
+<td>URL用动词<code>/createBook</code></td>
+<td>用名词复数<code>/books</code> + POST方法</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>练习题</h2>
+
+<h3>🟢 基础题</h3>
+<ol>
+<li>实现一个<code>/api/time</code>接口，返回当前时间的JSON</li>
+</ul>
+<ol>
+<li>给v1的books API添加搜索功能，支持按<code>title</code>关键字搜索</li>
+
+<h3>🟡 进阶题</h3>
+<ol>
+<li>实现一个完整的用户CRUD API，包含注册（密码哈希）、查询、更新、删除</li>
+</ul>
+<ol>
+<li>给API添加分页响应中的<code>next</code>/<code>prev</code>链接</li>
+
+<h3>🔴 挑战题</h3>
+<ol>
+<li>实现API限流（Rate Limiting），每个IP每分钟最多60次请求，使用Flask中间件</li>
+
+<hr>
+
+<h2>知识点总结</h2>
+
+<pre><code>Flask RESTful API知识树
+├── REST原则
+│   ├── 资源导向URL设计
+│   ├── HTTP方法语义
+│   ├── 状态码规范
+│   └── 无状态通信
+├── 请求处理
+│   ├── request.get_json()
+│   ├── request.args (查询参数)
+│   ├── 输入验证装饰器
+│   └── 错误响应封装
+├── 响应格式
+│   ├── jsonify()
+│   ├── 统一响应结构
+│   └── 分页meta信息
+├── 项目组织
+│   ├── Blueprint蓝图
+│   ├── API版本控制
+│   └── 工厂模式
+└── 最佳实践
+    ├── CORS配置
+    ├── API文档(Swagger)
+    └── 限流</code></pre>
+
+<hr>
+
+<h2>举一反三</h2>
+
+<table><thead><tr>
+<th>学到什么</th>
+<th>可以迁移到</th>
+</tr></thead><tbody>
+<tr>
+<td>REST设计规范</td>
+<td>任何语言的后端API开发</td>
+</tr>
+<tr>
+<td>验证装饰器</td>
+<td>FastAPI的Depends、Django装饰器</td>
+</tr>
+<tr>
+<td>分页逻辑</td>
+<td>数据库查询分页（SQL LIMIT/OFFSET）</td>
+</tr>
+<tr>
+<td>Blueprint组织</td>
+<td>Django Apps、FastAPI Router</td>
+</tr>
+<tr>
+<td>API版本控制</td>
+<td>微服务版本管理、gRPC版本</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>参考资料</h2>
+
+<ul>
+<li><a href="https://restfulapi.net/">RESTful API设计指南</a></li>
+<li><a href="https://flask.palletsprojects.com/en/latest/api/">Flask官方文档 - API</a></li>
+<li><a href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Status">HTTP状态码详解</a></li>
+<li><a href="https://swagger.io/specification/">OpenAPI/Swagger规范</a></li>
+
+<hr>
+
+<h2>代码演进</h2>
+
+<h3>v1 → v2</h3>
+<ul>
+<li>添加分页功能（<code>paginate</code>辅助函数）</li>
+<li>添加过滤查询（<code>author</code>、<code>year</code>参数）</li>
+<li>输入验证装饰器<code>@validate_json</code></li>
+<li><code>per_page</code>上限保护</li>
+
+<h3>v2 → v3</h3>
+<ul>
+<li>从单文件 → Blueprint蓝图组织</li>
+<li>API版本控制<code>/api/v1/</code></li>
+<li>统一响应格式<code>{"data": ..., "meta": ...}</code></li>
+<li>统一错误响应<code>error_response()</code></li>
+<li><code>create_app()</code>工厂模式</li>
+<li><code>JSON_SORT_KEYS = False</code>保持字段顺序</li>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

@@ -1,0 +1,746 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>031-API网关与BFF模式</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Golang/index.html">Golang</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Golang/06-Kratos微服务框架/index.html">Kratos框架</a>
+</nav>
+<h1>031-API网关与BFF模式</h1>
+<div class="meta">
+<span>📂 Kratos框架</span>
+<span>🏷️ Golang</span>
+</div>
+<article>
+
+
+<h1>031-API网关与BFF模式</h1>
+
+<blockquote><p>难度：⭐⭐⭐⭐⭐（高级架构篇）<br>适用：微服务架构师、后端高级工程师、DevOps工程师<br>前置知识：Kratos基础、gRPC、HTTP协议、微服务基本概念</p></blockquote>
+
+<hr>
+
+<h2>一、概念讲解</h2>
+
+<h3>1.1 什么是API网关？</h3>
+
+<p>API网关是微服务架构中的<strong>统一入口</strong>，所有外部请求都经过网关再路由到后端服务。它不是简单的反向代理，而是承担了路由分发、协议转换、认证鉴权、限流熔断、日志监控等横切关注点。</p>
+
+<p><strong>核心职责：</strong></p>
+
+<table><thead><tr>
+<th>职责</th>
+<th>说明</th>
+</tr></thead><tbody>
+<tr>
+<td>路由分发</td>
+<td>根据URL/Header将请求路由到不同微服务</td>
+</tr>
+<tr>
+<td>协议转换</td>
+<td>HTTP ↔ gRPC、JSON ↔ Protobuf</td>
+</tr>
+<tr>
+<td>认证鉴权</td>
+<td>JWT验证、OAuth2、API Key校验</td>
+</tr>
+<tr>
+<td>限流熔断</td>
+<td>保护后端服务不被流量打垮</td>
+</tr>
+<tr>
+<td>聚合查询</td>
+<td>多个后端服务的数据聚合为一个响应</td>
+</tr>
+<tr>
+<td>日志追踪</td>
+<td>统一请求日志、链路追踪ID注入</td>
+</tr>
+</tbody></table>
+
+<h3>1.2 什么是BFF模式？</h3>
+
+<p>BFF（Backend for Frontend）是<strong>为特定前端类型定制的后端层</strong>。不同于通用API网关，BFF针对不同客户端（Web、App、小程序）提供差异化的API。</p>
+
+<pre><code>┌─────────┐     ┌─────────┐     ┌─────────┐
+│  Web端   │     │ iOS App │     │ 小程序   │
+└────┬─────┘     └────┬────┘     └────┬────┘
+     │                │               │
+     v                v               v
+┌─────────┐     ┌─────────┐     ┌─────────┐
+│ Web BFF │     │ App BFF │     │ Mini BFF│
+└────┬─────┘     └────┬────┘     └────┬────┘
+     │                │               │
+     └────────────────┼───────────────┘
+                      v
+              ┌───────────────┐
+              │  微服务集群     │
+              │ User/Order/...│
+              └───────────────┘</code></pre>
+
+<h3>1.3 Kratos在网关架构中的定位</h3>
+
+<p>Kratos本身<strong>不是网关</strong>，而是网关后端的微服务框架。常见架构：</p>
+
+<ul>
+<li><strong>网关层</strong>：Kong / APISIX / Envoy（处理路由、限流、认证）</li>
+<li><strong>BFF层</strong>：Kratos服务或Node.js/Go BFF（数据聚合、格式适配）</li>
+<li><strong>服务层</strong>：Kratos微服务（业务逻辑）</li>
+
+<hr>
+
+<h2>二、脑图</h2>
+
+<pre><code>API网关与BFF
+├── API网关
+│   ├── 核心职责
+│   │   ├── 路由分发
+│   │   ├── 协议转换 (HTTP↔gRPC)
+│   │   ├── 认证鉴权 (JWT/OAuth2)
+│   │   ├── 限流熔断
+│   │   └── 日志追踪
+│   ├── 选型对比
+│   │   ├── Kong (Lua/Go插件)
+│   │   ├── APISIX (Apache, 高性能)
+│   │   ├── Envoy (xDS, Service Mesh)
+│   │   └── 自研 (Go/Gin)
+│   └── 网关模式
+│       ├── 单网关
+│       └── 多网关 (按业务域拆分)
+├── BFF模式
+│   ├── 按客户端拆分
+│   │   ├── Web BFF
+│   │   ├── App BFF
+│   │   └── Mini BFF
+│   ├── 核心价值
+│   │   ├── 数据裁剪
+│   │   ├── 接口聚合
+│   │   └── 协议适配
+│   └── 注意事项
+│       ├── 不要堆积业务逻辑
+│       └── 保持薄层
+├── Kratos集成
+│   ├── 作为BFF服务
+│   ├── 作为后端服务
+│   ├── HTTP/gRPC双协议
+│   └── 多服务聚合查询
+└── 实战模式
+    ├── 聚合查询
+    ├── 扇出请求
+    └── 缓存策略</code></pre>
+
+<hr>
+
+<h2>三、完整Go代码</h2>
+
+<h3>3.1 BFF聚合服务</h3>
+
+<pre><code class="language-go">// bff/main.go - BFF service that aggregates multiple backend services
+package main
+
+import (
+	&quot;context&quot;
+	&quot;encoding/json&quot;
+	&quot;fmt&quot;
+	&quot;log&quot;
+	&quot;time&quot;
+
+	pbUser &quot;bff/api/user&quot;
+	pbOrder &quot;bff/api/order&quot;
+	pbProduct &quot;bff/api/product&quot;
+
+	&quot;github.com/go-kratos/kratos/v2&quot;
+	&quot;github.com/go-kratos/kratos/v2/middleware/logging&quot;
+	&quot;github.com/go-kratos/kratos/v2/middleware/recovery&quot;
+	&quot;github.com/go-kratos/kratos/v2/transport/grpc&quot;
+	&quot;github.com/go-kratos/kratos/v2/transport/http&quot;
+)
+
+// UserProfileResponse aggregates user, orders, and recommendations
+type UserProfileResponse struct {
+	User          *pbUser.UserReply   `json:&quot;user&quot;`
+	RecentOrders  []*pbOrder.OrderReply `json:&quot;recent_orders&quot;`
+	Recommendations []*pbProduct.ProductReply `json:&quot;recommendations&quot;`
+}
+
+// BFFService handles aggregation logic
+type BFFService struct {
+	userClient    pbUser.UserClient
+	orderClient   pbOrder.OrderClient
+	productClient pbProduct.ProductClient
+}
+
+// GetUserProfile aggregates data from multiple services concurrently
+func (s *BFFService) GetUserProfile(ctx context.Context, req *pbUser.GetUserRequest) (*pbUser.UserProfileReply, error) {
+	// Fan-out: call multiple services in parallel using errgroup
+	g, gCtx := errgroup.WithContext(ctx)
+	g.SetLimit(3) // max 3 concurrent calls
+
+	var (
+		user          *pbUser.UserReply
+		orders        *pbOrder.ListOrdersReply
+		recommendations *pbProduct.ListProductsReply
+	)
+
+	// Call user service
+	g.Go(func() error {
+		var err error
+		user, err = s.userClient.GetUser(gCtx, req)
+		return err
+	})
+
+	// Call order service for recent orders
+	g.Go(func() error {
+		var err error
+		orders, err = s.orderClient.ListOrders(gCtx, &amp;pbOrder.ListOrdersRequest{
+			UserId: req.Id,
+			Limit:  5,
+		})
+		return err
+	})
+
+	// Call product service for recommendations
+	g.Go(func() error {
+		var err error
+		recommendations, err = s.productClient.ListProducts(gCtx, &amp;pbProduct.ListProductsRequest{
+			CategoryId: 0, // 0 means all categories
+			Limit:      10,
+		})
+		return err
+	})
+
+	// Wait for all goroutines to complete
+	if err := g.Wait(); err != nil {
+		return nil, fmt.Errorf(&quot;aggregation failed: %w&quot;, err)
+	}
+
+	// Build aggregated response
+	return &amp;pbUser.UserProfileReply{
+		User:            user,
+		RecentOrders:    orders.Orders,
+		Recommendations: recommendations.Products,
+	}, nil
+}
+
+func main() {
+	// Connect to backend gRPC services
+	userConn, err := grpc.DialInsecure(
+		context.Background(),
+		grpc.WithEndpoint(&quot;localhost:9001&quot;),
+	)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	orderConn, err := grpc.DialInsecure(
+		context.Background(),
+		grpc.WithEndpoint(&quot;localhost:9002&quot;),
+	)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	productConn, err := grpc.DialInsecure(
+		context.Background(),
+		grpc.WithEndpoint(&quot;localhost:9003&quot;),
+	)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// Create BFF service
+	bff := &amp;BFFService{
+		userClient:    pbUser.NewUserClient(userConn),
+		orderClient:   pbOrder.NewOrderClient(orderConn),
+		productClient: pbProduct.NewProductClient(productConn),
+	}
+
+	// Create HTTP server for BFF (external facing)
+	httpSrv := http.NewServer(
+		http.Address(&quot;:8000&quot;),
+		http.Middleware(
+			recovery.Recovery(),
+			logging.Server(nil),
+		),
+	)
+
+	// Create internal gRPC server
+	grpcSrv := grpc.NewServer(
+		grpc.Address(&quot;:9000&quot;),
+		grpc.Middleware(
+			recovery.Recovery(),
+			logging.Server(nil),
+		),
+	)
+
+	// Register BFF service on both HTTP and gRPC
+	pbUser.RegisterUserHTTPServer(httpSrv, bff)
+	pbUser.RegisterUserServer(grpcSrv, bff)
+
+	app := kratos.New(
+		kratos.Name(&quot;bff&quot;),
+		kratos.Server(httpSrv, grpcSrv),
+	)
+
+	if err := app.Run(); err != nil {
+		log.Fatal(err)
+	}
+}</code></pre>
+
+<h3>3.2 APISIX网关配置</h3>
+
+<pre><code class="language-yaml"># apisix_routes.yaml - Route configuration for APISIX gateway
+routes:
+  # Route to BFF for user profile aggregation
+  - uri: /api/v1/user/profile/*
+    upstream:
+      type: roundrobin
+      nodes:
+        &quot;bff-service:8000&quot;: 1
+    plugins:
+      limit-count:
+        count: 100
+        time_window: 60
+        rejected_code: 429
+      jwt-auth:
+        secret: &quot;your-jwt-secret&quot;
+
+  # Route directly to user service
+  - uri: /api/v1/users/*
+    upstream:
+      type: roundrobin
+      nodes:
+        &quot;user-service:8000&quot;: 1
+    plugins:
+      key-auth:
+        header: X-API-Key
+
+  # Route to order service
+  - uri: /api/v1/orders/*
+    upstream:
+      type: roundrobin
+      nodes:
+        &quot;order-service:8000&quot;: 1
+
+  # gRPC proxy for internal services
+  - uri: /grpc/*
+    upstream:
+      type: roundrobin
+      scheme: grpc
+      nodes:
+        &quot;grpc-backend:9000&quot;: 1</code></pre>
+
+<h3>3.3 请求聚合中间件</h3>
+
+<pre><code class="language-go">// pkg/middleware/aggregation.go - Request aggregation middleware
+package middleware
+
+import (
+	&quot;context&quot;
+	&quot;encoding/json&quot;
+	&quot;net/http&quot;
+	&quot;sync&quot;
+	&quot;time&quot;
+
+	khttp &quot;github.com/go-kratos/kratos/v2/transport/http&quot;
+)
+
+// AggregatedResult holds results from multiple service calls
+type AggregatedResult struct {
+	mu      sync.Mutex
+	results map[string]json.RawMessage
+	errors  map[string]error
+}
+
+// NewAggregatedResult creates a new aggregation context
+func NewAggregatedResult() *AggregatedResult {
+	return &amp;AggregatedResult{
+		results: make(map[string]json.RawMessage),
+		errors:  make(map[string]error),
+	}
+}
+
+// Fetch calls a service and stores the result
+func (a *AggregatedResult) Fetch(key string, fn func() (json.RawMessage, error)) {
+	result, err := fn()
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	if err != nil {
+		a.errors[key] = err
+		return
+	}
+	a.results[key] = result
+}
+
+// AggregateHTTPHandler creates a middleware that aggregates responses
+func AggregateHTTPHandler(timeout time.Duration) khttp.ServerOption {
+	return khttp.Middleware(
+		func(handler khttp.Handler) khttp.Handler {
+			return func(ctx context.Context, req interface{}) (interface{}, error) {
+				return handler(ctx, req)
+			}
+		},
+	)
+}
+
+// RequestContext injects timeout and trace info
+func RequestContext(timeout time.Duration) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			ctx, cancel := context.WithTimeout(r.Context(), timeout)
+			defer cancel()
+
+			// Inject trace ID if not present
+			traceID := r.Header.Get(&quot;X-Trace-ID&quot;)
+			if traceID == &quot;&quot; {
+				traceID = generateTraceID()
+			}
+
+			ctx = context.WithValue(ctx, &quot;traceID&quot;, traceID)
+			next.ServeHTTP(w, r.WithContext(ctx))
+		})
+	}
+}
+
+func generateTraceID() string {
+	return fmt.Sprintf(&quot;trace-%d&quot;, time.Now().UnixNano())
+}</code></pre>
+
+<hr>
+
+<h2>四、执行预览</h2>
+
+<pre><code class="language-bash"># Start backend services
+$ docker-compose up -d user-service order-service product-service
+
+# Start BFF service
+$ go run bff/main.go
+INFO msg=server started addr=[::]:8000
+INFO msg=server started addr=[::]:9000
+
+# Call BFF aggregation endpoint
+$ curl http://localhost:8000/api/v1/user/profile/1
+{
+  &quot;user&quot;: {
+    &quot;id&quot;: &quot;1&quot;,
+    &quot;name&quot;: &quot;张三&quot;,
+    &quot;email&quot;: &quot;zhangsan@example.com&quot;
+  },
+  &quot;recent_orders&quot;: [
+    {&quot;id&quot;: &quot;101&quot;, &quot;product&quot;: &quot;Go编程&quot;, &quot;amount&quot;: 99.9},
+    {&quot;id&quot;: &quot;102&quot;, &quot;product&quot;: &quot;Kratos实战&quot;, &quot;amount&quot;: 129.0}
+  ],
+  &quot;recommendations&quot;: [
+    {&quot;id&quot;: &quot;201&quot;, &quot;name&quot;: &quot;微服务设计&quot;, &quot;price&quot;: 89.0},
+    {&quot;id&quot;: &quot;202&quot;, &quot;name&quot;: &quot;DDD实战&quot;, &quot;price&quot;: 79.0}
+  ]
+}
+
+# Through APISIX gateway
+$ curl http://localhost:9080/api/v1/user/profile/1 \
+  -H &quot;Authorization: Bearer &lt;jwt-token&gt;&quot;
+# Same response with rate limiting and auth
+
+# Check rate limiting
+$ for i in $(seq 1 110); do curl -s -o /dev/null -w &quot;%{http_code}\n&quot; \
+  http://localhost:9080/api/v1/user/profile/1; done
+200
+200
+...
+429  # Rate limited after 100 requests</code></pre>
+
+<hr>
+
+<h2>五、注意事项</h2>
+
+<table><thead><tr>
+<th>注意点</th>
+<th>说明</th>
+<th>影响</th>
+</tr></thead><tbody>
+<tr>
+<td>BFF不写业务逻辑</td>
+<td>BFF只做聚合、裁剪、适配，不实现业务规则</td>
+<td>否则变成单体</td>
+</tr>
+<tr>
+<td>聚合超时控制</td>
+<td>每个子请求必须有独立超时</td>
+<td>防止级联超时</td>
+</tr>
+<tr>
+<td>网关单点风险</td>
+<td>网关挂了全挂，必须高可用部署</td>
+<td>生产必备</td>
+</tr>
+<tr>
+<td>缓存策略</td>
+<td>聚合数据要合理缓存，避免N+1查询</td>
+<td>性能关键</td>
+</tr>
+<tr>
+<td>版本管理</td>
+<td>API版本化，网关路由支持多版本</td>
+<td>平滑升级</td>
+</tr>
+<tr>
+<td>监控告警</td>
+<td>网关是咽喉要道，必须有完善的监控</td>
+<td>运维必须</td>
+</tr>
+<tr>
+<td>序列化开销</td>
+<td>HTTP JSON → gRPC Protobuf 转换有性能损耗</td>
+<td>高并发需优化</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>六、避坑指南</h2>
+
+<table><thead><tr>
+<th>❌ 错误做法</th>
+<th>✅ 正确做法</th>
+</tr></thead><tbody>
+<tr>
+<td>BFF里写业务逻辑</td>
+<td>BFF只做聚合和适配，业务逻辑留在领域服务</td>
+</tr>
+<tr>
+<td>所有客户端共用一个BFF</td>
+<td>按客户端类型拆分BFF（Web/App/Mini）</td>
+</tr>
+<tr>
+<td>网关直接暴露gRPC</td>
+<td>网关做协议转换，内部用gRPC通信</td>
+</tr>
+<tr>
+<td>聚合请求串行调用</td>
+<td>使用errgroup并发调用，设置总超时</td>
+</tr>
+<tr>
+<td>网关不做限流</td>
+<td>网关必须配置限流、熔断、降级策略</td>
+</tr>
+<tr>
+<td>不设链路追踪</td>
+<td>网关注入TraceID，全链路透传</td>
+</tr>
+<tr>
+<td>一个网关管所有路由</td>
+<td>大规模时按业务域拆分多个网关实例</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>七、练习题</h2>
+
+<h3>🟢 初级</h3>
+
+<ol>
+<li><strong>概念理解</strong>：API网关和反向代理（Nginx）的核心区别是什么？</li>
+</ul>
+<ol>
+<li><strong>配置实践</strong>：使用Docker部署一个Kong网关，配置一条路由规则。</li>
+</ul>
+<ol>
+<li><strong>BFF理解</strong>：为什么移动端和Web端需要不同的BFF？</li>
+
+<h3>🟡 中级</h3>
+
+<ol>
+<li><strong>聚合实现</strong>：实现一个BFF接口，同时调用用户服务和订单服务，聚合返回。</li>
+</ul>
+<ol>
+<li><strong>限流配置</strong>：在APISIX中配置基于IP的限流，每分钟最多60次请求。</li>
+</ul>
+<ol>
+<li><strong>错误处理</strong>：BFF聚合时，如果其中一个服务超时，如何优雅降级？</li>
+
+<h3>🔴 高级</h3>
+
+<ol>
+<li><strong>全链路实现</strong>：实现从APISIX网关到BFF到后端服务的完整链路追踪（OpenTelemetry）。</li>
+</ul>
+<ol>
+<li><strong>动态路由</strong>：实现基于请求Header的动态路由，将灰度用户路由到v2服务。</li>
+</ul>
+<ol>
+<li><strong>性能优化</strong>：BFF层实现多级缓存（本地缓存 + Redis），对比缓存命中率和延迟。</li>
+
+<hr>
+
+<h2>八、知识点总结</h2>
+
+<pre><code>API网关与BFF知识点
+├── API网关
+│   ├── 职责：路由/转换/认证/限流/聚合/监控
+│   ├── 选型：Kong vs APISIX vs Envoy
+│   └── 部署：高可用、多实例、健康检查
+├── BFF模式
+│   ├── 定义：为特定客户端定制的后端适配层
+│   ├── 原则：薄层、聚合、裁剪、不写业务
+│   └── 拆分：按客户端类型 / 按业务域
+├── Kratos集成
+│   ├── HTTP/gRPC双协议服务
+│   ├── errgroup并发聚合
+│   ├── 中间件链（recovery/logging/tracing）
+│   └── 服务发现与负载均衡
+└── 最佳实践
+    ├── 超时控制（总超时 + 子请求超时）
+    ├── 降级策略（缓存兜底/默认值）
+    ├── 灰度发布（网关路由规则）
+    └── 可观测性（metrics/traces/logs）</code></pre>
+
+<hr>
+
+<h2>九、举一反三</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>网关方案</th>
+<th>BFF方案</th>
+<th>关键技术</th>
+</tr></thead><tbody>
+<tr>
+<td>电商首页</td>
+<td>APISIX路由+限流</td>
+<td>聚合商品/广告/推荐</td>
+<td>errgroup+缓存</td>
+</tr>
+<tr>
+<td>社交Feed流</td>
+<td>Kong认证+限流</td>
+<td>聚合用户动态/评论/点赞</td>
+<td>流式聚合+游标分页</td>
+</tr>
+<tr>
+<td>SaaS多租户</td>
+<td>网关租户路由</td>
+<td>租户数据隔离+聚合</td>
+<td>Header路由+租户ID</td>
+</tr>
+<tr>
+<td>IoT设备接入</td>
+<td>MQTT网关(EMQX)</td>
+<td>设备数据聚合+规则引擎</td>
+<td>WebSocket+协议转换</td>
+</tr>
+<tr>
+<td>开放平台</td>
+<td>API网关+开发者门户</td>
+<td>开放API聚合+沙箱</td>
+<td>OAuth2+限流+计量</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>十、参考资料</h2>
+
+<ol>
+<li><a href="https://docs.konghq.com/">Kong官方文档</a></li>
+</ul>
+<ol>
+<li><a href="https://apisix.apache.org/docs/apisix/getting-started/">Apache APISIX文档</a></li>
+</ul>
+<ol>
+<li><a href="https://samnewman.io/patterns/architectural/bff/">Sam Newman - Building Microservices (BFF模式)</a></li>
+</ul>
+<ol>
+<li><a href="https://go-kratos.dev/docs/component/transport/http">Kratos官方文档 - HTTP Server</a></li>
+</ul>
+<ol>
+<li><a href="https://www.envoyproxy.io/docs/envoy/latest/">Envoy Proxy文档</a></li>
+
+<hr>
+
+<h2>十一、代码演进</h2>
+
+<h3>v1：单服务直连</h3>
+<pre><code class="language-go">// v1: Direct HTTP call to user service - simplest approach
+func GetUser(ctx context.Context, id int64) (*User, error) {
+    resp, err := http.Get(fmt.Sprintf(&quot;http://user-service:8000/users/%d&quot;, id))
+    // No gateway, no BFF, direct coupling
+}</code></pre>
+
+<h3>v2：引入API网关</h3>
+<pre><code class="language-go">// v2: Through API gateway with auth and rate limiting
+func GetUser(ctx context.Context, id int64) (*User, error) {
+    req, _ := http.NewRequest(&quot;GET&quot;, &quot;http://gateway:9080/api/v1/users/&quot;+strconv.FormatInt(id, 10), nil)
+    req.Header.Set(&quot;Authorization&quot;, &quot;Bearer &quot;+token)
+    // Gateway handles: auth, rate limit, routing
+}</code></pre>
+
+<h3>v3：BFF聚合 + 网关</h3>
+<pre><code class="language-go">// v3: BFF aggregation with errgroup, gateway handles cross-cutting
+func GetUserProfile(ctx context.Context, id int64) (*UserProfile, error) {
+    g, gCtx := errgroup.WithContext(ctx)
+    // Concurrent calls to user/order/product services
+    // BFF aggregates, gateway routes and protects
+    // Full observability with trace propagation
+}</code></pre>
+
+<p><strong>演进路线</strong>：单服务直连 → API网关统一入口 → BFF聚合 + 网关分层</p>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

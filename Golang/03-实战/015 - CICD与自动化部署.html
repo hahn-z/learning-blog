@@ -1,0 +1,576 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>015 - CI/CD与自动化部署</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Golang/index.html">Golang</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Golang/03-实战/index.html">Golang实战</a>
+</nav>
+<h1>015 - CI/CD与自动化部署</h1>
+<div class="meta">
+<span>📂 Golang实战</span>
+<span>🏷️ Golang</span>
+</div>
+<article>
+
+
+<h1>070: CI/CD与自动化部署</h1>
+
+<blockquote><p><strong>难度：⭐⭐⭐⭐⭐ 专家级</strong> | CI/CD 是现代软件交付的流水线，本文覆盖 GitHub Actions、Docker 构建、Kubernetes 部署和 Helm 包管理。<br><br><strong>前置知识：</strong> Docker 容器化（069篇）、Git 基础、基本 Linux 运维<br><br><strong>学习目标：</strong> 掌握 GitHub Actions CI 流水线、Docker 镜像自动化构建推送、K8s 部署清单编写和 Helm Chart 管理。</p></blockquote>
+
+<h2>概念讲解</h2>
+
+<p>CI/CD（Continuous Integration / Continuous Deployment）自动化软件交付流程：</p>
+
+<ul>
+<li><strong>CI（持续集成）：</strong> 每次代码提交自动触发：lint → test → build。确保代码质量，尽早发现问题。</li>
+<li><strong>CD（持续部署）：</strong> CI 通过后自动构建 Docker 镜像、推送到镜像仓库、部署到 K8s 集群。实现从代码到生产的全自动。</li>
+<li><strong>GitHub Actions：</strong> GitHub 内置的 CI/CD 平台，用 YAML 定义工作流，丰富的社区 Actions 市场。</li>
+<li><strong>Kubernetes 部署：</strong> 声明式 API 定义应用运行状态，自动滚动更新、故障自愈、弹性伸缩。</li>
+<li><strong>Helm：</strong> K8s 的包管理器，用模板化方式管理部署清单，支持多环境差异化配置。</li>
+
+<h3>版本标签策略</h3>
+
+<pre><code>v1.2.3
+│ │ │
+│ │ └── Patch: Bug 修复（向后兼容）
+│ └──── Minor: 新功能（向后兼容）
+└────── Major: 破坏性变更</code></pre>
+
+<p>Git Tag → Docker 镜像标签映射：<code>v1.2.3</code> → <code>ghcr.io/app:v1.2.3</code>, <code>ghcr.io/app:1.2</code>, <code>ghcr.io/app:sha-a1b2c3d</code></p>
+
+<h2>脑图</h2>
+
+<pre><code>CI/CD与自动化部署
+├── GitHub Actions
+│   ├── CI 流水线 (lint/test/build)
+│   ├── Docker 镜像构建
+│   ├── 缓存优化
+│   └── 触发条件 (push/tag/PR)
+├── Docker 镜像
+│   ├── 多架构构建 (buildx)
+│   ├── 镜像标签策略
+│   └── GHCR 推送
+├── Kubernetes
+│   ├── Deployment (滚动更新)
+│   ├── Service (服务暴露)
+│   ├── ConfigMap / Secret
+│   ├── 蓝绿部署 vs 滚动更新
+│   └── 资源限制 (requests/limits)
+└── Helm
+    ├── Chart 结构
+    ├── values.yaml
+    ├── 模板化
+    └── 多环境管理</code></pre>
+
+<h2>代码演进</h2>
+
+<h3>v1：GitHub Actions CI 流水线</h3>
+
+<pre><code class="language-yaml"># .github/workflows/ci.yml
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: &#x27;1.22&#x27;
+
+      # Cache Go modules for faster builds
+      - name: Cache Go modules
+        uses: actions/cache@v4
+        with:
+          path: ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles(&#x27;**/go.sum&#x27;) }}
+          restore-keys: |
+            ${{ runner.os }}-go-
+
+      - name: Lint
+        uses: golangci/golangci-lint-action@v4
+        with:
+          version: latest
+
+      - name: Test with coverage
+        run: |
+          go test -race -coverprofile=coverage.out ./...
+          go tool cover -func=coverage.out
+
+      - name: Build
+        run: CGO_ENABLED=0 go build -ldflags=&quot;-s -w&quot; -o app ./cmd/server
+
+      - name: Upload coverage
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage
+          path: coverage.out</code></pre>
+
+<h3>v2：Docker 镜像构建 + K8s 部署清单</h3>
+
+<pre><code class="language-yaml"># .github/workflows/deploy.yml - Build and push Docker image on tag
+name: Build &amp; Deploy
+
+on:
+  push:
+    tags: [&#x27;v*&#x27;]
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Docker metadata (auto tags)
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository }}
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=sha
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max</code></pre>
+
+<p><strong>Kubernetes 部署清单：</strong></p>
+
+<pre><code class="language-yaml"># k8s/deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: blog-api
+  labels:
+    app: blog-api
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: blog-api
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1        # Max 1 extra pod during update
+      maxUnavailable: 0   # Keep all pods available
+  template:
+    metadata:
+      labels:
+        app: blog-api
+    spec:
+      containers:
+        - name: blog-api
+          image: ghcr.io/example/blog-api:v1.2.3
+          ports:
+            - containerPort: 8080
+          env:
+            - name: DB_HOST
+              valueFrom:
+                configMapKeyRef:
+                  name: blog-config
+                  key: db_host
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: blog-secrets
+                  key: db_password
+          resources:
+            requests:
+              memory: &quot;128Mi&quot;
+              cpu: &quot;100m&quot;
+            limits:
+              memory: &quot;256Mi&quot;
+              cpu: &quot;500m&quot;
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 3
+            periodSeconds: 5</code></pre>
+
+<pre><code class="language-yaml"># k8s/service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: blog-api
+spec:
+  selector:
+    app: blog-api
+  ports:
+    - port: 80
+      targetPort: 8080
+  type: ClusterIP</code></pre>
+
+<pre><code class="language-yaml"># k8s/configmap.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: blog-config
+data:
+  db_host: &quot;postgres-service&quot;
+  gin_mode: &quot;release&quot;</code></pre>
+
+<h3>v3：Helm Chart 多环境管理</h3>
+
+<pre><code class="language-yaml"># helm/blog/Chart.yaml
+apiVersion: v2
+name: blog-api
+version: 1.0.0
+appVersion: &quot;1.2.3&quot;</code></pre>
+
+<pre><code class="language-yaml"># helm/blog/values.yaml - Default values (production)
+replicaCount: 3
+image:
+  repository: ghcr.io/example/blog-api
+  tag: &quot;1.2.3&quot;
+  pullPolicy: IfNotPresent
+
+resources:
+  requests:
+    memory: 128Mi
+    cpu: 100m
+  limits:
+    memory: 256Mi
+    cpu: 500m
+
+service:
+  type: ClusterIP
+  port: 80</code></pre>
+
+<pre><code class="language-yaml"># helm/blog/values-dev.yaml - Dev overrides
+replicaCount: 1
+image:
+  tag: &quot;main-latest&quot;
+  pullPolicy: Always
+resources:
+  requests:
+    memory: 64Mi
+    cpu: 50m
+  limits:
+    memory: 128Mi
+    cpu: 250m</code></pre>
+
+<pre><code class="language-yaml"># helm/blog/templates/deployment.yaml - Templated deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Chart.Name }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      app: {{ .Chart.Name }}
+  template:
+    metadata:
+      labels:
+        app: {{ .Chart.Name }}
+    spec:
+      containers:
+        - name: {{ .Chart.Name }}
+          image: &quot;{{ .Values.image.repository }}:{{ .Values.image.tag }}&quot;
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - containerPort: 8080
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}</code></pre>
+
+<pre><code class="language-bash"># Helm commands
+helm install blog-api ./helm/blog                      # Install with default (prod)
+helm install blog-api ./helm/blog -f values-dev.yaml   # Install with dev overrides
+helm upgrade blog-api ./helm/blog                      # Upgrade
+helm rollback blog-api 1                               # Rollback to revision 1
+helm list                                              # List releases
+helm uninstall blog-api                                # Uninstall</code></pre>
+
+<h3>部署策略对比</h3>
+
+<table><thead><tr>
+<th>策略</th>
+<th>原理</th>
+<th>优点</th>
+<th>缺点</th>
+</tr></thead><tbody>
+<tr>
+<td>滚动更新（默认）</td>
+<td>逐步替换旧 Pod</td>
+<td>资源效率高</td>
+<td>新旧版本短暂共存</td>
+</tr>
+<tr>
+<td>蓝绿部署</td>
+<td>两套环境切换 Service</td>
+<td>瞬间切换，回滚快</td>
+<td>需要双倍资源</td>
+</tr>
+<tr>
+<td>金丝雀发布</td>
+<td>少量流量先到新版本</td>
+<td>风险可控</td>
+<td>需要流量管理工具</td>
+</tr>
+</tbody></table>
+
+<h2>执行预览</h2>
+
+<pre><code># Git push triggers CI
+$ git push origin main
+remote: → CI workflow triggered
+Actions: ✅ Lint (12s) → ✅ Test (45s) → ✅ Build (8s)
+
+# Git tag triggers deploy
+$ git tag v1.2.3 &amp;&amp; git push origin v1.2.3
+Actions: ✅ Build Docker → ✅ Push to ghcr.io
+  Tags: ghcr.io/example/blog-api:v1.2.3, ghcr.io/example/blog-api:1.2, ghcr.io/example/blog-api:sha-a1b2c3d
+
+# Helm deploy
+$ helm upgrade blog-api ./helm/blog
+Release &quot;blog-api&quot; has been upgraded. Happy Helming!
+
+$ helm status blog-api
+STATUS: deployed
+REVISION: 3</code></pre>
+
+<h2>注意事项</h2>
+
+<table><thead><tr>
+<th>项目</th>
+<th>说明</th>
+<th>严重度</th>
+</tr></thead><tbody>
+<tr>
+<td>Secret 不明文存 Git</td>
+<td>用 Sealed Secrets 或 External Secrets Operator</td>
+<td>🔴 严重</td>
+</tr>
+<tr>
+<td>镜像拉取策略</td>
+<td>生产用 <code>IfNotPresent</code>，开发用 <code>Always</code></td>
+<td>⚠️ 重要</td>
+</tr>
+<tr>
+<td>资源限制必须设</td>
+<td>防止一个 Pod 吃光节点资源</td>
+<td>🔴 严重</td>
+</tr>
+<tr>
+<td>CI 缓存加速</td>
+<td>Go module 缓存 + Docker layer 缓存</td>
+<td>💡 提示</td>
+</tr>
+<tr>
+<td>liveness vs readiness</td>
+<td>liveness 判死重启，ready 控制流量，不要混淆</td>
+<td>⚠️ 重要</td>
+</tr>
+<tr>
+<td>测试覆盖率门槛</td>
+<td>低于阈值 CI 失败，防止质量退化</td>
+<td>💡 提示</td>
+</tr>
+</tbody></table>
+
+<h2>避坑指南</h2>
+
+<table><thead><tr>
+<th>❌ 错误做法</th>
+<th>✅ 正确做法</th>
+</tr></thead><tbody>
+<tr>
+<td>Secret 明文写在 YAML 里提交 Git</td>
+<td>用 Sealed Secrets 加密或 External Secrets Operator</td>
+</tr>
+<tr>
+<td>不设 resources.limits</td>
+<td>必须设 requests 和 limits，防止资源争抢</td>
+</tr>
+<tr>
+<td>livenessProbe 和 readinessProbe 用同一个检查</td>
+<td>liveness 用 <code>/healthz</code>，readiness 用 <code>/ready</code>，避免误杀</td>
+</tr>
+<tr>
+<td>CI 里不缓存依赖</td>
+<td>利用 <code>actions/cache</code> 缓存 Go modules 和 Docker layers</td>
+</tr>
+<tr>
+<td><code>imagePullPolicy: Always</code> 上生产</td>
+<td>用 <code>IfNotPresent</code> 减少拉取，配合固定版本标签</td>
+</tr>
+<tr>
+<td>Helm values 里硬编码所有配置</td>
+<td>用 <code>values-dev.yaml</code>、<code>values-prod.yaml</code> 分环境管理</td>
+</tr>
+</tbody></table>
+
+<h2>练习题</h2>
+
+<p><strong>🟢 入门：编写完整 GitHub Actions CI</strong></p>
+<p>为 Go 项目编写 CI 工作流：lint → test → build。要求使用缓存加速，测试覆盖率低于 60% 则失败。</p>
+
+<p><strong>🟡 进阶：K8s 部署清单全套</strong></p>
+<p>为 Go gRPC 服务编写 Deployment + Service + ConfigMap + Secret。要求包含资源限制、liveness/readiness 双探针。</p>
+
+<p><strong>🔴 挑战：创建 Helm Chart 多环境管理</strong></p>
+<p>将 K8s 清单转换为 Helm Chart，通过 <code>values-dev.yaml</code>、<code>values-staging.yaml</code>、<code>values-prod.yaml</code> 支持三环境差异化配置（副本数、资源、镜像标签）。</p>
+
+<h2>知识点总结</h2>
+
+<pre><code>CI/CD与自动化部署
+├── GitHub Actions
+│   ├── workflow 触发条件
+│   ├── Jobs/Steps 编排
+│   ├── Actions 市场 (checkout/setup-go)
+│   └── 缓存优化
+├── Docker 镜像
+│   ├── buildx 多架构
+│   ├── metadata-action 标签
+│   └── GHCR 推送
+├── Kubernetes
+│   ├── Deployment (滚动更新)
+│   ├── Service (ClusterIP)
+│   ├── ConfigMap (配置)
+│   ├── Secret (敏感数据)
+│   ├── 资源限制 (requests/limits)
+│   └── 探针 (liveness/readiness)
+└── Helm
+    ├── Chart.yaml
+    ├── values.yaml + 环境覆盖
+    ├── templates/ 模板
+    └── install/upgrade/rollback</code></pre>
+
+<h2>举一反三</h2>
+
+<table><thead><tr>
+<th>本文学到</th>
+<th>可迁移到</th>
+<th>应用场景</th>
+</tr></thead><tbody>
+<tr>
+<td>GitHub Actions</td>
+<td>GitLab CI、Jenkins</td>
+<td>任何 CI/CD 平台</td>
+</tr>
+<tr>
+<td>Docker 镜像自动化</td>
+<td>任何语言项目</td>
+<td>标准化构建发布</td>
+</tr>
+<tr>
+<td>K8s Deployment</td>
+<td>Docker Swarm、Nomad</td>
+<td>容器编排平台</td>
+</tr>
+<tr>
+<td>Helm Chart</td>
+<td>Kustomize</td>
+<td>K8s 配置管理</td>
+</tr>
+<tr>
+<td>滚动更新策略</td>
+<td>蓝绿/金丝雀发布</td>
+<td>零停机部署</td>
+</tr>
+<tr>
+<td>资源限制</td>
+<td>cgroups、systemd</td>
+<td>进程资源隔离</td>
+</tr>
+</tbody></table>
+
+<h2>参考资料</h2>
+
+<ul>
+<li><a href="https://docs.github.com/en/actions">GitHub Actions 官方文档</a></li>
+<li><a href="https://kubernetes.io/docs/">Kubernetes 官方文档</a></li>
+<li><a href="https://helm.sh/docs/">Helm 官方文档</a></li>
+<li><a href="https://github.com/marketplace?type=actions">GitHub Actions 市场</a></li>
+
+<hr>
+
+<p>_从 Git Push 到生产部署，CI/CD 让交付自动化、可追溯、可回滚。_ 🚀</p>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

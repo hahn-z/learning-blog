@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>017 - Symbol与迭代器</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/JavaScript/index.html">JavaScript</a>
+<span class="sep">›</span>
+<a href="/tech-blog/JavaScript/01-ES6+/index.html">JavaScript ES6+</a>
+</nav>
+<h1>017 - Symbol与迭代器</h1>
+<div class="meta">
+<span>📂 JavaScript ES6+</span>
+<span>🏷️ JavaScript</span>
+</div>
+<article>
+
+
+<h1>Symbol与迭代器</h1>
+
+<blockquote><p><strong>难度：</strong> ⭐⭐⭐ 中等 | <strong>分类：</strong> JavaScript 核心 | <strong>阅读时间：</strong> ~15分钟</p></blockquote>
+
+<h2>一、概念讲解</h2>
+
+<p><code>Symbol</code> 是 ES6 引入的第七种基本类型，表示唯一的标识符。每次调用 <code>Symbol()</code> 都会创建一个全新的、唯一的值，即使描述相同也不相等。</p>
+
+<p>迭代器（Iterator）是实现了 <code>[Symbol.iterator]()</code> 方法的对象，返回 <code>{ next(), done, value }</code> 协议。可迭代对象（Iterable）可以被 <code>for...of</code>、展开运算符、解构等消费。</p>
+
+<p>核心概念：</p>
+<ul>
+<li><strong>Symbol()</strong> — 创建唯一值，防止属性名冲突</li>
+<li><strong>Symbol.for() / Symbol.keyFor()</strong> — 全局 Symbol 注册表</li>
+<li><strong>Well-known Symbols</strong> — <code>Symbol.iterator</code>、<code>Symbol.toStringTag</code> 等</li>
+<li><strong>迭代协议</strong> — <code>[Symbol.iterator]()</code> 返回 <code>{ next() }</code> 对象</li>
+<li><strong>生成器函数</strong> — <code>function*</code> 是创建迭代器的语法糖</li>
+
+<h2>二、脑图（ASCII）</h2>
+
+<pre><code>              Symbol 与迭代器
+          ┌────────┴────────┐
+      Symbol              Iterator
+     ┌──┴──┐          ┌────┴────┐
+  Unique  Global    Protocol   Generator
+  Symbol() Symbol.for() next()  function*
+  描述符   keyFor()  done/value yield
+     │                    │
+  Well-known          for...of
+  iterator            展开运算符
+  toStringTag         解构赋值
+  toPrimitive</code></pre>
+
+<h2>三、完整 JS 代码</h2>
+
+<pre><code class="language-javascript">// ==================== Symbol Basics ====================
+
+// Each Symbol is unique
+const s1 = Symbol(&#x27;desc&#x27;);
+const s2 = Symbol(&#x27;desc&#x27;);
+console.log(s1 === s2); // false
+
+// Global registry
+const g1 = Symbol.for(&#x27;app.key&#x27;);
+const g2 = Symbol.for(&#x27;app.key&#x27;);
+console.log(g1 === g2);              // true
+console.log(Symbol.keyFor(g1));      // &#x27;app.key&#x27;
+
+// Use as object keys — no collision
+const SECRET = Symbol(&#x27;secret&#x27;);
+const user = {
+  name: &#x27;Alice&#x27;,
+  [SECRET]: &#x27;hidden data&#x27;,
+};
+console.log(Object.keys(user));       // [&#x27;name&#x27;] — Symbol keys hidden
+console.log(user[SECRET]);            // &#x27;hidden data&#x27;
+
+// ==================== Custom Iterator ====================
+
+class NumberRange {
+  constructor(start, end, step = 1) {
+    this.start = start;
+    this.end = end;
+    this.step = step;
+  }
+
+  // Implement the iteration protocol
+  [Symbol.iterator]() {
+    let current = this.start;
+    const { end, step } = this;
+
+    return {
+      next() {
+        if (current &lt; end) {
+          const value = current;
+          current += step;
+          return { value, done: false };
+        }
+        return { value: undefined, done: true };
+      },
+      // Optional: return() for early exit (break/throw)
+      return() {
+        console.log(&#x27;Iterator cleaned up&#x27;);
+        return { value: undefined, done: true };
+      }
+    };
+  }
+}
+
+const range = new NumberRange(1, 6, 2);
+for (const num of range) {
+  console.log(num); // 1, 3, 5
+}
+
+// ==================== Generator Function ====================
+
+function* fibonacci(limit) {
+  let [a, b] = [0, 1];
+  while (a &lt; limit) {
+    yield a;
+    [a, b] = [b, a + b];
+  }
+}
+
+const fib = fibonacci(20);
+console.log([...fib]); // [0, 1, 1, 2, 3, 5, 8, 13]
+
+// Generator with delegation (yield*)
+function* letters() {
+  yield* [&#x27;a&#x27;, &#x27;b&#x27;, &#x27;c&#x27;];
+  yield* &#x27;XYZ&#x27;;
+}
+console.log([...letters()]); // [&#x27;a&#x27;,&#x27;b&#x27;,&#x27;c&#x27;,&#x27;X&#x27;,&#x27;Y&#x27;,&#x27;Z&#x27;]</code></pre>
+
+<h2>四、执行预览</h2>
+
+<pre><code>false
+true
+app.key
+[ &#x27;name&#x27; ]
+hidden data
+1
+3
+5
+[ 0, 1, 1, 2, 3, 5, 8, 13 ]
+[ &#x27;a&#x27;, &#x27;b&#x27;, &#x27;c&#x27;, &#x27;X&#x27;, &#x27;Y&#x27;, &#x27;Z&#x27; ]</code></pre>
+
+<h2>五、注意事项</h2>
+
+<table><thead><tr>
+<th>项目</th>
+<th>说明</th>
+</tr></thead><tbody>
+<tr>
+<td>Symbol 不可隐式转换</td>
+<td><code>Symbol() + ''</code> 会 TypeError，需用 <code>.description</code> 或 <code>String(sym)</code></td>
+</tr>
+<tr>
+<td>JSON.stringify 忽略 Symbol</td>
+<td>Symbol 作为 key 的属性不会被序列化</td>
+</tr>
+<tr>
+<td><code>Object.keys()</code> 不含 Symbol</td>
+<td>用 <code>Object.getOwnPropertySymbols()</code> 获取</td>
+</tr>
+<tr>
+<td>迭代器是一次性的</td>
+<td>展开或 <code>for...of</code> 消费后，迭代器耗尽，需重新创建</td>
+</tr>
+<tr>
+<td>Generator 是惰性的</td>
+<td><code>yield</code> 暂停执行，只有调用 <code>next()</code> 才继续</td>
+</tr>
+</tbody></table>
+
+<h2>六、避坑指南</h2>
+
+<p>❌ <strong>错误：用 new 创建 Symbol</strong></p>
+<pre><code class="language-javascript">const s = new Symbol(); // ❌ TypeError: Symbol is not a constructor</code></pre>
+
+<p>✅ <strong>正确：直接调用函数</strong></p>
+<pre><code class="language-javascript">const s = Symbol(&#x27;my desc&#x27;); // ✅</code></pre>
+
+<p>❌ <strong>错误：复用耗尽的迭代器</strong></p>
+<pre><code class="language-javascript">const gen = fibonacci(10);
+console.log([...gen]); // [0, 1, 1, 2, 3, 8]
+console.log([...gen]); // ❌ [] — already exhausted!</code></pre>
+
+<p>✅ <strong>正确：每次创建新的</strong></p>
+<pre><code class="language-javascript">console.log([...fibonacci(10)]); // ✅ Fresh iterator each time</code></pre>
+
+<h2>七、练习题</h2>
+
+<p>🟢 <strong>初级：</strong> 创建一个 <code>repeat(item, n)</code> 生成器函数，yield 同一个值 n 次。</p>
+
+<p>🟡 <strong>中级：</strong> 实现一个 <code>Tree</code> 类，支持 <code>for...of</code> 遍历所有节点（深度优先）。</p>
+
+<p>🔴 <strong>高级：</strong> 实现一个 <code>asyncGenerator</code>，用 <code>for await...of</code> 逐行读取模拟的异步数据流。</p>
+
+<h2>八、知识点总结（树状）</h2>
+
+<pre><code>Symbol 与迭代器
+├── Symbol
+│   ├── Symbol(&#x27;desc&#x27;) — 唯一值
+│   ├── Symbol.for() — 全局注册
+│   ├── Symbol.keyFor() — 查询描述
+│   └── Well-known Symbols
+│       ├── Symbol.iterator
+│       ├── Symbol.toStringTag
+│       ├── Symbol.toPrimitive
+│       └── Symbol.hasInstance
+├── Iterator Protocol
+│   ├── [Symbol.iterator]()
+│   ├── next() → { value, done }
+│   ├── return() — 提前终止
+│   └── throw() — 错误传递
+└── Generator
+    ├── function* / yield
+    ├── yield* — 委托
+    ├── next(args) — 双向通信
+    └── async function* / for await</code></pre>
+
+<h2>九、举一反三</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>实现方式</th>
+<th>关键点</th>
+</tr></thead><tbody>
+<tr>
+<td>枚举常量</td>
+<td><code>const Color = { RED: Symbol(), BLUE: Symbol() }</code></td>
+<td>防止值冲突</td>
+</tr>
+<tr>
+<td>私有属性</td>
+<td><code>const _key = Symbol('private')</code></td>
+<td>简单私有（非安全）</td>
+</tr>
+<tr>
+<td>自定义迭代</td>
+<td><code>[Symbol.iterator]()</code></td>
+<td>让对象支持 <code>for...of</code></td>
+</tr>
+<tr>
+<td>惰性序列</td>
+<td><code>function*</code> 生成器</td>
+<td>无限序列按需取值</td>
+</tr>
+<tr>
+<td>数据管道</td>
+<td>Generator 链式组合</td>
+<td>函数式流处理</td>
+</tr>
+</tbody></table>
+
+<h2>十、参考资料</h2>
+
+<ul>
+<li><a href="https://developer.mozilla.org/zh-CN/docs/Web/JavaScript/Reference/Global_Objects/Symbol">MDN - Symbol</a></li>
+<li><a href="https://developer.mozilla.org/zh-CN/docs/Web/JavaScript/Reference/Iteration_protocols">MDN - Iteration protocols</a></li>
+<li><a href="https://javascript.info/generators">JavaScript.info - Generators</a></li>
+
+<h2>十一、代码演进</h2>
+
+<pre><code class="language-javascript">// v1: Manual iterator object
+const iterable = {
+  [Symbol.iterator]() {
+    let i = 0;
+    return {
+      next() { return i &lt; 3 ? { value: i++, done: false } : { done: true }; }
+    };
+  }
+};
+
+// v2: Generator function — cleaner
+function* rangeGen(start, end) {
+  for (let i = start; i &lt; end; i++) yield i;
+}
+
+// v3: Class with full iterator + generator combined
+class PaginatedList {
+  #items;
+  #pageSize;
+  constructor(items, pageSize = 10) {
+    this.#items = items;
+    this.#pageSize = pageSize;
+  }
+
+  *[Symbol.iterator]() {
+    for (let i = 0; i &lt; this.#items.length; i += this.#pageSize) {
+      yield this.#items.slice(i, i + this.#pageSize);
+    }
+  }
+}
+
+const pages = new PaginatedList([1,2,3,4,5], 2);
+for (const page of pages) console.log(page);
+// [1,2], [3,4], [5]</code></pre>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

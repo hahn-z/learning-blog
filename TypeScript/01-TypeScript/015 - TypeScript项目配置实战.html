@@ -1,0 +1,664 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>015 - TypeScript项目配置实战</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/TypeScript/index.html">TypeScript</a>
+<span class="sep">›</span>
+<a href="/tech-blog/TypeScript/01-TypeScript/index.html">TypeScript</a>
+</nav>
+<h1>015 - TypeScript项目配置实战</h1>
+<div class="meta">
+<span>📂 TypeScript</span>
+<span>🏷️ TypeScript</span>
+</div>
+<article>
+
+
+<h1>TypeScript项目配置实战</h1>
+
+<blockquote><p><strong>难度：</strong> ⭐⭐⭐ 进阶级 | <strong>阅读时间：</strong> 约15分钟 | <strong>前置知识：</strong> TypeScript基础、Node.js项目结构</p></blockquote>
+
+<h2>一、概念讲解</h2>
+
+<p><code>tsconfig.json</code> 是TypeScript项目的核心配置文件，决定了编译器如何处理你的代码。合理的配置能让项目开发体验流畅，避免常见的类型错误，并优化构建性能。</p>
+
+<h3>核心配置理念</h3>
+
+<ol>
+<li><strong>严格模式是底线</strong>：新项目始终开启 <code>strict: true</code></li>
+</ul>
+<ol>
+<li><strong>target由运行环境决定</strong>：Node.js用ES2022+，浏览器看兼容性需求</li>
+</ul>
+<ol>
+<li><strong>module由构建工具决定</strong>：用webpack/vite选ESNext，纯Node选NodeNext</li>
+</ul>
+<ol>
+<li><strong>只配置需要的</strong>：不要从模板复制一堆不了解的选项</li>
+
+<h2>二、脑图</h2>
+
+<pre><code>TypeScript项目配置
+├── tsconfig.json 结构
+│   ├── compilerOptions
+│   ├── include / exclude
+│   ├── files
+│   └── references (项目引用)
+├── 核心选项
+│   ├── strict 系列
+│   ├── target / module
+│   ├── moduleResolution
+│   ├── esModuleInterop
+│   ├── skipLibCheck
+│   └── outDir / rootDir
+├── 路径映射
+│   ├── baseUrl
+│   ├── paths
+│   └── rootDirs
+├── 项目引用
+│   ├── composite
+│   ├── references
+│   └── monorepo配置
+├── 构建工具集成
+│   ├── webpack (ts-loader)
+│   ├── Vite
+│   ├── esbuild
+│   └── SWC
+└── 不同场景配置
+    ├── Node.js 应用
+    ├── React 前端
+    ├── 库开发
+    └── Monorepo</code></pre>
+
+<h2>三、完整TypeScript代码</h2>
+
+<pre><code class="language-typescript">// ============================================
+// TypeScript Project Configuration - Examples
+// ============================================
+
+// --- 1. Base tsconfig.json (shared config) ---
+// tsconfig.base.json
+/*
+{
+  &quot;compilerOptions&quot;: {
+    // Language &amp; Environment
+    &quot;target&quot;: &quot;ES2022&quot;,
+    &quot;lib&quot;: [&quot;ES2022&quot;],
+    &quot;module&quot;: &quot;NodeNext&quot;,
+    &quot;moduleResolution&quot;: &quot;NodeNext&quot;,
+
+    // Strict Type Checking
+    &quot;strict&quot;: true,
+    &quot;noUncheckedIndexedAccess&quot;: true,
+    &quot;noUnusedLocals&quot;: true,
+    &quot;noUnusedParameters&quot;: true,
+    &quot;exactOptionalPropertyTypes&quot;: true,
+
+    // Module Resolution
+    &quot;esModuleInterop&quot;: true,
+    &quot;allowSyntheticDefaultImports&quot;: true,
+    &quot;resolveJsonModule&quot;: true,
+    &quot;isolatedModules&quot;: true,
+
+    // Output
+    &quot;declaration&quot;: true,
+    &quot;declarationMap&quot;: true,
+    &quot;sourceMap&quot;: true,
+    &quot;outDir&quot;: &quot;./dist&quot;,
+    &quot;rootDir&quot;: &quot;./src&quot;,
+
+    // Performance
+    &quot;skipLibCheck&quot;: true,
+    &quot;forceConsistentCasingInFileNames&quot;: true,
+
+    // Path Aliases
+    &quot;baseUrl&quot;: &quot;.&quot;,
+    &quot;paths&quot;: {
+      &quot;@/*&quot;: [&quot;src/*&quot;],
+      &quot;@utils/*&quot;: [&quot;src/utils/*&quot;],
+      &quot;@services/*&quot;: [&quot;src/services/*&quot;]
+    }
+  },
+  &quot;include&quot;: [&quot;src/**/*.ts&quot;],
+  &quot;exclude&quot;: [&quot;node_modules&quot;, &quot;dist&quot;, &quot;**/*.test.ts&quot;]
+}
+*/
+
+// --- 2. Node.js Application Config ---
+// tsconfig.json (Node.js project)
+/*
+{
+  &quot;extends&quot;: &quot;./tsconfig.base.json&quot;,
+  &quot;compilerOptions&quot;: {
+    &quot;target&quot;: &quot;ES2022&quot;,
+    &quot;module&quot;: &quot;NodeNext&quot;,
+    &quot;moduleResolution&quot;: &quot;NodeNext&quot;,
+    &quot;outDir&quot;: &quot;./dist&quot;,
+    &quot;rootDir&quot;: &quot;./src&quot;,
+    &quot;types&quot;: [&quot;node&quot;]
+  },
+  &quot;include&quot;: [&quot;src/**/*.ts&quot;],
+  &quot;exclude&quot;: [&quot;node_modules&quot;, &quot;dist&quot;, &quot;**/*.test.ts&quot;]
+}
+*/
+
+// --- 3. React Frontend Config ---
+// tsconfig.json (React project)
+/*
+{
+  &quot;extends&quot;: &quot;./tsconfig.base.json&quot;,
+  &quot;compilerOptions&quot;: {
+    &quot;target&quot;: &quot;ES2020&quot;,
+    &quot;lib&quot;: [&quot;ES2020&quot;, &quot;DOM&quot;, &quot;DOM.Iterable&quot;],
+    &quot;module&quot;: &quot;ESNext&quot;,
+    &quot;moduleResolution&quot;: &quot;bundler&quot;,
+    &quot;jsx&quot;: &quot;react-jsx&quot;,
+    &quot;noEmit&quot;: true,
+    &quot;baseUrl&quot;: &quot;.&quot;,
+    &quot;paths&quot;: {
+      &quot;@/*&quot;: [&quot;src/*&quot;],
+      &quot;@/components/*&quot;: [&quot;src/components/*&quot;],
+      &quot;@/hooks/*&quot;: [&quot;src/hooks/*&quot;]
+    }
+  },
+  &quot;include&quot;: [&quot;src&quot;],
+  &quot;references&quot;: [{ &quot;path&quot;: &quot;./tsconfig.node.json&quot; }]
+}
+*/
+
+// --- 4. Library Development Config ---
+// tsconfig.json (library)
+/*
+{
+  &quot;extends&quot;: &quot;./tsconfig.base.json&quot;,
+  &quot;compilerOptions&quot;: {
+    &quot;target&quot;: &quot;ES2020&quot;,
+    &quot;module&quot;: &quot;ESNext&quot;,
+    &quot;moduleResolution&quot;: &quot;bundler&quot;,
+    &quot;declaration&quot;: true,
+    &quot;declarationMap&quot;: true,
+    &quot;outDir&quot;: &quot;./dist&quot;,
+    &quot;rootDir&quot;: &quot;./src&quot;,
+    &quot;composite&quot;: true
+  },
+  &quot;include&quot;: [&quot;src/**/*.ts&quot;]
+}
+*/
+
+// --- 5. Monorepo with Project References ---
+// Root tsconfig.json
+/*
+{
+  &quot;files&quot;: [],
+  &quot;references&quot;: [
+    { &quot;path&quot;: &quot;packages/shared&quot; },
+    { &quot;path&quot;: &quot;packages/server&quot; },
+    { &quot;path&quot;: &quot;packages/web&quot; }
+  ]
+}
+*/
+
+// packages/shared/tsconfig.json
+/*
+{
+  &quot;extends&quot;: &quot;../../tsconfig.base.json&quot;,
+  &quot;compilerOptions&quot;: {
+    &quot;composite&quot;: true,
+    &quot;outDir&quot;: &quot;./dist&quot;,
+    &quot;rootDir&quot;: &quot;./src&quot;
+  },
+  &quot;include&quot;: [&quot;src/**/*.ts&quot;]
+}
+*/
+
+// packages/server/tsconfig.json
+/*
+{
+  &quot;extends&quot;: &quot;../../tsconfig.base.json&quot;,
+  &quot;compilerOptions&quot;: {
+    &quot;composite&quot;: true,
+    &quot;outDir&quot;: &quot;./dist&quot;,
+    &quot;rootDir&quot;: &quot;./src&quot;,
+    &quot;types&quot;: [&quot;node&quot;]
+  },
+  &quot;include&quot;: [&quot;src/**/*.ts&quot;],
+  &quot;references&quot;: [
+    { &quot;path&quot;: &quot;../shared&quot; }
+  ]
+}
+*/
+
+// --- 6. Environment-specific Config ---
+// src/config/env.ts
+interface EnvironmentConfig {
+  apiUrl: string;
+  debug: boolean;
+  version: string;
+}
+
+const configs: Record&lt;string, EnvironmentConfig&gt; = {
+  development: {
+    apiUrl: &quot;http://localhost:3000&quot;,
+    debug: true,
+    version: &quot;0.0.1-dev&quot;,
+  },
+  staging: {
+    apiUrl: &quot;https://staging-api.example.com&quot;,
+    debug: false,
+    version: &quot;0.0.1-staging&quot;,
+  },
+  production: {
+    apiUrl: &quot;https://api.example.com&quot;,
+    debug: false,
+    version: &quot;1.0.0&quot;,
+  },
+};
+
+function getConfig(): EnvironmentConfig {
+  const env = process.env.NODE_ENV ?? &quot;development&quot;;
+  const config = configs[env];
+  if (!config) {
+    throw new Error(`Unknown environment: ${env}`);
+  }
+  return config;
+}
+
+export const config = getConfig();
+
+// --- 7. Build Scripts (package.json) ---
+/*
+{
+  &quot;scripts&quot;: {
+    &quot;dev&quot;: &quot;tsx watch src/index.ts&quot;,
+    &quot;build&quot;: &quot;tsc&quot;,
+    &quot;build:clean&quot;: &quot;rm -rf dist &amp;&amp; tsc&quot;,
+    &quot;typecheck&quot;: &quot;tsc --noEmit&quot;,
+    &quot;lint&quot;: &quot;eslint src/&quot;,
+    &quot;test&quot;: &quot;vitest&quot;,
+    &quot;prepublishOnly&quot;: &quot;npm run build&quot;
+  }
+}
+*/
+
+// --- 8. ESLint TypeScript Config ---
+/*
+// eslint.config.js
+import tseslint from &quot;typescript-eslint&quot;;
+
+export default tseslint.config(
+  ...tseslint.configs.recommended,
+  {
+    rules: {
+      &quot;@typescript-eslint/no-explicit-any&quot;: &quot;error&quot;,
+      &quot;@typescript-eslint/no-unused-vars&quot;: [&quot;error&quot;, { argsIgnorePattern: &quot;^_&quot; }],
+      &quot;@typescript-eslint/explicit-function-return-type&quot;: &quot;off&quot;,
+    }
+  }
+);
+*/
+
+// --- 9. Vite + TypeScript Config ---
+/*
+// vite.config.ts
+import { defineConfig } from &quot;vite&quot;;
+import react from &quot;@vitejs/plugin-react&quot;;
+import path from &quot;path&quot;;
+
+export default defineConfig({
+  plugins: [react()],
+  resolve: {
+    alias: {
+      &quot;@&quot;: path.resolve(__dirname, &quot;./src&quot;),
+    },
+  },
+  build: {
+    target: &quot;es2020&quot;,
+  },
+});
+*/
+
+// --- 10. Practical: Type-safe config loader ---
+interface AppConfig {
+  server: {
+    port: number;
+    host: string;
+    cors: {
+      origins: string[];
+      methods: string[];
+    };
+  };
+  database: {
+    url: string;
+    poolSize: number;
+  };
+  jwt: {
+    secret: string;
+    expiresIn: string;
+  };
+}
+
+function loadConfig(overrides?: DeepPartial&lt;AppConfig&gt;): AppConfig {
+  const defaults: AppConfig = {
+    server: {
+      port: 3000,
+      host: &quot;0.0.0.0&quot;,
+      cors: {
+        origins: [&quot;*&quot;],
+        methods: [&quot;GET&quot;, &quot;POST&quot;, &quot;PUT&quot;, &quot;DELETE&quot;],
+      },
+    },
+    database: {
+      url: process.env.DATABASE_URL ?? &quot;sqlite://localhost&quot;,
+      poolSize: 10,
+    },
+    jwt: {
+      secret: process.env.JWT_SECRET ?? &quot;dev-secret&quot;,
+      expiresIn: &quot;7d&quot;,
+    },
+  };
+
+  return deepMerge(defaults, overrides ?? {});
+}
+
+type DeepPartial&lt;T&gt; = T extends object
+  ? { [K in keyof T]?: DeepPartial&lt;T[K]&gt; }
+  : T;
+
+function deepMerge&lt;T extends object&gt;(target: T, source: DeepPartial&lt;T&gt;): T {
+  const result = { ...target };
+  for (const key in source) {
+    const val = source[key];
+    if (val !== undefined) {
+      if (
+        typeof val === &quot;object&quot; &amp;&amp;
+        val !== null &amp;&amp;
+        !Array.isArray(val) &amp;&amp;
+        typeof target[key] === &quot;object&quot;
+      ) {
+        result[key] = deepMerge(
+          target[key] as object,
+          val as DeepPartial&lt;object&gt;
+        ) as T[Extract&lt;keyof T, string&gt;];
+      } else {
+        result[key] = val as T[Extract&lt;keyof T, string&gt;];
+      }
+    }
+  }
+  return result;
+}
+
+// Usage
+const appConfig = loadConfig({
+  server: { port: 8080 },
+  database: { poolSize: 20 },
+});
+
+console.log(`Server: ${appConfig.server.host}:${appConfig.server.port}`);
+console.log(`Database pool: ${appConfig.database.poolSize}`);</code></pre>
+
+<h2>四、执行预览</h2>
+
+<pre><code>$ npx tsc --noEmit
+# 编译通过 ✅
+
+$ npx tsc --showConfig | jq &#x27;.compilerOptions | {target, module, strict}&#x27;
+{
+  &quot;target&quot;: &quot;ES2022&quot;,
+  &quot;module&quot;: &quot;NodeNext&quot;,
+  &quot;strict&quot;: true
+}
+
+$ npx ts-node src/config/env.ts
+Server: 0.0.0.0:8080
+Database pool: 20</code></pre>
+
+<h2>五、注意事项</h2>
+
+<table><thead><tr>
+<th>选项</th>
+<th>说明</th>
+<th>建议</th>
+</tr></thead><tbody>
+<tr>
+<td>strict</td>
+<td>开启所有严格检查</td>
+<td>新项目必开，旧项目渐进式开启</td>
+</tr>
+<tr>
+<td>target</td>
+<td>编译输出目标</td>
+<td>Node.js用ES2022，浏览器看需求</td>
+</tr>
+<tr>
+<td>module</td>
+<td>模块系统</td>
+<td>bundler用ESNext，Node用NodeNext</td>
+</tr>
+<tr>
+<td>moduleResolution</td>
+<td>模块解析策略</td>
+<td>bundler/Vite用bundler，Node用nodenext</td>
+</tr>
+<tr>
+<td>skipLibCheck</td>
+<td>跳过.d.ts检查</td>
+<td>建议开启，加快编译速度</td>
+</tr>
+<tr>
+<td>noUncheckedIndexedAccess</td>
+<td>数组索引可能undefined</td>
+<td>强烈建议开启</td>
+</tr>
+</tbody></table>
+
+<h2>六、避坑指南</h2>
+
+<pre><code>❌ 不开 strict
+✅ strict: true + noUncheckedIndexedAccess: true
+
+❌ target 和 module 不匹配
+   target: ES5 + module: ESNext (矛盾)
+✅ target: ES2022 + module: NodeNext (Node.js)
+   target: ES2020 + module: ESNext (前端bundler)
+
+❌ 路径别名在运行时不生效
+✅ 搭配 tsconfig-paths / vite alias / webpack alias
+
+❌ include 太宽泛
+   &quot;include&quot;: [&quot;**/*&quot;]
+✅ 精确指定
+   &quot;include&quot;: [&quot;src/**/*.ts&quot;]
+
+❌ 所有配置放一个 tsconfig.json
+✅ 用 extends 继承基础配置，项目引用分割</code></pre>
+
+<h2>七、练习题</h2>
+
+<h3>🟢 入门</h3>
+<ol>
+<li>从零配置一个Node.js + TypeScript项目的 <code>tsconfig.json</code></li>
+</ul>
+<ol>
+<li>配置路径别名 <code>@/<em></code> → <code>src/</em></code></li>
+
+<h3>🟡 进阶</h3>
+<ol>
+<li>配置一个monorepo，使用项目引用（references）</li>
+</ul>
+<ol>
+<li>为React + Vite项目配置完整的TypeScript环境</li>
+
+<h3>🔴 挑战</h3>
+<ol>
+<li>设计一个支持ESM和CJS双格式发布的库的TypeScript配置</li>
+
+<h2>八、知识点总结</h2>
+
+<pre><code>TypeScript项目配置
+├── compilerOptions
+│   ├── 严格模式 → strict + 补充选项
+│   ├── 模块 → target + module + moduleResolution
+│   ├── 路径 → baseUrl + paths
+│   └── 输出 → outDir + declaration + sourceMap
+├── 项目结构
+│   ├── include/exclude → 文件范围
+│   ├── extends → 配置继承
+│   └── references → 项目引用
+├── 场景配置
+│   ├── Node.js → NodeNext
+│   ├── React → ESNext + bundler + jsx
+│   ├── 库 → declaration + composite
+│   └── Monorepo → references
+└── 工具链
+    ├── Vite → bundler模式
+    ├── ESLint → typescript-eslint
+    └── 测试 → vitest/ts-jest</code></pre>
+
+<h2>九、举一反三</h2>
+
+<table><thead><tr>
+<th>项目类型</th>
+<th>target</th>
+<th>module</th>
+<th>moduleResolution</th>
+<th>特殊选项</th>
+</tr></thead><tbody>
+<tr>
+<td>Node.js CLI</td>
+<td>ES2022</td>
+<td>NodeNext</td>
+<td>NodeNext</td>
+<td>types: ["node"]</td>
+</tr>
+<tr>
+<td>React SPA</td>
+<td>ES2020</td>
+<td>ESNext</td>
+<td>bundler</td>
+<td>jsx: "react-jsx"</td>
+</tr>
+<tr>
+<td>库发布</td>
+<td>ES2020</td>
+<td>ESNext</td>
+<td>bundler</td>
+<td>declaration: true</td>
+</tr>
+<tr>
+<td>Monorepo共享包</td>
+<td>ES2022</td>
+<td>ESNext</td>
+<td>bundler</td>
+<td>composite: true</td>
+</tr>
+<tr>
+<td>Next.js</td>
+<td>ES2022</td>
+<td>ESNext</td>
+<td>bundler</td>
+<td>jsx: "preserve"</td>
+</tr>
+</tbody></table>
+
+<h2>十、参考资料</h2>
+
+<ul>
+<li><a href="https://www.typescriptlang.org/tsconfig">TSConfig Reference</a></li>
+<li><a href="https://www.typescriptlang.org/docs/handbook/project-references.html">TypeScript Handbook - Project References</a></li>
+<li><a href="https://typescript-eslint.io/">typescript-eslint</a></li>
+
+<h2>十一、代码演进</h2>
+
+<h3>v1 → 最小配置</h3>
+
+<pre><code class="language-json">{
+  &quot;compilerOptions&quot;: {
+    &quot;target&quot;: &quot;ES2022&quot;,
+    &quot;module&quot;: &quot;NodeNext&quot;,
+    &quot;outDir&quot;: &quot;./dist&quot;,
+    &quot;strict&quot;: true
+  },
+  &quot;include&quot;: [&quot;src&quot;]
+}</code></pre>
+
+<h3>v2 → 完整配置 + 路径映射</h3>
+
+<pre><code class="language-json">{
+  &quot;extends&quot;: &quot;./tsconfig.base.json&quot;,
+  &quot;compilerOptions&quot;: {
+    &quot;baseUrl&quot;: &quot;.&quot;,
+    &quot;paths&quot;: { &quot;@/*&quot;: [&quot;src/*&quot;] },
+    &quot;noUncheckedIndexedAccess&quot;: true
+  }
+}</code></pre>
+
+<h3>v3 → Monorepo + 项目引用</h3>
+
+<pre><code class="language-json">{
+  &quot;files&quot;: [],
+  &quot;references&quot;: [
+    { &quot;path&quot;: &quot;packages/shared&quot; },
+    { &quot;path&quot;: &quot;packages/server&quot; },
+    { &quot;path&quot;: &quot;packages/web&quot; }
+  ]
+}</code></pre>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

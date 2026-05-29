@@ -1,0 +1,640 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>015 - Node.js入门：Express框架从零到一</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Node.js/index.html">Node.js</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Node.js/01-入门/index.html">Node.js入门</a>
+</nav>
+<h1>015 - Node.js入门：Express框架从零到一</h1>
+<div class="meta">
+<span>📂 Node.js入门</span>
+<span>🏷️ Node.js</span>
+</div>
+<article>
+
+
+<h2>难度标注</h2>
+
+<blockquote><p>🟢 入门级 | 预计学习时间：40分钟 | 前置知识：JavaScript基础、HTTP协议基础</p></blockquote>
+
+<hr>
+
+<h2>概念讲解</h2>
+
+<h3>什么是Express？</h3>
+
+<p>Express是Node.js最流行的Web框架，它基于内置的<code>http</code>模块，提供了更优雅的API来构建Web应用和API服务。如果<code>http</code>模块是手动挡汽车，那Express就是自动挡——底层原理一样，但开起来轻松得多。</p>
+
+<h3>为什么需要Express？</h3>
+
+<p>用原生<code>http</code>模块写路由，代码长这样：</p>
+
+<pre><code class="language-js">if (method === &#x27;GET&#x27; &amp;&amp; url === &#x27;/users&#x27;) { ... }
+else if (method === &#x27;POST&#x27; &amp;&amp; url === &#x27;/users&#x27;) { ... }
+else if (method === &#x27;GET&#x27; &amp;&amp; url.startsWith(&#x27;/users/&#x27;)) { ... }</code></pre>
+
+<p>Express写法：</p>
+
+<pre><code class="language-js">app.get(&#x27;/users&#x27;, handler);
+app.post(&#x27;/users&#x27;, handler);
+app.get(&#x27;/users/:id&#x27;, handler);</code></pre>
+
+<p>清晰、简洁、好维护。这就是框架的价值。</p>
+
+<h3>核心概念</h3>
+
+<table><thead><tr>
+<th>概念</th>
+<th>说明</th>
+</tr></thead><tbody>
+<tr>
+<td><strong>路由（Routing）</strong></td>
+<td>将URL+方法映射到处理函数</td>
+</tr>
+<tr>
+<td><strong>中间件（Middleware）</strong></td>
+<td>请求处理流水线中的一个个处理站</td>
+</tr>
+<tr>
+<td><strong>请求对象（req）</strong></td>
+<td>封装了请求信息，比原生http更丰富</td>
+</tr>
+<tr>
+<td><strong>响应对象（res）</strong></td>
+<td>提供了send/json/render等便捷方法</td>
+</tr>
+</tbody></table>
+
+<h3>中间件模型</h3>
+
+<pre><code>请求 → [日志中间件] → [解析中间件] → [认证中间件] → [路由处理] → 响应
+          │                │               │              │
+        记录日志        解析body        检查token       业务逻辑</code></pre>
+
+<p>每个中间件可以：</p>
+<ul>
+<li>执行代码</li>
+<li>修改req/res对象</li>
+<li>调用<code>next()</code>传递给下一个中间件</li>
+<li>直接结束响应（不调用next）</li>
+
+<hr>
+
+<h2>脑图（ASCII）</h2>
+
+<pre><code>                      ┌──────────────────────┐
+                      │     Express.js        │
+                      └──────────┬───────────┘
+                                 │
+          ┌──────────────────────┼──────────────────────┐
+          │                      │                      │
+   ┌──────┴──────┐      ┌───────┴───────┐      ┌───────┴───────┐
+   │  路由系统    │      │  中间件系统    │      │  请求/响应     │
+   └──────┬──────┘      └───────┬───────┘      └───────┬───────┘
+          │                     │                      │
+   ┌──────┴──────┐      ┌──────┴──────┐       ┌───────┴───────┐
+   │app.get()    │      │app.use()    │       │req.query      │
+   │app.post()   │      │app.use(path)│       │req.params     │
+   │app.put()    │      │第三方中间件   │       │req.body       │
+   │app.delete() │      │错误中间件     │       │res.json()     │
+   │app.all()    │      │router中间件  │       │res.send()     │
+   └─────────────┘      └─────────────┘       │res.status()   │
+                                               │res.redirect() │
+                                               └───────────────┘</code></pre>
+
+<hr>
+
+<h2>完整Node.js代码</h2>
+
+<h3>v1：最简Express应用</h3>
+
+<pre><code class="language-js">// v1-minimal.js - The simplest Express app
+// First: npm init -y &amp;&amp; npm install express
+
+const express = require(&#x27;express&#x27;);
+const app = express();
+const PORT = 3000;
+
+// Route: home page
+app.get(&#x27;/&#x27;, (req, res) =&gt; {
+  res.send(&#x27;Hello Express!&#x27;);
+});
+
+// Route: return JSON
+app.get(&#x27;/api/status&#x27;, (req, res) =&gt; {
+  res.json({ status: &#x27;ok&#x27;, time: new Date().toISOString() });
+});
+
+app.listen(PORT, () =&gt; {
+  console.log(`Express server running at http://localhost:${PORT}`);
+});</code></pre>
+
+<h3>v2：路由 + 中间件 + 请求解析</h3>
+
+<pre><code class="language-js">// v2-routes.js - Express with routes, middleware, and body parsing
+const express = require(&#x27;express&#x27;);
+const app = express();
+const PORT = 3000;
+
+// === Middleware ===
+
+// Built-in: parse JSON body
+app.use(express.json());
+
+// Built-in: parse URL-encoded form data
+app.use(express.urlencoded({ extended: true }));
+
+// Custom middleware: request logger
+app.use((req, res, next) =&gt; {
+  const start = Date.now();
+  res.on(&#x27;finish&#x27;, () =&gt; {
+    const duration = Date.now() - start;
+    console.log(`${req.method} ${req.url} → ${res.statusCode} (${duration}ms)`);
+  });
+  next();
+});
+
+// === Data Store ===
+const todos = [
+  { id: 1, title: &#x27;Learn Express&#x27;, done: false },
+  { id: 2, title: &#x27;Build a project&#x27;, done: false },
+];
+
+// === Routes ===
+
+// List all todos
+app.get(&#x27;/api/todos&#x27;, (req, res) =&gt; {
+  res.json({ data: todos });
+});
+
+// Get single todo
+app.get(&#x27;/api/todos/:id&#x27;, (req, res) =&gt; {
+  const id = parseInt(req.params.id);
+  const todo = todos.find((t) =&gt; t.id === id);
+  if (!todo) return res.status(404).json({ error: &#x27;Todo not found&#x27; });
+  res.json({ data: todo });
+});
+
+// Create todo
+app.post(&#x27;/api/todos&#x27;, (req, res) =&gt; {
+  const { title } = req.body;
+  if (!title) return res.status(400).json({ error: &#x27;Title is required&#x27; });
+
+  const newTodo = {
+    id: todos.length &gt; 0 ? Math.max(...todos.map((t) =&gt; t.id)) + 1 : 1,
+    title,
+    done: false,
+  };
+  todos.push(newTodo);
+  res.status(201).json({ data: newTodo });
+});
+
+// Update todo
+app.put(&#x27;/api/todos/:id&#x27;, (req, res) =&gt; {
+  const id = parseInt(req.params.id);
+  const todo = todos.find((t) =&gt; t.id === id);
+  if (!todo) return res.status(404).json({ error: &#x27;Todo not found&#x27; });
+
+  const { title, done } = req.body;
+  if (title !== undefined) todo.title = title;
+  if (done !== undefined) todo.done = done;
+  res.json({ data: todo });
+});
+
+// Delete todo
+app.delete(&#x27;/api/todos/:id&#x27;, (req, res) =&gt; {
+  const id = parseInt(req.params.id);
+  const index = todos.findIndex((t) =&gt; t.id === id);
+  if (index === -1) return res.status(404).json({ error: &#x27;Todo not found&#x27; });
+  todos.splice(index, 1);
+  res.json({ message: &#x27;Deleted&#x27; });
+});
+
+// Query parameter example: /api/search?q=express
+app.get(&#x27;/api/search&#x27;, (req, res) =&gt; {
+  const { q } = req.query;
+  if (!q) return res.status(400).json({ error: &#x27;Query parameter q is required&#x27; });
+  const results = todos.filter((t) =&gt; t.title.toLowerCase().includes(q.toLowerCase()));
+  res.json({ data: results });
+});
+
+// 404 handler
+app.use((req, res) =&gt; {
+  res.status(404).json({ error: &#x27;Route not found&#x27; });
+});
+
+// Global error handler
+app.use((err, req, res, next) =&gt; {
+  console.error(&#x27;Error:&#x27;, err.message);
+  res.status(500).json({ error: &#x27;Internal server error&#x27; });
+});
+
+app.listen(PORT, () =&gt; {
+  console.log(`Todo API running at http://localhost:${PORT}`);
+});</code></pre>
+
+<h3>v3：模块化架构 + Router</h3>
+
+<pre><code class="language-js">// v3-modular/app.js - Modular Express app with Router
+const express = require(&#x27;express&#x27;);
+const logger = require(&#x27;./middleware/logger&#x27;);
+const errorGuard = require(&#x27;./middleware/errorGuard&#x27;);
+const todosRouter = require(&#x27;./routes/todos&#x27;);
+
+const app = express();
+const PORT = 3000;
+
+// Middleware
+app.use(express.json());
+app.use(logger);
+
+// Routes
+app.use(&#x27;/api/todos&#x27;, todosRouter);
+
+// Health check
+app.get(&#x27;/health&#x27;, (req, res) =&gt; {
+  res.json({ status: &#x27;ok&#x27;, uptime: process.uptime() });
+});
+
+// Error handlers (must be last)
+app.use(errorGuard.notFound);
+app.use(errorGuard.handler);
+
+app.listen(PORT, () =&gt; {
+  console.log(`Server running at http://localhost:${PORT}`);
+});
+
+// --------------------------------------------------
+// v3-modular/middleware/logger.js
+// --------------------------------------------------
+// const logger = (req, res, next) =&gt; {
+//   const start = Date.now();
+//   res.on(&#x27;finish&#x27;, () =&gt; {
+//     console.log(`${req.method} ${req.originalUrl} → ${res.statusCode} (${Date.now() - start}ms)`);
+//   });
+//   next();
+// };
+// module.exports = logger;
+
+// --------------------------------------------------
+// v3-modular/middleware/errorGuard.js
+// --------------------------------------------------
+// const notFound = (req, res, next) =&gt; {
+//   res.status(404).json({ error: `Route ${req.originalUrl} not found` });
+// };
+//
+// const handler = (err, req, res, next) =&gt; {
+//   console.error(`[${new Date().toISOString()}] Error:`, err.message);
+//   const status = err.status || 500;
+//   res.status(status).json({ error: err.message || &#x27;Internal server error&#x27; });
+// };
+//
+// module.exports = { notFound, handler };
+
+// --------------------------------------------------
+// v3-modular/routes/todos.js
+// --------------------------------------------------
+// const express = require(&#x27;express&#x27;);
+// const router = express.Router();
+//
+// let todos = [
+//   { id: 1, title: &#x27;Learn Express&#x27;, done: false },
+//   { id: 2, title: &#x27;Build a project&#x27;, done: false },
+// ];
+//
+// // GET /api/todos
+// router.get(&#x27;/&#x27;, (req, res) =&gt; {
+//   res.json({ data: todos });
+// });
+//
+// // GET /api/todos/:id
+// router.get(&#x27;/:id&#x27;, (req, res) =&gt; {
+//   const todo = todos.find((t) =&gt; t.id === parseInt(req.params.id));
+//   if (!todo) return res.status(404).json({ error: &#x27;Not found&#x27; });
+//   res.json({ data: todo });
+// });
+//
+// // POST /api/todos
+// router.post(&#x27;/&#x27;, (req, res) =&gt; {
+//   const { title } = req.body;
+//   if (!title) return res.status(400).json({ error: &#x27;Title required&#x27; });
+//   const todo = {
+//     id: todos.length &gt; 0 ? Math.max(...todos.map((t) =&gt; t.id)) + 1 : 1,
+//     title, done: false,
+//   };
+//   todos.push(todo);
+//   res.status(201).json({ data: todo });
+// });
+//
+// // PUT /api/todos/:id
+// router.put(&#x27;/:id&#x27;, (req, res) =&gt; {
+//   const todo = todos.find((t) =&gt; t.id === parseInt(req.params.id));
+//   if (!todo) return res.status(404).json({ error: &#x27;Not found&#x27; });
+//   Object.assign(todo, req.body);
+//   res.json({ data: todo });
+// });
+//
+// // DELETE /api/todos/:id
+// router.delete(&#x27;/:id&#x27;, (req, res) =&gt; {
+//   const index = todos.findIndex((t) =&gt; t.id === parseInt(req.params.id));
+//   if (index === -1) return res.status(404).json({ error: &#x27;Not found&#x27; });
+//   todos.splice(index, 1);
+//   res.json({ message: &#x27;Deleted&#x27; });
+// });
+//
+// module.exports = router;</code></pre>
+
+<hr>
+
+<h2>执行预览</h2>
+
+<pre><code class="language-bash">$ npm init -y &amp;&amp; npm install express
+$ node v2-routes.js
+Todo API running at http://localhost:3000
+
+# 另一个终端
+$ curl http://localhost:3000/api/todos
+{&quot;data&quot;:[{&quot;id&quot;:1,&quot;title&quot;:&quot;Learn Express&quot;,&quot;done&quot;:false},{&quot;id&quot;:2,&quot;title&quot;:&quot;Build a project&quot;,&quot;done&quot;:false}]}
+
+$ curl -X POST http://localhost:3000/api/todos \
+  -H &quot;Content-Type: application/json&quot; \
+  -d &#x27;{&quot;title&quot;:&quot;Write tests&quot;}&#x27;
+{&quot;data&quot;:{&quot;id&quot;:3,&quot;title&quot;:&quot;Write tests&quot;,&quot;done&quot;:false}}
+
+$ curl http://localhost:3000/api/todos/1
+{&quot;data&quot;:{&quot;id&quot;:1,&quot;title&quot;:&quot;Learn Express&quot;,&quot;done&quot;:false}}
+
+$ curl http://localhost:3000/api/search?q=learn
+{&quot;data&quot;:[{&quot;id&quot;:1,&quot;title&quot;:&quot;Learn Express&quot;,&quot;done&quot;:false}]}
+
+$ curl -X PUT http://localhost:3000/api/todos/1 \
+  -H &quot;Content-Type: application/json&quot; \
+  -d &#x27;{&quot;done&quot;:true}&#x27;
+{&quot;data&quot;:{&quot;id&quot;:1,&quot;title&quot;:&quot;Learn Express&quot;,&quot;done&quot;:true}}
+
+$ curl -X DELETE http://localhost:3000/api/todos/3
+{&quot;message&quot;:&quot;Deleted&quot;}
+
+# Server log output:
+GET /api/todos → 200 (2ms)
+POST /api/todos → 201 (1ms)
+GET /api/search?q=learn → 200 (1ms)
+PUT /api/todos/1 → 200 (1ms)</code></pre>
+
+<hr>
+
+<h2>注意事项</h2>
+
+<table><thead><tr>
+<th>项目</th>
+<th>说明</th>
+</tr></thead><tbody>
+<tr>
+<td>安装依赖</td>
+<td>Express需要<code>npm install express</code>，不是Node.js内置模块</td>
+</tr>
+<tr>
+<td>中间件顺序</td>
+<td><code>app.use()</code>的顺序很重要，错误中间件必须放在最后</td>
+</tr>
+<tr>
+<td>body解析</td>
+<td>Express 4.16+内置<code>express.json()</code>，不再需要<code>body-parser</code></td>
+</tr>
+<tr>
+<td>路由参数</td>
+<td><code>:id</code>通过<code>req.params.id</code>获取，自动字符串类型，需要<code>parseInt()</code></td>
+</tr>
+<tr>
+<td>查询参数</td>
+<td><code>?q=hello</code>通过<code>req.query.q</code>获取</td>
+</tr>
+<tr>
+<td>错误中间件</td>
+<td>必须有4个参数<code>(err, req, res, next)</code>，Express通过参数数量识别</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>避坑指南</h2>
+
+<table><thead><tr>
+<th>❌ 常见错误</th>
+<th>✅ 正确做法</th>
+</tr></thead><tbody>
+<tr>
+<td><code>req.body</code>是undefined</td>
+<td>在路由之前添加<code>app.use(express.json())</code></td>
+</tr>
+<tr>
+<td>中间件不调用<code>next()</code></td>
+<td>每个中间件必须调用<code>next()</code>（除非要结束响应）</td>
+</tr>
+<tr>
+<td>错误中间件放在路由前面</td>
+<td>错误处理中间件必须放在所有路由之后</td>
+</tr>
+<tr>
+<td><code>res.json()</code>之后还写代码</td>
+<td><code>res.json()</code>/<code>res.send()</code>会结束响应，之后的代码可能不执行</td>
+</tr>
+<tr>
+<td><code>router.get('/:id')</code>匹配了其他路径</td>
+<td>路由定义顺序很重要，具体路径放在参数路由前面</td>
+</tr>
+<tr>
+<td>忘记<code>return res.status(404).json(...)</code></td>
+<td>不return的话代码会继续执行，可能触发"headers already sent"</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>练习题</h2>
+
+<h3>🟢 初级（理解概念）</h3>
+
+<ol>
+<li>创建一个Express应用，有3个路由：<code>/</code>返回"Home"、<code>/about</code>返回"About"、<code>/contact</code>返回"Contact"</li>
+</ul>
+<ol>
+<li>添加一个中间件，在每个请求的响应头中添加<code>X-Powered-By: MyExpress</code></li>
+
+<h3>🟡 中级（动手实践）</h3>
+
+<ol>
+<li>实现一个完整的CRUD API，管理"书签"资源（title + url），包含搜索功能</li>
+</ul>
+<ol>
+<li>写一个认证中间件：检查请求头中的<code>Authorization</code>，如果没有返回401</li>
+
+<h3>🔴 高级（综合挑战）</h3>
+
+<ol>
+<li>用Router模块化重构练习3的API，拆分为routes/middleware/models三个目录</li>
+</ul>
+<ol>
+<li>实现一个简易的请求限流中间件：同一IP每分钟最多60次请求，超出返回429</li>
+
+<hr>
+
+<h2>知识点总结（树状）</h2>
+
+<pre><code>Express.js
+├── 基础
+│   ├── express() → 创建应用实例
+│   ├── app.listen(port) → 启动服务器
+│   └── npm install express → 安装依赖
+├── 路由
+│   ├── app.get(path, handler) → GET路由
+│   ├── app.post(path, handler) → POST路由
+│   ├── app.put/delete/all() → 其他方法
+│   ├── 路径参数 → req.params（:id）
+│   └── 查询参数 → req.query（?key=value）
+├── 中间件
+│   ├── app.use(middleware) → 全局中间件
+│   ├── app.use(path, middleware) → 路径中间件
+│   ├── express.json() → 解析JSON请求体
+│   ├── express.urlencoded() → 解析表单数据
+│   ├── express.static() → 静态文件服务
+│   └── 自定义中间件 → (req, res, next) =&gt; {}
+├── 请求/响应
+│   ├── req.body → 请求体
+│   ├── req.params → 路径参数
+│   ├── req.query → 查询参数
+│   ├── req.headers → 请求头
+│   ├── res.json() → JSON响应
+│   ├── res.send() → 文本响应
+│   ├── res.status() → 设置状态码
+│   └── res.redirect() → 重定向
+└── 模块化
+    ├── express.Router() → 创建路由模块
+    ├── 按功能拆分文件
+    └── 错误处理中间件</code></pre>
+
+<hr>
+
+<h2>举一反三</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>核心思路</th>
+<th>关键API</th>
+</tr></thead><tbody>
+<tr>
+<td>静态网站</td>
+<td>用express.static托管HTML/CSS/JS</td>
+<td><code>app.use(express.static('public'))</code></td>
+</tr>
+<tr>
+<td>REST API</td>
+<td>JSON请求/响应 + 状态码</td>
+<td><code>express.json()</code> + <code>res.json()</code> + <code>res.status()</code></td>
+</tr>
+<tr>
+<td>表单处理</td>
+<td>解析URL-encoded数据</td>
+<td><code>express.urlencoded({ extended: true })</code></td>
+</tr>
+<tr>
+<td>文件上传</td>
+<td>使用multer中间件</td>
+<td><code>const multer = require('multer')</code></td>
+</tr>
+<tr>
+<td>用户认证</td>
+<td>JWT中间件检查token</td>
+<td><code>req.headers.authorization</code> + <code>jsonwebtoken</code></td>
+</tr>
+<tr>
+<td>API跨域</td>
+<td>使用cors中间件</td>
+<td><code>const cors = require('cors'); app.use(cors())</code></td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>参考资料</h2>
+
+<ul>
+<li><a href="https://expressjs.com/">Express.js官方文档</a></li>
+<li><a href="https://expressjs.com/en/guide/routing.html">Express路由指南</a></li>
+<li><a href="https://expressjs.com/en/resources/middleware.html">Express中间件列表</a></li>
+<li><a href="https://developer.mozilla.org/zh-CN/docs/Web/HTTP/Status">MDN - HTTP状态码</a></li>
+
+<hr>
+
+<h2>代码演进</h2>
+
+<pre><code>v1（15行）──── v2（80行）──── v3（模块化）
+ │              │               │
+Hello World    完整CRUD API    Router拆分
+单个路由       中间件+日志      中间件模块化
+无请求解析     错误处理         错误守卫模块
+               查询参数          独立路由文件</code></pre>
+
+<p><strong>v1 → v2 关键变化：</strong> 引入中间件系统、完整CRUD路由、请求体解析、错误处理</p>
+<p><strong>v2 → v3 关键变化：</strong> express.Router()拆分路由、中间件独立文件、错误处理模块化、项目结构规范化</p>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

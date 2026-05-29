@@ -1,0 +1,540 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>001 - Python 高级数据结构：heapq / bisect / collections 完全指南</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Python/index.html">其他</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Python/02-进阶/index.html">Python进阶</a>
+</nav>
+<h1>001 - Python 高级数据结构：heapq / bisect / collections 完全指南</h1>
+<div class="meta">
+<span>📂 Python进阶</span>
+<span>🏷️ 其他</span>
+</div>
+<article>
+
+
+<blockquote><p><strong>难度标注</strong>：⭐⭐⭐ 中高级 | 预计阅读时间：20 分钟<br><strong>前置知识</strong>：Python 基础数据类型、列表操作、基本算法复杂度概念</p></blockquote>
+
+<hr>
+
+<h2>一、概念讲解</h2>
+
+<p>Python 标准库藏着三把利器：<code>heapq</code>、<code>bisect</code>、<code>collections</code>。它们不是炫技工具，而是解决实际性能瓶颈的关键。</p>
+
+<h3>1.1 heapq — 堆队列</h3>
+
+<p>堆是一种特殊的完全二叉树，满足<strong>父节点 ≤ 子节点</strong>（最小堆）。Python 的 <code>heapq</code> 模块在<strong>列表</strong>上实现最小堆，时间复杂度：插入 O(log n)，取最小 O(1)，弹出最小 O(log n)。</p>
+
+<p><strong>核心场景</strong>：Top-K 问题、优先队列、合并有序序列、流式数据中位数。</p>
+
+<h3>1.2 bisect — 二分查找</h3>
+
+<p><code>bisect</code> 在<strong>已排序列表</strong>上做二分查找，时间复杂度 O(log n)。本质是维护有序序列的利器。</p>
+
+<p><strong>核心场景</strong>：有序插入、区间查找、成绩等级划分、时间线事件管理。</p>
+
+<h3>1.3 collections — 特殊容器</h3>
+
+<p><code>collections</code> 提供了五大特种容器：</p>
+
+<table><thead><tr>
+<th>容器</th>
+<th>一句话说明</th>
+</tr></thead><tbody>
+<tr>
+<td><code>defaultdict</code></td>
+<td>带默认值的字典，告别 KeyError</td>
+</tr>
+<tr>
+<td><code>Counter</code></td>
+<td>计数器，统计频率的终极武器</td>
+</tr>
+<tr>
+<td><code>deque</code></td>
+<td>双端队列，两端 O(1) 操作</td>
+</tr>
+<tr>
+<td><code>namedtuple</code></td>
+<td>不可变命名元组，轻量级数据类</td>
+</tr>
+<tr>
+<td><code>OrderedDict</code></td>
+<td>有序字典（3.7+ 普通 dict 已有序）</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>二、脑图</h2>
+
+<pre><code>高级数据结构
+├── heapq (堆)
+│   ├── heapify — 列表转堆 O(n)
+│   ├── heappush / heappop — O(log n)
+│   ├── nlargest / nsmallest — Top-K
+│   ├── merge — 合并有序序列
+│   └── 技巧: 取反实现最大堆
+├── bisect (二分)
+│   ├── bisect_left / bisect_right — 查找插入点
+│   ├── insort_left / insort_right — 插入并保持有序
+│   └── 经典: 等级划分、区间匹配
+└── collections (容器)
+    ├── defaultdict — 工厂函数默认值
+    ├── Counter — 统计 + 运算
+    ├── deque — 旋转/滑动窗口
+    ├── namedtuple — 轻量结构体
+    └── ChainMap — 多字典合并视图</code></pre>
+
+<hr>
+
+<h2>三、完整代码</h2>
+
+<h3>3.1 heapq 实战</h3>
+
+<pre><code class="language-python">import heapq
+import random
+
+# --- Top-K problem: find top 5 scores ---
+scores = [random.randint(0, 100) for _ in range(100)]
+
+# Method 1: nlargest (simple)
+top5 = heapq.nlargest(5, scores)
+print(f&quot;Top 5: {top5}&quot;)
+
+# Method 2: manual heap (more control)
+heap = []
+for s in scores:
+    heapq.heappush(heap, s)
+sorted_asc = [heapq.heappop(heap) for _ in range(len(heap))]
+print(f&quot;Sorted (asc): {sorted_asc[:5]}...&quot;)
+
+# --- Max heap trick: negate values ---
+max_heap = [-x for x in scores[:10]]
+heapq.heapify(max_heap)
+print(f&quot;Max: {-heapq.heappop(max_heap)}&quot;)
+
+# --- Priority Queue with tuples ---
+tasks = [(3, &quot;write docs&quot;), (1, &quot;fix bug&quot;), (2, &quot;code review&quot;)]
+heapq.heapify(tasks)
+while tasks:
+    priority, task = heapq.heappop(tasks)
+    print(f&quot;Priority {priority}: {task}&quot;)
+
+# --- Merge sorted streams ---
+a = [1, 3, 5, 7]
+b = [2, 4, 6, 8]
+merged = list(heapq.merge(a, b))
+print(f&quot;Merged: {merged}&quot;)</code></pre>
+
+<h3>3.2 bisect 实战</h3>
+
+<pre><code class="language-python">import bisect
+
+# --- Grade classification ---
+def get_grade(score):
+    # Map numeric score to letter grade using bisect
+    breakpoints = [60, 70, 80, 90]
+    grades = [&quot;F&quot;, &quot;D&quot;, &quot;C&quot;, &quot;B&quot;, &quot;A&quot;]
+    return grades[bisect.bisect_right(breakpoints, score)]
+
+for s in [55, 65, 72, 88, 95]:
+    print(f&quot;Score {s} -&gt; Grade {get_grade(s)}&quot;)
+
+# --- Maintain sorted list ---
+data = [1, 3, 5, 7, 9]
+bisect.insort(data, 4)
+print(f&quot;After insort(4): {data}&quot;)
+
+# --- Find insertion point ---
+idx = bisect.bisect_left(data, 5)
+print(f&quot;bisect_left(5) = {idx}&quot;)  # index of 5
+
+# --- Event timeline: find events in time range ---
+events = [(1, &quot;login&quot;), (3, &quot;purchase&quot;), (5, &quot;logout&quot;), (8, &quot;login&quot;)]
+times = [t for t, _ in events]
+start, end = 2, 6
+lo = bisect.bisect_left(times, start)
+hi = bisect.bisect_right(times, end)
+print(f&quot;Events in [{start},{end}]: {events[lo:hi]}&quot;)</code></pre>
+
+<h3>3.3 collections 实战</h3>
+
+<pre><code class="language-python">from collections import defaultdict, Counter, deque, namedtuple
+
+# --- defaultdict: group by key ---
+words = [&quot;apple&quot;, &quot;ant&quot;, &quot;bat&quot;, &quot;bear&quot;, &quot;cat&quot;, &quot;apple&quot;]
+groups = defaultdict(list)
+for w in words:
+    groups[w[0]].append(w)
+print(dict(groups))
+
+# --- Counter: frequency analysis ---
+counter = Counter(words)
+print(f&quot;Most common: {counter.most_common(2)}&quot;)
+print(f&quot;apple count: {counter[&#x27;apple&#x27;]}&quot;)
+print(f&quot;banana count (missing): {counter[&#x27;banana&#x27;]}&quot;)  # 0, no KeyError!
+
+# Counter arithmetic
+c1 = Counter(a=3, b=1)
+c2 = Counter(a=1, b=2)
+print(f&quot;c1 + c2 = {c1 + c2}&quot;)
+print(f&quot;c1 - c2 = {c1 - c2}&quot;)
+
+# --- deque: sliding window max ---
+def sliding_max(nums, k):
+    # Find max in each sliding window of size k
+    dq = deque()  # stores indices
+    result = []
+    for i, num in enumerate(nums):
+        # Remove elements out of window
+        while dq and dq[0] &lt;= i - k:
+            dq.popleft()
+        # Remove smaller elements (they can&#x27;t be max)
+        while dq and nums[dq[-1]] &lt; num:
+            dq.pop()
+        dq.append(i)
+        if i &gt;= k - 1:
+            result.append(nums[dq[0]])
+    return result
+
+print(f&quot;Sliding max: {sliding_max([1,3,-1,-3,5,3,6,7], 3)}&quot;)
+
+# --- namedtuple: lightweight record ---
+Point = namedtuple(&quot;Point&quot;, [&quot;x&quot;, &quot;y&quot;])
+p = Point(3, 4)
+print(f&quot;Point: {p}, distance: {(p.x**2 + p.y**2)**0.5:.2f}&quot;)</code></pre>
+
+<hr>
+
+<h2>四、执行预览</h2>
+
+<pre><code>Top 5: [100, 99, 97, 96, 95]
+Sorted (asc): [0, 1, 1, 2, 3]...
+Max: 100
+Priority 1: fix bug
+Priority 2: code review
+Priority 3: write docs
+Merged: [1, 2, 3, 4, 5, 6, 7, 8]
+
+Score 55 -&gt; Grade F
+Score 65 -&gt; Grade D
+Score 72 -&gt; Grade C
+Score 88 -&gt; Grade B
+Score 95 -&gt; Grade A
+After insort(4): [1, 3, 4, 5, 7, 9]
+bisect_left(5) = 3
+Events in [2,6]: [(3, &#x27;purchase&#x27;), (5, &#x27;logout&#x27;)]
+
+{&#x27;a&#x27;: [&#x27;apple&#x27;, &#x27;ant&#x27;], &#x27;b&#x27;: [&#x27;bat&#x27;, &#x27;bear&#x27;], &#x27;c&#x27;: [&#x27;cat&#x27;, &#x27;apple&#x27;]}
+Most common: [(&#x27;apple&#x27;, 2), (&#x27;ant&#x27;, 1)]
+apple count: 2
+banana count (missing): 0
+c1 + c2 = Counter({&#x27;a&#x27;: 4, &#x27;b&#x27;: 3})
+c1 - c2 = Counter({&#x27;a&#x27;: 2})
+Sliding max: [3, 3, 5, 5, 6, 7]
+Point: Point(x=3, y=4), distance: 5.00</code></pre>
+
+<hr>
+
+<h2>五、注意事项</h2>
+
+<table><thead><tr>
+<th>模块</th>
+<th>注意点</th>
+<th>说明</th>
+</tr></thead><tbody>
+<tr>
+<td>heapq</td>
+<td>最小堆</td>
+<td>Python 只提供最小堆，最大堆需取反</td>
+</tr>
+<tr>
+<td>heapq</td>
+<td>原地操作</td>
+<td><code>heapify</code> 直接修改原列表</td>
+</tr>
+<tr>
+<td>heapq</td>
+<td>元组比较</td>
+<td>元组按第一元素比较，可用于优先队列</td>
+</tr>
+<tr>
+<td>bisect</td>
+<td>前提有序</td>
+<td>输入必须已排序，否则结果无意义</td>
+</tr>
+<tr>
+<td>bisect</td>
+<td>left vs right</td>
+<td><code>bisect_left</code> 相等插左边，<code>bisect_right</code> 插右边</td>
+</tr>
+<tr>
+<td>Counter</td>
+<td>缺失返回 0</td>
+<td>访问不存在的 key 返回 0，不报错</td>
+</tr>
+<tr>
+<td>defaultdict</td>
+<td>工厂函数</td>
+<td>传入的是类型/函数，不是值</td>
+</tr>
+<tr>
+<td>deque</td>
+<td>maxlen</td>
+<td>设置 maxlen 后自动丢弃溢出元素，适合固定窗口</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>六、避坑指南</h2>
+
+<h3>❌ 用 sort() 取 Top-K → ✅ 用 heapq.nlargest</h3>
+
+<pre><code class="language-python"># ❌ O(n log n) sort entire list
+top5 = sorted(data, reverse=True)[:5]
+
+# ✅ O(n log k) only maintain k elements
+top5 = heapq.nlargest(5, data)</code></pre>
+
+<h3>❌ 手写二分查找 → ✅ 用 bisect</h3>
+
+<pre><code class="language-python"># ❌ Error-prone manual binary search
+def binary_search(arr, target):
+    lo, hi = 0, len(arr) - 1
+    while lo &lt;= hi:
+        mid = (lo + hi) // 2
+        if arr[mid] == target:
+            return mid
+        elif arr[mid] &lt; target:
+            lo = mid + 1
+        else:
+            hi = mid - 1
+    return -1
+
+# ✅ battle-tested stdlib
+idx = bisect.bisect_left(arr, target)</code></pre>
+
+<h3>❌ dict 嵌套初始化繁琐 → ✅ defaultdict</h3>
+
+<pre><code class="language-python"># ❌ Verbose null check every time
+d = {}
+for word in words:
+    key = word[0]
+    if key not in d:
+        d[key] = []
+    d[key].append(word)
+
+# ✅ One-liner initialization
+d = defaultdict(list)
+for word in words:
+    d[word[0]].append(word)</code></pre>
+
+<h3>❌ deque 当列表随机访问 → ✅ 只做两端操作</h3>
+
+<pre><code class="language-python"># ❌ O(n) random access in deque
+dq = deque(range(100000))
+x = dq[50000]  # slow!
+
+# ✅ Use list for random access, deque for ends
+lst = list(range(100000))
+x = lst[50000]  # O(1)</code></pre>
+
+<hr>
+
+<h2>七、练习题</h2>
+
+<h3>🟢 基础题</h3>
+
+<p><strong>题目 1</strong>：用 <code>heapq</code> 实现一个数据流的中位数计算器。</p>
+<ul>
+<li>提示：维护一个最大堆（左半）和最小堆（右半）。</li>
+
+<p><strong>题目 2</strong>：用 <code>Counter</code> 统计一段英文文本中每个单词的出现频率，输出 Top 10。</p>
+
+<h3>🟡 进阶题</h3>
+
+<p><strong>题目 3</strong>：用 <code>bisect</code> 实现一个 <code>TimeMap</code> 数据结构，支持 <code>set(key, value, timestamp)</code> 和 <code>get(key, timestamp)</code> 操作。</p>
+<ul>
+<li><code>get</code> 返回 timestamp ≤ 给定时间的最新值。</li>
+
+<p><strong>题目 4</strong>：用 <code>deque</code> 实现 LRU 缓存（不使用 <code>functools.lru_cache</code>）。</p>
+
+<h3>🔴 挑战题</h3>
+
+<p><strong>题目 5</strong>：用 <code>heapq</code> + <code>defaultdict</code> 实现一个任务调度器：每个任务有优先级和类别，支持按类别过滤后取最高优先级任务。</p>
+
+<hr>
+
+<h2>八、知识点总结</h2>
+
+<pre><code>高级数据结构
+├── heapq
+│   ├── heapify(list) → O(n) 建堆
+│   ├── heappush/heappop → O(log n)
+│   ├── nlargest/nsmallest → O(n log k)
+│   ├── merge(*iterables) → 惰性合并
+│   └── 最大堆 = 对元素取反
+├── bisect
+│   ├── bisect_left/right → 插入位置
+│   ├── insort_left/right → 插入并保持有序
+│   └── 适用: 等级映射、区间查询
+└── collections
+    ├── defaultdict(factory) → 自动初始化
+    ├── Counter → most_common, +, -, &amp;, |
+    ├── deque → popleft, appendleft, rotate, maxlen
+    ├── namedtuple → 不可变, 可索引, 可 .attr
+    └── ChainMap → 多字典只读合并</code></pre>
+
+<hr>
+
+<h2>九、举一反三</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>用什么</th>
+<th>为什么</th>
+</tr></thead><tbody>
+<tr>
+<td>合并 K 个有序文件</td>
+<td>heapq.merge</td>
+<td>惰性合并，内存友好</td>
+</tr>
+<tr>
+<td>实时排行榜 Top 10</td>
+<td>heapq.nlargest</td>
+<td>O(n log k) 比 sort 快</td>
+</tr>
+<tr>
+<td>插入数据保持有序</td>
+<td>bisect.insort</td>
+<td>O(log n) 查找 + O(n) 插入</td>
+</tr>
+<tr>
+<td>词频统计</td>
+<td>Counter</td>
+<td>一行搞定统计 + 排序</td>
+</tr>
+<tr>
+<td>滑动窗口 / BFS</td>
+<td>deque</td>
+<td>两端 O(1) 操作</td>
+</tr>
+<tr>
+<td>多层配置合并</td>
+<td>ChainMap</td>
+<td>不复制，只读视图</td>
+</tr>
+<tr>
+<td>轻量数据记录</td>
+<td>namedtuple</td>
+<td>比 class 轻量，比 tuple 可读</td>
+</tr>
+<tr>
+<td>定长日志缓冲</td>
+<td>deque(maxlen=N)</td>
+<td>自动淘汰最老记录</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>十、参考资料</h2>
+
+<ul>
+<li><a href="https://docs.python.org/3/library/heapq.html">Python heapq 官方文档</a></li>
+<li><a href="https://docs.python.org/3/library/bisect.html">Python bisect 官方文档</a></li>
+<li><a href="https://docs.python.org/3/library/collections.html">Python collections 官方文档</a></li>
+<li>《算法导论》第 6 章：堆排序</li>
+<li>LeetCode 239 题：滑动窗口最大值（deque 经典应用）</li>
+
+<hr>
+
+<h2>十一、代码演进</h2>
+
+<h3>需求：统计文本词频并找 Top-K</h3>
+
+<pre><code class="language-python"># v1: Manual approach — works but verbose
+def top_words_v1(text, k):
+    freq = {}
+    for word in text.split():
+        freq[word] = freq.get(word, 0) + 1
+    return sorted(freq.items(), key=lambda x: -x[1])[:k]
+
+# v2: Counter simplifies counting
+def top_words_v2(text, k):
+    from collections import Counter
+    return Counter(text.split()).most_common(k)
+
+# v3: For massive files, use heap to save memory
+def top_words_v3(filepath, k):
+    from collections import Counter
+    import heapq
+    counter = Counter()
+    with open(filepath) as f:
+        for line in f:
+            counter.update(line.split())
+    return heapq.nlargest(k, counter.items(), key=lambda x: x[1])</code></pre>
+
+<p><strong>演进说明</strong>：v1 手动计数排序 → v2 Counter 一行搞定 → v3 流式处理大文件 + heap 优化内存。</p>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

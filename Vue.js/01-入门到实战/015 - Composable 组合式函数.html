@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>015 - Composable 组合式函数</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Vue.js/index.html">Vue.js</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Vue.js/01-入门到实战/index.html">Vue.js入门到实战</a>
+</nav>
+<h1>015 - Composable 组合式函数</h1>
+<div class="meta">
+<span>📂 Vue.js入门到实战</span>
+<span>🏷️ Vue.js</span>
+</div>
+<article>
+
+
+<h1>053-Composable 组合式函数</h1>
+
+<blockquote><p><strong>难度标注：</strong> 🟡 中级 | <strong>前置知识：</strong> Vue 3 组合式 API、ref/reactive/computed</p></blockquote>
+
+<hr>
+
+<h2>一、概念讲解</h2>
+
+<p>Composable 是 Vue 3 中<strong>提取和复用有状态逻辑</strong>的标准方式。它本质上是一个函数，使用了 Vue 的组合式 API（ref、computed、watch 等），返回响应式状态和方法。</p>
+
+<pre><code class="language-javascript">export function useCounter(initialValue = 0) {
+  const count = ref(initialValue)
+  const doubled = computed(() =&gt; count.value * 2)
+  function increment() { count.value++ }
+  function decrement() { count.value-- }
+  function reset() { count.value = initialValue }
+  return { count, doubled, increment, decrement, reset }
+}
+
+const { count, doubled, increment } = useCounter(10)</code></pre>
+
+<hr>
+
+<h2>二、脑图（ASCII）</h2>
+
+<pre><code>Composables 组合式函数
+├── 基础模式
+│   ├── use 函数命名
+│   ├── ref/reactive 管理状态
+│   ├── computed 派生状态
+│   ├── watch 监听变化
+│   └── 返回 { state, methods }
+├── 常见类型
+│   ├── 状态封装（useCounter）
+│   ├── 异步操作（useFetch）
+│   ├── DOM 相关（useMouse）
+│   ├── 事件监听（useEventListener）
+│   └── 表单逻辑（useForm）
+├── 最佳实践
+│   ├── 接受 ref 作为参数
+│   ├── 副作用清理（onUnmounted）
+│   └── 返回 ref 方便解构
+└── 限制
+    ├── 只在 setup 中调用
+    └── 不能在普通函数中调用</code></pre>
+
+<hr>
+
+<h2>三、完整代码示例</h2>
+
+<pre><code class="language-javascript">// composables/useFetch.js
+import { ref, watchEffect, toValue } from &#x27;vue&#x27;
+
+export function useFetch(url) {
+  const data = ref(null)
+  const error = ref(null)
+  const loading = ref(false)
+
+  async function fetchData() {
+    loading.value = true
+    error.value = null
+    try {
+      const res = await fetch(toValue(url))
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      data.value = await res.json()
+    } catch (err) {
+      error.value = err.message
+    } finally {
+      loading.value = false
+    }
+  }
+
+  watchEffect(() =&gt; { toValue(url) &amp;&amp; fetchData() })
+  return { data, error, loading, refresh: fetchData }
+}</code></pre>
+
+<pre><code class="language-javascript">// composables/useMouse.js
+import { ref, onMounted, onUnmounted } from &#x27;vue&#x27;
+
+export function useMouse() {
+  const x = ref(0)
+  const y = ref(0)
+
+  function update(event) {
+    x.value = event.pageX
+    y.value = event.pageY
+  }
+
+  onMounted(() =&gt; window.addEventListener(&#x27;mousemove&#x27;, update))
+  onUnmounted(() =&gt; window.removeEventListener(&#x27;mousemove&#x27;, update))
+
+  return { x, y }
+}</code></pre>
+
+<pre><code class="language-javascript">// composables/useLocalStorage.js
+import { ref, watch } from &#x27;vue&#x27;
+
+export function useLocalStorage(key, defaultValue) {
+  const stored = localStorage.getItem(key)
+  const data = ref(stored ? JSON.parse(stored) : defaultValue)
+
+  watch(data, (newVal) =&gt; {
+    localStorage.setItem(key, JSON.stringify(newVal))
+  }, { deep: true })
+
+  return data
+}</code></pre>
+
+<pre><code class="language-vue">&lt;!-- App.vue --&gt;
+&lt;template&gt;
+  &lt;div&gt;
+    &lt;h2&gt;Composable Demo&lt;/h2&gt;
+    &lt;p&gt;Mouse: {{ mouse.x }}, {{ mouse.y }}&lt;/p&gt;
+
+    &lt;div v-if=&quot;users.loading&quot;&gt;Loading...&lt;/div&gt;
+    &lt;div v-else-if=&quot;users.error&quot;&gt;Error: {{ users.error }}&lt;/div&gt;
+    &lt;ul v-else&gt;
+      &lt;li v-for=&quot;user in users.data&quot; :key=&quot;user.id&quot;&gt;{{ user.name }}&lt;/li&gt;
+    &lt;/ul&gt;
+    &lt;button @click=&quot;users.refresh()&quot;&gt;Refresh&lt;/button&gt;
+
+    &lt;input v-model=&quot;note&quot; placeholder=&quot;Auto-saved note&quot; /&gt;
+  &lt;/div&gt;
+&lt;/template&gt;
+
+&lt;script setup&gt;
+import { useMouse } from &#x27;./composables/useMouse&#x27;
+import { useFetch } from &#x27;./composables/useFetch&#x27;
+import { useLocalStorage } from &#x27;./composables/useLocalStorage&#x27;
+
+const mouse = useMouse()
+const users = useFetch(&#x27;https://jsonplaceholder.typicode.com/users&#x27;)
+const note = useLocalStorage(&#x27;my-note&#x27;, &#x27;&#x27;)
+&lt;/script&gt;</code></pre>
+
+<hr>
+
+<h2>四、执行预览</h2>
+
+<pre><code>Composable Demo
+
+Mouse: 842, 356
+
+• Leanne Graham
+• Ervin Howell
+• Clementine Bauch
+[Refresh]
+
+[Auto-saved note         ]</code></pre>
+
+<hr>
+
+<h2>五、注意事项</h2>
+
+<table><thead><tr>
+<th>事项</th>
+<th>说明</th>
+<th>建议</th>
+</tr></thead><tbody>
+<tr>
+<td>参数类型</td>
+<td>接受 ref 或 getter 更灵活</td>
+<td>用 <code>toValue()</code> 统一处理</td>
+</tr>
+<tr>
+<td>副作用清理</td>
+<td>onUnmounted 中清理监听/定时器</td>
+<td>避免内存泄漏</td>
+</tr>
+<tr>
+<td>返回值</td>
+<td>返回 ref 而非 reactive</td>
+<td>方便解构，保持响应性</td>
+</tr>
+<tr>
+<td>调用位置</td>
+<td>只在 setup 或 composable 中</td>
+<td>不在回调中直接调用</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>六、避坑指南</h2>
+
+<table><thead><tr>
+<th>❌ 错误做法</th>
+<th>✅ 正确做法</th>
+</tr></thead><tbody>
+<tr>
+<td>在普通函数中调用 ref/watch</td>
+<td>只在 setup 或 composable 中调用</td>
+</tr>
+<tr>
+<td>返回 reactive 对象</td>
+<td>返回 ref，方便解构保持响应</td>
+</tr>
+<tr>
+<td>忘记清理副作用</td>
+<td>onUnmounted 中 removeEventListener</td>
+</tr>
+<tr>
+<td>直接修改传入的 ref</td>
+<td>只读取，修改通过返回的方法</td>
+</tr>
+<tr>
+<td>composable 中创建全局变量</td>
+<td>状态在函数内部创建</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>七、练习题</h2>
+
+<h3>🟢 基础</h3>
+<ol>
+<li>创建 <code>useToggle</code> composable，管理布尔值切换。</li>
+</ul>
+<ol>
+<li>创建 <code>useWindowSize</code> composable，返回 window 的宽高。</li>
+
+<h3>🟡 进阶</h3>
+<ol>
+<li>创建 <code>useDebounce</code> composable，包装任意函数实现防抖。</li>
+</ul>
+<ol>
+<li>创建 <code>useIntersectionObserver</code> composable，检测元素是否可见。</li>
+
+<h3>🔴 挑战</h3>
+<ol>
+<li>创建 <code>useAsyncQueue</code> composable，管理异步任务串行队列。</li>
+
+<hr>
+
+<h2>八、知识点总结</h2>
+
+<pre><code>Composable
+├── 核心原则
+│   ├── use 前缀命名
+│   ├── 接受 ref/getter 参数
+│   ├── 返回 { state, methods }
+│   └── 自动清理副作用
+├── 常用 API
+│   ├── ref / reactive / computed
+│   ├── watch / watchEffect
+│   ├── onMounted / onUnmounted
+│   └── toValue / toRefs
+└── VueUse 库
+    └── 200+ 实用 composables</code></pre>
+
+<hr>
+
+<h2>九、举一反三</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>Composable</th>
+<th>核心功能</th>
+</tr></thead><tbody>
+<tr>
+<td>鼠标跟踪</td>
+<td>useMouse</td>
+<td>实时获取鼠标坐标</td>
+</tr>
+<tr>
+<td>数据请求</td>
+<td>useFetch</td>
+<td>自动请求+缓存+重试</td>
+</tr>
+<tr>
+<td>本地存储</td>
+<td>useLocalStorage</td>
+<td>ref 双向绑定 localStorage</td>
+</tr>
+<tr>
+<td>表单验证</td>
+<td>useForm</td>
+<td>验证规则+错误信息</td>
+</tr>
+<tr>
+<td>分页</td>
+<td>useOffsetPagination</td>
+<td>分页计算+翻页方法</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>十、参考资料</h2>
+
+<ul>
+<li><a href="https://vuejs.org/guide/reusability/composables.html">Vue 3 Composables 官方文档</a></li>
+<li><a href="https://vueuse.org/">VueUse</a></li>
+
+<hr>
+
+<h2>十一、代码演进</h2>
+
+<h3>v1 - 简单状态封装</h3>
+<pre><code class="language-javascript">export function useCounter(init = 0) {
+  const count = ref(init)
+  return { count, increment: () =&gt; count.value++ }
+}</code></pre>
+
+<h3>v2 - 异步 + 生命周期</h3>
+<pre><code class="language-javascript">export function useFetch(url) {
+  const data = ref(null)
+  const loading = ref(false)
+  watchEffect(async () =&gt; {
+    loading.value = true
+    data.value = await fetch(toValue(url)).then(r =&gt; r.json())
+    loading.value = false
+  })
+  return { data, loading }
+}</code></pre>
+
+<h3>v3 - TypeScript + 完整类型</h3>
+<pre><code class="language-typescript">interface UseFetchReturn&lt;T&gt; {
+  data: Ref&lt;T | null&gt;
+  error: Ref&lt;string | null&gt;
+  loading: Ref&lt;boolean&gt;
+  refresh: () =&gt; Promise&lt;void&gt;
+}
+export function useFetch&lt;T&gt;(url: MaybeRefOrGetter&lt;string&gt;): UseFetchReturn&lt;T&gt;</code></pre>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

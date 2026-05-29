@@ -1,0 +1,634 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>011 - Swoole 协程(Coroutine)基础：从原理到实战</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Swoole/index.html">Swoole</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Swoole/01-从入门到精通/index.html">Swoole从入门到精通</a>
+</nav>
+<h1>011 - Swoole 协程(Coroutine)基础：从原理到实战</h1>
+<div class="meta">
+<span>📂 Swoole从入门到精通</span>
+<span>🏷️ Swoole</span>
+</div>
+<article>
+
+
+<h2>难度标注</h2>
+
+<blockquote><p>⭐⭐☆☆☆ 中级入门</p></blockquote>
+
+<p><strong>前置知识：</strong> PHP 基础、同步/异步概念、基础网络编程</p>
+<p><strong>预计学习时间：</strong> 45 分钟</p>
+
+<hr>
+
+<h2>概念讲解</h2>
+
+<h3>什么是协程？</h3>
+
+<p>协程（Coroutine）是一种<strong>用户态的轻量级线程</strong>。与操作系统内核调度的线程不同，协程由程序自身控制调度，切换开销极小。</p>
+
+<p><strong>类比理解：</strong></p>
+<ul>
+<li><strong>进程</strong> = 一个工厂（独立内存空间，创建成本高）</li>
+<li><strong>线程</strong> = 一条流水线（共享工厂资源，操作系统调度）</li>
+<li><strong>协程</strong> = 流水线上的工人协作（共享流水线资源，程序自行调度）</li>
+
+<h3>Swoole 协程的核心优势</h3>
+
+<table><thead><tr>
+<th>特性</th>
+<th>传统 PHP-FPM</th>
+<th>Swoole 协程</th>
+</tr></thead><tbody>
+<tr>
+<td>并发模型</td>
+<td>多进程阻塞</td>
+<td>单线程协程</td>
+</tr>
+<tr>
+<td>单进程并发量</td>
+<td>~100</td>
+<td>~100,000+</td>
+</tr>
+<tr>
+<td>上下文切换成本</td>
+<td>~1-10μs</td>
+<td>~0.3μs</td>
+</tr>
+<tr>
+<td>内存占用</td>
+<td>~数MB/进程</td>
+<td>~数KB/协程</td>
+</tr>
+<tr>
+<td>代码复杂度</td>
+<td>简单（同步写法）</td>
+<td>简单（同步写法+协程）</td>
+</tr>
+</tbody></table>
+
+<h3>协程生命周期</h3>
+
+<pre><code>创建(crear) → 运行(running) → 挂起(suspended) → 恢复(resume) → 结束(dead)</code></pre>
+
+<ol>
+<li><strong>创建</strong>：调用 <code>Swoole\Coroutine\run()</code> 或 <code>go()</code> 创建协程</li>
+</ul>
+<ol>
+<li><strong>运行</strong>：协程获得 CPU 时间片，执行代码</li>
+</ul>
+<ol>
+<li><strong>挂起</strong>：遇到 I/O 操作（MySQL查询、HTTP请求等），自动让出 CPU</li>
+</ul>
+<ol>
+<li><strong>恢复</strong>：I/O 完成后，调度器恢复协程继续执行</li>
+</ul>
+<ol>
+<li><strong>结束</strong>：协程函数执行完毕，自动回收资源</li>
+
+<hr>
+
+<h2>脑图（ASCII）</h2>
+
+<pre><code>Swoole 协程基础
+├── 核心概念
+│   ├── 用户态轻量级线程
+│   ├── 协作式调度（非抢占式）
+│   └── 同步编码，异步执行
+├── 基础 API
+│   ├── go() / Coroutine::create()
+│   ├── Coroutine::run()
+│   ├── Coroutine::sleep()
+│   ├── Coroutine::yield() / resume()
+│   └── Coroutine::getCid()
+├── 协程调度
+│   ├── 事件驱动 (EventLoop)
+│   ├── I/O 自动挂起/恢复
+│   └── 协程切换时机
+├── 协程上下文
+│   ├── CID（协程ID）
+│   ├── 协程栈
+│   └── 协程局部存储
+└── 实战应用
+    ├── 并发 HTTP 请求
+    ├── 并发数据库查询
+    └── 协程间通信（Channel）</code></pre>
+
+<hr>
+
+<h2>完整代码示例</h2>
+
+<h3>示例 1：协程基本创建与执行</h3>
+
+<pre><code class="language-php">&lt;?php
+// 011_coroutine_basics.php
+// Basic coroutine creation and execution
+
+use Swoole\Coroutine;
+use function Swoole\Coroutine\run;
+
+// Method 1: Using run() as entry point
+run(function () {
+    echo &quot;[Main] Start\n&quot;;
+    
+    // Get current coroutine ID
+    $cid = Coroutine::getCid();
+    echo &quot;[Main] CID = {$cid}\n&quot;;
+    
+    // Create child coroutines using go()
+    go(function () {
+        $cid = Coroutine::getCid();
+        echo &quot;[Coroutine-1] Started, CID = {$cid}\n&quot;;
+        Coroutine::sleep(0.1); // Non-blocking sleep
+        echo &quot;[Coroutine-1] Finished\n&quot;;
+    });
+    
+    go(function () {
+        $cid = Coroutine::getCid();
+        echo &quot;[Coroutine-2] Started, CID = {$cid}\n&quot;;
+        Coroutine::sleep(0.05);
+        echo &quot;[Coroutine-2] Finished\n&quot;;
+    });
+    
+    echo &quot;[Main] All coroutines launched\n&quot;;
+});
+
+echo &quot;[Outside] Program ended\n&quot;;</code></pre>
+
+<h3>示例 2：协程并发 HTTP 请求</h3>
+
+<pre><code class="language-php">&lt;?php
+// 011_concurrent_requests.php
+// Concurrent HTTP requests using coroutines
+
+use Swoole\Coroutine;
+use function Swoole\Coroutine\run;
+
+run(function () {
+    $urls = [
+        &#x27;https://httpbin.org/get?id=1&#x27;,
+        &#x27;https://httpbin.org/get?id=2&#x27;,
+        &#x27;https://httpbin.org/get?id=3&#x27;,
+    ];
+    
+    $results = [];
+    $startTime = microtime(true);
+    
+    foreach ($urls as $i =&gt; $url) {
+        go(function () use ($url, $i, &amp;$results) {
+            $client = new Coroutine\Http\Client(&#x27;httpbin.org&#x27;, 443, true);
+            $client-&gt;get(&#x27;/get?id=&#x27; . ($i + 1));
+            $results[$i] = $client-&gt;body;
+            $client-&gt;close();
+            echo &quot;[Coroutine] Request {$i} completed\n&quot;;
+        });
+    }
+    
+    // Wait for all coroutines to finish
+    Coroutine::sleep(3);
+    
+    $elapsed = round(microtime(true) - $startTime, 3);
+    echo &quot;\n=== Results ===\n&quot;;
+    echo &quot;Total time: {$elapsed}s\n&quot;;
+    echo &quot;Completed requests: &quot; . count($results) . &quot;\n&quot;;
+});</code></pre>
+
+<h3>示例 3：协程调度顺序验证</h3>
+
+<pre><code class="language-php">&lt;?php
+// 011_schedule_order.php
+// Understanding coroutine scheduling order
+
+use Swoole\Coroutine;
+use function Swoole\Coroutine\run;
+
+run(function () {
+    echo &quot;Step 1: Main coroutine start\n&quot;;
+    
+    go(function () {
+        echo &quot;Step 3: Coroutine A start\n&quot;;
+        Coroutine::sleep(0.01);
+        echo &quot;Step 6: Coroutine A resumed\n&quot;;
+    });
+    
+    echo &quot;Step 2: After creating Coroutine A\n&quot;;
+    
+    go(function () {
+        echo &quot;Step 4: Coroutine B start\n&quot;;
+        Coroutine::sleep(0.005);
+        echo &quot;Step 5: Coroutine B resumed\n&quot;;
+    });
+    
+    echo &quot;Step 7: Main coroutine continues\n&quot;;
+    Coroutine::sleep(0.02); // Let all coroutines finish
+    echo &quot;Step 8: Main coroutine end\n&quot;;
+});</code></pre>
+
+<hr>
+
+<h2>执行预览</h2>
+
+<h3>示例 1 输出</h3>
+
+<pre><code>$ php 011_coroutine_basics.php
+[Main] Start
+[Main] CID = 1
+[Coroutine-1] Started, CID = 2
+[Coroutine-2] Started, CID = 3
+[Main] All coroutines launched
+[Coroutine-2] Finished
+[Coroutine-1] Finished
+[Outside] Program ended</code></pre>
+
+<h3>示例 3 输出（调度顺序）</h3>
+
+<pre><code>$ php 011_schedule_order.php
+Step 1: Main coroutine start
+Step 3: Coroutine A start
+Step 2: After creating Coroutine A
+Step 4: Coroutine B start
+Step 7: Main coroutine continues
+Step 5: Coroutine B resumed
+Step 6: Coroutine A resumed
+Step 8: Main coroutine end</code></pre>
+
+<p><strong>关键观察：</strong></p>
+<ol>
+<li>协程创建后<strong>立即开始执行</strong>，不是等到当前协程结束</li>
+</ul>
+<ol>
+<li>遇到 I/O（<code>sleep</code>）时自动挂起，让其他协程运行</li>
+</ul>
+<ol>
+<li>I/O 完成后按<strong>完成顺序</strong>恢复执行</li>
+
+<hr>
+
+<h2>注意事项</h2>
+
+<table><thead><tr>
+<th>项目</th>
+<th>说明</th>
+<th>严重程度</th>
+</tr></thead><tbody>
+<tr>
+<td>协程内禁止使用阻塞函数</td>
+<td><code>sleep()</code>, <code>file_get_contents()</code> 等会阻塞整个进程</td>
+<td>🔴 严重</td>
+</tr>
+<tr>
+<td>go() 必须在协程环境中调用</td>
+<td>需要先有 <code>run()</code> 或 <code>Coroutine::create()</code> 创建环境</td>
+<td>🟡 中等</td>
+</tr>
+<tr>
+<td>协程间变量共享有风险</td>
+<td>使用引用传参时需注意竞态条件</td>
+<td>🟡 中等</td>
+</tr>
+<tr>
+<td>协程数量上限</td>
+<td>默认最大协程数受 <code>max_coro_num</code> 配置限制</td>
+<td>🟢 一般</td>
+</tr>
+<tr>
+<td>主协程退出 = 进程退出</td>
+<td>主协程（CID=1）结束，所有子协程被销毁</td>
+<td>🔴 严重</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>避坑指南</h2>
+
+<h3>❌ 使用 PHP 原生 sleep</h3>
+<pre><code class="language-php">// WRONG: Blocks the entire process
+sleep(1); 
+echo &#x27;This blocks everything!&#x27;;</code></pre>
+
+<h3>✅ 使用协程专用 sleep</h3>
+<pre><code class="language-php">// CORRECT: Non-blocking, yields to other coroutines
+use Swoole\Coroutine;
+Coroutine::sleep(1);
+echo &#x27;Other coroutines can run during this time!&#x27;;</code></pre>
+
+<hr>
+
+<h3>❌ 协程外直接调用 go()</h3>
+<pre><code class="language-php">// WRONG: No coroutine context
+go(function () {
+    echo &#x27;This will fail!&#x27;;
+});</code></pre>
+
+<h3>✅ 先创建协程环境</h3>
+<pre><code class="language-php">// CORRECT: Create runtime first
+use function Swoole\Coroutine\run;
+run(function () {
+    go(function () {
+        echo &#x27;Works perfectly!&#x27;;
+    });
+});</code></pre>
+
+<hr>
+
+<h3>❌ 协程间直接共享可变状态</h3>
+<pre><code class="language-php">// WRONG: Race condition
+$counter = 0;
+go(function () use (&amp;$counter) {
+    for ($i = 0; $i &lt; 1000; $i++) $counter++;
+});
+go(function () use (&amp;$counter) {
+    for ($i = 0; $i &lt; 1000; $i++) $counter++;
+});
+// $counter might not be 2000!</code></pre>
+
+<h3>✅ 使用 Channel 或原子操作通信</h3>
+<pre><code class="language-php">// CORRECT: Use Channel for communication
+use Swoole\Coroutine\Channel;
+$chan = new Channel(1);
+go(function () use ($chan) {
+    $chan-&gt;push(1000);
+});
+go(function () use ($chan) {
+    $chan-&gt;push(1000);
+});</code></pre>
+
+<hr>
+
+<h2>练习题</h2>
+
+<h3>🟢 初级</h3>
+
+<ol>
+<li>创建 3 个协程，每个协程打印自己的 CID 和一条消息</li>
+</ul>
+<ol>
+<li>使用 <code>Coroutine::sleep()</code> 让 3 个协程按不同时间间隔输出，观察执行顺序</li>
+
+<h3>🟡 中级</h3>
+
+<ol>
+<li>实现一个并发的 DNS 解析器：同时解析 5 个域名，收集所有结果后输出</li>
+</ul>
+<ol>
+<li>创建一个协程，在协程内使用 <code>Coroutine::yield()</code> 手动挂起，然后在另一个协程中使用 <code>Coroutine::resume()</code> 恢复它</li>
+
+<h3>🔴 高级</h3>
+
+<ol>
+<li>实现一个简单的协程池：限制最多同时运行 N 个协程，多余的任务排队等待</li>
+
+<p><details></p>
+<p><summary>参考答案（题5）</summary></p>
+
+<pre><code class="language-php">&lt;?php
+use Swoole\Coroutine;
+use Swoole\Coroutine\Channel;
+use function Swoole\Coroutine\run;
+
+run(function () {
+    $poolSize = 3;
+    $queue = new Channel($poolSize);
+    $total = 10;
+    $done = new Channel($total);
+    
+    // Fill the pool semaphore
+    for ($i = 0; $i &lt; $poolSize; $i++) {
+        $queue-&gt;push(true);
+    }
+    
+    for ($i = 0; $i &lt; $total; $i++) {
+        go(function () use ($i, $queue, $done) {
+            $queue-&gt;pop(); // Wait for slot
+            echo &quot;Task {$i} started\n&quot;;
+            Coroutine::sleep(rand(1, 3) * 0.1);
+            echo &quot;Task {$i} done\n&quot;;
+            $queue-&gt;push(true); // Release slot
+            $done-&gt;push($i);
+        });
+    }
+    
+    for ($i = 0; $i &lt; $total; $i++) {
+        $done-&gt;pop();
+    }
+    echo &quot;All tasks completed!\n&quot;;
+});</code></pre>
+
+<p></details></p>
+
+<hr>
+
+<h2>知识点总结（树状）</h2>
+
+<pre><code>Swoole 协程基础
+├── 什么是协程
+│   ├── 用户态轻量级线程
+│   ├── 协作式调度
+│   └── 对比进程/线程
+├── 核心 API
+│   ├── run() — 创建协程运行环境
+│   ├── go() — 创建新协程
+│   ├── Coroutine::getCid() — 获取当前协程ID
+│   ├── Coroutine::sleep() — 非阻塞休眠
+│   └── Coroutine::yield()/resume() — 手动挂起/恢复
+├── 调度机制
+│   ├── 事件驱动 (EventLoop)
+│   ├── I/O 触发自动挂起
+│   └── I/O 完成自动恢复
+└── 实战要点
+    ├── 替换阻塞函数为协程版本
+    ├── 协程间用 Channel 通信
+    └── 主协程退出 = 进程退出</code></pre>
+
+<hr>
+
+<h2>举一反三</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>传统方式</th>
+<th>协程方式</th>
+<th>性能提升</th>
+</tr></thead><tbody>
+<tr>
+<td>10个HTTP请求</td>
+<td>串行 ~10s</td>
+<td>并发 ~1s</td>
+<td>~10x</td>
+</tr>
+<tr>
+<td>100个DB查询</td>
+<td>连接池+串行</td>
+<td>协程并发</td>
+<td>~Nx</td>
+</tr>
+<tr>
+<td>文件读取</td>
+<td>file_get_contents阻塞</td>
+<td>Coroutine::readFile</td>
+<td>非阻塞</td>
+</tr>
+<tr>
+<td>定时任务</td>
+<td>sleep循环</td>
+<td>Coroutine::sleep</td>
+<td>不阻塞其他协程</td>
+</tr>
+<tr>
+<td>日志写入</td>
+<td>直接写磁盘</td>
+<td>Channel+后台协程</td>
+<td>异步化</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>参考资料</h2>
+
+<ul>
+<li><a href="https://wiki.swoole.com/#/coroutine">Swoole 官方文档 - 协程</a></li>
+<li><a href="https://wiki.swoole.com/#/coroutine/coroutine">Swoole Coroutine API</a></li>
+<li><a href="https://www.php.net/manual/zh/language.generators.overview.php">PHP 协程原理详解</a></li>
+<li><a href="https://github.com/swoole/swoole-src">Swoole 源码分析 - 协程调度</a></li>
+
+<hr>
+
+<h2>代码演进</h2>
+
+<h3>v1: 最简协程（入门级）</h3>
+<pre><code class="language-php">&lt;?php
+// v1: Simplest coroutine example
+use function Swoole\Coroutine\run;
+run(function () {
+    echo &quot;Hello Coroutine!\n&quot;;
+});</code></pre>
+
+<h3>v2: 多协程并发（进阶级）</h3>
+<pre><code class="language-php">&lt;?php
+// v2: Multiple coroutines with sleep
+use Swoole\Coroutine;
+use function Swoole\Coroutine\run;
+
+run(function () {
+    go(function () {
+        Coroutine::sleep(0.1);
+        echo &quot;Task A done\n&quot;;
+    });
+    go(function () {
+        Coroutine::sleep(0.05);
+        echo &quot;Task B done\n&quot;;
+    });
+});</code></pre>
+
+<h3>v3: 生产级协程并发（实战级）</h3>
+<pre><code class="language-php">&lt;?php
+// v3: Production-ready concurrent requests with error handling
+use Swoole\Coroutine;
+use Swoole\Coroutine\Channel;
+use function Swoole\Coroutine\run;
+
+run(function () {
+    $tasks = 10;
+    $chan = new Channel($tasks);
+    
+    for ($i = 0; $i &lt; $tasks; $i++) {
+        go(function () use ($i, $chan) {
+            try {
+                $client = new Coroutine\Http\Client(&#x27;httpbin.org&#x27;, 443, true);
+                $client-&gt;setHeaders([&#x27;User-Agent&#x27; =&gt; &#x27;Swoole-Coroutine/1.0&#x27;]);
+                $client-&gt;get(&#x27;/get?task=&#x27; . $i);
+                
+                $chan-&gt;push([
+                    &#x27;task&#x27; =&gt; $i,
+                    &#x27;status&#x27; =&gt; $client-&gt;statusCode,
+                    &#x27;body&#x27; =&gt; $client-&gt;body,
+                ]);
+                $client-&gt;close();
+            } catch (\Throwable $e) {
+                $chan-&gt;push([&#x27;task&#x27; =&gt; $i, &#x27;error&#x27; =&gt; $e-&gt;getMessage()]);
+            }
+        });
+    }
+    
+    $results = [];
+    for ($i = 0; $i &lt; $tasks; $i++) {
+        $results[] = $chan-&gt;pop();
+    }
+    
+    // Sort by task number
+    usort($results, fn($a, $b) =&gt; $a[&#x27;task&#x27;] &lt;=&gt; $b[&#x27;task&#x27;]);
+    
+    foreach ($results as $r) {
+        echo &quot;Task {$r[&#x27;task&#x27;]}: &quot; . ($r[&#x27;error&#x27;] ?? &#x27;status=&#x27; . $r[&#x27;status&#x27;]) . &quot;\n&quot;;
+    }
+});</code></pre>
+
+<p><strong>演进思路：</strong></p>
+<ul>
+<li>v1 → 理解协程基本创建</li>
+<li>v2 → 理解并发执行和调度顺序</li>
+<li>v3 → 加入错误处理、结果收集、生产级可靠性</li>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

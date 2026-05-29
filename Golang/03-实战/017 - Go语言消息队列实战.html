@@ -1,0 +1,1340 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>017 - Go语言消息队列实战</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Golang/index.html">Golang</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Golang/03-实战/index.html">Golang实战</a>
+</nav>
+<h1>017 - Go语言消息队列实战</h1>
+<div class="meta">
+<span>📂 Golang实战</span>
+<span>🏷️ Golang</span>
+</div>
+<article>
+
+
+<h1>Go语言消息队列实战</h1>
+
+<p><strong>难度：中级</strong> ⭐⭐⭐</p>
+
+<h2>1. 概念讲解</h2>
+
+<h3>什么是消息队列？</h3>
+
+<p>消息队列（Message Queue，简称MQ）是一种应用程序间的通信方式，它将消息发送到队列中，由接收者从队列中获取并处理。消息队列实现了异步通信和解耦，是分布式系统中重要的基础设施。</p>
+
+<h3>为什么使用消息队列？</h3>
+
+<p>在高并发和分布式系统中，消息队列解决了以下问题：</p>
+
+<p><strong>1. 异步处理</strong></p>
+<ul>
+<li>传统同步调用：客户端 → 服务端处理（耗时） → 返回响应（阻塞）</li>
+<li>异步处理：客户端 → 消息队列 → 服务端异步处理（快速返回）</li>
+
+<p><strong>2. 系统解耦</strong></p>
+<ul>
+<li>生产者和消费者互不依赖，可以独立部署和扩展</li>
+<li>新增消费者无需修改生产者代码</li>
+
+<p><strong>3. 流量削峰</strong></p>
+<ul>
+<li>高并发时，消息队列作为缓冲，保护后端服务</li>
+<li>请求先进入队列，消费者按自己的节奏处理</li>
+
+<p><strong>4. 可靠性</strong></p>
+<ul>
+<li>消息持久化，防止丢失</li>
+<li>支持重试机制，保证消息可靠投递</li>
+
+<h3>Go语言与消息队列</h3>
+
+<p>Go语言提供了丰富的MQ客户端库：</p>
+
+<table><thead><tr>
+<th>MQ类型</th>
+<th>推荐库</th>
+<th>特点</th>
+</tr></thead><tbody>
+<tr>
+<td>RabbitMQ</td>
+<td><code>streadway/amqp</code></td>
+<td>功能强大，路由灵活</td>
+</tr>
+<tr>
+<td>Kafka</td>
+<td><code>IBM/sarama</code></td>
+<td>高吞吐量，适合大数据</td>
+</tr>
+<tr>
+<td>Redis Queue</td>
+<td><code>go-redis/redis</code></td>
+<td>轻量级，适合简单场景</td>
+</tr>
+<tr>
+<td>NSQ</td>
+<td><code>nsqio/go-nsq</code></td>
+<td>分布式，支持实时和离线处理</td>
+</tr>
+</tbody></table>
+
+<p>本文使用RabbitMQ进行实战，因为它功能完整、社区活跃、文档丰富。</p>
+
+<h2>2. 架构图</h2>
+
+<pre><code>┌─────────────────────────────────────────────────────────────────┐
+│                         消息队列架构                              │
+└─────────────────────────────────────────────────────────────────┘
+
+     生产者A            生产者B            生产者C
+         │                 │                 │
+         ▼                 ▼                 ▼
+    ┌──────────────────────────────────────────────┐
+    │               Exchange（交换机）              │
+    │   - Direct Exchange（直连交换机）              │
+    │   - Topic Exchange（主题交换机）               │
+    │   - Fanout Exchange（扇出交换机）              │
+    │   - Headers Exchange（头交换机）               │
+    └──────────────────────────────────────────────┘
+                          │
+         ┌────────────────┼────────────────┐
+         │                │                │
+         ▼                ▼                ▼
+    ┌─────────┐     ┌─────────┐     ┌─────────┐
+    │ Queue 1 │     │ Queue 2 │     │ Queue 3 │
+    │ 队列1   │     │ 队列2   │     │ 队列3   │
+    └─────────┘     └─────────┘     └─────────┘
+         │                │                │
+         │                │                │
+    ┌────▼────┐     ┌────▼────┐     ┌────▼────┐
+    │Consumer │     │Consumer │     │Consumer │
+    │ 消费者1 │     │ 消费者2 │     │ 消费者3 │
+    └─────────┘     └─────────┘     └─────────┘</code></pre>
+
+<h2>3. 完整Go代码示例</h2>
+
+<h3>3.1 基础连接与配置</h3>
+
+<pre><code class="language-go">package main
+
+import (
+	&quot;context&quot;
+	&quot;encoding/json&quot;
+	&quot;fmt&quot;
+	&quot;log&quot;
+	&quot;time&quot;
+
+	amqp &quot;github.com/rabbitmq/amqp091-go&quot;
+)
+
+// RabbitMQConfig RabbitMQ配置
+type RabbitMQConfig struct {
+	Host     string
+	Port     int
+	Username string
+	Password string
+	VHost    string
+}
+
+// RabbitMQClient RabbitMQ客户端
+type RabbitMQClient struct {
+	conn    *amqp.Connection
+	channel *amqp.Channel
+	ctx     context.Context
+}
+
+// NewRabbitMQClient 创建RabbitMQ客户端
+func NewRabbitMQClient(config RabbitMQConfig) (*RabbitMQClient, error) {
+	url := fmt.Sprintf(&quot;amqp://%s:%s@%s:%d%s&quot;,
+		config.Username, config.Password, config.Host, config.Port, config.VHost)
+
+	conn, err := amqp.Dial(url)
+	if err != nil {
+		return nil, fmt.Errorf(&quot;failed to connect to RabbitMQ: %w&quot;, err)
+	}
+
+	channel, err := conn.Channel()
+	if err != nil {
+		conn.Close()
+		return nil, fmt.Errorf(&quot;failed to open channel: %w&quot;, err)
+	}
+
+	return &amp;RabbitMQClient{
+		conn:    conn,
+		channel: channel,
+		ctx:     context.Background(),
+	}, nil
+}
+
+// Close 关闭连接
+func (c *RabbitMQClient) Close() error {
+	if c.channel != nil {
+		c.channel.Close()
+	}
+	if c.conn != nil {
+		return c.conn.Close()
+	}
+	return nil
+}</code></pre>
+
+<h3>3.2 消息模型定义</h3>
+
+<pre><code class="language-go">// EmailMessage 邮件消息
+type EmailMessage struct {
+	From     string `json:&quot;from&quot;`
+	To       string `json:&quot;to&quot;`
+	Subject  string `json:&quot;subject&quot;`
+	Body     string `json:&quot;body&quot;`
+	Priority int    `json:&quot;priority&quot;`
+}
+
+// TaskMessage 任务消息
+type TaskMessage struct {
+	TaskID   string                 `json:&quot;task_id&quot;`
+	Type     string                 `json:&quot;type&quot;`
+	Payload  map[string]interface{} `json:&quot;payload&quot;`
+	Retry    int                    `json:&quot;retry&quot;`
+	MaxRetry int                    `json:&quot;max_retry&quot;`
+}
+
+// OrderMessage 订单消息
+type OrderMessage struct {
+	OrderID    string  `json:&quot;order_id&quot;`
+	UserID     string  `json:&quot;user_id&quot;`
+	ProductID  string  `json:&quot;product_id&quot;`
+	Quantity   int     `json:&quot;quantity&quot;`
+	Amount     float64 `json:&quot;amount&quot;`
+	Timestamp  int64   `json:&quot;timestamp&quot;`
+}</code></pre>
+
+<h3>3.3 生产者实现</h3>
+
+<h4>3.3.1 简单生产者</h4>
+
+<pre><code class="language-go">// SimpleProducer 简单生产者
+type SimpleProducer struct {
+	client *RabbitMQClient
+	queue  string
+}
+
+// NewSimpleProducer 创建简单生产者
+func NewSimpleProducer(client *RabbitMQClient, queue string) (*SimpleProducer, error) {
+	// 声明队列
+	_, err := client.channel.QueueDeclare(
+		queue, // 队列名称
+		true,  // durable（持久化）
+		false, // delete when unused
+		false, // exclusive
+		false, // no-wait
+		nil,   // arguments
+	)
+	if err != nil {
+		return nil, fmt.Errorf(&quot;failed to declare queue: %w&quot;, err)
+	}
+
+	return &amp;SimpleProducer{
+		client: client,
+		queue:  queue,
+	}, nil
+}
+
+// Publish 发布消息
+func (p *SimpleProducer) Publish(message EmailMessage) error {
+	body, err := json.Marshal(message)
+	if err != nil {
+		return fmt.Errorf(&quot;marshal error: %w&quot;, err)
+	}
+
+	ctx, cancel := context.WithTimeout(p.client.ctx, 5*time.Second)
+	defer cancel()
+
+	err = p.client.channel.PublishWithContext(
+		ctx,
+		&quot;&quot;,     // exchange
+		p.queue, // routing key
+		false,  // mandatory
+		false,  // immediate
+		amqp.Publishing{
+			ContentType:  &quot;application/json&quot;,
+			Body:         body,
+			DeliveryMode: amqp.Persistent, // 持久化消息
+			Timestamp:    time.Now(),
+		},
+	)
+
+	if err != nil {
+		return fmt.Errorf(&quot;failed to publish message: %w&quot;, err)
+	}
+
+	log.Printf(&quot;✅ Published message: %s&quot;, message.Subject)
+	return nil
+}</code></pre>
+
+<h4>3.3.2 带路由的生产者</h4>
+
+<pre><code class="language-go">// RoutingProducer 带路由的生产者
+type RoutingProducer struct {
+	client   *RabbitMQClient
+	exchange string
+}
+
+// NewRoutingProducer 创建带路由的生产者
+func NewRoutingProducer(client *RabbitMQClient, exchange string) (*RoutingProducer, error) {
+	// 声明交换机
+	err := client.channel.ExchangeDeclare(
+		exchange, // name
+		&quot;direct&quot;, // type
+		true,     // durable
+		false,    // auto-deleted
+		false,    // internal
+		false,    // no-wait
+		nil,      // arguments
+	)
+	if err != nil {
+		return nil, fmt.Errorf(&quot;failed to declare exchange: %w&quot;, err)
+	}
+
+	return &amp;RoutingProducer{
+		client:   client,
+		exchange: exchange,
+	}, nil
+}
+
+// PublishWithRouting 带路由键发布消息
+func (p *RoutingProducer) PublishWithRouting(routingKey string, message TaskMessage) error {
+	body, err := json.Marshal(message)
+	if err != nil {
+		return fmt.Errorf(&quot;marshal error: %w&quot;, err)
+	}
+
+	ctx, cancel := context.WithTimeout(p.client.ctx, 5*time.Second)
+	defer cancel()
+
+	err = p.client.channel.PublishWithContext(
+		ctx,
+		p.exchange,  // exchange
+		routingKey, // routing key
+		false,      // mandatory
+		false,      // immediate
+		amqp.Publishing{
+			ContentType:  &quot;application/json&quot;,
+			Body:         body,
+			DeliveryMode: amqp.Persistent,
+			Timestamp:    time.Now(),
+		},
+	)
+
+	if err != nil {
+		return fmt.Errorf(&quot;failed to publish message: %w&quot;, err)
+	}
+
+	log.Printf(&quot;✅ Published message: %s (routing key: %s)&quot;, message.TaskID, routingKey)
+	return nil
+}</code></pre>
+
+<h3>3.4 消费者实现</h3>
+
+<h4>3.4.1 简单消费者</h4>
+
+<pre><code class="language-go">// SimpleConsumer 简单消费者
+type SimpleConsumer struct {
+	client *RabbitMQClient
+	queue  string
+}
+
+// NewSimpleConsumer 创建简单消费者
+func NewSimpleConsumer(client *RabbitMQClient, queue string) (*SimpleConsumer, error) {
+	// 声明队列
+	_, err := client.channel.QueueDeclare(
+		queue,
+		true,
+		false,
+		false,
+		false,
+		nil,
+	)
+	if err != nil {
+		return nil, fmt.Errorf(&quot;failed to declare queue: %w&quot;, err)
+	}
+
+	return &amp;SimpleConsumer{
+		client: client,
+		queue:  queue,
+	}, nil
+}
+
+// Consume 消费消息
+func (c *SimpleConsumer) Consume(handler func(EmailMessage) error) error {
+	msgs, err := c.client.channel.Consume(
+		c.queue, // queue
+		&quot;&quot;,      // consumer tag
+		false,   // auto-ack（手动确认）
+		false,   // exclusive
+		false,   // no-local
+		false,   // no-wait
+		nil,     // args
+	)
+	if err != nil {
+		return fmt.Errorf(&quot;failed to register consumer: %w&quot;, err)
+	}
+
+	log.Printf(&quot;📥 Waiting for messages from queue: %s&quot;, c.queue)
+
+	for msg := range msgs {
+		var email EmailMessage
+		if err := json.Unmarshal(msg.Body, &amp;email); err != nil {
+			log.Printf(&quot;❌ Failed to unmarshal message: %v&quot;, err)
+			msg.Nack(false, false) // 拒绝且不重新入队
+			continue
+		}
+
+		log.Printf(&quot;📨 Received email: %s -&gt; %s&quot;, email.From, email.To)
+
+		// 处理消息
+		if err := handler(email); err != nil {
+			log.Printf(&quot;❌ Failed to process message: %v&quot;, err)
+			msg.Nack(false, true) // 拒绝并重新入队（重试）
+			continue
+		}
+
+		// 确认消息
+		msg.Ack(false)
+		log.Printf(&quot;✅ Message processed successfully&quot;)
+	}
+
+	return nil
+}</code></pre>
+
+<h4>3.4.2 带重试的消费者</h4>
+
+<pre><code class="language-go">// RetryConsumer 带重试的消费者
+type RetryConsumer struct {
+	client        *RabbitMQClient
+	queue         string
+	retryQueue    string
+	dlxQueue      string
+	maxRetries    int
+}
+
+// NewRetryConsumer 创建带重试的消费者
+func NewRetryConsumer(client *RabbitMQClient, queue string, maxRetries int) (*RetryConsumer, error) {
+	// 声明死信交换机和队列
+	dlxExchange := fmt.Sprintf(&quot;%s.dlx&quot;, queue)
+	retryQueue := fmt.Sprintf(&quot;%s.retry&quot;, queue)
+	dlxQueue := fmt.Sprintf(&quot;%s.dlx&quot;, queue)
+
+	// 声明死信交换机
+	err := client.channel.ExchangeDeclare(
+		dlxExchange,
+		&quot;direct&quot;,
+		true,
+		false,
+		false,
+		false,
+		nil,
+	)
+	if err != nil {
+		return nil, fmt.Errorf(&quot;failed to declare dlx exchange: %w&quot;, err)
+	}
+
+	// 声明主队列，绑定死信交换机
+	args := amqp.Table{
+		&quot;x-dead-letter-exchange&quot;:    dlxExchange,
+		&quot;x-dead-letter-routing-key&quot;: queue,
+	}
+
+	_, err = client.channel.QueueDeclare(
+		queue,
+		true,
+		false,
+		false,
+		false,
+		args,
+	)
+	if err != nil {
+		return nil, fmt.Errorf(&quot;failed to declare queue: %w&quot;, err)
+	}
+
+	// 声明重试队列
+	err = client.channel.QueueDeclare(
+		retryQueue,
+		true,
+		false,
+		false,
+		false,
+		amqp.Table{
+			&quot;x-dead-letter-exchange&quot;:    dlxExchange,
+			&quot;x-dead-letter-routing-key&quot;: queue,
+		},
+	)
+	if err != nil {
+		return nil, fmt.Errorf(&quot;failed to declare retry queue: %w&quot;, err)
+	}
+
+	// 声明死信队列
+	_, err = client.channel.QueueDeclare(
+		dlxQueue,
+		true,
+		false,
+		false,
+		false,
+		nil,
+	)
+	if err != nil {
+		return nil, fmt.Errorf(&quot;failed to declare dlx queue: %w&quot;, err)
+	}
+
+	// 绑定路由
+	err = client.channel.QueueBind(
+		queue,
+		queue,
+		dlxExchange,
+		false,
+		nil,
+	)
+	if err != nil {
+		return nil, fmt.Errorf(&quot;failed to bind queue: %w&quot;, err)
+	}
+
+	return &amp;RetryConsumer{
+		client:     client,
+		queue:      queue,
+		retryQueue: retryQueue,
+		dlxQueue:   dlxQueue,
+		maxRetries: maxRetries,
+	}, nil
+}
+
+// ConsumeWithRetry 带重试机制的消费
+func (c *RetryConsumer) ConsumeWithRetry(handler func(TaskMessage) error) error {
+	msgs, err := c.client.channel.Consume(
+		c.queue,
+		&quot;&quot;,
+		false,
+		false,
+		false,
+		false,
+		nil,
+	)
+	if err != nil {
+		return fmt.Errorf(&quot;failed to register consumer: %w&quot;, err)
+	}
+
+	log.Printf(&quot;📥 Waiting for messages from queue: %s (max retries: %d)&quot;, c.queue, c.maxRetries)
+
+	for msg := range msgs {
+		var task TaskMessage
+		if err := json.Unmarshal(msg.Body, &amp;task); err != nil {
+			log.Printf(&quot;❌ Failed to unmarshal message: %v&quot;, err)
+			msg.Nack(false, false)
+			continue
+		}
+
+		log.Printf(&quot;📨 Received task: %s (retry: %d/%d)&quot;, task.TaskID, task.Retry, task.MaxRetry)
+
+		// 处理消息
+		if err := handler(task); err != nil {
+			task.Retry++
+
+			// 超过最大重试次数，移入死信队列
+			if task.Retry &gt; c.maxRetries {
+				log.Printf(&quot;💀 Max retries exceeded for task: %s&quot;, task.TaskID)
+
+				// 发送到死信队列
+				body, _ := json.Marshal(task)
+				c.client.channel.Publish(
+					&quot;&quot;,            // exchange
+					c.dlxQueue,    // routing key
+					false,
+					false,
+					amqp.Publishing{
+						ContentType:  &quot;application/json&quot;,
+						Body:         body,
+						DeliveryMode: amqp.Persistent,
+					},
+				)
+
+				msg.Ack(false)
+				continue
+			}
+
+			// 更新重试次数并重新入队
+			body, _ := json.Marshal(task)
+			delay := time.Duration(task.Retry) * time.Second
+
+			c.client.channel.Publish(
+				&quot;&quot;,            // exchange
+				c.retryQueue,  // routing key
+				false,
+				false,
+				amqp.Publishing{
+					ContentType:  &quot;application/json&quot;,
+					Body:         body,
+					DeliveryMode: amqp.Persistent,
+					Expiration:   fmt.Sprintf(&quot;%d&quot;, int64(delay.Seconds()*1000)),
+				},
+			)
+
+			log.Printf(&quot;🔄 Retrying task: %s in %v (attempt %d/%d)&quot;,
+				task.TaskID, delay, task.Retry, c.maxRetries)
+
+			msg.Ack(false)
+			continue
+		}
+
+		// 处理成功
+		msg.Ack(false)
+		log.Printf(&quot;✅ Task completed: %s&quot;, task.TaskID)
+	}
+
+	return nil
+}</code></pre>
+
+<h3>3.5 主题交换机消费者</h3>
+
+<pre><code class="language-go">// TopicConsumer 主题交换机消费者
+type TopicConsumer struct {
+	client   *RabbitMQClient
+	exchange string
+	queue    string
+	pattern  string
+}
+
+// NewTopicConsumer 创建主题交换机消费者
+func NewTopicConsumer(client *RabbitMQClient, exchange, queue, pattern string) (*TopicConsumer, error) {
+	// 声明交换机
+	err := client.channel.ExchangeDeclare(
+		exchange,
+		&quot;topic&quot;,
+		true,
+		false,
+		false,
+		false,
+		nil,
+	)
+	if err != nil {
+		return nil, fmt.Errorf(&quot;failed to declare exchange: %w&quot;, err)
+	}
+
+	// 声明队列
+	_, err = client.channel.QueueDeclare(
+		queue,
+		true,
+		false,
+		false,
+		false,
+		nil,
+	)
+	if err != nil {
+		return nil, fmt.Errorf(&quot;failed to declare queue: %w&quot;, err)
+	}
+
+	// 绑定队列到交换机（使用路由模式）
+	err = client.channel.QueueBind(
+		queue,
+		pattern,
+		exchange,
+		false,
+		nil,
+	)
+	if err != nil {
+		return nil, fmt.Errorf(&quot;failed to bind queue: %w&quot;, err)
+	}
+
+	return &amp;TopicConsumer{
+		client:   client,
+		exchange: exchange,
+		queue:    queue,
+		pattern:  pattern,
+	}, nil
+}
+
+// ConsumeByPattern 按模式消费消息
+func (c *TopicConsumer) ConsumeByPattern(handler func(OrderMessage) error) error {
+	msgs, err := c.client.channel.Consume(
+		c.queue,
+		&quot;&quot;,
+		false,
+		false,
+		false,
+		false,
+		nil,
+	)
+	if err != nil {
+		return fmt.Errorf(&quot;failed to register consumer: %w&quot;, err)
+	}
+
+	log.Printf(&quot;📥 Waiting for messages (pattern: %s)&quot;, c.pattern)
+
+	for msg := range msgs {
+		var order OrderMessage
+		if err := json.Unmarshal(msg.Body, &amp;order); err != nil {
+			log.Printf(&quot;❌ Failed to unmarshal message: %v&quot;, err)
+			msg.Nack(false, false)
+			continue
+		}
+
+		log.Printf(&quot;📦 Received order: %s (routing key: %s)&quot;, order.OrderID, msg.RoutingKey)
+
+		if err := handler(order); err != nil {
+			log.Printf(&quot;❌ Failed to process order: %v&quot;, err)
+			msg.Nack(false, true)
+			continue
+		}
+
+		msg.Ack(false)
+		log.Printf(&quot;✅ Order processed: %s&quot;, order.OrderID)
+	}
+
+	return nil
+}</code></pre>
+
+<h3>3.6 完整示例</h3>
+
+<pre><code class="language-go">func main() {
+	config := RabbitMQConfig{
+		Host:     &quot;localhost&quot;,
+		Port:     5672,
+		Username: &quot;guest&quot;,
+		Password: &quot;guest&quot;,
+		VHost:    &quot;/&quot;,
+	}
+
+	client, err := NewRabbitMQClient(config)
+	if err != nil {
+		log.Fatalf(&quot;❌ Failed to create RabbitMQ client: %v&quot;, err)
+	}
+	defer client.Close()
+
+	fmt.Println(&quot;✅ Connected to RabbitMQ&quot;)
+
+	// 示例1：简单生产者-消费者模式
+	fmt.Println(&quot;\n========== 示例1: 简单生产者-消费者 ==========&quot;)
+
+	producer, err := NewSimpleProducer(client, &quot;email_queue&quot;)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	consumer, err := NewSimpleConsumer(client, &quot;email_queue&quot;)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// 启动消费者（在goroutine中）
+	go func() {
+		err := consumer.Consume(func(email EmailMessage) error {
+			log.Printf(&quot;📧 Sending email: %s&quot;, email.Subject)
+			time.Sleep(500 * time.Millisecond) // 模拟处理时间
+			return nil
+		})
+		if err != nil {
+			log.Printf(&quot;❌ Consumer error: %v&quot;, err)
+		}
+	}()
+
+	// 发送消息
+	emails := []EmailMessage{
+		{From: &quot;noreply@example.com&quot;, To: &quot;user1@example.com&quot;, Subject: &quot;Welcome!&quot;, Body: &quot;Welcome to our service!&quot;, Priority: 1},
+		{From: &quot;noreply@example.com&quot;, To: &quot;user2@example.com&quot;, Subject: &quot;Order Confirm&quot;, Body: &quot;Your order #12345 is confirmed.&quot;, Priority: 2},
+		{From: &quot;noreply@example.com&quot;, To: &quot;user3@example.com&quot;, Subject: &quot;Password Reset&quot;, Body: &quot;Click here to reset password.&quot;, Priority: 3},
+	}
+
+	for _, email := range emails {
+		producer.Publish(email)
+		time.Sleep(100 * time.Millisecond)
+	}
+
+	time.Sleep(2 * time.Second)
+
+	// 示例2：带路由的生产者-消费者
+	fmt.Println(&quot;\n========== 示例2: 路由键模式 ==========&quot;)
+
+	routingProducer, err := NewRoutingProducer(client, &quot;tasks_exchange&quot;)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// 为不同类型的任务创建队列
+	taskTypes := []string{&quot;task.high&quot;, &quot;task.normal&quot;, &quot;task.low&quot;}
+	for _, taskType := range taskTypes {
+		queue := fmt.Sprintf(&quot;%s_queue&quot;, taskType)
+		_, err = client.channel.QueueDeclare(queue, true, false, false, false, nil)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		// 绑定队列到交换机
+		err = client.channel.QueueBind(queue, taskType, &quot;tasks_exchange&quot;, false, nil)
+		if err != nil {
+			log.Fatal(err)
+		}
+	}
+
+	// 发送不同优先级的任务
+	tasks := []TaskMessage{
+		{TaskID: &quot;001&quot;, Type: &quot;urgent&quot;, Payload: map[string]interface{}{&quot;action&quot;: &quot;process_payment&quot;}, Retry: 0, MaxRetry: 3},
+		{TaskID: &quot;002&quot;, Type: &quot;normal&quot;, Payload: map[string]interface{}{&quot;action&quot;: &quot;send_report&quot;}, Retry: 0, MaxRetry: 3},
+		{TaskID: &quot;003&quot;, Type: &quot;low&quot;, Payload: map[string]interface{}{&quot;action&quot;: &quot;cleanup_logs&quot;}, Retry: 0, MaxRetry: 3},
+	}
+
+	routingKeys := []string{&quot;task.high&quot;, &quot;task.normal&quot;, &quot;task.low&quot;}
+	for i, task := range tasks {
+		routingProducer.PublishWithRouting(routingKeys[i], task)
+	}
+
+	time.Sleep(1 * time.Second)
+
+	// 示例3：主题交换机
+	fmt.Println(&quot;\n========== 示例3: 主题交换机 ==========&quot;)
+
+	// 订单相关队列
+	orderQueues := []struct {
+		name    string
+		pattern string
+	}{
+		{&quot;order.created.queue&quot;, &quot;order.created.*&quot;},
+		{&quot;order.paid.queue&quot;, &quot;order.paid.*&quot;},
+		{&quot;order.shipped.queue&quot;, &quot;order.shipped.*&quot;},
+	}
+
+	for _, q := range orderQueues {
+		topicConsumer, err := NewTopicConsumer(client, &quot;orders_exchange&quot;, q.name, q.pattern)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		// 启动消费者
+		go func(pattern string) {
+			err := topicConsumer.ConsumeByPattern(func(order OrderMessage) error {
+				log.Printf(&quot;📦 Processing order: %s (pattern: %s)&quot;, order.OrderID, pattern)
+				time.Sleep(300 * time.Millisecond)
+				return nil
+			})
+			if err != nil {
+				log.Printf(&quot;❌ Consumer error: %v&quot;, err)
+			}
+		}(q.pattern)
+	}
+
+	// 发送订单事件
+	orders := []struct {
+		order  OrderMessage
+		routingKey string
+	}{
+		{OrderMessage{OrderID: &quot;1001&quot;, UserID: &quot;user1&quot;, ProductID: &quot;prod1&quot;, Quantity: 2, Amount: 99.99, Timestamp: time.Now().Unix()}, &quot;order.created.prod1&quot;},
+		{OrderMessage{OrderID: &quot;1002&quot;, UserID: &quot;user2&quot;, ProductID: &quot;prod2&quot;, Quantity: 1, Amount: 199.99, Timestamp: time.Now().Unix()}, &quot;order.paid.prod2&quot;},
+		{OrderMessage{OrderID: &quot;1003&quot;, UserID: &quot;user3&quot;, ProductID: &quot;prod3&quot;, Quantity: 5, Amount: 499.99, Timestamp: time.Now().Unix()}, &quot;order.shipped.prod3&quot;},
+	}
+
+	for _, o := range orders {
+		body, _ := json.Marshal(o.order)
+		client.channel.Publish(
+			&quot;orders_exchange&quot;,
+			o.routingKey,
+			false,
+			false,
+			amqp.Publishing{
+				ContentType:  &quot;application/json&quot;,
+				Body:         body,
+				DeliveryMode: amqp.Persistent,
+			},
+		)
+		log.Printf(&quot;📤 Published order: %s (routing key: %s)&quot;, o.order.OrderID, o.routingKey)
+	}
+
+	time.Sleep(2 * time.Second)
+
+	// 示例4：带重试的消费者
+	fmt.Println(&quot;\n========== 示例4: 重试机制 ==========&quot;)
+
+	retryConsumer, err := NewRetryConsumer(client, &quot;task_retry_queue&quot;, 3)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	go func() {
+		err := retryConsumer.ConsumeWithRetry(func(task TaskMessage) error {
+			log.Printf(&quot;🔧 Processing task: %s&quot;, task.TaskID)
+
+			// 模拟处理失败
+			if task.Retry &lt; 2 {
+				log.Printf(&quot;⚠️  Task failed (simulated): %s&quot;, task.TaskID)
+				return fmt.Errorf(&quot;simulated failure&quot;)
+			}
+
+			log.Printf(&quot;✅ Task succeeded: %s&quot;, task.TaskID)
+			return nil
+		})
+		if err != nil {
+			log.Printf(&quot;❌ Consumer error: %v&quot;, err)
+		}
+	}()
+
+	// 发送会失败的任务
+	failedTask := TaskMessage{
+		TaskID:   &quot;999&quot;,
+		Type:     &quot;test&quot;,
+		Payload:  map[string]interface{}{&quot;test&quot;: true},
+		Retry:    0,
+		MaxRetry: 3,
+	}
+
+	body, _ := json.Marshal(failedTask)
+	client.channel.Publish(
+		&quot;&quot;,
+		&quot;task_retry_queue&quot;,
+		false,
+		false,
+		amqp.Publishing{
+			ContentType:  &quot;application/json&quot;,
+			Body:         body,
+			DeliveryMode: amqp.Persistent,
+		},
+	)
+
+	time.Sleep(5 * time.Second)
+
+	fmt.Println(&quot;\n✅ All examples completed!&quot;)
+}</code></pre>
+
+<h2>4. 执行预览</h2>
+
+<pre><code>✅ Connected to RabbitMQ
+
+========== 示例1: 简单生产者-消费者 ==========
+📥 Waiting for messages from queue: email_queue
+✅ Published message: Welcome!
+✅ Published message: Order Confirm
+✅ Published message: Password Reset
+📨 Received email: noreply@example.com -&gt; user1@example.com
+📧 Sending email: Welcome!
+✅ Message processed successfully
+📨 Received email: noreply@example.com -&gt; user2@example.com
+📧 Sending email: Order Confirm
+✅ Message processed successfully
+📨 Received email: noreply@example.com -&gt; user3@example.com
+📧 Sending email: Password Reset
+✅ Message processed successfully
+
+========== 示例2: 路由键模式 ==========
+✅ Published message: 001 (routing key: task.high)
+✅ Published message: 002 (routing key: task.normal)
+✅ Published message: 003 (routing key: task.low)
+
+========== 示例3: 主题交换机 ==========
+📥 Waiting for messages (pattern: order.created.*)
+📥 Waiting for messages (pattern: order.paid.*)
+📥 Waiting for messages (pattern: order.shipped.*)
+📤 Published order: 1001 (routing key: order.created.prod1)
+📦 Processing order: 1001 (pattern: order.created.*)
+📤 Published order: 1002 (routing key: order.paid.prod2)
+📦 Processing order: 1002 (pattern: order.paid.*)
+📤 Published order: 1003 (routing key: order.shipped.prod3)
+📦 Processing order: 1003 (pattern: order.shipped.*)
+
+========== 示例4: 重试机制 ==========
+📥 Waiting for messages from queue: task_retry_queue (max retries: 3)
+📨 Received task: 999 (retry: 0/3)
+🔧 Processing task: 999
+⚠️  Task failed (simulated): 999
+🔄 Retrying task: 999 in 1s (attempt 1/3)
+📨 Received task: 999 (retry: 1/3)
+🔧 Processing task: 999
+⚠️  Task failed (simulated): 999
+🔄 Retrying task: 999 in 2s (attempt 2/3)
+📨 Received task: 999 (retry: 2/3)
+🔧 Processing task: 999
+✅ Task succeeded: 999
+
+✅ All examples completed!</code></pre>
+
+<h2>5. 注意事项</h2>
+
+<table><thead><tr>
+<th>注意事项</th>
+<th>说明</th>
+<th>解决方案</th>
+</tr></thead><tbody>
+<tr>
+<td><strong>消息丢失</strong></td>
+<td>网络故障或服务器宕机导致消息丢失</td>
+<td>启用消息持久化和队列持久化</td>
+</tr>
+<tr>
+<td><strong>重复消费</strong></td>
+<td>消费者处理失败重试导致重复消费</td>
+<td>使用消息ID做去重（幂等性设计）</td>
+</tr>
+<tr>
+<td><strong>消息积压</strong></td>
+<td>生产速度 > 消费速度，消息堆积</td>
+<td>增加消费者数量，优化处理逻辑</td>
+</tr>
+<tr>
+<td><strong>连接泄漏</strong></td>
+<td>goroutine未正确关闭连接</td>
+<td>使用defer关闭，实现优雅关闭</td>
+</tr>
+<tr>
+<td><strong>死信队列</strong></td>
+<td>处理失败多次后如何处理</td>
+<td>设置死信队列，人工介入处理</td>
+</tr>
+<tr>
+<td><strong>顺序性</strong></td>
+<td>消息消费顺序可能与发送顺序不同</td>
+<td>使用单消费者队列或分区队列</td>
+</tr>
+</tbody></table>
+
+<h2>6. 避坑指南</h2>
+
+<h3>❌ 错误做法</h3>
+
+<pre><code class="language-go">// ❌ 自动确认，处理失败导致消息丢失
+func BadConsume() {
+    msgs, _ := channel.Consume(queue, &quot;&quot;, true, ...) // auto-ack = true
+    for msg := range msgs {
+        // 如果这里panic，消息已确认，丢失
+        process(msg)
+    }
+}
+
+// ❌ 无限重试，导致消息积压
+func BadRetry(msg Message) {
+    for {
+        err := process(msg)
+        if err != nil {
+            time.Sleep(time.Second) // 无限重试
+            continue
+        }
+        break
+    }
+}
+
+// ❌ 忽略错误，导致资源泄漏
+func BadConnection() {
+    conn, _ := amqp.Dial(url)
+    channel, _ := conn.Channel()
+    // 忘记关闭连接和channel
+}
+
+// ❌ 同步阻塞，影响性能
+func BadBlockingPublish() {
+    for i := 0; i &lt; 100000; i++ {
+        // 同步发布，阻塞主线程
+        channel.Publish(exchange, key, false, false, msg)
+    }
+}
+
+// ❌ 消息不持久化
+func BadNonDurable() {
+    channel.QueueDeclare(queue, false, ...) // durable = false
+    channel.Publish(..., amqp.Publishing{
+        DeliveryMode: amqp.Transient, // 不持久化
+    })
+}</code></pre>
+
+<h3>✅ 正确做法</h3>
+
+<pre><code class="language-go">// ✅ 手动确认，确保消息可靠
+func GoodConsume() {
+    msgs, _ := channel.Consume(queue, &quot;&quot;, false, ...) // auto-ack = false
+    for msg := range msgs {
+        if err := process(msg); err != nil {
+            msg.Nack(false, true) // 重新入队
+            continue
+        }
+        msg.Ack(false) // 确认成功
+    }
+}
+
+// ✅ 有限重试 + 死信队列
+func GoodRetry(msg Message, maxRetries int) {
+    retryCount := 0
+    for retryCount &lt; maxRetries {
+        if err := process(msg); err != nil {
+            retryCount++
+            time.Sleep(time.Duration(retryCount) * time.Second)
+            continue
+        }
+        msg.Ack(false)
+        return
+    }
+    // 超过重试次数，移入死信队列
+    moveToDLQ(msg)
+}
+
+// ✅ 优雅关闭
+func GoodConnection() {
+    conn, _ := amqp.Dial(url)
+    channel, _ := conn.Channel()
+    defer channel.Close()
+    defer conn.Close()
+
+    // 监听关闭信号
+    sigChan := make(chan os.Signal, 1)
+    signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
+    &lt;-sigChan
+    log.Println(&quot;Shutting down gracefully...&quot;)
+}
+
+// ✅ 异步发布，使用channel池
+func GoodAsyncPublish() {
+    publishChan := make(chan amqp.Publishing, 1000)
+
+    // 启动发布goroutine
+    go func() {
+        for msg := range publishChan {
+            channel.Publish(exchange, key, false, false, msg)
+        }
+    }()
+
+    for i := 0; i &lt; 100000; i++ {
+        publishChan &lt;- createMessage(i)
+    }
+}
+
+// ✅ 消息持久化
+func GoodDurable() {
+    channel.QueueDeclare(queue, true, ...) // durable = true
+    channel.Publish(..., amqp.Publishing{
+        DeliveryMode: amqp.Persistent, // 持久化
+    })
+}</code></pre>
+
+<h2>7. 练习题</h2>
+
+<h3>🟢 基础练习</h3>
+
+<ol>
+<li>实现一个简单的任务队列，支持任务添加和消费</li>
+</ul>
+<ol>
+<li>实现一个广播消息系统，多个消费者接收相同消息</li>
+</ul>
+<ol>
+<li>实现一个延迟队列，消息在指定时间后才被消费</li>
+
+<h3>🟡 进阶练习</h3>
+
+<ol>
+<li>实现一个RPC模式的消息队列（请求-响应）</li>
+</ul>
+<ol>
+<li>实现一个消息优先级队列，高优先级消息优先处理</li>
+</ul>
+<ol>
+<li>实现一个消息追踪系统，监控消息流转状态</li>
+
+<h3>🔴 挑战练习</h3>
+
+<ol>
+<li>实现一个分布式事务消息队列，保证最终一致性</li>
+</ul>
+<ol>
+<li>实现一个消息监控和告警系统，实时监控队列长度</li>
+</ul>
+<ol>
+<li>实现一个消息路由中心，支持动态路由规则配置</li>
+
+<h2>8. 知识点总结</h2>
+
+<pre><code>Go语言消息队列实战
+├── 基础概念
+│   ├── 消息队列的作用
+│   ├── RabbitMQ核心概念
+│   └── Go-AMQP库
+├── 交换机类型
+│   ├── Direct Exchange（直连）
+│   ├── Topic Exchange（主题）
+│   ├── Fanout Exchange（扇出）
+│   └── Headers Exchange（头交换机）
+├── 消费者模式
+│   ├── 简单队列模式
+│   ├── 工作队列模式
+│   └── 发布订阅模式
+├── 高级特性
+│   ├── 消息持久化
+│   ├── 消息确认机制
+│   ├── 死信队列
+│   └── 延迟队列
+├── 最佳实践
+│   ├── 错误处理
+│   ├── 重试机制
+│   ├── 幂等性设计
+│   └── 监控告警
+└── 常见问题
+    ├── 消息丢失
+    ├── 重复消费
+    ├── 消息积压
+    └── 连接泄漏</code></pre>
+
+<h2>9. 举一反三</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>推荐方案</th>
+<th>理由</th>
+</tr></thead><tbody>
+<tr>
+<td>异步发送邮件</td>
+<td>Fanout Exchange</td>
+<td>一对多广播，多个邮件服务并行</td>
+</tr>
+<tr>
+<td>订单状态通知</td>
+<td>Topic Exchange</td>
+<td>灵活匹配订单事件（created、paid、shipped）</td>
+</tr>
+<tr>
+<td>优先级任务</td>
+<td>多个队列 + Direct Exchange</td>
+<td>不同优先级进入不同队列</td>
+</tr>
+<tr>
+<td>日志收集</td>
+<td>工作队列模式</td>
+<td>多个worker并行处理</td>
+</tr>
+<tr>
+<td>定时任务调度</td>
+<td>延迟队列 + Topic Exchange</td>
+<td>按时间维度调度任务</td>
+</tr>
+<tr>
+<td>RPC调用</td>
+<td>临时队列 + Direct Exchange</td>
+<td>请求-响应一对一</td>
+</tr>
+<tr>
+<td>数据同步</td>
+<td>消费者组 + Topic Exchange</td>
+<td>消息分片，并行消费</td>
+</tr>
+</tbody></table>
+
+<h2>10. 参考资料</h2>
+
+<ul>
+<li><a href="https://www.rabbitmq.com/documentation.html">RabbitMQ官方文档</a></li>
+<li><a href="https://www.amqp.org/">AMQP协议规范</a></li>
+<li><a href="https://github.com/rabbitmq/amqp091-go">Go AMQP库</a></li>
+<li><a href="https://www.enterpriseintegrationpatterns.com/">消息队列设计模式</a></li>
+
+<h2>11. 代码演进</h2>
+
+<h3>v1: 简单消息发送</h3>
+
+<pre><code class="language-go">// 基础的发布和订阅
+func PublishMessage(queue, body string) error {
+    channel.Publish(&quot;&quot;, queue, false, false, amqp.Publishing{
+        Body: []byte(body),
+    })
+}
+
+func ConsumeMessages(queue string) {
+    msgs := channel.Consume(queue, &quot;&quot;, true, ...)
+    for msg := range msgs {
+        fmt.Println(string(msg.Body))
+    }
+}</code></pre>
+
+<h3>v2: 带确认和重试</h3>
+
+<pre><code class="language-go">// 手动确认 + 重试机制
+func ConsumeWithRetry(queue string) {
+    msgs := channel.Consume(queue, &quot;&quot;, false, ...)
+    for msg := range msgs {
+        if err := process(msg); err != nil {
+            msg.Nack(false, true) // 重试
+        } else {
+            msg.Ack(false) // 确认
+        }
+    }
+}</code></pre>
+
+<h3>v3: 完整的消息系统</h3>
+
+<pre><code class="language-go">// 支持持久化、死信、追踪、监控
+type MessageSystem struct {
+    producer    *Producer
+    consumer    *Consumer
+    retryPolicy *RetryPolicy
+    metrics     *Metrics
+    tracer      *Tracer
+}
+
+func (ms *MessageSystem) PublishWithGuarantee(msg Message) error {
+    // 持久化 + 确认 + 追踪
+}
+
+func (ms *MessageSystem) ConsumeWithDedup(handler Handler) {
+    // 去重 + 重试 + 死信 + 监控
+}</code></pre>
+
+<hr>
+
+<p><strong>总结</strong>：消息队列是分布式系统的重要组成部分，掌握RabbitMQ的使用、理解消息模式、实现可靠传输，能够构建高性能、高可用的异步通信系统。</p>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

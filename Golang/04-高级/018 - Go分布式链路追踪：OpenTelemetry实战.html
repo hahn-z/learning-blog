@@ -1,0 +1,521 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>018 - Go分布式链路追踪：OpenTelemetry实战</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Golang/index.html">Golang</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Golang/04-高级/index.html">Golang高级</a>
+</nav>
+<h1>018 - Go分布式链路追踪：OpenTelemetry实战</h1>
+<div class="meta">
+<span>📂 Golang高级</span>
+<span>🏷️ Golang</span>
+</div>
+<article>
+
+
+<h1>Go分布式链路追踪：OpenTelemetry实战</h1>
+
+<blockquote><p><strong>难度标注：</strong> ⭐⭐⭐⭐☆ 高级<br><strong>前置知识：</strong> Go HTTP服务、gRPC基础、微服务概念<br><strong>预计用时：</strong> 70分钟</p></blockquote>
+
+<hr>
+
+<h2>一、概念讲解</h2>
+
+<p>分布式链路追踪是可观测性三大支柱之一（Logging、Metrics、Tracing）。当一个请求跨越多个服务时，你需要一种方式把整个调用链串起来。</p>
+
+<h3>核心概念</h3>
+
+<table><thead><tr>
+<th>概念</th>
+<th>说明</th>
+</tr></thead><tbody>
+<tr>
+<td>Trace</td>
+<td>一次完整的请求链路，由一个全局唯一的TraceID标识</td>
+</tr>
+<tr>
+<td>Span</td>
+<td>链路中的一个操作单元，有SpanID和ParentSpanID</td>
+</tr>
+<tr>
+<td>Context</td>
+<td>在服务间传递的追踪上下文（TraceID + SpanID）</td>
+</tr>
+<tr>
+<td>Exporter</td>
+<td>将追踪数据发送到后端（Jaeger、Zipkin、Tempo等）</td>
+</tr>
+</tbody></table>
+
+<h3>为什么用OpenTelemetry？</h3>
+
+<p>OpenTelemetry是CNCF的可观测性标准，合并了OpenTracing和OpenCensus。它是厂商无关的，你可以随时切换后端。</p>
+
+<hr>
+
+<h2>二、脑图（ASCII）</h2>
+
+<pre><code>              ┌───────────────┐
+              │   HTTP Client  │
+              └───────┬───────┘
+                      │ traceparent header
+              ┌───────┴───────┐
+              │  API Gateway   │ ← Root Span
+              │  (otelhttp)    │
+              └───────┬───────┘
+                      │ gRPC + metadata
+          ┌───────────┼───────────┐
+          │           │           │
+   ┌──────┴──────┐ ┌─┴────────┐ ┌┴──────────┐
+   │ User Service │ │Order Svc │ │Payment Svc│
+   │  (otelgrpc)  │ │(otelgrpc)│ │(otelgrpc) │
+   └──────┬──────┘ └──┬───────┘ └──┬─────────┘
+          │           │            │
+   ┌──────┴───────────┴────────────┴──────┐
+   │         Jaeger / Tempo               │
+   │      (Trace Storage &amp; UI)            │
+   └──────────────────────────────────────┘</code></pre>
+
+<hr>
+
+<h2>三、完整Go代码</h2>
+
+<h3>v1 基础版本：HTTP服务 + Jaeger导出</h3>
+
+<pre><code class="language-go">package main
+
+import (
+	&quot;context&quot;
+	&quot;encoding/json&quot;
+	&quot;fmt&quot;
+	&quot;log&quot;
+	&quot;net/http&quot;
+	&quot;time&quot;
+
+	&quot;go.opentelemetry.io/otel&quot;
+	&quot;go.opentelemetry.io/otel/attribute&quot;
+	&quot;go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc&quot;
+	&quot;go.opentelemetry.io/otel/sdk/resource&quot;
+	sdktrace &quot;go.opentelemetry.io/otel/sdk/trace&quot;
+	semconv &quot;go.opentelemetry.io/otel/semconv/v1.24.0&quot;
+	&quot;go.opentelemetry.io/otel/trace&quot;
+)
+
+// initTracer creates and registers the OpenTelemetry tracer provider
+func initTracer(serviceName string) (*sdktrace.TracerProvider, error) {
+	exporter, err := otlptracegrpc.New(context.Background(),
+		otlptracegrpc.WithEndpoint(&quot;localhost:4317&quot;),
+		otlptracegrpc.WithInsecure(),
+	)
+	if err != nil {
+		return nil, fmt.Errorf(&quot;creating exporter: %w&quot;, err)
+	}
+
+	res, err := resource.New(context.Background(),
+		resource.WithAttributes(semconv.ServiceNameKey.String(serviceName)),
+	)
+	if err != nil {
+		return nil, fmt.Errorf(&quot;creating resource: %w&quot;, err)
+	}
+
+	tp := sdktrace.NewTracerProvider(
+		sdktrace.WithBatcher(exporter),
+		sdktrace.WithResource(res),
+	)
+	otel.SetTracerProvider(tp)
+	return tp, nil
+}
+
+// User represents user data
+type User struct {
+	ID   int    `json:&quot;id&quot;`
+	Name string `json:&quot;name&quot;`
+}
+
+// getUserHandler simulates fetching a user with tracing
+func getUserHandler(w http.ResponseWriter, r *http.Request) {
+	tracer := otel.Tracer(&quot;user-service&quot;)
+	ctx, span := tracer.Start(r.Context(), &quot;getUserHandler&quot;,
+		trace.WithAttributes(attribute.String(&quot;http.method&quot;, r.Method)),
+	)
+	defer span.End()
+
+	// Simulate DB query as a child span
+	_, dbSpan := tracer.Start(ctx, &quot;queryUserDB&quot;)
+	time.Sleep(20 * time.Millisecond) // simulate DB latency
+	dbSpan.SetAttributes(attribute.Int(&quot;user.id&quot;, 1))
+	dbSpan.End()
+
+	user := User{ID: 1, Name: &quot;Alice&quot;}
+	span.SetAttributes(attribute.String(&quot;user.name&quot;, user.Name))
+
+	w.Header().Set(&quot;Content-Type&quot;, &quot;application/json&quot;)
+	json.NewEncoder(w).Encode(user)
+}
+
+func main() {
+	tp, err := initTracer(&quot;user-service&quot;)
+	if err != nil {
+		log.Fatalf(&quot;Failed to init tracer: %v&quot;, err)
+	}
+	defer tp.Shutdown(context.Background())
+
+	http.HandleFunc(&quot;/user&quot;, getUserHandler)
+	log.Println(&quot;User service on :8081&quot;)
+	log.Fatal(http.ListenAndServe(&quot;:8081&quot;, nil))
+}</code></pre>
+
+<h3>v2 增强版本：HTTP客户端传播 + 自定义Span</h3>
+
+<pre><code class="language-go">package main
+
+import (
+	&quot;context&quot;
+	&quot;encoding/json&quot;
+	&quot;log&quot;
+	&quot;net/http&quot;
+	&quot;time&quot;
+
+	&quot;go.opentelemetry.io/otel&quot;
+	&quot;go.opentelemetry.io/otel/attribute&quot;
+	&quot;go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp&quot;
+)
+
+// GatewayHandler calls user-service with trace propagation
+func gatewayHandler(w http.ResponseWriter, r *http.Request) {
+	tracer := otel.Tracer(&quot;api-gateway&quot;)
+	ctx, span := tracer.Start(r.Context(), &quot;gateway.getUser&quot;)
+	defer span.End()
+
+	// HTTP client with automatic trace propagation
+	client := http.Client{Transport: otelhttp.NewTransport(http.DefaultTransport)}
+	req, _ := http.NewRequestWithContext(ctx, &quot;GET&quot;, &quot;http://localhost:8081/user&quot;, nil)
+
+	resp, err := client.Do(req)
+	if err != nil {
+		span.SetAttributes(attribute.String(&quot;error&quot;, err.Error()))
+		http.Error(w, &quot;upstream error&quot;, 502)
+		return
+	}
+	defer resp.Body.Close()
+
+	var user map[string]interface{}
+	json.NewDecoder(resp.Body).Decode(&amp;user)
+
+	// Add business metadata
+	span.SetAttributes(attribute.String(&quot;user.found&quot;, &quot;true&quot;))
+	span.SetAttributes(attribute.String(&quot;user.name&quot;, fmt.Sprintf(&quot;%v&quot;, user[&quot;name&quot;])))
+
+	json.NewEncoder(w).Encode(user)
+}</code></pre>
+
+<h3>v3 生产版本：gRPC拦截器 + 采样策略</h3>
+
+<pre><code class="language-go">// gRPC server with OpenTelemetry interceptor
+import (
+	&quot;go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc&quot;
+	&quot;google.golang.org/grpc&quot;
+)
+
+func startGRPCServer() {
+	tp, _ := initTracer(&quot;order-service-grpc&quot;)
+	defer tp.Shutdown(context.Background())
+
+	s := grpc.NewServer(
+		grpc.StatsHandler(otelgrpc.NewServerHandler()),
+	)
+	// Register your service...
+	lis, _ := net.Listen(&quot;tcp&quot;, &quot;:50052&quot;)
+	s.Serve(lis)
+}
+
+// gRPC client with tracing
+func callOrderService(ctx context.Context) {
+	conn, _ := grpc.Dial(&quot;localhost:50052&quot;,
+		grpc.WithStatsHandler(otelgrpc.NewClientHandler()),
+	)
+	defer conn.Close()
+	// Call methods with ctx to propagate trace...
+}
+
+// Custom sampling: sample 10% of health checks, 100% of errors
+type customSampler struct{}
+
+func (s *customSampler) ShouldSample(params sdktrace.SamplingParameters) sdktrace.SamplingResult {
+	if params.Name == &quot;/health&quot; {
+		return sdktrace.SamplingResult{Decision: sdktrace.RecordAndSample} // or Drop
+	}
+	return sdktrace.SamplingResult{Decision: sdktrace.RecordAndSample}
+}
+func (s *customSampler) Description() string { return &quot;custom&quot; }</code></pre>
+
+<hr>
+
+<h2>四、执行预览</h2>
+
+<pre><code class="language-bash"># Start Jaeger (all-in-one)
+$ docker run -d --name jaeger \
+  -p 16686:16686 -p 4317:4317 \
+  jaegertracing/all-in-one:latest
+
+# Start user service
+$ go run user-service/main.go
+User service on :8081
+
+# Start gateway
+$ go run gateway/main.go
+Gateway on :8080
+
+# Test
+$ curl http://localhost:8080/user
+{&quot;id&quot;:1,&quot;name&quot;:&quot;Alice&quot;}
+
+# Open Jaeger UI: http://localhost:16686
+# See the full trace: gateway → user-service → queryUserDB</code></pre>
+
+<hr>
+
+<h2>五、注意事项</h2>
+
+<table><thead><tr>
+<th>注意点</th>
+<th>说明</th>
+</tr></thead><tbody>
+<tr>
+<td>采样率</td>
+<td>生产环境用概率采样（如10%），避免存储爆炸</td>
+</tr>
+<tr>
+<td>Context传播</td>
+<td>必须把ctx传到每一层，断链就追踪不到</td>
+</tr>
+<tr>
+<td>Span命名</td>
+<td>用"{服务名}.{操作名}"格式，方便检索</td>
+</tr>
+<tr>
+<td>批量导出</td>
+<td>Batcher比同步导出性能好</td>
+</tr>
+<tr>
+<td>Shutdown</td>
+<td>程序退出前调用tp.Shutdown()刷出数据</td>
+</tr>
+<tr>
+<td>敏感信息</td>
+<td>不要在Span Attributes中放密码、Token</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>六、避坑指南</h2>
+
+<table><thead><tr>
+<th>❌ 错误做法</th>
+<th>✅ 正确做法</th>
+</tr></thead><tbody>
+<tr>
+<td>每个函数都创建Span</td>
+<td>只在关键操作处创建Span</td>
+</tr>
+<tr>
+<td>不传context</td>
+<td>每个函数签名都接收ctx context.Context</td>
+</tr>
+<tr>
+<td>同步导出追踪数据</td>
+<td>用WithBatcher异步批量导出</td>
+</tr>
+<tr>
+<td>100%采样</td>
+<td>生产用概率采样，开发用AlwaysSample</td>
+</tr>
+<tr>
+<td>忽略HTTP/gRPC中间件</td>
+<td>用otelhttp/otelgrpc自动拦截</td>
+</tr>
+<tr>
+<td>Span里存大数据</td>
+<td>Attributes只存小量元数据</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>七、练习题</h2>
+
+<h3>🟢 基础题</h3>
+<ol>
+<li>在v1基础上添加一个/order接口，创建子Span模拟订单查询</li>
+</ul>
+<ol>
+<li>为Span添加自定义Event（记录业务事件）</li>
+
+<h3>🟡 进阶题</h3>
+<ol>
+<li>实现两个HTTP服务之间的trace传播（网关→下游）</li>
+</ul>
+<ol>
+<li>配置采样策略：错误请求100%采样，正常请求10%采样</li>
+
+<h3>🔴 挑战题</h3>
+<ol>
+<li>实现完整的3服务调用链：Gateway → UserService → OrderService，在Jaeger中看到完整链路</li>
+
+<hr>
+
+<h2>八、知识点总结</h2>
+
+<pre><code>分布式链路追踪
+├── OpenTelemetry
+│   ├── Trace Provider
+│   ├── Tracer
+│   ├── Span (Attributes, Events, Links)
+│   └── Context Propagation
+├── 集成方式
+│   ├── otelhttp (HTTP)
+│   ├── otelgrpc (gRPC)
+│   └── otelsql (数据库)
+├── 后端
+│   ├── Jaeger
+│   ├── Tempo
+│   └── Zipkin
+└── 高级
+    ├── 采样策略
+    ├── Baggage传播
+    └── Span Links</code></pre>
+
+<hr>
+
+<h2>九、举一反三</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>追踪方案</th>
+<th>Go库</th>
+</tr></thead><tbody>
+<tr>
+<td>HTTP微服务</td>
+<td>otelhttp中间件</td>
+<td>go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp</td>
+</tr>
+<tr>
+<td>gRPC服务</td>
+<td>otelgrpc拦截器</td>
+<td>go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc</td>
+</tr>
+<tr>
+<td>数据库查询</td>
+<td>otelsql包装</td>
+<td>go.opentelemetry.io/contrib/instrumentation/net/sql/otsql</td>
+</tr>
+<tr>
+<td>消息队列</td>
+<td>手动注入/提取</td>
+<td>carrier + Propagator</td>
+</tr>
+<tr>
+<td>Redis调用</td>
+<td>otelredis</td>
+<td>go.opentelemetry.io/contrib/instrumentation/github.com/redis/go-redis</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>十、参考资料</h2>
+
+<ul>
+<li><a href="https://opentelemetry.io/docs/languages/go/">OpenTelemetry Go Docs</a></li>
+<li><a href="https://www.jaegertracing.io/docs/latest/getting-started/">Jaeger Getting Started</a></li>
+<li><a href="https://github.com/open-telemetry/opentelemetry-go-contrib">OpenTelemetry Go Contrib</a></li>
+
+<hr>
+
+<h2>十一、代码演进总结</h2>
+
+<table><thead><tr>
+<th>版本</th>
+<th>内容</th>
+<th>适用场景</th>
+</tr></thead><tbody>
+<tr>
+<td>v1</td>
+<td>基础HTTP追踪 + Jaeger</td>
+<td>入门，单服务追踪</td>
+</tr>
+<tr>
+<td>v2</td>
+<td>HTTP客户端传播 + 网关</td>
+<td>多服务调用链</td>
+</tr>
+<tr>
+<td>v3</td>
+<td>gRPC + 采样 + 生产级</td>
+<td>生产环境</td>
+</tr>
+</tbody></table>
+
+<blockquote><p><strong>核心思想：</strong> 追踪的价值在于跨服务串联。没有context传播的追踪只是"日志plus"，真正的威力在于看到完整的调用链。</p></blockquote>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

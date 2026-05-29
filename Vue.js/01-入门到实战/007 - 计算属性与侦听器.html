@@ -1,0 +1,487 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>007 - 计算属性与侦听器</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Vue.js/index.html">Vue.js</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Vue.js/01-入门到实战/index.html">Vue.js入门到实战</a>
+</nav>
+<h1>007 - 计算属性与侦听器</h1>
+<div class="meta">
+<span>📂 Vue.js入门到实战</span>
+<span>🏷️ Vue.js</span>
+</div>
+<article>
+
+
+<h1>计算属性与侦听器</h1>
+
+<blockquote><p>📊 <strong>难度：初级</strong> | 🏷️ Vue.js 3.x | ⏱️ 阅读约 15 分钟</p></blockquote>
+
+<hr>
+
+<h2>📖 概念讲解</h2>
+
+<p>计算属性和侦听器是Vue中处理数据变化的两个核心机制，但它们的使用场景截然不同。</p>
+
+<p><strong>计算属性 (computed)：</strong></p>
+
+<p>计算属性是基于响应式数据自动缓存的派生值。只有当依赖数据变化时才会重新计算。</p>
+
+<p>特点：</p>
+<ul>
+<li><strong>自动缓存</strong>：依赖不变，不重新计算，直接返回缓存值</li>
+<li><strong>惰性求值</strong>：只有在被访问时才计算</li>
+<li><strong>可写</strong>：默认只读，但可以提供getter和setter</li>
+<li><strong>返回值</strong>：一个ref，在模板中自动解包</li>
+
+<p><strong>侦听器 (watch / watchEffect)：</strong></p>
+
+<p>侦听器用于在数据变化时执行副作用（异步操作、DOM操作等）。</p>
+
+<table><thead><tr>
+<th>特性</th>
+<th>watch</th>
+<th>watchEffect</th>
+</tr></thead><tbody>
+<tr>
+<td>指定监听</td>
+<td>显式指定数据源</td>
+<td>自动追踪依赖</td>
+</tr>
+<tr>
+<td>旧值</td>
+<td>可获取oldValue</td>
+<td>无法获取</td>
+</tr>
+<tr>
+<td>首次执行</td>
+<td>默认不执行</td>
+<td>立即执行</td>
+</tr>
+<tr>
+<td>精确控制</td>
+<td>支持deep/immediate</td>
+<td>不支持选项</td>
+</tr>
+<tr>
+<td>适用场景</td>
+<td>对比新旧值</td>
+<td>简单副作用</td>
+</tr>
+</tbody></table>
+
+<p><strong>何时用computed，何时用watch？</strong></p>
+
+<ul>
+<li><strong>computed</strong>：需要根据现有数据派生新数据 → "算"</li>
+<li><strong>watch</strong>：数据变化时需要做某事（请求API、操作DOM、定时器等） → "做"</li>
+<li><strong>原则</strong>：能用computed就不用watch</li>
+
+
+<h2>🧠 知识脑图</h2>
+
+<pre><code>计算属性与侦听器
+├── computed（计算属性）
+│   ├── 自动缓存
+│   ├── 只读 vs 可写(getter+setter)
+│   ├── vs methods（缓存区别）
+│   └── 适用：派生数据
+├── watch（侦听器）
+│   ├── 监听ref / reactive / getter
+│   ├── deep: true（深度监听）
+│   ├── immediate: true（立即执行）
+│   └── 适用：副作用（API/DOM/定时器）
+├── watchEffect
+│   ├── 自动追踪依赖
+│   ├── 立即执行
+│   ├── 返回stop函数
+│   └── 适用：简单副作用
+└── 最佳实践
+    ├── computed优先
+    ├── 避免watch中修改自身
+    └── 清理副作用(onCleanup)</code></pre>
+
+<h2>💻 完整代码</h2>
+
+<pre><code class="language-vue">&lt;!-- ComputedWatchDemo.vue --&gt;
+&lt;template&gt;
+  &lt;div class=&quot;demo&quot;&gt;
+    &lt;h2&gt;Computed Demo - Shopping Cart&lt;/h2&gt;
+    &lt;div&gt;
+      &lt;label&gt;Price: &lt;input v-model.number=&quot;price&quot; type=&quot;number&quot; /&gt;&lt;/label&gt;
+      &lt;label&gt;Quantity: &lt;input v-model.number=&quot;quantity&quot; type=&quot;number&quot; /&gt;&lt;/label&gt;
+      &lt;label&gt;Discount: &lt;input v-model.number=&quot;discount&quot; type=&quot;number&quot; step=&quot;0.1&quot; /&gt;&lt;/label&gt;
+    &lt;/div&gt;
+    &lt;!-- Computed properties displayed --&gt;
+    &lt;p&gt;Subtotal: ¥{{ subtotal }}&lt;/p&gt;
+    &lt;p&gt;Discount: -¥{{ discountAmount }}&lt;/p&gt;
+    &lt;p&gt;&lt;strong&gt;Total: ¥{{ total }}&lt;/strong&gt;&lt;/p&gt;
+
+    &lt;h2&gt;Writable Computed - Full Name&lt;/h2&gt;
+    &lt;input v-model=&quot;fullName&quot; placeholder=&quot;Full Name&quot; /&gt;
+    &lt;p&gt;First: {{ firstName }}, Last: {{ lastName }}&lt;/p&gt;
+
+    &lt;h2&gt;Watch Demo - Search&lt;/h2&gt;
+    &lt;input v-model=&quot;searchQuery&quot; placeholder=&quot;Search (debounced)...&quot; /&gt;
+    &lt;p&gt;Searching: {{ searchQuery }}&lt;/p&gt;
+    &lt;p&gt;Results: {{ searchResults }}&lt;/p&gt;
+    &lt;p&gt;Search count: {{ searchCount }}&lt;/p&gt;
+
+    &lt;h2&gt;watchEffect Demo&lt;/h2&gt;
+    &lt;input v-model=&quot;theme&quot; placeholder=&quot;Theme color&quot; /&gt;
+    &lt;p&gt;Theme applied: {{ currentTheme }}&lt;/p&gt;
+  &lt;/div&gt;
+&lt;/template&gt;
+
+&lt;script setup&gt;
+import { ref, computed, watch, watchEffect } from &#x27;vue&#x27;
+
+// === Computed Demo ===
+const price = ref(100)
+const quantity = ref(2)
+const discount = ref(0.1)
+
+// Read-only computed: calculate subtotal
+const subtotal = computed(() =&gt; price.value * quantity.value)
+
+// Computed chaining: discount based on subtotal
+const discountAmount = computed(() =&gt; subtotal.value * discount.value)
+
+// Final total
+const total = computed(() =&gt; subtotal.value - discountAmount.value)
+
+// === Writable Computed ===
+const firstName = ref(&#x27;San&#x27;)
+const lastName = ref(&#x27;Zhang&#x27;)
+
+// Computed with getter and setter
+const fullName = computed({
+  get: () =&gt; `${firstName.value} ${lastName.value}`,
+  set: (val) =&gt; {
+    const parts = val.split(&#x27; &#x27;)
+    firstName.value = parts[0] || &#x27;&#x27;
+    lastName.value = parts.slice(1).join(&#x27; &#x27;) || &#x27;&#x27;
+  }
+})
+
+// === Watch Demo ===
+const searchQuery = ref(&#x27;&#x27;)
+const searchResults = ref([])
+const searchCount = ref(0)
+
+// Watch with debounce simulation
+watch(searchQuery, (newVal, oldVal, onCleanup) =&gt; {
+  console.log(`Search: &quot;${oldVal}&quot; → &quot;${newVal}&quot;`)
+  // Simulate debounce with cleanup
+  const timer = setTimeout(() =&gt; {
+    // Simulated search results
+    searchResults.value = newVal
+      ? [`Result 1 for &quot;${newVal}&quot;`, `Result 2 for &quot;${newVal}&quot;`]
+      : []
+    searchCount.value++
+  }, 500)
+  // Cleanup previous timer on next trigger
+  onCleanup(() =&gt; clearTimeout(timer))
+})
+
+// Watch multiple sources
+watch([price, quantity], ([newPrice, newQty], [oldPrice, oldQty]) =&gt; {
+  console.log(`Cart changed: ${oldPrice}x${oldQty} → ${newPrice}x${newQty}`)
+})
+
+// === watchEffect Demo ===
+const theme = ref(&#x27;#42b883&#x27;)
+const currentTheme = ref(&#x27;&#x27;)
+
+// watchEffect: auto-tracks dependencies
+const stopEffect = watchEffect(() =&gt; {
+  // Automatically tracks `theme.value` as dependency
+  currentTheme.value = theme.value
+  document.title = `Theme: ${theme.value}`
+})
+
+// Can stop the effect later if needed
+// stopEffect()
+&lt;/script&gt;</code></pre>
+
+<h2>👀 执行预览</h2>
+
+<p><strong>页面渲染效果：</strong></p>
+
+<pre><code>Computed Demo - Shopping Cart
+Price: [100]  Quantity: [2]  Discount: [0.1]
+Subtotal: ¥200
+Discount: -¥20
+Total: ¥180
+
+Writable Computed - Full Name
+[San Zhang____________]
+First: San, Last: Zhang
+（修改为 &quot;Li Si&quot; 后自动拆分）
+First: Li, Last: Si
+
+Watch Demo - Search
+[Vue____] (输入后500ms触发搜索)
+Searching: Vue
+Results: Result 1 for &quot;Vue&quot;, Result 2 for &quot;Vue&quot;
+Search count: 1</code></pre>
+
+
+<h2>⚠️ 注意事项</h2>
+
+<table><thead><tr>
+<th>注意点</th>
+<th>说明</th>
+<th>建议</th>
+</tr></thead><tbody>
+<tr>
+<td>computed缓存</td>
+<td>依赖不变则不重算</td>
+<td>适合模板中多次使用的计算</td>
+</tr>
+<tr>
+<td>computed vs method</td>
+<td>method每次渲染都执行</td>
+<td>需要缓存用computed</td>
+</tr>
+<tr>
+<td>watch的deep</td>
+<td>监听对象需要deep:true</td>
+<td>性能有开销，按需使用</td>
+</tr>
+<tr>
+<td>watch的immediate</td>
+<td>默认不立即执行</td>
+<td>需要初始值时设immediate:true</td>
+</tr>
+<tr>
+<td>watchEffect清理</td>
+<td>组件卸载时自动停止</td>
+<td>异步操作用onCleanup</td>
+</tr>
+<tr>
+<td>副作用位置</td>
+<td>不要在computed中做异步操作</td>
+<td>异步操作放watch中</td>
+</tr>
+</tbody></table>
+
+<h2>🚫 避坑指南</h2>
+
+<h3>1. computed中执行异步操作</h3>
+<p>❌ <strong>错误：</strong> <code>const data = computed(() => fetch('/api'))</code>（computed不能是异步的）</p>
+<p>✅ <strong>正确：</strong> 用watch监听变化，在回调中调用API</p>
+
+<h3>2. 修改自己监听的数据</h3>
+<p>❌ <strong>错误：</strong> <code>watch(count, () => { count.value++ })</code>（无限循环！）</p>
+<p>✅ <strong>正确：</strong> 避免在watch中修改被监听的源数据</p>
+
+<h3>3. 忘记deep选项</h3>
+<p>❌ <strong>错误：</strong> <code>watch(obj, handler)</code> → 监听reactive对象内部变化不触发</p>
+<p>✅ <strong>正确：</strong> <code>watch(obj, handler, { deep: true })</code> 或监听getter函数</p>
+
+<h3>4. watch监听reactive对象的属性</h3>
+<p>❌ <strong>错误：</strong> <code>watch(() => obj.count, handler)</code> 用getter形式</p>
+<p>✅ <strong>正确：</strong> 直接监听ref或用<code>watch(() => obj.count, handler)</code></p>
+
+<h3>5. 滥用watch做计算</h3>
+<p>❌ <strong>错误：</strong> 用watch把a+b的结果赋给c</p>
+<p>✅ <strong>正确：</strong> 用computed: <code>const c = computed(() => a.value + b.value)</code></p>
+
+<h2>🧪 练习题</h2>
+
+<h3>🟢 基础题</h3>
+<ol>
+<li>创建一个computed，实现摄氏度→华氏度转换，输入框双向绑定摄氏度。</li>
+</ul>
+<ol>
+<li>用watch监听一个输入框，当输入长度超过10时显示警告。</li>
+
+<h3>🟡 进阶题</h3>
+<ol>
+<li>实现一个可写computed，解析"YYYY-MM-DD"格式的日期字符串，分别绑定年、月、日。</li>
+</ul>
+<ol>
+<li>用watchEffect实现：当窗口resize时，自动更新页面标题显示当前宽度。</li>
+
+<h3>🔴 挑战题</h3>
+<ol>
+<li>实现一个debounced computed：搜索关键词变化后500ms才更新结果，期间显示"搜索中..."。</li>
+
+<h2>📝 知识点总结</h2>
+
+<pre><code>计算属性与侦听器
+├── computed
+│   ├── 只读 computed(() =&gt; expr)
+│   ├── 可写 computed({ get, set })
+│   ├── 自动缓存 → 性能优化
+│   └── 适用：派生数据
+├── watch
+│   ├── watch(source, callback, options)
+│   ├── deep: true → 深度监听
+│   ├── immediate: true → 首次执行
+│   ├── onCleanup → 清理副作用
+│   └── 适用：异步操作/副作用
+├── watchEffect
+│   ├── 自动追踪依赖
+│   ├── 立即执行
+│   └── 适用：简单副作用
+└── 选择原则
+    ├── 需要值 → computed
+    ├── 需要做 → watch
+    └── 能computed就不watch</code></pre>
+
+
+<h2>🔄 举一反三</h2>
+
+<table><thead><tr>
+<th>概念</th>
+<th>生活类比</th>
+<th>说明</th>
+</tr></thead><tbody>
+<tr>
+<td>computed</td>
+<td>计算器</td>
+<td>输入不变，结果不变（缓存）</td>
+</tr>
+<tr>
+<td>computed缓存</td>
+<td>自动售货机</td>
+<td>同一按钮不会重新调配已有饮料</td>
+</tr>
+<tr>
+<td>watch</td>
+<td>监控摄像头</td>
+<td>目标变化时触发录像</td>
+</tr>
+<tr>
+<td>watchEffect</td>
+<td>哮喘预警器</td>
+<td>自动感知环境变化并报警</td>
+</tr>
+<tr>
+<td>deep:true</td>
+<td>透视镜</td>
+<td>看透表面，监控深层变化</td>
+</tr>
+<tr>
+<td>onCleanup</td>
+<td>垃圾回收</td>
+<td>上一次的残留要清理干净</td>
+</tr>
+</tbody></table>
+
+<h2>📚 参考资料</h2>
+
+<ol>
+<li><a href="https://vuejs.org/guide/essentials/computed.html">Vue 3 Computed Properties</a></li>
+</ul>
+<ol>
+<li><a href="https://vuejs.org/guide/essentials/watchers.html">Vue 3 Watchers</a></li>
+</ul>
+<ol>
+<li><a href="https://vuejs.org/guide/extras/reactivity-in-depth.html">Vue 3 Reactivity in Depth</a></li>
+</ul>
+<ol>
+<li><a href="https://vueuse.org/core/computedasync/">VueUse - Computed Async</a></li>
+
+<h2>🚀 代码演进</h2>
+
+<h3>v1 - Options API中computed和watch</h3>
+
+<pre><code class="language-vue">&lt;script&gt;
+export default {
+  data() { return { price: 100, qty: 2 } },
+  computed: {
+    total() { return this.price * this.qty }
+  },
+  watch: {
+    total(newVal) { console.log(&#x27;Total changed:&#x27;, newVal) }
+  }
+}
+&lt;/script&gt;</code></pre>
+
+<h3>v2 - Composition API（setup函数）</h3>
+
+<pre><code class="language-vue">&lt;script&gt;
+import { ref, computed, watch } from &#x27;vue&#x27;
+export default {
+  setup() {
+    const price = ref(100)
+    const qty = ref(2)
+    const total = computed(() =&gt; price.value * qty.value)
+    watch(total, (val) =&gt; console.log(&#x27;Total:&#x27;, val))
+    return { price, qty, total }
+  }
+}
+&lt;/script&gt;</code></pre>
+
+<h3>v3 - script setup（推荐）</h3>
+
+<pre><code class="language-vue">&lt;script setup&gt;
+import { ref, computed, watchEffect } from &#x27;vue&#x27;
+const price = ref(100)
+const qty = ref(2)
+const total = computed(() =&gt; price.value * qty.value)
+watchEffect(() =&gt; console.log(&#x27;Total:&#x27;, total.value))
+&lt;/script&gt;</code></pre>
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

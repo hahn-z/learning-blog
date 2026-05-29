@@ -1,0 +1,553 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>006 - Go 运算符详解</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/learning-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/learning-blog/Golang/index.html">Golang</a>
+<span class="sep">›</span>
+<a href="/learning-blog/Golang/01-入门/index.html">Golang入门</a>
+</nav>
+<h1>006 - Go 运算符详解</h1>
+<div class="meta">
+<span>📂 Golang入门</span>
+<span>🏷️ Golang</span>
+</div>
+<article>
+
+
+<h1>006 - Go 运算符详解</h1>
+
+<h2>难度标注</h2>
+
+<p>⭐⭐☆☆☆</p>
+
+<p><strong>前置知识：</strong> 变量声明、基本数据类型</p>
+
+<p><strong>预估用时：</strong> 35-45 分钟</p>
+
+<hr>
+
+<h2>概念讲解</h2>
+
+<p><strong>一句话定义：</strong> 运算符是执行特定运算（算术、比较、逻辑等）的符号，Go 提供了丰富的运算符集并规定了明确的优先级和结合性。</p>
+
+<p><strong>现实类比：</strong> 运算符就像数学课堂上的运算符号——<code>+</code> <code>-</code> <code>×</code> <code>÷</code> 大家都会用，但 Go 还提供了位运算（像开关灯的控制面板）和指针运算（像地址导航）。</p>
+
+<p><strong>技术场景：</strong> 日常编码中处处用到运算符——计算价格、判断条件、位掩码权限、指针操作、数值溢出检测等。</p>
+
+<hr>
+
+<h2>实时脑图</h2>
+
+<pre><code>           Go 运算符
+               │
+   ┌───────┬───┴───┬───────┐
+   │       │       │       │
+ 算术    关系     逻辑    位运算
+   │       │       │       │
+ + -     == !=    &amp;&amp;     &amp; | ^
+ * /     &lt; &gt;      ||     &amp;^
+ %       &lt;= &gt;=    !      &lt;&lt; &gt;&gt;
+   │                       │
+ 赋值                    指针
+ = += -=                &amp; *
+ *= /= %=
+ &lt;&lt;= &gt;&gt;=
+ &amp;= |= ^=</code></pre>
+
+<hr>
+
+<h2>完整代码</h2>
+
+<pre><code class="language-go">package main
+
+import (
+	&quot;fmt&quot;
+	&quot;math&quot;
+)
+
+func main() {
+	// ========================================
+	// 1. Arithmetic Operators
+	// ========================================
+	a, b := 17, 5
+
+	fmt.Println(&quot;=== Arithmetic ===&quot;)
+	fmt.Printf(&quot;%d + %d = %d\n&quot;, a, b, a+b)   // 22
+	fmt.Printf(&quot;%d - %d = %d\n&quot;, a, b, a-b)   // 12
+	fmt.Printf(&quot;%d * %d = %d\n&quot;, a, b, a*b)   // 85
+	fmt.Printf(&quot;%d / %d = %d\n&quot;, a, b, a/b)   // 3 (integer division)
+	fmt.Printf(&quot;%d %% %d = %d\n&quot;, a, b, a%b)  // 2
+
+	// Float division
+	fa, fb := 17.0, 5.0
+	fmt.Printf(&quot;%.1f / %.1f = %.2f\n&quot;, fa, fb, fa/fb) // 3.40
+
+	// Increment / Decrement (statement, not expression)
+	count := 10
+	count++ // count = 11
+	count-- // count = 10
+	fmt.Println(&quot;count:&quot;, count)
+
+	// ========================================
+	// 2. Comparison / Relational Operators
+	// ========================================
+	fmt.Println(&quot;\n=== Comparison ===&quot;)
+	x, y := 10, 20
+	fmt.Printf(&quot;%d == %d: %t\n&quot;, x, y, x == y) // false
+	fmt.Printf(&quot;%d != %d: %t\n&quot;, x, y, x != y) // true
+	fmt.Printf(&quot;%d &lt;  %d: %t\n&quot;, x, y, x &lt; y)  // true
+	fmt.Printf(&quot;%d &gt;  %d: %t\n&quot;, x, y, x &gt; y)  // false
+	fmt.Printf(&quot;%d &lt;= %d: %t\n&quot;, x, y, x &lt;= y) // true
+	fmt.Printf(&quot;%d &gt;= %d: %t\n&quot;, x, y, x &gt;= y) // false
+
+	// Comparables: strings compared lexicographically
+	fmt.Printf(&quot;\&quot;abc\&quot; &lt; \&quot;abd\&quot;: %t\n&quot;, &quot;abc&quot; &lt; &quot;abd&quot;) // true
+
+	// ========================================
+	// 3. Logical Operators
+	// ========================================
+	fmt.Println(&quot;\n=== Logical ===&quot;)
+	t, f := true, false
+	fmt.Printf(&quot;true &amp;&amp; false = %t\n&quot;, t &amp;&amp; f)  // false
+	fmt.Printf(&quot;true || false = %t\n&quot;, t || f)  // true
+	fmt.Printf(&quot;!true = %t\n&quot;, !t)              // false
+
+	// Short-circuit evaluation
+	// In &amp;&amp;: if left is false, right is not evaluated
+	// In ||: if left is true, right is not evaluated
+	slice := []int{1, 2, 3}
+	idx := 5
+	if idx &lt; len(slice) &amp;&amp; slice[idx] &gt; 0 { // short-circuit prevents panic
+		fmt.Println(&quot;safe access&quot;)
+	} else {
+		fmt.Println(&quot;index out of range, but no panic!&quot;)
+	}
+
+	// ========================================
+	// 4. Bitwise Operators
+	// ========================================
+	fmt.Println(&quot;\n=== Bitwise ===&quot;)
+	m, n := 0b1100, 0b1010 // 12 and 10
+	fmt.Printf(&quot;m     = %04b (%d)\n&quot;, m, m)
+	fmt.Printf(&quot;n     = %04b (%d)\n&quot;, n, n)
+	fmt.Printf(&quot;m &amp; n = %04b (%d)\n&quot;, m&amp;n, m&amp;n)   // AND: 1000 (8)
+	fmt.Printf(&quot;m | n = %04b (%d)\n&quot;, m|n, m|n)   // OR:  1110 (14)
+	fmt.Printf(&quot;m ^ n = %04b (%d)\n&quot;, m^n, m^n)   // XOR: 0110 (6)
+	fmt.Printf(&quot;m &amp;^ n= %04b (%d)\n&quot;, m&amp;^n, m&amp;^n) // AND NOT: 0100 (4)
+
+	// Shift
+	val := 1
+	fmt.Printf(&quot;1 &lt;&lt; 3 = %d\n&quot;, val&lt;&lt;3) // 8
+	fmt.Printf(&quot;16 &gt;&gt; 2 = %d\n&quot;, 16&gt;&gt;2)  // 4
+
+	// ========================================
+	// 5. Assignment Operators
+	// ========================================
+	fmt.Println(&quot;\n=== Assignment ===&quot;)
+	num := 100
+	num += 10  // 110
+	num -= 5   // 105
+	num *= 2   // 210
+	num /= 3   // 70
+	num %= 3   // 1
+	num &lt;&lt;= 4  // 16
+	num &gt;&gt;= 1  // 8
+	num |= 0b1 // 9
+	num &amp;= ^0  // 9 (no change)
+	fmt.Println(&quot;num after ops:&quot;, num)
+
+	// ========================================
+	// 6. Pointer Operators
+	// ========================================
+	fmt.Println(&quot;\n=== Pointer ===&quot;)
+	val2 := 42
+	ptr := &amp;val2           // &amp; takes address
+	fmt.Printf(&quot;val2=%d ptr=%v *ptr=%d\n&quot;, val2, ptr, *ptr) // * dereferences
+	*ptr = 99              // modify through pointer
+	fmt.Println(&quot;after *ptr=99, val2 =&quot;, val2) // 99
+
+	// ========================================
+	// 7. Operator Precedence (high to low)
+	// ========================================
+	fmt.Println(&quot;\n=== Precedence ===&quot;)
+	// 1. * / % &lt;&lt; &gt;&gt; &amp; &amp;^
+	// 2. + - | ^
+	// 3. == != &lt; &lt;= &gt; &gt;=
+	// 4. &amp;&amp;
+	// 5. ||
+	result := 2 + 3*4  // 14, not 20
+	fmt.Println(&quot;2 + 3*4 =&quot;, result)
+	logic := true || false &amp;&amp; false // true (&amp;&amp; before ||)
+	fmt.Println(&quot;true || false &amp;&amp; false =&quot;, logic)
+
+	// ========================================
+	// 8. Overflow Handling
+	// ========================================
+	fmt.Println(&quot;\n=== Overflow ===&quot;)
+	var maxUint8 uint8 = math.MaxUint8 // 255
+	fmt.Println(&quot;max uint8:&quot;, maxUint8)
+	overflow := maxUint8 + 1 // wraps to 0
+	fmt.Println(&quot;maxUint8 + 1 =&quot;, overflow) // 0 (wraps!)
+
+	// Detect overflow before it happens
+	safeAdd := func(a, b uint8) (uint8, bool) {
+		if a &gt; math.MaxUint8-b {
+			return 0, false // would overflow
+		}
+		return a + b, true
+	}
+	if r, ok := safeAdd(200, 100); ok {
+		fmt.Printf(&quot;200 + 100 = %d\n&quot;, r)
+	} else {
+		fmt.Println(&quot;200 + 100 would overflow!&quot;)
+	}
+
+	// Using int overflow detection
+	safeIntAdd := func(a, b int) (int, bool) {
+		if b &gt; 0 &amp;&amp; a &gt; math.MaxInt-b {
+			return 0, false
+		}
+		if b &lt; 0 &amp;&amp; a &lt; math.MinInt-b {
+			return 0, false
+		}
+		return a + b, true
+	}
+	if r, ok := safeIntAdd(math.MaxInt, 1); ok {
+		fmt.Printf(&quot;MaxInt + 1 = %d\n&quot;, r)
+	} else {
+		fmt.Println(&quot;MaxInt + 1 would overflow!&quot;)
+	}
+}</code></pre>
+
+<h2>执行预览</h2>
+
+<pre><code>=== Arithmetic ===
+17 + 5 = 22
+17 - 5 = 12
+17 * 5 = 85
+17 / 5 = 3
+17 % 5 = 2
+17.0 / 5.0 = 3.40
+count: 10
+
+=== Comparison ===
+10 == 20: false
+10 != 20: true
+10 &lt;  20: true
+10 &gt;  20: false
+10 &lt;= 20: true
+10 &gt;= 20: false
+&quot;abc&quot; &lt; &quot;abd&quot;: true
+
+=== Logical ===
+true &amp;&amp; false = false
+true || false = true
+!true = false
+index out of range, but no panic!
+
+=== Bitwise ===
+m     = 1100 (12)
+n     = 1010 (10)
+m &amp; n = 1000 (8)
+m | n = 1110 (14)
+m ^ n = 0110 (6)
+m &amp;^ n= 0100 (4)
+1 &lt;&lt; 3 = 8
+16 &gt;&gt; 2 = 4
+
+=== Assignment ===
+num after ops: 9
+
+=== Pointer ===
+val2=42 ptr=0xc0000b2008 *ptr=42
+after *ptr=99, val2 = 99
+
+=== Precedence ===
+2 + 3*4 = 14
+true || false &amp;&amp; false = true
+
+=== Overflow ===
+max uint8: 255
+maxUint8 + 1 = 0
+200 + 100 would overflow!
+MaxInt + 1 would overflow!</code></pre>
+
+<hr>
+
+<h2>注意事项</h2>
+
+<table><thead><tr>
+<th>事项</th>
+<th>说明</th>
+</tr></thead><tbody>
+<tr>
+<td><code>++</code>/<code>--</code> 是语句不是表达式</td>
+<td>不能写 <code>x := y++</code>，只能单独一行</td>
+</tr>
+<tr>
+<td>整数除法截断</td>
+<td><code>17/5 = 3</code>，不是 3.4；需要浮点结果必须用浮点数</td>
+</tr>
+<tr>
+<td>位运算只支持整数</td>
+<td>float64 不能用 <code>&</code> `</td>
+<td><code> </code>^` 等位运算符</td>
+</tr>
+<tr>
+<td><code>^</code> 既取反又异或</td>
+<td>一元 <code>^x</code> 是取反，二元 <code>x^y</code> 是异或</td>
+</tr>
+<tr>
+<td>溢出不报错</td>
+<td>Go 整数溢出是静默的（wrap around），不会 panic</td>
+</tr>
+<tr>
+<td><code>&^</code> 是 Go 特有</td>
+<td>"位清除"运算符，<code>x &^ y</code> 清除 x 中 y 为 1 的位</td>
+</tr>
+<tr>
+<td>字符串不可比较大小</td>
+<td>只能用 <code>==</code> <code>!=</code>，但可以用 <code><</code> <code>></code> 按字典序比较</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>避坑指南</h2>
+
+<p><strong>❌ 整数除法期望浮点结果</strong></p>
+<pre><code class="language-go">result := 1 / 3  // 0, not 0.333...</code></pre>
+<p><strong>✅ 用浮点数</strong></p>
+<pre><code class="language-go">result := 1.0 / 3.0  // 0.333...</code></pre>
+
+<p><strong>❌ <code>++</code> 当表达式用</strong></p>
+<pre><code class="language-go">x := 5
+y := x++  // compile error</code></pre>
+<p><strong>✅ 单独作为语句</strong></p>
+<pre><code class="language-go">x := 5
+x++       // OK
+y := x    // then assign</code></pre>
+
+<p><strong>❌ 忽略溢出</strong></p>
+<pre><code class="language-go">var a uint8 = 250
+a += 10  // wraps to 4, no error!</code></pre>
+<p><strong>✅ 检查溢出</strong></p>
+<pre><code class="language-go">var a uint8 = 250
+if a + 10 &lt; a {
+    // overflow detected
+}
+// or use explicit check as shown in the code</code></pre>
+
+<p><strong>❌ <code>^</code> 混淆</strong></p>
+<pre><code class="language-go">x := ^2   // -3 (bitwise NOT of 2)
+y := 6 ^ 3 // 5 (XOR)</code></pre>
+<p><strong>✅ 记住一元和二元的区别</strong></p>
+<pre><code class="language-go">// Unary ^: bitwise complement (flip all bits)
+// Binary ^: XOR (bits different = 1)</code></pre>
+
+<hr>
+
+<h2>练习题</h2>
+
+<h3>🟢 基础</h3>
+
+<ol>
+<li>计算一个长方形（宽 12，高 8）的面积和周长。</li>
+</ul>
+<ol>
+<li>判断一个数是偶数还是奇数（提示：用 <code>%</code>）。</li>
+
+<h3>🟡 进阶</h3>
+
+<ol>
+<li>不使用临时变量，用位运算交换两个整数的值（提示：XOR swap）。</li>
+</ul>
+<ol>
+<li>写一个函数，判断一个 uint8 的第 N 位是否为 1。</li>
+</ul>
+<ol>
+<li>解释 <code>1 << 10</code> 等于多少？为什么这个数字在计算机中很常见？</li>
+
+<h3>🔴 开放</h3>
+
+<ol>
+<li>实现一个安全的整数运算库（加、减、乘、除），所有运算都检查溢出。思考：如何用泛型（Go 1.18+）让它支持多种整数类型？</li>
+
+<hr>
+
+<h2>知识点总结</h2>
+
+<pre><code>运算符
+├── 算术 + - * / % ++ --
+├── 关系 == != &lt; &gt; &lt;= &gt;=
+├── 逻辑 &amp;&amp; || !
+├── 位运算 &amp; | ^ &amp;^ &lt;&lt; &gt;&gt;
+├── 赋值 = += -= *= /= %= 等
+├── 指针 &amp; *
+├── 优先级
+│   ├── * / % &lt;&lt; &gt;&gt; &amp; &amp;^
+│   ├── + - | ^
+│   ├── == != &lt; &lt;= &gt; &gt;=
+│   ├── &amp;&amp;
+│   └── ||
+└── 溢出
+    ├── 整数静默wrap
+    └── 需手动检测</code></pre>
+
+<hr>
+
+<h2>举一反三</h2>
+
+<table><thead><tr>
+<th>运算符</th>
+<th>Go</th>
+<th>C/C++</th>
+<th>Python</th>
+<th>差异</th>
+</tr></thead><tbody>
+<tr>
+<td>位清除</td>
+<td><code>x &^ y</code></td>
+<td><code>x & ~y</code></td>
+<td><code>x & ~y</code></td>
+<td>Go 有专用符号</td>
+</tr>
+<tr>
+<td>自增</td>
+<td><code>x++</code>（语句）</td>
+<td><code>x++</code>（表达式）</td>
+<td>无</td>
+<td>Go 不能嵌入表达式</td>
+</tr>
+<tr>
+<td>乘方</td>
+<td>无</td>
+<td>无</td>
+<td><code>x ** y</code></td>
+<td>Go 用 <code>math.Pow()</code></td>
+</tr>
+<tr>
+<td>整除</td>
+<td><code>/</code></td>
+<td><code>/</code></td>
+<td><code>//</code></td>
+<td>Go 和 C 自动截断</td>
+</tr>
+<tr>
+<td>取反</td>
+<td><code>^x</code></td>
+<td><code>~x</code></td>
+<td><code>~x</code></td>
+<td>Go 用 <code>^</code> 代替 <code>~</code></td>
+</tr>
+<tr>
+<td>指针</td>
+<td><code>&</code> <code>*</code></td>
+<td><code>&</code> <code>*</code></td>
+<td>无</td>
+<td>Go 无指针算术</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>参考资料</h2>
+
+<ul>
+<li><a href="https://go.dev/ref/spec#Operators">Go 官方文档 - Operators</a></li>
+<li><a href="https://gobyexample.com/integer-arithmetic">Go by Example - Integer Arithmetic</a></li>
+<li><a href="https://gobyexample.com/pointers">Go by Example - Pointers</a></li>
+<li><a href="https://go.dev/doc/effective_go#control-structures">Effective Go - Control structures</a></li>
+
+<hr>
+
+<h2>代码演进</h2>
+
+<h3>v1：基础算术</h3>
+
+<pre><code class="language-go">package main
+
+import &quot;fmt&quot;
+
+func main() {
+    a, b := 10, 3
+    fmt.Println(a + b, a - b, a * b, a / b, a % b)
+}</code></pre>
+
+<h3>v2：位运算 + 逻辑</h3>
+
+<pre><code class="language-go">package main
+
+import &quot;fmt&quot;
+
+func main() {
+    fmt.Println(6 &amp; 3)   // 2
+    fmt.Println(6 | 3)   // 7
+    fmt.Println(6 ^ 3)   // 5
+    fmt.Println(true &amp;&amp; false) // false
+    fmt.Println(true || false) // true
+}</code></pre>
+
+<h3>v3：完整实践（见上方完整代码）</h3>
+
+<p>覆盖全部运算符类别，包含优先级演示、溢出检测、指针操作、短路求值等实用场景。</p>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

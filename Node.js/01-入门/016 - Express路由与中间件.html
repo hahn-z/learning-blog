@@ -1,0 +1,691 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>016 - Express路由与中间件</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Node.js/index.html">Node.js</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Node.js/01-入门/index.html">Node.js入门</a>
+</nav>
+<h1>016 - Express路由与中间件</h1>
+<div class="meta">
+<span>📂 Node.js入门</span>
+<span>🏷️ Node.js</span>
+</div>
+<article>
+
+
+<h1>Express路由与中间件</h1>
+
+<blockquote><p><strong>难度标注：</strong> ⭐⭐ 初级 | 适合有Node.js基础的开发者<br><strong>阅读时间：</strong> 约20分钟 | <strong>上手时间：</strong> 约30分钟</p></blockquote>
+
+<hr>
+
+<h2>一、概念讲解</h2>
+
+<h3>什么是路由？</h3>
+
+<p>路由（Routing）决定了应用程序如何响应客户端对特定端点的请求。每个路由可以有一个或多个处理函数，当路由匹配时执行。</p>
+
+<p>简单来说：<strong>路由就是 URL → 处理函数 的映射关系。</strong></p>
+
+<pre><code>客户端请求                    Express应用
+GET /users        →→→→→→→    getUsers()
+POST /users       →→→→→→→    createUser()
+PUT /users/123    →→→→→→→    updateUser()
+DELETE /users/123 →→→→→→→    deleteUser()</code></pre>
+
+<h3>什么是中间件？</h3>
+
+<p>中间件（Middleware）是Express的核心概念。它是一个函数，可以访问请求对象（<code>req</code>）、响应对象（<code>res</code>）和下一个中间件函数（<code>next</code>）。</p>
+
+<p><strong>中间件的执行流程像一条流水线：</strong></p>
+
+<pre><code>请求 → 中间件A → 中间件B → 中间件C → 路由处理 → 响应
+         ↓          ↓          ↓
+       可拦截      可修改      可终止</code></pre>
+
+<p>中间件能做的事：</p>
+<ul>
+<li>执行任何代码</li>
+<li>修改请求和响应对象</li>
+<li>结束请求-响应周期</li>
+<li>调用 <code>next()</code> 传递给下一个中间件</li>
+
+<hr>
+
+<h2>二、脑图（ASCII）</h2>
+
+<pre><code>Express路由与中间件
+├── 路由 (Routing)
+│   ├── 基本路由
+│   │   ├── app.get()
+│   │   ├── app.post()
+│   │   ├── app.put()
+│   │   └── app.delete()
+│   ├── 路由参数
+│   │   ├── req.params (路径参数)
+│   │   ├── req.query (查询参数)
+│   │   └── req.body (请求体)
+│   ├── 路由方法
+│   │   ├── app.route() 链式路由
+│   │   └── express.Router() 模块化路由
+│   └── 路由匹配
+│       ├── 精确匹配
+│       ├── 模式匹配 (/users/:id)
+│       └── 正则匹配
+├── 中间件 (Middleware)
+│   ├── 应用级中间件 (app.use)
+│   ├── 路由级中间件 (router.use)
+│   ├── 内置中间件
+│   │   ├── express.json()
+│   │   ├── express.static()
+│   │   └── express.urlencoded()
+│   ├── 第三方中间件
+│   │   ├── morgan (日志)
+│   │   ├── cors (跨域)
+│   │   └── helmet (安全)
+│   └── 错误处理中间件 (err, req, res, next)
+└── 执行机制
+    ├── 洋葱模型
+    ├── next() 调用链
+    └── 错误传递机制</code></pre>
+
+<hr>
+
+<h2>三、完整代码</h2>
+
+<h3>v1：基础路由与中间件</h3>
+
+<pre><code class="language-javascript">// v1-basic-routing.js - Basic routing and middleware demo
+const express = require(&#x27;express&#x27;);
+const app = express();
+const PORT = 3000;
+
+// Custom logger middleware - runs for every request
+app.use((req, res, next) =&gt; {
+  const start = Date.now();
+  // Call next to pass control to the next middleware
+  res.on(&#x27;finish&#x27;, () =&gt; {
+    const duration = Date.now() - start;
+    console.log(`${req.method} ${req.url} ${res.statusCode} - ${duration}ms`);
+  });
+  next();
+});
+
+// Parse JSON request body (built-in middleware)
+app.use(express.json());
+
+// Basic routes
+app.get(&#x27;/&#x27;, (req, res) =&gt; {
+  res.json({ message: &#x27;Welcome to Express!&#x27; });
+});
+
+app.get(&#x27;/users&#x27;, (req, res) =&gt; {
+  // Simulate fetching users from database
+  const users = [
+    { id: 1, name: &#x27;Alice&#x27; },
+    { id: 2, name: &#x27;Bob&#x27; }
+  ];
+  res.json({ users });
+});
+
+// Route with URL parameter
+app.get(&#x27;/users/:id&#x27;, (req, res) =&gt; {
+  const userId = req.params.id;
+  res.json({ user: { id: userId, name: &#x27;Alice&#x27; } });
+});
+
+// POST route
+app.post(&#x27;/users&#x27;, (req, res) =&gt; {
+  const { name } = req.body;
+  if (!name) {
+    return res.status(400).json({ error: &#x27;Name is required&#x27; });
+  }
+  res.status(201).json({ user: { id: 3, name } });
+});
+
+app.listen(PORT, () =&gt; {
+  console.log(`Server running at http://localhost:${PORT}`);
+});</code></pre>
+
+<h3>v2：模块化路由 + 常用中间件</h3>
+
+<pre><code class="language-javascript">// v2-modular-routes.js - Modular routes with Router
+const express = require(&#x27;express&#x27;);
+const morgan = require(&#x27;morgan&#x27;);
+const cors = require(&#x27;cors&#x27;);
+const app = express();
+const PORT = 3000;
+
+// Third-party middleware
+app.use(morgan(&#x27;dev&#x27;));      // HTTP request logger
+app.use(cors());             // Enable CORS for all routes
+app.use(express.json());     // Parse JSON bodies
+
+// --- Router: users ---
+const usersRouter = express.Router();
+
+// Middleware specific to users router
+usersRouter.use((req, res, next) =&gt; {
+  console.log(`[Users Router] ${req.method} ${req.originalUrl}`);
+  next();
+});
+
+let users = [
+  { id: 1, name: &#x27;Alice&#x27;, email: &#x27;alice@example.com&#x27; },
+  { id: 2, name: &#x27;Bob&#x27;, email: &#x27;bob@example.com&#x27; }
+];
+let nextId = 3;
+
+// Chain route handlers for same path
+usersRouter.route(&#x27;/&#x27;)
+  .get((req, res) =&gt; {
+    // Support query filtering: GET /users?name=alice
+    let result = users;
+    if (req.query.name) {
+      result = users.filter(u =&gt;
+        u.name.toLowerCase().includes(req.query.name.toLowerCase())
+      );
+    }
+    res.json({ users: result });
+  })
+  .post((req, res) =&gt; {
+    const { name, email } = req.body;
+    if (!name || !email) {
+      return res.status(400).json({ error: &#x27;name and email required&#x27; });
+    }
+    const user = { id: nextId++, name, email };
+    users.push(user);
+    res.status(201).json({ user });
+  });
+
+usersRouter.route(&#x27;/:id&#x27;)
+  .get((req, res) =&gt; {
+    const user = users.find(u =&gt; u.id === parseInt(req.params.id));
+    if (!user) return res.status(404).json({ error: &#x27;User not found&#x27; });
+    res.json({ user });
+  })
+  .put((req, res) =&gt; {
+    const user = users.find(u =&gt; u.id === parseInt(req.params.id));
+    if (!user) return res.status(404).json({ error: &#x27;User not found&#x27; });
+    Object.assign(user, req.body);
+    res.json({ user });
+  })
+  .delete((req, res) =&gt; {
+    const index = users.findIndex(u =&gt; u.id === parseInt(req.params.id));
+    if (index === -1) return res.status(404).json({ error: &#x27;User not found&#x27; });
+    users.splice(index, 1);
+    res.status(204).end();
+  });
+
+// Mount router at /users
+app.use(&#x27;/users&#x27;, usersRouter);
+
+// Root route
+app.get(&#x27;/&#x27;, (req, res) =&gt; {
+  res.json({ message: &#x27;User API v2&#x27;, endpoints: [&#x27;/users&#x27;] });
+});
+
+// 404 handler - catches unmatched routes
+app.use((req, res) =&gt; {
+  res.status(404).json({ error: &#x27;Not Found&#x27; });
+});
+
+// Error handling middleware (4 parameters required)
+app.use((err, req, res, next) =&gt; {
+  console.error(&#x27;Error:&#x27;, err.message);
+  res.status(500).json({ error: &#x27;Internal Server Error&#x27; });
+});
+
+app.listen(PORT, () =&gt; {
+  console.log(`Server running at http://localhost:${PORT}`);
+});</code></pre>
+
+<h3>v3：高级中间件模式</h3>
+
+<pre><code class="language-javascript">// v3-advanced-middleware.js - Advanced middleware patterns
+const express = require(&#x27;express&#x27;);
+const app = express();
+const PORT = 3000;
+
+app.use(express.json());
+
+// --- Pattern 1: Authentication middleware ---
+const authenticate = (req, res, next) =&gt; {
+  const token = req.headers[&#x27;authorization&#x27;];
+  if (!token || token !== &#x27;Bearer secret-token&#x27;) {
+    return res.status(401).json({ error: &#x27;Unauthorized&#x27; });
+  }
+  // Attach user info to request for downstream use
+  req.user = { id: 1, name: &#x27;Admin&#x27;, role: &#x27;admin&#x27; };
+  next();
+};
+
+// --- Pattern 2: Role-based authorization middleware (factory) ---
+const authorize = (...roles) =&gt; {
+  return (req, res, next) =&gt; {
+    if (!req.user) return res.status(401).json({ error: &#x27;Not authenticated&#x27; });
+    if (!roles.includes(req.user.role)) {
+      return res.status(403).json({ error: &#x27;Forbidden&#x27; });
+    }
+    next();
+  };
+};
+
+// --- Pattern 3: Async error wrapper ---
+const asyncHandler = (fn) =&gt; (req, res, next) =&gt; {
+  Promise.resolve(fn(req, res, next)).catch(next);
+};
+
+// --- Pattern 4: Request validation middleware (factory) ---
+const validate = (schema) =&gt; {
+  return (req, res, next) =&gt; {
+    const errors = [];
+    for (const [field, rules] of Object.entries(schema)) {
+      if (rules.required &amp;&amp; !req.body[field]) {
+        errors.push(`${field} is required`);
+      }
+      if (rules.minLength &amp;&amp; req.body[field]?.length &lt; rules.minLength) {
+        errors.push(`${field} must be at least ${rules.minLength} characters`);
+      }
+    }
+    if (errors.length &gt; 0) {
+      return res.status(400).json({ errors });
+    }
+    next();
+  };
+};
+
+// --- Routes ---
+let articles = [];
+let articleId = 1;
+
+// Public route - no auth needed
+app.get(&#x27;/&#x27;, (req, res) =&gt; {
+  res.json({ message: &#x27;Article API v3&#x27; });
+});
+
+app.get(&#x27;/articles&#x27;, (req, res) =&gt; {
+  res.json({ articles });
+});
+
+// Protected routes - auth required
+app.post(&#x27;/articles&#x27;,
+  authenticate,
+  authorize(&#x27;admin&#x27;, &#x27;editor&#x27;),
+  validate({
+    title: { required: true, minLength: 3 },
+    content: { required: true, minLength: 10 }
+  }),
+  (req, res) =&gt; {
+    const article = {
+      id: articleId++,
+      title: req.body.title,
+      content: req.body.content,
+      author: req.user.name,
+      createdAt: new Date().toISOString()
+    };
+    articles.push(article);
+    res.status(201).json({ article });
+  }
+);
+
+// Route using async handler pattern
+app.get(&#x27;/articles/:id&#x27;, asyncHandler(async (req, res) =&gt; {
+  // Simulate async DB call
+  await new Promise(resolve =&gt; setTimeout(resolve, 100));
+  const article = articles.find(a =&gt; a.id === parseInt(req.params.id));
+  if (!article) return res.status(404).json({ error: &#x27;Article not found&#x27; });
+  res.json({ article });
+}));
+
+// Centralized error handler
+app.use((err, req, res, next) =&gt; {
+  console.error(`[${new Date().toISOString()}] Error:`, err.stack);
+  const status = err.status || 500;
+  res.status(status).json({
+    error: err.message || &#x27;Internal Server Error&#x27;
+  });
+});
+
+app.listen(PORT, () =&gt; {
+  console.log(`Server running at http://localhost:${PORT}`);
+});</code></pre>
+
+<hr>
+
+<h2>四、执行预览</h2>
+
+<pre><code class="language-bash"># 启动v2版本
+$ node v2-modular-routes.js
+Server running at http://localhost:3000
+
+# GET 列表
+$ curl http://localhost:3000/users
+{&quot;users&quot;:[{&quot;id&quot;:1,&quot;name&quot;:&quot;Alice&quot;,&quot;email&quot;:&quot;alice@example.com&quot;},{&quot;id&quot;:2,&quot;name&quot;:&quot;Bob&quot;,&quot;email&quot;:&quot;bob@example.com&quot;}]}
+
+# POST 创建
+$ curl -X POST http://localhost:3000/users \
+  -H &quot;Content-Type: application/json&quot; \
+  -d &#x27;{&quot;name&quot;:&quot;Charlie&quot;,&quot;email&quot;:&quot;charlie@example.com&quot;}&#x27;
+{&quot;user&quot;:{&quot;id&quot;:3,&quot;name&quot;:&quot;Charlie&quot;,&quot;email&quot;:&quot;charlie@example.com&quot;}}
+
+# 查询过滤
+$ curl &quot;http://localhost:3000/users?name=alice&quot;
+{&quot;users&quot;:[{&quot;id&quot;:1,&quot;name&quot;:&quot;Alice&quot;,&quot;email&quot;:&quot;alice@example.com&quot;}]}
+
+# GET 单个用户
+$ curl http://localhost:3000/users/1
+{&quot;user&quot;:{&quot;id&quot;:1,&quot;name&quot;:&quot;Alice&quot;,&quot;email&quot;:&quot;alice@example.com&quot;}}
+
+# DELETE
+$ curl -X DELETE http://localhost:3000/users/2 -w &quot;\nHTTP %{http_code}\n&quot;
+HTTP 204
+
+# 404 处理
+$ curl http://localhost:3000/unknown
+{&quot;error&quot;:&quot;Not Found&quot;}</code></pre>
+
+<p>v3版本需要认证：</p>
+
+<pre><code class="language-bash"># 无token访问 - 401
+$ curl -X POST http://localhost:3000/articles \
+  -H &quot;Content-Type: application/json&quot; \
+  -d &#x27;{&quot;title&quot;:&quot;Test&quot;,&quot;content&quot;:&quot;Hello world content&quot;}&#x27;
+{&quot;error&quot;:&quot;Unauthorized&quot;}
+
+# 带token访问 - 成功
+$ curl -X POST http://localhost:3000/articles \
+  -H &quot;Content-Type: application/json&quot; \
+  -H &quot;Authorization: Bearer secret-token&quot; \
+  -d &#x27;{&quot;title&quot;:&quot;My Article&quot;,&quot;content&quot;:&quot;This is the article content here&quot;}&#x27;
+{&quot;article&quot;:{&quot;id&quot;:1,&quot;title&quot;:&quot;My Article&quot;,&quot;content&quot;:&quot;This is the article content here&quot;,&quot;author&quot;:&quot;Admin&quot;,&quot;createdAt&quot;:&quot;2026-04-29T00:00:00.000Z&quot;}}</code></pre>
+
+<hr>
+
+<h2>五、注意事项</h2>
+
+<table><thead><tr>
+<th>项目</th>
+<th>说明</th>
+<th>建议</th>
+</tr></thead><tbody>
+<tr>
+<td>中间件顺序</td>
+<td>Express按注册顺序执行</td>
+<td><code>express.json()</code> 放路由前，404/错误处理放最后</td>
+</tr>
+<tr>
+<td>next()调用</td>
+<td>忘记调用next()会挂起请求</td>
+<td>每个中间件必须调用next()或发送响应</td>
+</tr>
+<tr>
+<td>路由参数类型</td>
+<td><code>req.params.id</code> 是字符串</td>
+<td>用 <code>parseInt()</code> 转换</td>
+</tr>
+<tr>
+<td>错误处理中间件</td>
+<td>必须4个参数</td>
+<td>即使不用next也要声明 <code>(err, req, res, next)</code></td>
+</tr>
+<tr>
+<td>异步错误</td>
+<td>普通中间件不捕获async错误</td>
+<td>用 <code>asyncHandler</code> 包装或手动 <code>next(err)</code></td>
+</tr>
+<tr>
+<td>express.json()</td>
+<td>不调用则 <code>req.body</code> 为 undefined</td>
+<td>解析body的中间件必须在路由之前</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>六、避坑指南</h2>
+
+<h3>❌ 忘记调用 next()</h3>
+<pre><code class="language-javascript">// ❌ 请求会永远挂起
+app.use((req, res, next) =&gt; {
+  console.log(&#x27;Logging...&#x27;);
+  // Forgot to call next()!
+});</code></pre>
+<pre><code class="language-javascript">// ✅ 必须调用 next() 或发送响应
+app.use((req, res, next) =&gt; {
+  console.log(&#x27;Logging...&#x27;);
+  next();
+});</code></pre>
+
+<h3>❌ 错误处理中间件参数不足</h3>
+<pre><code class="language-javascript">// ❌ Express认为这是普通中间件，不是错误处理
+app.use((err, req, res) =&gt; {
+  res.status(500).json({ error: err.message });
+});</code></pre>
+<pre><code class="language-javascript">// ✅ 必须声明4个参数
+app.use((err, req, res, next) =&gt; {
+  res.status(500).json({ error: err.message });
+});</code></pre>
+
+<h3>❌ 异步路由中的未捕获错误</h3>
+<pre><code class="language-javascript">// ❌ async错误不会被错误处理中间件捕获
+app.get(&#x27;/data&#x27;, async (req, res) =&gt; {
+  const data = await fetchData(); // If this throws, server crashes
+  res.json(data);
+});</code></pre>
+<pre><code class="language-javascript">// ✅ 用 try/catch 或 asyncHandler 包装
+app.get(&#x27;/data&#x27;, asyncHandler(async (req, res) =&gt; {
+  const data = await fetchData();
+  res.json(data);
+}));</code></pre>
+
+<h3>❌ 中间件顺序错误</h3>
+<pre><code class="language-javascript">// ❌ 静态文件放在路由之后，路由可能先匹配
+app.get(&#x27;/about&#x27;, (req, res) =&gt; res.send(&#x27;About&#x27;));
+app.use(express.static(&#x27;public&#x27;)); // Too late!</code></pre>
+<pre><code class="language-javascript">// ✅ 静态文件和body解析放最前面
+app.use(express.json());
+app.use(express.static(&#x27;public&#x27;));
+app.get(&#x27;/about&#x27;, (req, res) =&gt; res.send(&#x27;About&#x27;));</code></pre>
+
+<hr>
+
+<h2>七、练习题</h2>
+
+<h3>🟢 初级</h3>
+<ol>
+<li>创建一个Express应用，包含 GET <code>/</code> 返回 "Hello World"，GET <code>/time</code> 返回当前时间</li>
+</ul>
+<ol>
+<li>编写一个中间件，记录每个请求的IP地址和User-Agent</li>
+</ul>
+<ol>
+<li>创建 GET <code>/greet/:name</code> 路由，返回 <code>Hello, {name}!</code></li>
+
+<h3>🟡 中级</h3>
+<ol>
+<li>使用 <code>express.Router()</code> 创建 <code>/api/todos</code> 模块化路由，支持 CRUD 操作</li>
+</ul>
+<ol>
+<li>编写一个请求耗时统计中间件，在响应头中添加 <code>X-Response-Time</code></li>
+</ul>
+<ol>
+<li>实现一个简单的API Key认证中间件（检查 <code>x-api-key</code> 请求头）</li>
+
+<h3>🔴 高级</h3>
+<ol>
+<li>实现一个限流中间件，每个IP每分钟最多100个请求</li>
+</ul>
+<ol>
+<li>编写一个可配置的请求校验中间件工厂函数，支持 required、type、minLength 等规则</li>
+</ul>
+<ol>
+<li>实现洋葱模型的请求计时：分别记录进入和离开每个中间件的时间戳</li>
+
+<hr>
+
+<h2>八、知识点总结</h2>
+
+<pre><code>Express路由与中间件
+├── 1. 路由基础
+│   ├── app.METHOD(path, handler)
+│   ├── req.params / req.query / req.body
+│   └── app.route().get().post() 链式写法
+├── 2. 模块化路由
+│   ├── express.Router() 创建子路由
+│   ├── router.use() 挂载子路由
+│   └── 按功能拆分文件
+├── 3. 中间件类型
+│   ├── 应用级 app.use()
+│   ├── 路由级 router.use()
+│   ├── 内置 express.json() / express.static()
+│   ├── 第三方 morgan / cors / helmet
+│   └── 错误处理 (err, req, res, next)
+├── 4. 中间件模式
+│   ├── 工厂函数 → 返回中间件（authorize(roles)）
+│   ├── asyncHandler → 包装异步路由
+│   └── 条件中间件 → 根据路径/方法决定是否执行
+└── 5. 最佳实践
+    ├── 中间件顺序很重要
+    ├── 永远处理错误
+    ├── 验证输入数据
+    └── 关注性能影响</code></pre>
+
+<hr>
+
+<h2>九、举一反三</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>路由设计</th>
+<th>中间件选择</th>
+</tr></thead><tbody>
+<tr>
+<td>博客系统</td>
+<td><code>/posts</code>, <code>/posts/:id</code>, <code>/categories</code></td>
+<td>auth, validate, paginate</td>
+</tr>
+<tr>
+<td>电商API</td>
+<td><code>/products</code>, <code>/orders</code>, <code>/cart</code></td>
+<td>auth, rateLimit, cache</td>
+</tr>
+<tr>
+<td>聊天应用</td>
+<td><code>/rooms</code>, <code>/messages</code>, <code>/users</code></td>
+<td>auth, websocket upgrade</td>
+</tr>
+<tr>
+<td>文件上传</td>
+<td><code>/upload</code>, <code>/files/:id</code></td>
+<td>multer, fileSize limit</td>
+</tr>
+<tr>
+<td>实时仪表盘</td>
+<td><code>/metrics</code>, <code>/alerts</code></td>
+<td>auth, rateLimit, SSE</td>
+</tr>
+<tr>
+<td>多租户SaaS</td>
+<td><code>/api/:tenantId/resources</code></td>
+<td>tenantResolver, auth, quota</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>十、参考资料</h2>
+
+<ul>
+<li><a href="https://expressjs.com/en/guide/routing.html">Express.js 官方文档 - Routing</a></li>
+<li><a href="https://expressjs.com/en/guide/using-middleware.html">Express.js 官方文档 - Middleware</a></li>
+<li><a href="https://expressjs.com/en/4x/api.html">Express.js API Reference</a></li>
+<li><a href="https://developer.mozilla.org/zh-CN/docs/Web/HTTP/Methods">MDN - HTTP 请求方法</a></li>
+
+<hr>
+
+<h2>十一、代码演进路线</h2>
+
+<pre><code>v1 基础路由与中间件
+├── 单文件，所有路由写在一起
+├── 自定义日志中间件
+├── express.json() 解析请求体
+└── 适合：学习基本概念，快速原型
+        ↓
+v2 模块化路由
+├── express.Router() 拆分路由模块
+├── 第三方中间件（morgan, cors）
+├── app.route() 链式写法
+├── 404 + 错误处理中间件
+└── 适合：中小型项目，团队协作
+        ↓
+v3 高级中间件模式
+├── 认证中间件（authenticate）
+├── 授权中间件工厂（authorize）
+├── 参数校验中间件工厂（validate）
+├── asyncHandler 异步错误包装
+├── 中间件组合：auth → authorize → validate → handler
+└── 适合：生产级API，复杂业务逻辑</code></pre>
+
+<p><strong>关键演进思路：</strong> 从"能跑"到"好维护"到"可复用"。每一步都解决上一个版本的真实痛点。</p>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

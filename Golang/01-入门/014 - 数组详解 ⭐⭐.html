@@ -1,0 +1,619 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>014 - 数组详解 ⭐⭐</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/learning-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/learning-blog/Golang/index.html">Golang</a>
+<span class="sep">›</span>
+<a href="/learning-blog/Golang/01-入门/index.html">Golang入门</a>
+</nav>
+<h1>014 - 数组详解 ⭐⭐</h1>
+<div class="meta">
+<span>📂 Golang入门</span>
+<span>🏷️ Golang</span>
+</div>
+<article>
+
+
+
+<h2>难度标注</h2>
+
+<blockquote><p>⭐⭐ 中等 | 数组本身简单，但"长度是类型的一部分"这一特性容易导致混淆</p></blockquote>
+
+<h2>概念讲解</h2>
+
+<h3>什么是数组？</h3>
+
+<p>数组是 Go 语言中最基础的<strong>固定长度</strong>数据结构，用于存储<strong>相同类型</strong>的元素序列。数组一旦声明，其长度就不可改变。</p>
+
+<h3>核心特性：长度是类型的一部分</h3>
+
+<p>这是 Go 数组最重要的特性，也是最容易踩坑的地方：</p>
+
+<pre><code class="language-go">var a [5]int    // 类型是 [5]int
+var b [10]int   // 类型是 [10]int
+// a 和 b 是不同的类型！不能互相赋值</code></pre>
+
+<p><code>[5]int</code> 和 <code>[10]int</code> 是<strong>完全不同的类型</strong>，就像 <code>int</code> 和 <code>string</code> 一样。这意味着：</p>
+
+<ul>
+<li>它们不能互相赋值</li>
+<li>函数参数类型必须精确匹配</li>
+<li>类型转换也无法在它们之间进行</li>
+
+<h3>数组的内存布局</h3>
+
+<pre><code>var arr [5]int
+
+内存地址:  0x00  0x08  0x10  0x18  0x20
+         ┌─────┬─────┬─────┬─────┬─────┐
+索引:    │ [0] │ [1] │ [2] │ [3] │ [4] │
+         ┌─────┬─────┬─────┬─────┬─────┐
+值:      │  0  │  0  │  0  │  0  │  0  │
+         └─────┴─────┴─────┴─────┴─────┘
+         连续内存，每个 int 占 8 字节（64位系统）</code></pre>
+
+<h3>数组 vs 切片</h3>
+
+<table><thead><tr>
+<th>特性</th>
+<th>数组</th>
+<th>切片</th>
+</tr></thead><tbody>
+<tr>
+<td>长度</td>
+<td>固定，类型的一部分</td>
+<td>动态，可 append</td>
+</tr>
+<tr>
+<td>类型签名</td>
+<td><code>[N]T</code></td>
+<td><code>[]T</code></td>
+</tr>
+<tr>
+<td>零值</td>
+<td>元素的零值</td>
+<td>nil</td>
+</tr>
+<tr>
+<td>传参</td>
+<td>值拷贝（完整复制）</td>
+<td>传引用（底层数组指针）</td>
+</tr>
+<tr>
+<td>比较</td>
+<td>可比较（同类型）</td>
+<td>不可比较</td>
+</tr>
+<tr>
+<td>使用频率</td>
+<td>低</td>
+<td>高</td>
+</tr>
+</tbody></table>
+
+<p><strong>实际开发中，90% 的情况用切片，不用数组。</strong> 但理解数组是理解切片的基础。</p>
+
+<h2>脑图</h2>
+
+<pre><code>数组 Arrays
+├── 声明与初始化
+│   ├── var a [5]int        (零值)
+│   ├── b := [3]int{1,2,3}  (字面量)
+│   ├── c := [...]int{1,2,3}(自动推断长度)
+│   └── d := [5]int{1:10,3:30}(指定索引)
+├── 核心特性
+│   ├── 长度是类型的一部分
+│   ├── 值类型（赋值=拷贝）
+│   ├── 连续内存
+│   └── 可比较（同类型可用==）
+├── 遍历方式
+│   ├── for i := 0; i &lt; len(a); i++
+│   └── for i, v := range a
+├── 多维数组
+│   ├── var grid [3][4]int
+│   └── 初始化和遍历
+├── 作为函数参数
+│   ├── 值拷贝（原数组不受影响）
+│   └── 用指针避免拷贝 *[5]int
+└── 实际使用场景
+    ├── 固定大小的数据（RGB、坐标）
+    ├── 编译时确定大小
+    └── 大多数情况用切片替代</code></pre>
+
+<h2>完整 Go 代码</h2>
+
+<h3>代码演进 v1：基础声明与操作</h3>
+
+<pre><code class="language-go">package main
+
+import &quot;fmt&quot;
+
+func main() {
+    // 1. Zero-value declaration
+    var nums [5]int
+    fmt.Println(&quot;Zero-value:&quot;, nums) // [0 0 0 0 0]
+
+    // 2. Literal initialization
+    colors := [3]string{&quot;red&quot;, &quot;green&quot;, &quot;blue&quot;}
+    fmt.Println(&quot;Colors:&quot;, colors) // [red green blue]
+
+    // 3. Auto-length inference with [...]
+    primes := [...]int{2, 3, 5, 7, 11, 13}
+    fmt.Println(&quot;Primes:&quot;, primes, &quot;len:&quot;, len(primes)) // len: 6
+
+    // 4. Index-specified initialization
+    sparse := [5]int{1: 10, 3: 30}
+    fmt.Println(&quot;Sparse:&quot;, sparse) // [0 10 0 30 0]
+
+    // 5. Access and modify
+    nums[0] = 100
+    nums[4] = 500
+    fmt.Println(&quot;Modified:&quot;, nums) // [100 0 0 0 500]
+
+    // 6. Length is part of the type
+    var a [3]int
+    var b [5]int
+    // a = b // compile error: cannot use b (type [5]int) as type [3]int
+    _ = a
+    _ = b
+
+    fmt.Println(&quot;Type of a:&quot;, fmt.Sprintf(&quot;%T&quot;, a)) // [3]int
+    fmt.Println(&quot;Type of b:&quot;, fmt.Sprintf(&quot;%T&quot;, b)) // [5]int
+}</code></pre>
+
+<h3>代码演进 v2：遍历、多维数组、值拷贝</h3>
+
+<pre><code class="language-go">package main
+
+import &quot;fmt&quot;
+
+func main() {
+    // === Traversal ===
+    scores := [5]float64{89.5, 92.0, 78.5, 95.0, 88.0}
+
+    // Method 1: Classic for loop
+    fmt.Println(&quot;--- Classic for ---&quot;)
+    for i := 0; i &lt; len(scores); i++ {
+        fmt.Printf(&quot;scores[%d] = %.1f\n&quot;, i, scores[i])
+    }
+
+    // Method 2: Range loop (recommended)
+    fmt.Println(&quot;\n--- Range for ---&quot;)
+    for i, v := range scores {
+        fmt.Printf(&quot;scores[%d] = %.1f\n&quot;, i, v)
+    }
+
+    // Only value, discard index
+    for _, v := range scores {
+        fmt.Printf(&quot;%.1f &quot;, v)
+    }
+    fmt.Println()
+
+    // === Multi-dimensional array ===
+    var grid [3][4]int
+    // Initialize a multiplication table
+    for i := 0; i &lt; 3; i++ {
+        for j := 0; j &lt; 4; j++ {
+            grid[i][j] = (i + 1) * (j + 1)
+        }
+    }
+    fmt.Println(&quot;\nMultiplication table:&quot;)
+    for _, row := range grid {
+        fmt.Println(row)
+    }
+
+    // Literal multi-dimensional array
+    identity := [3][3]int{
+        {1, 0, 0},
+        {0, 1, 0},
+        {0, 0, 1},
+    }
+    fmt.Println(&quot;\nIdentity matrix:&quot;)
+    for _, row := range identity {
+        fmt.Println(row)
+    }
+
+    // === Value copy semantics ===
+    original := [3]int{1, 2, 3}
+    copy := original // Full copy, independent
+    copy[0] = 999
+    fmt.Println(&quot;\nOriginal:&quot;, original) // [1 2 3] - unchanged
+    fmt.Println(&quot;Copy:    &quot;, copy)      // [999 2 3]
+}</code></pre>
+
+<h3>代码演进 v3：函数传参、指针、实际应用</h3>
+
+<pre><code class="language-go">package main
+
+import &quot;fmt&quot;
+
+// ❌ BAD: Array passed by value - full copy every call
+func sumByValue(arr [1000000]int) int {
+    total := 0
+    for _, v := range arr {
+        total += v
+    }
+    return total
+}
+
+// ✅ GOOD: Use pointer to avoid copying 8MB of data
+func sumByPointer(arr *[1000000]int) int {
+    total := 0
+    for _, v := range arr {
+        total += v
+    }
+    return total
+}
+
+// ✅ BETTER: Use slice instead (covered in next article)
+func sumBySlice(arr []int) int {
+    total := 0
+    for _, v := range arr {
+        total += v
+    }
+    return total
+}
+
+// Practical example: RGB color as array
+type RGB = [3]uint8
+
+func toHex(c RGB) string {
+    return fmt.Sprintf(&quot;#%02X%02X%02X&quot;, c[0], c[1], c[2])
+}
+
+// Practical example: coordinate as array
+type Point = [2]float64
+
+func distance(p1, p2 Point) float64 {
+    dx := p2[0] - p1[0]
+    dy := p2[1] - p1[1]
+    return dx*dx + dy*dy // simplified (no sqrt for comparison)
+}
+
+func main() {
+    // Array comparison (same type!)
+    a := [3]int{1, 2, 3}
+    b := [3]int{1, 2, 3}
+    c := [3]int{1, 2, 4}
+    fmt.Println(&quot;a == b:&quot;, a == b) // true
+    fmt.Println(&quot;a == c:&quot;, a == c) // false
+
+    // Practical: RGB colors
+    red := RGB{255, 0, 0}
+    green := RGB{0, 255, 0}
+    custom := RGB{30, 144, 255} // Dodger blue
+    fmt.Println(&quot;\nRed:&quot;, toHex(red))   // #FF0000
+    fmt.Println(&quot;Green:&quot;, toHex(green)) // #00FF00
+    fmt.Println(&quot;Custom:&quot;, toHex(custom)) // #1E90FF
+
+    // Practical: points
+    p1 := Point{0, 0}
+    p2 := Point{3, 4}
+    fmt.Printf(&quot;Distance² from p1 to p2: %.0f\n&quot;, distance(p1, p2)) // 25
+
+    // Note: for large arrays, use slice or pointer
+    var bigArr [1000000]int
+    for i := range bigArr {
+        bigArr[i] = i % 100
+    }
+    // sumByValue would copy 8MB; sumByPointer does not
+    total := sumByPointer(&amp;bigArr)
+    fmt.Println(&quot;Sum:&quot;, total)
+}</code></pre>
+
+<h2>执行预览</h2>
+
+<h3>v1 执行结果</h3>
+
+<pre><code>Zero-value: [0 0 0 0 0]
+Colors: [red green blue]
+Primes: [2 3 5 7 11 13] len: 6
+Sparse: [0 10 0 30 0]
+Modified: [100 0 0 0 500]
+Type of a: [3]int
+Type of b: [5]int</code></pre>
+
+<h3>v2 执行结果</h3>
+
+<pre><code>--- Classic for ---
+scores[0] = 89.5
+scores[1] = 92.0
+scores[2] = 78.5
+scores[3] = 95.0
+scores[4] = 88.0
+
+--- Range for ---
+scores[0] = 89.5
+scores[1] = 92.0
+scores[2] = 78.5
+scores[3] = 95.0
+scores[4] = 88.0
+
+Multiplication table:
+[1 2 3 4]
+[2 4 6 8]
+[3 6 9 12]
+
+Identity matrix:
+[1 0 0]
+[0 1 0]
+[0 0 1]
+
+Original: [1 2 3]
+Copy:     [999 2 3]</code></pre>
+
+<h2>注意事项</h2>
+
+<table><thead><tr>
+<th>注意点</th>
+<th>说明</th>
+<th>示例</th>
+</tr></thead><tbody>
+<tr>
+<td>长度是类型的一部分</td>
+<td><code>[3]int ≠ [5]int</code></td>
+<td>函数参数类型必须精确匹配</td>
+</tr>
+<tr>
+<td>值拷贝</td>
+<td>赋值和传参都会复制整个数组</td>
+<td>大数组传参会浪费内存</td>
+</tr>
+<tr>
+<td>越界访问</td>
+<td>编译器能检测常量越界，运行时 panic</td>
+<td><code>arr[10]</code> 如果 len=5 → panic</td>
+</tr>
+<tr>
+<td>不可比较不同长度</td>
+<td>不同长度的数组不能用 == 比较</td>
+<td>编译错误</td>
+</tr>
+<tr>
+<td><code>[...]</code> 只在字面量中</td>
+<td><code>...</code> 只能用在初始化表达式</td>
+<td><code>var a [...]int</code> ❌</td>
+</tr>
+<tr>
+<td>数组不可 resize</td>
+<td>长度固定，不能 append</td>
+<td>需要动态长度用切片</td>
+</tr>
+</tbody></table>
+
+<h2>避坑指南</h2>
+
+<h3>❌ 函数参数用大数组值类型</h3>
+
+<pre><code class="language-go">// ❌ BAD: 每次调用复制 8MB
+func process(data [1000000]int) { ... }</code></pre>
+
+<pre><code class="language-go">// ✅ GOOD: 用切片
+func process(data []int) { ... }
+// 或用指针（确实需要固定长度时）
+func process(data *[1000000]int) { ... }</code></pre>
+
+<h3>❌ 混淆数组长度</h3>
+
+<pre><code class="language-go">// ❌ BAD: 忘记长度是类型的一部分
+func printAll(arr [5]int) { ... }
+a := [3]int{1, 2, 3}
+printAll(a) // compile error!</code></pre>
+
+<pre><code class="language-go">// ✅ GOOD: 用切片，接受任意长度
+func printAll(arr []int) { ... }
+a := []int{1, 2, 3}
+printAll(a) // OK</code></pre>
+
+<h3>❌ 试图 append 数组</h3>
+
+<pre><code class="language-go">// ❌ BAD: 数组没有 append
+var arr [3]int
+arr = append(arr, 4) // compile error: first argument to append must be slice</code></pre>
+
+<pre><code class="language-go">// ✅ GOOD: 用切片
+s := []int{1, 2, 3}
+s = append(s, 4) // OK</code></pre>
+
+<h2>练习题</h2>
+
+<h3>🟢 基础题</h3>
+
+<p><strong>题目 1：</strong> 写一个函数，接收 <code>[5]int</code> 数组，返回其元素之和。</p>
+
+<p><details></p>
+<p><summary>参考答案</summary></p>
+
+<pre><code class="language-go">func sum5(arr [5]int) int {
+    total := 0
+    for _, v := range arr {
+        total += v
+    }
+    return total
+}</code></pre>
+<p></details></p>
+
+<h3>🟡 进阶题</h3>
+
+<p><strong>题目 2：</strong> 实现一个函数，将 <code>[3][3]int</code> 矩阵转置（行列互换）。</p>
+
+<p><details></p>
+<p><summary>参考答案</summary></p>
+
+<pre><code class="language-go">func transpose(m [3][3]int) [3][3]int {
+    var result [3][3]int
+    for i := 0; i &lt; 3; i++ {
+        for j := 0; j &lt; 3; j++ {
+            result[j][i] = m[i][j]
+        }
+    }
+    return result
+}</code></pre>
+<p></details></p>
+
+<h3>🔴 挑战题</h3>
+
+<p><strong>题目 3：</strong> 实现一个泛型函数 <code>Contains<a href="arr [N]T, target T">T comparable</a> bool</code>，判断数组中是否包含某个元素。（提示：Go 1.18+ 泛型，但注意数组长度 N 需要是类型参数）</p>
+
+<p><details></p>
+<p><summary>参考答案</summary></p>
+
+<pre><code class="language-go">package main
+
+import &quot;fmt&quot;
+
+// N is the array length type parameter
+func Contains[T comparable, N interface{ ~int }](arr [N]T, target T) bool {
+    for _, v := range arr {
+        if v == target {
+            return true
+        }
+    }
+    return false
+}
+
+func main() {
+    nums := [5]int{1, 2, 3, 4, 5}
+    fmt.Println(Contains(nums, 3)) // true
+    fmt.Println(Contains(nums, 6)) // false
+}</code></pre>
+
+<p>注意：由于数组长度是类型的一部分，泛型中需要单独的类型参数 <code>N</code> 来表示长度。这也是为什么实际开发中更推荐用切片。</p>
+<p></details></p>
+
+<h2>知识点总结</h2>
+
+<pre><code>数组 Arrays
+├── 声明
+│   ├── var a [N]T         零值初始化
+│   ├── a := [N]T{...}     字面量
+│   ├── a := [...]T{...}   自动推断长度
+│   └── a := [N]T{i:v}     指定索引
+├── 特性
+│   ├── [N]T 长度是类型一部分
+│   ├── 值类型（赋值=拷贝）
+│   ├── 可比较（同类型 ==）
+│   ├── 连续内存
+│   └── 长度固定不可变
+├── 操作
+│   ├── len(a)             获取长度
+│   ├── a[i]               访问/修改
+│   ├── for range           遍历
+│   └── a == b              比较
+├── 多维
+│   └── [M][N]T             嵌套数组
+├── 传参
+│   ├── 值拷贝              默认行为
+│   ├── *([N]T)             指针避免拷贝
+│   └── []T                 切片（推荐）
+└── 使用场景
+    ├── 固定大小数据（RGB、坐标、UUID）
+    ├── 编译时约束大小
+    └── 99% 的情况用切片更好</code></pre>
+
+<h2>举一反三</h2>
+
+<table><thead><tr>
+<th>语言</th>
+<th>数组声明</th>
+<th>长度是类型的一部分？</th>
+<th>值/引用类型</th>
+</tr></thead><tbody>
+<tr>
+<td>Go</td>
+<td><code>var a [5]int</code></td>
+<td>✅ 是</td>
+<td>值类型</td>
+</tr>
+<tr>
+<td>C</td>
+<td><code>int a[5]</code></td>
+<td>❌（退化为指针）</td>
+<td>指针</td>
+</tr>
+<tr>
+<td>Java</td>
+<td><code>int[] a = new int[5]</code></td>
+<td>❌</td>
+<td>引用类型</td>
+</tr>
+<tr>
+<td>Rust</td>
+<td><code>let a: [i32; 5]</code></td>
+<td>✅ 是</td>
+<td>值类型</td>
+</tr>
+<tr>
+<td>Python</td>
+<td><code>a = [1,2,3]</code>（列表）</td>
+<td>❌</td>
+<td>引用类型</td>
+</tr>
+</tbody></table>
+
+<h2>参考资料</h2>
+
+<ul>
+<li><a href="https://go.dev/ref/spec#Array_types">Go 语言规范 - Array types</a></li>
+<li><a href="https://gobyexample.com/arrays">Go by Example - Arrays</a></li>
+<li><a href="https://go.dev/doc/effective_go#arrays">Effective Go - Arrays</a></li>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

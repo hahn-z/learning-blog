@@ -1,0 +1,455 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>031 - Hyperf 接入 Kafka 生产者与消费者</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Hyperf/index.html">Hyperf</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Hyperf/01-微服务实战/index.html">Hyperf微服务实战</a>
+</nav>
+<h1>031 - Hyperf 接入 Kafka 生产者与消费者</h1>
+<div class="meta">
+<span>📂 Hyperf微服务实战</span>
+<span>🏷️ Hyperf</span>
+</div>
+<article>
+
+
+<h1>Hyperf 接入 Kafka 生产者与消费者</h1>
+
+<blockquote><p><strong>难度：</strong> ⭐⭐⭐⭐<br><strong>前置知识：</strong> Hyperf 框架基础、Composer 依赖管理、消息队列概念<br><strong>预估用时：</strong> 45-60 分钟</p></blockquote>
+
+<h2>1. 概念讲解</h2>
+
+<p><strong>Kafka</strong> 是一个分布式流处理平台，通过 Topic 将消息从生产者（Producer）传递给消费者（Consumer），支持高吞吐、持久化和分区消费。</p>
+
+<p>类比理解：Kafka 就像一个大型快递分拣中心。生产者是寄件人，把包裹（消息）投递到指定区域（Topic）；消费者是收件人，从各自负责的区域取件。Broker 是分拣中心的中转仓库，Partition 是仓库里的货架，每个快递员（Consumer）只负责特定货架，互不干扰。</p>
+
+<p>在用户服务微架构中，Kafka 承担事件驱动的核心角色：用户注册成功后，生产者发送 <code>user.registered</code> 事件到 Kafka，消费者监听该事件完成欢迎邮件发送、积分初始化、数据同步等异步操作，实现服务解耦。</p>
+
+<h2>2. 实时脑图</h2>
+
+<pre><code>┌─────────────────────────────────────────────────────┐
+│                  Kafka Architecture                  │
+├─────────────────────────────────────────────────────┤
+│                                                      │
+│  [User Service]──► Producer ──► Topic: user.events   │
+│                                      │               │
+│                              ┌───────┼───────┐      │
+│                              ▼       ▼       ▼      │
+│                          P-0       P-1     P-2      │
+│                              │       │       │      │
+│                    ┌─────────┘       │       └──┐   │
+│                    ▼                 ▼          ▼   │
+│              [Email Consumer] [Point Consumer] ...  │
+│                                                      │
+│  Decision Branches:                                  │
+│  ├── ack=early  → risk of loss       ❌             │
+│  ├── ack=after  → safe, at-least-once ✅             │
+│  └── idempotent → exactly-once logic  🟢            │
+└─────────────────────────────────────────────────────┘</code></pre>
+
+<h2>3. 完整代码</h2>
+
+<h3>3.1 安装依赖</h3>
+
+<pre><code class="language-bash"># ✅ Install Hyperf Kafka component
+composer require hyperf/kafka</code></pre>
+
+<h3>3.2 配置文件 <code>config/autoload/kafka.php</code></h3>
+
+<pre><code class="language-php">&lt;?php
+// ✅ Kafka connection configuration
+declare(strict_types=1);
+
+return [
+    &#x27;default&#x27; =&gt; [
+        &#x27;bootstrap_servers&#x27; =&gt; env(&#x27;KAFKA_BROKERS&#x27;, &#x27;127.0.0.1:9092&#x27;),
+        &#x27;consumer&#x27; =&gt; [
+            &#x27;enable_auto_commit&#x27; =&gt; false, // ✅ Manual commit for reliability
+            &#x27;group_id&#x27; =&gt; env(&#x27;KAFKA_GROUP_ID&#x27;, &#x27;user-service-group&#x27;),
+            &#x27;auto_offset_reset&#x27; =&gt; &#x27;earliest&#x27;,
+        ],
+        &#x27;producer&#x27; =&gt; [
+            &#x27;acks&#x27; =&gt; &#x27;all&#x27;, // ✅ Wait for all replicas to confirm
+        ],
+    ],
+];</code></pre>
+
+<h3>3.3 生产者服务 <code>app/Kafka/Producer/UserEventProducer.php</code></h3>
+
+<pre><code class="language-php">&lt;?php
+declare(strict_types=1);
+
+namespace App\Kafka\Producer;
+
+use Hyperf\Kafka\Producer;
+use Hyperf\Di\Annotation\Inject;
+use Hyperf\Contract\ConfigInterface;
+use Psr\Log\LoggerInterface;
+
+class UserEventProducer
+{
+    #[Inject]
+    private Producer $producer;
+
+    #[Inject]
+    private LoggerInterface $logger;
+
+    private const TOPIC_USER_REGISTERED = &#x27;user.registered&#x27;;
+
+    /**
+     * ✅ Publish user registered event to Kafka
+     */
+    public function publishUserRegistered(int $userId, string $email, string $username): void
+    {
+        $payload = json_encode([
+            &#x27;user_id&#x27; =&gt; $userId,
+            &#x27;email&#x27; =&gt; $email,
+            &#x27;username&#x27; =&gt; $username,
+            &#x27;registered_at&#x27; =&gt; date(&#x27;c&#x27;),
+            &#x27;event_id&#x27; =&gt; uniqid(&#x27;evt_&#x27;, true), // ✅ Unique event ID for idempotency
+        ], JSON_THROW_ON_ERROR);
+
+        $this-&gt;producer-&gt;send(self::TOPIC_USER_REGISTERED, $payload, (string) $userId);
+
+        $this-&gt;logger-&gt;info(&#x27;Kafka event published&#x27;, [
+            &#x27;topic&#x27; =&gt; self::TOPIC_USER_REGISTERED,
+            &#x27;user_id&#x27; =&gt; $userId,
+        ]);
+    }
+
+    /**
+     * 🟡 Batch publish for high-throughput scenarios
+     */
+    public function publishBatch(array $users): void
+    {
+        foreach ($users as $user) {
+            $payload = json_encode($user, JSON_THROW_ON_ERROR);
+            $this-&gt;producer-&gt;send(self::TOPIC_USER_REGISTERED, $payload, (string) $user[&#x27;user_id&#x27;]);
+        }
+    }
+}</code></pre>
+
+<h3>3.4 消费者 <code>app/Kafka/Consumer/UserRegisteredConsumer.php</code></h3>
+
+<pre><code class="language-php">&lt;?php
+declare(strict_types=1);
+
+namespace App\Kafka\Consumer;
+
+use Hyperf\Kafka\Annotation\Consumer;
+use Hyperf\Kafka\AbstractConsumer;
+use Hyperf\Di\Annotation\Inject;
+use Psr\Log\LoggerInterface;
+use longlang\phpkafka\Consumer\ConsumeMessage;
+
+/**
+ * ✅ Consumer with manual topic and group configuration
+ */
+#[Consumer(
+    topic: &#x27;user.registered&#x27;,
+    groupId: &#x27;email-service-group&#x27;,
+    autoCommit: false
+)]
+class UserRegisteredConsumer extends AbstractConsumer
+{
+    #[Inject]
+    private LoggerInterface $logger;
+
+    public function consume(ConsumeMessage $message): void
+    {
+        $data = json_decode($message-&gt;getValue(), true, 512, JSON_THROW_ON_ERROR);
+
+        $this-&gt;logger-&gt;info(&#x27;Consuming user.registered event&#x27;, [
+            &#x27;event_id&#x27; =&gt; $data[&#x27;event_id&#x27;] ?? &#x27;unknown&#x27;,
+            &#x27;user_id&#x27; =&gt; $data[&#x27;user_id&#x27;] ?? &#x27;unknown&#x27;,
+        ]);
+
+        try {
+            // ✅ Business logic: send welcome email
+            $this-&gt;sendWelcomeEmail($data[&#x27;email&#x27;], $data[&#x27;username&#x27;]);
+
+            // ✅ Manual commit after successful processing
+            $message-&gt;getConsumer()-&gt;ack($message);
+
+            $this-&gt;logger-&gt;info(&#x27;Event processed successfully&#x27;, [
+                &#x27;user_id&#x27; =&gt; $data[&#x27;user_id&#x27;],
+            ]);
+        } catch (\Throwable $e) {
+            // ❌ Do NOT ack on failure — message will be redelivered
+            $this-&gt;logger-&gt;error(&#x27;Failed to process event&#x27;, [
+                &#x27;event_id&#x27; =&gt; $data[&#x27;event_id&#x27;] ?? &#x27;unknown&#x27;,
+                &#x27;error&#x27; =&gt; $e-&gt;getMessage(),
+            ]);
+            throw $e; // ✅ Re-throw to trigger retry mechanism
+        }
+    }
+
+    private function sendWelcomeEmail(string $email, string $username): void
+    {
+        // 🟢 Simulate email sending — replace with real mailer in production
+        $this-&gt;logger-&gt;info(&quot;Welcome email sent to {$email} ({$username})&quot;);
+    }
+}</code></pre>
+
+<h2>4. 执行预览</h2>
+
+<pre><code class="language-bash">$ php bin/hyperf.php start
+
+# Producer log output:
+# [INFO] Kafka event published {&quot;topic&quot;:&quot;user.registered&quot;,&quot;user_id&quot;:1001}
+
+# Consumer log output:
+# [INFO] Consuming user.registered event {&quot;event_id&quot;:&quot;evt_662f...&quot;,&quot;user_id&quot;:1001}
+# [INFO] Welcome email sent to user@example.com (zhangsan)
+# [INFO] Event processed successfully {&quot;user_id&quot;:1001}</code></pre>
+
+<h2>5. 注意事项</h2>
+
+<table><thead><tr>
+<th>约束</th>
+<th>说明</th>
+<th>违反后果</th>
+</tr></thead><tbody>
+<tr>
+<td>禁止 <code>auto_commit=true</code></td>
+<td>业务场景必须手动提交</td>
+<td>消息丢失，消费者未处理完就提交偏移量</td>
+</tr>
+<tr>
+<td>Topic 命名规范</td>
+<td>使用 <code>服务.事件</code> 格式如 <code>user.registered</code></td>
+<td>Topic 混乱，难以追踪和维护</td>
+</tr>
+<tr>
+<td>消息必须包含 <code>event_id</code></td>
+<td>每条消息携带唯一标识</td>
+<td>无法实现幂等消费，重复处理风险</td>
+</tr>
+<tr>
+<td>序列化统一用 JSON</td>
+<td>保持生产消费两端一致</td>
+<td>反序列化失败，消费者异常</td>
+</tr>
+<tr>
+<td>Broker 连接配置走 ENV</td>
+<td>不要硬编码 Kafka 地址</td>
+<td>环境切换时需改代码，部署风险</td>
+</tr>
+</tbody></table>
+
+<h2>6. 避坑指南</h2>
+
+<table><thead><tr>
+<th>错误</th>
+<th>现象</th>
+<th>正确做法</th>
+</tr></thead><tbody>
+<tr>
+<td>Consumer Group 重复</td>
+<td>多个服务用同一 group_id，消息被分摊到错误服务</td>
+<td>每个服务独立 group_id，如 <code>email-service-group</code></td>
+</tr>
+<tr>
+<td>不处理消费异常</td>
+<td>异常被吞掉，消息丢失</td>
+<td>catch 中不 ack，re-throw 让 Kafka 重投</td>
+</tr>
+<tr>
+<td>Partition 数过少</td>
+<td>消费并行度不足，消息积压</td>
+<td>按 Consumer 实例数设置 Partition，一般 3-6</td>
+</tr>
+<tr>
+<td>大消息体 >1MB</td>
+<td>Kafka 默认限制 1MB，发送失败</td>
+<td>控制消息体大小，大文件走对象存储+引用</td>
+</tr>
+<tr>
+<td>忽略 offset 重置</td>
+<td>新 group 从 latest 开始，丢失历史消息</td>
+<td>测试用 <code>earliest</code>，生产按需选择</td>
+</tr>
+</tbody></table>
+
+<h2>7. 练习题</h2>
+
+<p>🟢 <strong>基础题 1：</strong> 创建一个 <code>user.profile.updated</code> Topic 的生产者，发送用户资料更新事件。</p>
+
+<p>🟢 <strong>基础题 2：</strong> 编写一个消费者监听 <code>user.profile.updated</code>，打印变更字段。</p>
+
+<p>🟡 <strong>进阶题：</strong> 实现一个多 Topic 消费者，同时监听 <code>user.registered</code> 和 <code>user.activated</code>，根据事件类型分发处理逻辑。</p>
+
+<p>🔴 <strong>开放题：</strong> 设计一个 Kafka 消费者监控方案，当消费延迟超过阈值时自动告警。</p>
+
+<h2>8. 知识点总结</h2>
+
+<pre><code>Kafka in Hyperf
+├── Installation
+│   └── composer require hyperf/kafka
+├── Configuration
+│   ├── bootstrap_servers
+│   ├── consumer.group_id
+│   └── producer.acks
+├── Producer
+│   ├── Producer::send()
+│   ├── Topic design
+│   └── Payload serialization
+├── Consumer
+│   ├── #[Consumer] annotation
+│   ├── AbstractConsumer::consume()
+│   └── Manual commit (ack)
+└── Best Practices
+    ├── Event ID for idempotency
+    ├── Error handling &amp; retry
+    └── Logging &amp; monitoring</code></pre>
+
+<h2>9. 举一反三</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>Topic 设计</th>
+<th>消费者逻辑</th>
+</tr></thead><tbody>
+<tr>
+<td>订单创建后通知库存</td>
+<td><code>order.created</code></td>
+<td>库存服务扣减，失败发 <code>order.stock_failed</code></td>
+</tr>
+<tr>
+<td>用户登录记录审计日志</td>
+<td><code>user.login</code></td>
+<td>审计服务写入日志库，含 IP/UA/时间</td>
+</tr>
+<tr>
+<td>文件上传完成触发转码</td>
+<td><code>media.uploaded</code></td>
+<td>转码服务消费，完成后发 <code>media.transcoded</code></td>
+</tr>
+</tbody></table>
+
+<h2>10. 参考资料</h2>
+
+<ul>
+<li>🏆 <strong>官方文档：</strong> <a href="https://hyperf.wiki/3.1/#/zh-cn/kafka">Hyperf Kafka 组件文档</a></li>
+<li>🏆 <strong>权威：</strong> <a href="https://kafka.apache.org/documentation/">Apache Kafka 官方文档</a></li>
+<li>⭐ <strong>推荐：</strong> <a href="https://developer.confluent.io/">Confluent Kafka 最佳实践</a></li>
+<li>📖 <strong>延伸：</strong> 《Kafka 权威指南》第 2 版</li>
+
+<h2>11. 代码演进</h2>
+
+<h3>v1 ❌ 基础版（问题多）</h3>
+
+<pre><code class="language-php">// ❌ No error handling, auto commit, no event ID
+#[Consumer(topic: &#x27;user.registered&#x27;, groupId: &#x27;default&#x27;, autoCommit: true)]
+class UserConsumer extends AbstractConsumer {
+    public function consume(ConsumeMessage $message): void {
+        $data = json_decode($message-&gt;getValue(), true);
+        // ❌ No try-catch, no logging
+        $this-&gt;sendEmail($data[&#x27;email&#x27;]);
+        // ❌ Auto committed before processing completes
+    }
+}</code></pre>
+
+<h3>v2 ✅ 可靠版</h3>
+
+<pre><code class="language-php">// ✅ Manual commit + error handling + logging
+#[Consumer(topic: &#x27;user.registered&#x27;, groupId: &#x27;email-service-group&#x27;, autoCommit: false)]
+class UserConsumer extends AbstractConsumer {
+    public function consume(ConsumeMessage $message): void {
+        $data = json_decode($message-&gt;getValue(), true, 512, JSON_THROW_ON_ERROR);
+        try {
+            $this-&gt;sendEmail($data[&#x27;email&#x27;]);
+            $message-&gt;getConsumer()-&gt;ack($message); // ✅ Commit after success
+        } catch (\Throwable $e) {
+            $this-&gt;logger-&gt;error(&#x27;Process failed&#x27;, [&#x27;error&#x27; =&gt; $e-&gt;getMessage()]);
+            throw $e; // ✅ Re-throw for retry
+        }
+    }
+}</code></pre>
+
+<h3>v3 🟢 优化版</h3>
+
+<pre><code class="language-php">// 🟢 With idempotency check + event ID + retry tracking
+#[Consumer(topic: &#x27;user.registered&#x27;, groupId: &#x27;email-service-group&#x27;, autoCommit: false)]
+class UserConsumer extends AbstractConsumer {
+    public function consume(ConsumeMessage $message): void {
+        $data = json_decode($message-&gt;getValue(), true, 512, JSON_THROW_ON_ERROR);
+        $eventId = $data[&#x27;event_id&#x27;] ?? throw new \InvalidArgumentException(&#x27;Missing event_id&#x27;);
+
+        // 🟢 Idempotency: skip if already processed
+        if ($this-&gt;eventRepository-&gt;isProcessed($eventId)) {
+            $message-&gt;getConsumer()-&gt;ack($message);
+            return;
+        }
+
+        try {
+            $this-&gt;sendEmail($data[&#x27;email&#x27;], $data[&#x27;username&#x27;]);
+            $this-&gt;eventRepository-&gt;markProcessed($eventId);
+            $message-&gt;getConsumer()-&gt;ack($message);
+        } catch (\Throwable $e) {
+            $this-&gt;logger-&gt;error(&#x27;Process failed&#x27;, [&#x27;event_id&#x27; =&gt; $eventId, &#x27;error&#x27; =&gt; $e-&gt;getMessage()]);
+            throw $e;
+        }
+    }
+}</code></pre>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

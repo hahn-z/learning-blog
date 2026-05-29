@@ -1,0 +1,525 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>023 - 接口Interface基础</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/learning-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/learning-blog/Golang/index.html">Golang</a>
+<span class="sep">›</span>
+<a href="/learning-blog/Golang/01-入门/index.html">Golang入门</a>
+</nav>
+<h1>023 - 接口Interface基础</h1>
+<div class="meta">
+<span>📂 Golang入门</span>
+<span>🏷️ Golang</span>
+</div>
+<article>
+
+
+<h1>023 - 接口 Interface 基础</h1>
+
+<blockquote><p>难度：⭐⭐⭐⭐ | 预计阅读：18分钟</p></blockquote>
+
+<h2>一、概念讲解</h2>
+
+<p>接口是 Go 实现<strong>多态</strong>的核心机制。与 Java/C# 的 <code>implements</code> 不同，Go 接口是<strong>隐式实现</strong>的——只要类型拥有接口要求的所有方法，它就自动满足该接口。</p>
+
+<p>这就是所谓的<strong>鸭子类型（Duck Typing）</strong>：如果它走起来像鸭子、叫起来像鸭子，那它就是鸭子。</p>
+
+<pre><code class="language-go">type Speaker interface {
+    Speak() string
+}
+// 任何有 Speak() string 方法的类型，都自动是 Speaker</code></pre>
+
+<p>接口值内部由两部分组成：<strong>（类型，值）</strong>。这称为接口的<strong>动态类型</strong>和<strong>动态值</strong>。</p>
+
+<h2>二、脑图</h2>
+
+<pre><code>Interface（接口）
+├── 基础定义
+│   ├── type Name interface { MethodSignatures }
+│   └── 隐式实现（无需 implements 关键字）
+├── 接口值内部结构
+│   ├── 动态类型（type）
+│   └── 动态值（value）
+├── nil 接口陷阱
+│   ├── nil 接口（type=nil, value=nil）
+│   └── 非nil接口持有nil值（type!=nil, value=nil）
+├── 空接口
+│   ├── interface{} / any
+│   └── 可接受任意类型的值
+├── 类型断言
+│   ├── v, ok := i.(T)
+│   └── panic 模式：v := i.(T)
+├── 接口组合
+│   ├── type ReadWriter interface { Reader; Writer }
+│   └── 接口嵌入接口
+└── io.Reader / io.Writer 实战
+    ├── Reader: Read(p []byte) (n int, err error)
+    └── Writer: Write(p []byte) (n int, err error)</code></pre>
+
+<h2>三、完整 Go 代码</h2>
+
+<pre><code class="language-go">package main
+
+import (
+	&quot;bytes&quot;
+	&quot;fmt&quot;
+	&quot;io&quot;
+	&quot;math&quot;
+	&quot;strings&quot;
+)
+
+// ---------- 1. Interface Definition &amp; Implicit Implementation ----------
+
+type Shape interface {
+	Area() float64
+	Perimeter() float64
+}
+
+type Circle struct {
+	Radius float64
+}
+
+// Circle implicitly implements Shape — no &quot;implements&quot; keyword needed
+func (c Circle) Area() float64 {
+	return math.Pi * c.Radius * c.Radius
+}
+
+func (c Circle) Perimeter() float64 {
+	return 2 * math.Pi * c.Radius
+}
+
+type Rectangle struct {
+	Width, Height float64
+}
+
+func (r Rectangle) Area() float64 {
+	return r.Width * r.Height
+}
+
+func (r Rectangle) Perimeter() float64 {
+	return 2 * (r.Width + r.Height)
+}
+
+// Polymorphism: accepts any Shape
+func PrintShapeInfo(s Shape) {
+	fmt.Printf(&quot;  Area: %.2f, Perimeter: %.2f\n&quot;, s.Area(), s.Perimeter())
+}
+
+// ---------- 2. Interface Value Internals ----------
+
+func inspectInterface(i interface{}) {
+	fmt.Printf(&quot;  Value: %v, Type: %T\n&quot;, i, i)
+}
+
+// ---------- 3. nil Interface Trap ----------
+
+type MyError struct {
+	Msg string
+}
+
+func (e *MyError) Error() string {
+	if e == nil {
+		return &quot;nil error&quot; // handle nil receiver gracefully
+	}
+	return e.Msg
+}
+
+func getError() error {
+	// DANGER: returns a non-nil interface holding a nil *MyError
+	var err *MyError = nil
+	return err // interface{type=*MyError, value=nil} — NOT nil!
+}
+
+func getErrorFixed() error {
+	var err *MyError = nil
+	if err == nil {
+		return nil // returns a truly nil interface
+	}
+	return err
+}
+
+// ---------- 4. Type Assertions ----------
+
+func describeAnimal(a interface{}) {
+	// Safe type assertion with comma-ok pattern
+	if dog, ok := a.(string); ok {
+		fmt.Printf(&quot;  It&#x27;s a string: %s\n&quot;, dog)
+		return
+	}
+	if num, ok := a.(int); ok {
+		fmt.Printf(&quot;  It&#x27;s an int: %d\n&quot;, num)
+		return
+	}
+	fmt.Printf(&quot;  Unknown type: %T\n&quot;, a)
+}
+
+// ---------- 5. Interface Composition ----------
+
+type Reader interface {
+	Read(p []byte) (n int, err error)
+}
+
+type Writer interface {
+	Write(p []byte) (n int, err error)
+}
+
+// Composed interface: must implement both Reader and Writer
+type ReadWriter interface {
+	Reader
+	Writer
+}
+
+// ---------- 6. io.Reader / io.Writer in Practice ----------
+
+// A simple type that implements io.Writer to collect output
+type LogWriter struct {
+	Lines []string
+}
+
+func (lw *LogWriter) Write(p []byte) (n int, err error) {
+	lw.Lines = append(lw.Lines, string(p))
+	return len(p), nil
+}
+
+// A type that implements io.Reader from a string
+type StringReader struct {
+	src string
+	pos int
+}
+
+func (sr *StringReader) Read(p []byte) (n int, err error) {
+	if sr.pos &gt;= len(sr.src) {
+		return 0, io.EOF
+	}
+	n = copy(p, sr.src[sr.pos:])
+	sr.pos += n
+	return n, nil
+}
+
+// ---------- main ----------
+
+func main() {
+	fmt.Println(&quot;=== 1. Polymorphism with Shape Interface ===&quot;)
+	shapes := []Shape{
+		Circle{Radius: 5},
+		Rectangle{Width: 3, Height: 4},
+	}
+	for _, s := range shapes {
+		fmt.Printf(&quot;%T:\n&quot;, s)
+		PrintShapeInfo(s)
+	}
+
+	fmt.Println(&quot;\n=== 2. Interface Value Internals ===&quot;)
+	var i interface{}
+	inspectInterface(i) // nil
+	i = 42
+	inspectInterface(i) // int
+	i = &quot;hello&quot;
+	inspectInterface(i) // string
+	i = Circle{Radius: 1}
+	inspectInterface(i) // Circle
+
+	fmt.Println(&quot;\n=== 3. nil Interface Trap ===&quot;)
+	err := getError()
+	fmt.Printf(&quot;  getError() == nil? %v (type: %T)\n&quot;, err == nil, err)
+	fmt.Printf(&quot;  This is a classic Go gotcha!\n&quot;)
+
+	fixed := getErrorFixed()
+	fmt.Printf(&quot;  getErrorFixed() == nil? %v\n&quot;, fixed == nil)
+
+	fmt.Println(&quot;\n=== 4. Type Assertions ===&quot;)
+	describeAnimal(&quot;Golden Retriever&quot;)
+	describeAnimal(42)
+	describeAnimal(3.14)
+
+	fmt.Println(&quot;\n=== 5. Interface Composition ===&quot;)
+	var rw ReadWriter = &amp;struct {
+		*bytes.Buffer
+	}{Buffer: bytes.NewBuffer(nil)}
+	rw.Write([]byte(&quot;composed!&quot;))
+	buf := make([]byte, 100)
+	n, _ := rw.Read(buf)
+	fmt.Printf(&quot;  ReadWriter read: %q\n&quot;, string(buf[:n]))
+
+	fmt.Println(&quot;\n=== 6. io.Reader/io.Writer Practice ===&quot;)
+	// Use StringReader
+	sr := &amp;StringReader{src: &quot;Hello, Go interfaces!&quot;}
+	buf2 := make([]byte, 100)
+	n2, err2 := sr.Read(buf2)
+	fmt.Printf(&quot;  Read %d bytes: %q, err: %v\n&quot;, n2, string(buf2[:n2]), err2)
+
+	// Use LogWriter
+	lw := &amp;LogWriter{}
+	fmt.Fprintf(lw, &quot;log entry %d&quot;, 1)
+	fmt.Fprintf(lw, &quot;another entry&quot;)
+	fmt.Printf(&quot;  LogWriter collected: %v\n&quot;, lw.Lines)
+
+	// Use io.Copy to connect reader and writer
+	src := strings.NewReader(&quot;data to transfer&quot;)
+	dst := &amp;bytes.Buffer{}
+	written, _ := io.Copy(dst, src)
+	fmt.Printf(&quot;  io.Copy: %d bytes, content: %q\n&quot;, written, dst.String())
+
+	// Multiple interfaces on one type
+	fmt.Println(&quot;\n=== Bonus: Empty Interface &amp; any ===&quot;)
+	items := []any{42, &quot;str&quot;, true, Circle{Radius: 2}}
+	for _, item := range items {
+		fmt.Printf(&quot;  %v (%T)\n&quot;, item, item)
+	}
+}</code></pre>
+
+<h2>四、执行预览</h2>
+
+<pre><code>=== 1. Polymorphism with Shape Interface ===
+main.Circle:
+  Area: 78.54, Perimeter: 31.42
+main.Rectangle:
+  Area: 12.00, Perimeter: 14.00
+
+=== 2. Interface Value Internals ===
+  Value: &lt;nil&gt;, Type: &lt;nil&gt;
+  Value: 42, Type: int
+  Value: hello, Type: string
+  Value: {Radius:1}, Type: main.Circle
+
+=== 3. nil Interface Trap ===
+  getError() == nil? false (type: *main.MyError)
+  This is a classic Go gotcha!
+  getErrorFixed() == nil? true
+
+=== 4. Type Assertions ===
+  It&#x27;s a string: Golden Retriever
+  It&#x27;s an int: 42
+  Unknown type: float64
+
+=== 5. Interface Composition ===
+  ReadWriter read: &quot;composed!&quot;
+
+=== 6. io.Reader/io.Writer Practice ===
+  Read 20 bytes: &quot;Hello, Go interfaces!&quot;, err: &lt;nil&gt;
+  LogWriter collected: [log entry 1 another entry]
+  io.Copy: 15 bytes, content: &quot;data to transfer&quot;
+
+=== Bonus: Empty Interface &amp; any ===
+  42 (int)
+  str (string)
+  true (bool)
+  {Radius:2} (main.Circle)</code></pre>
+
+<h2>五、注意事项</h2>
+
+<table><thead><tr>
+<th>事项</th>
+<th>说明</th>
+</tr></thead><tbody>
+<tr>
+<td>隐式实现</td>
+<td>不需要 <code>implements</code> 关键字，编译器自动检查</td>
+</tr>
+<tr>
+<td>接口值 = (type, value)</td>
+<td>理解内部结构是避免 bug 的关键</td>
+</tr>
+<tr>
+<td>nil 接口 ≠ 持有 nil 值的接口</td>
+<td><code>var e error = (*MyError)(nil)</code> → e != nil</td>
+</tr>
+<tr>
+<td>空接口 any</td>
+<td>可以接受任何值，但丢失类型安全</td>
+</tr>
+<tr>
+<td>类型断言安全模式</td>
+<td>始终用 <code>v, ok := i.(T)</code> 避免 panic</td>
+</tr>
+<tr>
+<td>接口组合</td>
+<td>Go 风格是组合小接口，不建大接口</td>
+</tr>
+<tr>
+<td>方法集</td>
+<td>赋值给接口时，T 和 *T 的方法集不同</td>
+</tr>
+</tbody></table>
+
+<h2>六、避坑指南</h2>
+
+<p>❌ <strong>返回具体类型的 nil 指针当作接口 nil</strong></p>
+<pre><code class="language-go">func getErr() error {
+    var err *MyError = nil
+    return err // NOT nil interface!
+}</code></pre>
+<p>✅ 显式返回 nil</p>
+<pre><code class="language-go">func getErr() error {
+    return nil // truly nil interface
+}</code></pre>
+
+<p>❌ <strong>不检查类型断言直接用</strong></p>
+<pre><code class="language-go">val := i.(string) // panics if i is not a string!</code></pre>
+<p>✅ 使用 comma-ok 模式</p>
+<pre><code class="language-go">val, ok := i.(string)
+if !ok { /* handle */ }</code></pre>
+
+<p>❌ <strong>用空接口代替泛型（Go 1.18 前）</strong></p>
+<pre><code class="language-go">func Add(a, b interface{}) interface{} {
+    return a.(int) + b.(int) // panics for non-int
+}</code></pre>
+<p>✅ Go 1.18+ 用泛型</p>
+<pre><code class="language-go">func Add[T int | float64](a, b T) T {
+    return a + b
+}</code></pre>
+
+<h2>七、练习题</h2>
+
+<p>🟢 <strong>基础题：Stringer 接口</strong></p>
+<p>定义 <code>type Temperature float64</code>，实现 <code>fmt.Stringer</code> 接口，输出格式如 <code>"25.5°C"</code>。分别用 <code>fmt.Println</code> 和 <code>fmt.Sprintf</code> 测试。</p>
+
+<p>🟡 <strong>进阶题：自定义 Writer</strong></p>
+<p>实现一个 <code>CountingWriter</code>，包装 <code>io.Writer</code>，记录总共写入了多少字节。提示：返回 <code>*int64</code> 让调用者可以读取计数。</p>
+
+<p>🔴 <strong>挑战题：nil 接口陷阱实战</strong></p>
+<p>写一个函数 <code>process(data []byte) error</code>，在 data 为空时返回 <code>fmt.Errorf("empty")</code>，否则返回 nil。然后写测试验证 <code>process(nil) == nil</code> 是否为 true，解释原因。</p>
+
+<h2>八、知识点总结</h2>
+
+<pre><code>Go Interface（接口）
+├── 定义与实现
+│   ├── type I interface { Method() }
+│   ├── 隐式实现（鸭子类型）
+│   └── 接口变量 = (动态类型, 动态值)
+├── 核心陷阱
+│   ├── nil 接口 vs 持有 nil 的接口
+│   └── 接口比较：两者都 nil 才 == nil
+├── 类型操作
+│   ├── 类型断言 v.(T)
+│   ├── 类型选择 switch v := i.(type)
+│   └── 空接口 any / interface{}
+├── 组合模式
+│   ├── 接口嵌入接口
+│   └── io.Reader + io.Writer → io.ReadWriter
+└── 标准库接口
+    ├── fmt.Stringer
+    ├── error
+    ├── io.Reader / io.Writer
+    └── sort.Interface</code></pre>
+
+<h2>九、举一反三</h2>
+
+<table><thead><tr>
+<th>语言</th>
+<th>类似概念</th>
+<th>差异</th>
+</tr></thead><tbody>
+<tr>
+<td>Java</td>
+<td>interface + implements</td>
+<td>Java 需要显式声明实现</td>
+</tr>
+<tr>
+<td>Python</td>
+<td>鸭子类型 / ABC</td>
+<td>Python 无需接口定义即可多态</td>
+</tr>
+<tr>
+<td>Rust</td>
+<td>trait</td>
+<td>Rust trait 类似 Go 接口但可有关联类型</td>
+</tr>
+<tr>
+<td>TypeScript</td>
+<td>interface</td>
+<td>TS 的 interface 是纯类型层面的</td>
+</tr>
+<tr>
+<td>C++</td>
+<td>纯虚函数 / 抽象类</td>
+<td>C++ 用继承实现多态</td>
+</tr>
+</tbody></table>
+
+<h2>十、参考资料</h2>
+
+<ul>
+<li><a href="https://go.dev/tour/methods/9">Go 官方教程 - Interfaces</a></li>
+<li><a href="https://go.dev/doc/effective_go#interfaces">Effective Go - Interfaces</a></li>
+<li><a href="https://go.dev/doc/faq#nil_error">Go FAQ - nil interface</a></li>
+<li><a href="https://gobyexample.com/interfaces">Go by Example - Interfaces</a></li>
+
+<h2>十一、代码演进</h2>
+
+<p><strong>v1：基础接口定义与多态</strong></p>
+<pre><code class="language-go">type Speaker interface { Speak() string }
+type Dog struct{}
+func (d Dog) Speak() string { return &quot;Woof&quot; }</code></pre>
+
+<p><strong>v2：加入类型断言和空接口</strong></p>
+<pre><code class="language-go">func describe(i any) {
+    if s, ok := i.(string); ok {
+        fmt.Println(&quot;string:&quot;, s)
+    }
+}</code></pre>
+
+<p><strong>v3：接口组合 + io 标准库实战</strong></p>
+<pre><code class="language-go">type ReadWriter interface { io.Reader; io.Writer }
+// 使用 io.Copy 连接 Reader 和 Writer
+io.Copy(dst, src)</code></pre>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

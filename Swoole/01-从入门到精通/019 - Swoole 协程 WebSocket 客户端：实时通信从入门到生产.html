@@ -1,0 +1,744 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>019 - Swoole 协程 WebSocket 客户端：实时通信从入门到生产</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Swoole/index.html">Swoole</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Swoole/01-从入门到精通/index.html">Swoole从入门到精通</a>
+</nav>
+<h1>019 - Swoole 协程 WebSocket 客户端：实时通信从入门到生产</h1>
+<div class="meta">
+<span>📂 Swoole从入门到精通</span>
+<span>🏷️ Swoole</span>
+</div>
+<article>
+
+
+<h2>难度标注</h2>
+
+<blockquote><p>⭐⭐⭐⭐☆ 中高级 | 预计阅读时间：18分钟</p></blockquote>
+
+<p>适合掌握 Swoole 协程基础，需要实现 WebSocket 客户端实时通信的开发者。</p>
+
+<hr>
+
+<h2>概念讲解</h2>
+
+<h3>什么是协程 WebSocket 客户端？</h3>
+
+<p><code>Swoole\Coroutine\Http\Client</code> 不仅支持 HTTP，还能通过 <code>upgrade()</code> 方法升级为 <strong>WebSocket 连接</strong>，实现全双工实时通信。</p>
+
+<p><strong>WebSocket vs HTTP 轮询：</strong></p>
+
+<table><thead><tr>
+<th>特性</th>
+<th>HTTP 轮询</th>
+<th>WebSocket</th>
+</tr></thead><tbody>
+<tr>
+<td>通信模式</td>
+<td>半双工（请求-响应）</td>
+<td>全双工（双向同时）</td>
+</tr>
+<tr>
+<td>连接开销</td>
+<td>每次请求都建连接</td>
+<td>一次握手，持续通信</td>
+</tr>
+<tr>
+<td>实时性</td>
+<td>取决于轮询间隔</td>
+<td>毫秒级推送</td>
+</tr>
+<tr>
+<td>服务器压力</td>
+<td>高（频繁请求）</td>
+<td>低（长连接）</td>
+</tr>
+<tr>
+<td>适用场景</td>
+<td>低频数据交互</td>
+<td>聊天、推送、实时数据</td>
+</tr>
+</tbody></table>
+
+<h3>协程 WebSocket 的优势</h3>
+
+<p>在 Swoole 协程中使用 WebSocket，最大优势是<strong>可以同时管理多个 WebSocket 连接</strong>，每个连接独立运行在自己的协程中，互不阻塞。</p>
+
+<hr>
+
+<h2>脑图</h2>
+
+<pre><code>Coroutine WebSocket Client
+├── 连接管理
+│   ├── upgrade() 握手升级
+│   ├── push() 发送消息
+│   ├── recv() 接收消息
+│   └── close() 关闭连接
+├── 消息类型
+│   ├── WEBSOCKET_OPCODE_TEXT
+│   ├── WEBSOCKET_OPCODE_BINARY
+│   ├── Ping/Pong (心跳)
+│   └── Close 帧
+├── 使用场景
+│   ├── 聊天机器人
+│   ├── 实时数据订阅
+│   ├── 多连接聚合
+│   └── 服务间通信
+└── 最佳实践
+    ├── 心跳保活
+    ├── 断线重连
+    ├── 消息队列缓冲
+    └── 优雅关闭</code></pre>
+
+<hr>
+
+<h2>完整代码</h2>
+
+<h3>v1：基础 WebSocket 客户端</h3>
+
+<pre><code class="language-php">&lt;?php
+// v1: Basic WebSocket client - connect, send, receive
+
+use Swoole\Coroutine\Http\Client;
+use Swoole\WebSocket\Frame;
+use function Swoole\Coroutine\run;
+
+run(function () {
+    $client = new Client(&#x27;echo.websocket.org&#x27;, 80);
+    $client-&gt;setHeaders([
+        &#x27;User-Agent&#x27; =&gt; &#x27;SwooleWS/1.0&#x27;,
+        &#x27;Origin&#x27;     =&gt; &#x27;http://echo.websocket.org&#x27;,
+    ]);
+
+    // Upgrade to WebSocket
+    $ret = $client-&gt;upgrade(&#x27;/&#x27;);
+    if (!$ret) {
+        echo &quot;WebSocket handshake failed!\n&quot;;
+        return;
+    }
+    echo &quot;Connected to WebSocket server\n&quot;;
+
+    // Send text messages
+    $client-&gt;push(&#x27;Hello, WebSocket!&#x27;);
+    $client-&gt;push(json_encode([&#x27;type&#x27; =&gt; &#x27;greeting&#x27;, &#x27;msg&#x27; =&gt; &#x27;from Swoole&#x27;]));
+
+    // Receive echo responses
+    for ($i = 0; $i &lt; 2; $i++) {
+        /** @var Frame $frame */
+        $frame = $client-&gt;recv();
+        if ($frame) {
+            echo &quot;[Received] {$frame-&gt;data}\n&quot;;
+        }
+    }
+
+    // Send close frame
+    $client-&gt;close();
+    echo &quot;Connection closed\n&quot;;
+});</code></pre>
+
+<h3>v2：心跳保活 + 断线重连</h3>
+
+<pre><code class="language-php">&lt;?php
+// v2: WebSocket client with heartbeat and auto-reconnect
+
+use Swoole\Coroutine\Http\Client;
+use Swoole\Coroutine;
+use Swoole\WebSocket\Frame;
+use function Swoole\Coroutine\run;
+
+class WsClient
+{
+    private ?Client $client = null;
+    private string $host;
+    private int $port;
+    private string $path;
+    private int $heartbeatInterval;
+    private int $maxReconnects;
+    private bool $running = true;
+
+    public function __construct(
+        string $host,
+        int $port = 80,
+        string $path = &#x27;/&#x27;,
+        int $heartbeatInterval = 30,
+        int $maxReconnects = 5
+    ) {
+        $this-&gt;host = $host;
+        $this-&gt;port = $port;
+        $this-&gt;path = $path;
+        $this-&gt;heartbeatInterval = $heartbeatInterval;
+        $this-&gt;maxReconnects = $maxReconnects;
+    }
+
+    /**
+     * Connect and run the main loop
+     */
+    public function run(): void
+    {
+        $attempts = 0;
+
+        while ($this-&gt;running &amp;&amp; $attempts &lt; $this-&gt;maxReconnects) {
+            if ($this-&gt;connect()) {
+                $attempts = 0; // Reset on successful connect
+                $this-&gt;loop();
+            }
+
+            if (!$this-&gt;running) break;
+
+            $attempts++;
+            $delay = min(30, 1 * (2 ** ($attempts - 1)));
+            echo &quot;[Reconnect] Attempt {$attempts}/{$this-&gt;maxReconnects} in {$delay}s\n&quot;;
+            Coroutine::sleep($delay);
+        }
+    }
+
+    /**
+     * Establish WebSocket connection
+     */
+    private function connect(): bool
+    {
+        $this-&gt;client = new Client($this-&gt;host, $this-&gt;port);
+        $this-&gt;client-&gt;set([
+            &#x27;timeout&#x27; =&gt; 5,
+            &#x27;websocket_compression&#x27; =&gt; true,
+        ]);
+
+        if (!$this-&gt;client-&gt;upgrade($this-&gt;path)) {
+            echo &quot;[Error] Handshake failed\n&quot;;
+            return false;
+        }
+
+        echo &quot;[Connected] ws://{$this-&gt;host}:{$this-&gt;port}{$this-&gt;path}\n&quot;;
+        return true;
+    }
+
+    /**
+     * Main receive loop with heartbeat
+     */
+    private function loop(): void
+    {
+        // Start heartbeat in separate coroutine
+        Coroutine::create(function () {
+            while ($this-&gt;running &amp;&amp; $this-&gt;client &amp;&amp; $this-&gt;client-&gt;connected) {
+                Coroutine::sleep($this-&gt;heartbeatInterval);
+                if ($this-&gt;client &amp;&amp; $this-&gt;client-&gt;connected) {
+                    // Send ping frame
+                    $this-&gt;client-&gt;push(&#x27;&#x27;, WEBSOCKET_OPCODE_PING);
+                }
+            }
+        });
+
+        // Receive loop
+        while ($this-&gt;running) {
+            /** @var Frame|false $frame */
+            $frame = $this-&gt;client-&gt;recv(60);
+
+            if ($frame === false) {
+                echo &quot;[Error] Receive failed\n&quot;;
+                break;
+            }
+
+            if ($frame === &#x27;&#x27;) {
+                // Timeout, check connection
+                continue;
+            }
+
+            if ($frame-&gt;opcode === WEBSOCKET_OPCODE_CLOSE) {
+                echo &quot;[Server] Connection closed by server\n&quot;;
+                break;
+            }
+
+            if ($frame-&gt;opcode === WEBSOCKET_OPCODE_PING) {
+                // Auto pong is handled by Swoole
+                continue;
+            }
+
+            if ($frame-&gt;opcode === WEBSOCKET_OPCODE_TEXT || $frame-&gt;opcode === WEBSOCKET_OPCODE_BINARY) {
+                $this-&gt;onMessage($frame-&gt;data);
+            }
+        }
+    }
+
+    /**
+     * Handle incoming message
+     */
+    protected function onMessage(string $data): void
+    {
+        echo &quot;[Message] {$data}\n&quot;;
+    }
+
+    /**
+     * Send a text message
+     */
+    public function send(string $data): bool
+    {
+        if ($this-&gt;client &amp;&amp; $this-&gt;client-&gt;connected) {
+            return $this-&gt;client-&gt;push($data);
+        }
+        return false;
+    }
+
+    /**
+     * Stop the client gracefully
+     */
+    public function stop(): void
+    {
+        $this-&gt;running = false;
+        if ($this-&gt;client) {
+            $this-&gt;client-&gt;close();
+        }
+    }
+}
+
+// --- Demo ---
+run(function () {
+    $ws = new WsClient(&#x27;echo.websocket.org&#x27;, 80, &#x27;/&#x27;);
+
+    // Auto-stop after demo period
+    Coroutine::create(function () use ($ws) {
+        Coroutine::sleep(10);
+        $ws-&gt;send(&#x27;Final message before shutdown&#x27;);
+        Coroutine::sleep(1);
+        $ws-&gt;stop();
+    });
+
+    // Send periodic messages
+    Coroutine::create(function () use ($ws) {
+        for ($i = 1; $i &lt;= 3; $i++) {
+            Coroutine::sleep(2);
+            $ws-&gt;send(&quot;Message #{$i}&quot;);
+        }
+    });
+
+    $ws-&gt;run();
+    echo &quot;Client stopped\n&quot;;
+});</code></pre>
+
+<h3>v3：多连接聚合 + 消息分发</h3>
+
+<pre><code class="language-php">&lt;?php
+// v3: Multi-connection WebSocket aggregator with message dispatch
+
+use Swoole\Coroutine\Http\Client;
+use Swoole\Coroutine;
+use Swoole\Coroutine\Channel;
+use Swoole\WebSocket\Frame;
+use function Swoole\Coroutine\run;
+
+class WsAggregator
+{
+    private array $connections = [];
+    private Channel $messageBus;
+    private int $msgId = 0;
+
+    public function __construct(private int $bufferSize = 1024)
+    {
+        $this-&gt;messageBus = new Channel($bufferSize);
+    }
+
+    /**
+     * Add a WebSocket source connection
+     */
+    public function addSource(string $name, string $host, int $port = 80, string $path = &#x27;/&#x27;): void
+    {
+        $this-&gt;connections[$name] = [
+            &#x27;host&#x27; =&gt; $host,
+            &#x27;port&#x27; =&gt; $port,
+            &#x27;path&#x27; =&gt; $path,
+        ];
+    }
+
+    /**
+     * Start all connections and aggregate messages
+     */
+    public function start(): void
+    {
+        foreach ($this-&gt;connections as $name =&gt; $config) {
+            Coroutine::create(function () use ($name, $config) {
+                $this-&gt;connectAndListen($name, $config);
+            });
+        }
+
+        // Consume aggregated messages
+        while (true) {
+            $msg = $this-&gt;messageBus-&gt;pop(5);
+            if ($msg === false) {
+                // Check if all connections are dead
+                if (empty($this-&gt;connections)) break;
+                continue;
+            }
+            $this-&gt;dispatch($msg);
+        }
+    }
+
+    /**
+     * Connect to a source and forward messages to bus
+     */
+    private function connectAndListen(string $name, array $config): void
+    {
+        $client = new Client($config[&#x27;host&#x27;], $config[&#x27;port&#x27;]);
+        $client-&gt;set([&#x27;timeout&#x27; =&gt; 10]);
+
+        if (!$client-&gt;upgrade($config[&#x27;path&#x27;])) {
+            echo &quot;[{$name}] Connection failed\n&quot;;
+            return;
+        }
+
+        echo &quot;[{$name}] Connected\n&quot;;
+
+        while (true) {
+            $frame = $client-&gt;recv(60);
+            if ($frame === false || ($frame instanceof Frame &amp;&amp; $frame-&gt;opcode === WEBSOCKET_OPCODE_CLOSE)) {
+                echo &quot;[{$name}] Disconnected\n&quot;;
+                break;
+            }
+
+            if ($frame instanceof Frame &amp;&amp; $frame-&gt;data) {
+                $this-&gt;messageBus-&gt;push([
+                    &#x27;id&#x27;     =&gt; ++$this-&gt;msgId,
+                    &#x27;source&#x27; =&gt; $name,
+                    &#x27;data&#x27;   =&gt; $frame-&gt;data,
+                    &#x27;time&#x27;   =&gt; date(&#x27;H:i:s&#x27;),
+                ]);
+            }
+        }
+
+        $client-&gt;close();
+    }
+
+    /**
+     * Dispatch aggregated message
+     */
+    protected function dispatch(array $msg): void
+    {
+        echo &quot;[{$msg[&#x27;time&#x27;]}] [{$msg[&#x27;source&#x27;]}] #{$msg[&#x27;id&#x27;]}: {$msg[&#x27;data&#x27;]}\n&quot;;
+    }
+}
+
+// --- Demo: Aggregate multiple WebSocket sources ---
+run(function () {
+    $agg = new WsAggregator();
+
+    // Add multiple sources (using echo server for demo)
+    $agg-&gt;addSource(&#x27;source-a&#x27;, &#x27;echo.websocket.org&#x27;, 80, &#x27;/&#x27;);
+    $agg-&gt;addSource(&#x27;source-b&#x27;, &#x27;echo.websocket.org&#x27;, 80, &#x27;/&#x27;);
+
+    // Send test messages after connection
+    Coroutine::create(function () {
+        Coroutine::sleep(1);
+        // In real scenario, these would be separate clients pushing to the sources
+    });
+
+    // Auto-stop demo
+    Coroutine::create(function () {
+        Coroutine::sleep(8);
+        echo &quot;Demo timeout, exiting...\n&quot;;
+        exit(0);
+    });
+
+    $agg-&gt;start();
+});</code></pre>
+
+<hr>
+
+<h2>执行预览</h2>
+
+<pre><code>$ php v1_basic.php
+Connected to WebSocket server
+[Received] Hello, WebSocket!
+[Received] {&quot;type&quot;:&quot;greeting&quot;,&quot;msg&quot;:&quot;from Swoole&quot;}
+Connection closed
+
+$ php v2_heartbeat.php
+[Connected] ws://echo.websocket.org:80/
+[Message] Message #1
+[Message] Message #2
+[Message] Message #3
+[Message] Final message before shutdown
+Client stopped
+
+$ php v3_aggregator.php
+[source-a] Connected
+[source-b] Connected
+[22:15:01] [source-a] #1: test data from a
+[22:15:01] [source-b] #2: test data from b
+...</code></pre>
+
+<hr>
+
+<h2>注意事项</h2>
+
+<table><thead><tr>
+<th>事项</th>
+<th>说明</th>
+<th>建议</th>
+</tr></thead><tbody>
+<tr>
+<td>握手检查</td>
+<td><code>upgrade()</code> 返回 false 表示失败</td>
+<td>必须检查返回值</td>
+</tr>
+<tr>
+<td>recv 超时</td>
+<td>长时间无消息需设超时</td>
+<td>传超时参数避免永久阻塞</td>
+</tr>
+<tr>
+<td>心跳机制</td>
+<td>服务器可能因空闲断开</td>
+<td>每 30s 发一次 Ping</td>
+</tr>
+<tr>
+<td>大消息</td>
+<td>默认最大帧 2MB</td>
+<td>调整 <code>package_max_length</code></td>
+</tr>
+<tr>
+<td>并发 recv</td>
+<td>同一 Client 不能多协程同时 recv</td>
+<td>一个连接一个 recv 协程</td>
+</tr>
+<tr>
+<td>编码</td>
+<td>文本帧默认 UTF-8</td>
+<td>二进制数据用 <code>WEBSOCKET_OPCODE_BINARY</code></td>
+</tr>
+<tr>
+<td>压缩</td>
+<td>Swoole 支持 permessage-deflate</td>
+<td>设置 <code>websocket_compression</code></td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>避坑指南</h2>
+
+<h3>❌ 不检查 upgrade 返回值</h3>
+<pre><code class="language-php">$client-&gt;upgrade(&#x27;/ws&#x27;);
+$client-&gt;push(&#x27;hello&#x27;); // May crash if handshake failed</code></pre>
+
+<h3>✅ 始终验证握手</h3>
+<pre><code class="language-php">if (!$client-&gt;upgrade(&#x27;/ws&#x27;)) {
+    echo &quot;Handshake failed: status={$client-&gt;statusCode}\n&quot;;
+    return;
+}
+// Now safe to push/recv</code></pre>
+
+<h3>❌ 忘记心跳导致断连</h3>
+<pre><code class="language-php">// Only recv, never send → server disconnects after idle timeout
+while (true) {
+    $frame = $client-&gt;recv();
+}</code></pre>
+
+<h3>✅ 加入心跳保活</h3>
+<pre><code class="language-php">Coroutine::create(function () use ($client) {
+    while ($client-&gt;connected) {
+        Coroutine::sleep(30);
+        $client-&gt;push(&#x27;&#x27;, WEBSOCKET_OPCODE_PING);
+    }
+});</code></pre>
+
+<h3>❌ 多协程同时操作同一连接</h3>
+<pre><code class="language-php">// Dangerous: race condition on recv
+Coroutine::create(function () use ($client) { $client-&gt;recv(); });
+Coroutine::create(function () use ($client) { $client-&gt;recv(); });</code></pre>
+
+<h3>✅ 一个连接对应一个 recv 协程</h3>
+<pre><code class="language-php">// Safe: dedicated coroutine per connection
+Coroutine::create(function () use ($clientA) { /* recv loop */ });
+Coroutine::create(function () use ($clientB) { /* recv loop */ });</code></pre>
+
+<hr>
+
+<h2>练习题</h2>
+
+<h3>🟢 初级</h3>
+<ol>
+<li>连接 <code>echo.websocket.org</code>，发送 3 条文本消息，打印每次的回显</li>
+</ul>
+<ol>
+<li>发送一个 JSON 格式的消息，接收后用 <code>json_decode</code> 解析并打印</li>
+
+<h3>🟡 中级</h3>
+<ol>
+<li>实现一个带自动重连的 WebSocket 客户端，断线后最多重试 5 次</li>
+</ul>
+<ol>
+<li>实现心跳机制：每 30 秒发送 Ping，如果 60 秒内没有收到任何消息则认为断连</li>
+
+<h3>🔴 高级</h3>
+<ol>
+<li>实现一个 WebSocket 消息聚合器：连接 3 个不同的 WebSocket 服务，所有消息统一汇总处理</li>
+</ul>
+<ol>
+<li>实现发布-订阅模式：通过 Channel 在多个协程间分发 WebSocket 消息</li>
+
+<hr>
+
+<h2>知识点总结</h2>
+
+<pre><code>WebSocket 协程客户端
+├── 连接
+│   ├── upgrade() 握手升级
+│   ├── connected 属性
+│   └── close() 关闭
+├── 消息
+│   ├── push() 发送
+│   ├── recv() 接收
+│   ├── Frame 对象 (data, opcode)
+│   └── opcode 类型
+│       ├── TEXT (1)
+│       ├── BINARY (2)
+│       ├── PING (9)
+│       └── CLOSE (8)
+├── 健壮性
+│   ├── 心跳保活
+│   ├── 断线重连
+│   ├── 指数退避
+│   └── 超时检测
+└── 高级模式
+    ├── 多连接管理
+    ├── 消息总线/聚合
+    └── 发布-订阅</code></pre>
+
+<hr>
+
+<h2>举一反三</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>技术方案</th>
+<th>关键点</th>
+</tr></thead><tbody>
+<tr>
+<td>聊天机器人</td>
+<td>WS客户端 + 消息路由</td>
+<td>指令解析、状态管理</td>
+</tr>
+<tr>
+<td>加密货币行情</td>
+<td>多交易所WS聚合</td>
+<td>消息去重、价格合并</td>
+</tr>
+<tr>
+<td>IM 消息网关</td>
+<td>WS + Channel 分发</td>
+<td>用户路由、在线状态</td>
+</tr>
+<tr>
+<td>IoT 设备控制</td>
+<td>WS + 二进制协议</td>
+<td>协议编解码、设备管理</td>
+</tr>
+<tr>
+<td>游戏服务器对接</td>
+<td>WS + Protobuf</td>
+<td>序列化、帧同步</td>
+</tr>
+<tr>
+<td>日志实时流</td>
+<td>WS → Channel → 存储</td>
+<td>背压控制、批量写入</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>参考资料</h2>
+
+<ul>
+<li><a href="https://wiki.swoole.com/#/coroutine_client/websocket">Swoole 官方文档 - WebSocket 客户端</a></li>
+<li><a href="https://tools.ietf.org/html/rfc6455">RFC 6455 - WebSocket Protocol</a></li>
+<li><a href="https://wiki.swoole.com/#/websocket_server">Swoole WebSocket Server</a></li>
+<li><a href="https://developer.mozilla.org/en-US/docs/Web/API/WebSocket">WebSocket 教程 - MDN</a></li>
+
+<hr>
+
+<h2>代码演进路线</h2>
+
+<table><thead><tr>
+<th>版本</th>
+<th>重点</th>
+<th>适用场景</th>
+</tr></thead><tbody>
+<tr>
+<td>v1 基础版</td>
+<td>连接、发送、接收</td>
+<td>学习入门、简单通信</td>
+</tr>
+<tr>
+<td>v2 健壮版</td>
+<td>心跳 + 重连</td>
+<td>长连接服务、机器人</td>
+</tr>
+<tr>
+<td>v3 聚合版</td>
+<td>多连接 + 消息分发</td>
+<td>数据聚合、消息网关</td>
+</tr>
+</tbody></table>
+
+<p><strong>演进思路：</strong> 先跑通单个连接 → 加保活和重连确保可靠 → 再做多连接管理和消息路由。</p>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

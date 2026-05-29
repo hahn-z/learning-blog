@@ -1,0 +1,484 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>002 - TypeScript接口、泛型与高级类型</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/TypeScript/index.html">TypeScript</a>
+<span class="sep">›</span>
+<a href="/tech-blog/TypeScript/01-TypeScript/index.html">TypeScript</a>
+</nav>
+<h1>002 - TypeScript接口、泛型与高级类型</h1>
+<div class="meta">
+<span>📂 TypeScript</span>
+<span>🏷️ TypeScript</span>
+</div>
+<article>
+
+
+<h1>TypeScript接口、泛型与高级类型</h1>
+
+<blockquote><p><strong>难度：</strong> ⭐⭐⭐ 进阶级 | <strong>阅读时间：</strong> 约20分钟 | <strong>前置知识：</strong> TypeScript基础类型</p></blockquote>
+
+<h2>一、概念讲解</h2>
+
+<p>接口（Interface）和泛型（Generics）是TypeScript类型系统的两大支柱。接口定义了对象的"形状"，泛型则让类型成为参数，实现类型的复用和灵活性。</p>
+
+<h3>接口 vs 类型别名</h3>
+
+<pre><code class="language-typescript">// Interface - can be extended and merged
+interface User {
+  name: string;
+  age: number;
+}
+
+interface Employee extends User {
+  employeeId: string;
+}
+
+// Type alias - more flexible, supports unions
+type Status = &quot;active&quot; | &quot;inactive&quot;;
+type Result&lt;T&gt; = { success: boolean; data: T };</code></pre>
+
+<h3>泛型的本质</h3>
+
+<p>泛型就是<strong>类型的参数化</strong>。把类型当作变量一样传递，让函数和类不绑定具体类型。</p>
+
+<pre><code class="language-typescript">// Without generics - need separate functions
+function identityString(val: string): string { return val; }
+function identityNumber(val: number): number { return val; }
+
+// With generics - one function for all types
+function identity&lt;T&gt;(val: T): T { return val; }</code></pre>
+
+<h2>二、脑图</h2>
+
+<pre><code>TypeScript 高级类型系统
+├── 接口 Interface
+│   ├── 属性修饰（readonly, ?）
+│   ├── 索引签名 [key: string]
+│   ├── 继承 extends
+│   └── 声明合并
+├── 泛型 Generics
+│   ├── 泛型函数 &lt;T&gt;
+│   ├── 泛型接口 Interface&lt;T&gt;
+│   ├── 泛型类 Class&lt;T&gt;
+│   └── 泛型约束 extends
+├── 工具类型 Utility Types
+│   ├── Partial&lt;T&gt; / Required&lt;T&gt;
+│   ├── Pick&lt;T, K&gt; / Omit&lt;T, K&gt;
+│   ├── Record&lt;K, V&gt;
+│   ├── Readonly&lt;T&gt;
+│   └── ReturnType&lt;T&gt; / Parameters&lt;T&gt;
+├── 条件类型
+│   ├── T extends U ? X : Y
+│   ├── infer 关键字
+│   └── 分布式条件类型
+└── 映射类型
+    ├── { [K in keyof T]: ... }
+    └── 键的重映射 as</code></pre>
+
+<h2>三、完整TypeScript代码</h2>
+
+<pre><code class="language-typescript">// ============================================
+// TypeScript Interfaces, Generics &amp; Advanced Types
+// ============================================
+
+// --- 1. Interface Basics ---
+interface User {
+  readonly id: number;
+  name: string;
+  age?: number; // optional property
+  [key: string]: unknown; // index signature for extra props
+}
+
+const user: User = { id: 1, name: &quot;Alice&quot;, extra: &quot;value&quot; };
+// user.id = 2; // Error: readonly
+
+// --- 2. Interface Extension ---
+interface Timestamps {
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+interface BlogPost extends User, Timestamps {
+  title: string;
+  content: string;
+  tags: string[];
+}
+
+// --- 3. Generic Functions ---
+function firstElement&lt;T&gt;(arr: T[]): T | undefined {
+  return arr[0];
+}
+
+function mergeObjects&lt;T extends object, U extends object&gt;(a: T, b: U): T &amp; U {
+  return { ...a, ...b };
+}
+
+// Generic constraints with keyof
+function getProperty&lt;T, K extends keyof T&gt;(obj: T, key: K): T[K] {
+  return obj[key];
+}
+
+// --- 4. Generic Interfaces ---
+interface ApiResponse&lt;T&gt; {
+  data: T;
+  status: number;
+  message: string;
+  timestamp: Date;
+}
+
+interface PaginatedResponse&lt;T&gt; extends ApiResponse&lt;T[]&gt; {
+  total: number;
+  page: number;
+  pageSize: number;
+}
+
+// Usage
+const userResponse: ApiResponse&lt;User&gt; = {
+  data: { id: 1, name: &quot;Alice&quot; },
+  status: 200,
+  message: &quot;OK&quot;,
+  timestamp: new Date(),
+};
+
+// --- 5. Generic Classes ---
+class DataStore&lt;T&gt; {
+  private items: T[] = [];
+
+  add(item: T): void {
+    this.items.push(item);
+  }
+
+  get(index: number): T | undefined {
+    return this.items[index];
+  }
+
+  getAll(): T[] {
+    return [...this.items];
+  }
+
+  filter(predicate: (item: T) =&gt; boolean): T[] {
+    return this.items.filter(predicate);
+  }
+}
+
+const store = new DataStore&lt;User&gt;();
+store.add({ id: 1, name: &quot;Alice&quot; });
+
+// --- 6. Built-in Utility Types ---
+interface Todo {
+  title: string;
+  description: string;
+  completed: boolean;
+}
+
+// Partial - all properties optional
+type PartialTodo = Partial&lt;Todo&gt;;
+const update: PartialTodo = { completed: true };
+
+// Required - all properties required
+type RequiredTodo = Required&lt;Todo&gt;;
+
+// Pick - select specific properties
+type TodoPreview = Pick&lt;Todo, &quot;title&quot; | &quot;completed&quot;&gt;;
+
+// Omit - exclude specific properties
+type TodoInfo = Omit&lt;Todo, &quot;completed&quot;&gt;;
+
+// Record - construct type with property keys and value type
+type PageInfo = Record&lt;&quot;home&quot; | &quot;about&quot; | &quot;contact&quot;, { url: string }&gt;;
+const pages: PageInfo = {
+  home: { url: &quot;/&quot; },
+  about: { url: &quot;/about&quot; },
+  contact: { url: &quot;/contact&quot; },
+};
+
+// Readonly
+type ReadonlyTodo = Readonly&lt;Todo&gt;;
+
+// --- 7. Conditional Types ---
+type IsString&lt;T&gt; = T extends string ? &quot;yes&quot; : &quot;no&quot;;
+type A = IsString&lt;string&gt;; // &quot;yes&quot;
+type B = IsString&lt;number&gt;; // &quot;no&quot;
+
+// infer keyword
+type UnpackPromise&lt;T&gt; = T extends Promise&lt;infer U&gt; ? U : T;
+type Result = UnpackPromise&lt;Promise&lt;string&gt;&gt;; // string
+
+// Extract and Exclude
+type StringOrNumber = string | number | boolean;
+type OnlyString = Extract&lt;StringOrNumber, string | number&gt;; // string | number
+type NoBoolean = Exclude&lt;StringOrNumber, boolean&gt;; // string | number
+
+// --- 8. Mapped Types ---
+type Optional&lt;T&gt; = {
+  [K in keyof T]?: T[K];
+};
+
+type ReadonlyDeep&lt;T&gt; = {
+  readonly [K in keyof T]: T[K];
+};
+
+// Key remapping (TS 4.1+)
+type Getters&lt;T&gt; = {
+  [K in keyof T as `get${Capitalize&lt;string &amp; K&gt;}`]: () =&gt; T[K];
+};
+
+interface Person {
+  name: string;
+  age: number;
+}
+
+type PersonGetters = Getters&lt;Person&gt;;
+// { getName: () =&gt; string; getAge: () =&gt; number }
+
+// --- 9. Template Literal Types ---
+type EventName = &quot;click&quot; | &quot;focus&quot; | &quot;blur&quot;;
+type Handler = `on${Capitalize&lt;EventName&gt;}`;
+// &quot;onClick&quot; | &quot;onFocus&quot; | &quot;onBlur&quot;
+
+// --- 10. Practical: Type-safe Event Emitter ---
+type EventMap = {
+  login: { userId: string; timestamp: Date };
+  logout: { userId: string };
+  error: { message: string; code: number };
+};
+
+class TypedEmitter&lt;Events extends Record&lt;string, unknown&gt;&gt; {
+  private listeners: { [K in keyof Events]?: Array&lt;(data: Events[K]) =&gt; void&gt; } = {};
+
+  on&lt;K extends keyof Events&gt;(event: K, handler: (data: Events[K]) =&gt; void): void {
+    if (!this.listeners[event]) {
+      this.listeners[event] = [];
+    }
+    this.listeners[event]!.push(handler);
+  }
+
+  emit&lt;K extends keyof Events&gt;(event: K, data: Events[K]): void {
+    this.listeners[event]?.forEach(handler =&gt; handler(data));
+  }
+}
+
+const emitter = new TypedEmitter&lt;EventMap&gt;();
+emitter.on(&quot;login&quot;, (data) =&gt; {
+  console.log(`User ${data.userId} logged in at ${data.timestamp}`);
+});
+emitter.emit(&quot;login&quot;, { userId: &quot;u1&quot;, timestamp: new Date() });</code></pre>
+
+<h2>四、执行预览</h2>
+
+<pre><code>$ npx tsc --noEmit advanced-types.ts
+# 编译通过 ✅
+
+$ npx ts-node advanced-types.ts
+User u1 logged in at Wed Apr 29 2026 01:00:00 GMT+0800</code></pre>
+
+<h2>五、注意事项</h2>
+
+<table><thead><tr>
+<th>要点</th>
+<th>说明</th>
+<th>建议</th>
+</tr></thead><tbody>
+<tr>
+<td>接口 vs type</td>
+<td>接口可合并和扩展，type更灵活</td>
+<td>定义对象形状用接口，联合/交叉用type</td>
+</tr>
+<tr>
+<td>泛型约束</td>
+<td>限制泛型的范围</td>
+<td>用 <code>extends</code> 添加约束</td>
+</tr>
+<tr>
+<td>条件类型分发</td>
+<td>联合类型会自动分发</td>
+<td>用 <code>[T]</code> 包裹阻止分发</td>
+</tr>
+<tr>
+<td>mapped types</td>
+<td>只读映射</td>
+<td>注意 <code>readonly</code> 和 <code>?</code> 修饰符</td>
+</tr>
+<tr>
+<td>infer</td>
+<td>只能在条件类型的extends子句中使用</td>
+<td>用于提取嵌套类型</td>
+</tr>
+</tbody></table>
+
+<h2>六、避坑指南</h2>
+
+<pre><code class="language-typescript">// ❌ 泛型没有约束
+function getLength&lt;T&gt;(val: T) { return val.length; } // Error
+// ✅ 用 extends 约束
+function getLength&lt;T extends { length: number }&gt;(val: T): number { return val.length; }
+
+// ❌ 接口定义函数重载不清晰
+interface Fn { (x: string): number; (x: number): string; }
+// ✅ 用type更清晰
+type Fn = ((x: string) =&gt; number) &amp; ((x: number) =&gt; string);
+
+// ❌ 映射类型修改了索引签名
+// ✅ 使用 Pick + 重新组合来精确控制
+
+// ❌ 条件类型没有处理 never
+type Wrap&lt;T&gt; = T extends string ? [T] : never;
+type Result = Wrap&lt;string | number&gt;; // [string] (distributed)
+// ✅ 包装在元组中阻止分发
+type Wrap2&lt;T&gt; = [T] extends [string] ? [T] : never;</code></pre>
+
+<h2>七、练习题</h2>
+
+<h3>🟢 入门</h3>
+<ol>
+<li>定义 <code>Customer</code> 接口，包含 name、email、可选的 phone</li>
+</ul>
+<ol>
+<li>编写泛型函数 <code>lastElement<T>(arr: T[]): T | undefined</code></li>
+
+<h3>🟡 进阶</h3>
+<ol>
+<li>实现 <code>DeepPartial<T></code> 工具类型，递归地将所有属性变为可选</li>
+</ul>
+<ol>
+<li>编写类型安全的 <code>Object.keys</code> 包装函数</li>
+
+<h3>🔴 挑战</h3>
+<ol>
+<li>实现 <code>UnionToIntersection<U></code> 工具类型</li>
+
+<h2>八、知识点总结</h2>
+
+<pre><code>接口·泛型·高级类型
+├── 接口 → 定义对象形状，支持继承与合并
+├── 泛型 → 类型参数化，&lt;T&gt;语法
+│   ├── 约束 → extends
+│   └── 默认值 → &lt;T = Default&gt;
+├── 工具类型 → Partial, Pick, Omit, Record, Readonly
+├── 条件类型 → T extends U ? X : Y
+│   └── infer → 类型推断
+├── 映射类型 → [K in keyof T]
+└── 模板字面量类型 → `on${Event}`</code></pre>
+
+<h2>九、举一反三</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>高级类型</th>
+<th>示例</th>
+</tr></thead><tbody>
+<tr>
+<td>API客户端</td>
+<td>泛型接口</td>
+<td><code>ApiResponse<T></code></td>
+</tr>
+<tr>
+<td>表单处理</td>
+<td>Partial + Pick</td>
+<td><code>UpdateDTO = Partial<Pick<User, 'name'>></code></td>
+</tr>
+<tr>
+<td>状态管理</td>
+<td>交叉类型</td>
+<td><code>State & Actions</code></td>
+</tr>
+<tr>
+<td>事件系统</td>
+<td>映射类型</td>
+<td><code>Getters<T></code></td>
+</tr>
+<tr>
+<td>数据库模型</td>
+<td>条件类型</td>
+<td><code>ColumnType<T></code></td>
+</tr>
+</tbody></table>
+
+<h2>十、参考资料</h2>
+
+<ul>
+<li><a href="https://www.typescriptlang.org/docs/handbook/2/generics.html">TypeScript Handbook - Generics</a></li>
+<li><a href="https://www.typescriptlang.org/docs/handbook/utility-types.html">TypeScript Handbook - Utility Types</a></li>
+<li><a href="https://github.com/type-challenges/type-challenges">Type Challenges</a></li>
+
+<h2>十一、代码演进</h2>
+
+<h3>v1 → 基础接口</h3>
+
+<pre><code class="language-typescript">interface User { name: string; age: number; }
+function getUser(): User { return { name: &quot;Alice&quot;, age: 30 }; }</code></pre>
+
+<h3>v2 → 泛型响应</h3>
+
+<pre><code class="language-typescript">interface ApiResponse&lt;T&gt; { data: T; status: number; }
+function getUser(): ApiResponse&lt;User&gt; { return { data: { name: &quot;Alice&quot;, age: 30 }, status: 200 }; }</code></pre>
+
+<h3>v3 → 完整类型安全</h3>
+
+<pre><code class="language-typescript">class ApiClient {
+  async request&lt;T&gt;(url: string): Promise&lt;ApiResponse&lt;T&gt;&gt; {
+    const res = await fetch(url);
+    return { data: await res.json() as T, status: res.status };
+  }
+}</code></pre>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

@@ -1,0 +1,622 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>016 - Python 生成器与迭代器：从原理到实战的完整指南</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Python/index.html">Python</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Python/01-入门/index.html">Python入门</a>
+</nav>
+<h1>016 - Python 生成器与迭代器：从原理到实战的完整指南</h1>
+<div class="meta">
+<span>📂 Python入门</span>
+<span>🏷️ Python</span>
+</div>
+<article>
+
+
+<h1>Python 生成器与迭代器：从原理到实战的完整指南</h1>
+
+<blockquote><p><strong>难度标注</strong>：⭐⭐⭐ 中级 | 预计阅读时间：15 分钟<br><br><strong>前置知识</strong>：Python 基础语法、函数定义、列表推导式、for 循环</p></blockquote>
+
+<hr>
+
+<h2>一、概念讲解</h2>
+
+<h3>1.1 什么是迭代器（Iterator）？</h3>
+
+<p>迭代器是实现了迭代器协议的对象，即包含 <code>__iter__()</code> 和 <code>__next__()</code> 两个方法。迭代器让你可以逐个访问集合中的元素，而不需要一次性把所有数据加载到内存。</p>
+
+<p><strong>核心协议：</strong></p>
+<ul>
+<li><code>__iter__()</code>：返回迭代器对象本身</li>
+<li><code>__next__()</code>：返回下一个元素，没有更多元素时抛出 <code>StopIteration</code></li>
+
+<p>Python 中所有可迭代对象（list、str、dict 等）都可以通过 <code>iter()</code> 函数获得迭代器。</p>
+
+<h3>1.2 什么是生成器（Generator）？</h3>
+
+<p>生成器是创建迭代器的简洁方式。使用 <code>yield</code> 关键字的函数会自动变成生成器函数。调用生成器函数不会立即执行，而是返回一个生成器对象，每次调用 <code>next()</code> 时执行到下一个 <code>yield</code> 处暂停。</p>
+
+<p><strong>关键特性：</strong></p>
+<ul>
+<li><strong>惰性求值</strong>：只在需要时才计算下一个值</li>
+<li><strong>内存友好</strong>：不会一次性生成所有数据</li>
+<li><strong>状态保持</strong>：函数的局部变量在 yield 之间保持不变</li>
+
+<h3>1.3 迭代器 vs 生成器的关系</h3>
+
+<p>生成器是一种特殊的迭代器。所有生成器都是迭代器，但并非所有迭代器都是生成器。</p>
+
+<pre><code>可迭代对象 (Iterable)
+    ├── 序列类型：list, str, tuple
+    ├── 集合类型：set, dict
+    └── 迭代器 (Iterator)
+         ├── 自定义迭代器（手动实现 __iter__, __next__）
+         └── 生成器 (Generator)
+              ├── 生成器函数（yield）
+              └── 生成器表达式（(x for x in ...)）</code></pre>
+
+<hr>
+
+<h2>二、知识脑图</h2>
+
+<pre><code>Python 生成器与迭代器
+├── 迭代器协议
+│   ├── __iter__() → 返回 self
+│   ├── __next__() → 返回下一个值
+│   └── StopIteration 异常
+├── 生成器函数
+│   ├── yield 关键字
+│   ├── yield from 委托
+│   ├── send() 双向通信
+│   ├── close() 关闭
+│   └── throw() 注入异常
+├── 生成器表达式
+│   ├── (x for x in iterable)
+│   └── 惰性求值
+├── 内置工具
+│   ├── itertools 模块
+│   │   ├── count, cycle, repeat
+│   │   ├── chain, zip_longest
+│   │   └── islice, groupby
+│   └── enumerate, reversed
+└── 应用场景
+    ├── 大文件处理
+    ├── 数据流管道
+    ├── 无限序列
+    └── 协程基础</code></pre>
+
+<hr>
+
+<h2>三、代码演进</h2>
+
+<h3>v1：手动实现迭代器</h3>
+
+<pre><code class="language-python">class Countdown:
+    &quot;&quot;&quot;Manual iterator: countdown from n to 1.&quot;&quot;&quot;
+
+    def __init__(self, n):
+        self.n = n
+        self.current = n
+
+    def __iter__(self):
+        # Return the iterator object itself
+        return self
+
+    def __next__(self):
+        if self.current &lt;= 0:
+            # Signal end of iteration
+            raise StopIteration
+        value = self.current
+        self.current -= 1
+        return value
+
+
+# Usage
+for num in Countdown(5):
+    print(num, end=&quot; &quot;)  # 5 4 3 2 1
+print()</code></pre>
+
+<p><strong>执行预览：</strong></p>
+<pre><code>5 4 3 2 1</code></pre>
+
+<h3>v2：用生成器函数简化</h3>
+
+<pre><code class="language-python">def countdown(n):
+    &quot;&quot;&quot;Generator version: much simpler.&quot;&quot;&quot;
+    while n &gt; 0:
+        # yield pauses the function and returns a value
+        yield n
+        n -= 1
+
+
+# Usage is identical
+for num in countdown(5):
+    print(num, end=&quot; &quot;)  # 5 4 3 2 1
+print()
+
+# Generator expression (compact syntax)
+squares = (x * x for x in range(10))
+print(list(squares))  # [0, 1, 4, 9, 16, 25, 36, 49, 64, 81]</code></pre>
+
+<p><strong>执行预览：</strong></p>
+<pre><code>5 4 3 2 1
+[0, 1, 4, 9, 16, 25, 36, 49, 64, 81]</code></pre>
+
+<h3>v3：高级生成器 — yield from 与数据管道</h3>
+
+<pre><code class="language-python">def read_large_file(filepath, chunk_size=1024):
+    &quot;&quot;&quot;Read a large file line by line without loading all into memory.&quot;&quot;&quot;
+    with open(filepath, &quot;r&quot;) as f:
+        for line in f:
+            # Yield each line lazily
+            yield line.strip()
+
+
+def filter_comments(lines):
+    &quot;&quot;&quot;Filter out comment lines starting with &#x27;#&#x27;.&quot;&quot;&quot;
+    for line in lines:
+        if not line.startswith(&quot;#&quot;):
+            yield line
+
+
+def parse_csv_lines(lines):
+    &quot;&quot;&quot;Parse CSV lines into lists of fields.&quot;&quot;&quot;
+    for line in lines:
+        yield line.split(&quot;,&quot;)
+
+
+def chain_iterables(*iterables):
+    &quot;&quot;&quot;Chain multiple iterables using yield from.&quot;&quot;&quot;
+    for it in iterables:
+        # yield from delegates to another iterable
+        yield from it
+
+
+# Pipeline composition
+def process_data(filepath):
+    raw = read_large_file(filepath)
+    no_comments = filter_comments(raw)
+    parsed = parse_csv_lines(no_comments)
+    return parsed
+
+
+# Generator with send() for two-way communication
+def accumulator():
+    &quot;&quot;&quot;Coroutine-style generator using send().&quot;&quot;&quot;
+    total = 0
+    while True:
+        # yield returns current total, receive() gets sent value
+        value = yield total
+        if value is None:
+            break
+        total += value
+
+
+# Usage of accumulator
+gen = accumulator()
+next(gen)           # Prime the generator → 0
+print(gen.send(10))  # → 10
+print(gen.send(20))  # → 30
+print(gen.send(5))   # → 35
+gen.close()
+
+# Chain example
+list1 = [1, 2, 3]
+list2 = [&quot;a&quot;, &quot;b&quot;]
+print(list(chain_iterables(list1, list2)))
+# [1, 2, 3, &#x27;a&#x27;, &#x27;b&#x27;]</code></pre>
+
+<p><strong>执行预览：</strong></p>
+<pre><code>10
+30
+35
+[1, 2, 3, &#x27;a&#x27;, &#x27;b&#x27;]</code></pre>
+
+<hr>
+
+<h2>四、注意事项</h2>
+
+<table><thead><tr>
+<th>要点</th>
+<th>说明</th>
+<th>示例</th>
+</tr></thead><tbody>
+<tr>
+<td>迭代器只能消费一次</td>
+<td>遍历完后需要重新创建</td>
+<td><code>it = iter([1,2]); list(it); list(it)</code> → 第二次为空</td>
+</tr>
+<tr>
+<td>生成器是单次消费</td>
+<td>yield 出的值不能回退</td>
+<td><code>g = countdown(3); list(g); list(g)</code> → 第二次为空</td>
+</tr>
+<tr>
+<td>yield 暂停函数状态</td>
+<td>局部变量在 yield 间保持</td>
+<td>函数不会重新执行</td>
+</tr>
+<tr>
+<td>yield from 委托</td>
+<td>简化嵌套生成器</td>
+<td><code>yield from sub_generator()</code></td>
+</tr>
+<tr>
+<td>生成器表达式用圆括号</td>
+<td>注意和列表推导式的区别</td>
+<td><code>(x**2 for x in range(10))</code></td>
+</tr>
+<tr>
+<td>不要在生成器中 return 值</td>
+<td>return 的值会成为 StopIteration 的参数</td>
+<td>Python 3.x 支持，但容易被忽略</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>五、避坑指南</h2>
+
+<h3>❌ 坑1：重复消费同一个迭代器</h3>
+
+<pre><code class="language-python"># ❌ Wrong: iterator is exhausted after first use
+numbers = iter([1, 2, 3])
+print(list(numbers))  # [1, 2, 3]
+print(list(numbers))  # [] ← empty!
+
+# ✅ Correct: create a new iterator each time
+data = [1, 2, 3]
+print(list(iter(data)))  # [1, 2, 3]
+print(list(iter(data)))  # [1, 2, 3]</code></pre>
+
+<h3>❌ 坑2：把生成器当列表用</h3>
+
+<pre><code class="language-python"># ❌ Wrong: trying to index a generator
+gen = (x * 2 for x in range(10))
+# print(gen[5])  # TypeError!
+
+# ✅ Correct: convert to list first, or use islice
+from itertools import islice
+gen = (x * 2 for x in range(10))
+print(list(islice(gen, 5, 6)))  # [10]</code></pre>
+
+<h3>❌ 坑3：忘记 next() 启动 send()</h3>
+
+<pre><code class="language-python"># ❌ Wrong: can&#x27;t send to unstarted generator
+def adder():
+    total = 0
+    while True:
+        val = yield total
+        total += val
+
+g = adder()
+# g.send(5)  # TypeError!
+
+# ✅ Correct: prime with next() first
+g = adder()
+next(g)       # Prime → 0
+print(g.send(5))  # 5</code></pre>
+
+<h3>❌ 坑4：在 for 循环中手动 next()</h3>
+
+<pre><code class="language-python"># ❌ Wrong: mixing next() with for loop
+gen = countdown(3)
+for val in gen:
+    print(val)
+    # print(next(gen))  # Skips values, confuses loop!
+
+# ✅ Correct: use for loop OR next(), not both
+gen = countdown(3)
+while True:
+    try:
+        print(next(gen))
+    except StopIteration:
+        break</code></pre>
+
+<hr>
+
+<h2>六、练习题</h2>
+
+<h3>🟢 初级</h3>
+
+<ol>
+<li>编写一个生成器函数 <code>fibonacci(n)</code>，生成前 n 个斐波那契数。</li>
+
+<pre><code class="language-python">def fibonacci(n):
+    a, b = 0, 1
+    for _ in range(n):
+        yield a
+        a, b = b, a + b
+
+print(list(fibonacci(10)))
+# [0, 1, 1, 2, 3, 5, 8, 13, 21, 34]</code></pre>
+
+<ol>
+<li>使用生成器表达式生成 1-100 中所有偶数的平方。</li>
+
+<pre><code class="language-python">squares = (x**2 for x in range(2, 101, 2))
+print(list(squares)[:5])  # [4, 16, 36, 64, 100]</code></pre>
+
+<h3>🟡 中级</h3>
+
+<ol>
+<li>实现一个 <code>chunked(iterable, size)</code> 生成器，将可迭代对象按固定大小分组。</li>
+
+<pre><code class="language-python">def chunked(iterable, size):
+    &quot;&quot;&quot;Yield chunks of the given size.&quot;&quot;&quot;
+    it = iter(iterable)
+    while True:
+        chunk = []
+        try:
+            for _ in range(size):
+                chunk.append(next(it))
+            yield chunk
+        except StopIteration:
+            if chunk:
+                yield chunk
+            break
+
+print(list(chunked(range(10), 3)))
+# [[0, 1, 2], [3, 4, 5], [6, 7, 8], [9]]</code></pre>
+
+<ol>
+<li>编写一个生成器管道：读取文件 → 过滤空行 → 去除首尾空白 → 统计每行字数。</li>
+
+<h3>🔴 高级</h3>
+
+<ol>
+<li>实现一个支持回溯的迭代器（可以 <code>undo()</code> 最近一次 next）。</li>
+
+<ol>
+<li>用生成器实现一个简单的任务调度器，支持任务间的协作式多任务。</li>
+
+<hr>
+
+<h2>七、知识点总结</h2>
+
+<pre><code>生成器与迭代器
+├── 核心概念
+│   ├── 迭代器协议 = __iter__ + __next__
+│   ├── 生成器 = yield 自动实现迭代器
+│   └── 生成器表达式 = 惰性的列表推导式
+├── 关键语法
+│   ├── yield → 暂停并返回值
+│   ├── yield from → 委托给子生成器
+│   ├── send() → 向生成器发送值
+│   ├── close() → 关闭生成器
+│   └── throw() → 注入异常
+├── 内置工具
+│   ├── iter() → 获取迭代器
+│   ├── next() → 获取下一个值
+│   ├── enumerate() → 带索引遍历
+│   └── zip() → 并行遍历
+└── itertools 模块
+    ├── count / cycle / repeat → 无限迭代器
+    ├── chain → 串联迭代器
+    ├── islice → 切片迭代器
+    └── groupby → 分组迭代器</code></pre>
+
+<hr>
+
+<h2>八、举一反三</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>传统方式</th>
+<th>生成器方式</th>
+<th>优势</th>
+</tr></thead><tbody>
+<tr>
+<td>读取大文件</td>
+<td><code>f.readlines()</code> 全部加载</td>
+<td><code>yield line</code> 逐行</td>
+<td>内存节省 99%+</td>
+</tr>
+<tr>
+<td>斐波那契数列</td>
+<td>预先生成列表</td>
+<td><code>yield</code> 按需生成</td>
+<td>无限序列可行</td>
+</tr>
+<tr>
+<td>数据管道</td>
+<td>嵌套函数调用</td>
+<td>生成器链式组合</td>
+<td>解耦、可复用</td>
+</tr>
+<tr>
+<td>CSV 处理</td>
+<td>全部解析再过滤</td>
+<td>边读边过滤边处理</td>
+<td>流式处理</td>
+</tr>
+<tr>
+<td>树形遍历</td>
+<td>递归 + 列表拼接</td>
+<td><code>yield from</code> 递归</td>
+<td>避免列表拷贝</td>
+</tr>
+<tr>
+<td>分页数据</td>
+<td>循环 + 翻页逻辑</td>
+<td><code>yield</code> 每页数据</td>
+<td>简化调用方代码</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>九、参考资料</h2>
+
+<ol>
+<li><a href="https://docs.python.org/3/library/stdtypes.html#iterator-types">Python 官方文档 - 迭代器类型</a></li>
+</ul>
+<ol>
+<li><a href="https://docs.python.org/3/reference/expressions.html#generator-expressions">Python 官方文档 - 生成器</a></li>
+</ul>
+<ol>
+<li><a href="https://peps.python.org/pep-0255/">PEP 255 — Simple Generators</a></li>
+</ul>
+<ol>
+<li><a href="https://peps.python.org/pep-0380/">PEP 380 — Syntax for Delegating to a Subgenerator</a></li>
+</ul>
+<ol>
+<li><a href="https://docs.python.org/3/library/itertools.html">itertools — Functions creating iterators</a></li>
+</ul>
+<ol>
+<li>《Fluent Python》第二版，Luciano Ramalho，第17章</li>
+
+<hr>
+
+<h2>十、完整示例代码</h2>
+
+<pre><code class="language-python">&quot;&quot;&quot;
+Complete demo: generators and iterators in Python.
+Demonstrates countdown, fibonacci, file pipeline, and itertools.
+&quot;&quot;&quot;
+
+from itertools import islice, chain, count
+
+
+# 1. Generator function
+def countdown(n):
+    &quot;&quot;&quot;Count down from n to 1.&quot;&quot;&quot;
+    while n &gt; 0:
+        yield n
+        n -= 1
+
+
+# 2. Fibonacci generator
+def fibonacci():
+    &quot;&quot;&quot;Infinite Fibonacci sequence.&quot;&quot;&quot;
+    a, b = 0, 1
+    while True:
+        yield a
+        a, b = b, a + b
+
+
+# 3. Data pipeline
+def filter_blank(lines):
+    &quot;&quot;&quot;Remove blank lines.&quot;&quot;&quot;
+    for line in lines:
+        stripped = line.strip()
+        if stripped:
+            yield stripped
+
+
+def add_line_numbers(lines):
+    &quot;&quot;&quot;Add line numbers to each line.&quot;&quot;&quot;
+    for i, line in enumerate(lines, 1):
+        yield f&quot;{i:4d} | {line}&quot;
+
+
+# 4. Tree traversal with yield from
+class TreeNode:
+    def __init__(self, value, children=None):
+        self.value = value
+        self.children = children or []
+
+    def depth_first(self):
+        &quot;&quot;&quot;Yield all nodes in depth-first order.&quot;&quot;&quot;
+        yield self.value
+        for child in self.children:
+            # Delegate to child&#x27;s iterator
+            yield from child.depth_first()
+
+
+if __name__ == &quot;__main__&quot;:
+    print(&quot;=== Countdown ===&quot;)
+    print(list(countdown(5)))
+
+    print(&quot;\n=== Fibonacci (first 10) ===&quot;)
+    print(list(islice(fibonacci(), 10)))
+
+    print(&quot;\n=== Tree DFS ===&quot;)
+    tree = TreeNode(&quot;root&quot;, [
+        TreeNode(&quot;a&quot;, [TreeNode(&quot;a1&quot;), TreeNode(&quot;a2&quot;)]),
+        TreeNode(&quot;b&quot;, [TreeNode(&quot;b1&quot;)]),
+    ])
+    print(list(tree.depth_first()))
+    # [&#x27;root&#x27;, &#x27;a&#x27;, &#x27;a1&#x27;, &#x27;a2&#x27;, &#x27;b&#x27;, &#x27;b1&#x27;]
+
+    print(&quot;\n=== Chain example ===&quot;)
+    c = chain(countdown(3), countdown(2))
+    print(list(c))  # [3, 2, 1, 2, 1]</code></pre>
+
+<p><strong>执行预览：</strong></p>
+<pre><code>=== Countdown ===
+[5, 4, 3, 2, 1]
+
+=== Fibonacci (first 10) ===
+[0, 1, 1, 2, 3, 5, 8, 13, 21, 34]
+
+=== Tree DFS ===
+[&#x27;root&#x27;, &#x27;a&#x27;, &#x27;a1&#x27;, &#x27;a2&#x27;, &#x27;b&#x27;, &#x27;b1&#x27;]
+
+=== Chain example ===
+[3, 2, 1, 2, 1]</code></pre>
+
+<hr>
+
+<blockquote><p>💡 <strong>一句话总结</strong>：生成器是 Python 中处理数据流和大文件的最佳工具——它用 <code>yield</code> 一行代码就实现了迭代器协议的全部功能，让你用最少的内存做最多的事。</p></blockquote>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

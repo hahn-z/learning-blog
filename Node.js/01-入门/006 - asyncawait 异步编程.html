@@ -1,0 +1,502 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>006 - async/await 异步编程</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Node.js/index.html">Node.js</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Node.js/01-入门/index.html">Node.js入门</a>
+</nav>
+<h1>006 - async/await 异步编程</h1>
+<div class="meta">
+<span>📂 Node.js入门</span>
+<span>🏷️ Node.js</span>
+</div>
+<article>
+
+
+<h1>async/await 异步编程</h1>
+
+<blockquote><p><strong>难度：</strong> ⭐⭐⭐（中级）<br><strong>阅读时间：</strong> 约 18 分钟<br><strong>前置知识：</strong> 回调函数、Promise 基础</p></blockquote>
+
+<hr>
+
+<h2>一、概念讲解</h2>
+
+<p><code>async/await</code> 是 Promise 的<strong>语法糖</strong>，让异步代码看起来像同步代码。它不取代 Promise，而是建立在 Promise 之上。</p>
+
+<ul>
+<li><code>async</code> 函数自动返回 Promise</li>
+<li><code>await</code> 暂停执行，等待 Promise 完成</li>
+<li><code>try/catch</code> 捕获异步错误</li>
+
+<p><strong>核心价值：</strong> 可读性。把 <code>.then().catch()</code> 链变成线性的、自上而下的代码流。</p>
+
+<p><strong>生活类比：</strong> await 就像排队等咖啡——你站在那里等（代码暂停），拿到咖啡（Promise resolve）后继续走。但你等待时，咖啡师在服务下一个人（事件循环继续）。</p>
+
+<hr>
+
+<h2>二、知识脑图</h2>
+
+<pre><code>async/await 异步编程
+├── 基础语法
+│   ├── async 函数声明
+│   ├── await 表达式
+│   ├── 返回值自动包装为 Promise
+│   └── await 只在 async 函数内有效
+├── 错误处理
+│   ├── try/catch/finally
+│   ├── 多 await 时的错误定位
+│   └── 全局 unhandledRejection
+├── 控制流模式
+│   ├── 串行（顺序 await）
+│   ├── 并行（Promise.all + await）
+│   ├── 循环中的 await
+│   └── 限流并发
+├── 高级用法
+│   ├── 顶层 await（ES2022 / ESM）
+│   ├── async 迭代器 for await...of
+│   ├── async 生成器函数
+│   └── 中断/取消（AbortController）
+└── 最佳实践
+    ├── 避免 await 在循环中（需要并行时）
+    ├── 始终处理错误
+    └── 不要在非必要处用 async</code></pre>
+
+<hr>
+
+<h2>三、完整代码示例</h2>
+
+<h3>3.1 基础用法</h3>
+
+<pre><code class="language-javascript">// async-await-basics.js
+const fs = require(&#x27;fs&#x27;).promises;
+
+// async function always returns a Promise
+async function readConfig() {
+  try {
+    const data = await fs.readFile(&#x27;package.json&#x27;, &#x27;utf-8&#x27;);
+    const config = JSON.parse(data);
+    console.log(`Package: ${config.name} v${config.version}`);
+    return config; // Automatically wrapped in Promise
+  } catch (err) {
+    console.error(&#x27;Failed to read config:&#x27;, err.message);
+    throw err; // Re-throw to let caller handle
+  } finally {
+    console.log(&#x27;Config read attempt finished&#x27;);
+  }
+}
+
+// Call async function
+readConfig()
+  .then(cfg =&gt; console.log(&#x27;Success:&#x27;, cfg.name))
+  .catch(err =&gt; console.error(&#x27;Caught outside:&#x27;, err.message));</code></pre>
+
+<h3>3.2 并行 vs 串行</h3>
+
+<pre><code class="language-javascript">// parallel-vs-serial.js
+const fs = require(&#x27;fs&#x27;).promises;
+
+// ❌ Serial - unnecessarily slow
+async function slowRead() {
+  const a = await fs.readFile(&#x27;file1.txt&#x27;, &#x27;utf-8&#x27;);
+  const b = await fs.readFile(&#x27;file2.txt&#x27;, &#x27;utf-8&#x27;);
+  const c = await fs.readFile(&#x27;file3.txt&#x27;, &#x27;utf-8&#x27;);
+  return [a, b, c]; // Takes sum of all 3 reads
+}
+
+// ✅ Parallel - much faster
+async function fastRead() {
+  const [a, b, c] = await Promise.all([
+    fs.readFile(&#x27;file1.txt&#x27;, &#x27;utf-8&#x27;),
+    fs.readFile(&#x27;file2.txt&#x27;, &#x27;utf-8&#x27;),
+    fs.readFile(&#x27;file3.txt&#x27;, &#x27;utf-8&#x27;),
+  ]);
+  return [a, b, c]; // Takes max of 3 reads
+}</code></pre>
+
+<h3>3.3 循环中的异步</h3>
+
+<pre><code class="language-javascript">// loop-async.js
+const fs = require(&#x27;fs&#x27;).promises;
+
+// Serial: process one by one
+async function processSerial(files) {
+  for (const file of files) {
+    const data = await fs.readFile(file, &#x27;utf-8&#x27;);
+    console.log(`${file}: ${data.length} chars`);
+  }
+}
+
+// Parallel: process all at once
+async function processParallel(files) {
+  await Promise.all(
+    files.map(async (file) =&gt; {
+      const data = await fs.readFile(file, &#x27;utf-8&#x27;);
+      console.log(`${file}: ${data.length} chars`);
+    })
+  );
+}
+
+// Batch: process N at a time
+async function processBatch(files, batchSize = 2) {
+  for (let i = 0; i &lt; files.length; i += batchSize) {
+    const batch = files.slice(i, i + batchSize);
+    await Promise.all(
+      batch.map(async (file) =&gt; {
+        const data = await fs.readFile(file, &#x27;utf-8&#x27;);
+        console.log(`${file}: ${data.length} chars`);
+      })
+    );
+  }
+}
+
+// Demo
+const files = [&#x27;a.txt&#x27;, &#x27;b.txt&#x27;, &#x27;c.txt&#x27;, &#x27;d.txt&#x27;];
+processSerial(files)
+  .then(() =&gt; console.log(&#x27;--- Serial done ---&#x27;))
+  .then(() =&gt; processBatch(files, 2))
+  .then(() =&gt; console.log(&#x27;--- Batch done ---&#x27;));</code></pre>
+
+<h3>3.4 实战：带重试的 HTTP 请求</h3>
+
+<pre><code class="language-javascript">// retry-request.js
+
+// Generic retry wrapper using async/await
+async function withRetry(fn, maxRetries = 3, delayMs = 1000) {
+  for (let attempt = 1; attempt &lt;= maxRetries; attempt++) {
+    try {
+      return await fn();
+    } catch (err) {
+      const isLastAttempt = attempt === maxRetries;
+      if (isLastAttempt) throw err;
+
+      const backoff = delayMs * Math.pow(2, attempt - 1); // Exponential backoff
+      console.log(`Attempt ${attempt} failed, retrying in ${backoff}ms...`);
+      await new Promise(r =&gt; setTimeout(r, backoff));
+    }
+  }
+}
+
+// Usage: simulate flaky operation
+let callCount = 0;
+async function flakyOperation() {
+  callCount++;
+  if (callCount &lt; 3) throw new Error(`Flaky fail #${callCount}`);
+  return &#x27;Success on attempt &#x27; + callCount;
+}
+
+withRetry(flakyOperation, 5, 100)
+  .then(result =&gt; console.log(&#x27;Result:&#x27;, result))
+  .catch(err =&gt; console.error(&#x27;All retries failed:&#x27;, err.message));</code></pre>
+
+<hr>
+
+<h2>四、执行预览</h2>
+
+<pre><code>$ node async-await-basics.js
+Package: my-project v1.0.0
+Config read attempt finished
+Success: my-project
+
+$ node retry-request.js
+Attempt 1 failed, retrying in 100ms...
+Attempt 2 failed, retrying in 200ms...
+Result: Success on attempt 3</code></pre>
+
+<hr>
+
+<h2>五、注意事项</h2>
+
+<table><thead><tr>
+<th>要点</th>
+<th>说明</th>
+</tr></thead><tbody>
+<tr>
+<td>await 只能在 async 函数内</td>
+<td>普通函数中用 await 会语法错误（除非顶层 await + ESM）</td>
+</tr>
+<tr>
+<td>async 函数返回 Promise</td>
+<td><code>return value</code> 等同于 <code>Promise.resolve(value)</code></td>
+</tr>
+<tr>
+<td>await 不阻塞线程</td>
+<td>它暂停的是当前 async 函数，事件循环照常运行</td>
+</tr>
+<tr>
+<td>错误不会自动传播到外层</td>
+<td>必须用 try/catch 或外层 <code>.catch()</code> 捕获</td>
+</tr>
+<tr>
+<td>forEach 中用 await 无效</td>
+<td><code>forEach</code> 回调不是 async 上下文，用 <code>for...of</code> 代替</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>六、避坑指南</h2>
+
+<h3>❌ 坑 1：在 forEach 中 await</h3>
+
+<pre><code class="language-javascript">// ❌ Bad - forEach ignores async, logs in random order
+[1, 2, 3].forEach(async (n) =&gt; {
+  await delay(100);
+  console.log(n);
+});
+console.log(&#x27;done&#x27;); // prints FIRST!
+
+// ✅ Good - use for...of for serial
+async function processAll() {
+  for (const n of [1, 2, 3]) {
+    await delay(100);
+    console.log(n);
+  }
+  console.log(&#x27;done&#x27;); // prints LAST
+}</code></pre>
+
+<h3>❌ 坑 2：忘记 try/catch</h3>
+
+<pre><code class="language-javascript">// ❌ Bad - unhandled rejection if file doesn&#x27;t exist
+async function read() {
+  const data = await fs.readFile(&#x27;missing.txt&#x27;, &#x27;utf-8&#x27;);
+  console.log(data);
+}
+
+// ✅ Good - always handle errors
+async function read() {
+  try {
+    const data = await fs.readFile(&#x27;missing.txt&#x27;, &#x27;utf-8&#x27;);
+    console.log(data);
+  } catch (err) {
+    console.error(&#x27;Read failed:&#x27;, err.message);
+  }
+}</code></pre>
+
+<h3>❌ 坑 3：串行化可并行的操作</h3>
+
+<pre><code class="language-javascript">// ❌ Bad - 3 sequential waits, total ~3s
+async function slow() {
+  const a = await fetch(&#x27;/api/a&#x27;); // 1s
+  const b = await fetch(&#x27;/api/b&#x27;); // 1s
+  const c = await fetch(&#x27;/api/c&#x27;); // 1s
+}
+
+// ✅ Good - parallel, total ~1s
+async function fast() {
+  const [a, b, c] = await Promise.all([
+    fetch(&#x27;/api/a&#x27;),
+    fetch(&#x27;/api/b&#x27;),
+    fetch(&#x27;/api/c&#x27;),
+  ]);
+}</code></pre>
+
+<hr>
+
+<h2>七、练习题</h2>
+
+<h3>🟢 初级：async 函数封装</h3>
+
+<p>用 async/await 重写以下 Promise 链：</p>
+
+<pre><code class="language-javascript">function getFileSize(path) {
+  return fs.promises.readFile(path, &#x27;utf-8&#x27;)
+    .then(data =&gt; data.length)
+    .catch(() =&gt; -1);
+}</code></pre>
+
+<p><details></p>
+<p><summary>参考答案</summary></p>
+
+<pre><code class="language-javascript">async function getFileSize(path) {
+  try {
+    const data = await fs.promises.readFile(path, &#x27;utf-8&#x27;);
+    return data.length;
+  } catch {
+    return -1;
+  }
+}</code></pre>
+<p></details></p>
+
+<h3>🟡 中级：并发控制</h3>
+
+<p>实现 <code>asyncPool(limit, tasks)</code>，最多同时执行 limit 个异步任务，返回所有结果数组。</p>
+
+<h3>🔴 高级：异步队列</h3>
+
+<p>实现一个 <code>AsyncQueue</code> 类，支持 <code>enqueue(task)</code> 和 <code>start(concurrency)</code>，任务间共享并发限制，支持优先级。</p>
+
+<hr>
+
+<h2>八、知识点总结</h2>
+
+<pre><code>async/await 异步编程
+├── 语法
+│   ├── async function → 返回 Promise
+│   ├── await promise → 暂停直到 resolve
+│   ├── try/catch → 捕获 rejected
+│   └── 顶层 await（ESM）
+├── 模式
+│   ├── 串行：顺序 await
+│   ├── 并行：Promise.all + await
+│   ├── 批处理：循环 + Promise.all 切片
+│   └── 重试：循环 + 指数退避
+├── 易错点
+│   ├── forEach 中 await 无效
+│   ├── 忘记 try/catch
+│   ├── 不必要的串行化
+│   └── 返回值未 await
+└── 底层
+    ├── 本质是 Promise 语法糖
+    ├── 微任务队列执行
+    └── 生成器 + 自动执行器的简写</code></pre>
+
+<hr>
+
+<h2>九、举一反三</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>async/await 模式</th>
+<th>关键点</th>
+</tr></thead><tbody>
+<tr>
+<td>文件操作</td>
+<td><code>await fs.promises.readFile()</code></td>
+<td>使用 fs.promises API</td>
+</tr>
+<tr>
+<td>HTTP 请求</td>
+<td><code>await fetch(url)</code> + try/catch</td>
+<td>处理网络错误和状态码</td>
+</tr>
+<tr>
+<td>数据库操作</td>
+<td><code>await db.query(sql)</code></td>
+<td>事务需串行 await</td>
+</tr>
+<tr>
+<td>批量导入</td>
+<td><code>for...of</code> + await</td>
+<td>逐条处理避免内存溢出</td>
+</tr>
+<tr>
+<td>并发爬虫</td>
+<td><code>Promise.all</code> 分批 + await</td>
+<td>控制并发数</td>
+</tr>
+<tr>
+<td>CLI 工具</td>
+<td>顶层 async IIFE</td>
+<td><code>;(async () => { ... })()</code></td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>十、参考资料</h2>
+
+<ul>
+<li><a href="https://developer.mozilla.org/zh-CN/docs/Web/JavaScript/Reference/Statements/async_function">MDN - async function</a></li>
+<li><a href="https://developer.mozilla.org/zh-CN/docs/Web/JavaScript/Reference/Operators/await">MDN - await</a></li>
+<li><a href="https://nodejs.org/api/async_hooks.html">Node.js Async Hooks</a></li>
+
+<hr>
+
+<h2>十一、代码演进</h2>
+
+<h3>v1：回调（回调地狱）</h3>
+
+<pre><code class="language-javascript">fs.readFile(&#x27;a.txt&#x27;, &#x27;utf-8&#x27;, (err, a) =&gt; {
+  if (err) return console.error(err);
+  fs.readFile(&#x27;b.txt&#x27;, &#x27;utf-8&#x27;, (err, b) =&gt; {
+    if (err) return console.error(err);
+    console.log(a + b);
+  });
+});</code></pre>
+
+<h3>v2：Promise（链式调用）</h3>
+
+<pre><code class="language-javascript">fsp.readFile(&#x27;a.txt&#x27;, &#x27;utf-8&#x27;)
+  .then(a =&gt; fsp.readFile(&#x27;b.txt&#x27;, &#x27;utf-8&#x27;).then(b =&gt; a + b))
+  .then(result =&gt; console.log(result))
+  .catch(err =&gt; console.error(err));</code></pre>
+
+<h3>v3：async/await（线性可读）</h3>
+
+<pre><code class="language-javascript">async function concat(a, b) {
+  try {
+    const contentA = await fsp.readFile(a, &#x27;utf-8&#x27;);
+    const contentB = await fsp.readFile(b, &#x27;utf-8&#x27;);
+    console.log(contentA + contentB);
+  } catch (err) {
+    console.error(err);
+  }
+}
+concat(&#x27;a.txt&#x27;, &#x27;b.txt&#x27;);</code></pre>
+
+<blockquote><p><strong>async/await 是异步编程的最终形态吗？</strong> 几乎是。它让异步代码拥有了同步代码的可读性，同时保留了非阻塞的性能优势。掌握回调和 Promise 是基础，但日常开发中 async/await 才是主力。</p></blockquote>
+
+<hr>
+
+<blockquote><p><strong>上一章：</strong> <a href="/posts/005-promises">Promise 异步编程</a> | <strong>系列完结</strong></p></blockquote>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

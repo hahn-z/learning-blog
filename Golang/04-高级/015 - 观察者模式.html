@@ -1,0 +1,538 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>015 - 观察者模式</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Golang/index.html">Golang</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Golang/04-高级/index.html">Golang高级</a>
+</nav>
+<h1>015 - 观察者模式</h1>
+<div class="meta">
+<span>📂 Golang高级</span>
+<span>🏷️ Golang</span>
+</div>
+<article>
+
+
+<h1>095-观察者模式</h1>
+
+<blockquote><p><strong>难度：🟡 中高级</strong> | 预计阅读：25 分钟 | 2024 年更新</p></blockquote>
+
+<h2>一、概念讲解</h2>
+
+<p><strong>观察者模式（Observer Pattern）</strong> 定义对象间一对多的依赖关系，当一个对象状态改变时，所有依赖它的对象都会收到通知并自动更新。</p>
+
+<p><strong>核心角色：</strong></p>
+<ul>
+<li><strong>Subject（主题）</strong>：维护观察者列表，状态变更时通知所有观察者</li>
+<li><strong>Observer（观察者）</strong>：定义更新接口，接收主题通知</li>
+
+<p><strong>Go 实现要点：</strong></p>
+<ul>
+<li>用接口定义 Observer，避免继承</li>
+<li>用 channel 可实现异步通知</li>
+<li>注意 goroutine 泄漏和并发安全</li>
+<li>支持取消订阅，防止内存泄漏</li>
+
+<p><strong>典型场景：</strong></p>
+<ul>
+<li>事件总线（Event Bus）</li>
+<li>股票价格推送</li>
+<li>配置变更通知</li>
+<li>日志系统</li>
+<li>消息广播</li>
+
+<h2>二、脑图</h2>
+
+<pre><code>观察者模式
+├── 核心角色
+│   ├── Subject（主题）
+│   │   ├── Attach/Register
+│   │   ├── Detach/Unregister
+│   │   └── Notify
+│   └── Observer（观察者）
+│       └── Update/OnEvent
+├── Go 实现
+│   ├── 接口 + slice（同步）
+│   ├── Channel 异步通知
+│   └── 泛型事件总线
+├── 变体
+│   ├── Push 模型（推数据）
+│   ├── Pull 模型（拉数据）
+│   └── 发布-订阅
+└── 注意事项
+    ├── goroutine 泄漏
+    ├── 并发安全
+    ├── 观察者异常隔离
+    └── 内存泄漏（忘记取消订阅）</code></pre>
+
+<h2>三、完整 Go 代码</h2>
+
+<pre><code class="language-go">package main
+
+import (
+	&quot;context&quot;
+	&quot;fmt&quot;
+	&quot;sync&quot;
+	&quot;time&quot;
+)
+
+// ============================================
+// V1: Basic synchronous observer
+// ============================================
+
+// Observer defines the update interface
+type Observer interface {
+	OnUpdate(data string)
+}
+
+// Subject maintains a list of observers
+type Subject struct {
+	observers []Observer
+	mu        sync.RWMutex
+}
+
+func (s *Subject) Attach(o Observer) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.observers = append(s.observers, o)
+}
+
+func (s *Subject) Detach(o Observer) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for i, obs := range s.observers {
+		if obs == o {
+			s.observers = append(s.observers[:i], s.observers[i+1:]...)
+			return
+		}
+	}
+}
+
+func (s *Subject) Notify(data string) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	for _, o := range s.observers {
+		o.OnUpdate(data) // synchronous call
+	}
+}
+
+// Concrete observers
+type LogObserver struct{ Name string }
+func (l *LogObserver) OnUpdate(data string) { fmt.Printf(&quot;[%s] Log: %s\n&quot;, l.Name, data) }
+
+type AlertObserver struct{ Threshold int }
+func (a *AlertObserver) OnUpdate(data string) { fmt.Printf(&quot;[Alert] Received: %s\n&quot;, data) }
+
+// ============================================
+// V2: Async channel-based event bus
+// ============================================
+
+// Event represents a typed event
+type Event struct {
+	Topic string
+	Data  interface{}
+}
+
+// Handler processes events
+type Handler func(event Event)
+
+// EventBus provides async pub/sub
+type EventBus struct {
+	subscribers map[string][]chan Event
+	mu          sync.RWMutex
+	buffer      int
+}
+
+func NewEventBus(bufferSize int) *EventBus {
+	return &amp;EventBus{
+		subscribers: make(map[string][]chan Event),
+		buffer:      bufferSize,
+	}
+}
+
+// Subscribe returns a channel that receives events for the topic
+func (eb *EventBus) Subscribe(topic string) &lt;-chan Event {
+	eb.mu.Lock()
+	defer eb.mu.Unlock()
+	ch := make(chan Event, eb.buffer)
+	eb.subscribers[topic] = append(eb.subscribers[topic], ch)
+	return ch
+}
+
+// Publish sends an event to all subscribers of the topic
+func (eb *EventBus) Publish(topic string, data interface{}) {
+	eb.mu.RLock()
+	defer eb.mu.RUnlock()
+	for _, ch := range eb.subscribers[topic] {
+		select {
+		case ch &lt;- Event{Topic: topic, Data: data}:
+		default:
+			fmt.Printf(&quot;[WARN] subscriber channel full, dropping event on %s\n&quot;, topic)
+		}
+	}
+}
+
+// Close closes all subscriber channels
+func (eb *EventBus) Close() {
+	eb.mu.Lock()
+	defer eb.mu.Unlock()
+	for _, subs := range eb.subscribers {
+		for _, ch := range subs {
+			close(ch)
+		}
+	}
+	eb.subscribers = make(map[string][]chan Event)
+}
+
+// ============================================
+// V3: Generic event bus with context &amp; error handling
+// ============================================
+
+// ObserverFunc is a generic event handler function
+type ObserverFunc[T any] func(ctx context.Context, data T) error
+
+// GenericEventBus provides type-safe pub/sub
+type GenericEventBus[T any] struct {
+	handlers map[string][]ObserverFunc[T]
+	mu       sync.RWMutex
+	wg       sync.WaitGroup
+}
+
+func NewGenericEventBus[T any]() *GenericEventBus[T] {
+	return &amp;GenericEventBus[T]{
+		handlers: make(map[string][]ObserverFunc[T]),
+	}
+}
+
+// On registers a handler for a topic
+func (g *GenericEventBus[T]) On(topic string, handler ObserverFunc[T]) {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	g.handlers[topic] = append(g.handlers[topic], handler)
+}
+
+// Emit publishes an event asynchronously to all handlers
+func (g *GenericEventBus[T]) Emit(ctx context.Context, topic string, data T) {
+	g.mu.RLock()
+	handlers := make([]ObserverFunc[T], len(g.handlers[topic]))
+	copy(handlers, g.handlers[topic])
+	g.mu.RUnlock()
+
+	for _, h := range handlers {
+		g.wg.Add(1)
+		go func(handler ObserverFunc[T]) {
+			defer g.wg.Done()
+			defer func() {
+				if r := recover(); r != nil {
+					fmt.Printf(&quot;[RECOVER] handler panic: %v\n&quot;, r)
+				}
+			}()
+			if err := handler(ctx, data); err != nil {
+				fmt.Printf(&quot;[ERROR] handler failed: %v\n&quot;, err)
+			}
+		}(h)
+	}
+}
+
+// Wait blocks until all async handlers complete
+func (g *GenericEventBus[T]) Wait() { g.wg.Wait() }
+
+// ============================================
+// Demo
+// ============================================
+
+func main() {
+	// V1: Synchronous
+	fmt.Println(&quot;=== V1: Synchronous ===&quot;)
+	sub := &amp;Subject{}
+	logger := &amp;LogObserver{Name: &quot;main&quot;}
+	alert := &amp;AlertObserver{}
+	sub.Attach(logger)
+	sub.Attach(alert)
+	sub.Notify(&quot;server started&quot;)
+	sub.Detach(alert)
+	sub.Notify(&quot;alert removed&quot;)
+
+	// V2: Async EventBus
+	fmt.Println(&quot;\n=== V2: Async EventBus ===&quot;)
+	bus := NewEventBus(10)
+	orderCh := bus.Subscribe(&quot;order&quot;)
+	go func() {
+		for evt := range orderCh {
+			fmt.Printf(&quot;[OrderHandler] %v\n&quot;, evt.Data)
+		}
+	}()
+	bus.Publish(&quot;order&quot;, map[string]interface{}{&quot;id&quot;: &quot;A123&quot;, &quot;amount&quot;: 99.9})
+	time.Sleep(100 * time.Millisecond)
+	bus.Close()
+
+	// V3: Generic EventBus
+	fmt.Println(&quot;\n=== V3: Generic EventBus ===&quot;)
+	type OrderEvent struct {
+		ID     string
+		Amount float64
+	}
+
+	orderBus := NewGenericEventBus[OrderEvent]()
+	orderBus.On(&quot;created&quot;, func(ctx context.Context, o OrderEvent) error {
+		fmt.Printf(&quot;[Email] New order %s: $%.2f\n&quot;, o.ID, o.Amount)
+		return nil
+	})
+	orderBus.On(&quot;created&quot;, func(ctx context.Context, o OrderEvent) error {
+		fmt.Printf(&quot;[Inventory] Reserve stock for %s\n&quot;, o.ID)
+		return nil
+	})
+
+	ctx := context.Background()
+	orderBus.Emit(ctx, &quot;created&quot;, OrderEvent{ID: &quot;B456&quot;, Amount: 199.9})
+	orderBus.Wait()
+}</code></pre>
+
+<h2>四、执行预览</h2>
+
+<pre><code>$ go run main.go
+=== V1: Synchronous ===
+[main] Log: server started
+[Alert] Received: server started
+[main] Log: alert removed
+
+=== V2: Async EventBus ===
+[OrderHandler] map[amount:99.9 id:A123]
+
+=== V3: Generic EventBus ===
+[Email] New order B456: $199.90
+[Inventory] Reserve stock for B456</code></pre>
+
+<h2>五、注意事项</h2>
+
+<table><thead><tr>
+<th>维度</th>
+<th>注意点</th>
+<th>说明</th>
+</tr></thead><tbody>
+<tr>
+<td>并发安全</td>
+<td>通知时持有读锁，增删时持有写锁</td>
+<td>避免死锁：不要在 OnUpdate 中调 Attach</td>
+</tr>
+<tr>
+<td>goroutine 泄漏</td>
+<td>Close 时关闭所有 channel</td>
+<td>确保 subscriber 的 goroutine 能退出</td>
+</tr>
+<tr>
+<td>背压控制</td>
+<td>channel 满时选择丢弃或阻塞</td>
+<td>根据业务选择策略</td>
+</tr>
+<tr>
+<td>Panic 隔离</td>
+<td>handler 中 recover</td>
+<td>一个 observer panic 不影响其他</td>
+</tr>
+<tr>
+<td>顺序性</td>
+<td>异步模式不保证顺序</td>
+<td>需要顺序用同步模式</td>
+</tr>
+</tbody></table>
+
+<h2>六、避坑指南</h2>
+
+<table><thead><tr>
+<th>❌ 错误做法</th>
+<th>✅ 正确做法</th>
+</tr></thead><tbody>
+<tr>
+<td>Notify 时遍历修改 slice</td>
+<td>用读写锁保护，或复制一份再遍历</td>
+</tr>
+<tr>
+<td>handler 中阻塞操作拖慢通知</td>
+<td>异步通知，用 channel 或 goroutine</td>
+</tr>
+<tr>
+<td>只 Subscribe 不 Unsubscribe</td>
+<td>提供 Detach/Close 清理机制</td>
+</tr>
+<tr>
+<td>channel 无缓冲导致 Publish 阻塞</td>
+<td>带缓冲 channel + select default 丢弃</td>
+</tr>
+<tr>
+<td>handler panic 导致整个系统崩溃</td>
+<td>每个 handler 加 recover</td>
+</tr>
+<tr>
+<td>忽略 context 取消</td>
+<td>传递 context，支持优雅关闭</td>
+</tr>
+</tbody></table>
+
+<h2>七、练习题</h2>
+
+<p><strong>🟢 初级：</strong> 实现一个温度传感器（Subject）和两个观察者（显示器、报警器），温度超过阈值时报警器触发。</p>
+
+<p><strong>🟡 中级：</strong> 实现一个支持通配符 topic 的 EventBus（如 <code>order.*</code> 匹配 <code>order.created</code> 和 <code>order.cancelled</code>）。</p>
+
+<p><strong>🔴 高级：</strong> 实现一个分布式事件总线，支持跨进程通信（通过 Redis Pub/Sub 或 NATS），本地接口保持不变。</p>
+
+<h2>八、知识点总结</h2>
+
+<pre><code>观察者模式知识树
+├── 基础
+│   ├── Subject（主题/被观察者）
+│   ├── Observer（观察者）
+│   ├── Attach/Detach/Notify
+│   └── Push vs Pull 模型
+├── Go 实现
+│   ├── 同步通知（接口 + slice）
+│   ├── 异步通知（channel）
+│   ├── 泛型事件总线
+│   └── context 传播
+├── 进阶
+│   ├── 通配符匹配
+│   ├── 优先级观察者
+│   ├── 一次性观察者（Once）
+│   └── 过滤器（Predicate）
+├── 生产级考量
+│   ├── panic 恢复
+│   ├── 背压控制
+│   ├── 指标监控
+│   └── 优雅关闭
+└── 相关模式
+    ├── 发布-订阅（更解耦）
+    ├── 事件溯源
+    ├── CQRS
+    └── 响应式编程</code></pre>
+
+<h2>九、举一反三</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>Subject</th>
+<th>Observer</th>
+<th>触发条件</th>
+</tr></thead><tbody>
+<tr>
+<td>配置热更新</td>
+<td>ConfigManager</td>
+<td>各服务模块</td>
+<td>配置文件变更</td>
+</tr>
+<tr>
+<td>订单系统</td>
+<td>OrderService</td>
+<td>通知/库存/物流</td>
+<td>订单状态变更</td>
+</tr>
+<tr>
+<td>股票行情</td>
+<td>StockTicker</td>
+<td>交易策略/K线图</td>
+<td>价格变动</td>
+</tr>
+<tr>
+<td>CI/CD</td>
+<td>Pipeline</td>
+<td>构建/测试/部署</td>
+<td>阶段完成</td>
+</tr>
+<tr>
+<td>聊天系统</td>
+<td>ChatRoom</td>
+<td>所有在线用户</td>
+<td>新消息到达</td>
+</tr>
+</tbody></table>
+
+<h2>十、参考资料</h2>
+
+<ul>
+<li><a href="https://go.dev/blog/context">Go Concurrency Patterns: Context</a></li>
+<li><a href="https://refactoring.guru/design-patterns/observer/go">Observer Pattern - Refactoring Guru</a></li>
+<li><a href="https://pkg.go.dev/expvar">Go 内置 expvar 事件监控</a></li>
+
+<h2>十一、代码演进</h2>
+
+<p><strong>V1 — 同步通知（基础版）：</strong></p>
+<ul>
+<li>Subject 持有 Observer 接口切片</li>
+<li>Notify 同步调用所有观察者</li>
+<li>简单直观，但 handler 阻塞会拖慢通知</li>
+
+<p><strong>V2 — 异步 Channel EventBus：</strong></p>
+<ul>
+<li>基于 channel 的发布订阅</li>
+<li>带缓冲防止 Publish 阻塞</li>
+<li>支持 topic 路由和背压丢弃</li>
+<li>Close 优雅关闭所有 channel</li>
+
+<p><strong>V3 — 泛型事件总线 + 错误处理：</strong></p>
+<ul>
+<li>Go 1.18 泛型支持，类型安全</li>
+<li>context 传播，支持超时取消</li>
+<li>每个 handler 独立 goroutine + panic recover</li>
+<li>Wait() 等待所有 handler 完成</li>
+<li>生产级错误隔离</li>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

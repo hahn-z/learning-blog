@@ -1,0 +1,801 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>014 - Jest 测试框架实战：让 Node.js 代码质量有保障</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Node.js/index.html">Node.js</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Node.js/02-实战/index.html">Node.js实战</a>
+</nav>
+<h1>014 - Jest 测试框架实战：让 Node.js 代码质量有保障</h1>
+<div class="meta">
+<span>📂 Node.js实战</span>
+<span>🏷️ Node.js</span>
+</div>
+<article>
+
+
+<h2>难度标注</h2>
+
+<blockquote><p>🟡 <strong>中级难度</strong> | 需要基础 Node.js 经验，了解 JavaScript 异步编程</p></blockquote>
+
+<hr>
+
+<h2>概念讲解</h2>
+
+<h3>为什么需要测试？</h3>
+
+<ul>
+<li><strong>重构安全感</strong>：有测试覆盖的代码，重构时不心慌</li>
+<li><strong>活文档</strong>：测试用例就是最好的使用文档</li>
+<li><strong>Bug 预防</strong>：上线前发现问题，远比上线后修复成本低</li>
+<li><strong>设计反馈</strong>：难测试的代码通常意味着设计有问题</li>
+
+<h3>Jest 核心概念</h3>
+
+<table><thead><tr>
+<th>概念</th>
+<th>作用</th>
+<th>类比</th>
+</tr></thead><tbody>
+<tr>
+<td>describe</td>
+<td>分组相关测试</td>
+<td>文件夹</td>
+</tr>
+<tr>
+<td>it/test</td>
+<td>单个测试用例</td>
+<td>文件夹中的文件</td>
+</tr>
+<tr>
+<td>expect</td>
+<td>断言结果</td>
+<td>答案校验</td>
+</tr>
+<tr>
+<td>beforeEach/afterEach</td>
+<td>每个测试前后执行</td>
+<td>课前预习/课后复习</td>
+</tr>
+<tr>
+<td>mock</td>
+<td>模拟依赖</td>
+<td>替身演员</td>
+</tr>
+<tr>
+<td>snapshot</td>
+<td>记录 UI/数据快照</td>
+<td>照片</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>脑图</h2>
+
+<pre><code>Jest Testing
+├── Basic
+│   ├── test / it
+│   ├── describe (grouping)
+│   ├── expect (assertions)
+│   └── Lifecycle (beforeEach, afterEach)
+├── Matchers
+│   ├── toBe / toEqual
+│   ├── toBeNull / toBeUndefined
+│   ├── toContain / toHaveLength
+│   ├── toThrow (error testing)
+│   └── .not (negation)
+├── Async Testing
+│   ├── Callbacks (done)
+│   ├── Promises (return + resolves/rejects)
+│   └── async/await
+├── Mock
+│   ├── jest.fn() (mock function)
+│   ├── jest.spyOn() (spy on method)
+│   ├── jest.mock() (mock module)
+│   └── jest.useFakeTimers()
+├── Advanced
+│   ├── Snapshot Testing
+│   ├── Parameterized Tests (.each)
+│   ├── Coverage (--coverage)
+│   └── Custom Matchers
+└── Integration
+    ├── Supertest (HTTP testing)
+    ├── Database setup/teardown
+    ├── Testcontainers
+    └── CI/CD pipeline</code></pre>
+
+<hr>
+
+<h2>完整代码：Jest 测试实战</h2>
+
+<h3>v1：基础单元测试</h3>
+
+<pre><code class="language-javascript">// v1-basic/math.js - Module to test
+function add(a, b) {
+  return a + b;
+}
+
+function subtract(a, b) {
+  return a - b;
+}
+
+function multiply(a, b) {
+  return a * b;
+}
+
+function divide(a, b) {
+  if (b === 0) throw new Error(&#x27;Division by zero&#x27;);
+  return a / b;
+}
+
+// Async function
+function fetchData(id) {
+  return new Promise((resolve, reject) =&gt; {
+    setTimeout(() =&gt; {
+      if (id &gt; 0) resolve({ id, name: `Item ${id}` });
+      else reject(new Error(&#x27;Invalid ID&#x27;));
+    }, 100);
+  });
+}
+
+module.exports = { add, subtract, multiply, divide, fetchData };</code></pre>
+
+<pre><code class="language-javascript">// v1-basic/__tests__/math.test.js
+const { add, subtract, multiply, divide, fetchData } = require(&#x27;../math&#x27;);
+
+describe(&#x27;Math utilities&#x27;, () =&gt; {
+  // Basic matchers
+  test(&#x27;add should sum two numbers&#x27;, () =&gt; {
+    expect(add(2, 3)).toBe(5);
+    expect(add(-1, 1)).toBe(0);
+  });
+
+  test(&#x27;subtract should find difference&#x27;, () =&gt; {
+    expect(subtract(5, 3)).toBe(2);
+  });
+
+  test(&#x27;multiply should product two numbers&#x27;, () =&gt; {
+    expect(multiply(3, 4)).toBe(12);
+  });
+
+  // Error testing
+  test(&#x27;divide should throw on zero&#x27;, () =&gt; {
+    expect(() =&gt; divide(10, 0)).toThrow(&#x27;Division by zero&#x27;);
+  });
+
+  // Floating point comparison
+  test(&#x27;divide handles decimals&#x27;, () =&gt; {
+    expect(divide(10, 3)).toBeCloseTo(3.333, 2);
+  });
+
+  // Parameterized tests
+  test.each([
+    [1, 1, 2],
+    [2, 3, 5],
+    [-1, 1, 0],
+    [0, 0, 0],
+  ])(&#x27;add(%i, %i) = %i&#x27;, (a, b, expected) =&gt; {
+    expect(add(a, b)).toBe(expected);
+  });
+});
+
+describe(&#x27;Async operations&#x27;, () =&gt; {
+  // Promise testing
+  test(&#x27;fetchData resolves with valid ID&#x27;, () =&gt; {
+    return expect(fetchData(1)).resolves.toEqual({
+      id: 1,
+      name: &#x27;Item 1&#x27;,
+    });
+  });
+
+  test(&#x27;fetchData rejects with invalid ID&#x27;, () =&gt; {
+    return expect(fetchData(-1)).rejects.toThrow(&#x27;Invalid ID&#x27;);
+  });
+
+  // async/await style
+  test(&#x27;fetchData works with async/await&#x27;, async () =&gt; {
+    const result = await fetchData(42);
+    expect(result.name).toBe(&#x27;Item 42&#x27;);
+  });
+});</code></pre>
+
+<h3>执行预览</h3>
+
+<pre><code class="language-bash">$ npx jest --verbose
+ PASS  __tests__/math.test.js
+  Math utilities
+    ✓ add should sum two numbers (2 ms)
+    ✓ subtract should find difference
+    ✓ multiply should product two numbers
+    ✓ divide should throw on zero (1 ms)
+    ✓ divide handles decimals
+    ✓ add(1, 1) = 2
+    ✓ add(2, 3) = 5
+    ✓ add(-1, 1) = 0
+    ✓ add(0, 0) = 0
+  Async operations
+    ✓ fetchData resolves with valid ID (102 ms)
+    ✓ fetchData rejects with invalid ID (100 ms)
+    ✓ fetchData works with async/await (101 ms)
+
+Test Suites: 1 passed, 1 total
+Tests:       12 passed, 12 total</code></pre>
+
+<hr>
+
+<h3>v2：Mock 和 HTTP 测试</h3>
+
+<pre><code class="language-javascript">// v2-mock/userService.js - Service with external dependency
+const axios = require(&#x27;axios&#x27;);
+
+class UserService {
+  constructor(apiUrl = &#x27;https://api.example.com&#x27;) {
+    this.apiUrl = apiUrl;
+  }
+
+  async getUser(id) {
+    const { data } = await axios.get(`${this.apiUrl}/users/${id}`);
+    return data;
+  }
+
+  async createUser(userData) {
+    if (!userData.name || !userData.email) {
+      throw new Error(&#x27;Name and email are required&#x27;);
+    }
+    const { data } = await axios.post(`${this.apiUrl}/users`, userData);
+    return data;
+  }
+
+  async deleteUser(id) {
+    try {
+      await axios.delete(`${this.apiUrl}/users/${id}`);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+}
+
+module.exports = { UserService };</code></pre>
+
+<pre><code class="language-javascript">// v2-mock/__tests__/userService.test.js
+const { UserService } = require(&#x27;../userService&#x27;);
+const axios = require(&#x27;axios&#x27;);
+
+// Mock the entire axios module
+jest.mock(&#x27;axios&#x27;);
+
+describe(&#x27;UserService&#x27;, () =&gt; {
+  let service;
+
+  beforeEach(() =&gt; {
+    service = new UserService();
+    jest.clearAllMocks();
+  });
+
+  describe(&#x27;getUser&#x27;, () =&gt; {
+    test(&#x27;should fetch user by ID&#x27;, async () =&gt; {
+      axios.get.mockResolvedValue({
+        data: { id: 1, name: &#x27;Alice&#x27; },
+      });
+
+      const user = await service.getUser(1);
+
+      expect(axios.get).toHaveBeenCalledWith(
+        &#x27;https://api.example.com/users/1&#x27;
+      );
+      expect(user).toEqual({ id: 1, name: &#x27;Alice&#x27; });
+    });
+
+    test(&#x27;should handle network error&#x27;, async () =&gt; {
+      axios.get.mockRejectedValue(new Error(&#x27;Network Error&#x27;));
+
+      await expect(service.getUser(1)).rejects.toThrow(&#x27;Network Error&#x27;);
+    });
+  });
+
+  describe(&#x27;createUser&#x27;, () =&gt; {
+    test(&#x27;should create user with valid data&#x27;, async () =&gt; {
+      axios.post.mockResolvedValue({
+        data: { id: 2, name: &#x27;Bob&#x27;, email: &#x27;bob@test.com&#x27; },
+      });
+
+      const user = await service.createUser({
+        name: &#x27;Bob&#x27;,
+        email: &#x27;bob@test.com&#x27;,
+      });
+
+      expect(user.id).toBe(2);
+      expect(axios.post).toHaveBeenCalledTimes(1);
+    });
+
+    test(&#x27;should reject missing fields&#x27;, async () =&gt; {
+      await expect(service.createUser({ name: &#x27;Bob&#x27; }))
+        .rejects.toThrow(&#x27;Name and email are required&#x27;);
+      expect(axios.post).not.toHaveBeenCalled();
+    });
+  });
+
+  describe(&#x27;deleteUser&#x27;, () =&gt; {
+    test(&#x27;should return true on success&#x27;, async () =&gt; {
+      axios.delete.mockResolvedValue({});
+      const result = await service.deleteUser(1);
+      expect(result).toBe(true);
+    });
+
+    test(&#x27;should return false on failure&#x27;, async () =&gt; {
+      axios.delete.mockRejectedValue(new Error(&#x27;Not Found&#x27;));
+      const result = await service.deleteUser(999);
+      expect(result).toBe(false);
+    });
+  });
+});</code></pre>
+
+<pre><code class="language-javascript">// v2-mock/__tests__/api.integration.test.js - Integration test with supertest
+const express = require(&#x27;express&#x27;);
+const request = require(&#x27;supertest&#x27;);
+
+// Create a test app
+function createApp() {
+  const app = express();
+  app.use(express.json());
+
+  const users = [];
+
+  app.get(&#x27;/api/users&#x27;, (req, res) =&gt; {
+    res.json(users);
+  });
+
+  app.post(&#x27;/api/users&#x27;, (req, res) =&gt; {
+    const { name, email } = req.body;
+    if (!name || !email) {
+      return res.status(400).json({ error: &#x27;Name and email required&#x27; });
+    }
+    const user = { id: String(users.length + 1), name, email };
+    users.push(user);
+    res.status(201).json(user);
+  });
+
+  app.get(&#x27;/api/users/:id&#x27;, (req, res) =&gt; {
+    const user = users.find(u =&gt; u.id === req.params.id);
+    if (!user) return res.status(404).json({ error: &#x27;Not found&#x27; });
+    res.json(user);
+  });
+
+  return app;
+}
+
+describe(&#x27;User API Integration&#x27;, () =&gt; {
+  const app = createApp();
+
+  test(&#x27;POST /api/users creates user&#x27;, async () =&gt; {
+    const res = await request(app)
+      .post(&#x27;/api/users&#x27;)
+      .send({ name: &#x27;Alice&#x27;, email: &#x27;alice@test.com&#x27; })
+      .expect(&#x27;Content-Type&#x27;, /json/)
+      .expect(201);
+
+    expect(res.body).toMatchObject({
+      name: &#x27;Alice&#x27;,
+      email: &#x27;alice@test.com&#x27;,
+    });
+  });
+
+  test(&#x27;GET /api/users returns list&#x27;, async () =&gt; {
+    const res = await request(app)
+      .get(&#x27;/api/users&#x27;)
+      .expect(200);
+
+    expect(Array.isArray(res.body)).toBe(true);
+  });
+
+  test(&#x27;POST without fields returns 400&#x27;, async () =&gt; {
+    await request(app)
+      .post(&#x27;/api/users&#x27;)
+      .send({})
+      .expect(400);
+  });
+});</code></pre>
+
+<h3>执行预览 v2</h3>
+
+<pre><code class="language-bash">$ npx jest --coverage --verbose
+ PASS  __tests__/userService.test.js
+  UserService
+    getUser
+      ✓ should fetch user by ID (3 ms)
+      ✓ should handle network error (1 ms)
+    createUser
+      ✓ should create user with valid data
+      ✓ should reject missing fields
+    deleteUser
+      ✓ should return true on success
+      ✓ should return false on failure
+ PASS  __tests__/api.integration.test.js
+  User API Integration
+    ✓ POST /api/users creates user (15 ms)
+    ✓ GET /api/users returns list (4 ms)
+    ✓ POST without fields returns 400 (3 ms)
+
+-----------|---------|----------|---------|---------|
+File       | % Stmts | % Branch | % Funcs | % Lines |
+-----------|---------|----------|---------|---------|
+All files  |     100 |      100 |     100 |     100 |
+-----------|---------|----------|---------|---------|</code></pre>
+
+<hr>
+
+<h3>v3：完整测试配置 + 高级特性</h3>
+
+<pre><code class="language-javascript">// v3-advanced/jest.config.js
+module.exports = {
+  testEnvironment: &#x27;node&#x27;,
+  testMatch: [&#x27;**/__tests__/**/*.test.js&#x27;],
+  collectCoverageFrom: [
+    &#x27;src/**/*.js&#x27;,
+    &#x27;!src/index.js&#x27;,
+    &#x27;!src/**/index.js&#x27;,
+  ],
+  coverageThresholds: {
+    global: {
+      branches: 80,
+      functions: 80,
+      lines: 80,
+      statements: 80,
+    },
+  },
+  setupFilesAfterSetup: [&#x27;&lt;rootDir&gt;/jest.setup.js&#x27;],
+  testTimeout: 10000,
+};</code></pre>
+
+<pre><code class="language-javascript">// v3-advanced/jest.setup.js
+const { setTimeout } = require(&#x27;timers/promises&#x27;);
+
+// Global test utilities
+global.wait = (ms) =&gt; setTimeout(ms);
+
+// Mock console in tests to reduce noise
+global.console = {
+  ...console,
+  log: jest.fn(),
+  debug: jest.fn(),
+};</code></pre>
+
+<pre><code class="language-javascript">// v3-advanced/__tests__/advanced.test.js
+
+describe(&#x27;Snapshot Testing&#x27;, () =&gt; {
+  test(&#x27;user object matches snapshot&#x27;, () =&gt; {
+    const user = {
+      id: &#x27;1&#x27;,
+      name: &#x27;Alice&#x27;,
+      email: &#x27;alice@test.com&#x27;,
+      role: &#x27;admin&#x27;,
+    };
+    expect(user).toMatchSnapshot();
+  });
+});
+
+describe(&#x27;Timer Mocking&#x27;, () =&gt; {
+  beforeEach(() =&gt; jest.useFakeTimers());
+  afterEach(() =&gt; jest.useFakeTimersToReal());
+
+  test(&#x27;debounce delays execution&#x27;, () =&gt; {
+    const fn = jest.fn();
+
+    function debounce(callback, delay) {
+      let timer;
+      return (...args) =&gt; {
+        clearTimeout(timer);
+        timer = setTimeout(() =&gt; callback(...args), delay);
+      };
+    }
+
+    const debounced = debounce(fn, 300);
+    debounced(&#x27;first&#x27;);
+    debounced(&#x27;second&#x27;);
+    debounced(&#x27;third&#x27;);
+
+    // Not called yet
+    expect(fn).not.toHaveBeenCalled();
+
+    // Fast-forward time
+    jest.advanceTimersByTime(300);
+
+    // Only last call executed
+    expect(fn).toHaveBeenCalledTimes(1);
+    expect(fn).toHaveBeenCalledWith(&#x27;third&#x27;);
+  });
+});
+
+describe(&#x27;Custom Matchers&#x27;, () =&gt; {
+  // Extend Jest matchers
+  expect.extend({
+    toBeWithinRange(received, floor, ceiling) {
+      const pass = received &gt;= floor &amp;&amp; received &lt;= ceiling;
+      return {
+        pass,
+        message: () =&gt;
+          `expected ${received} to be within range ${floor}..${ceiling}`,
+      };
+    },
+  });
+
+  test(&#x27;custom matcher works&#x27;, () =&gt; {
+    expect(50).toBeWithinRange(0, 100);
+    expect(150).not.toBeWithinRange(0, 100);
+  });
+});</code></pre>
+
+<hr>
+
+<h2>注意事项</h2>
+
+<table><thead><tr>
+<th>维度</th>
+<th>说明</th>
+<th>建议</th>
+</tr></thead><tbody>
+<tr>
+<td>测试隔离</td>
+<td>测试之间不应有依赖</td>
+<td>用 beforeEach 重置状态</td>
+</tr>
+<tr>
+<td>异步测试</td>
+<td>忘记 return/await 导致假通过</td>
+<td>始终 return Promise 或使用 async/await</td>
+</tr>
+<tr>
+<td>Mock 污染</td>
+<td>mock 未清理影响其他测试</td>
+<td>afterEach 中 jest.restoreAllMocks()</td>
+</tr>
+<tr>
+<td>超时</td>
+<td>异步测试默认 5 秒超时</td>
+<td>合理设置 testTimeout</td>
+</tr>
+<tr>
+<td>覆盖率</td>
+<td>100% 覆盖率 ≠ 无 Bug</td>
+<td>关注边界条件和错误路径</td>
+</tr>
+<tr>
+<td>快照</td>
+<td>快照变化不一定是错误</td>
+<td>审查每次快照更新</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>避坑指南</h2>
+
+<table><thead><tr>
+<th>❌ 错误做法</th>
+<th>✅ 正确做法</th>
+</tr></thead><tbody>
+<tr>
+<td>测试实现细节（私有方法）</td>
+<td>测试公共行为和输出</td>
+</tr>
+<tr>
+<td>一个测试多个断言</td>
+<td>一个测试一个明确的行为</td>
+</tr>
+<tr>
+<td>忘记 return Promise</td>
+<td>用 async/await 确保异步完成</td>
+</tr>
+<tr>
+<td>过度 Mock 导致测试无意义</td>
+<td>只 Mock 外部依赖，测试真实逻辑</td>
+</tr>
+<tr>
+<td>忽略 console.error 输出</td>
+<td>测试中捕获并验证错误日志</td>
+</tr>
+<tr>
+<td>快照测试超大对象</td>
+<td>快照只保存关键结构，排除动态字段</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>练习题</h2>
+
+<h3>🟢 基础题</h3>
+
+<ol>
+<li>编写一个 <code>StringUtils</code> 模块，包含 <code>capitalize</code>、<code>reverse</code>、<code>truncate(str, len)</code> 方法，并编写完整测试</li>
+</ul>
+<ol>
+<li>测试 <code>divide</code> 函数的边界情况：除以零、负数、浮点数</li>
+
+<h3>🟡 进阶题</h3>
+
+<ol>
+<li>编写一个 <code>fetchUsers</code> 函数调用外部 API，使用 jest.mock 测试成功和失败场景</li>
+</ul>
+<ol>
+<li>使用 supertest 对 Express 应用编写完整的 CRUD 集成测试</li>
+
+<h3>🔴 挑战题</h3>
+
+<ol>
+<li>实现自定义 Matcher <code>toBeValidEmail</code>，验证字符串是否是合法邮箱格式</li>
+</ul>
+<ol>
+<li>编写一个测试套件，覆盖 Redis 缓存命中/未命中/过期三种场景（使用 fake timers）</li>
+
+<hr>
+
+<h2>知识点总结</h2>
+
+<pre><code>Jest 测试框架知识树
+├── 基础
+│   ├── test/it/describe
+│   ├── Matchers (toBe, toEqual, toThrow...)
+│   ├── Lifecycle Hooks
+│   └── Parameterized Tests (.each)
+├── 异步测试
+│   ├── Callbacks (done)
+│   ├── Promises (resolves/rejects)
+│   └── async/await
+├── Mock 系统
+│   ├── jest.fn() (mock function)
+│   ├── jest.mock() (mock module)
+│   ├── jest.spyOn() (spy)
+│   └── jest.useFakeTimers()
+├── 进阶
+│   ├── Snapshot Testing
+│   ├── Custom Matchers
+│   ├── Coverage 配置
+│   └── 并发测试 (--detectOpenHandles)
+└── 集成测试
+    ├── Supertest (HTTP)
+    ├── Database testing
+    └── CI/CD 集成</code></pre>
+
+<hr>
+
+<h2>举一反三</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>简单方案</th>
+<th>Jest 方案</th>
+<th>优势</th>
+</tr></thead><tbody>
+<tr>
+<td>测试纯函数</td>
+<td>console.log 手动验证</td>
+<td>expect + toBe</td>
+<td>自动化、可重复</td>
+</tr>
+<tr>
+<td>测试 API</td>
+<td>Postman 手动点</td>
+<td>Supertest 自动化</td>
+<td>纳入 CI/CD</td>
+</tr>
+<tr>
+<td>测试定时器</td>
+<td>等真实时间流逝</td>
+<td>jest.useFakeTimers</td>
+<td>秒级完成</td>
+</tr>
+<tr>
+<td>测试外部 API</td>
+<td>真实调用（慢且不稳定）</td>
+<td>jest.mock 模拟</td>
+<td>快速、稳定</td>
+</tr>
+<tr>
+<td>回归测试</td>
+<td>人工检查</td>
+<td>快照测试</td>
+<td>自动检测变化</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>参考资料</h2>
+
+<ul>
+<li><a href="https://jestjs.io/docs/getting-started">Jest 官方文档</a></li>
+<li><a href="https://testingjavascript.com/">Testing JavaScript</a></li>
+<li><a href="https://github.com/sapegin/jest-cheat-sheet">Jest Cheat Sheet</a></li>
+<li><a href="https://github.com/visionmedia/supertest">Supertest GitHub</a></li>
+<li><a href="https://github.com/goldbergyoni/javascript-testing-best-practices">JavaScript Testing Best Practices</a></li>
+
+<hr>
+
+<h2>代码演进总结</h2>
+
+<table><thead><tr>
+<th>版本</th>
+<th>特点</th>
+<th>适用场景</th>
+</tr></thead><tbody>
+<tr>
+<td>v1</td>
+<td>基础单元测试 + 异步测试</td>
+<td>学习入门、工具函数测试</td>
+</tr>
+<tr>
+<td>v2</td>
+<td>Mock + HTTP 集成测试</td>
+<td>API 服务测试</td>
+</tr>
+<tr>
+<td>v3</td>
+<td>完整配置 + 快照 + 自定义 Matcher</td>
+<td>生产项目测试体系</td>
+</tr>
+</tbody></table>
+
+<blockquote><p>💡 <strong>测试金字塔建议</strong>：70% 单元测试 + 20% 集成测试 + 10% E2E 测试。先保证单元测试覆盖核心逻辑，再逐步补充集成测试。</p></blockquote>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

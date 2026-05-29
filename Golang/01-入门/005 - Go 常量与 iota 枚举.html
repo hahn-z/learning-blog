@@ -1,0 +1,464 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>005 - Go 常量与 iota 枚举</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/learning-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/learning-blog/Golang/index.html">Golang</a>
+<span class="sep">›</span>
+<a href="/learning-blog/Golang/01-入门/index.html">Golang入门</a>
+</nav>
+<h1>005 - Go 常量与 iota 枚举</h1>
+<div class="meta">
+<span>📂 Golang入门</span>
+<span>🏷️ Golang</span>
+</div>
+<article>
+
+
+<h1>005 - Go 常量与 iota 枚举</h1>
+
+<h2>难度标注</h2>
+
+<p>⭐⭐☆☆☆</p>
+
+<p><strong>前置知识：</strong> 变量声明、基本数据类型</p>
+
+<p><strong>预估用时：</strong> 30-40 分钟</p>
+
+<hr>
+
+<h2>概念讲解</h2>
+
+<p><strong>一句话定义：</strong> 常量是编译时就确定的不可变值，<code>iota</code> 是 Go 提供的常量生成器，用于创建自增的枚举值。</p>
+
+<p><strong>现实类比：</strong> 常量就像刻在石头上的数字——一旦刻好就不能改。<code>iota</code> 像自动编号机，每行自动递增，省去你手动写数字的麻烦。</p>
+
+<p><strong>技术场景：</strong> 定义 HTTP 状态码、权限位掩码、枚举类型（如订单状态：待付款、已付款、已发货）、配置常量等。</p>
+
+<hr>
+
+<h2>实时脑图</h2>
+
+<pre><code>         Go 常量系统
+             │
+   ┌─────────┼─────────┐
+   │         │         │
+ const    iota      高级用法
+   │         │         │
+ ├── 单个   ├── 自增   ├── 位掩码
+ ├── 分组   ├── 跳值   ├── 无类型
+ └── 隐式   └── 表达式 └── 编译期计算</code></pre>
+
+<hr>
+
+<h2>完整代码</h2>
+
+<pre><code class="language-go">package main
+
+import (
+	&quot;fmt&quot;
+	&quot;math&quot;
+)
+
+// === 1. Basic const declarations ===
+const Pi = 3.14159265358979
+const AppName = &quot;GoPlayground&quot;
+
+// === 2. Grouped const with implicit repeat ===
+const (
+	StatusOK    = 200
+	StatusCreated = 201
+	StatusBadRequest = 400
+	StatusNotFound   = 404
+)
+
+// === 3. iota basic auto-increment ===
+const (
+	Sunday    = iota // 0
+	Monday           // 1 (iota implicit)
+	Tuesday          // 2
+	Wednesday        // 3
+	Thursday         // 4
+	Friday           // 5
+	Saturday         // 6
+)
+
+// === 4. iota with expression ===
+const (
+	_  = iota // skip 0
+	KB = 1 &lt;&lt; (10 * iota) // 1 &lt;&lt; 10 = 1024
+	MB                     // 1 &lt;&lt; 20
+	GB                     // 1 &lt;&lt; 30
+	TB                     // 1 &lt;&lt; 40
+)
+
+// === 5. Bitmask with iota (permissions) ===
+const (
+	ReadPermission   = 1 &lt;&lt; iota // 1 (001)
+	WritePermission              // 2 (010)
+	ExecutePermission            // 4 (100)
+)
+
+// === 6. Custom enum with string ===
+type OrderStatus int
+
+const (
+	Pending   OrderStatus = iota // 0
+	Paid                         // 1
+	Shipped                      // 2
+	Delivered                    // 3
+	Cancelled                    // 4
+)
+
+// String method for pretty printing
+func (s OrderStatus) String() string {
+	names := [...]string{&quot;Pending&quot;, &quot;Paid&quot;, &quot;Shipped&quot;, &quot;Delivered&quot;, &quot;Cancelled&quot;}
+	if s &lt; 0 || int(s) &gt;= len(names) {
+		return &quot;Unknown&quot;
+	}
+	return names[s]
+}
+
+// === 7. Typed vs untyped constants ===
+const (
+	untypedInt   = 42        // untyped int
+	untypedFloat = 3.14      // untyped float
+	typedInt     int     = 100 // typed int
+)
+
+func main() {
+	// Basic usage
+	fmt.Println(&quot;Pi:&quot;, Pi)
+	fmt.Println(&quot;App:&quot;, AppName)
+
+	// iota enum
+	fmt.Printf(&quot;Sunday=%d Friday=%d\n&quot;, Sunday, Friday)
+
+	// Size constants
+	fmt.Printf(&quot;KB=%d MB=%d GB=%d\n&quot;, KB, MB, GB)
+
+	// Permission bitmask
+	perm := ReadPermission | WritePermission // read + write
+	fmt.Printf(&quot;Permissions: %b (Read+Write)\n&quot;, perm)
+	hasRead := perm&amp;ReadPermission != 0
+	hasExec := perm&amp;ExecutePermission != 0
+	fmt.Printf(&quot;Has Read: %v Has Execute: %v\n&quot;, hasRead, hasExec)
+
+	// Custom enum with String()
+	status := Shipped
+	fmt.Printf(&quot;Order status: %s (%d)\n&quot;, status, status)
+
+	// Untyped constants: flexible
+	var f64 float64 = untypedInt // int constant → float64 OK (untyped)
+	var i32 int32 = untypedInt   // int constant → int32 OK (untyped)
+	fmt.Printf(&quot;f64=%v i32=%v\n&quot;, f64, i32)
+
+	// Typed constants: strict
+	// var f2 float64 = typedInt // compile error! int ≠ float64
+	_ = typedInt
+
+	// Untyped float precision
+	const VeryLarge = 1e100 // untyped, no overflow at compile time
+	// var f float64 = VeryLarge // overflow at runtime assignment
+	fmt.Printf(&quot;VeryLarge is valid as constant: %v\n&quot;, VeryLarge &gt; math.MaxFloat64)
+
+	// Implicit repeat in non-iota group
+	const (
+		A = &quot;same&quot;
+		B                    // B = &quot;same&quot; (implicit repeat)
+		C                    // C = &quot;same&quot;
+	)
+	fmt.Printf(&quot;A=%s B=%s C=%s\n&quot;, A, B, C)
+}</code></pre>
+
+<h2>执行预览</h2>
+
+<pre><code>Pi: 3.14159265358979
+App: GoPlayground
+Sunday=0 Friday=5
+KB=1024 MB=1048576 GB=1073741824
+Permissions: 11 (Read+Write)
+Has Read: true Has Execute: false
+Order status: Shipped (2)
+f64=42 i32=42
+VeryLarge is valid as constant: true
+A=same B=same C=same</code></pre>
+
+<hr>
+
+<h2>注意事项</h2>
+
+<table><thead><tr>
+<th>事项</th>
+<th>说明</th>
+</tr></thead><tbody>
+<tr>
+<td>常量不能取地址</td>
+<td><code>&Pi</code> 编译错误，常量没有内存地址</td>
+</tr>
+<tr>
+<td>iota 只在 const 块中有效</td>
+<td>每个 <code>const()</code> 块的 iota 从 0 重新开始</td>
+</tr>
+<tr>
+<td>隐式重复只复制最后一个表达式</td>
+<td>非 iota 组中，省略的常量复制上一行的值和类型</td>
+</tr>
+<tr>
+<td>无类型常量精度更高</td>
+<td>无类型常量可以表示任意精度的数值</td>
+</tr>
+<tr>
+<td>typed const 有类型约束</td>
+<td>有类型的常量赋值时必须类型匹配</td>
+</tr>
+<tr>
+<td>iota 是行计数器</td>
+<td>按 const 块中的行号递增，不是按声明数量</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>避坑指南</h2>
+
+<p><strong>❌ 试图修改常量</strong></p>
+<pre><code class="language-go">const x = 10
+x = 20  // compile error: cannot assign to x</code></pre>
+<p><strong>✅ 用变量代替</strong></p>
+<pre><code class="language-go">x := 10
+x = 20  // OK, it&#x27;s a variable</code></pre>
+
+<p><strong>❌ iota 跨块不连续</strong></p>
+<pre><code class="language-go">const (
+    A = iota // 0
+    B        // 1
+)
+const (
+    C = iota // 0 again! not 2
+)</code></pre>
+<p><strong>✅ 理解每个 const 块独立</strong></p>
+<pre><code class="language-go">// Each const block has its own iota starting from 0
+// Use a single block for continuous values
+const (
+    A = iota // 0
+    B        // 1
+    C        // 2
+)</code></pre>
+
+<p><strong>❌ 位运算溢出不自知</strong></p>
+<pre><code class="language-go">const (
+    _  = iota
+    KB = 1 &lt;&lt; (10 * iota) // fine
+    MB
+    GB
+    TB
+    PB
+    EB
+    ZB // overflow on 64-bit! 1 &lt;&lt; 70 &gt; max uint64
+)</code></pre>
+<p><strong>✅ 了解平台限制</strong></p>
+<pre><code class="language-go">// Stay within platform bit width (usually 64-bit)
+// ZB and YB will overflow — don&#x27;t use them directly as int</code></pre>
+
+<hr>
+
+<h2>练习题</h2>
+
+<h3>🟢 基础</h3>
+
+<ol>
+<li>用 <code>const</code> 定义一周七天的枚举值（0-6），并打印"今天是周几"。</li>
+</ul>
+<ol>
+<li>定义 <code>Pi = 3.14159</code>，写程序计算半径为 5 的圆面积。</li>
+
+<h3>🟡 进阶</h3>
+
+<ol>
+<li>用 <code>iota</code> 定义文件权限常量（Read=4, Write=2, Execute=1），实现权限组合和检查。</li>
+</ul>
+<ol>
+<li>解释以下代码的输出：</li>
+<pre><code class="language-go">const (
+    _ = iota
+    A
+    B
+    _
+    C
+)
+fmt.Println(A, B, C)</code></pre>
+
+<h3>🔴 开放</h3>
+
+<ol>
+<li>设计一个状态机，用 <code>iota</code> 定义所有状态和转换标志。考虑如何用位掩码表示"可从哪些状态转换而来"。</li>
+
+<hr>
+
+<h2>知识点总结</h2>
+
+<pre><code>常量与 iota
+├── const 声明
+│   ├── 单个: const Pi = 3.14
+│   ├── 分组: const ( ... )
+│   └── 隐式重复: 省略时复制上一行
+├── iota 机制
+│   ├── 行计数器 (从0开始)
+│   ├── 跳值: _ = iota
+│   ├── 表达式: 1 &lt;&lt; (10 * iota)
+│   └── 每个const块独立
+├── 常量类型
+│   ├── 无类型: 灵活赋值
+│   └── 有类型: 严格匹配
+└── 高级模式
+    ├── 位掩码枚举
+    ├── 自定义枚举+String()
+    └── 超大数值常量</code></pre>
+
+<hr>
+
+<h2>举一反三</h2>
+
+<table><thead><tr>
+<th>概念</th>
+<th>Go</th>
+<th>C/Java</th>
+<th>差异</th>
+</tr></thead><tbody>
+<tr>
+<td>常量</td>
+<td><code>const x = 10</code></td>
+<td><code>#define</code> / <code>final</code></td>
+<td>Go const 必须编译期可确定</td>
+</tr>
+<tr>
+<td>枚举</td>
+<td><code>iota</code> 模式</td>
+<td><code>enum</code> 关键字</td>
+<td>Go 没有 enum 关键字，用 iota 模拟</td>
+</tr>
+<tr>
+<td>位掩码</td>
+<td><code>1 << iota</code></td>
+<td><code>1 << 0</code> 手动</td>
+<td>Go iota 自动递增</td>
+</tr>
+<tr>
+<td>无类型常量</td>
+<td>Go 独有</td>
+<td>C 有隐式转换</td>
+<td>Go 无类型常量更灵活安全</td>
+</tr>
+<tr>
+<td>隐式重复</td>
+<td>Go 独有</td>
+<td>无</td>
+<td>减少重复代码</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>参考资料</h2>
+
+<ul>
+<li><a href="https://go.dev/tour/basics/15">Go 官方文档 - Constants</a></li>
+<li><a href="https://go.dev/doc/effective_go#constants">Effective Go - Constants</a></li>
+<li><a href="https://go.dev/ref/spec#Iota">Go 语言规范 - Iota</a></li>
+<li><a href="https://gobyexample.com/constants">Go by Example - Constants</a></li>
+
+<hr>
+
+<h2>代码演进</h2>
+
+<h3>v1：基础常量</h3>
+
+<pre><code class="language-go">package main
+
+import &quot;fmt&quot;
+
+const Pi = 3.14
+
+func main() {
+    fmt.Println(&quot;Pi =&quot;, Pi)
+}</code></pre>
+
+<h3>v2：iota 枚举</h3>
+
+<pre><code class="language-go">package main
+
+import &quot;fmt&quot;
+
+const (
+    Sunday = iota
+    Monday
+    Tuesday
+)
+
+func main() {
+    fmt.Println(Sunday, Monday, Tuesday)
+}</code></pre>
+
+<h3>v3：完整实践（见上方完整代码）</h3>
+
+<p>展示了 const 分组、iota 自增、位掩码、自定义枚举 + String()、无类型常量、隐式重复等完整特性。</p>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

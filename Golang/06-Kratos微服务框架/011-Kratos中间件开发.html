@@ -1,0 +1,541 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>011-Kratos中间件开发</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Golang/index.html">Golang</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Golang/06-Kratos微服务框架/index.html">Kratos框架</a>
+</nav>
+<h1>011-Kratos中间件开发</h1>
+<div class="meta">
+<span>📂 Kratos框架</span>
+<span>🏷️ Golang</span>
+</div>
+<article>
+
+
+
+<h1>011-Kratos中间件开发</h1>
+
+<blockquote><p><strong>难度：</strong> ⭐⭐⭐ | <strong>适合：</strong> 掌握Kratos基础，想深入理解中间件机制的开发者</p></blockquote>
+
+<h2>一、概念讲解</h2>
+
+<p>中间件（Middleware）是微服务框架的核心基础设施。在Kratos中，中间件横跨HTTP和gRPC两个协议层，统一采用 <code>middleware.Middleware</code> 函数签名，实现了<strong>一套逻辑，两种协议</strong>的优雅设计。</p>
+
+<h3>为什么需要中间件？</h3>
+
+<p>微服务中大量横切关注点（Cross-Cutting Concerns）需要在请求处理前/后执行：</p>
+
+<table><thead><tr>
+<th>关注点</th>
+<th>示例</th>
+</tr></thead><tbody>
+<tr>
+<td>可观测性</td>
+<td>链路追踪、指标采集、日志记录</td>
+</tr>
+<tr>
+<td>容错</td>
+<td>异常恢复、限流、熔断</td>
+</tr>
+<tr>
+<td>安全</td>
+<td>认证鉴权、请求校验</td>
+</tr>
+<tr>
+<td>通信</td>
+<td>元数据传递、请求ID注入</td>
+</tr>
+</tbody></table>
+
+<h3>Kratos中间件架构</h3>
+
+<p>Kratos中间件基于<strong>装饰器模式</strong>，每个中间件包裹Handler，形成洋葱模型：</p>
+
+<pre><code>请求 → Middleware1 → Middleware2 → Handler → Middleware2 → Middleware1 → 响应</code></pre>
+
+<p>核心接口：</p>
+
+<pre><code class="language-go">// transport/middleware.go
+type Middleware func(handler Handler) Handler
+type Handler func(ctx context.Context, req interface{}) (interface{}, error)</code></pre>
+
+<h2>二、脑图</h2>
+
+<pre><code>Kratos中间件
+├── HTTP中间件
+│   ├── 内置中间件
+│   │   ├── tracing (链路追踪)
+│   │   ├── metadata (元数据传递)
+│   │   ├── recovery (异常恢复)
+│   │   └── logging (请求日志)
+│   └── 自定义中间件
+│       └── transporter提取请求信息
+├── gRPC拦截器
+│   ├── Unary Interceptor
+│   └── Stream Interceptor
+├── 执行顺序
+│   ├── 洋葱模型
+│   └── 先注册先执行(外层)
+└── 最佳实践
+    ├── 中间件顺序设计
+    └── 短路机制</code></pre>
+
+<h2>三、完整Go代码</h2>
+
+<h3>v1: 基础中间件体验</h3>
+
+<pre><code class="language-go">// cmd/server/main.go
+package main
+
+import (
+    &quot;context&quot;
+    &quot;fmt&quot;
+    &quot;log&quot;
+
+    &quot;github.com/go-kratos/kratos/v2&quot;
+    &quot;github.com/go-kratos/kratos/v2/middleware/recovery&quot;
+    &quot;github.com/go-kratos/kratos/v2/transport/http&quot;
+)
+
+func main() {
+    // Create HTTP server with recovery middleware
+    httpSrv := http.NewServer(
+        http.Address(&quot;:8000&quot;),
+        http.Middleware(
+            recovery.Recovery(),
+        ),
+    )
+
+    // Register route
+    httpSrv.HandleFunc(&quot;/hello&quot;, func(w http.ResponseWriter, r *http.Request) {
+        fmt.Fprintf(w, &quot;Hello Kratos!&quot;)
+    })
+
+    app := kratos.New(kratos.Server(httpSrv))
+    if err := app.Run(); err != nil {
+        log.Fatal(err)
+    }
+}</code></pre>
+
+<h3>v2: 添加多种内置中间件</h3>
+
+<pre><code class="language-go">// internal/server/http.go
+package server
+
+import (
+    &quot;github.com/go-kratos/kratos/v2/log&quot;
+    &quot;github.com/go-kratos/kratos/v2/middleware/logging&quot;
+    &quot;github.com/go-kratos/kratos/v2/middleware/metadata&quot;
+    &quot;github.com/go-kratos/kratos/v2/middleware/recovery&quot;
+    &quot;github.com/go-kratos/kratos/v2/middleware/tracing&quot;
+    &quot;github.com/go-kratos/kratos/v2/transport/http&quot;
+)
+
+// NewHTTPServer create HTTP server with middlewares
+func NewHTTPServer(c *conf.Server, greeter *service.GreeterService) *http.Server {
+    var opts = []http.ServerOption{
+        http.Address(c.Http.Addr),
+        http.Middleware(
+            recovery.Recovery(),           // Panic recovery, must be first
+            tracing.Server(                // Distributed tracing
+                tracing.WithTracerProvider(tp),
+            ),
+            logging.Server(log.DefaultLogger), // Request logging
+            metadata.Server(),                  // Metadata propagation
+        ),
+    }
+    srv := http.NewServer(opts...)
+
+    // Register service routes
+    registerGreeterHTTPServer(srv, greeter)
+    return srv
+}</code></pre>
+
+<h3>v3: 自定义中间件 + gRPC拦截器</h3>
+
+<pre><code class="language-go">// internal/middleware/request_id.go
+package middleware
+
+import (
+    &quot;context&quot;
+    &quot;fmt&quot;
+
+    &quot;github.com/go-kratos/kratos/v2/middleware&quot;
+    &quot;github.com/go-kratos/kratos/v2/transport&quot;
+    &quot;github.com/google/uuid&quot;
+)
+
+// RequestID injects a unique request ID into context
+func RequestID() middleware.Middleware {
+    return func(handler middleware.Handler) middleware.Handler {
+        return func(ctx context.Context, req interface{}) (interface{}, error) {
+            // Extract transport info
+            if tr, ok := transport.FromServerContext(ctx); ok {
+                // Try to get existing request ID from header
+                reqID := tr.RequestHeader().Get(&quot;X-Request-ID&quot;)
+                if reqID == &quot;&quot; {
+                    reqID = uuid.New().String()
+                }
+                // Set in response header
+                tr.ReplyHeader().Set(&quot;X-Request-ID&quot;, reqID)
+                fmt.Printf(&quot;[RequestID] %s %s\n&quot;, tr.Operation(), reqID)
+            }
+            return handler(ctx, req)
+        }
+    }
+}</code></pre>
+
+<pre><code class="language-go">// internal/middleware/auth.go
+package middleware
+
+import (
+    &quot;context&quot;
+    &quot;errors&quot;
+
+    &quot;github.com/go-kratos/kratos/v2/middleware&quot;
+    &quot;github.com/go-kratos/kratos/v2/transport&quot;
+)
+
+var ErrUnauthorized = errors.New(&quot;unauthorized access&quot;)
+
+// Auth validates JWT token from header
+func Auth() middleware.Middleware {
+    return func(handler middleware.Handler) middleware.Handler {
+        return func(ctx context.Context, req interface{}) (interface{}, error) {
+            if tr, ok := transport.FromServerContext(ctx); ok {
+                token := tr.RequestHeader().Get(&quot;Authorization&quot;)
+                if token == &quot;&quot; {
+                    return nil, ErrUnauthorized
+                }
+                // TODO: validate JWT token
+                // Short-circuit: return error without calling handler
+            }
+            return handler(ctx, req)
+        }
+    }
+}</code></pre>
+
+<pre><code class="language-go">// internal/server/grpc.go - gRPC server with interceptors
+package server
+
+import (
+    &quot;github.com/go-kratos/kratos/v2/middleware/recovery&quot;
+    &quot;github.com/go-kratos/kratos/v2/middleware/tracing&quot;
+    &quot;github.com/go-kratos/kratos/v2/transport/grpc&quot;
+)
+
+func NewGRPCServer(c *conf.Server, greeter *service.GreeterService) *grpc.Server {
+    var opts = []grpc.ServerOption{
+        grpc.Address(c.Grpc.Addr),
+        grpc.Middleware(
+            recovery.Recovery(),
+            tracing.Server(),
+        ),
+    }
+    srv := grpc.NewServer(opts...)
+    registerGreeterGRPCServer(srv, greeter)
+    return srv
+}</code></pre>
+
+<pre><code class="language-go">// internal/server/http.go - Custom middleware on specific routes
+func NewHTTPServer(c *conf.Server, greeter *service.GreeterService) *http.Server {
+    var opts = []http.ServerOption{
+        http.Address(c.Http.Addr),
+        http.Middleware(
+            recovery.Recovery(),
+            tracing.Server(),
+            logging.Server(log.DefaultLogger),
+        ),
+    }
+    srv := http.NewServer(opts...)
+
+    // Route-level middleware: auth only on protected routes
+    srv.HandleFunc(&quot;/api/public/*&quot;, handlePublic)
+    srv.Handle(&quot;/api/private/*&quot;,
+        http.Middleware(
+            middleware.Auth(),       // Auth check for private routes
+            middleware.RequestID(),  // Request ID injection
+        )(handler),
+    )
+    return srv
+}</code></pre>
+
+<h2>四、执行预览</h2>
+
+<pre><code class="language-bash"># Start server
+$ go run cmd/server/main.go
+INFO msg=server listening on: [::]:8000
+
+# Normal request
+$ curl http://localhost:8000/helloworld/iron
+{&quot;message&quot;:&quot;Hello iron&quot;}
+
+# Check response headers
+$ curl -v http://localhost:8000/helloworld/iron
+&lt; X-Request-ID: 550e8400-e29b-41d4-a716-446655440000
+&lt; X-Trace-Id: abc123def456
+
+# Unauthorized request (auth middleware rejects)
+$ curl http://localhost:8000/api/private/data
+{&quot;code&quot;:401, &quot;reason&quot;:&quot;UNAUTHORIZED&quot;, &quot;message&quot;:&quot;unauthorized access&quot;}
+
+# Panic recovery test
+$ curl http://localhost:8000/panic
+{&quot;code&quot;:500, &quot;reason&quot;:&quot;INTERNAL_SERVER_ERROR&quot;, &quot;message&quot;:&quot;recovered from panic&quot;}</code></pre>
+
+<h2>五、注意事项</h2>
+
+<table><thead><tr>
+<th>注意点</th>
+<th>说明</th>
+<th>建议</th>
+</tr></thead><tbody>
+<tr>
+<td>recovery位置</td>
+<td>必须放最外层(第一个)</td>
+<td>确保所有panic都能被捕获</td>
+</tr>
+<tr>
+<td>中间件顺序</td>
+<td>先注册先执行(洋葱外层)</td>
+<td>tracing → logging → business</td>
+</tr>
+<tr>
+<td>短路机制</td>
+<td>中间件return error不继续</td>
+<td>注意auth等中间件的位置</td>
+</tr>
+<tr>
+<td>HTTP vs gRPC</td>
+<td>同一Middleware接口</td>
+<td>一套代码两个协议通用</td>
+</tr>
+<tr>
+<td>context传递</td>
+<td>不要修改原始context后不传</td>
+<td>始终用handler(ctx, req)</td>
+</tr>
+<tr>
+<td>性能开销</td>
+<td>中间件链越长延迟越高</td>
+<td>只注册必要中间件</td>
+</tr>
+</tbody></table>
+
+<h2>六、避坑指南</h2>
+
+<table><thead><tr>
+<th>❌ 错误做法</th>
+<th>✅ 正确做法</th>
+</tr></thead><tbody>
+<tr>
+<td>recovery放最后</td>
+<td>recovery放第一个，兜底所有panic</td>
+</tr>
+<tr>
+<td>中间件里直接return nil</td>
+<td>返回明确的error或业务响应</td>
+</tr>
+<tr>
+<td>忘记调用handler(ctx, req)</td>
+<td>中间件必须调用handler传递请求</td>
+</tr>
+<tr>
+<td>在中间件里做重IO操作</td>
+<td>中间件只做轻量操作，重IO放handler</td>
+</tr>
+<tr>
+<td>所有路由都加auth</td>
+<td>区分public/private路由，按需加中间件</td>
+</tr>
+<tr>
+<td>用全局变量存请求信息</td>
+<td>用context传递，避免并发问题</td>
+</tr>
+<tr>
+<td>gRPC和HTTP各写一套</td>
+<td>用统一middleware.Middleware接口</td>
+</tr>
+</tbody></table>
+
+<h2>七、练习题</h2>
+
+<h3>🟢 基础题</h3>
+<ol>
+<li>实现一个记录请求耗时的中间件，在响应Header中返回 <code>X-Response-Time</code></li>
+</ul>
+<ol>
+<li>给现有HTTP Server添加recovery和logging中间件</li>
+
+<h3>🟡 进阶题</h3>
+<ol>
+<li>实现一个限流中间件，每秒最多允许100个请求（提示：使用 <code>golang.org/x/time/rate</code>）</li>
+</ul>
+<ol>
+<li>实现路由级别的中间件配置，public路由不加auth，admin路由必须auth</li>
+
+<h3>🔴 挑战题</h3>
+<ol>
+<li>实现中间件链的动态配置：通过配置文件决定启用哪些中间件及顺序</li>
+</ul>
+<ol>
+<li>实现一个gRPC流式拦截器，统计stream消息数量</li>
+
+<h2>八、知识点总结</h2>
+
+<pre><code>Kratos中间件体系
+├── 核心接口
+│   ├── middleware.Middleware func(Handler) Handler
+│   └── transport.FromServerContext 提取请求信息
+├── 内置中间件
+│   ├── recovery.Recovery() — panic恢复
+│   ├── tracing.Server() — 链路追踪
+│   ├── logging.Server() — 请求日志
+│   ├── metadata.Server() — 元数据传递
+│   └── validate.Validator() — 参数校验
+├── 中间件注册
+│   ├── Server级别: http.Middleware() / grpc.Middleware()
+│   └── 路由级别: 在route handler上包装
+├── 执行模型
+│   ├── 洋葱模型: 请求进入→内→响应返回
+│   └── 短路: 中间件return error即中断
+└── 协议统一
+    ├── HTTP: 标准net/http handler chain
+    └── gRPC: unary/stream interceptor</code></pre>
+
+<h2>九、举一反三</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>中间件方案</th>
+<th>关键技术</th>
+</tr></thead><tbody>
+<tr>
+<td>API限流</td>
+<td>令牌桶/漏桶中间件</td>
+<td><code>x/time/rate</code></td>
+</tr>
+<tr>
+<td>灰度发布</td>
+<td>根据Header路由到不同版本</td>
+<td>metadata提取+自定义路由</td>
+</tr>
+<tr>
+<td>链路追踪</td>
+<td>OpenTelemetry tracing</td>
+<td><code>tracing.Server()</code></td>
+</tr>
+<tr>
+<td>请求签名</td>
+<td>验证HMAC签名</td>
+<td>自定义middleware</td>
+</tr>
+<tr>
+<td>CORS</td>
+<td>跨域请求处理</td>
+<td>自定义HTTP middleware</td>
+</tr>
+<tr>
+<td>请求去重</td>
+<td>幂等性检查</td>
+<td>Redis + 自定义middleware</td>
+</tr>
+<tr>
+<td>指标采集</td>
+<td>Prometheus metrics</td>
+<td><code>metrics.Server()</code></td>
+</tr>
+<tr>
+<td>API版本控制</td>
+<td>Header/URL路径判断</td>
+<td>自定义middleware</td>
+</tr>
+</tbody></table>
+
+<h2>十、参考资料</h2>
+
+<ul>
+<li><a href="https://go-kratos.dev/docs/component/middleware">Kratos官方文档 - Middleware</a></li>
+<li><a href="https://github.com/go-kratos/kratos/tree/main/middleware">Kratos中间件源码</a></li>
+<li><a href="https://go.dev/doc/go1.22#enhancedroutingpatterns">Go net/http中间件模式</a></li>
+<li><a href="https://opentelemetry.io/docs/instrumentation/go/">OpenTelemetry Go SDK</a></li>
+
+<h2>十一、代码演进</h2>
+
+<h3>v1 → v2 的变化</h3>
+<ul>
+<li>从单一recovery扩展到完整中间件链</li>
+<li>引入tracing、logging、metadata</li>
+<li>体现中间件注册顺序的重要性</li>
+
+<h3>v2 → v3 的变化</h3>
+<ul>
+<li>新增自定义中间件（RequestID、Auth）</li>
+<li>展示路由级别中间件配置</li>
+<li>同时覆盖HTTP和gRPC双协议</li>
+<li>展示中间件短路机制（Auth失败直接返回）</li>
+
+<h3>核心演进路径</h3>
+<pre><code>单一recovery → 完整中间件链 → 自定义中间件 + 路由级配置 + 双协议支持</code></pre>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

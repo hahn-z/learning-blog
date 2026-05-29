@@ -1,0 +1,587 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>012 - JavaScript 对象扩展与可选链操作符完全指南</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/JavaScript/index.html">JavaScript</a>
+<span class="sep">›</span>
+<a href="/tech-blog/JavaScript/01-ES6+/index.html">JavaScript ES6+</a>
+</nav>
+<h1>012 - JavaScript 对象扩展与可选链操作符完全指南</h1>
+<div class="meta">
+<span>📂 JavaScript ES6+</span>
+<span>🏷️ JavaScript</span>
+</div>
+<article>
+
+
+<h2>难度标注</h2>
+
+<blockquote><p>🟡 <strong>中等难度</strong> — 涉及 ES6+ 语法特性和解构概念</p></blockquote>
+
+<h2>概念讲解</h2>
+
+<h3>对象扩展运算符（Spread Operator）<code>...</code></h3>
+
+<p>对象扩展运算符 <code>...</code> 用于将一个对象的属性"展开"到另一个对象中。它是<strong>浅拷贝</strong>，不是深拷贝。</p>
+
+<pre><code class="language-javascript">const defaults = { theme: &#x27;dark&#x27;, lang: &#x27;zh&#x27;, fontSize: 14 };
+const userPrefs = { lang: &#x27;en&#x27;, sidebar: true };
+
+const merged = { ...defaults, ...userPrefs };
+// { theme: &#x27;dark&#x27;, lang: &#x27;en&#x27;, fontSize: 14, sidebar: true }
+// userPrefs 的 lang 覆盖了 defaults 的 lang</code></pre>
+
+<p><strong>核心特性：</strong></p>
+<ul>
+<li>后面的属性覆盖前面的（<code>{...a, ...b}</code>，b 的同名属性覆盖 a）</li>
+<li>浅拷贝：嵌套对象仍然是引用</li>
+<li>只复制<strong>可枚举的自有属性</strong></li>
+
+<h3>可选链操作符 <code>?.</code></h3>
+
+<p>可选链允许你安全地访问嵌套对象的属性，即使中间某个属性是 <code>null</code> 或 <code>undefined</code>，也不会报错。</p>
+
+<pre><code class="language-javascript">const user = { address: { city: &#x27;Shanghai&#x27; } };
+
+// Without optional chaining
+const zip = user &amp;&amp; user.address &amp;&amp; user.address.zip; // undefined
+
+// With optional chaining
+const zip = user?.address?.zip; // undefined, no error!</code></pre>
+
+<p><strong>三种用法：</strong></p>
+<ol>
+<li><code>obj?.prop</code> — 访问属性</li>
+</ul>
+<ol>
+<li><code>obj?.[expr]</code> — 动态属性访问</li>
+</ul>
+<ol>
+<li><code>obj?.()</code> — 调用函数（如果存在）</li>
+
+<h3>空值合并操作符 <code>??</code>（常与 <code>?.</code> 搭配）</h3>
+
+<pre><code class="language-javascript">const port = config?.server?.port ?? 3000; // default to 3000 if null/undefined</code></pre>
+
+<p><code>??</code> 只在值为 <code>null</code> 或 <code>undefined</code> 时使用默认值，而 <code>||</code> 对所有假值（<code>0</code>, <code>''</code>, <code>false</code>）都生效。</p>
+
+<h2>脑图</h2>
+
+<pre><code>            对象扩展与可选链
+                │
+    ┌───────────┴───────────┐
+    │                       │
+  扩展运算符(...)         可选链(?.)
+    │                       │
+  ┌─┴──┐               ┌───┴───┐
+  │浅拷贝│               │属性访问 │
+  │合并  │               │函数调用 │
+  │解构  │               │动态键   │
+  └────┘               └───────┘
+    │                       │
+  搭配使用：                 搭配：
+  rest参数                  空值合并 ??
+  函数参数默认值              ||</code></pre>
+
+<h2>完整 JS 代码</h2>
+
+<h3>对象扩展运算符</h3>
+
+<pre><code class="language-javascript">// ============ Spread Operator: Merge &amp; Clone ============
+
+// Clone an object
+const original = { a: 1, b: 2, c: 3 };
+const clone = { ...original };
+console.log(clone); // {a: 1, b: 2, c: 3}
+clone.a = 999;
+console.log(original.a); // 1 — original unchanged
+
+// Merge with override (later wins)
+const defaults = { color: &#x27;blue&#x27;, size: &#x27;M&#x27;, timeout: 3000 };
+const options = { size: &#x27;L&#x27;, verbose: true };
+const config = { ...defaults, ...options };
+console.log(config);
+// {color: &#x27;blue&#x27;, size: &#x27;L&#x27;, timeout: 3000, verbose: true}
+
+// Conditional properties (spread nothing is safe)
+const base = { name: &#x27;App&#x27;, version: &#x27;1.0&#x27; };
+const debug = { ...base, ...(process.env.NODE_ENV === &#x27;development&#x27; ? { debug: true } : {}) };
+console.log(debug); // depends on env
+
+// Remove a property (using rest in destructuring)
+const { c, ...withoutC } = { a: 1, b: 2, c: 3, d: 4 };
+console.log(withoutC); // {a: 1, b: 2, d: 4}
+
+// Update nested object (immutable update)
+const state = {
+  user: { name: &#x27;Alice&#x27;, age: 25 },
+  settings: { theme: &#x27;dark&#x27; }
+};
+const newState = {
+  ...state,
+  user: { ...state.user, age: 26 }
+};
+console.log(newState.user.age); // 26
+console.log(state.user.age);    // 25 — original unchanged
+
+// BEWARE: shallow copy!
+const obj = { nested: { value: 1 } };
+const copied = { ...obj };
+copied.nested.value = 999;
+console.log(obj.nested.value); // 999 — shared reference!</code></pre>
+
+<h3>可选链操作符</h3>
+
+<pre><code class="language-javascript">// ============ Optional Chaining: Safe Access ============
+
+const user = {
+  name: &#x27;Alice&#x27;,
+  address: {
+    city: &#x27;Shanghai&#x27;,
+    coordinates: { lat: 31.23, lng: 121.47 }
+  },
+  // phone is undefined
+  getFullName() { return `${this.name} Smith`; }
+};
+
+// Property access
+console.log(user?.name);                    // &#x27;Alice&#x27;
+console.log(user?.phone?.number);           // undefined (no error)
+console.log(user?.address?.city);           // &#x27;Shanghai&#x27;
+console.log(user?.address?.zip);            // undefined
+
+// Dynamic property
+const key = &#x27;city&#x27;;
+console.log(user?.address?.[key]);          // &#x27;Shanghai&#x27;
+console.log(user?.metadata?.[key]);         // undefined
+
+// Function call
+console.log(user.getFullName?.());          // &#x27;Alice Smith&#x27;
+console.log(user.getAge?.());               // undefined
+user.unknownMethod?.();                     // no error, returns undefined
+
+// With nullish coalescing
+const zip = user?.address?.zip ?? &#x27;000000&#x27;;
+console.log(zip); // &#x27;000000&#x27;
+
+// Important: only checks null/undefined, not other falsy
+const obj = { count: 0, name: &#x27;&#x27; };
+console.log(obj?.count);   // 0 (not undefined!)
+console.log(obj?.name);    // &#x27;&#x27; (not undefined!)</code></pre>
+
+<h3>解构赋值高级用法</h3>
+
+<pre><code class="language-javascript">// ============ Destructuring Patterns ============
+
+// Object destructuring with defaults
+const { name = &#x27;Unknown&#x27;, age = 0, role = &#x27;user&#x27; } = { name: &#x27;Alice&#x27; };
+console.log(name, age, role); // Alice 0 user
+
+// Nested destructuring
+const response = {
+  data: { users: [{ id: 1, name: &#x27;Alice&#x27; }] },
+  status: 200
+};
+const { data: { users: [firstUser] }, status } = response;
+console.log(firstUser); // {id: 1, name: &#x27;Alice&#x27;}
+
+// Rename during destructuring
+const { name: userName, age: userAge } = { name: &#x27;Bob&#x27;, age: 30 };
+console.log(userName, userAge); // Bob 30
+
+// Function parameter destructuring
+function createUser({ name, role = &#x27;user&#x27;, active = true } = {}) {
+  return { name, role, active };
+}
+console.log(createUser({ name: &#x27;Alice&#x27; })); // {name:&#x27;Alice&#x27;, role:&#x27;user&#x27;, active:true}
+console.log(createUser());                   // {name:undefined, role:&#x27;user&#x27;, active:true}
+
+// Deep cloning with spread (practical pattern)
+function deepMerge(target, source) {
+  const result = { ...target };
+  for (const key of Object.keys(source)) {
+    if (isObject(source[key]) &amp;&amp; isObject(target[key])) {
+      result[key] = deepMerge(target[key], source[key]);
+    } else {
+      result[key] = source[key];
+    }
+  }
+  return result;
+}
+function isObject(val) {
+  return val &amp;&amp; typeof val === &#x27;object&#x27; &amp;&amp; !Array.isArray(val);
+}</code></pre>
+
+<h2>执行预览</h2>
+
+<pre><code>// Spread merge
+{...{a:1,b:2}, ...{b:3,c:4}} → {a:1, b:3, c:4}
+
+// Shallow copy pitfall
+obj = {nested:{v:1}}
+copy = {...obj}
+copy.nested.v = 999
+obj.nested.v → 999 ⚠️ shared reference!
+
+// Optional chaining
+user?.address?.city     → &#x27;Shanghai&#x27;
+user?.phone?.number     → undefined (safe)
+user.getFullName?.()    → &#x27;Alice Smith&#x27;
+user.missing?.()        → undefined (safe)
+
+// Nullish coalescing
+null ?? &#x27;default&#x27;    → &#x27;default&#x27;
+undefined ?? &#x27;default&#x27; → &#x27;default&#x27;
+0 ?? &#x27;default&#x27;       → 0 (NOT &#x27;default&#x27;!)
+&#x27;&#x27; ?? &#x27;default&#x27;      → &#x27;&#x27; (NOT &#x27;default&#x27;!)</code></pre>
+
+<h2>注意事项</h2>
+
+<table><thead><tr>
+<th>特性</th>
+<th>浏览器支持</th>
+<th>Node.js</th>
+<th>注意</th>
+</tr></thead><tbody>
+<tr>
+<td>扩展运算符 <code>{...obj}</code></td>
+<td>Chrome 60+</td>
+<td>8.3+</td>
+<td>浅拷贝，注意嵌套引用</td>
+</tr>
+<tr>
+<td>可选链 <code>?.</code></td>
+<td>Chrome 80+</td>
+<td>14+</td>
+<td>不能用于赋值左侧</td>
+</tr>
+<tr>
+<td>空值合并 <code>??</code></td>
+<td>Chrome 80+</td>
+<td>14+</td>
+<td>与 `\</td>
+<td>\</td>
+<td>` 的假值处理不同</td>
+</tr>
+<tr>
+<td>解构默认值</td>
+<td>Chrome 49+</td>
+<td>6+</td>
+<td>仅在 <code>undefined</code> 时生效</td>
+</tr>
+</tbody></table>
+
+<table><thead><tr>
+<th>注意点</th>
+<th>说明</th>
+</tr></thead><tbody>
+<tr>
+<td><strong>浅拷贝陷阱</strong></td>
+<td><code>{...obj}</code> 嵌套对象仍是引用，修改会互相影响</td>
+</tr>
+<tr>
+<td><strong>?. 不能赋值</strong></td>
+<td><code>user?.name = 'Bob'</code> 会报 SyntaxError</td>
+</tr>
+<tr>
+<td><strong>?. 短路</strong></td>
+<td>一旦遇到 null/undefined，后续属性不再求值</td>
+</tr>
+<tr>
+<td><strong>?? 优先级</strong></td>
+<td><code>??</code> 不能和 `\</td>
+<td>\</td>
+<td><code> 或 </code>&&` 混用，必须加括号</td>
+</tr>
+<tr>
+<td><strong>解构默认值</strong></td>
+<td>只在值为 <code>undefined</code> 时生效，<code>null</code> 不会触发默认值</td>
+</tr>
+</tbody></table>
+
+<h2>避坑指南</h2>
+
+<h3>❌ 扩展运算符的浅拷贝陷阱</h3>
+<pre><code class="language-javascript">// ❌ Wrong: nested object is still a reference
+const original = { settings: { theme: &#x27;dark&#x27; } };
+const copy = { ...original };
+copy.settings.theme = &#x27;light&#x27;;
+console.log(original.settings.theme); // &#x27;light&#x27; — mutated!
+
+// ✅ Correct: deep spread for nested objects
+const deepCopy = { ...original, settings: { ...original.settings } };
+deepCopy.settings.theme = &#x27;light&#x27;;
+console.log(original.settings.theme); // &#x27;dark&#x27; — safe
+
+// ✅ Best: use structuredClone for true deep copy
+const realClone = structuredClone(original);</code></pre>
+
+<h3>❌ 可选链用于赋值</h3>
+<pre><code class="language-javascript">// ❌ Wrong: cannot use optional chaining on left side of assignment
+user?.address?.city = &#x27;Beijing&#x27;; // SyntaxError
+
+// ✅ Correct: check first, then assign
+if (user?.address) {
+  user.address.city = &#x27;Beijing&#x27;;
+}</code></pre>
+
+<h3>❌ ?? 与 || 混淆</h3>
+<pre><code class="language-javascript">// ❌ Wrong: || treats 0 and &#x27;&#x27; as falsy
+const pageSize = options.pageSize || 10;
+// If options.pageSize is 0, it becomes 10!
+
+// ✅ Correct: ?? only reacts to null/undefined
+const pageSize = options.pageSize ?? 10;
+// pageSize = 0 is preserved</code></pre>
+
+<h3>❌ 解构时 null 不触发默认值</h3>
+<pre><code class="language-javascript">// ❌ Gotcha: null does NOT trigger default value
+const { name = &#x27;Unknown&#x27; } = { name: null };
+console.log(name); // null (not &#x27;Unknown&#x27;)
+
+// ✅ Correct: use nullish coalescing after destructuring
+const input = { name: null };
+const name = input.name ?? &#x27;Unknown&#x27;;
+console.log(name); // &#x27;Unknown&#x27;</code></pre>
+
+<h2>练习题</h2>
+
+<h3>🟢 入门：基本用法</h3>
+
+<pre><code class="language-javascript">// 1. Merge two config objects, userConfig overrides defaults
+const defaults = { theme: &#x27;light&#x27;, lang: &#x27;zh&#x27;, perPage: 20 };
+const userConfig = { theme: &#x27;dark&#x27;, perPage: 50 };
+// Expected: {theme:&#x27;dark&#x27;, lang:&#x27;zh&#x27;, perPage:50}
+
+// 2. Safely get user.address.zip or return &#x27;N/A&#x27;
+const user = { name: &#x27;Alice&#x27;, address: { city: &#x27;Shanghai&#x27; } };
+// Expected: &#x27;N/A&#x27;
+
+// 3. Clone an object without modifying original
+const obj = { a: 1, b: { c: 2 } };</code></pre>
+
+<h3>🟡 进阶：组合运用</h3>
+
+<pre><code class="language-javascript">// 4. Remove &#x27;password&#x27; from user object using rest destructuring
+const user = { id: 1, name: &#x27;Alice&#x27;, password: &#x27;secret&#x27;, email: &#x27;a@b.com&#x27; };
+// Expected: {id:1, name:&#x27;Alice&#x27;, email:&#x27;a@b.com&#x27;}
+
+// 5. Create a function with destructured params and defaults
+function greet(/* destructure here */) {
+  // return greeting string
+}
+greet({ name: &#x27;Alice&#x27; }); // &#x27;Hello, Alice!&#x27;
+greet({});                 // &#x27;Hello, Guest!&#x27;
+greet();                   // &#x27;Hello, Guest!&#x27;</code></pre>
+
+<h3>🔴 挑战：深层嵌套</h3>
+
+<pre><code class="language-javascript">// 6. Deep merge two objects (handle nested objects recursively)
+// deepMerge({a:{b:1,c:2}}, {a:{c:3,d:4}}) → {a:{b:1,c:3,d:4}}
+
+// 7. Safe deep getter using optional chaining
+// getDeepValue(obj, &#x27;a.b.c.d&#x27;) → value or undefined</code></pre>
+
+<p><details></p>
+<p><summary>📋 参考答案</summary></p>
+
+<pre><code class="language-javascript">// 1
+const config = { ...defaults, ...userConfig };
+
+// 2
+const zip = user?.address?.zip ?? &#x27;N/A&#x27;;
+
+// 3
+const clone = { ...obj, b: { ...obj.b } }; // or structuredClone(obj)
+
+// 4
+const { password, ...safeUser } = user;
+
+// 5
+function greet({ name = &#x27;Guest&#x27; } = {}) {
+  return `Hello, ${name}!`;
+}
+
+// 6
+function deepMerge(target, source) {
+  const result = { ...target };
+  for (const key of Object.keys(source)) {
+    if (typeof source[key] === &#x27;object&#x27; &amp;&amp; source[key] !== null &amp;&amp;
+        typeof target[key] === &#x27;object&#x27; &amp;&amp; target[key] !== null) {
+      result[key] = deepMerge(target[key], source[key]);
+    } else {
+      result[key] = source[key];
+    }
+  }
+  return result;
+}
+
+// 7
+const getDeepValue = (obj, path) =&gt; path.split(&#x27;.&#x27;).reduce((o, k) =&gt; o?.[k], obj);</code></pre>
+<p></details></p>
+
+<h2>知识点总结</h2>
+
+<pre><code>对象扩展与可选链
+├── 扩展运算符 (...)
+│   ├── 浅拷贝对象
+│   ├── 合并对象（后者覆盖前者）
+│   ├── 条件属性展开
+│   ├── Rest 解构（排除属性）
+│   └── ⚠️ 嵌套对象仍为引用
+├── 可选链 (?.)
+│   ├── 属性访问 obj?.prop
+│   ├── 动态键 obj?.[expr]
+│   ├── 函数调用 fn?.()
+│   └── 遇到 null/undefined 返回 undefined
+├── 空值合并 (??)
+│   ├── 仅 null/undefined 触发默认值
+│   ├── 区别于 || (0, &#x27;&#x27;, false 也触发)
+│   └── 不能与 || 混用（需括号）
+└── 解构赋值
+    ├── 默认值（仅 undefined 触发）
+    ├── 重命名 { name: userName }
+    ├── 嵌套解构
+    └── 函数参数解构 + 默认值</code></pre>
+
+<h2>举一反三</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>推荐方案</th>
+<th>示例</th>
+</tr></thead><tbody>
+<tr>
+<td>合并配置</td>
+<td>spread</td>
+<td><code>{...defaults, ...user}</code></td>
+</tr>
+<tr>
+<td>安全访问嵌套属性</td>
+<td><code>?.</code></td>
+<td><code>user?.addr?.city</code></td>
+</tr>
+<tr>
+<td>提供默认值</td>
+<td><code>??</code></td>
+<td><code>val ?? default</code></td>
+</tr>
+<tr>
+<td>不可变更新</td>
+<td>spread + nested spread</td>
+<td><code>{...state, user: {...state.user, age: 26}}</code></td>
+</tr>
+<tr>
+<td>排除属性</td>
+<td>rest 解构</td>
+<td><code>const {pwd, ...safe} = user</code></td>
+</tr>
+<tr>
+<td>深拷贝</td>
+<td>structuredClone</td>
+<td><code>structuredClone(obj)</code></td>
+</tr>
+<tr>
+<td>条件属性</td>
+<td>spread + 三元</td>
+<td><code>{...base, ...(cond ? {x:1} : {})}</code></td>
+</tr>
+</tbody></table>
+
+<h2>参考资料</h2>
+
+<ul>
+<li><a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Operators/Spread_syntax">MDN: Spread syntax</a></li>
+<li><a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Operators/Optional_chaining">MDN: Optional chaining</a></li>
+<li><a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Operators/Nullish_coalescing">MDN: Nullish coalescing</a></li>
+<li><a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Operators/Destructuring_assignment">ES6 解构赋值完全指南</a></li>
+
+<h2>代码演进</h2>
+
+<h3>v1 — 手动安全检查</h3>
+<pre><code class="language-javascript">// Verbose: manual null checks everywhere
+function getCity(user) {
+  if (user !== null &amp;&amp; user !== undefined) {
+    if (user.address !== null &amp;&amp; user.address !== undefined) {
+      return user.address.city;
+    }
+  }
+  return &#x27;Unknown&#x27;;
+}</code></pre>
+
+<h3>v2 — 可选链 + 空值合并</h3>
+<pre><code class="language-javascript">// Clean: one-liner
+const getCity = user =&gt; user?.address?.city ?? &#x27;Unknown&#x27;;</code></pre>
+
+<h3>v3 — 不可变状态更新模式</h3>
+<pre><code class="language-javascript">// Immutable update pattern with spread
+function updateUser(state, userId, updates) {
+  return {
+    ...state,
+    users: state.users.map(u =&gt;
+      u.id === userId
+        ? { ...u, ...updates, updatedAt: Date.now() }
+        : u
+    )
+  };
+}</code></pre>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

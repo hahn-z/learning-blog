@@ -1,0 +1,727 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>001 - Koa框架入门：用洋葱模型打造优雅的Node.js应用</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Node.js/index.html">Node.js</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Node.js/02-实战/index.html">Node.js实战</a>
+</nav>
+<h1>001 - Koa框架入门：用洋葱模型打造优雅的Node.js应用</h1>
+<div class="meta">
+<span>📂 Node.js实战</span>
+<span>🏷️ Node.js</span>
+</div>
+<article>
+
+
+<h2>难度标注</h2>
+
+<blockquote><p><strong>难度：</strong> 🟡 中等 | <strong>前置知识：</strong> Node.js基础、HTTP模块、ES6+语法 | <strong>预计耗时：</strong> 2-3小时</p></blockquote>
+
+<hr>
+
+<h2>概念讲解</h2>
+
+<h3>什么是Koa？</h3>
+
+<p>Koa是由Express原班人马打造的下一代Node.js Web框架。它的核心设计理念是<strong>优雅、简洁、富有表现力</strong>。Koa没有绑定任何中间件，而是提供了一套轻量而强大的机制，让你像搭积木一样组装应用。</p>
+
+<h3>为什么选择Koa？</h3>
+
+<table><thead><tr>
+<th>特性</th>
+<th>Express</th>
+<th>Koa</th>
+</tr></thead><tbody>
+<tr>
+<td>中间件模型</td>
+<td>线性（回调）</td>
+<td>洋葱模型（async/await）</td>
+</tr>
+<tr>
+<td>错误处理</td>
+<td>回调瀑布</td>
+<td>try/catch 原生捕获</td>
+</tr>
+<tr>
+<td>体积</td>
+<td>较重（内置路由等）</td>
+<td>极轻（仅核心）</td>
+</tr>
+<tr>
+<td>上下文对象</td>
+<td>req/res 分离</td>
+<td>ctx 统一封装</td>
+</tr>
+<tr>
+<td>异步支持</td>
+<td>回调/Promise</td>
+<td>原生async/await</td>
+</tr>
+</tbody></table>
+
+<h3>洋葱模型</h3>
+
+<p>Koa最核心的概念是<strong>洋葱模型中间件</strong>。请求从外层进入，逐层穿透到核心，响应再从核心逐层返回。</p>
+
+<pre><code>请求 →  [中间件A] → [中间件B] → [中间件C] → 核心
+                                                    ↓
+响应 ← [中间件A] ← [中间件B] ← [中间件C] ← 核心</code></pre>
+
+<p>关键在于 <code>await next()</code> 这一行——它把控制权交给下一个中间件，等下游全部处理完毕后，控制权才返回到当前中间件。</p>
+
+<hr>
+
+<h2>脑图</h2>
+
+<pre><code>Koa框架入门
+├── 核心概念
+│   ├── Application (app)
+│   ├── Context (ctx)
+│   ├── Request (ctx.req / ctx.request)
+│   └── Response (ctx.res / ctx.response)
+├── 中间件机制
+│   ├── app.use() 注册
+│   ├── await next() 流转控制
+│   ├── 洋葱模型执行顺序
+│   └── 错误中间件
+├── 路由
+│   ├── koa-router
+│   ├── RESTful 设计
+│   └── 参数获取 (params / query / body)
+├── 常用中间件
+│   ├── koa-bodyparser (请求体解析)
+│   ├── koa-static (静态文件)
+│   ├── koa-logger (日志)
+│   └── koa-cors (跨域)
+└── 实战应用
+    ├── 项目结构设计
+    ├── 错误处理策略
+    └── 完整API示例</code></pre>
+
+<hr>
+
+<h2>完整代码：Koa RESTful API 服务</h2>
+
+<h3>项目结构</h3>
+
+<pre><code>koa-demo/
+├── app.js            # Application entry
+├── middleware/
+│   ├── error.js      # Error handling middleware
+│   └── logger.js     # Custom logger middleware
+├── routes/
+│   └── users.js      # User routes
+├── package.json
+└── .env</code></pre>
+
+<h3>代码实现</h3>
+
+<pre><code class="language-javascript">// app.js - Main application entry point
+const Koa = require(&#x27;koa&#x27;);
+const Router = require(&#x27;@koa/router&#x27;);
+const bodyParser = require(&#x27;koa-bodyparser&#x27;);
+const cors = require(&#x27;@koa/cors&#x27;);
+
+const app = new Koa();
+const router = new Router();
+
+// Simulated database
+const users = [
+  { id: 1, name: &#x27;Alice&#x27;, email: &#x27;alice@example.com&#x27; },
+  { id: 2, name: &#x27;Bob&#x27;, email: &#x27;bob@example.com&#x27; },
+];
+let nextId = 3;
+
+// ========================================
+// Middleware: Error handling (must be first)
+// ========================================
+app.use(async (ctx, next) =&gt; {
+  try {
+    await next();
+  } catch (err) {
+    ctx.status = err.status || 500;
+    ctx.body = {
+      success: false,
+      message: err.message,
+    };
+    // Emit error event for logging
+    ctx.app.emit(&#x27;error&#x27;, err, ctx);
+  }
+});
+
+// ========================================
+// Middleware: Request logging (onion model demo)
+// ========================================
+app.use(async (ctx, next) =&gt; {
+  const start = Date.now();
+  console.log(`→ ${ctx.method} ${ctx.url}`);
+  
+  await next(); // Pass control to next middleware
+  
+  const duration = Date.now() - start;
+  console.log(`← ${ctx.method} ${ctx.url} ${ctx.status} ${duration}ms`);
+});
+
+// ========================================
+// Middleware: Built-in plugins
+// ========================================
+app.use(cors());
+app.use(bodyParser());
+
+// ========================================
+// Routes: CRUD operations for users
+// ========================================
+
+// GET /users - List all users
+router.get(&#x27;/users&#x27;, (ctx) =&gt; {
+  ctx.body = { success: true, data: users };
+});
+
+// GET /users/:id - Get a single user
+router.get(&#x27;/users/:id&#x27;, (ctx) =&gt; {
+  const id = parseInt(ctx.params.id);
+  const user = users.find(u =&gt; u.id === id);
+  
+  if (!user) {
+    const err = new Error(&#x27;User not found&#x27;);
+    err.status = 404;
+    throw err;
+  }
+  
+  ctx.body = { success: true, data: user };
+});
+
+// POST /users - Create a new user
+router.post(&#x27;/users&#x27;, (ctx) =&gt; {
+  const { name, email } = ctx.request.body;
+  
+  // Validation
+  if (!name || !email) {
+    const err = new Error(&#x27;Name and email are required&#x27;);
+    err.status = 400;
+    throw err;
+  }
+  
+  const user = { id: nextId++, name, email };
+  users.push(user);
+  
+  ctx.status = 201;
+  ctx.body = { success: true, data: user };
+});
+
+// PUT /users/:id - Update a user
+router.put(&#x27;/users/:id&#x27;, (ctx) =&gt; {
+  const id = parseInt(ctx.params.id);
+  const index = users.findIndex(u =&gt; u.id === id);
+  
+  if (index === -1) {
+    const err = new Error(&#x27;User not found&#x27;);
+    err.status = 404;
+    throw err;
+  }
+  
+  const { name, email } = ctx.request.body;
+  users[index] = { ...users[index], name: name || users[index].name, email: email || users[index].email };
+  
+  ctx.body = { success: true, data: users[index] };
+});
+
+// DELETE /users/:id - Delete a user
+router.delete(&#x27;/users/:id&#x27;, (ctx) =&gt; {
+  const id = parseInt(ctx.params.id);
+  const index = users.findIndex(u =&gt; u.id === id);
+  
+  if (index === -1) {
+    const err = new Error(&#x27;User not found&#x27;);
+    err.status = 404;
+    throw err;
+  }
+  
+  users.splice(index, 1);
+  ctx.status = 204;
+});
+
+// Register routes
+app.use(router.routes());
+app.use(router.allowedMethods());
+
+// Global error event listener
+app.on(&#x27;error&#x27;, (err, ctx) =&gt; {
+  console.error(`[ERROR] ${err.status || 500}: ${err.message}`);
+});
+
+// Start server
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () =&gt; {
+  console.log(`🚀 Koa server running on http://localhost:${PORT}`);
+});
+
+module.exports = app;</code></pre>
+
+<h3>package.json</h3>
+
+<pre><code class="language-json">{
+  &quot;name&quot;: &quot;koa-demo&quot;,
+  &quot;version&quot;: &quot;1.0.0&quot;,
+  &quot;scripts&quot;: {
+    &quot;start&quot;: &quot;node app.js&quot;,
+    &quot;dev&quot;: &quot;nodemon app.js&quot;
+  },
+  &quot;dependencies&quot;: {
+    &quot;koa&quot;: &quot;^2.15.0&quot;,
+    &quot;@koa/router&quot;: &quot;^12.0.1&quot;,
+    &quot;koa-bodyparser&quot;: &quot;^4.4.1&quot;,
+    &quot;@koa/cors&quot;: &quot;^5.0.0&quot;
+  },
+  &quot;devDependencies&quot;: {
+    &quot;nodemon&quot;: &quot;^3.0.0&quot;
+  }
+}</code></pre>
+
+<hr>
+
+<h2>执行预览</h2>
+
+<pre><code class="language-bash"># 启动服务
+$ npm start
+🚀 Koa server running on http://localhost:3000
+
+# 创建用户
+$ curl -X POST http://localhost:3000/users \
+  -H &quot;Content-Type: application/json&quot; \
+  -d &#x27;{&quot;name&quot;:&quot;Charlie&quot;,&quot;email&quot;:&quot;charlie@test.com&quot;}&#x27;
+
+# Response
+{
+  &quot;success&quot;: true,
+  &quot;data&quot;: { &quot;id&quot;: 3, &quot;name&quot;: &quot;Charlie&quot;, &quot;email&quot;: &quot;charlie@test.com&quot; }
+}
+
+# 获取用户列表
+$ curl http://localhost:3000/users
+{
+  &quot;success&quot;: true,
+  &quot;data&quot;: [
+    { &quot;id&quot;: 1, &quot;name&quot;: &quot;Alice&quot;, &quot;email&quot;: &quot;alice@example.com&quot; },
+    { &quot;id&quot;: 2, &quot;name&quot;: &quot;Bob&quot;, &quot;email&quot;: &quot;bob@example.com&quot; },
+    { &quot;id&quot;: 3, &quot;name&quot;: &quot;Charlie&quot;, &quot;email&quot;: &quot;charlie@test.com&quot; }
+  ]
+}
+
+# 获取不存在的用户
+$ curl http://localhost:3000/users/999
+{
+  &quot;success&quot;: false,
+  &quot;message&quot;: &quot;User not found&quot;
+}
+
+# 服务端日志（洋葱模型效果）
+→ GET /users
+← GET /users 200 2ms
+→ POST /users
+← POST /users 201 1ms</code></pre>
+
+<hr>
+
+<h2>注意事项</h2>
+
+<table><thead><tr>
+<th>项目</th>
+<th>说明</th>
+<th>建议</th>
+</tr></thead><tbody>
+<tr>
+<td>中间件顺序</td>
+<td>错误处理必须放在最前面</td>
+<td>先注册 error handler，再注册业务中间件</td>
+</tr>
+<tr>
+<td>await next()</td>
+<td>忘记 await 会导致洋葱断裂</td>
+<td>始终使用 <code>await next()</code>，不要省略</td>
+</tr>
+<tr>
+<td>body 解析</td>
+<td>Koa 默认不解析请求体</td>
+<td>必须安装 koa-bodyparser 并在路由前注册</td>
+</tr>
+<tr>
+<td>错误冒泡</td>
+<td>非异步错误不会被 try/catch 捕获</td>
+<td>确保所有中间件使用 async/await</td>
+</tr>
+<tr>
+<td>路由匹配</td>
+<td>allowedMethods() 自动处理 405</td>
+<td>路由注册后务必调用 <code>router.allowedMethods()</code></td>
+</tr>
+<tr>
+<td>ctx.body 赋值</td>
+<td>等价于 ctx.response.body</td>
+<td>读用 ctx.request.body，写用 ctx.body</td>
+</tr>
+<tr>
+<td>静态文件</td>
+<td>Koa 不内置静态文件服务</td>
+<td>需安装 koa-static 中间件</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>避坑指南</h2>
+
+<h3>❌ 忘记 await next()</h3>
+
+<pre><code class="language-javascript">// WRONG: Control flow breaks, downstream middleware skipped
+app.use(async (ctx, next) =&gt; {
+  console.log(&#x27;A&#x27;);
+  next(); // Missing await!
+  console.log(&#x27;B&#x27;); // Executes immediately, not after downstream
+});</code></pre>
+
+<h3>✅ 正确使用 await next()</h3>
+
+<pre><code class="language-javascript">// CORRECT: Proper onion model flow
+app.use(async (ctx, next) =&gt; {
+  console.log(&#x27;A&#x27;);
+  await next(); // Wait for all downstream middleware
+  console.log(&#x27;B&#x27;); // Executes after downstream completes
+});</code></pre>
+
+<h3>❌ 错误处理中间件放在路由后面</h3>
+
+<pre><code class="language-javascript">// WRONG: Route errors won&#x27;t be caught
+app.use(router.routes());
+app.use(async (ctx, next) =&gt; {
+  try { await next(); } catch(e) { /* never reached */ }
+});</code></pre>
+
+<h3>✅ 错误处理中间件放在最前面</h3>
+
+<pre><code class="language-javascript">// CORRECT: Catches all downstream errors
+app.use(async (ctx, next) =&gt; {
+  try { await next(); } catch(e) { ctx.body = { error: e.message }; }
+});
+app.use(router.routes());</code></pre>
+
+<h3>❌ 直接操作 ctx.res</h3>
+
+<pre><code class="language-javascript">// WRONG: Bypasses Koa&#x27;s response handling
+app.use(ctx =&gt; {
+  ctx.res.end(&#x27;hello&#x27;); // Koa middleware may not work correctly
+});</code></pre>
+
+<h3>✅ 使用 ctx.body 设置响应</h3>
+
+<pre><code class="language-javascript">// CORRECT: Koa handles response properly
+app.use(ctx =&gt; {
+  ctx.body = &#x27;hello&#x27;; // Koa manages headers, status, streaming
+});</code></pre>
+
+<hr>
+
+<h2>练习题</h2>
+
+<h3>🟢 基础题</h3>
+
+<ol>
+<li><strong>中间件执行顺序</strong>：以下代码的输出顺序是什么？</li>
+
+<pre><code class="language-javascript">app.use(async (ctx, next) =&gt; { console.log(1); await next(); console.log(2); });
+app.use(async (ctx, next) =&gt; { console.log(3); await next(); console.log(4); });
+app.use(ctx =&gt; { console.log(5); ctx.body = &#x27;done&#x27;; });</code></pre>
+
+<p><details><summary>参考答案</summary>输出顺序：1 → 3 → 5 → 4 → 2（标准洋葱模型）</details></p>
+
+<ol>
+<li><strong>查询参数获取</strong>：如何在 Koa 中获取 <code>GET /search?keyword=koa&page=2</code> 的参数？</li>
+
+<p><details><summary>参考答案</summary><code>ctx.query.keyword</code> 和 <code>ctx.query.page</code>（Koa自动解析query string为对象）</details></p>
+
+<h3>🟡 进阶题</h3>
+
+<ol>
+<li><strong>实现限流中间件</strong>：写一个中间件，限制每个IP每分钟最多60次请求。</li>
+
+<pre><code class="language-javascript">// Hint: Use a Map to track request counts per IP
+const requestCounts = new Map();
+
+app.use(async (ctx, next) =&gt; {
+  const ip = ctx.ip;
+  // Your implementation here
+  await next();
+});</code></pre>
+
+<p><details><summary>参考答案</summary></p>
+
+<pre><code class="language-javascript">const requestCounts = new Map();
+const RATE_LIMIT = 60;
+const WINDOW_MS = 60 * 1000;
+
+app.use(async (ctx, next) =&gt; {
+  const ip = ctx.ip;
+  const now = Date.now();
+  
+  if (!requestCounts.has(ip)) {
+    requestCounts.set(ip, []);
+  }
+  
+  const requests = requestCounts.get(ip);
+  // Clean up old entries
+  const recent = requests.filter(t =&gt; now - t &lt; WINDOW_MS);
+  
+  if (recent.length &gt;= RATE_LIMIT) {
+    ctx.status = 429;
+    ctx.body = { error: &#x27;Too many requests&#x27; };
+    return;
+  }
+  
+  recent.push(now);
+  requestCounts.set(ip, recent);
+  await next();
+});</code></pre>
+
+<p></details></p>
+
+<h3>🔴 挑战题</h3>
+
+<ol>
+<li><strong>实现 JWT 认证中间件</strong>：编写一个中间件，从 Authorization header 提取 JWT token 并验证，将解码后的用户信息挂载到 <code>ctx.state.user</code>。</li>
+
+<p><details><summary>参考答案</summary></p>
+
+<pre><code class="language-javascript">const jwt = require(&#x27;jsonwebtoken&#x27;);
+const SECRET = process.env.JWT_SECRET;
+
+app.use(async (ctx, next) =&gt; {
+  // Skip auth for login/register routes
+  if (ctx.path === &#x27;/login&#x27; || ctx.path === &#x27;/register&#x27;) {
+    return await next();
+  }
+  
+  const auth = ctx.headers.authorization;
+  if (!auth || !auth.startsWith(&#x27;Bearer &#x27;)) {
+    ctx.throw(401, &#x27;No token provided&#x27;);
+  }
+  
+  try {
+    const token = auth.slice(7);
+    ctx.state.user = jwt.verify(token, SECRET);
+    await next();
+  } catch (err) {
+    ctx.throw(401, &#x27;Invalid token&#x27;);
+  }
+});</code></pre>
+
+<p></details></p>
+
+<hr>
+
+<h2>知识点总结</h2>
+
+<pre><code>Koa框架
+├── 核心API
+│   ├── new Koa() → 创建应用实例
+│   ├── app.use(middleware) → 注册中间件
+│   ├── app.listen(port) → 启动服务
+│   └── app.on(&#x27;error&#x27;, handler) → 全局错误监听
+├── Context (ctx)
+│   ├── ctx.request → Koa封装的请求对象
+│   ├── ctx.response → Koa封装的响应对象
+│   ├── ctx.params → 路由参数
+│   ├── ctx.query → 查询字符串
+│   ├── ctx.request.body → 请求体(需bodyparser)
+│   ├── ctx.body → 设置响应体
+│   ├── ctx.status → 设置状态码
+│   ├── ctx.throw(status, msg) → 抛出HTTP错误
+│   └── ctx.state → 跨中间件共享数据
+├── 中间件
+│   ├── async (ctx, next) =&gt; {}
+│   ├── await next() → 传递控制权
+│   └── 洋葱模型 → 请求穿透 + 响应回穿
+└── 路由 (@koa/router)
+    ├── router.get/post/put/delete
+    ├── router.routes() → 注册到app
+    └── router.allowedMethods() → 自动405</code></pre>
+
+<hr>
+
+<h2>举一反三</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>Koa实现方案</th>
+<th>关键中间件/技术</th>
+</tr></thead><tbody>
+<tr>
+<td>文件上传服务</td>
+<td>koa-body + multipart</td>
+<td>koa-body, koa-static</td>
+</tr>
+<tr>
+<td>JWT认证</td>
+<td>自定义auth中间件</td>
+<td>jsonwebtoken, koa-jwt</td>
+</tr>
+<tr>
+<td>日志系统</td>
+<td>自定义logger中间件</td>
+<td>winston, koa-logger</td>
+</tr>
+<tr>
+<td>请求限流</td>
+<td>自定义rate-limit中间件</td>
+<td>Map + 时间窗口</td>
+</tr>
+<tr>
+<td>Cookie/Session</td>
+<td>koa-session</td>
+<td>koa-session, koa-cookie</td>
+</tr>
+<tr>
+<td>模板渲染</td>
+<td>koa-views</td>
+<td>koa-views, ejs/pug</td>
+</tr>
+<tr>
+<td>WebSocket</td>
+<td>koa-websocket</td>
+<td>ws, koa-websocket</td>
+</tr>
+<tr>
+<td>API文档</td>
+<td>swagger集成</td>
+<td>koa2-swagger-ui</td>
+</tr>
+<tr>
+<td>文件流下载</td>
+<td>ctx.body = fs.createReadStream()</td>
+<td>Node.js fs模块</td>
+</tr>
+<tr>
+<td>HTTPS服务</td>
+<td>Node.js https.createServer()</td>
+<td>https, koa.callback()</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>参考资料</h2>
+
+<ul>
+<li><a href="https://koajs.com/">Koa 官方文档</a></li>
+<li><a href="https://github.com/koajs/router">@koa/router GitHub</a></li>
+<li><a href="https://github.com/koajs/koa/blob/master/lib/application.js">Koa 中间件机制源码解析</a></li>
+<li><a href="https://nodejs.org/en/learn">Express vs Koa 对比</a></li>
+
+<hr>
+
+<h2>代码演进</h2>
+
+<h3>v1: 最小Koa应用</h3>
+
+<pre><code class="language-javascript">const Koa = require(&#x27;koa&#x27;);
+const app = new Koa();
+
+app.use(ctx =&gt; {
+  ctx.body = &#x27;Hello Koa!&#x27;;
+});
+
+app.listen(3000);</code></pre>
+
+<h3>v2: 加入中间件和路由</h3>
+
+<pre><code class="language-javascript">const Koa = require(&#x27;koa&#x27;);
+const Router = require(&#x27;@koa/router&#x27;);
+const app = new Koa();
+const router = new Router();
+
+// Logger middleware
+app.use(async (ctx, next) =&gt; {
+  const start = Date.now();
+  await next();
+  console.log(`${ctx.method} ${ctx.url} ${Date.now() - start}ms`);
+});
+
+router.get(&#x27;/&#x27;, ctx =&gt; { ctx.body = &#x27;Home&#x27;; });
+router.get(&#x27;/users&#x27;, ctx =&gt; { ctx.body = []; });
+
+app.use(router.routes());
+app.listen(3000);</code></pre>
+
+<h3>v3: 完整RESTful API（本文最终版）</h3>
+
+<p>在 v2 基础上增加：</p>
+<ul>
+<li>✅ 统一错误处理中间件</li>
+<li>✅ 完整 CRUD 路由</li>
+<li>✅ 请求体解析（koa-bodyparser）</li>
+<li>✅ 跨域支持（@koa/cors）</li>
+<li>✅ 参数校验</li>
+<li>✅ 模拟数据库</li>
+<li>✅ 洋葱模型请求日志</li>
+
+<p>这就是从"Hello World"到生产级Koa应用的完整演进路径。</p>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

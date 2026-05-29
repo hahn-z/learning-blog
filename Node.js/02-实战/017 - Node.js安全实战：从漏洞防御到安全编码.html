@@ -1,0 +1,712 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>017 - Node.js安全实战：从漏洞防御到安全编码</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Node.js/index.html">Node.js</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Node.js/02-实战/index.html">Node.js实战</a>
+</nav>
+<h1>017 - Node.js安全实战：从漏洞防御到安全编码</h1>
+<div class="meta">
+<span>📂 Node.js实战</span>
+<span>🏷️ Node.js</span>
+</div>
+<article>
+
+
+<h1>Node.js安全实战：从漏洞防御到安全编码</h1>
+
+<blockquote><p><strong>难度：</strong> ⭐⭐⭐ 中高级 | <strong>预计阅读：</strong> 18分钟<br><br><strong>前置知识：</strong> Express、HTTP协议基础、JWT认证</p></blockquote>
+
+<hr>
+
+<h2>1. 概念讲解</h2>
+
+<p>Node.js安全不是锦上添花，而是必须项。OWASP Top 10中的大多数漏洞在Node.js应用中都可能出现。</p>
+
+<p><strong>核心安全威胁：</strong></p>
+
+<table><thead><tr>
+<th>威胁</th>
+<th>攻击方式</th>
+<th>危害</th>
+</tr></thead><tbody>
+<tr>
+<td>SQL注入</td>
+<td>恶意SQL拼接到查询</td>
+<td>数据泄露/删除</td>
+</tr>
+<tr>
+<td>XSS</td>
+<td>注入恶意脚本到页面</td>
+<td>窃取Cookie/会话</td>
+</tr>
+<tr>
+<td>CSRF</td>
+<td>伪造用户请求</td>
+<td>未授权操作</td>
+</tr>
+<tr>
+<td>路径遍历</td>
+<td><code>../../../etc/passwd</code></td>
+<td>读取任意文件</td>
+</tr>
+<tr>
+<td>原型污染</td>
+<td><code>__proto__</code>修改</td>
+<td>逻辑绕过/RCE</td>
+</tr>
+<tr>
+<td>依赖漏洞</td>
+<td>第三方包含恶意代码</td>
+<td>供应链攻击</td>
+</tr>
+<tr>
+<td>不安全反序列化</td>
+<td>恶意序列化数据</td>
+<td>远程代码执行</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>2. 脑图</h2>
+
+<pre><code>Node.js 安全
+├── 输入验证
+│   ├── 参数校验 (joi/zod)
+│   ├── SQL参数化查询
+│   ├── XSS过滤
+│   └── 文件上传限制
+├── 认证与授权
+│   ├── JWT最佳实践
+│   ├── Session安全
+│   ├── RBAC权限模型
+│   └── OAuth2.0集成
+├── HTTP安全头
+│   ├── Helmet中间件
+│   ├── CORS配置
+│   ├── CSP策略
+│   └── HTTPS强制
+├── 依赖安全
+│   ├── npm audit
+│   ├── 锁文件
+│   ├── 依赖审计
+│   └── Snyk/Socket
+├── 运行时安全
+│   ├── 原型污染防护
+│   ├── 速率限制
+│   ├── 错误信息脱敏
+│   └── 进程权限
+└── 部署安全
+    ├── 环境变量管理
+    ├── Docker安全
+    ├── 日志脱敏
+    └── 密钥轮转</code></pre>
+
+<hr>
+
+<h2>3. 完整代码</h2>
+
+<h3>3.1 安全中间件配置</h3>
+
+<pre><code class="language-javascript">// security.js - Security middleware and configuration
+const helmet = require(&#x27;helmet&#x27;);
+const rateLimit = require(&#x27;express-rate-limit&#x27;);
+const cors = require(&#x27;cors&#x27;);
+const { body, validationResult } = require(&#x27;express-validator&#x27;);
+const crypto = require(&#x27;crypto&#x27;);
+
+// 1. Helmet - Security HTTP headers
+function setupSecurityHeaders(app) {
+  app.use(helmet({
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: [&quot;&#x27;self&#x27;&quot;],
+        styleSrc: [&quot;&#x27;self&#x27;&quot;, &quot;&#x27;unsafe-inline&#x27;&quot;],
+        scriptSrc: [&quot;&#x27;self&#x27;&quot;],
+        imgSrc: [&quot;&#x27;self&#x27;&quot;, &#x27;data:&#x27;],
+      }
+    },
+    hsts: {
+      maxAge: 31536000,       // 1 year
+      includeSubDomains: true,
+      preload: true
+    }
+  }));
+}
+
+// 2. Rate limiting
+function setupRateLimit(app) {
+  const apiLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,  // 15 minutes
+    max: 100,                   // Limit each IP to 100 requests per window
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { error: &#x27;Too many requests, please try again later&#x27; }
+  });
+  
+  const authLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 5,                     // Stricter for auth endpoints
+    message: { error: &#x27;Too many login attempts&#x27; }
+  });
+  
+  app.use(&#x27;/api/&#x27;, apiLimiter);
+  app.use(&#x27;/api/auth/login&#x27;, authLimiter);
+  app.use(&#x27;/api/auth/register&#x27;, authLimiter);
+}
+
+// 3. CORS configuration
+function setupCors(app) {
+  const corsOptions = {
+    origin: function (origin, callback) {
+      const whitelist = process.env.CORS_ORIGINS?.split(&#x27;,&#x27;) || [&#x27;http://localhost:3000&#x27;];
+      if (!origin || whitelist.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error(&#x27;Not allowed by CORS&#x27;));
+      }
+    },
+    credentials: true,
+    methods: [&#x27;GET&#x27;, &#x27;POST&#x27;, &#x27;PUT&#x27;, &#x27;DELETE&#x27;, &#x27;PATCH&#x27;],
+    allowedHeaders: [&#x27;Content-Type&#x27;, &#x27;Authorization&#x27;],
+    maxAge: 86400  // Preflight cache for 24 hours
+  };
+  app.use(cors(corsOptions));
+}
+
+// 4. Input sanitization middleware
+function sanitizeInput(req, res, next) {
+  // Remove $ and . from keys to prevent NoSQL injection
+  const sanitize = (obj) =&gt; {
+    if (typeof obj !== &#x27;object&#x27; || obj === null) return obj;
+    const clean = Array.isArray(obj) ? [] : {};
+    for (const [key, value] of Object.entries(obj)) {
+      const safeKey = key.replace(/[$.]/g, &#x27;_&#x27;);
+      clean[safeKey] = typeof value === &#x27;object&#x27; ? sanitize(value) : value;
+    }
+    return clean;
+  };
+  
+  req.body = sanitize(req.body);
+  req.query = sanitize(req.query);
+  req.params = sanitize(req.params);
+  next();
+}
+
+module.exports = { setupSecurityHeaders, setupRateLimit, setupCors, sanitizeInput };</code></pre>
+
+<h3>3.2 安全的认证系统</h3>
+
+<pre><code class="language-javascript">// auth.js - Secure authentication implementation
+const jwt = require(&#x27;jsonwebtoken&#x27;);
+const bcrypt = require(&#x27;bcrypt&#x27;);
+const crypto = require(&#x27;crypto&#x27;);
+
+const SALT_ROUNDS = 12;
+const JWT_SECRET = process.env.JWT_SECRET;       // MUST be in env vars
+const JWT_EXPIRES = &#x27;15m&#x27;;                        // Short-lived access token
+const REFRESH_EXPIRES = &#x27;7d&#x27;;
+
+// Hash password with bcrypt
+async function hashPassword(password) {
+  return bcrypt.hash(password, SALT_ROUNDS);
+}
+
+// Verify password
+async function verifyPassword(password, hash) {
+  return bcrypt.compare(password, hash);
+}
+
+// Generate token pair
+function generateTokenPair(userId) {
+  const accessToken = jwt.sign(
+    { userId, type: &#x27;access&#x27; },
+    JWT_SECRET,
+    { 
+      expiresIn: JWT_EXPIRES,
+      jwtid: crypto.randomBytes(16).toString(&#x27;hex&#x27;)  // Unique token ID
+    }
+  );
+  
+  const refreshToken = jwt.sign(
+    { userId, type: &#x27;refresh&#x27; },
+    JWT_SECRET,
+    { expiresIn: REFRESH_EXPIRES }
+  );
+  
+  return { accessToken, refreshToken };
+}
+
+// Auth middleware
+function authenticate(req, res, next) {
+  const authHeader = req.headers.authorization;
+  
+  if (!authHeader?.startsWith(&#x27;Bearer &#x27;)) {
+    return res.status(401).json({ error: &#x27;No token provided&#x27; });
+  }
+  
+  const token = authHeader.split(&#x27; &#x27;)[1];
+  
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET);
+    if (decoded.type !== &#x27;access&#x27;) {
+      return res.status(401).json({ error: &#x27;Invalid token type&#x27; });
+    }
+    req.userId = decoded.userId;
+    next();
+  } catch (err) {
+    if (err.name === &#x27;TokenExpiredError&#x27;) {
+      return res.status(401).json({ error: &#x27;Token expired&#x27; });
+    }
+    return res.status(401).json({ error: &#x27;Invalid token&#x27; });
+  }
+}
+
+module.exports = { hashPassword, verifyPassword, generateTokenPair, authenticate };</code></pre>
+
+<h3>3.3 安全的数据库操作</h3>
+
+<pre><code class="language-javascript">// db-safe.js - Safe database operations preventing SQL injection
+const { Pool } = require(&#x27;pg&#x27;);
+
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: { rejectUnauthorized: true }  // Enforce SSL for production
+});
+
+// SAFE: Parameterized query
+async function findUserByEmail(email) {
+  const result = await pool.query(
+    &#x27;SELECT id, email, password_hash FROM users WHERE email = $1&#x27;,
+    [email]  // Parameters are escaped automatically
+  );
+  return result.rows[0];
+}
+
+// SAFE: Parameterized INSERT
+async function createUser(email, passwordHash, name) {
+  const result = await pool.query(
+    &#x27;INSERT INTO users (email, password_hash, name) VALUES ($1, $2, $3) RETURNING id, email, name&#x27;,
+    [email, passwordHash, name]
+  );
+  return result.rows[0];
+}
+
+// SAFE: Input-validated search
+async function searchUsers(name, limit = 20) {
+  const safeLimit = Math.min(parseInt(limit) || 20, 100);  // Cap at 100
+  const result = await pool.query(
+    &#x27;SELECT id, name, email FROM users WHERE name ILIKE $1 LIMIT $2&#x27;,
+    [`%${name}%`, safeLimit]
+  );
+  return result.rows;
+}
+
+module.exports = { findUserByEmail, createUser, searchUsers };</code></pre>
+
+<h3>3.4 主应用入口</h3>
+
+<pre><code class="language-javascript">// app.js - Main application with all security measures
+const express = require(&#x27;express&#x27;);
+const { setupSecurityHeaders, setupRateLimit, setupCors, sanitizeInput } = require(&#x27;./security&#x27;);
+const { hashPassword, verifyPassword, generateTokenPair, authenticate } = require(&#x27;./auth&#x27;);
+const { findUserByEmail, createUser } = require(&#x27;./db-safe&#x27;);
+const morgan = require(&#x27;morgan&#x27;);
+
+const app = express();
+
+// Security middleware stack (order matters!)
+setupCors(app);
+setupSecurityHeaders(app);
+app.use(sanitizeInput);
+app.use(express.json({ limit: &#x27;1mb&#x27; }));  // Limit body size
+setupRateLimit(app);
+
+// Request logging (exclude sensitive data)
+app.use(morgan(&#x27;:method :url :status :response-time ms&#x27;, {
+  skip: (req) =&gt; req.url === &#x27;/health&#x27;  // Don&#x27;t log health checks
+}));
+
+// Auth routes
+app.post(&#x27;/api/auth/register&#x27;, async (req, res) =&gt; {
+  const { email, password, name } = req.body;
+  
+  // Validate input
+  if (!email || !password || !name) {
+    return res.status(400).json({ error: &#x27;Missing required fields&#x27; });
+  }
+  if (password.length &lt; 8) {
+    return res.status(400).json({ error: &#x27;Password must be at least 8 characters&#x27; });
+  }
+  
+  try {
+    const hash = await hashPassword(password);
+    const user = await createUser(email, hash, name);
+    const tokens = generateTokenPair(user.id);
+    res.status(201).json({ user: { id: user.id, email: user.email }, ...tokens });
+  } catch (err) {
+    // Don&#x27;t expose internal errors
+    res.status(500).json({ error: &#x27;Registration failed&#x27; });
+  }
+});
+
+app.get(&#x27;/api/me&#x27;, authenticate, async (req, res) =&gt; {
+  // req.userId comes from auth middleware
+  res.json({ userId: req.userId });
+});
+
+// Health check (no auth needed)
+app.get(&#x27;/health&#x27;, (req, res) =&gt; res.json({ status: &#x27;ok&#x27; }));
+
+// Global error handler - never expose stack traces in production
+app.use((err, req, res, next) =&gt; {
+  console.error(err.stack);
+  const message = process.env.NODE_ENV === &#x27;production&#x27; 
+    ? &#x27;Internal server error&#x27; 
+    : err.message;
+  res.status(500).json({ error: message });
+});
+
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () =&gt; console.log(`Server running on port ${PORT}`));</code></pre>
+
+<h3>3.5 代码演进</h3>
+
+<p><strong>v1 — 裸奔版（无安全措施）：</strong></p>
+<pre><code class="language-javascript">// UNSAFE - Do NOT use in production
+app.post(&#x27;/login&#x27;, async (req, res) =&gt; {
+  const user = await db.query(`SELECT * FROM users WHERE email = &#x27;${req.body.email}&#x27;`);
+  if (user.password === req.body.password) {
+    res.json({ token: jwt.sign({ id: user.id }, &#x27;secret123&#x27;) });
+  }
+});</code></pre>
+
+<p><strong>v2 — 基础防护（参数化 + bcrypt）：</strong></p>
+<pre><code class="language-javascript">// Better but incomplete
+app.post(&#x27;/login&#x27;, async (req, res) =&gt; {
+  const user = await db.query(&#x27;SELECT * FROM users WHERE email = $1&#x27;, [req.body.email]);
+  if (await bcrypt.compare(req.body.password, user.password_hash)) {
+    res.json(generateTokenPair(user.id));
+  }
+});</code></pre>
+
+<p><strong>v3 — 完整安全（helmet + rate limit + sanitize + JWT pair）：</strong></p>
+<pre><code class="language-javascript">// Full security stack - see app.js above
+// Includes: helmet, CORS, rate limiting, input sanitization,
+// bcrypt hashing, JWT with rotation, parameterized queries, error masking</code></pre>
+
+<hr>
+
+<h2>4. 执行预览</h2>
+
+<pre><code class="language-bash">$ npm install helmet express-rate-limit cors bcrypt jsonwebtoken pg express-validator
+
+$ curl -X POST http://localhost:3000/api/auth/register \
+  -H &quot;Content-Type: application/json&quot; \
+  -d &#x27;{&quot;email&quot;:&quot;test@example.com&quot;,&quot;password&quot;:&quot;secure123&quot;,&quot;name&quot;:&quot;Test&quot;}&#x27;
+{&quot;user&quot;:{&quot;id&quot;:1,&quot;email&quot;:&quot;test@example.com&quot;},&quot;accessToken&quot;:&quot;eyJ...&quot;,&quot;refreshToken&quot;:&quot;eyJ...&quot;}
+
+$ curl http://localhost:3000/api/me -H &quot;Authorization: Bearer eyJ...&quot;
+{&quot;userId&quot;:1}
+
+# Rate limit kicks in:
+$ for i in $(seq 1 110); do curl -s http://localhost:3000/api/me; done
+# After 100 requests: {&quot;error&quot;:&quot;Too many requests, please try again later&quot;}
+
+# SQL injection attempt - safely handled:
+$ curl -X POST http://localhost:3000/api/auth/register \
+  -d &#x27;{&quot;email&quot;:&quot;admin@test.com&#x27; OR 1=1--&quot;,&quot;password&quot;:&quot;x&quot;,&quot;name&quot;:&quot;hack&quot;}&#x27;
+{&quot;error&quot;:&quot;Registration failed&quot;}  # Parameterized query prevents injection</code></pre>
+
+<hr>
+
+<h2>5. 注意事项</h2>
+
+<table><thead><tr>
+<th>安全措施</th>
+<th>实现方式</th>
+<th>优先级</th>
+</tr></thead><tbody>
+<tr>
+<td>HTTPS</td>
+<td>Nginx反向代理 + Let's Encrypt</td>
+<td>🔴 必须</td>
+</tr>
+<tr>
+<td>输入验证</td>
+<td>express-validator / joi</td>
+<td>🔴 必须</td>
+</tr>
+<tr>
+<td>SQL注入防护</td>
+<td>参数化查询（永不拼接SQL）</td>
+<td>🔴 必须</td>
+</tr>
+<tr>
+<td>密码存储</td>
+<td>bcrypt (rounds≥12)</td>
+<td>🔴 必须</td>
+</tr>
+<tr>
+<td>安全头</td>
+<td>helmet中间件</td>
+<td>🔴 必须</td>
+</tr>
+<tr>
+<td>速率限制</td>
+<td>express-rate-limit</td>
+<td>🟡 推荐</td>
+</tr>
+<tr>
+<td>CORS</td>
+<td>白名单origin</td>
+<td>🟡 推荐</td>
+</tr>
+<tr>
+<td>依赖审计</td>
+<td>npm audit + Snyk</td>
+<td>🟡 推荐</td>
+</tr>
+<tr>
+<td>CSP策略</td>
+<td>helmet contentSecurityPolicy</td>
+<td>🟢 加分</td>
+</tr>
+<tr>
+<td>日志脱敏</td>
+<td>自定义morgan filter</td>
+<td>🟢 加分</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>6. 避坑指南</h2>
+
+<table><thead><tr>
+<th>❌ 常见错误</th>
+<th>✅ 正确做法</th>
+</tr></thead><tbody>
+<tr>
+<td>JWT secret硬编码</td>
+<td>用环境变量，且定期轮转</td>
+</tr>
+<tr>
+<td><code>jwt.sign({id}, 'secret')</code></td>
+<td>用强随机密钥 + 短过期时间</td>
+</tr>
+<tr>
+<td>密码明文存储或MD5</td>
+<td>bcrypt/scrypt，rounds≥12</td>
+</tr>
+<tr>
+<td><code>SELECT *</code> + 直接比较密码</td>
+<td>只查需要的字段 + bcrypt.compare</td>
+</tr>
+<tr>
+<td>错误信息返回stack trace</td>
+<td>生产环境返回通用错误</td>
+</tr>
+<tr>
+<td>CORS设为 <code>*</code></td>
+<td>白名单具体域名</td>
+</tr>
+<tr>
+<td>信任客户端数据</td>
+<td>服务端验证一切输入</td>
+</tr>
+<tr>
+<td>不限制请求体大小</td>
+<td><code>express.json({ limit: '1mb' })</code></td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>7. 练习题</h2>
+
+<h3>🟢 基础题</h3>
+<ol>
+<li>给现有Express应用添加helmet和CORS配置</li>
+</ul>
+<ol>
+<li>使用express-validator验证注册接口的输入</li>
+</ul>
+<ol>
+<li>对密码进行bcrypt加密存储，并验证登录</li>
+
+<h3>🟡 进阶题</h3>
+<ol>
+<li>实现JWT access + refresh token双token方案</li>
+</ul>
+<ol>
+<li>配置不同的rate limit：API(100/15min)、登录(5/15min)</li>
+</ul>
+<ol>
+<li>编写SQL注入和XSS的测试用例，验证防护有效</li>
+
+<h3>🔴 挑战题</h3>
+<ol>
+<li>实现完整的RBAC权限系统（角色+权限+中间件）</li>
+</ul>
+<ol>
+<li>搭建依赖安全审计CI流程：npm audit + Snyk + 自动PR</li>
+
+<hr>
+
+<h2>8. 知识点总结</h2>
+
+<pre><code>Node.js 安全体系
+├── 传输层
+│   ├── HTTPS (TLS)
+│   ├── HSTS
+│   └── 安全Cookie
+├── 应用层
+│   ├── 输入验证
+│   ├── 输出编码
+│   ├── 认证授权
+│   └── 会话管理
+├── 数据层
+│   ├── 参数化查询
+│   ├── 加密存储
+│   └── 最小权限
+├── 基础设施
+│   ├── 安全头 (Helmet)
+│   ├── 速率限制
+│   ├── CORS
+│   └── 日志审计
+└── 供应链
+    ├── 依赖审计
+    ├── 锁文件
+    └── 最小依赖</code></pre>
+
+<hr>
+
+<h2>9. 举一反三</h2>
+
+<table><thead><tr>
+<th>攻击场景</th>
+<th>防御方案</th>
+<th>Node.js工具</th>
+</tr></thead><tbody>
+<tr>
+<td>SQL注入</td>
+<td>参数化查询</td>
+<td>pg/mysql2 prepared statements</td>
+</tr>
+<tr>
+<td>XSS</td>
+<td>输出编码 + CSP</td>
+<td>helmet + DOMPurify</td>
+</tr>
+<tr>
+<td>CSRF</td>
+<td>SameSite Cookie + Token</td>
+<td>csurf中间件</td>
+</tr>
+<tr>
+<td>暴力破解</td>
+<td>速率限制 + 账号锁定</td>
+<td>express-rate-limit</td>
+</tr>
+<tr>
+<td>依赖漏洞</td>
+<td>自动审计 + 锁版本</td>
+<td>npm audit + Snyk</td>
+</tr>
+<tr>
+<td>敏感数据泄露</td>
+<td>加密存储 + 日志脱敏</td>
+<td>crypto模块 + 自定义logger</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>10. 参考资料</h2>
+
+<ul>
+<li><a href="https://owasp.org/www-project-top-ten/">OWASP Top 10</a></li>
+<li><a href="https://nodejs.org/en/docs/guides/security/">Node.js Security Best Practices</a></li>
+<li><a href="https://helmetjs.github.io/">Helmet.js文档</a></li>
+<li><a href="https://expressjs.com/en/advanced/best-practice-security.html">Express Security Best Practices</a></li>
+<li><a href="https://snyk.io/learn/nodejs-security/">Snyk - Node.js Security</a></li>
+
+<hr>
+
+<h2>11. 代码演进路线</h2>
+
+<pre><code>v1 (裸奔)              v2 (基础防护)           v3 (完整安全)
+┌──────────────┐       ┌──────────────┐       ┌──────────────────┐
+│ SQL拼接      │  →    │ 参数化查询    │  →    │ 参数化 + sanitize│
+│ 明文密码     │       │ bcrypt       │       │ bcrypt + pepper  │
+│ 无安全头     │       │ helmet       │       │ helmet + CSP     │
+│ JWT硬编码    │       │ env JWT      │       │ JWT轮转 + refresh│
+│ 无限流      │       │ 基础限流      │       │ 分级限流 + IP黑名单│
+└──────────────┘       └──────────────┘       └──────────────────┘</code></pre>
+
+<hr>
+
+<blockquote><p>💡 <strong>一句话总结：</strong> 安全不是功能，是习惯。参数化查询 + bcrypt + helmet + rate limit + 输入验证，这五件事做到位，能挡住90%的常见攻击。</p></blockquote>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

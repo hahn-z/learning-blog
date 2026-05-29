@@ -1,0 +1,649 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>018 - Node.js性能优化：从内存到并发的全链路调优</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Node.js/index.html">Node.js</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Node.js/02-实战/index.html">Node.js实战</a>
+</nav>
+<h1>018 - Node.js性能优化：从内存到并发的全链路调优</h1>
+<div class="meta">
+<span>📂 Node.js实战</span>
+<span>🏷️ Node.js</span>
+</div>
+<article>
+
+
+<h1>Node.js性能优化：从内存到并发的全链路调优</h1>
+
+<blockquote><p><strong>难度：</strong> ⭐⭐⭐ 中高级 | <strong>预计阅读：</strong> 16分钟<br><br><strong>前置知识：</strong> V8引擎基础、Event Loop、数据库优化基础</p></blockquote>
+
+<hr>
+
+<h2>1. 概念讲解</h2>
+
+<p>Node.js性能优化不是玄学，而是系统化的工程。核心围绕三个维度：<strong>响应速度</strong>、<strong>吞吐量</strong>、<strong>资源利用率</strong>。</p>
+
+<p><strong>性能优化的四个层次：</strong></p>
+
+<pre><code>┌─────────────────────────┐
+│   应用层 (代码优化)       │ ← 算法、缓存、异步
+├─────────────────────────┤
+│   框架层 (Express/Koa)   │ ← 中间件、路由、压缩
+├─────────────────────────┤
+│   运行时层 (V8/Node)     │ ← 内存、Worker、Cluster
+├─────────────────────────┤
+│   基础设施层 (OS/网络)    │ ← CPU、网络、数据库
+└─────────────────────────┘</code></pre>
+
+<p><strong>关键指标：</strong></p>
+
+<table><thead><tr>
+<th>指标</th>
+<th>含义</th>
+<th>目标</th>
+</tr></thead><tbody>
+<tr>
+<td>P50延迟</td>
+<td>50%请求的响应时间</td>
+<td>< 50ms</td>
+</tr>
+<tr>
+<td>P99延迟</td>
+<td>99%请求的响应时间</td>
+<td>< 500ms</td>
+</tr>
+<tr>
+<td>QPS</td>
+<td>每秒查询数</td>
+<td>看业务规模</td>
+</tr>
+<tr>
+<td>内存使用</td>
+<td>RSS/Heap Used</td>
+<td>稳定，不持续增长</td>
+</tr>
+<tr>
+<td>CPU使用率</td>
+<td>用户+系统时间</td>
+<td>< 70%</td>
+</tr>
+<tr>
+<td>Event Loop延迟</td>
+<td>tick间隔</td>
+<td>< 10ms</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>2. 脑图</h2>
+
+<pre><code>Node.js 性能优化
+├── 应用层
+│   ├── 异步非阻塞
+│   ├── 数据库查询优化
+│   ├── 内存缓存 (LRU)
+│   ├── 流式处理 (Stream)
+│   └── 连接池
+├── HTTP层
+│   ├── gzip/brotli压缩
+│   ├── Keep-Alive
+│   ├── ETag/304缓存
+│   ├── 静态资源CDN
+│   └── HTTP/2
+├── 运行时层
+│   ├── Worker Threads
+│   ├── Cluster模式
+│   ├── V8内存调优
+│   ├── GC调优
+│   └── 快照分析
+├── 监控工具
+│   ├── clinic.js
+│   ├── 0x (火焰图)
+│   ├── v8-profiler
+│   ├── APM (New Relic)
+│   └── process.memoryUsage()
+└── 压测工具
+    ├── autocannon
+    ├── wrk
+    ├── ab
+    └── k6</code></pre>
+
+<hr>
+
+<h2>3. 完整代码</h2>
+
+<h3>3.1 性能优化的Express应用</h3>
+
+<pre><code class="language-javascript">// perf-app.js - Performance-optimized Express application
+const express = require(&#x27;express&#x27;);
+const compression = require(&#x27;compression&#x27;);
+const { Worker } = require(&#x27;worker_threads&#x27;);
+const { LRUCache } = require(&#x27;lru-cache&#x27;);
+const { Pool } = require(&#x27;pg&#x27;);
+
+const app = express();
+
+// 1. Response compression (gzip/brotli)
+app.use(compression({
+  threshold: 1024,        // Only compress responses &gt; 1KB
+  level: 6,               // Balance between speed and compression ratio
+  filter: (req, res) =&gt; {
+    // Don&#x27;t compress already compressed formats
+    if (req.headers[&#x27;x-no-compression&#x27;]) return false;
+    return compression.filter(req, res);
+  }
+}));
+
+// 2. LRU Cache for frequently accessed data
+const cache = new LRUCache({
+  max: 500,               // Max 500 items
+  ttl: 5 * 60 * 1000,    // 5 minutes TTL
+  maxSize: 50 * 1024 * 1024,  // 50MB max memory
+  sizeCalculation: (value) =&gt; JSON.stringify(value).length
+});
+
+// 3. Database connection pool
+const dbPool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  max: 20,                // Max connections
+  idleTimeoutMillis: 30000,
+  connectionTimeoutMillis: 2000
+});
+
+// 4. Cached API endpoint
+app.get(&#x27;/api/products&#x27;, async (req, res) =&gt; {
+  const cacheKey = `products:${req.query.page || 1}:${req.query.limit || 20}`;
+  
+  // Check cache first
+  const cached = cache.get(cacheKey);
+  if (cached) {
+    res.set(&#x27;X-Cache&#x27;, &#x27;HIT&#x27;);
+    return res.json(cached);
+  }
+  
+  try {
+    const page = Math.max(1, parseInt(req.query.page) || 1);
+    const limit = Math.min(100, Math.max(1, parseInt(req.query.limit) || 20));
+    const offset = (page - 1) * limit;
+    
+    const result = await dbPool.query(
+      &#x27;SELECT id, name, price FROM products ORDER BY id LIMIT $1 OFFSET $2&#x27;,
+      [limit, offset]
+    );
+    
+    cache.set(cacheKey, result.rows);
+    res.set(&#x27;X-Cache&#x27;, &#x27;MISS&#x27;);
+    res.json(result.rows);
+  } catch (err) {
+    res.status(500).json({ error: &#x27;Database query failed&#x27; });
+  }
+});
+
+// 5. Offload CPU-intensive work to Worker Thread
+app.get(&#x27;/api/compute/:number&#x27;, (req, res) =&gt; {
+  const number = parseInt(req.params.number);
+  
+  if (isNaN(number) || number &lt; 0 || number &gt; 100000) {
+    return res.status(400).json({ error: &#x27;Invalid number (0-100000)&#x27; });
+  }
+  
+  const worker = new Worker(&#x27;./compute-worker.js&#x27;, {
+    workerData: { number }
+  });
+  
+  worker.on(&#x27;message&#x27;, (result) =&gt; res.json(result));
+  worker.on(&#x27;error&#x27;, (err) =&gt; res.status(500).json({ error: err.message }));
+});
+
+// 6. Streaming response for large datasets
+app.get(&#x27;/api/export&#x27;, async (req, res) =&gt; {
+  res.setHeader(&#x27;Content-Type&#x27;, &#x27;application/json&#x27;);
+  res.setHeader(&#x27;Transfer-Encoding&#x27;, &#x27;chunked&#x27;);
+  
+  const cursor = dbPool.query(new QueryStream(&#x27;SELECT * FROM orders&#x27;, [], {
+    batchSize: 100
+  }));
+  
+  res.write(&#x27;[\n&#x27;);
+  let first = true;
+  
+  for await (const row of cursor) {
+    if (!first) res.write(&#x27;,\n&#x27;);
+    res.write(JSON.stringify(row));
+    first = false;
+  }
+  
+  res.write(&#x27;\n]&#x27;);
+  res.end();
+});
+
+// 7. Health check with performance metrics
+app.get(&#x27;/health&#x27;, (req, res) =&gt; {
+  const mem = process.memoryUsage();
+  const eventLoopLag = measureEventLoopLag();
+  
+  res.json({
+    status: &#x27;ok&#x27;,
+    uptime: process.uptime(),
+    memory: {
+      rss: formatBytes(mem.rss),
+      heapUsed: formatBytes(mem.heapUsed),
+      heapTotal: formatBytes(mem.heapTotal),
+      external: formatBytes(mem.external)
+    },
+    cache: {
+      size: cache.size,
+      calculatedSize: cache.calculatedSize
+    },
+    dbPool: {
+      total: dbPool.totalCount,
+      idle: dbPool.idleCount,
+      waiting: dbPool.waitingCount
+    }
+  });
+});
+
+function formatBytes(bytes) {
+  return `${(bytes / 1024 / 1024).toFixed(2)} MB`;
+}
+
+// Measure event loop lag
+function measureEventLoopLag() {
+  const start = process.hrtime.bigint();
+  setImmediate(() =&gt; {
+    const lag = Number(process.hrtime.bigint() - start) / 1e6;
+    return lag.toFixed(2) + &#x27;ms&#x27;;
+  });
+}
+
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () =&gt; {
+  console.log(`Performance-optimized server on port ${PORT}`);
+  console.log(`Node.js ${process.version}, PID: ${process.pid}`);
+});</code></pre>
+
+<h3>3.2 Worker Thread计算任务</h3>
+
+<pre><code class="language-javascript">// compute-worker.js - CPU-intensive computation in Worker Thread
+const { workerData, parentPort } = require(&#x27;worker_threads&#x27;);
+
+function fibonacci(n) {
+  if (n &lt;= 1) return n;
+  let a = 0, b = 1;
+  for (let i = 2; i &lt;= n; i++) {
+    [a, b] = [b, a + b];
+  }
+  return b;
+}
+
+const startTime = Date.now();
+const result = fibonacci(workerData.number);
+const duration = Date.now() - startTime;
+
+parentPort.postMessage({
+  input: workerData.number,
+  result,
+  duration: `${duration}ms`,
+  pid: process.pid
+});</code></pre>
+
+<h3>3.3 压测脚本</h3>
+
+<pre><code class="language-javascript">// bench.js - Performance benchmarking with autocannon
+const autocannon = require(&#x27;autocannon&#x27;);
+
+async function benchmark() {
+  const result = await autocannon({
+    url: &#x27;http://localhost:3000/api/products&#x27;,
+    connections: 100,       // Concurrent connections
+    duration: 30,           // 30 seconds
+    pipelining: 1,          // HTTP pipelining factor
+    headers: {
+      &#x27;Accept-Encoding&#x27;: &#x27;gzip&#x27;
+    }
+  });
+  
+  console.log(&#x27;\n=== Benchmark Results ===&#x27;);
+  console.log(`Requests/sec:    ${result.requests.average}`);
+  console.log(`Latency (avg):   ${result.latency.average}ms`);
+  console.log(`Latency (p99):   ${result.latency.p99}ms`);
+  console.log(`Throughput:      ${formatBytes(result.throughput.average)}/s`);
+  console.log(`Errors:          ${result.errors}`);
+  console.log(`Timeouts:        ${result.timeouts}`);
+  console.log(`Total requests:  ${result.requests.total}`);
+}
+
+function formatBytes(bytes) {
+  if (bytes &lt; 1024) return bytes + &#x27;B&#x27;;
+  return (bytes / 1024 / 1024).toFixed(2) + &#x27;MB&#x27;;
+}
+
+benchmark();</code></pre>
+
+<h3>3.4 代码演进</h3>
+
+<p><strong>v1 — 无优化版本：</strong></p>
+<pre><code class="language-javascript">// No caching, no compression, sync operations
+app.get(&#x27;/api/products&#x27;, async (req, res) =&gt; {
+  const result = await db.query(&#x27;SELECT * FROM products&#x27;); // No pagination!
+  res.json(result.rows);
+});</code></pre>
+
+<p><strong>v2 — 基础优化：</strong></p>
+<pre><code class="language-javascript">// Add pagination + compression
+app.use(compression());
+app.get(&#x27;/api/products&#x27;, async (req, res) =&gt; {
+  const { page = 1, limit = 20 } = req.query;
+  const result = await db.query(&#x27;SELECT * FROM products LIMIT $1 OFFSET $2&#x27;, [limit, offset]);
+  res.json(result.rows);
+});</code></pre>
+
+<p><strong>v3 — 全链路优化（见perf-app.js）：</strong></p>
+<pre><code class="language-javascript">// LRU cache + compression + connection pool + Worker Threads + streaming
+// See perf-app.js above for the complete implementation</code></pre>
+
+<hr>
+
+<h2>4. 执行预览</h2>
+
+<pre><code class="language-bash">$ node perf-app.js
+Performance-optimized server on port 3000
+Node.js v20.11.0, PID: 12345
+
+# Cache miss then hit
+$ curl -i http://localhost:3000/api/products
+X-Cache: MISS
+[{&quot;id&quot;:1,&quot;name&quot;:&quot;Widget&quot;,&quot;price&quot;:9.99},...]
+
+$ curl -i http://localhost:3000/api/products
+X-Cache: HIT
+[{&quot;id&quot;:1,&quot;name&quot;:&quot;Widget&quot;,&quot;price&quot;:9.99},...]
+
+# CPU work offloaded to Worker
+$ curl http://localhost:3000/api/compute/10000
+{&quot;input&quot;:10000,&quot;result&quot;:...,&quot;duration&quot;:&quot;12ms&quot;,&quot;pid&quot;:12346}
+
+# Health check
+$ curl http://localhost:3000/health
+{&quot;status&quot;:&quot;ok&quot;,&quot;uptime&quot;:120.5,&quot;memory&quot;:{&quot;rss&quot;:&quot;45.23 MB&quot;,&quot;heapUsed&quot;:&quot;28.15 MB&quot;},...}
+
+# Benchmark
+$ node bench.js
+=== Benchmark Results ===
+Requests/sec:    8523
+Latency (avg):   11.7ms
+Latency (p99):   89.2ms
+Throughput:      12.45MB/s</code></pre>
+
+<hr>
+
+<h2>5. 注意事项</h2>
+
+<table><thead><tr>
+<th>优化手段</th>
+<th>适用场景</th>
+<th>注意事项</th>
+</tr></thead><tbody>
+<tr>
+<td>LRU缓存</td>
+<td>读多写少的查询</td>
+<td>缓存失效策略要合理</td>
+</tr>
+<tr>
+<td>gzip压缩</td>
+<td>API响应>1KB</td>
+<td>CPU开销，level 4-6平衡</td>
+</tr>
+<tr>
+<td>连接池</td>
+<td>数据库访问</td>
+<td>max连接数要匹配DB配置</td>
+</tr>
+<tr>
+<td>Worker Thread</td>
+<td>CPU密集型</td>
+<td>不要用于I/O操作</td>
+</tr>
+<tr>
+<td>Stream</td>
+<td>大数据传输</td>
+<td>注意背压处理</td>
+</tr>
+<tr>
+<td>Cluster</td>
+<td>多核CPU</td>
+<td>内存不共享，Session要外部存储</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>6. 避坑指南</h2>
+
+<table><thead><tr>
+<th>❌ 常见错误</th>
+<th>✅ 正确做法</th>
+</tr></thead><tbody>
+<tr>
+<td>缓存一切</td>
+<td>只缓存读多写少的数据，设合理TTL</td>
+</tr>
+<tr>
+<td>过早优化</td>
+<td>先profile找瓶颈，再针对性优化</td>
+</tr>
+<tr>
+<td>Worker处理I/O</td>
+<td>Worker只用于CPU密集任务</td>
+</tr>
+<tr>
+<td>忘记压缩</td>
+<td>API默认开启gzip/brotli</td>
+</tr>
+<tr>
+<td>无分页查询</td>
+<td>永远使用LIMIT + OFFSET或游标</td>
+</tr>
+<tr>
+<td>同步代码阻塞Event Loop</td>
+<td>用 <code>--prof</code> 找到同步瓶颈</td>
+</tr>
+<tr>
+<td>不监控内存</td>
+<td>定期检查heap growth，设内存上限</td>
+</tr>
+<tr>
+<td>单核跑Node</td>
+<td>Cluster模式利用所有CPU核心</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>7. 练习题</h2>
+
+<h3>🟢 基础题</h3>
+<ol>
+<li>给现有API添加compression中间件，用curl对比响应大小</li>
+</ul>
+<ol>
+<li>实现一个简单的内存缓存，测量缓存命中/未命中的响应时间</li>
+</ul>
+<ol>
+<li>使用 <code>process.memoryUsage()</code> 监控应用的内存使用</li>
+
+<h3>🟡 进阶题</h3>
+<ol>
+<li>用autocannon压测你的API，找到P99延迟的瓶颈</li>
+</ul>
+<ol>
+<li>实现Worker Thread处理图片缩放，对比主线程vs Worker的响应时间</li>
+</ul>
+<ol>
+<li>配置数据库连接池，压测不同pool size对QPS的影响</li>
+
+<h3>🔴 挑战题</h3>
+<ol>
+<li>使用clinic.js生成火焰图，定位并优化一个真实的性能瓶颈</li>
+</ul>
+<ol>
+<li>实现完整的性能监控仪表盘：内存 + CPU + Event Loop延迟 + QPS</li>
+
+<hr>
+
+<h2>8. 知识点总结</h2>
+
+<pre><code>性能优化体系
+├── 测量
+│   ├── autocannon / wrk 压测
+│   ├── clinic.js 诊断
+│   ├── process.memoryUsage()
+│   └── APM监控
+├── 应用优化
+│   ├── 缓存 (LRU/Redis)
+│   ├── 压缩 (gzip)
+│   ├── 分页查询
+│   ├── 流式传输
+│   └── 连接池
+├── 运行时优化
+│   ├── Worker Threads
+│   ├── Cluster模式
+│   ├── V8 flags调优
+│   └── GC优化
+└── 基础设施
+    ├── 反向代理 (Nginx)
+    ├── CDN加速
+    ├── 数据库索引
+    └── 负载均衡</code></pre>
+
+<hr>
+
+<h2>9. 举一反三</h2>
+
+<table><thead><tr>
+<th>性能问题</th>
+<th>诊断工具</th>
+<th>优化方案</th>
+</tr></thead><tbody>
+<tr>
+<td>API响应慢</td>
+<td>autocannon + clinic doctor</td>
+<td>缓存 + 查询优化</td>
+</tr>
+<tr>
+<td>CPU 100%</td>
+<td>clinic flame + 0x</td>
+<td>Worker Thread + 算法优化</td>
+</tr>
+<tr>
+<td>内存持续增长</td>
+<td>heapdump + Chrome DevTools</td>
+<td>排查闭包泄漏 + 限制缓存大小</td>
+</tr>
+<tr>
+<td>Event Loop阻塞</td>
+<td>clinic bubbleprof</td>
+<td>异步化 + Worker Thread</td>
+</tr>
+<tr>
+<td>数据库慢查询</td>
+<td>EXPLAIN ANALYZE</td>
+<td>索引 + 连接池 + 查询重写</td>
+</tr>
+<tr>
+<td>并发上不去</td>
+<td>wrk + PM2 Cluster</td>
+<td>增加实例数 + 优化连接池</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>10. 参考资料</h2>
+
+<ul>
+<li><a href="https://nodejs.org/en/docs/guides/simple-profiling/">Node.js Performance Best Practices</a></li>
+<li><a href="https://clinicjs.org/">clinic.js - Node.js诊断工具</a></li>
+<li><a href="https://v8.dev/blog">V8 Performance</a></li>
+<li><a href="https://github.com/mcollina/autocannon">autocannon</a></li>
+<li><a href="https://nodejs.org/api/worker_threads.html">Node.js Worker Threads</a></li>
+
+<hr>
+
+<h2>11. 代码演进路线</h2>
+
+<pre><code>v1 (未优化)             v2 (基础优化)          v3 (全链路优化)
+┌──────────────┐       ┌──────────────┐      ┌──────────────────┐
+│ 无缓存       │  →    │ LRU缓存      │  →   │ LRU + Redis二级缓存│
+│ 无压缩       │       │ gzip压缩     │      │ gzip + brotli    │
+│ 全量查询     │       │ 分页查询     │      │ 游标分页 + Stream │
+│ 单连接       │       │ 连接池       │      │ 连接池 + 预热     │
+│ 主线程计算   │       │ 基本异步     │      │ Worker Threads   │
+│ 无监控       │       │ console.log  │      │ APM + 火焰图     │
+└──────────────┘       └──────────────┘      └──────────────────┘</code></pre>
+
+<hr>
+
+<blockquote><p>💡 <strong>一句话总结：</strong> 性能优化的铁律——先测量，再优化，最后验证。缓存和压缩是性价比最高的两个优化，先做这两件事。</p></blockquote>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

@@ -1,0 +1,551 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>001 - Go 反射深入原理</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Golang/index.html">Golang</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Golang/04-高级/index.html">Golang高级</a>
+</nav>
+<h1>001 - Go 反射深入原理</h1>
+<div class="meta">
+<span>📂 Golang高级</span>
+<span>🏷️ Golang</span>
+</div>
+<article>
+
+
+<h2>难度标注</h2>
+
+<blockquote><p>🟠 <strong>高级难度</strong> | 需掌握 Go 接口机制、类型系统、unsafe 包基础</p></blockquote>
+
+<hr>
+
+<h2>概念讲解</h2>
+
+<h3>什么是反射（Reflection）？</h3>
+
+<p>反射是程序在<strong>运行时</strong>检查自身结构的能力——变量的类型、值、方法、字段，统统可以在运行时动态获取和操作。Go 的反射由 <code>reflect</code> 包提供，核心围绕两个类型：</p>
+
+<ul>
+<li><code>reflect.Type</code>：类型的元信息（名称、种类、字段、方法……）</li>
+<li><code>reflect.Value</code>：运行时的值（可以读取、设置、调用方法）</li>
+
+<h3>为什么需要反射？</h3>
+
+<table><thead><tr>
+<th>场景</th>
+<th>没有反射</th>
+<th>有反射</th>
+</tr></thead><tbody>
+<tr>
+<td>JSON 序列化</td>
+<td>为每个类型手写 Marshal</td>
+<td>一个 <code>json.Marshal</code> 通吃</td>
+</tr>
+<tr>
+<td>ORM 映射</td>
+<td>为每个 Model 写 CRUD</td>
+<td>结构体 Tag 自动映射字段</td>
+</tr>
+<tr>
+<td>依赖注入</td>
+<td>手动组装</td>
+<td>按类型自动注入</td>
+</tr>
+<tr>
+<td>配置解析</td>
+<td>逐字段赋值</td>
+<td>结构体 Tag 自动填充</td>
+</tr>
+</tbody></table>
+
+<h3>接口到反射的桥梁</h3>
+
+<p>Go 中<strong>每个接口值</strong>内部都是一个二元组 <code>(type, value)</code>。当你把一个变量传给 <code>reflect.ValueOf()</code> 或 <code>reflect.TypeOf()</code> 时，实际上是在做<strong>接口装箱</strong>，然后 reflect 包拆箱拿到内部的 type 和 value。</p>
+
+<pre><code>var x int = 42
+var i interface{} = x        // 装箱：(type=int, value=42)
+v := reflect.ValueOf(i)       // 拆箱：拿到 (Type, Value)</code></pre>
+
+<hr>
+
+<h2>脑图</h2>
+
+<pre><code>                    Go 反射体系
+                        │
+        ┌───────────────┼───────────────┐
+        │               │               │
+   reflect.Type    reflect.Value    反射三定律
+        │               │               │
+   ┌────┴────┐    ┌────┴────┐    ┌─────┴─────┐
+   │         │    │         │    │           │
+ Kind()  Method()  Kind()  MethodByName()  1.接口→反射
+   │         │    │         │    2.反射→接口
+ NumField() Elem()  Set()  Call()  3.修改需指针
+   │               │
+ StructField     Convert()</code></pre>
+
+<hr>
+
+<h2>代码演进</h2>
+
+<h3>v1：基础类型检查</h3>
+
+<pre><code class="language-go">package main
+
+import (
+    &quot;fmt&quot;
+    &quot;reflect&quot;
+)
+
+func describe(v interface{}) {
+    t := reflect.TypeOf(v)
+    val := reflect.ValueOf(v)
+
+    fmt.Printf(&quot;Type:  %s\n&quot;, t.Name())
+    fmt.Printf(&quot;Kind:  %s\n&quot;, t.Kind())
+    fmt.Printf(&quot;Value: %v\n&quot;, val.Interface())
+}
+
+func main() {
+    describe(42)
+    describe(&quot;hello&quot;)
+    describe([]int{1, 2, 3})
+}</code></pre>
+
+<p><strong>执行预览：</strong></p>
+<pre><code>Type:  int
+Kind:  int
+Value: 42
+Type:  string
+Kind:  string
+Value: hello
+Type:  
+Kind:  slice
+Value: [1 2 3]</code></pre>
+
+<h3>v2：结构体字段遍历与方法调用</h3>
+
+<pre><code class="language-go">package main
+
+import (
+    &quot;fmt&quot;
+    &quot;reflect&quot;
+)
+
+// User demonstrates struct reflection
+type User struct {
+    Name string `json:&quot;name&quot; validate:&quot;required&quot;`
+    Age  int    `json:&quot;age&quot; validate:&quot;min=0&quot;`
+    // unexported field — reflect can read but cannot set
+    secret string
+}
+
+// Greet is an exported method for reflection demo
+func (u User) Greet(greeting string) string {
+    return fmt.Sprintf(&quot;%s, I&#x27;m %s (age %d)&quot;, greeting, u.Name, u.Age)
+}
+
+// Birthday is a pointer receiver method
+func (u *User) Birthday() {
+    u.Age++
+}
+
+func inspectStruct(u interface{}) {
+    t := reflect.TypeOf(u)
+    v := reflect.ValueOf(u)
+
+    fmt.Println(&quot;=== Fields ===&quot;)
+    for i := 0; i &lt; t.NumField(); i++ {
+        field := t.Field(i)
+        fieldVal := v.Field(i)
+
+        fmt.Printf(&quot;  %s (%s) = %v  tags=%s  exported=%v\n&quot;,
+            field.Name, field.Type, fieldVal.Interface(),
+            field.Tag, field.PkgPath == &quot;&quot;)
+    }
+
+    fmt.Println(&quot;\n=== Methods ===&quot;)
+    for i := 0; i &lt; t.NumMethod(); i++ {
+        m := t.Method(i)
+        fmt.Printf(&quot;  %s(%v) -&gt; %v\n&quot;, m.Name, m.Type, m.Type.Out(0))
+    }
+}
+
+func callMethod(u interface{}, methodName string, args ...interface{}) {
+    v := reflect.ValueOf(u)
+    m := v.MethodByName(methodName)
+    if !m.IsValid() {
+        fmt.Printf(&quot;method %s not found\n&quot;, methodName)
+        return
+    }
+
+    // Convert args to reflect.Value slice
+    in := make([]reflect.Value, len(args))
+    for i, arg := range args {
+        in[i] = reflect.ValueOf(arg)
+    }
+
+    results := m.Call(in)
+    for _, r := range results {
+        fmt.Println(&quot;Result:&quot;, r.Interface())
+    }
+}
+
+func main() {
+    u := User{Name: &quot;Alice&quot;, Age: 30, secret: &quot;hidden&quot;}
+
+    inspectStruct(u)
+    fmt.Println()
+    callMethod(u, &quot;Greet&quot;, &quot;Hi&quot;)
+}</code></pre>
+
+<p><strong>执行预览：</strong></p>
+<pre><code>=== Fields ===
+  Name (string) = Alice  tags=json:&quot;name&quot; validate:&quot;required&quot;  exported=true
+  Age (int) = 30  tags=json:&quot;age&quot; validate:&quot;min=0&quot;  exported=true
+  secret (string) = hidden  tags=  exported=false
+
+=== Methods ===
+  Greet(func(main.User, string) string) -&gt; string
+
+Result: Hi, I&#x27;m Alice (age 30)</code></pre>
+
+<h3>v3：通用结构体验证器（实战）</h3>
+
+<pre><code class="language-go">package main
+
+import (
+    &quot;fmt&quot;
+    &quot;reflect&quot;
+    &quot;strconv&quot;
+    &quot;strings&quot;
+)
+
+// Validator uses reflect to check struct tags
+type Validator struct{}
+
+// Validate checks fields against &quot;validate&quot; tags
+func (vd *Validator) Validate(s interface{}) []error {
+    v := reflect.ValueOf(s)
+    
+    // Dereference pointer if needed
+    if v.Kind() == reflect.Ptr {
+        v = v.Elem()
+    }
+    if v.Kind() != reflect.Struct {
+        return []error{fmt.Errorf(&quot;Validate expects a struct, got %s&quot;, v.Kind())}
+    }
+
+    t := v.Type()
+    var errs []error
+
+    for i := 0; i &lt; t.NumField(); i++ {
+        field := t.Field(i)
+        fieldVal := v.Field(i)
+
+        tag, ok := field.Tag.Lookup(&quot;validate&quot;)
+        if !ok {
+            continue
+        }
+
+        rules := strings.Split(tag, &quot;,&quot;)
+        for _, rule := range rules {
+            parts := strings.SplitN(rule, &quot;=&quot;, 2)
+            ruleName := parts[0]
+            var ruleVal string
+            if len(parts) == 2 {
+                ruleVal = parts[1]
+            }
+
+            switch ruleName {
+            case &quot;required&quot;:
+                if fieldVal.IsZero() {
+                    errs = append(errs, fmt.Errorf(&quot;field %s is required&quot;, field.Name))
+                }
+            case &quot;min&quot;:
+                min, _ := strconv.Atoi(ruleVal)
+                if fieldVal.Kind() == reflect.Int &amp;&amp; int(fieldVal.Int()) &lt; min {
+                    errs = append(errs, fmt.Errorf(&quot;field %s must be &gt;= %d&quot;, field.Name, min))
+                }
+            case &quot;max&quot;:
+                max, _ := strconv.Atoi(ruleVal)
+                if fieldVal.Kind() == reflect.Int &amp;&amp; int(fieldVal.Int()) &gt; max {
+                    errs = append(errs, fmt.Errorf(&quot;field %s must be &lt;= %d&quot;, field.Name, max))
+                }
+            case &quot;len&quot;:
+                length, _ := strconv.Atoi(ruleVal)
+                if fieldVal.Kind() == reflect.String &amp;&amp; fieldVal.Len() &lt; length {
+                    errs = append(errs, fmt.Errorf(&quot;field %s must be at least %d chars&quot;, field.Name, length))
+                }
+            }
+        }
+    }
+    return errs
+}
+
+// Form is the struct to validate
+type Form struct {
+    Name string `validate:&quot;required,len=2&quot;`
+    Age  int    `validate:&quot;min=0,max=150&quot;`
+    City string `validate:&quot;required&quot;`
+}
+
+func main() {
+    vd := &amp;Validator{}
+
+    // Valid case
+    ok := Form{Name: &quot;Bob&quot;, Age: 25, City: &quot;Shanghai&quot;}
+    if errs := vd.Validate(ok); len(errs) &gt; 0 {
+        for _, e := range errs {
+            fmt.Println(&quot;ERR:&quot;, e)
+        }
+    } else {
+        fmt.Println(&quot;✅ Valid form&quot;)
+    }
+
+    // Invalid case
+    bad := Form{Name: &quot;&quot;, Age: -1, City: &quot;&quot;}
+    for _, e := range vd.Validate(bad) {
+        fmt.Println(&quot;❌&quot;, e)
+    }
+}</code></pre>
+
+<p><strong>执行预览：</strong></p>
+<pre><code>✅ Valid form
+❌ field Name is required
+❌ field Age must be &gt;= 0
+❌ field City is required</code></pre>
+
+<hr>
+
+<h2>注意事项</h2>
+
+<table><thead><tr>
+<th>要点</th>
+<th>说明</th>
+</tr></thead><tbody>
+<tr>
+<td>性能开销</td>
+<td>反射比直接调用慢 10-100 倍，热路径避免使用</td>
+</tr>
+<tr>
+<td>类型安全</td>
+<td>编译器无法检查反射代码，错误只会在运行时暴露</td>
+</tr>
+<tr>
+<td>可导出性</td>
+<td>只有导出字段（大写开头）才能被 <code>Set()</code> 修改</td>
+</tr>
+<tr>
+<td>指针传递</td>
+<td>要修改值，必须传指针 <code>reflect.ValueOf(&x)</code></td>
+</tr>
+<tr>
+<td>代码可读性</td>
+<td>过度使用反射让代码难懂，适度使用</td>
+</tr>
+<tr>
+<td>递归嵌套</td>
+<td>处理嵌套结构体时注意 <code>Kind() == reflect.Ptr</code> 解引用</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>避坑指南</h2>
+
+<table><thead><tr>
+<th>❌ 错误做法</th>
+<th>✅ 正确做法</th>
+</tr></thead><tbody>
+<tr>
+<td><code>reflect.ValueOf(x).SetInt(1)</code> 直接改值</td>
+<td><code>reflect.ValueOf(&x).Elem().SetInt(1)</code> 传指针</td>
+</tr>
+<tr>
+<td>忽略 <code>CanSet()</code> 检查</td>
+<td>设置前先检查 <code>v.CanSet()</code></td>
+</tr>
+<tr>
+<td>用反射做简单类型判断</td>
+<td>用 type switch：<code>switch v := x.(type)</code></td>
+</tr>
+<tr>
+<td>对未导出字段调用 <code>Set()</code></td>
+<td>只操作导出字段，或使用 <code>unsafe</code>（不推荐）</td>
+</tr>
+<tr>
+<td>反射结果不检查 <code>IsValid()</code></td>
+<td>始终检查 <code>IsValid()</code> 和 <code>IsZero()</code></td>
+</tr>
+<tr>
+<td><code>MethodByName</code> 拼写错误无编译提示</td>
+<td>用常量或代码生成替代硬编码方法名</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>练习题</h2>
+
+<h3>🟢 基础</h3>
+<ol>
+<li>写一个函数 <code>PrintType(v interface{})</code>，输出变量的类型名、Kind、零值。</li>
+</ul>
+<ol>
+<li>遍历 <code>time.Time</code> 结构体，打印所有字段名和 Tag。</li>
+
+<h3>🟡 进阶</h3>
+<ol>
+<li>实现一个 <code>DeepCopy(dst, src interface{})</code> 函数，用反射递归拷贝嵌套结构体。</li>
+</ul>
+<ol>
+<li>用反射实现一个简单的 <code>Map(func(interface{}) interface{}, slice)</code> ——对任意 slice 的每个元素应用函数。</li>
+
+<h3>🔴 挑战</h3>
+<ol>
+<li>实现一个 mini ORM：支持 <code>Find(id)</code> / <code>Where(field, val)</code> / <code>Save()</code>，通过结构体 Tag 映射表名和列名。</li>
+</ul>
+<ol>
+<li>用反射 + <code>unsafe</code> 实现对未导出字段的读写，并分析风险。</li>
+
+<hr>
+
+<h2>知识点总结</h2>
+
+<pre><code>Go 反射
+├── 核心类型
+│   ├── reflect.Type   → 类型元信息
+│   └── reflect.Value  → 运行时值
+├── 三大定律
+│   ├── 1. 接口值 → 反射对象
+│   ├── 2. 反射对象 → 接口值
+│   └── 3. 修改反射对象需可设置性（指针）
+├── 常用操作
+│   ├── Kind()         → 底层类型种类
+│   ├── NumField()     → 结构体字段数
+│   ├── Field(i)       → 按索引取字段
+│   ├── MethodByName() → 按名取方法
+│   ├── Call()         → 调用函数/方法
+│   └── Elem()         → 解引用指针/slice/接口
+├── 实战场景
+│   ├── JSON/XML 序列化
+│   ├── ORM 字段映射
+│   ├── 结构体 Tag 解析
+│   ├── 依赖注入
+│   └── 通用验证器
+└── 注意事项
+    ├── 性能差（避免热路径）
+    ├── 无编译时类型安全
+    └── 仅导出字段可 Set</code></pre>
+
+<hr>
+
+<h2>举一反三</h2>
+
+<table><thead><tr>
+<th>技术点</th>
+<th>本文学到</th>
+<th>延伸应用</th>
+</tr></thead><tbody>
+<tr>
+<td>Type / Value</td>
+<td>运行时类型检查</td>
+<td>实现 <code>fmt.Sprintf</code> 的通用格式化</td>
+</tr>
+<tr>
+<td>Struct Tag</td>
+<td>从 Tag 读规则</td>
+<td>Gin 的 <code>binding</code>、YAML 的 <code>yaml</code> Tag</td>
+</tr>
+<tr>
+<td>MethodByName</td>
+<td>动态调用方法</td>
+<td>RPC 框架根据请求路由到方法</td>
+</tr>
+<tr>
+<td>Elem() 解引用</td>
+<td>处理指针值</td>
+<td>泛型库处理 <code>*T</code> 和 <code>T</code> 统一逻辑</td>
+</tr>
+<tr>
+<td>CanSet()</td>
+<td>安全修改值</td>
+<td>配置热更新：反射改结构体字段</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>参考资料</h2>
+
+<ul>
+<li><a href="https://pkg.go.dev/reflect">Go 官方 reflect 包文档</a></li>
+<li><a href="https://go.dev/blog/laws-of-reflection">The Laws of Reflection — Go Blog</a></li>
+<li><a href="https://github.com/stretchr/testify">Go 反射性能分析</a></li>
+<li><a href="https://pkg.go.dev/unsafe">unsafe.Pointer 用法</a></li>
+
+<hr>
+
+<blockquote><p>💡 <strong>一句话总结</strong>：反射是 Go 运行时的"X光机"——能看透一切，但有辐射（性能损耗），别滥用。</p></blockquote>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

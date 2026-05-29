@@ -1,0 +1,623 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>009 - 并发调试与竞态检测</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/learning-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Golang/index.html">Golang</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Golang/02-进阶/index.html">Golang进阶</a>
+</nav>
+<h1>009 - 并发调试与竞态检测</h1>
+<div class="meta">
+<span>📂 Golang进阶</span>
+<span>🏷️ Golang</span>
+</div>
+<article>
+
+
+<h1>039 - 并发调试与竞态检测</h1>
+
+<blockquote><p>难度：⭐⭐⭐⭐（进阶）<br><br>本文深入讲解 Go 并发编程中最隐蔽的敌人——竞态条件（Race Condition），包括原理分析、检测工具使用、常见 bug 模式以及生产环境中的竞态检测策略。</p></blockquote>
+
+<hr>
+
+<h2>一、概念讲解</h2>
+
+<h3>什么是竞态条件？</h3>
+
+<p>竞态条件是指<strong>两个或多个 goroutine 并发访问同一资源，且至少有一个是写操作，且没有同步机制</strong>，导致程序行为取决于 goroutine 的执行顺序。</p>
+
+<pre><code>Goroutine A:  read x (x=0)     write x=x+1 (x=1)
+Goroutine B:       read x (x=0)              write x=x+1 (x=1)
+                                         结果: x=1 (丢失了一次更新!)</code></pre>
+
+<h3>数据竞争 vs 竞态条件</h3>
+
+<table><thead><tr>
+<th>概念</th>
+<th>定义</th>
+<th>Go 工具</th>
+</tr></thead><tbody>
+<tr>
+<td><strong>数据竞争（Data Race）</strong></td>
+<td>对同一内存的并发读写无同步</td>
+<td><code>go run -race</code> 可检测</td>
+</tr>
+<tr>
+<td><strong>竞态条件（Race Condition）</strong></td>
+<td>程序正确性依赖执行顺序</td>
+<td>逻辑层面，工具难检测</td>
+</tr>
+</tbody></table>
+
+<p>数据竞争是竞态条件的子集。有数据竞争 → 一定有竞态条件；有竞态条件 → 不一定有数据竞争。</p>
+
+<h3>Go 的竞态检测器</h3>
+
+<p>Go 内置的竞态检测器基于 <strong>ThreadSanitizer (TSan)</strong> 技术实现：</p>
+<ul>
+<li>编译时插桩（instrumentation）：在每次内存访问前后插入检查代码</li>
+<li>运行时检测：维护一个内存访问历史表，检测无同步的并发访问冲突</li>
+<li>报告冲突：输出详细的调用栈信息</li>
+
+<hr>
+
+<h2>二、脑图（ASCII）</h2>
+
+<pre><code>竞态检测
+├── 原理
+│   ├── 数据竞争 = 并发无同步读写
+│   ├── 竞态条件 = 结果依赖执行顺序
+│   └── ThreadSanitizer (TSan)
+├── 检测工具
+│   ├── go run -race
+│   ├── go test -race
+│   ├── go build -race
+│   └── -race 编译标志
+├── 典型场景
+│   ├── 银行转账（余额错误）
+│   ├── 计数器（丢失更新）
+│   ├── map 并发读写 (fatal error)
+│   └── slice 并发 append
+├── 修复方案
+│   ├── sync.Mutex
+│   ├── sync/atomic
+│   ├── channel 通信
+│   └── sync.RWMutex (读多写少)
+└── 生产环境
+    ├── CI 中 -race
+    ├── 开发期全量 -race
+    └── 生产环境慎用 (5-10x 开销)</code></pre>
+
+<hr>
+
+<h2>三、完整 Go 代码</h2>
+
+<h3>v1：竞态示例（有 bug）</h3>
+
+<pre><code class="language-go">package main
+
+import (
+    &quot;fmt&quot;
+    &quot;sync&quot;
+)
+
+// BUG: concurrent access to shared variable without synchronization
+func main() {
+    var counter int // shared state, NO synchronization
+    var wg sync.WaitGroup
+
+    for i := 0; i &lt; 1000; i++ {
+        wg.Add(1)
+        go func() {
+            defer wg.Done()
+            counter++ // data race! read-modify-write without lock
+        }()
+    }
+    wg.Wait()
+
+    // Expected: 1000, but often less due to data races
+    fmt.Printf(&quot;Counter: %d (expected 1000)\n&quot;, counter)
+}</code></pre>
+
+<p><strong>执行预览（普通运行）：</strong></p>
+
+<pre><code>Counter: 973 (expected 1000)   ← 每次结果不同!</code></pre>
+
+<p><strong>执行预览（<code>go run -race</code>）：</strong></p>
+
+<pre><code>==================
+WARNING: DATA RACE
+Write at 0x00c0000b2008 by goroutine 7:
+  main.main.func1()
+      /race/main.go:16 +0x6e
+
+Previous write at 0x00c0000b2008 by goroutine 6:
+  main.main.func1()
+      /race/main.go:16 +0x6e
+==================
+Counter: 981 (expected 1000)
+Found 1 data race(s)</code></pre>
+
+<h3>v2：三种修复方案 + 银行转账示例</h3>
+
+<pre><code class="language-go">package main
+
+import (
+    &quot;fmt&quot;
+    &quot;sync&quot;
+    &quot;sync/atomic&quot;
+)
+
+// Fix 1: Mutex
+func counterWithMutex() int {
+    var (
+        counter int
+        mu      sync.Mutex
+        wg      sync.WaitGroup
+    )
+    for i := 0; i &lt; 1000; i++ {
+        wg.Add(1)
+        go func() {
+            defer wg.Done()
+            mu.Lock()
+            counter++
+            mu.Unlock()
+        }()
+    }
+    wg.Wait()
+    return counter
+}
+
+// Fix 2: Atomic
+func counterWithAtomic() int32 {
+    var counter int32
+    var wg sync.WaitGroup
+    for i := 0; i &lt; 1000; i++ {
+        wg.Add(1)
+        go func() {
+            defer wg.Done()
+            atomic.AddInt32(&amp;counter, 1)
+        }()
+    }
+    wg.Wait()
+    return counter
+}
+
+// Fix 3: Channel
+func counterWithChannel() int {
+    ch := make(chan int, 1000)
+    for i := 0; i &lt; 1000; i++ {
+        go func() { ch &lt;- 1 }()
+    }
+    counter := 0
+    for i := 0; i &lt; 1000; i++ {
+        counter += &lt;-ch
+    }
+    return counter
+}
+
+// BankAccount demonstrates safe concurrent transfers.
+type BankAccount struct {
+    mu      sync.Mutex
+    balance int
+}
+
+func (a *BankAccount) Deposit(amount int) {
+    a.mu.Lock()
+    defer a.mu.Unlock()
+    a.balance += amount
+}
+
+func (a *BankAccount) Balance() int {
+    a.mu.Lock()
+    defer a.mu.Unlock()
+    return a.balance
+}
+
+func bankTransferDemo() {
+    account := &amp;BankAccount{}
+    var wg sync.WaitGroup
+
+    // 100 goroutines each deposit 10
+    for i := 0; i &lt; 100; i++ {
+        wg.Add(1)
+        go func() {
+            defer wg.Done()
+            account.Deposit(10)
+        }()
+    }
+    wg.Wait()
+    fmt.Printf(&quot;Bank balance: %d (expected 1000)\n&quot;, account.Balance())
+}
+
+func main() {
+    fmt.Printf(&quot;Mutex counter:  %d\n&quot;, counterWithMutex())
+    fmt.Printf(&quot;Atomic counter: %d\n&quot;, counterWithAtomic())
+    fmt.Printf(&quot;Channel counter: %d\n&quot;, counterWithChannel())
+
+    fmt.Println(&quot;\n=== Bank Transfer Demo ===&quot;)
+    bankTransferDemo()
+}</code></pre>
+
+<p><strong>执行预览：</strong></p>
+
+<pre><code>Mutex counter:  1000
+Atomic counter: 1000
+Channel counter: 1000
+
+=== Bank Transfer Demo ===
+Bank balance: 1000 (expected 1000)</code></pre>
+
+<h3>v3：并发 map + slice + 生产级竞态检测</h3>
+
+<pre><code class="language-go">package main
+
+import (
+    &quot;fmt&quot;
+    &quot;sync&quot;
+)
+
+// ConcurrentMap wraps a map with RWMutex for thread-safe access.
+type ConcurrentMap struct {
+    mu sync.RWMutex
+    m  map[string]int
+}
+
+func NewConcurrentMap() *ConcurrentMap {
+    return &amp;ConcurrentMap{m: make(map[string]int)}
+}
+
+func (cm *ConcurrentMap) Set(key string, value int) {
+    cm.mu.Lock()
+    defer cm.mu.Unlock()
+    cm.m[key] = value
+}
+
+func (cm *ConcurrentMap) Get(key string) (int, bool) {
+    cm.mu.RLock()
+    defer cm.mu.RUnlock()
+    v, ok := cm.m[key]
+    return v, ok
+}
+
+// ConcurrentSlice demonstrates thread-safe slice appending.
+type ConcurrentSlice struct {
+    mu sync.Mutex
+    s  []int
+}
+
+func (cs *ConcurrentSlice) Append(v int) {
+    cs.mu.Lock()
+    defer cs.mu.Unlock()
+    cs.s = append(cs.s, v)
+}
+
+func (cs *ConcurrentSlice) Len() int {
+    cs.mu.Lock()
+    defer cs.mu.Unlock()
+    return len(cs.s)
+}
+
+func (cs *ConcurrentSlice) All() []int {
+    cs.mu.Lock()
+    defer cs.mu.Unlock()
+    result := make([]int, len(cs.s))
+    copy(result, cs.s)
+    return result
+}
+
+func main() {
+    // Concurrent map usage
+    cm := NewConcurrentMap()
+    var wg sync.WaitGroup
+
+    for i := 0; i &lt; 100; i++ {
+        wg.Add(1)
+        go func(n int) {
+            defer wg.Done()
+            key := fmt.Sprintf(&quot;key-%d&quot;, n%10)
+            cm.Set(key, n)
+        }(i)
+    }
+    wg.Wait()
+
+    fmt.Println(&quot;=== Concurrent Map ===&quot;)
+    for i := 0; i &lt; 10; i++ {
+        key := fmt.Sprintf(&quot;key-%d&quot;, i)
+        if v, ok := cm.Get(key); ok {
+            fmt.Printf(&quot;  %s = %d\n&quot;, key, v)
+        }
+    }
+
+    // Concurrent slice usage
+    cs := &amp;ConcurrentSlice{}
+    for i := 0; i &lt; 1000; i++ {
+        wg.Add(1)
+        go func(n int) {
+            defer wg.Done()
+            cs.Append(n)
+        }(i)
+    }
+    wg.Wait()
+    fmt.Printf(&quot;\n=== Concurrent Slice ===\n  Length: %d (expected 1000)\n&quot;, cs.Len())
+}</code></pre>
+
+<p><strong>执行预览：</strong></p>
+
+<pre><code>=== Concurrent Map ===
+  key-0 = 90
+  key-1 = 91
+  ...
+
+=== Concurrent Slice ===
+  Length: 1000 (expected 1000)</code></pre>
+
+<hr>
+
+<h2>四、注意事项</h2>
+
+<table><thead><tr>
+<th>项目</th>
+<th>说明</th>
+</tr></thead><tbody>
+<tr>
+<td>-race 开销</td>
+<td>竞态检测会带来 5-10 倍的性能开销和内存增长，生产环境慎用</td>
+</tr>
+<tr>
+<td>map 并发 panic</td>
+<td>Go 的 map 并发读写会直接 panic（不是 data race，是 runtime 检测）</td>
+</tr>
+<tr>
+<td>slice 不是线程安全的</td>
+<td>并发 <code>append</code> 可能导致数据丢失或 panic</td>
+</tr>
+<tr>
+<td>TSan 误报</td>
+<td>极少，但理论上可能。审查报告时关注调用栈</td>
+</tr>
+<tr>
+<td>CI 必须加 -race</td>
+<td>单元测试、集成测试都应加 <code>-race</code> 标志</td>
+</tr>
+<tr>
+<td>atomic 限制</td>
+<td>只支持基本类型，复杂操作用 mutex</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>五、避坑指南</h2>
+
+<table><thead><tr>
+<th>❌ 错误做法</th>
+<th>✅ 正确做法</th>
+</tr></thead><tbody>
+<tr>
+<td><code>go map[key]++</code> 并发写 map</td>
+<td>用 <code>sync.Mutex</code> 或 <code>sync.Map</code></td>
+</tr>
+<tr>
+<td>并发 <code>append</code> slice</td>
+<td>用 mutex 保护或预分配 + atomic index</td>
+</tr>
+<tr>
+<td>以为 <code>fmt.Println</code> 是原子的</td>
+<td><code>fmt.Println</code> 内部有锁但输出交错仍可能发生</td>
+</tr>
+<tr>
+<td>只在开发环境测竞态</td>
+<td>CI pipeline 中 <code>go test -race ./...</code> 必须通过</td>
+</tr>
+<tr>
+<td>认为 <code>-race</code> 能检测所有并发 bug</td>
+<td>只能检测数据竞争，逻辑层面的竞态条件需代码审查</td>
+</tr>
+<tr>
+<td><code>defer mu.Unlock()</code> 在循环内</td>
+<td><code>defer</code> 函数退出才执行，循环中应手动 <code>Unlock</code></td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>六、练习题</h2>
+
+<h3>🟢 入门：修复竞态计数器</h3>
+<p>以下代码有数据竞争，请用 <code>sync.Mutex</code> 修复：</p>
+
+<pre><code class="language-go">var count int
+var wg sync.WaitGroup
+for i := 0; i &lt; 500; i++ {
+    wg.Add(1)
+    go func() { defer wg.Done(); count++ }()
+}
+wg.Wait()</code></pre>
+
+<h3>🟡 中级：并发安全缓存</h3>
+<p>实现一个并发安全的 LRU Cache（简化版：支持 Get/Set，容量固定，淘汰最久未用）。用 <code>sync.Mutex</code> 保护。</p>
+
+<h3>🔴 高级：死锁检测</h3>
+<p>实现两个账户互相转账：A→B 和 B→A 并发。如果不按固定顺序加锁，会死锁。请实现安全版本并编写 <code>-race</code> 测试。</p>
+
+<hr>
+
+<h2>七、知识点总结（树状）</h2>
+
+<pre><code>竞态检测
+├── 概念
+│   ├── 数据竞争 (Data Race)
+│   │   ├── 并发读写同一内存
+│   │   └── -race 可检测
+│   └── 竞态条件 (Race Condition)
+│       ├── 结果依赖执行顺序
+│       └── 需代码审查
+├── 检测工具
+│   ├── go run -race
+│   ├── go test -race
+│   └── go build -race
+├── 常见模式
+│   ├── 计数器 (丢失更新)
+│   ├── map (panic)
+│   ├── slice (数据丢失)
+│   └── check-then-act (逻辑竞态)
+├── 修复手段
+│   ├── sync.Mutex / RWMutex
+│   ├── sync/atomic
+│   ├── channel
+│   └── sync.Map
+└── 生产实践
+    ├── CI 全量 -race
+    ├── 开发期 -race
+    └── 生产慎用 (性能开销)</code></pre>
+
+<hr>
+
+<h2>八、举一反三</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>竞态类型</th>
+<th>修复方案</th>
+</tr></thead><tbody>
+<tr>
+<td>HTTP handler 中的计数器</td>
+<td>数据竞争</td>
+<td><code>atomic.AddInt64</code></td>
+</tr>
+<tr>
+<td>并发读写配置</td>
+<td>数据竞争</td>
+<td><code>sync.RWMutex</code></td>
+</tr>
+<tr>
+<td>并发写日志文件</td>
+<td>数据竞争</td>
+<td>channel 序列化或 mutex</td>
+</tr>
+<tr>
+<td>单例初始化</td>
+<td>check-then-act</td>
+<td><code>sync.Once</code></td>
+</tr>
+<tr>
+<td>转账操作</td>
+<td>逻辑竞态</td>
+<td>固定锁顺序</td>
+</tr>
+<tr>
+<td>并发缓存</td>
+<td>数据竞争</td>
+<td><code>sync.Map</code> 或 mutex 保护 map</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>九、参考资料</h2>
+
+<ol>
+<li><a href="https://go.dev/doc/articles/race_detector">Go Race Detector 官方文档</a></li>
+</ul>
+<ol>
+<li><a href="https://research.google/pubs/pub35604/">ThreadSanitizer 原理论文</a></li>
+</ul>
+<ol>
+<li><a href="https://go.dev/ref/mem">Go 内存模型</a></li>
+</ul>
+<ol>
+<li>《Concurrency in Go》— Katherine Cox-Buday</li>
+</ul>
+<ol>
+<li><a href="https://go.dev/wiki/RaceDetector">Go Wiki: Race Detector</a></li>
+
+<hr>
+
+<h2>十、代码演进</h2>
+
+<table><thead><tr>
+<th>版本</th>
+<th>特点</th>
+<th>适用场景</th>
+</tr></thead><tbody>
+<tr>
+<td>v1</td>
+<td>竞态 bug 演示</td>
+<td>理解问题</td>
+</tr>
+<tr>
+<td>v2</td>
+<td>三种修复 + 银行转账</td>
+<td>学习修复手段</td>
+</tr>
+<tr>
+<td>v3</td>
+<td>ConcurrentMap/Slice 封装</td>
+<td>生产级并发安全结构</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<p>_竞态是并发编程的幽灵，-race 是你的驱魔器。_ 👻</p>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

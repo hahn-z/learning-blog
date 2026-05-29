@@ -1,0 +1,678 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>023 - Go Swagger API 文档生成：从注解到交互式文档的完整指南</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Golang/index.html">Golang</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Golang/03-实战/index.html">Golang实战</a>
+</nav>
+<h1>023 - Go Swagger API 文档生成：从注解到交互式文档的完整指南</h1>
+<div class="meta">
+<span>📂 Golang实战</span>
+<span>🏷️ Golang</span>
+</div>
+<article>
+
+
+<h1>Swagger API 文档生成</h1>
+
+<blockquote><p><strong>难度标注</strong>：⭐⭐⭐（中级）<br><strong>预计阅读时间</strong>：20 分钟<br><strong>适用版本</strong>：Go 1.21+ / swag v1.16+</p></blockquote>
+
+<h2>一、概念讲解</h2>
+
+<h3>什么是 Swagger？</h3>
+
+<p>Swagger（现已更名为 OpenAPI）是一种 <strong>API 描述规范</strong>，用来定义 RESTful API 的接口文档。它能做到：</p>
+
+<ol>
+<li><strong>自动生成文档</strong> — 从代码注释自动生成美观的 API 文档页面</li>
+</ul>
+<ol>
+<li><strong>交互式测试</strong> — 直接在文档页面发送请求测试 API</li>
+</ul>
+<ol>
+<li><strong>前后端协作</strong> — 前端根据文档开发，无需等后端完成</li>
+</ul>
+<ol>
+<li><strong>标准化</strong> — 统一的 API 描述格式，团队协作更顺畅</li>
+
+<h3>Go 生态的 Swagger 方案</h3>
+
+<table><thead><tr>
+<th>工具</th>
+<th>特点</th>
+<th>推荐度</th>
+</tr></thead><tbody>
+<tr>
+<td><strong>swaggo/swag</strong></td>
+<td>注解驱动，自动生成，Gin/Echo/Fiber 都支持</td>
+<td>⭐⭐⭐⭐⭐</td>
+</tr>
+<tr>
+<td><strong>go-swagger</strong></td>
+<td>功能强大但配置复杂</td>
+<td>⭐⭐⭐</td>
+</tr>
+<tr>
+<td><strong>protoc-gen-openapi</strong></td>
+<td>gRPC/Protobuf 项目适用</td>
+<td>⭐⭐⭐⭐</td>
+</tr>
+</tbody></table>
+
+<p><strong>本文选择 swaggo/swag，最主流最好用。</strong></p>
+
+<h3>核心工作流程</h3>
+
+<pre><code>代码注释 → swag init → docs/ 目录 → Swagger UI 展示</code></pre>
+
+<h2>二、脑图（ASCII）</h2>
+
+<pre><code>Swagger API 文档
+├── 核心概念
+│   ├── OpenAPI 规范
+│   ├── Swagger UI (可视化)
+│   └── 注解驱动 (Annotations)
+├── swaggo/swag
+│   ├── 安装 (swag init)
+│   ├── 主注解
+│   │   ├── @title
+│   │   ├── @version
+│   │   ├── @description
+│   │   ├── @host
+│   │   ├── @BasePath
+│   │   └── @securityDefinitions
+│   └── API 注解
+│       ├── @Summary
+│       ├── @Description
+│       ├── @Param
+│       ├── @Success
+│       ├── @Failure
+│       ├── @Router
+│       └── @Tags
+├── 数据模型
+│   ├── 结构体 tag
+│   ├── @Accept / @Produce
+│   └── 嵌套模型
+├── 集成框架
+│   ├── Gin (gin-swagger)
+│   ├── Echo
+│   └── net/http
+└── 最佳实践
+    ├── 文档即代码
+    ├── CI 生成检查
+    └── 版本管理</code></pre>
+
+<h2>三、完整实战代码</h2>
+
+<h3>3.1 项目初始化</h3>
+
+<pre><code class="language-bash">mkdir swagger-demo &amp;&amp; cd swagger-demo
+go mod init swagger-demo
+
+# 安装依赖
+go get -u github.com/gin-gonic/gin
+go get -u github.com/swaggo/swag/cmd/swag
+go get -u github.com/swaggo/gin-swagger
+go get -u github.com/swaggo/files
+
+# 安装 swag CLI
+go install github.com/swaggo/swag/cmd/swag@latest</code></pre>
+
+<h3>3.2 数据模型（model/user.go）</h3>
+
+<pre><code class="language-go">package model
+
+import &quot;time&quot;
+
+// User represents a user in the system
+type User struct {
+	ID        uint      `json:&quot;id&quot; example:&quot;1&quot;`
+	Username  string    `json:&quot;username&quot; example:&quot;zhangsan&quot;`
+	Email     string    `json:&quot;email&quot; example:&quot;zhangsan@example.com&quot;`
+	Age       int       `json:&quot;age&quot; example:&quot;25&quot;`
+	CreatedAt time.Time `json:&quot;created_at&quot; example:&quot;2024-01-15T10:30:00Z&quot;`
+	UpdatedAt time.Time `json:&quot;updated_at&quot; example:&quot;2024-01-15T10:30:00Z&quot;`
+}
+
+// CreateUserRequest is the request body for creating a user
+type CreateUserRequest struct {
+	Username string `json:&quot;username&quot; binding:&quot;required&quot; example:&quot;zhangsan&quot;`
+	Email    string `json:&quot;email&quot; binding:&quot;required,email&quot; example:&quot;zhangsan@example.com&quot;`
+	Age      int    `json:&quot;age&quot; binding:&quot;gte=0,lte=150&quot; example:&quot;25&quot;`
+}
+
+// UpdateUserRequest is the request body for updating a user
+type UpdateUserRequest struct {
+	Username string `json:&quot;username&quot; example:&quot;zhangsan&quot;`
+	Email    string `json:&quot;email&quot; example:&quot;zhangsan@example.com&quot;`
+	Age      int    `json:&quot;age&quot; example:&quot;25&quot;`
+}
+
+// APIResponse is a generic API response wrapper
+type APIResponse struct {
+	Code    int         `json:&quot;code&quot; example:&quot;200&quot;`
+	Message string      `json:&quot;message&quot; example:&quot;success&quot;`
+	Data    interface{} `json:&quot;data&quot;`
+}
+
+// ErrorResponse represents an error response
+type ErrorResponse struct {
+	Code    int    `json:&quot;code&quot; example:&quot;400&quot;`
+	Message string `json:&quot;message&quot; example:&quot;bad request&quot;`
+}</code></pre>
+
+<h3>3.3 API 路由与注解（main.go）</h3>
+
+<pre><code class="language-go">package main
+
+import (
+	&quot;net/http&quot;
+	&quot;strconv&quot;
+	&quot;strings&quot;
+	&quot;swagger-demo/model&quot;
+
+	&quot;github.com/gin-gonic/gin&quot;
+	_ &quot;swagger-demo/docs&quot;      // Import generated docs
+	swaggerFiles &quot;github.com/swaggo/files&quot;
+	ginSwagger &quot;github.com/swaggo/gin-swagger&quot;
+)
+
+// @title           User Management API
+// @version         1.0
+// @description     A comprehensive user management REST API built with Go and Gin.
+// @termsOfService  http://swagger.io/terms/
+
+// @contact.name   API Support
+// @contact.url    http://www.swagger.io/support
+// @contact.email  support@swagger.io
+
+// @license.name  Apache 2.0
+// @license.url   http://www.apache.org/licenses/LICENSE-2.0.html
+
+// @host      localhost:8080
+// @BasePath  /api/v1
+// @schemes   http https
+
+// @securityDefinitions.apikey BearerAuth
+// @in header
+// @name Authorization
+
+// @externalDocs.description  OpenAPI
+// @externalDocs.url          https://swagger.io/resources/open-api/
+func main() {
+	r := gin.Default()
+
+	// Swagger documentation endpoint
+	r.GET(&quot;/swagger/*any&quot;, ginSwagger.WrapHandler(swaggerFiles.Handler))
+
+	// API v1 routes
+	v1 := r.Group(&quot;/api/v1&quot;)
+	{
+		users := v1.Group(&quot;/users&quot;)
+		{
+			users.GET(&quot;&quot;, listUsers)
+			users.GET(&quot;/:id&quot;, getUser)
+			users.POST(&quot;&quot;, createUser)
+			users.PUT(&quot;/:id&quot;, updateUser)
+			users.DELETE(&quot;/:id&quot;, deleteUser)
+		}
+	}
+
+	r.Run(&quot;:8080&quot;)
+}
+
+// listUsers godoc
+// @Summary      List all users
+// @Description  Get a paginated list of users with optional filtering
+// @Tags         users
+// @Accept       json
+// @Produce      json
+// @Param        page      query    int     false  &quot;Page number&quot;       default(1)
+// @Param        pageSize  query    int     false  &quot;Page size&quot;         default(10)
+// @Param        keyword   query    string  false  &quot;Search keyword&quot;
+// @Success      200       {object} model.APIResponse
+// @Failure      500       {object} model.ErrorResponse
+// @Router       /users [get]
+func listUsers(c *gin.Context) {
+	// Mock data for demonstration
+	users := []model.User{
+		{ID: 1, Username: &quot;zhangsan&quot;, Email: &quot;zhangsan@example.com&quot;, Age: 25},
+		{ID: 2, Username: &quot;lisi&quot;, Email: &quot;lisi@example.com&quot;, Age: 30},
+		{ID: 3, Username: &quot;wangwu&quot;, Email: &quot;wangwu@example.com&quot;, Age: 28},
+	}
+
+	keyword := c.Query(&quot;keyword&quot;)
+	if keyword != &quot;&quot; {
+		var filtered []model.User
+		for _, u := range users {
+			if strings.Contains(u.Username, keyword) || strings.Contains(u.Email, keyword) {
+				filtered = append(filtered, u)
+			}
+		}
+		users = filtered
+	}
+
+	c.JSON(http.StatusOK, model.APIResponse{
+		Code:    200,
+		Message: &quot;success&quot;,
+		Data:    users,
+	})
+}
+
+// getUser godoc
+// @Summary      Get a user by ID
+// @Description  Retrieve detailed information of a specific user
+// @Tags         users
+// @Accept       json
+// @Produce      json
+// @Param        id   path      int  true  &quot;User ID&quot;
+// @Success      200  {object}  model.APIResponse
+// @Failure      404  {object}  model.ErrorResponse
+// @Router       /users/{id} [get]
+func getUser(c *gin.Context) {
+	id, err := strconv.Atoi(c.Param(&quot;id&quot;))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, model.ErrorResponse{Code: 400, Message: &quot;invalid user ID&quot;})
+		return
+	}
+
+	// Mock: only user 1 exists
+	if id != 1 {
+		c.JSON(http.StatusNotFound, model.ErrorResponse{Code: 404, Message: &quot;user not found&quot;})
+		return
+	}
+
+	user := model.User{ID: 1, Username: &quot;zhangsan&quot;, Email: &quot;zhangsan@example.com&quot;, Age: 25}
+	c.JSON(http.StatusOK, model.APIResponse{Code: 200, Message: &quot;success&quot;, Data: user})
+}
+
+// createUser godoc
+// @Summary      Create a new user
+// @Description  Create a new user with the provided information
+// @Tags         users
+// @Accept       json
+// @Produce      json
+// @Param        body  body      model.CreateUserRequest  true  &quot;User creation data&quot;
+// @Success      201   {object}  model.APIResponse
+// @Failure      400   {object}  model.ErrorResponse
+// @Failure      500   {object}  model.ErrorResponse
+// @Security     BearerAuth
+// @Router       /users [post]
+func createUser(c *gin.Context) {
+	var req model.CreateUserRequest
+	if err := c.ShouldBindJSON(&amp;req); err != nil {
+		c.JSON(http.StatusBadRequest, model.ErrorResponse{Code: 400, Message: err.Error()})
+		return
+	}
+
+	user := model.User{
+		ID:       100,
+		Username: req.Username,
+		Email:    req.Email,
+		Age:      req.Age,
+	}
+
+	c.JSON(http.StatusCreated, model.APIResponse{Code: 201, Message: &quot;created&quot;, Data: user})
+}
+
+// updateUser godoc
+// @Summary      Update a user
+// @Description  Update an existing user&#x27;s information
+// @Tags         users
+// @Accept       json
+// @Produce      json
+// @Param        id    path      int                      true  &quot;User ID&quot;
+// @Param        body  body      model.UpdateUserRequest  true  &quot;User update data&quot;
+// @Success      200   {object}  model.APIResponse
+// @Failure      400   {object}  model.ErrorResponse
+// @Failure      404   {object}  model.ErrorResponse
+// @Security     BearerAuth
+// @Router       /users/{id} [put]
+func updateUser(c *gin.Context) {
+	id, err := strconv.Atoi(c.Param(&quot;id&quot;))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, model.ErrorResponse{Code: 400, Message: &quot;invalid user ID&quot;})
+		return
+	}
+
+	var req model.UpdateUserRequest
+	if err := c.ShouldBindJSON(&amp;req); err != nil {
+		c.JSON(http.StatusBadRequest, model.ErrorResponse{Code: 400, Message: err.Error()})
+		return
+	}
+
+	user := model.User{ID: uint(id), Username: req.Username, Email: req.Email, Age: req.Age}
+	c.JSON(http.StatusOK, model.APIResponse{Code: 200, Message: &quot;updated&quot;, Data: user})
+}
+
+// deleteUser godoc
+// @Summary      Delete a user
+// @Description  Delete a user by ID
+// @Tags         users
+// @Accept       json
+// @Produce      json
+// @Param        id   path      int  true  &quot;User ID&quot;
+// @Success      200  {object}  model.APIResponse
+// @Failure      404  {object}  model.ErrorResponse
+// @Security     BearerAuth
+// @Router       /users/{id} [delete]
+func deleteUser(c *gin.Context) {
+	id, err := strconv.Atoi(c.Param(&quot;id&quot;))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, model.ErrorResponse{Code: 400, Message: &quot;invalid user ID&quot;})
+		return
+	}
+
+	c.JSON(http.StatusOK, model.APIResponse{
+		Code:    200,
+		Message: &quot;deleted&quot;,
+		Data:    map[string]int{&quot;deleted_id&quot;: id},
+	})
+}</code></pre>
+
+<h3>3.4 生成文档并运行</h3>
+
+<pre><code class="language-bash"># 生成 Swagger 文档
+swag init -g main.go -o ./docs
+
+# 运行项目
+go run main.go
+
+# 访问 Swagger UI
+# 浏览器打开 http://localhost:8080/swagger/index.html</code></pre>
+
+<h2>四、执行预览</h2>
+
+<pre><code class="language-bash">$ swag init -g main.go -o ./docs
+2024/01/15 10:30:00 Generate swagger docs....
+2024/01/15 10:30:00 Generate general API Info
+2024/01/15 10:30:00 Generating model.CreateUserRequest
+2024/01/15 10:30:00 Generating model.UpdateUserRequest
+2024/01/15 10:30:00 Generating model.User
+2024/01/15 10:30:00 Creating docs.go successfully</code></pre>
+
+<pre><code># 浏览器访问 http://localhost:8080/swagger/index.html
+# 可以看到：
+# - API 列表按 Tags 分组
+# - 每个接口可展开查看参数、返回值
+# - &quot;Try it out&quot; 按钮可直接测试 API
+# - Models 区域展示数据结构</code></pre>
+
+<pre><code class="language-bash"># 测试 API
+$ curl http://localhost:8080/api/v1/users
+{&quot;code&quot;:200,&quot;message&quot;:&quot;success&quot;,&quot;data&quot;:[...]}
+
+$ curl -X POST http://localhost:8080/api/v1/users \
+  -H &quot;Content-Type: application/json&quot; \
+  -d &#x27;{&quot;username&quot;:&quot;newuser&quot;,&quot;email&quot;:&quot;new@test.com&quot;,&quot;age&quot;:22}&#x27;
+{&quot;code&quot;:201,&quot;message&quot;:&quot;created&quot;,&quot;data&quot;:{...}}</code></pre>
+
+<h2>五、注意事项</h2>
+
+<table><thead><tr>
+<th>注意点</th>
+<th>说明</th>
+</tr></thead><tbody>
+<tr>
+<td>docs 导入</td>
+<td>必须 <code>_ import "your-module/docs"</code>，否则 Swagger UI 空白</td>
+</tr>
+<tr>
+<td>重新生成</td>
+<td>每次修改注解后需运行 <code>swag init</code> 重新生成</td>
+</tr>
+<tr>
+<td>路由匹配</td>
+<td><code>@Router</code> 路径要与实际路由完全匹配</td>
+</tr>
+<tr>
+<td>模型注册</td>
+<td>使用到的 struct 要在某个注解中被引用才会出现在 Models</td>
+</tr>
+<tr>
+<td>中文支持</td>
+<td><code>swag init --parseDependency</code> 可处理依赖中的类型</td>
+</tr>
+<tr>
+<td>CI 集成</td>
+<td>建议在 CI 中加入 <code>swag fmt</code> + <code>swag init</code> 检查注解格式</td>
+</tr>
+<tr>
+<td>多文件项目</td>
+<td><code>swag init -g cmd/main.go</code> 指定入口文件，<code>--parseDependency</code> 解析依赖</td>
+</tr>
+</tbody></table>
+
+<h2>六、避坑指南</h2>
+
+<table><thead><tr>
+<th>❌ 常见错误</th>
+<th>✅ 正确做法</th>
+</tr></thead><tbody>
+<tr>
+<td>Swagger UI 空白页面</td>
+<td>检查是否 <code>_ import "module/docs"</code> 且运行了 <code>swag init</code></td>
+</tr>
+<tr>
+<td>Model 不显示</td>
+<td>确保 struct 在注解中被引用（如 <code>@Success 200 {object} model.User</code>）</td>
+</tr>
+<tr>
+<td><code>@Router</code> 路径不匹配</td>
+<td>确保注解路径和 Gin 路由注册路径一致，注意 <code>{id}</code> vs <code>:id</code></td>
+</tr>
+<tr>
+<td>参数不显示</td>
+<td>检查 <code>@Param</code> 格式：<code>名称 位置 类型 必填 描述</code></td>
+</tr>
+<tr>
+<td>嵌套 struct 不生成</td>
+<td>添加 <code>--parseDependency</code> 参数</td>
+</tr>
+<tr>
+<td>多模块项目找不到类型</td>
+<td>使用 <code>--parseInternal</code> 和 <code>--parseDepth 3</code></td>
+</tr>
+<tr>
+<td>注解格式错误无报错</td>
+<td>使用 <code>swag fmt</code> 格式化注解，提前发现语法问题</td>
+</tr>
+</tbody></table>
+
+<h2>七、练习题</h2>
+
+<h3>🟢 初级</h3>
+<ol>
+<li>为一个 Todo API 添加 Swagger 注解，包含 CRUD 5 个接口</li>
+</ul>
+<ol>
+<li>在 Swagger UI 中测试所有接口，截图验证</li>
+
+<h3>🟡 中级</h3>
+<ol>
+<li>添加 JWT 认证注解，在 Swagger UI 中输入 Token 测试</li>
+</ul>
+<ol>
+<li>为 API 添加分页参数、排序参数的注解</li>
+
+<h3>🔴 高级</h3>
+<ol>
+<li>编写 CI 脚本，每次 PR 自动检查 Swagger 注解格式和完整性</li>
+</ul>
+<ol>
+<li>实现多版本 API 文档（v1/v2），使用不同 Swagger 分组</li>
+
+<h2>八、知识点总结</h2>
+
+<pre><code>Swagger 知识树
+├── 核心概念
+│   ├── OpenAPI 规范 (OAS 2.0/3.0)
+│   ├── Swagger UI (交互式文档)
+│   └── 注解驱动开发
+├── swaggo/swag 注解
+│   ├── 全局注解
+│   │   ├── @title @version @description
+│   │   ├── @host @BasePath
+│   │   ├── @securityDefinitions
+│   │   └── @contact @license
+│   └── 接口注解
+│       ├── @Summary @Description
+│       ├── @Param (query/path/body/header)
+│       ├── @Success @Failure
+│       ├── @Router
+│       ├── @Tags
+│       └── @Security
+├── 数据模型
+│   ├── struct tag (json/example)
+│   ├── 嵌套结构体
+│   └── 泛型响应
+└── 工作流
+    ├── swag init 生成
+    ├── swag fmt 格式化
+    └── CI 集成</code></pre>
+
+<h2>九、举一反三</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>方案</th>
+<th>关键注解</th>
+</tr></thead><tbody>
+<tr>
+<td>JWT 认证</td>
+<td><code>@securityDefinitions.apikey</code></td>
+<td><code>@Security BearerAuth</code></td>
+</tr>
+<tr>
+<td>文件上传</td>
+<td><code>@Accept multipart/form-data</code></td>
+<td><code>@Param file formData file true</code></td>
+</tr>
+<tr>
+<td>分页列表</td>
+<td><code>@Param page query int</code></td>
+<td><code>@Param pageSize query int</code></td>
+</tr>
+<tr>
+<td>WebSocket</td>
+<td>不支持自动文档</td>
+<td>手动补充 <code>@Description</code></td>
+</tr>
+<tr>
+<td>gRPC-Gateway</td>
+<td>protoc-gen-openapi</td>
+<td>从 proto 文件生成</td>
+</tr>
+<tr>
+<td>多版本 API</td>
+<td><code>swag init --outputTypes go</code> 分组</td>
+<td>不同 <code>@Tags</code> 区分版本</td>
+</tr>
+</tbody></table>
+
+<h2>十、参考资料</h2>
+
+<ul>
+<li><a href="https://github.com/swaggo/swag">swaggo/swag GitHub</a></li>
+<li><a href="https://github.com/swaggo/gin-swagger">gin-swagger 集成</a></li>
+<li><a href="https://swagger.io/specification/">OpenAPI 规范</a></li>
+<li><a href="https://swaggo.github.io/swaggo.io/declarative_comments_format/">Swag 注解参考</a></li>
+
+<h2>十一、代码演进</h2>
+
+<h3>v1：最小 Swagger 集成</h3>
+
+<pre><code class="language-go">// @title My API
+// @version 1.0
+// @host localhost:8080
+// @BasePath /api
+
+func main() {
+    r := gin.Default()
+    r.GET(&quot;/swagger/*any&quot;, ginSwagger.WrapHandler(swaggerFiles.Handler))
+    r.GET(&quot;/api/hello&quot;, helloHandler)
+    r.Run()
+}</code></pre>
+
+<h3>v2：完整 CRUD + 数据模型</h3>
+
+<p>添加 model 层、统一响应格式、完整 CRUD 注解、错误处理。每个接口都有详细的 <code>@Param</code>、<code>@Success</code>、<code>@Failure</code> 注解。</p>
+
+<h3>v3：企业级方案</h3>
+
+<ul>
+<li>添加 JWT 认证注解</li>
+<li>统一错误码文档</li>
+<li>CI 自动检查注解完整性</li>
+<li>多版本 API 分组</li>
+<li>Makefile 集成 swag 命令</li>
+
+<pre><code class="language-makefile">.PHONY: swag run
+
+swag:
+	swag fmt
+	swag init -g main.go -o ./docs --parseDependency --parseInternal
+
+run: swag
+	go run main.go</code></pre>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

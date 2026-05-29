@@ -1,0 +1,772 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>035 - 实战：后台管理系统</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Vue.js/index.html">Vue.js</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Vue.js/01-入门到实战/index.html">Vue.js入门到实战</a>
+</nav>
+<h1>035 - 实战：后台管理系统</h1>
+<div class="meta">
+<span>📂 Vue.js入门到实战</span>
+<span>🏷️ Vue.js</span>
+</div>
+<article>
+
+
+
+<h2>难度标注</h2>
+<blockquote><p><strong>难度：🔴 高级</strong> | <strong>前置知识：Vue Router、Pinia、Element Plus、认证系统</strong> | <strong>预计学习时间：100 分钟</strong></p></blockquote>
+
+<h2>概念讲解</h2>
+
+<h3>后台管理系统架构</h3>
+
+<p>后台管理系统是前端开发中最常见的项目类型，核心特征：</p>
+
+<ul>
+<li><strong>布局固定</strong>：侧边栏 + 顶部导航 + 主内容区</li>
+<li><strong>权限驱动</strong>：菜单、路由、按钮按角色动态显示</li>
+<li><strong>数据密集</strong>：大量表格、表单、图表</li>
+<li><strong>CRUD 为主</strong>：增删改查是核心操作</li>
+
+<h3>核心模块</h3>
+
+<table><thead><tr>
+<th>模块</th>
+<th>功能</th>
+<th>技术</th>
+</tr></thead><tbody>
+<tr>
+<td>布局框架</td>
+<td>侧边栏 + 顶栏 + 内容区</td>
+<td>CSS Grid / Flex</td>
+</tr>
+<tr>
+<td>动态菜单</td>
+<td>按权限渲染菜单</td>
+<td>递归组件 + 路由元信息</td>
+</tr>
+<tr>
+<td>权限路由</td>
+<td>动态添加路由</td>
+<td>router.addRoute()</td>
+</tr>
+<tr>
+<td>数据表格</td>
+<td>分页/排序/筛选</td>
+<td>Element Plus Table</td>
+</tr>
+<tr>
+<td>表单</td>
+<td>验证/联动/动态表单</td>
+<td>Element Plus Form</td>
+</tr>
+<tr>
+<td>数据看板</td>
+<td>图表 + 统计卡片</td>
+<td>ECharts</td>
+</tr>
+<tr>
+<td>全局状态</td>
+<td>用户/菜单/设置</td>
+<td>Pinia</td>
+</tr>
+</tbody></table>
+
+<h2>脑图</h2>
+
+<pre><code>后台管理系统
+├── 布局
+│   ├── AdminLayout (骨架)
+│   ├── Sidebar (动态菜单)
+│   ├── Navbar (用户信息/设置)
+│   └── Tabs (多页签)
+├── 权限
+│   ├── 动态路由 (addRoute)
+│   ├── 菜单过滤 (按角色)
+│   └── 按钮权限 (v-permission)
+├── 业务页面
+│   ├── Dashboard (看板)
+│   ├── User Management (CRUD)
+│   ├── Article Management
+│   └── System Settings
+├── 通用组件
+│   ├── SearchForm (搜索栏)
+│   ├── ProTable (高级表格)
+│   ├── FormBuilder (动态表单)
+│   └── ImageUpload (图片上传)
+└── 工具
+    ├── 权限指令
+    ├── 导出 Excel
+    └── 打印</code></pre>
+
+<h2>完整代码</h2>
+
+<h3>布局组件</h3>
+
+<pre><code class="language-vue">&lt;!-- src/layouts/AdminLayout.vue --&gt;
+&lt;template&gt;
+  &lt;el-container class=&quot;admin-layout&quot;&gt;
+    &lt;!-- Sidebar --&gt;
+    &lt;el-aside :width=&quot;isCollapsed ? &#x27;64px&#x27; : &#x27;220px&#x27;&quot; class=&quot;sidebar&quot;&gt;
+      &lt;div class=&quot;logo&quot;&gt;
+        &lt;img src=&quot;@/assets/logo.svg&quot; alt=&quot;Logo&quot; /&gt;
+        &lt;span v-show=&quot;!isCollapsed&quot;&gt;Admin&lt;/span&gt;
+      &lt;/div&gt;
+      &lt;SidebarMenu :menus=&quot;menuList&quot; :collapsed=&quot;isCollapsed&quot; /&gt;
+    &lt;/el-aside&gt;
+
+    &lt;el-container&gt;
+      &lt;!-- Navbar --&gt;
+      &lt;el-header class=&quot;navbar&quot;&gt;
+        &lt;el-icon class=&quot;collapse-btn&quot; @click=&quot;isCollapsed = !isCollapsed&quot;&gt;
+          &lt;Fold v-if=&quot;!isCollapsed&quot; /&gt;&lt;Expand v-else /&gt;
+        &lt;/el-icon&gt;
+        &lt;div class=&quot;navbar-right&quot;&gt;
+          &lt;el-badge :value=&quot;3&quot; :max=&quot;99&quot;&gt;
+            &lt;el-icon :size=&quot;20&quot;&gt;&lt;Bell /&gt;&lt;/el-icon&gt;
+          &lt;/el-badge&gt;
+          &lt;el-dropdown @command=&quot;handleCommand&quot;&gt;
+            &lt;span class=&quot;user-info&quot;&gt;
+              &lt;el-avatar :size=&quot;32&quot; :src=&quot;auth.user?.avatar&quot; /&gt;
+              {{ auth.user?.name }}
+            &lt;/span&gt;
+            &lt;template #dropdown&gt;
+              &lt;el-dropdown-menu&gt;
+                &lt;el-dropdown-item command=&quot;profile&quot;&gt;Profile&lt;/el-dropdown-item&gt;
+                &lt;el-dropdown-item command=&quot;logout&quot; divided&gt;Logout&lt;/el-dropdown-item&gt;
+              &lt;/el-dropdown-menu&gt;
+            &lt;/template&gt;
+          &lt;/el-dropdown&gt;
+        &lt;/div&gt;
+      &lt;/el-header&gt;
+
+      &lt;!-- Main content --&gt;
+      &lt;el-main class=&quot;main-content&quot;&gt;
+        &lt;router-view v-slot=&quot;{ Component }&quot;&gt;
+          &lt;transition name=&quot;fade&quot; mode=&quot;out-in&quot;&gt;
+            &lt;component :is=&quot;Component&quot; /&gt;
+          &lt;/transition&gt;
+        &lt;/router-view&gt;
+      &lt;/el-main&gt;
+    &lt;/el-container&gt;
+  &lt;/el-container&gt;
+&lt;/template&gt;
+
+&lt;script setup lang=&quot;ts&quot;&gt;
+import { ref, computed } from &#x27;vue&#x27;
+import { useRouter } from &#x27;vue-router&#x27;
+import { useAuthStore } from &#x27;@/stores/auth&#x27;
+import { useMenuStore } from &#x27;@/stores/menu&#x27;
+import SidebarMenu from &#x27;./SidebarMenu.vue&#x27;
+
+const router = useRouter()
+const auth = useAuthStore()
+const menuStore = useMenuStore()
+const isCollapsed = ref(false)
+
+// Filtered menus based on user role
+const menuList = computed(() =&gt; menuStore.menus)
+
+function handleCommand(cmd: string) {
+  if (cmd === &#x27;logout&#x27;) auth.logout()
+  else if (cmd === &#x27;profile&#x27;) router.push(&#x27;/admin/profile&#x27;)
+}
+&lt;/script&gt;
+
+&lt;style scoped&gt;
+.admin-layout { height: 100vh; }
+.sidebar { background: #304156; transition: width 0.3s; overflow: hidden; }
+.logo { height: 60px; display: flex; align-items: center; justify-content: center; color: #fff; gap: 8px; }
+.navbar { display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #eee; }
+.navbar-right { display: flex; align-items: center; gap: 20px; }
+.user-info { display: flex; align-items: center; gap: 8px; cursor: pointer; }
+.collapse-btn { cursor: pointer; font-size: 20px; }
+.fade-enter-active, .fade-leave-active { transition: opacity 0.2s; }
+.fade-enter-from, .fade-leave-to { opacity: 0; }
+&lt;/style&gt;</code></pre>
+
+<h3>侧边栏菜单（递归）</h3>
+
+<pre><code class="language-vue">&lt;!-- src/layouts/SidebarMenu.vue --&gt;
+&lt;template&gt;
+  &lt;el-menu
+    :default-active=&quot;activeMenu&quot;
+    :collapse=&quot;collapsed&quot;
+    background-color=&quot;#304156&quot;
+    text-color=&quot;#bfcbd9&quot;
+    active-text-color=&quot;#409eff&quot;
+    router
+  &gt;
+    &lt;template v-for=&quot;menu in menus&quot; :key=&quot;menu.path&quot;&gt;
+      &lt;!-- Has children: submenu --&gt;
+      &lt;el-sub-menu v-if=&quot;menu.children?.length&quot; :index=&quot;menu.path&quot;&gt;
+        &lt;template #title&gt;
+          &lt;el-icon&gt;&lt;component :is=&quot;menu.icon&quot; /&gt;&lt;/el-icon&gt;
+          &lt;span&gt;{{ menu.title }}&lt;/span&gt;
+        &lt;/template&gt;
+        &lt;el-menu-item
+          v-for=&quot;child in menu.children&quot;
+          :key=&quot;child.path&quot;
+          :index=&quot;child.path&quot;
+        &gt;
+          {{ child.title }}
+        &lt;/el-menu-item&gt;
+      &lt;/el-sub-menu&gt;
+
+      &lt;!-- No children: menu item --&gt;
+      &lt;el-menu-item v-else :index=&quot;menu.path&quot;&gt;
+        &lt;el-icon&gt;&lt;component :is=&quot;menu.icon&quot; /&gt;&lt;/el-icon&gt;
+        &lt;span&gt;{{ menu.title }}&lt;/span&gt;
+      &lt;/el-menu-item&gt;
+    &lt;/template&gt;
+  &lt;/el-menu&gt;
+&lt;/template&gt;
+
+&lt;script setup lang=&quot;ts&quot;&gt;
+import { computed } from &#x27;vue&#x27;
+import { useRoute } from &#x27;vue-router&#x27;
+
+defineProps&lt;{
+  menus: any[]
+  collapsed: boolean
+}&gt;()
+
+const route = useRoute()
+const activeMenu = computed(() =&gt; route.path)
+&lt;/script&gt;</code></pre>
+
+<h3>动态路由注册</h3>
+
+<pre><code class="language-ts">// src/router/dynamic.ts
+import type { RouteRecordRaw } from &#x27;vue-router&#x27;
+import AdminLayout from &#x27;@/layouts/AdminLayout.vue&#x27;
+
+// All available admin routes (lazy loaded)
+const adminRoutes: RouteRecordRaw[] = [
+  {
+    path: &#x27;/admin&#x27;,
+    component: AdminLayout,
+    redirect: &#x27;/admin/dashboard&#x27;,
+    children: [
+      { path: &#x27;dashboard&#x27;, name: &#x27;Dashboard&#x27;, component: () =&gt; import(&#x27;@/views/admin/Dashboard.vue&#x27;), meta: { title: &#x27;Dashboard&#x27;, icon: &#x27;DataLine&#x27; } },
+      { path: &#x27;users&#x27;, name: &#x27;Users&#x27;, component: () =&gt; import(&#x27;@/views/admin/Users.vue&#x27;), meta: { title: &#x27;User Mgmt&#x27;, icon: &#x27;User&#x27;, role: &#x27;admin&#x27; } },
+      { path: &#x27;posts&#x27;, name: &#x27;Posts&#x27;, component: () =&gt; import(&#x27;@/views/admin/Posts.vue&#x27;), meta: { title: &#x27;Post Mgmt&#x27;, icon: &#x27;Document&#x27; } },
+      { path: &#x27;settings&#x27;, name: &#x27;Settings&#x27;, component: () =&gt; import(&#x27;@/views/admin/Settings.vue&#x27;), meta: { title: &#x27;Settings&#x27;, icon: &#x27;Setting&#x27;, role: &#x27;admin&#x27; } },
+    ]
+  }
+]
+
+// Register routes based on user role
+export function registerRoutes(role: string) {
+  const router = useRouter()
+
+  function filterRoutes(routes: RouteRecordRaw[]): RouteRecordRaw[] {
+    return routes.map(route =&gt; {
+      const filtered = { ...route }
+      if (route.children) {
+        filtered.children = route.children.filter(child =&gt; {
+          const requiredRole = child.meta?.role
+          return !requiredRole || role === requiredRole
+        })
+      }
+      return filtered
+    })
+  }
+
+  const allowed = filterRoutes(adminRoutes)
+  allowed.forEach(route =&gt; router.addRoute(route))
+}</code></pre>
+
+<h3>Dashboard 页面</h3>
+
+<pre><code class="language-vue">&lt;!-- src/views/admin/Dashboard.vue --&gt;
+&lt;template&gt;
+  &lt;div class=&quot;dashboard&quot;&gt;
+    &lt;!-- Stats cards --&gt;
+    &lt;el-row :gutter=&quot;20&quot; class=&quot;stats-row&quot;&gt;
+      &lt;el-col :span=&quot;6&quot; v-for=&quot;stat in stats&quot; :key=&quot;stat.label&quot;&gt;
+        &lt;el-card shadow=&quot;hover&quot;&gt;
+          &lt;div class=&quot;stat-card&quot;&gt;
+            &lt;div class=&quot;stat-info&quot;&gt;
+              &lt;p class=&quot;stat-label&quot;&gt;{{ stat.label }}&lt;/p&gt;
+              &lt;h2 class=&quot;stat-value&quot;&gt;{{ stat.value }}&lt;/h2&gt;
+              &lt;p class=&quot;stat-trend&quot; :class=&quot;stat.trend &gt; 0 ? &#x27;up&#x27; : &#x27;down&#x27;&quot;&gt;
+                {{ stat.trend &gt; 0 ? &#x27;+&#x27; : &#x27;&#x27; }}{{ stat.trend }}%
+              &lt;/p&gt;
+            &lt;/div&gt;
+            &lt;el-icon :size=&quot;48&quot; :color=&quot;stat.color&quot;&gt;&lt;component :is=&quot;stat.icon&quot; /&gt;&lt;/el-icon&gt;
+          &lt;/div&gt;
+        &lt;/el-card&gt;
+      &lt;/el-col&gt;
+    &lt;/el-row&gt;
+
+    &lt;!-- Chart --&gt;
+    &lt;el-card class=&quot;chart-card&quot;&gt;
+      &lt;h3&gt;Traffic Overview&lt;/h3&gt;
+      &lt;div ref=&quot;chartRef&quot; style=&quot;height: 400px&quot; /&gt;
+    &lt;/el-card&gt;
+
+    &lt;!-- Recent activity --&gt;
+    &lt;el-card&gt;
+      &lt;h3&gt;Recent Activity&lt;/h3&gt;
+      &lt;el-table :data=&quot;recentActivity&quot; stripe&gt;
+        &lt;el-table-column prop=&quot;user&quot; label=&quot;User&quot; width=&quot;120&quot; /&gt;
+        &lt;el-table-column prop=&quot;action&quot; label=&quot;Action&quot; /&gt;
+        &lt;el-table-column prop=&quot;target&quot; label=&quot;Target&quot; /&gt;
+        &lt;el-table-column prop=&quot;time&quot; label=&quot;Time&quot; width=&quot;180&quot; /&gt;
+      &lt;/el-table&gt;
+    &lt;/el-card&gt;
+  &lt;/div&gt;
+&lt;/template&gt;
+
+&lt;script setup lang=&quot;ts&quot;&gt;
+import { ref, onMounted, markRaw } from &#x27;vue&#x27;
+import * as echarts from &#x27;echarts&#x27;
+import { User, Document, Eye, ChatDotRound } from &#x27;@element-plus/icons-vue&#x27;
+import { dashboardApi } from &#x27;@/api/dashboard&#x27;
+
+const chartRef = ref&lt;HTMLElement&gt;()
+const stats = ref&lt;any[]&gt;([])
+const recentActivity = ref&lt;any[]&gt;([])
+
+onMounted(async () =&gt; {
+  const data = await dashboardApi.getOverview()
+  stats.value = [
+    { label: &#x27;Users&#x27;, value: data.userCount, trend: data.userTrend, icon: markRaw(User), color: &#x27;#409eff&#x27; },
+    { label: &#x27;Posts&#x27;, value: data.postCount, trend: data.postTrend, icon: markRaw(Document), color: &#x27;#67c23a&#x27; },
+    { label: &#x27;Views&#x27;, value: data.viewCount, trend: data.viewTrend, icon: markRaw(Eye), color: &#x27;#e6a23c&#x27; },
+    { label: &#x27;Comments&#x27;, value: data.commentCount, trend: data.commentTrend, icon: markRaw(ChatDotRound), color: &#x27;#f56c6c&#x27; },
+  ]
+  recentActivity.value = data.recentActivity
+
+  // Init ECharts
+  const chart = echarts.init(chartRef.value!)
+  chart.setOption({
+    xAxis: { type: &#x27;category&#x27;, data: data.chartData.dates },
+    yAxis: { type: &#x27;value&#x27; },
+    series: [
+      { name: &#x27;Views&#x27;, type: &#x27;line&#x27;, data: data.chartData.views, smooth: true },
+      { name: &#x27;Visitors&#x27;, type: &#x27;line&#x27;, data: data.chartData.visitors, smooth: true }
+    ],
+    tooltip: { trigger: &#x27;axis&#x27; },
+    legend: { data: [&#x27;Views&#x27;, &#x27;Visitors&#x27;] }
+  })
+  window.addEventListener(&#x27;resize&#x27;, () =&gt; chart.resize())
+})
+&lt;/script&gt;
+
+&lt;style scoped&gt;
+.stats-row { margin-bottom: 20px; }
+.stat-card { display: flex; justify-content: space-between; align-items: center; }
+.stat-label { color: #999; margin: 0; }
+.stat-value { font-size: 28px; margin: 8px 0; }
+.stat-trend { margin: 0; font-size: 14px; }
+.stat-trend.up { color: #67c23a; }
+.stat-trend.down { color: #f56c6c; }
+.chart-card { margin-bottom: 20px; }
+&lt;/style&gt;</code></pre>
+
+<h3>CRUD 表格页（用户管理）</h3>
+
+<pre><code class="language-vue">&lt;!-- src/views/admin/Users.vue --&gt;
+&lt;template&gt;
+  &lt;div class=&quot;user-management&quot;&gt;
+    &lt;!-- Search bar --&gt;
+    &lt;el-card class=&quot;search-bar&quot;&gt;
+      &lt;el-form :model=&quot;searchForm&quot; inline&gt;
+        &lt;el-form-item label=&quot;Keyword&quot;&gt;
+          &lt;el-input v-model=&quot;searchForm.keyword&quot; placeholder=&quot;Name or email&quot; clearable /&gt;
+        &lt;/el-form-item&gt;
+        &lt;el-form-item label=&quot;Role&quot;&gt;
+          &lt;el-select v-model=&quot;searchForm.role&quot; clearable placeholder=&quot;All&quot;&gt;
+            &lt;el-option label=&quot;Admin&quot; value=&quot;admin&quot; /&gt;
+            &lt;el-option label=&quot;User&quot; value=&quot;user&quot; /&gt;
+          &lt;/el-select&gt;
+        &lt;/el-form-item&gt;
+        &lt;el-form-item&gt;
+          &lt;el-button type=&quot;primary&quot; @click=&quot;handleSearch&quot;&gt;Search&lt;/el-button&gt;
+          &lt;el-button @click=&quot;handleReset&quot;&gt;Reset&lt;/el-button&gt;
+        &lt;/el-form-item&gt;
+      &lt;/el-form&gt;
+    &lt;/el-card&gt;
+
+    &lt;!-- Table --&gt;
+    &lt;el-card&gt;
+      &lt;template #header&gt;
+        &lt;div class=&quot;table-header&quot;&gt;
+          &lt;span&gt;User List&lt;/span&gt;
+          &lt;el-button type=&quot;primary&quot; @click=&quot;openDialog()&quot;&gt;Add User&lt;/el-button&gt;
+        &lt;/div&gt;
+      &lt;/template&gt;
+
+      &lt;el-table :data=&quot;tableData&quot; v-loading=&quot;loading&quot; stripe border&gt;
+        &lt;el-table-column prop=&quot;id&quot; label=&quot;ID&quot; width=&quot;80&quot; /&gt;
+        &lt;el-table-column prop=&quot;name&quot; label=&quot;Name&quot; /&gt;
+        &lt;el-table-column prop=&quot;email&quot; label=&quot;Email&quot; /&gt;
+        &lt;el-table-column prop=&quot;role&quot; label=&quot;Role&quot; width=&quot;100&quot;&gt;
+          &lt;template #default=&quot;{ row }&quot;&gt;
+            &lt;el-tag :type=&quot;row.role === &#x27;admin&#x27; ? &#x27;danger&#x27; : &#x27;info&#x27;&quot;&gt;{{ row.role }}&lt;/el-tag&gt;
+          &lt;/template&gt;
+        &lt;/el-table-column&gt;
+        &lt;el-table-column prop=&quot;createdAt&quot; label=&quot;Created&quot; width=&quot;180&quot; /&gt;
+        &lt;el-table-column label=&quot;Actions&quot; width=&quot;200&quot; fixed=&quot;right&quot;&gt;
+          &lt;template #default=&quot;{ row }&quot;&gt;
+            &lt;el-button size=&quot;small&quot; @click=&quot;openDialog(row)&quot;&gt;Edit&lt;/el-button&gt;
+            &lt;el-button size=&quot;small&quot; type=&quot;danger&quot; @click=&quot;handleDelete(row.id)&quot;&gt;Delete&lt;/el-button&gt;
+          &lt;/template&gt;
+        &lt;/el-table-column&gt;
+      &lt;/el-table&gt;
+
+      &lt;el-pagination
+        v-model:current-page=&quot;page&quot;
+        v-model:page-size=&quot;pageSize&quot;
+        :total=&quot;total&quot;
+        :page-sizes=&quot;[10, 20, 50]&quot;
+        layout=&quot;total, sizes, prev, pager, next&quot;
+        @current-change=&quot;fetchData&quot;
+        @size-change=&quot;() =&gt; { page = 1; fetchData() }&quot;
+      /&gt;
+    &lt;/el-card&gt;
+
+    &lt;!-- Create/Edit Dialog --&gt;
+    &lt;el-dialog v-model=&quot;dialogVisible&quot; :title=&quot;editingUser ? &#x27;Edit User&#x27; : &#x27;Add User&#x27;&quot; width=&quot;500px&quot;&gt;
+      &lt;el-form ref=&quot;formRef&quot; :model=&quot;form&quot; :rules=&quot;rules&quot; label-width=&quot;80px&quot;&gt;
+        &lt;el-form-item label=&quot;Name&quot; prop=&quot;name&quot;&gt;
+          &lt;el-input v-model=&quot;form.name&quot; /&gt;
+        &lt;/el-form-item&gt;
+        &lt;el-form-item label=&quot;Email&quot; prop=&quot;email&quot;&gt;
+          &lt;el-input v-model=&quot;form.email&quot; /&gt;
+        &lt;/el-form-item&gt;
+        &lt;el-form-item label=&quot;Role&quot; prop=&quot;role&quot;&gt;
+          &lt;el-select v-model=&quot;form.role&quot;&gt;
+            &lt;el-option label=&quot;Admin&quot; value=&quot;admin&quot; /&gt;
+            &lt;el-option label=&quot;User&quot; value=&quot;user&quot; /&gt;
+          &lt;/el-select&gt;
+        &lt;/el-form-item&gt;
+        &lt;el-form-item v-if=&quot;!editingUser&quot; label=&quot;Password&quot; prop=&quot;password&quot;&gt;
+          &lt;el-input v-model=&quot;form.password&quot; type=&quot;password&quot; /&gt;
+        &lt;/el-form-item&gt;
+      &lt;/el-form&gt;
+      &lt;template #footer&gt;
+        &lt;el-button @click=&quot;dialogVisible = false&quot;&gt;Cancel&lt;/el-button&gt;
+        &lt;el-button type=&quot;primary&quot; :loading=&quot;submitting&quot; @click=&quot;handleSubmit&quot;&gt;Confirm&lt;/el-button&gt;
+      &lt;/template&gt;
+    &lt;/el-dialog&gt;
+  &lt;/div&gt;
+&lt;/template&gt;
+
+&lt;script setup lang=&quot;ts&quot;&gt;
+import { ref, reactive, onMounted } from &#x27;vue&#x27;
+import { ElMessage, ElMessageBox } from &#x27;element-plus&#x27;
+import type { FormInstance } from &#x27;element-plus&#x27;
+import { userApi } from &#x27;@/api/user&#x27;
+
+const loading = ref(false)
+const tableData = ref&lt;any[]&gt;([])
+const page = ref(1)
+const pageSize = ref(10)
+const total = ref(0)
+const searchForm = reactive({ keyword: &#x27;&#x27;, role: &#x27;&#x27; })
+
+const dialogVisible = ref(false)
+const submitting = ref(false)
+const editingUser = ref&lt;any&gt;(null)
+const formRef = ref&lt;FormInstance&gt;()
+const form = reactive({ name: &#x27;&#x27;, email: &#x27;&#x27;, role: &#x27;user&#x27;, password: &#x27;&#x27; })
+const rules = {
+  name: [{ required: true, message: &#x27;Required&#x27;, trigger: &#x27;blur&#x27; }],
+  email: [{ required: true, type: &#x27;email&#x27;, message: &#x27;Valid email required&#x27;, trigger: &#x27;blur&#x27; }],
+  role: [{ required: true, message: &#x27;Required&#x27;, trigger: &#x27;change&#x27; }],
+  password: [{ required: true, min: 6, message: &#x27;Min 6 chars&#x27;, trigger: &#x27;blur&#x27; }]
+}
+
+async function fetchData() {
+  loading.value = true
+  try {
+    const res = await userApi.getList({ page: page.value, pageSize: pageSize.value, ...searchForm })
+    tableData.value = res.list
+    total.value = res.total
+  } finally {
+    loading.value = false
+  }
+}
+
+function handleSearch() { page.value = 1; fetchData() }
+function handleReset() { searchForm.keyword = &#x27;&#x27;; searchForm.role = &#x27;&#x27;; handleSearch() }
+
+function openDialog(user?: any) {
+  editingUser.value = user || null
+  if (user) {
+    Object.assign(form, { name: user.name, email: user.email, role: user.role, password: &#x27;&#x27; })
+  } else {
+    Object.assign(form, { name: &#x27;&#x27;, email: &#x27;&#x27;, role: &#x27;user&#x27;, password: &#x27;&#x27; })
+  }
+  dialogVisible.value = true
+}
+
+async function handleSubmit() {
+  await formRef.value?.validate()
+  submitting.value = true
+  try {
+    if (editingUser.value) {
+      await userApi.update(editingUser.value.id, form)
+      ElMessage.success(&#x27;Updated&#x27;)
+    } else {
+      await userApi.create(form)
+      ElMessage.success(&#x27;Created&#x27;)
+    }
+    dialogVisible.value = false
+    fetchData()
+  } finally {
+    submitting.value = false
+  }
+}
+
+async function handleDelete(id: number) {
+  await ElMessageBox.confirm(&#x27;Confirm delete?&#x27;, &#x27;Warning&#x27;, { type: &#x27;warning&#x27; })
+  await userApi.delete(id)
+  ElMessage.success(&#x27;Deleted&#x27;)
+  fetchData()
+}
+
+onMounted(fetchData)
+&lt;/script&gt;
+
+&lt;style scoped&gt;
+.search-bar { margin-bottom: 16px; }
+.table-header { display: flex; justify-content: space-between; align-items: center; }
+.el-pagination { margin-top: 16px; justify-content: flex-end; }
+&lt;/style&gt;</code></pre>
+
+<h2>执行预览</h2>
+
+<pre><code>登录后 → 注册动态路由 → 渲染侧边栏菜单
+Dashboard:
+├── 4个统计卡片 (Users/Posts/Views/Comments)
+├── ECharts 折线图 (流量趋势)
+└── 最近活动表格
+
+用户管理:
+├── 搜索栏 (关键词 + 角色筛选)
+├── 数据表格 (分页/排序)
+├── 新增/编辑弹窗 (表单验证)
+└── 删除确认 (MessageBox)</code></pre>
+
+<h2>注意事项</h2>
+
+<table><thead><tr>
+<th>事项</th>
+<th>说明</th>
+<th>建议</th>
+</tr></thead><tbody>
+<tr>
+<td>路由注册</td>
+<td>addRoute 只能注册一次</td>
+<td>用 flag 防止重复注册</td>
+</tr>
+<tr>
+<td>菜单缓存</td>
+<td>keep-alive 缓存页面</td>
+<td>表格页需要刷新策略</td>
+</tr>
+<tr>
+<td>大数据量</td>
+<td>表格数据多时卡顿</td>
+<td>虚拟滚动或分页</td>
+</tr>
+<tr>
+<td>表单重置</td>
+<td>Dialog 关闭时重置</td>
+<td>@closed 事件中 resetFields</td>
+</tr>
+<tr>
+<td>权限粒度</td>
+<td>菜单 vs 按钮</td>
+<td>菜单用路由，按钮用指令</td>
+</tr>
+<tr>
+<td>响应式</td>
+<td>后台也需要适配</td>
+<td>侧边栏可折叠</td>
+</tr>
+</tbody></table>
+
+<h2>避坑指南</h2>
+
+<ul>
+<li>❌ 硬编码所有路由 → ✅ 根据角色动态注册路由</li>
+<li>❌ 每个 CRUD 页面复制粘贴 → ✅ 封装 ProTable / useCrud composable</li>
+<li>❌ Dialog 关闭不清表单 → ✅ @closed 中 <code>formRef.resetFields()</code></li>
+<li>❌ 表格不分页 → ✅ 后端分页，前端只展示当前页</li>
+<li>❌ 删除无确认 → ✅ ElMessageBox.confirm 二次确认</li>
+<li>❌ 组件全量引入 → ✅ 按需引入 Element Plus</li>
+
+<h2>练习题</h2>
+
+<h3>🟢 基础</h3>
+<ol>
+<li>实现后台布局：侧边栏 + 顶栏 + 内容区</li>
+</ul>
+<ol>
+<li>实现一个简单的数据表格页，支持分页</li>
+
+<h3>🟡 进阶</h3>
+<ol>
+<li>实现动态菜单：根据用户角色显示不同菜单</li>
+</ul>
+<ol>
+<li>封装 <code>useCrud</code> composable，复用 CRUD 逻辑</li>
+
+<h3>🔴 挑战</h3>
+<ol>
+<li>实现可配置的 ProTable 组件：JSON 配置生成表格</li>
+</ul>
+<ol>
+<li>实现多页签功能：打开的页面以 Tab 形式展示，可切换/关闭</li>
+
+<h2>知识点总结</h2>
+
+<pre><code>后台管理系统知识树
+├── 布局
+│   ├── AdminLayout (骨架)
+│   ├── SidebarMenu (递归)
+│   └── 响应式折叠
+├── 权限
+│   ├── 动态路由 (addRoute)
+│   ├── 菜单过滤
+│   └── 按钮权限
+├── CRUD
+│   ├── 搜索表单
+│   ├── 数据表格 (分页)
+│   ├── 新增/编辑弹窗
+│   └── 删除确认
+├── Dashboard
+│   ├── 统计卡片
+│   └── ECharts 图表
+└── 复用
+    ├── useCrud composable
+    ├── ProTable 组件
+    └── FormBuilder</code></pre>
+
+<h2>举一反三</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>方案</th>
+<th>关键</th>
+</tr></thead><tbody>
+<tr>
+<td>列表页</td>
+<td>搜索 + 表格 + 分页</td>
+<td>usePagination composable</td>
+</tr>
+<tr>
+<td>表单页</td>
+<td>验证 + 提交 + 返回</td>
+<td>el-form rules + ref</td>
+</tr>
+<tr>
+<td>详情页</td>
+<td>数据展示 + 返回</td>
+<td>路由参数获取数据</td>
+</tr>
+<tr>
+<td>看板页</td>
+<td>卡片 + 图表 + 表格</td>
+<td>ECharts + 响应式</td>
+</tr>
+<tr>
+<td>设置页</td>
+<td>表单 + 保存</td>
+<td>API 提交 + 成功提示</td>
+</tr>
+</tbody></table>
+
+<h2>参考资料</h2>
+
+<ul>
+<li><a href="https://element-plus.org/">Element Plus 官方文档</a></li>
+<li><a href="https://echarts.apache.org/">ECharts 官方文档</a></li>
+<li><a href="https://router.vuejs.org/guide/advanced/dynamic-routing.html">Vue Router 动态路由</a></li>
+
+<h2>代码演进</h2>
+
+<h3>v1 — 静态布局 + 硬编码菜单</h3>
+<pre><code class="language-vue">&lt;!-- Simple sidebar + hardcoded menu --&gt;
+&lt;el-menu&gt;
+  &lt;el-menu-item index=&quot;/admin/dashboard&quot;&gt;Dashboard&lt;/el-menu-item&gt;
+  &lt;el-menu-item index=&quot;/admin/users&quot;&gt;Users&lt;/el-menu-item&gt;
+&lt;/el-menu&gt;</code></pre>
+
+<h3>v2 — 动态路由 + 权限过滤</h3>
+<pre><code class="language-ts">// Role-based route registration
+const allowedRoutes = filterRoutesByRole(allRoutes, user.role)
+allowedRoutes.forEach(route =&gt; router.addRoute(route))</code></pre>
+
+<h3>v3 — 生产级后台</h3>
+<pre><code class="language-ts">// ProTable + useCrud + multi-tab + keep-alive + virtual scroll
+const { data, loading, page, total, fetchData } = useCrud(&#x27;/api/users&#x27;)
+// JSON-driven table: columns config → auto render
+// Multi-tab: visited views store + keep-alive include</code></pre>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

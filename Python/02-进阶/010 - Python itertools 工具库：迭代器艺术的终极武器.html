@@ -1,0 +1,464 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>010 - Python itertools 工具库：迭代器艺术的终极武器</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Python/index.html">其他</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Python/02-进阶/index.html">Python进阶</a>
+</nav>
+<h1>010 - Python itertools 工具库：迭代器艺术的终极武器</h1>
+<div class="meta">
+<span>📂 Python进阶</span>
+<span>🏷️ 其他</span>
+</div>
+<article>
+
+
+
+<h1>Python itertools 工具库：迭代器艺术的终极武器</h1>
+
+<blockquote><p><strong>难度：⭐⭐⭐ 中高级</strong> | <strong>阅读时间：约 15 分钟</strong></p></blockquote>
+
+<hr>
+
+<h2>一、概念讲解</h2>
+
+<p><code>itertools</code> 是 Python 标准库中处理<strong>迭代器</strong>的模块。三大类工具：</p>
+
+<ul>
+<li><strong>无限迭代器</strong>：<code>count</code>, <code>cycle</code>, <code>repeat</code> — 永不停止</li>
+<li><strong>有限迭代器</strong>：<code>chain</code>, <code>islice</code>, <code>zip_longest</code>, <code>groupby</code> 等 — 组合操作</li>
+<li><strong>组合生成器</strong>：<code>product</code>, <code>permutations</code>, <code>combinations</code> — 排列组合</li>
+
+<p>四个字概括：<strong>快、省、雅</strong>。C 实现快、惰性求值省内存、一行顶十行。</p>
+
+<p>核心思想：<strong>把数据处理变成流水线，数据像水流通过管道，不需一次性加载到内存。</strong></p>
+
+<pre><code>┌──────────────────────────────────────────────────┐
+│                itertools 全景脑图                  │
+├──────────────┬───────────────┬────────────────────┤
+│  无限迭代器   │  有限迭代器    │   组合生成器        │
+├──────────────┼───────────────┼────────────────────┤
+│ count()      │ chain()       │ product()          │
+│ cycle()      │ islice()      │ permutations()     │
+│ repeat()     │ zip_longest() │ combinations()     │
+│              │ groupby()     │ combinations_with_ │
+│              │ accumulate()  │   replacement()    │
+│              │ starmap()     │                    │
+│              │ filterfalse() │                    │
+│              │ dropwhile()   │                    │
+│              │ takewhile()   │                    │
+└──────────────┴───────────────┴────────────────────┘</code></pre>
+
+<hr>
+
+<h2>二、代码演进：从手写到 itertools</h2>
+
+<h3>v1：手写循环（初级）</h3>
+
+<pre><code class="language-python"># Task: flatten nested list, take first 5 even numbers
+nested = [[1, 2, 3], [4, 5, 6], [7, 8, 9, 10], [11, 12]]
+result = []
+for sublist in nested:
+    for item in sublist:
+        if item % 2 == 0:
+            result.append(item)
+            if len(result) &gt;= 5:
+                break
+    if len(result) &gt;= 5:
+        break
+print(result)  # [2, 4, 6, 8, 10]</code></pre>
+
+<p>问题：嵌套循环、手动计数、重复 break。</p>
+
+<h3>v2：列表推导式</h3>
+
+<pre><code class="language-python">flat = [item for sublist in nested for item in sublist]
+evens = [x for x in flat if x % 2 == 0]
+result = evens[:5]
+# Works but creates intermediate lists</code></pre>
+
+<p>问题：创建中间列表，大数据浪费内存。</p>
+
+<h3>v3：itertools 流水线</h3>
+
+<pre><code class="language-python">from itertools import chain, filterfalse, islice
+
+evens = filterfalse(lambda x: x % 2 != 0, chain.from_iterable(nested))
+result = list(islice(evens, 5))
+print(result)  # [2, 4, 6, 8, 10]</code></pre>
+
+<p>零中间列表，惰性求值，内存友好。</p>
+
+<hr>
+
+<h2>三、核心函数详解</h2>
+
+<h3>3.1 无限迭代器</h3>
+
+<pre><code class="language-python">from itertools import count, cycle, repeat
+
+# count: infinite arithmetic progression
+for val in count(10, 2):
+    if val &gt; 20: break
+    print(val, end=&quot; &quot;)  # 10 12 14 16 18 20
+
+# cycle: repeat sequence forever
+import itertools
+colors = itertools.cycle([&quot;R&quot;, &quot;G&quot;, &quot;B&quot;])
+print([next(colors) for _ in range(7)])  # [&#x27;R&#x27;,&#x27;G&#x27;,&#x27;B&#x27;,&#x27;R&#x27;,&#x27;G&#x27;,&#x27;B&#x27;,&#x27;R&#x27;]
+
+# repeat: repeat a value N times
+print(list(repeat(&quot;Hi&quot;, 3)))  # [&#x27;Hi&#x27;, &#x27;Hi&#x27;, &#x27;Hi&#x27;]</code></pre>
+
+<h3>3.2 chain — 拼接迭代器</h3>
+
+<pre><code class="language-python">from itertools import chain
+
+# Merge multiple iterables
+print(list(chain([1,2], [&quot;x&quot;,&quot;y&quot;], [True])))  # [1,2,&#x27;x&#x27;,&#x27;y&#x27;,True]
+
+# Flatten one level of nesting
+nested = [[1,2],[3,4],[5,6]]
+print(list(chain.from_iterable(nested)))  # [1,2,3,4,5,6]</code></pre>
+
+<h3>3.3 islice — 迭代器切片</h3>
+
+<pre><code class="language-python">from itertools import islice
+
+def fibonacci():
+    a, b = 0, 1
+    while True:
+        yield a
+        a, b = b, a + b
+
+print(list(islice(fibonacci(), 10)))
+# [0, 1, 1, 2, 3, 5, 8, 13, 21, 34]
+
+print(list(islice(fibonacci(), 5, 15, 2)))
+# [5, 21, 89, 377, 1597]
+
+# Pagination on infinite stream
+from itertools import count
+stream = count(1)
+for page in range(3):
+    print(f&quot;Page {page+1}: {list(islice(stream, 5))}&quot;)</code></pre>
+
+<h3>3.4 groupby — 分组</h3>
+
+<pre><code class="language-python">from itertools import groupby
+
+# MUST sort first! Only groups consecutive elements
+students = [
+    {&quot;name&quot;: &quot;Alice&quot;, &quot;grade&quot;: &quot;A&quot;},
+    {&quot;name&quot;: &quot;Bob&quot;, &quot;grade&quot;: &quot;B&quot;},
+    {&quot;name&quot;: &quot;Charlie&quot;, &quot;grade&quot;: &quot;A&quot;},
+    {&quot;name&quot;: &quot;Diana&quot;, &quot;grade&quot;: &quot;B&quot;},
+]
+students.sort(key=lambda s: s[&quot;grade&quot;])
+for grade, group in groupby(students, key=lambda s: s[&quot;grade&quot;]):
+    names = [s[&quot;name&quot;] for s in group]
+    print(f&quot;Grade {grade}: {names}&quot;)
+# Grade A: [&#x27;Alice&#x27;, &#x27;Charlie&#x27;]
+# Grade B: [&#x27;Bob&#x27;, &#x27;Diana&#x27;]
+
+# Count consecutive runs
+for char, grp in groupby(&quot;AABBBCCAA&quot;):
+    print(f&quot;{char}×{len(list(grp))}&quot;, end=&quot; &quot;)
+# A×2 B×3 C×2 A×2</code></pre>
+
+<h3>3.5 accumulate — 累积运算</h3>
+
+<pre><code class="language-python">from itertools import accumulate
+import operator
+
+nums = [1, 2, 3, 4, 5]
+print(list(accumulate(nums)))             # [1,3,6,10,15] cumulative sum
+print(list(accumulate(nums, operator.mul)))  # [1,2,6,24,120] factorial-like
+print(list(accumulate([3,1,4,1,5,9], max)))  # [3,3,4,4,5,9] running max</code></pre>
+
+<h3>3.6 组合生成器</h3>
+
+<pre><code class="language-python">from itertools import product, permutations, combinations
+
+print(list(product(&quot;AB&quot;, &quot;12&quot;)))
+# [(&#x27;A&#x27;,&#x27;1&#x27;),(&#x27;A&#x27;,&#x27;2&#x27;),(&#x27;B&#x27;,&#x27;1&#x27;),(&#x27;B&#x27;,&#x27;2&#x27;)]
+
+print(list(permutations(&quot;ABC&quot;, 2)))
+# All orderings of 2 from ABC
+
+print(list(combinations(&quot;ABC&quot;, 2)))
+# [(&#x27;A&#x27;,&#x27;B&#x27;),(&#x27;A&#x27;,&#x27;C&#x27;),(&#x27;B&#x27;,&#x27;C&#x27;)]
+
+# Find all 2-sum pairs
+nums = [2, 7, 11, 15, 1, 8]
+pairs = [(a,b) for a,b in combinations(nums, 2) if a+b == 9]
+print(pairs)  # [(2, 7), (1, 8)]</code></pre>
+
+<hr>
+
+<h2>四、执行预览</h2>
+
+<pre><code>$ python itertools_demo.py
+10 12 14 16 18 20
+[&#x27;R&#x27;, &#x27;G&#x27;, &#x27;B&#x27;, &#x27;R&#x27;, &#x27;G&#x27;, &#x27;B&#x27;, &#x27;R&#x27;]
+[&#x27;Hi&#x27;, &#x27;Hi&#x27;, &#x27;Hi&#x27;]
+[1, 2, &#x27;x&#x27;, &#x27;y&#x27;, True]
+[1, 2, 3, 4, 5, 6]
+[0, 1, 1, 2, 3, 5, 8, 13, 21, 34]
+[5, 21, 89, 377, 1597]
+Page 1: [1, 2, 3, 4, 5]
+Page 2: [6, 7, 8, 9, 10]
+Page 3: [11, 12, 13, 14, 15]
+Grade A: [&#x27;Alice&#x27;, &#x27;Charlie&#x27;]
+Grade B: [&#x27;Bob&#x27;, &#x27;Diana&#x27;]
+A×2 B×3 C×2 A×2
+[1, 3, 6, 10, 15]
+[1, 2, 6, 24, 120]
+[3, 3, 4, 4, 5, 9]
+[(2, 7), (1, 8)]</code></pre>
+
+<hr>
+
+<h2>五、注意事项</h2>
+
+<table><thead><tr>
+<th>函数</th>
+<th>注意点</th>
+<th>风险</th>
+</tr></thead><tbody>
+<tr>
+<td><code>groupby()</code></td>
+<td><strong>必须先排序</strong>，只对连续相同元素分组</td>
+<td>🔴 易错</td>
+</tr>
+<tr>
+<td>无限迭代器</td>
+<td>必须设退出条件，否则死循环</td>
+<td>🔴 死循环</td>
+</tr>
+<tr>
+<td><code>product()</code></td>
+<td>结果集指数增长，repeat=6 就百万级</td>
+<td>🔴 内存爆炸</td>
+</tr>
+<tr>
+<td><code>islice()</code></td>
+<td>不支持负索引和负步长</td>
+<td>⚠️ 中</td>
+</tr>
+<tr>
+<td>迭代器</td>
+<td>只能消费一次，消费后为空</td>
+<td>⚠️ 中</td>
+</tr>
+<tr>
+<td><code>chain()</code> vs <code>chain.from_iterable</code></td>
+<td>前者接受多个参数，后者接受一个嵌套可迭代</td>
+<td>⚠️ 易混</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>六、避坑指南</h2>
+
+<h3>❌ 坑1：groupby 不排序</h3>
+
+<pre><code class="language-python"># ❌ Wrong: unsorted → wrong groups
+for k, g in groupby([&quot;A&quot;,&quot;B&quot;,&quot;A&quot;]):
+    print(k, list(g))  # A [&#x27;A&#x27;] / B [&#x27;B&#x27;] / A [&#x27;A&#x27;] → 没真正分组</code></pre>
+
+<pre><code class="language-python"># ✅ Correct: sort first
+for k, g in groupby(sorted([&quot;A&quot;,&quot;B&quot;,&quot;A&quot;])):
+    print(k, list(g))  # A [&#x27;A&#x27;,&#x27;A&#x27;] / B [&#x27;B&#x27;]</code></pre>
+
+<h3>❌ 坑2：迭代器用完为空</h3>
+
+<pre><code class="language-python"># ❌ Wrong: consumed iterator
+it = islice(range(10), 3)
+print(list(it))  # [0,1,2]
+print(list(it))  # [] ← gone!</code></pre>
+
+<pre><code class="language-python"># ✅ Correct: convert to list for reuse
+result = list(islice(range(10), 3))
+print(result)  # [0,1,2]
+print(result)  # [0,1,2] ← still works</code></pre>
+
+<h3>❌ 坑3：product 组合爆炸</h3>
+
+<pre><code class="language-python"># ❌ Wrong: 10**6 tuples in memory
+list(product(range(10), repeat=6))  # MemoryError!</code></pre>
+
+<pre><code class="language-python"># ✅ Correct: lazy iteration with islice
+for combo in islice(product(range(10), repeat=6), 1000):
+    process(combo)</code></pre>
+
+<hr>
+
+<h2>七、练习题</h2>
+
+<h3>🟢 基础题</h3>
+
+<p><strong>题目1：</strong> 用 <code>chain</code> 将 <code>["H","e"]</code>, <code>["l","l"]</code>, <code>["o"]</code> 拼成 <code>['H','e','l','l','o']</code>。</p>
+
+<p><strong>题目2：</strong> 用 <code>islice</code> 从 <code>count(1)</code> 取前 20 个奇数（提示：start=1, step=2）。</p>
+
+<h3>🟡 进阶题</h3>
+
+<p><strong>题目3：</strong> 用 <code>groupby</code> 统计 <code>"hello world"</code> 每个字母出现次数（忽略空格，不区分大小写）。</p>
+
+<p><strong>题目4：</strong> 用 <code>accumulate</code> 计算 <code>[100, -20, 30, -50, 80]</code> 的账户余额变化过程。</p>
+
+<h3>🔴 挑战题</h3>
+
+<p><strong>题目5：</strong> 用 <code>combinations</code> 找出扑克牌中所有同花顺组合（5张同花色连续数字）。</p>
+
+<p><strong>题目6：</strong> 用 <code>islice</code> + <code>iter</code> 实现 <code>batched(iterable, n)</code> 分批函数（Python 3.12+ 已内置）。</p>
+
+<hr>
+
+<h2>八、知识点总结</h2>
+
+<pre><code>itertools
+├── 无限迭代器
+│   ├── count(start, step) — 等差数列
+│   ├── cycle(iterable) — 循环重复
+│   └── repeat(obj, times) — 重复单值
+├── 有限迭代器
+│   ├── chain(*iterables) — 拼接
+│   ├── chain.from_iterable() — 展平一层
+│   ├── islice(iter, stop) — 迭代器切片
+│   ├── zip_longest(*iter, fillvalue) — 不等长zip
+│   ├── groupby(iter, key) — 连续分组
+│   ├── accumulate(iter, func) — 累积运算
+│   ├── starmap(func, iter) — 解包映射
+│   ├── filterfalse(pred, iter) — 反向过滤
+│   ├── dropwhile(pred, iter) — 丢弃满足前缀
+│   └── takewhile(pred, iter) — 保留满足前缀
+└── 组合生成器
+    ├── product(*iter, repeat) — 笛卡尔积
+    ├── permutations(iter, r) — 排列 P(n,r)
+    ├── combinations(iter, r) — 组合 C(n,r)
+    └── combinations_with_replacement(iter, r) — 可重组合</code></pre>
+
+<hr>
+
+<h2>九、举一反三</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>推荐函数</th>
+<th>替代手写</th>
+</tr></thead><tbody>
+<tr>
+<td>展平嵌套列表</td>
+<td><code>chain.from_iterable</code></td>
+<td>双重 for</td>
+</tr>
+<tr>
+<td>分页读取大数据</td>
+<td><code>islice</code></td>
+<td>手动计数 break</td>
+</tr>
+<tr>
+<td>分组统计</td>
+<td><code>groupby</code> + <code>sorted</code></td>
+<td>字典+循环</td>
+</tr>
+<tr>
+<td>运行总和/最值</td>
+<td><code>accumulate</code></td>
+<td>手动累加</td>
+</tr>
+<tr>
+<td>多层嵌套循环</td>
+<td><code>product</code></td>
+<td>3+层 for</td>
+</tr>
+<tr>
+<td>密码/组合生成</td>
+<td><code>product(..., repeat=n)</code></td>
+<td>递归</td>
+</tr>
+<tr>
+<td>排列/组合</td>
+<td><code>permutations</code>/<code>combinations</code></td>
+<td>递归回溯</td>
+</tr>
+<tr>
+<td>过滤/截取</td>
+<td><code>filterfalse</code>/<code>takewhile</code></td>
+<td>if 推导</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>十、参考资料</h2>
+
+<ul>
+<li><a href="https://docs.python.org/3/library/itertools.html">Python 官方文档 — itertools</a></li>
+<li><a href="https://docs.python.org/3/library/itertools.html#itertools-recipes">itertools Recipes（官方配方）</a></li>
+<li>《Python Cookbook》第 4 章：迭代器与生成器</li>
+<li><a href="https://realpython.com/python-itertools/">Real Python — itertools 指南</a></li>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>
