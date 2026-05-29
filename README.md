@@ -5,7 +5,7 @@
 ## 目录结构
 
 ```
-tech-blog/
+learning-blog/
 ├── Golang/                 # 169 篇
 │   ├── 01-入门/            # Golang入门 (30篇)
 │   ├── 02-进阶/            # Golang进阶 (25篇)
