@@ -407,10 +407,10 @@ TypeScript项目实战
 
 | 场景 | 模式 | 优势 |
 |------|------|------|
-| HTTP请求 | Result<T> | 类型安全的错误处理 |
-| 状态管理 | EventBus<Events> | 事件名和payload类型安全 |
-| 数据库操作 | Repository<T> | 统一CRUD接口 |
-| 配置管理 | ConfigBuilder<T> | 链式调用+类型检查 |
+| HTTP请求 | Result&lt;T&gt; | 类型安全的错误处理 |
+| 状态管理 | EventBus&lt;Events&gt; | 事件名和payload类型安全 |
+| 数据库操作 | Repository&lt;T&gt; | 统一CRUD接口 |
+| 配置管理 | ConfigBuilder&lt;T&gt; | 链式调用+类型检查 |
 | 表单验证 | Zod schema | 运行时+编译时双重保障 |
 
 ## 十、参考资料

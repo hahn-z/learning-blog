@@ -124,7 +124,7 @@ message HelloList {
 | bool | bool | 布尔值 |
 | bytes | []byte | 字节流 |
 | repeated T | []T | 数组/切片 |
-| map<K,V> | map[K]V | 映射 |
+| map&lt;K,V&gt; | map[K]V | 映射 |
 | optional T | *T | 可选（proto3） |
 | oneof | interface{} | 联合类型 |
 | enum | int32 (enum type) | 枚举 |

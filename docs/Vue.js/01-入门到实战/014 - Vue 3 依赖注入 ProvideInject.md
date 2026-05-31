@@ -34,7 +34,7 @@ App (provide: theme)
 
 - **`provide(key, value)`**——提供数据
 - **`inject(key, defaultValue)`**——注入数据
-- **InjectionKey<T>**——TypeScript 类型安全的 key
+- **InjectionKey&lt;T&gt;**——TypeScript 类型安全的 key
 
 ---
 
