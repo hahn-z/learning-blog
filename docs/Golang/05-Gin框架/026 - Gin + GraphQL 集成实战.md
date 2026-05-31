@@ -7,9 +7,8 @@ created_at: "2026-04-25T23:17:17.06+08:00"
 updated_at: "2026-04-29T10:02:45.787+08:00"
 reading_time: 31
 tags: []
----
-
-# Gin + GraphQL 集成实战
+:v-pre:
+---# Gin + GraphQL 集成实战
 
 > 难度：⭐⭐⭐⭐（高级）
 > 前置知识：Gin 基础、HTTP API、Go 结构体

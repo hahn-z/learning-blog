@@ -7,9 +7,8 @@ created_at: "2026-05-01T21:52:09.053+08:00"
 updated_at: "2026-05-01T22:15:41.592+08:00"
 reading_time: 6
 tags: []
----
-
-# Docker 容器化与 docker-compose 编排
+:v-pre:
+---# Docker 容器化与 docker-compose 编排
 
 > **难度：** ⭐⭐⭐
 > **前置知识：** Docker 基础命令、Hyperf 项目结构、网络基础

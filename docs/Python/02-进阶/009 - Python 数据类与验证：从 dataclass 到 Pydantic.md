@@ -7,9 +7,8 @@ created_at: "2026-04-29T06:16:59.396+08:00"
 updated_at: "2026-04-29T10:02:47.574+08:00"
 reading_time: 32
 tags: []
----
-
-# Python 数据类与验证：从 dataclass 到 Pydantic
+:v-pre:
+---# Python 数据类与验证：从 dataclass 到 Pydantic
 
 > **难度：⭐⭐⭐（中高级）**
 > **前置知识：** 类与对象、类型注解、dataclass 基础

@@ -7,9 +7,8 @@ created_at: "2026-04-25T23:13:51.272+08:00"
 updated_at: "2026-04-29T10:02:45.779+08:00"
 reading_time: 37
 tags: []
----
-
-# 025 - Gin Docker 容器化部署
+:v-pre:
+---# 025 - Gin Docker 容器化部署
 
 > **难度：** ⭐⭐⭐（较高）
 > **前置知识：** Docker 基础、Dockerfile 语法、docker-compose 基础

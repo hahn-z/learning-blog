@@ -7,9 +7,8 @@ created_at: "2026-04-26T21:18:10.017+08:00"
 updated_at: "2026-04-29T10:02:47.091+08:00"
 reading_time: 29
 tags: ["Swoole", "PHP"]
----
-
-# Swoole多端口混合监听
+:v-pre:
+---# Swoole多端口混合监听
 
 > 难度：⭐⭐⭐（中级）
 

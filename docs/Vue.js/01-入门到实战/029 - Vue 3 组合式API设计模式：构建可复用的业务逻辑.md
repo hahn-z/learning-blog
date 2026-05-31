@@ -7,9 +7,8 @@ created_at: "2026-04-26T17:53:43.412+08:00"
 updated_at: "2026-04-29T10:02:46.746+08:00"
 reading_time: 9
 tags: ["Vue.js", "Vue 3"]
----
-
-## 难度标注
+:v-pre:
+---## 难度标注
 
 > **难度：⭐⭐⭐⭐（中高级）**
 > 前置知识：Composition API精通、TypeScript基础、响应式原理

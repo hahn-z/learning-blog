@@ -7,9 +7,8 @@ created_at: "2026-05-01T21:52:09+08:00"
 updated_at: "2026-05-01T21:59:23.209+08:00"
 reading_time: 4
 tags: []
----
-
-# 分布式事务理论（CAP/BASE/TCC/Saga）
+:v-pre:
+---# 分布式事务理论（CAP/BASE/TCC/Saga）
 
 > **难度：** ⭐⭐⭐⭐⭐
 > **前置知识：** 数据库 ACID 事务、微服务基础、网络分区概念

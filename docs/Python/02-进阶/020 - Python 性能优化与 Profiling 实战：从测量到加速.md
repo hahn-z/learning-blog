@@ -7,9 +7,8 @@ created_at: "2026-04-29T06:16:59.457+08:00"
 updated_at: "2026-04-29T10:02:47.66+08:00"
 reading_time: 26
 tags: []
----
-
-# Python 性能优化与 Profiling
+:v-pre:
+---# Python 性能优化与 Profiling
 
 > **难度：★★★★☆ 高级**
 > 系统性讲解 Python 性能分析工具和优化策略：cProfile、line_profiler、memory_profiler、timeit、算法优化、内置函数利用、Cython 加速。

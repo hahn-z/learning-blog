@@ -7,9 +7,8 @@ created_at: "2026-05-01T21:52:08.98+08:00"
 updated_at: "2026-05-01T22:15:48.325+08:00"
 reading_time: 6
 tags: []
----
-
-# Hyperf 接入 Kafka 生产者与消费者
+:v-pre:
+---# Hyperf 接入 Kafka 生产者与消费者
 
 > **难度：** ⭐⭐⭐⭐
 > **前置知识：** Hyperf 框架基础、Composer 依赖管理、消息队列概念

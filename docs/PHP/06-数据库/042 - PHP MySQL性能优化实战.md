@@ -6,9 +6,8 @@ tech_stack: "PHP"
 created_at: "2026-05-31T10:00:00+08:00"
 reading_time: 15
 tags: ["PHP", "MySQL", "性能优化", "索引"]
----
-
-# PHP MySQL性能优化实战
+:v-pre:
+---# PHP MySQL性能优化实战
 
 ## 慢查询定位
 

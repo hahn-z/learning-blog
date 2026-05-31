@@ -7,9 +7,8 @@ created_at: "2026-04-29T06:16:59.536+08:00"
 updated_at: "2026-04-29T10:02:47.777+08:00"
 reading_time: 32
 tags: []
----
-
-# Redis Python 实战指南
+:v-pre:
+---# Redis Python 实战指南
 
 > **难度：** ⭐⭐ 中级 | **预计阅读：** 25 分钟 | **标签：** Python, Redis, 缓存, 消息队列
 

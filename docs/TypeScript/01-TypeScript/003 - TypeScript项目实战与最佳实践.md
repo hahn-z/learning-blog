@@ -7,9 +7,8 @@ created_at: "2026-04-26T10:22:36.342+08:00"
 updated_at: "2026-04-29T10:02:46.343+08:00"
 reading_time: 25
 tags: ["TypeScript", "前端"]
----
-
-# TypeScript项目实战与最佳实践
+:v-pre:
+---# TypeScript项目实战与最佳实践
 
 > **难度：** ⭐⭐⭐ 进阶级 | **阅读时间：** 约20分钟 | **前置知识：** TypeScript基础、接口与泛型
 

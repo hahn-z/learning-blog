@@ -7,9 +7,8 @@ created_at: "2026-04-26T21:14:41.506+08:00"
 updated_at: "2026-04-29T10:02:47.113+08:00"
 reading_time: 30
 tags: ["Swoole", "PHP"]
----
-
-# Swoole优雅重启与热更新
+:v-pre:
+---# Swoole优雅重启与热更新
 
 > 难度：⭐⭐⭐⭐（中高级）
 

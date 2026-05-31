@@ -6,9 +6,8 @@ tech_stack: "PHP"
 created_at: "2026-05-31T10:00:00+08:00"
 reading_time: 15
 tags: ["PHP", "Session", "Cookie", "安全"]
----
-
-# PHP Session与Cookie机制
+:v-pre:
+---# PHP Session与Cookie机制
 
 ## Session生命周期
 

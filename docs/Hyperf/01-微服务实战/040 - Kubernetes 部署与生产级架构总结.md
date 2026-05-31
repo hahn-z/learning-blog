@@ -7,9 +7,8 @@ created_at: "2026-05-01T21:52:09.062+08:00"
 updated_at: "2026-05-01T22:15:41.604+08:00"
 reading_time: 7
 tags: []
----
-
-# Kubernetes 部署与生产级架构总结
+:v-pre:
+---# Kubernetes 部署与生产级架构总结
 
 > **难度：** ⭐⭐⭐⭐⭐
 > **前置知识：** Docker 容器化（039篇）、Linux 网络、YAML 基础

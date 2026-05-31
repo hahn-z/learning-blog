@@ -7,9 +7,8 @@ created_at: "2026-04-29T06:16:59.425+08:00"
 updated_at: "2026-04-29T10:02:47.614+08:00"
 reading_time: 54
 tags: []
----
-
----
+:v-pre:
+------
 difficulty: ⭐⭐⭐中级
 tags: [Python, Mock, 测试替身, unittest.mock]
 ---

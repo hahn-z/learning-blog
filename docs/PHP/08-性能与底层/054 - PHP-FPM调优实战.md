@@ -6,9 +6,8 @@ tech_stack: "PHP"
 created_at: "2026-05-31T10:00:00+08:00"
 reading_time: 15
 tags: ["PHP", "性能", "PHP-FPM", "调优"]
----
-
-# PHP-FPM调优实战
+:v-pre:
+---# PHP-FPM调优实战
 
 PHP-FPM（FastCGI Process Manager）是PHP生产环境的标准进程管理器。正确配置FPM参数直接决定了服务器能承载多少并发。
 

@@ -7,9 +7,8 @@ created_at: "2026-04-25T23:13:29.367+08:00"
 updated_at: "2026-04-29T10:02:45.709+08:00"
 reading_time: 28
 tags: []
----
-
-# 017 - Gin WebSocket 实时通信
+:v-pre:
+---# 017 - Gin WebSocket 实时通信
 
 > **难度：⭐⭐⭐⭐** | **预计阅读：20 分钟**
 >

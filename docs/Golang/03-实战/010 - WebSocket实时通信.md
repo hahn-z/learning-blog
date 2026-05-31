@@ -7,9 +7,8 @@ created_at: "2026-04-25T11:35:22.31+08:00"
 updated_at: "2026-04-29T10:02:44.96+08:00"
 reading_time: 45
 tags: ["标准库"]
----
-
-# WebSocket实时通信 ⭐⭐⭐中级
+:v-pre:
+---# WebSocket实时通信 ⭐⭐⭐中级
 
 > **难度标注：** ⭐⭐⭐ 中级 | 预计阅读时间：22分钟 | 前置知识：Go HTTP服务、goroutine、channel
 

@@ -7,9 +7,8 @@ created_at: "2026-05-01T21:52:08.794+08:00"
 updated_at: "2026-05-01T22:16:59.788+08:00"
 reading_time: 5
 tags: []
----
-
-# 012 - Hyperf 接入 Nacos 配置中心
+:v-pre:
+---# 012 - Hyperf 接入 Nacos 配置中心
 
 > **难度：** ⭐⭐ | **前置知识：** Hyperf 框架基础、Nacos 部署（011）| **预估用时：** 40 分钟
 

@@ -7,9 +7,8 @@ created_at: "2026-04-25T11:35:21.98+08:00"
 updated_at: "2026-04-29T10:02:44.693+08:00"
 reading_time: 20
 tags: ["并发"]
----
-
-# 035 - sync.WaitGroup 与 Mutex
+:v-pre:
+---# 035 - sync.WaitGroup 与 Mutex
 
 > 难度：⭐⭐⭐（中级）
 >

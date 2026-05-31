@@ -7,9 +7,8 @@ created_at: "2026-05-01T21:52:09.028+08:00"
 updated_at: "2026-05-01T22:08:21.077+08:00"
 reading_time: 4
 tags: []
----
-
-# Prometheus 指标采集与 Hyperf 集成
+:v-pre:
+---# Prometheus 指标采集与 Hyperf 集成
 
 > **难度：** ⭐⭐⭐
 > **前置知识：** Hyperf 中间件、HTTP 基础、Docker 基础

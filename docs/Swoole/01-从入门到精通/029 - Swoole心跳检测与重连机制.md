@@ -7,9 +7,8 @@ created_at: "2026-04-26T21:18:10.042+08:00"
 updated_at: "2026-04-29T10:02:47.106+08:00"
 reading_time: 30
 tags: ["Swoole", "PHP"]
----
-
-# Swoole心跳检测与重连机制
+:v-pre:
+---# Swoole心跳检测与重连机制
 
 > 难度：⭐⭐⭐（中级）
 

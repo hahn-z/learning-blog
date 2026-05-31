@@ -7,9 +7,8 @@ created_at: "2026-04-26T21:01:40.709+08:00"
 updated_at: "2026-04-29T10:02:46.863+08:00"
 reading_time: 30
 tags: ["Swoole", "PHP"]
----
-
-# Swoole实战教程002：Server与Client基础
+:v-pre:
+---# Swoole实战教程002：Server与Client基础
 
 > **难度标注：** 🟡 中级 | 预计学习时间：45分钟
 

@@ -7,9 +7,8 @@ created_at: "2026-04-26T21:16:45.512+08:00"
 updated_at: "2026-04-29T10:02:47.054+08:00"
 reading_time: 29
 tags: ["Swoole", "PHP"]
----
-
-# Swoole Atomic 原子计数器：无锁并发计数的安全方案
+:v-pre:
+---# Swoole Atomic 原子计数器：无锁并发计数的安全方案
 
 > **难度：** ⭐☆☆☆☆ 入门
 > **适用版本：** Swoole 4.x+ / 5.x

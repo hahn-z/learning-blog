@@ -7,9 +7,8 @@ created_at: "2026-04-25T11:35:22.662+08:00"
 updated_at: "2026-04-29T10:02:45.236+08:00"
 reading_time: 21
 tags: ["微服务"]
----
-
-# Go分布式链路追踪：OpenTelemetry实战
+:v-pre:
+---# Go分布式链路追踪：OpenTelemetry实战
 
 > **难度标注：** ⭐⭐⭐⭐☆ 高级
 > **前置知识：** Go HTTP服务、gRPC基础、微服务概念

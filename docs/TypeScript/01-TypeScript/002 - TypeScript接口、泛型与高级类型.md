@@ -7,9 +7,8 @@ created_at: "2026-04-26T10:22:36.318+08:00"
 updated_at: "2026-04-29T10:02:46.331+08:00"
 reading_time: 21
 tags: ["TypeScript", "前端"]
----
-
-# TypeScript接口、泛型与高级类型
+:v-pre:
+---# TypeScript接口、泛型与高级类型
 
 > **难度：** ⭐⭐⭐ 进阶级 | **阅读时间：** 约20分钟 | **前置知识：** TypeScript基础类型
 

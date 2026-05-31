@@ -6,9 +6,8 @@ tech_stack: "PHP"
 created_at: "2026-05-31T10:00:00+08:00"
 reading_time: 15
 tags: ["PHP", "安全", "XSS", "CSRF"]
----
-
-# PHP安全防护：XSS与CSRF
+:v-pre:
+---# PHP安全防护：XSS与CSRF
 
 XSS（跨站脚本攻击）和CSRF（跨站请求伪造）是Web应用中最常见的两种攻击手段。理解其原理并在PHP中正确防护，是每个开发者的基本功。
 

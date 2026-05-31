@@ -7,9 +7,8 @@ created_at: "2026-04-29T06:16:59.772+08:00"
 updated_at: "2026-04-29T10:02:48.177+08:00"
 reading_time: 53
 tags: []
----
-
-# Node.js项目实战：从零搭建完整RESTful API服务
+:v-pre:
+---# Node.js项目实战：从零搭建完整RESTful API服务
 
 > **难度：** ⭐⭐⭐ 中高级 | **预计阅读：** 20分钟
 > 

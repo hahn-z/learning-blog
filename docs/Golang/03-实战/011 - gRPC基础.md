@@ -7,9 +7,8 @@ created_at: "2026-04-25T11:35:22.323+08:00"
 updated_at: "2026-04-29T10:02:44.968+08:00"
 reading_time: 23
 tags: ["设计模式"]
----
-
-# 066: gRPC基础
+:v-pre:
+---# 066: gRPC基础
 
 > **难度：⭐⭐⭐⭐ 高级** | gRPC 是 Google 开源的高性能 RPC 框架，基于 Protobuf 序列化和 HTTP/2 传输，是微服务通信的基石。
 >

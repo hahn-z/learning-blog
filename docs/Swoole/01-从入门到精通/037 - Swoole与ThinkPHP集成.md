@@ -7,9 +7,8 @@ created_at: "2026-04-26T21:29:29.233+08:00"
 updated_at: "2026-04-29T10:02:47.18+08:00"
 reading_time: 24
 tags: ["Swoole", "PHP"]
----
-
----
+:v-pre:
+------
 slug: 037-thinkphp-integration
 title: Swoole与ThinkPHP集成
 category: Swoole深度实战

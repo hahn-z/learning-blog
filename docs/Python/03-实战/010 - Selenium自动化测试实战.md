@@ -7,9 +7,8 @@ created_at: "2026-04-29T06:16:59.51+08:00"
 updated_at: "2026-04-29T10:02:47.736+08:00"
 reading_time: 26
 tags: []
----
-
-# Selenium 自动化测试实战
+:v-pre:
+---# Selenium 自动化测试实战
 
 > **难度：⭐⭐⭐ 中级** | Python 3.8+ | 预计学习时间 60 分钟
 

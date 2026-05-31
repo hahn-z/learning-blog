@@ -7,9 +7,8 @@ created_at: "2026-04-26T21:01:40.721+08:00"
 updated_at: "2026-04-29T10:02:46.924+08:00"
 reading_time: 37
 tags: ["Swoole", "PHP"]
----
-
-## 难度标注
+:v-pre:
+---## 难度标注
 
 > **难度等级：⭐⭐ 入门-中等**
 > 前置知识：PHP基础、Swoole Server基础

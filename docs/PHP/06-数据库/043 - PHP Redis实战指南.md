@@ -6,9 +6,8 @@ tech_stack: "PHP"
 created_at: "2026-05-31T10:00:00+08:00"
 reading_time: 15
 tags: ["PHP", "Redis", "缓存", "分布式锁"]
----
-
-# PHP Redis实战指南
+:v-pre:
+---# PHP Redis实战指南
 
 ## Redis扩展安装
 

@@ -6,9 +6,8 @@ tech_stack: "PHP"
 created_at: "2026-05-31T10:00:00+08:00"
 reading_time: 15
 tags: ["PHP", "性能", "JIT", "PHP8"]
----
-
-# PHP 8 JIT编译器详解
+:v-pre:
+---# PHP 8 JIT编译器详解
 
 JIT（Just-In-Time）编译器是PHP 8.0引入的重磅特性，将热点opcode编译为原生机器码直接执行，跳过ZendVM的解释开销。
 

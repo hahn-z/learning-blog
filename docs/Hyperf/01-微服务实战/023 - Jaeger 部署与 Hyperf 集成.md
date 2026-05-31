@@ -7,9 +7,8 @@ created_at: "2026-05-01T21:52:08.896+08:00"
 updated_at: "2026-05-01T22:02:57.432+08:00"
 reading_time: 6
 tags: []
----
-
-# Jaeger 部署与 Hyperf 集成
+:v-pre:
+---# Jaeger 部署与 Hyperf 集成
 
 ## 难度标注
 

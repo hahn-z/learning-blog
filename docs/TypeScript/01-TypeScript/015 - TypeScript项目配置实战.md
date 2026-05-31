@@ -7,9 +7,8 @@ created_at: "2026-04-26T17:27:09.656+08:00"
 updated_at: "2026-04-29T10:02:46.445+08:00"
 reading_time: 27
 tags: ["TypeScript"]
----
-
-# TypeScript项目配置实战
+:v-pre:
+---# TypeScript项目配置实战
 
 > **难度：** ⭐⭐⭐ 进阶级 | **阅读时间：** 约15分钟 | **前置知识：** TypeScript基础、Node.js项目结构
 

@@ -7,10 +7,8 @@ created_at: "2026-04-29T06:16:59.408+08:00"
 updated_at: "2026-04-29T10:02:47.589+08:00"
 reading_time: 23
 tags: []
----
-
-
-# Python functools 工具库：函数式编程的瑞士军刀
+:v-pre:
+---# Python functools 工具库：函数式编程的瑞士军刀
 
 > **难度：⭐⭐⭐ 中高级** | **阅读时间：约 15 分钟**
 

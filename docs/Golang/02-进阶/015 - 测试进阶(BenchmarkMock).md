@@ -7,9 +7,8 @@ created_at: "2026-04-25T11:35:22.109+08:00"
 updated_at: "2026-04-29T10:02:44.778+08:00"
 reading_time: 36
 tags: ["标准库"]
----
-
-# 045 - 测试进阶（Benchmark / Mock）
+:v-pre:
+---# 045 - 测试进阶（Benchmark / Mock）
 
 > **难度：** ⭐⭐⭐（中级）
 >

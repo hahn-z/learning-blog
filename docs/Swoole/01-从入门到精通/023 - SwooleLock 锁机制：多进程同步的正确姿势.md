@@ -7,9 +7,8 @@ created_at: "2026-04-26T21:16:45.524+08:00"
 updated_at: "2026-04-29T10:02:47.061+08:00"
 reading_time: 41
 tags: ["Swoole", "PHP"]
----
-
-# Swoole Lock 锁机制：多进程同步的正确姿势
+:v-pre:
+---# Swoole Lock 锁机制：多进程同步的正确姿势
 
 > **难度：** ⭐⭐⭐☆☆ 中等
 > **适用版本：** Swoole 4.x+ / 5.x

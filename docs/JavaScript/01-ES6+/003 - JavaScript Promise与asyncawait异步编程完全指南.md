@@ -7,10 +7,8 @@ created_at: "2026-04-26T10:26:24.562+08:00"
 updated_at: "2026-04-29T10:02:46.05+08:00"
 reading_time: 21
 tags: ["前端"]
----
-
-
-# JavaScript Promise与async/await异步编程完全指南
+:v-pre:
+---# JavaScript Promise与async/await异步编程完全指南
 
 > **难度标注：** 🔴 高级 | **前置知识：** 函数、闭包、基本异步概念
 > **阅读时间：** 约22分钟 | **代码量：** 约180行

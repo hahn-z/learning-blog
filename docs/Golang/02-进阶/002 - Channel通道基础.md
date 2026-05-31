@@ -7,9 +7,8 @@ created_at: "2026-04-25T11:35:21.951+08:00"
 updated_at: "2026-04-29T10:02:44.668+08:00"
 reading_time: 22
 tags: ["并发"]
----
-
-# 032 - Channel 通道基础
+:v-pre:
+---# 032 - Channel 通道基础
 
 > **难度：⭐⭐⭐ 中等**
 > 掌握 Channel 是 Go 并发编程的核心，它是 goroutine 之间通信的管道。

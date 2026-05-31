@@ -7,9 +7,8 @@ created_at: "2026-04-25T11:35:22.393+08:00"
 updated_at: "2026-04-29T10:02:45.008+08:00"
 reading_time: 33
 tags: ["Web开发"]
----
-
-# Go语言Redis缓存实战
+:v-pre:
+---# Go语言Redis缓存实战
 
 **难度：中级** ⭐⭐⭐
 

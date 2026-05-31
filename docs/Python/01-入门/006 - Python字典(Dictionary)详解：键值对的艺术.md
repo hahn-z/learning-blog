@@ -7,9 +7,8 @@ created_at: "2026-04-29T06:16:59.235+08:00"
 updated_at: "2026-04-29T10:02:47.271+08:00"
 reading_time: 34
 tags: []
----
-
-# 🟢 Python字典(Dictionary)详解
+:v-pre:
+---# 🟢 Python字典(Dictionary)详解
 
 > **难度：** ⭐⭐ 入门级 | **阅读时间：** 15分钟 | **前置知识：** 列表、元组、基本数据类型
 

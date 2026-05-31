@@ -6,9 +6,8 @@ tech_stack: "PHP"
 created_at: "2026-05-31T10:00:00+08:00"
 reading_time: 15
 tags: ["PHP", "CSV", "JSON", "XML", "数据格式"]
----
-
-# PHP数据格式处理：CSV与JSON与XML
+:v-pre:
+---# PHP数据格式处理：CSV与JSON与XML
 
 ## CSV处理
 

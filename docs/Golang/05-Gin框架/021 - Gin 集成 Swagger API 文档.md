@@ -7,9 +7,8 @@ created_at: "2026-04-25T23:13:51.229+08:00"
 updated_at: "2026-04-29T10:02:45.749+08:00"
 reading_time: 28
 tags: []
----
-
-# 021 - Gin 集成 Swagger API 文档
+:v-pre:
+---# 021 - Gin 集成 Swagger API 文档
 
 > **难度：** ⭐⭐（中等）
 > **前置知识：** Gin 路由、RESTful API 设计基础

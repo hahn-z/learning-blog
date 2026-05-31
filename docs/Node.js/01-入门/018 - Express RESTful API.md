@@ -7,9 +7,8 @@ created_at: "2026-04-29T06:16:59.66+08:00"
 updated_at: "2026-04-29T10:02:47.983+08:00"
 reading_time: 66
 tags: []
----
-
-# Express RESTful API
+:v-pre:
+---# Express RESTful API
 
 > **难度标注：** ⭐⭐⭐ 中级 | 适合有Express和路由基础的开发者
 > **阅读时间：** 约22分钟 | **上手时间：** 约40分钟

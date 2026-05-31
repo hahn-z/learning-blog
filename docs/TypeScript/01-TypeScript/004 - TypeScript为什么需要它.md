@@ -7,9 +7,8 @@ created_at: "2026-04-26T17:02:44.4+08:00"
 updated_at: "2026-04-29T10:02:46.351+08:00"
 reading_time: 19
 tags: []
----
-
-# 031-TypeScript为什么需要它
+:v-pre:
+---# 031-TypeScript为什么需要它
 
 > **难度：** 🟢 入门 | **阅读时间：** 15分钟 | **前置知识：** JavaScript ES6+
 

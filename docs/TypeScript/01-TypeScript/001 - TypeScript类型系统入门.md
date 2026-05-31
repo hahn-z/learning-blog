@@ -7,9 +7,8 @@ created_at: "2026-04-26T10:22:36.297+08:00"
 updated_at: "2026-04-29T10:02:46.322+08:00"
 reading_time: 18
 tags: ["TypeScript", "前端"]
----
-
-# TypeScript类型系统入门
+:v-pre:
+---# TypeScript类型系统入门
 
 > **难度：** ⭐⭐ 入门级 | **阅读时间：** 约15分钟 | **前置知识：** JavaScript基础
 

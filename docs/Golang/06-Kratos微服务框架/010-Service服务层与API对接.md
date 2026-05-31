@@ -7,9 +7,8 @@ created_at: "2026-04-28T20:16:03.5+08:00"
 updated_at: "2026-04-29T10:02:45.364+08:00"
 reading_time: 36
 tags: []
----
-
-# 010-Service服务层与API对接
+:v-pre:
+---# 010-Service服务层与API对接
 
 > 难度：⭐⭐⭐（中级）
 > 前置知识：Proto生成代码、HTTP/gRPC基础、Kratos biz层

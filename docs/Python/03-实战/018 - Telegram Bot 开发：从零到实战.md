@@ -7,9 +7,8 @@ created_at: "2026-04-29T06:16:59.554+08:00"
 updated_at: "2026-04-29T10:02:47.797+08:00"
 reading_time: 46
 tags: []
----
-
-# Telegram Bot 开发：从零到实战
+:v-pre:
+---# Telegram Bot 开发：从零到实战
 
 > **难度：⭐⭐ 中级** | **预计阅读：20 分钟** | **Python 3.8+**
 

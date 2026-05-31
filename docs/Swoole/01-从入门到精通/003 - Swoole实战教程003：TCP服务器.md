@@ -7,9 +7,8 @@ created_at: "2026-04-26T21:01:40.727+08:00"
 updated_at: "2026-04-29T10:02:46.874+08:00"
 reading_time: 33
 tags: ["Swoole", "PHP"]
----
-
-# Swoole实战教程003：TCP服务器
+:v-pre:
+---# Swoole实战教程003：TCP服务器
 
 > **难度标注：** 🟡 中级 | 预计学习时间：50分钟
 

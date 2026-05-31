@@ -6,9 +6,8 @@ tech_stack: "PHP"
 created_at: "2026-05-31T10:00:00+08:00"
 reading_time: 15
 tags: ["PHP", "安全", "CORS", "API"]
----
-
-# PHP CORS与API安全设计
+:v-pre:
+---# PHP CORS与API安全设计
 
 前后端分离架构下，CORS（跨域资源共享）配置错误是API安全的高频问题。加上认证授权和限流，构成API安全的三大支柱。
 

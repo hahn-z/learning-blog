@@ -7,9 +7,8 @@ created_at: "2026-04-26T21:32:56.074+08:00"
 updated_at: "2026-04-29T10:02:47.212+08:00"
 reading_time: 21
 tags: ["Swoole", "PHP"]
----
-
----
+:v-pre:
+------
 slug: 040-ecosystem-roadmap
 title: Swoole生态全景与进阶路线
 category: Swoole深度实战

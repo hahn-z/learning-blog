@@ -6,9 +6,8 @@ tech_stack: "PHP"
 created_at: "2026-05-31T10:00:00+08:00"
 reading_time: 15
 tags: ["PHP", "cURL", "Guzzle", "PSR-7", "HTTP"]
----
-
-# PHP HTTP客户端实战
+:v-pre:
+---# PHP HTTP客户端实战
 
 ## cURL完整选项
 

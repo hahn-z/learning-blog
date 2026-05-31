@@ -7,9 +7,8 @@ created_at: "2026-04-25T23:17:17.071+08:00"
 updated_at: "2026-04-29T10:02:45.798+08:00"
 reading_time: 24
 tags: []
----
-
-# gRPC 与 Gin 共存实战
+:v-pre:
+---# gRPC 与 Gin 共存实战
 
 > 难度：⭐⭐⭐⭐（高级）
 > 前置知识：Gin 基础、HTTP/2、Protocol Buffers

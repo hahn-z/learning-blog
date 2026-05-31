@@ -7,9 +7,8 @@ created_at: "2026-04-25T11:35:21.869+08:00"
 updated_at: "2026-04-29T10:02:44.614+08:00"
 reading_time: 27
 tags: ["Go基础"]
----
-
-# 026 - panic 与 recover
+:v-pre:
+---# 026 - panic 与 recover
 
 > **难度：⭐⭐⭐** | panic 是 Go 的"紧急制动"，recover 是"安全气囊"。用对地方是艺术，用错地方是灾难。
 

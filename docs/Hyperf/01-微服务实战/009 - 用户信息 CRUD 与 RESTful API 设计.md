@@ -7,9 +7,8 @@ created_at: "2026-05-01T21:52:08.76+08:00"
 updated_at: "2026-05-01T22:22:55.92+08:00"
 reading_time: 9
 tags: []
----
-
-# 用户信息 CRUD 与 RESTful API 设计
+:v-pre:
+---# 用户信息 CRUD 与 RESTful API 设计
 
 > **难度：** ⭐⭐⭐
 > **前置知识：** JWT 认证（008）、数据库模型（006）、HTTP 方法语义

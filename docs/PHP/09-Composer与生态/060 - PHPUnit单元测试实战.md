@@ -6,9 +6,8 @@ tech_stack: "PHP"
 created_at: "2026-05-31T10:00:00+08:00"
 reading_time: 15
 tags: ["PHP", "PHPUnit", "测试"]
----
-
-# PHPUnit单元测试实战
+:v-pre:
+---# PHPUnit单元测试实战
 
 单元测试不是额外负担，而是代码质量的保障网。掌握PHPUnit，让你的代码可测试、可维护、可重构。
 

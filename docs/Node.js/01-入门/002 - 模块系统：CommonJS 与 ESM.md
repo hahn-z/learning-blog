@@ -7,9 +7,8 @@ created_at: "2026-04-29T06:16:59.573+08:00"
 updated_at: "2026-04-29T10:02:47.839+08:00"
 reading_time: 18
 tags: []
----
-
-# 模块系统：CommonJS 与 ESM
+:v-pre:
+---# 模块系统：CommonJS 与 ESM
 
 > **难度：** ⭐⭐ 初级 | **预计阅读：** 18 分钟 | **标签：** Node.js, 模块, CommonJS, ES Modules
 

@@ -7,9 +7,8 @@ created_at: "2026-04-26T14:15:10.916+08:00"
 updated_at: "2026-04-29T10:02:46.224+08:00"
 reading_time: 16
 tags: []
----
-
-# Proxy与Reflect代理
+:v-pre:
+---# Proxy与Reflect代理
 
 > **难度：** ⭐⭐⭐⭐ 较难 | **分类：** JavaScript 高级 | **阅读时间：** ~18分钟
 

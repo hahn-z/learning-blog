@@ -7,9 +7,8 @@ created_at: "2026-04-29T06:16:59.478+08:00"
 updated_at: "2026-04-29T10:02:47.692+08:00"
 reading_time: 23
 tags: []
----
-
-# FastAPI入门：从零构建高性能API
+:v-pre:
+---# FastAPI入门：从零构建高性能API
 
 > **难度标注：** ⭐⭐☆☆☆（初级）
 > **前置知识：** Python基础、HTTP协议基础概念

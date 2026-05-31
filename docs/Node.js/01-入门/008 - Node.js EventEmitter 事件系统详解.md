@@ -7,9 +7,8 @@ created_at: "2026-04-29T06:16:59.605+08:00"
 updated_at: "2026-04-29T10:02:47.896+08:00"
 reading_time: 28
 tags: []
----
-
-# Node.js EventEmitter 事件系统详解
+:v-pre:
+---# Node.js EventEmitter 事件系统详解
 
 > **难度：** ⭐⭐ 入门偏中
 > **前置知识：** JavaScript 回调函数、对象基础

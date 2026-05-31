@@ -6,9 +6,8 @@ tech_stack: "PHP"
 created_at: "2026-05-31T10:00:00+08:00"
 reading_time: 15
 tags: ["PHP", "OOP", "Trait"]
----
-
-# PHP Trait完全指南
+:v-pre:
+---# PHP Trait完全指南
 
 Trait 是 PHP 实现水平代码复用的机制——弥补了单继承的不足。理解 Trait 的优先级、冲突解决、属性支持和底层机制，才能正确使用这个强大特性。
 

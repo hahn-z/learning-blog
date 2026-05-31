@@ -7,9 +7,8 @@ created_at: "2026-04-26T21:01:40.709+08:00"
 updated_at: "2026-04-29T10:02:46.913+08:00"
 reading_time: 29
 tags: ["Swoole", "PHP"]
----
-
-# Swoole Task 任务投递系统
+:v-pre:
+---# Swoole Task 任务投递系统
 
 > **难度标注：** ⭐⭐⭐ 中级 | 预计阅读时间：20 分钟
 

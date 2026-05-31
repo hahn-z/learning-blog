@@ -6,9 +6,8 @@ tech_stack: "PHP"
 created_at: "2026-05-31T10:00:00+08:00"
 reading_time: 15
 tags: ["PHP", "API", "RESTful"]
----
-
-# PHP API设计最佳实践
+:v-pre:
+---# PHP API设计最佳实践
 
 好的API设计让前端乐意用，让集成方少骂娘。本文从RESTful规范到实际设计决策，覆盖API设计的核心知识。
 

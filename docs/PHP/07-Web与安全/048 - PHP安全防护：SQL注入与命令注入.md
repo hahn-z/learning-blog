@@ -6,9 +6,8 @@ tech_stack: "PHP"
 created_at: "2026-05-31T10:00:00+08:00"
 reading_time: 15
 tags: ["PHP", "安全", "SQL注入", "命令注入"]
----
-
-# PHP安全防护：SQL注入与命令注入
+:v-pre:
+---# PHP安全防护：SQL注入与命令注入
 
 SQL注入连续多年位居OWASP Top 10榜首，命令注入则在系统交互场景中威胁巨大。两者都能导致数据泄露甚至服务器被完全控制。
 

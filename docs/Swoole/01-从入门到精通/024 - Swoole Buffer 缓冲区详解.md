@@ -7,9 +7,8 @@ created_at: "2026-04-26T21:15:46.337+08:00"
 updated_at: "2026-04-29T10:02:47.069+08:00"
 reading_time: 29
 tags: ["Swoole", "PHP"]
----
-
-# Swoole Buffer 缓冲区详解
+:v-pre:
+---# Swoole Buffer 缓冲区详解
 
 > **难度标注：** ⭐⭐☆☆☆（中级）
 > **前置知识：** PHP 字符串操作、Swoole 基础、内存管理概念
@@ -319,7 +318,8 @@ class BufferPool
 }
 
 // --- Benchmark: pooled vs non-pooled ---
-Coroutineun(function () {
+Coroutine
+un(function () {
     $pool = new BufferPool(50, 4096);
     $iterations = 10000;
 

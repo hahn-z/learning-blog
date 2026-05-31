@@ -7,9 +7,8 @@ created_at: "2026-04-26T17:02:44.411+08:00"
 updated_at: "2026-04-29T10:02:46.363+08:00"
 reading_time: 25
 tags: []
----
-
-# 032-TypeScript基础类型
+:v-pre:
+---# 032-TypeScript基础类型
 
 > **难度：** 🟢 入门 | **阅读时间：** 18分钟 | **前置知识：** TypeScript简介
 

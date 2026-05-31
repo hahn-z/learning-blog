@@ -7,9 +7,8 @@ created_at: "2026-04-25T19:20:57.536+08:00"
 updated_at: "2026-04-29T10:02:45.491+08:00"
 reading_time: 27
 tags: []
----
-
-# 028 - Kratos 消息队列 Kafka 集成
+:v-pre:
+---# 028 - Kratos 消息队列 Kafka 集成
 
 > **难度：⭐⭐⭐⭐（较难）**
 > Kafka 是微服务异步通信的核心基础设施。本文从原理到实战，详解 Kratos 中 Kafka 的生产者/消费者、Consumer Group、消息序列化与死信队列。

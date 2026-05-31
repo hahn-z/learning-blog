@@ -7,9 +7,8 @@ created_at: "2026-04-26T11:32:09.53+08:00"
 updated_at: "2026-04-29T10:02:46.177+08:00"
 reading_time: 41
 tags: []
----
-
-## 难度标注
+:v-pre:
+---## 难度标注
 
 > 🟡 **中等难度** — 需要先理解 Promise，async/await 是 Promise 的语法糖
 

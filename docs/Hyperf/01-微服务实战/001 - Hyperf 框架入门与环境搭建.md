@@ -7,9 +7,8 @@ created_at: "2026-05-01T21:52:08.698+08:00"
 updated_at: "2026-05-01T22:22:55.768+08:00"
 reading_time: 5
 tags: []
----
-
-# Hyperf 框架入门与环境搭建
+:v-pre:
+---# Hyperf 框架入门与环境搭建
 
 > **难度：** ⭐⭐
 > **前置知识：** PHP 基础、Composer 包管理、Linux 命令行

@@ -7,9 +7,8 @@ created_at: "2026-04-26T21:15:46.347+08:00"
 updated_at: "2026-04-29T10:02:47.075+08:00"
 reading_time: 43
 tags: ["Swoole", "PHP"]
----
-
-# Swoole 序列化与 Pack/Unpack 详解
+:v-pre:
+---# Swoole 序列化与 Pack/Unpack 详解
 
 > **难度标注：** ⭐⭐⭐☆☆（中高级）
 > **前置知识：** PHP 数据类型、二进制基础、Swoole 协程
@@ -278,7 +277,8 @@ use Swoole\Coroutine;
 use Swoole\Coroutine\Server;
 use Swoole\Coroutine\Server\Connection;
 
-Coroutineun(function () {
+Coroutine
+un(function () {
     $server = new Server('127.0.0.1', 9601);
     
     $server->handle(function (Connection $conn) {
@@ -479,7 +479,8 @@ class SerializationBenchmark
 }
 
 // --- Run the benchmark ---
-Coroutineun(function () {
+Coroutine
+un(function () {
     $bench = new SerializationBenchmark();
     $results = $bench->run(10000);
 

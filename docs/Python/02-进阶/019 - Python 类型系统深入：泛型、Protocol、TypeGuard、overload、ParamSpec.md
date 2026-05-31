@@ -7,9 +7,8 @@ created_at: "2026-04-29T06:16:59.452+08:00"
 updated_at: "2026-04-29T10:02:47.653+08:00"
 reading_time: 19
 tags: []
----
-
-# Python 类型系统深入
+:v-pre:
+---# Python 类型系统深入
 
 > **难度：★★★★☆ 高级**
 > 深入 Python 类型系统：泛型、Protocol、类型体操、TypeVar、overload、TypeGuard 等高级特性。

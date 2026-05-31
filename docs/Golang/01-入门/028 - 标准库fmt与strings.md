@@ -7,10 +7,8 @@ created_at: "2026-04-25T11:35:21.897+08:00"
 updated_at: "2026-04-29T10:02:44.629+08:00"
 reading_time: 24
 tags: ["Go基础"]
----
-
-
-# 028 - 标准库 fmt 与 strings
+:v-pre:
+---# 028 - 标准库 fmt 与 strings
 
 > 难度：⭐⭐（中级）
 >

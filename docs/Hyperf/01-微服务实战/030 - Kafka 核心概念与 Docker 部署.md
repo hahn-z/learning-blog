@@ -7,9 +7,8 @@ created_at: "2026-05-01T21:52:08.97+08:00"
 updated_at: "2026-05-01T22:17:27.479+08:00"
 reading_time: 8
 tags: []
----
-
-# Kafka 核心概念与 Docker 部署
+:v-pre:
+---# Kafka 核心概念与 Docker 部署
 
 ## 难度标注
 

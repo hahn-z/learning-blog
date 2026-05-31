@@ -7,9 +7,8 @@ created_at: "2026-04-25T19:01:48.719+08:00"
 updated_at: "2026-04-29T10:02:45.408+08:00"
 reading_time: 21
 tags: []
----
-
-# 链路追踪 OpenTelemetry
+:v-pre:
+---# 链路追踪 OpenTelemetry
 
 > **难度：** ⭐⭐⭐⭐ | **预计阅读：** 18 分钟
 >

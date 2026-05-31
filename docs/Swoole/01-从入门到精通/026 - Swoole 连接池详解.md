@@ -7,9 +7,8 @@ created_at: "2026-04-26T21:15:46.357+08:00"
 updated_at: "2026-04-29T10:02:47.083+08:00"
 reading_time: 58
 tags: ["Swoole", "PHP"]
----
-
-# Swoole 连接池详解
+:v-pre:
+---# Swoole 连接池详解
 
 > **难度标注：** ⭐⭐⭐☆☆（中高级）
 > **前置知识：** Swoole 协程基础、Channel、数据库操作、网络编程
@@ -194,7 +193,8 @@ class SimplePool
 }
 
 // --- Demo with simulated connections ---
-Coroutineun(function () {
+Coroutine
+un(function () {
     $pool = new SimplePool(
         5,
         // Creator: simulate creating an expensive connection
@@ -413,7 +413,8 @@ class RedisPool
 // ============================================================
 // Usage: HTTP API server with pooled DB access
 // ============================================================
-Coroutineun(function () {
+Coroutine
+un(function () {
     // Create connection pools
     $mysqlPool = new MySQLPool(10, [
         'host' => '127.0.0.1',
@@ -693,7 +694,8 @@ class ConnectionPool
 }
 
 // --- Demo: Full lifecycle with metrics ---
-Coroutineun(function () {
+Coroutine
+un(function () {
     // Simulated connection factory
     $connectionId = 0;
     $pool = new ConnectionPool([

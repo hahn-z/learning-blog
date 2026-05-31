@@ -7,9 +7,8 @@ created_at: "2026-04-26T21:01:42.608+08:00"
 updated_at: "2026-04-29T10:02:46.883+08:00"
 reading_time: 33
 tags: ["Swoole", "PHP"]
----
-
-# Swoole实战教程004：UDP服务器
+:v-pre:
+---# Swoole实战教程004：UDP服务器
 
 > **难度标注：** 🟡 中级 | 预计学习时间：40分钟
 

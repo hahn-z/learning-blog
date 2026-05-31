@@ -7,9 +7,8 @@ created_at: "2026-04-29T06:16:59.531+08:00"
 updated_at: "2026-04-29T10:02:47.77+08:00"
 reading_time: 32
 tags: []
----
-
-# SQLAlchemy ORM 实战指南
+:v-pre:
+---# SQLAlchemy ORM 实战指南
 
 > **难度：** ⭐⭐⭐ 中高级 | **预计阅读：** 30 分钟 | **标签：** Python, ORM, 数据库, SQLAlchemy
 

@@ -7,9 +7,8 @@ created_at: "2026-04-25T18:31:51.169+08:00"
 updated_at: "2026-04-29T10:02:45.342+08:00"
 reading_time: 29
 tags: []
----
-
-# 007-订单服务Proto设计与API定义
+:v-pre:
+---# 007-订单服务Proto设计与API定义
 
 > 难度：⭐⭐⭐（中级）
 > 前置知识：Protobuf语法、HTTP/gRPC基础、RESTful API设计

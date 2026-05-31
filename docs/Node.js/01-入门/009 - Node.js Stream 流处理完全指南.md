@@ -7,9 +7,8 @@ created_at: "2026-04-29T06:16:59.61+08:00"
 updated_at: "2026-04-29T10:02:47.905+08:00"
 reading_time: 33
 tags: []
----
-
-# Node.js Stream 流处理完全指南
+:v-pre:
+---# Node.js Stream 流处理完全指南
 
 > **难度：** ⭐⭐⭐ 中等
 > **前置知识：** EventEmitter、Buffer 基础、文件系统操作

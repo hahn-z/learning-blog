@@ -7,9 +7,8 @@ created_at: "2026-04-25T11:35:22.01+08:00"
 updated_at: "2026-04-29T10:02:44.7+08:00"
 reading_time: 25
 tags: ["并发"]
----
-
-# 036 - sync 包深入：Once/Map/Pool/Cond
+:v-pre:
+---# 036 - sync 包深入：Once/Map/Pool/Cond
 
 > 难度：⭐⭐⭐⭐（中高级）
 >

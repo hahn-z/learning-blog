@@ -7,10 +7,8 @@ created_at: "2026-04-25T18:15:15.402+08:00"
 updated_at: "2026-04-29T10:02:45.312+08:00"
 reading_time: 28
 tags: []
----
-
-
-# 004-第一个Kratos服务Hello World
+:v-pre:
+---# 004-第一个Kratos服务Hello World
 
 > **难度：⭐⭐（入门级）**
 >

@@ -7,9 +7,8 @@ created_at: "2026-05-01T21:52:08.709+08:00"
 updated_at: "2026-05-01T22:22:55.788+08:00"
 reading_time: 6
 tags: []
----
-
-# Swoole 协程核心原理与 Hyperf 底层机制
+:v-pre:
+---# Swoole 协程核心原理与 Hyperf 底层机制
 
 > **难度：** ⭐⭐⭐
 > **前置知识：** PHP 基础、Hyperf 入门（001）、操作系统进程/线程概念

@@ -7,9 +7,8 @@ created_at: "2026-04-25T10:32:44.339+08:00"
 updated_at: "2026-04-29T10:02:44.408+08:00"
 reading_time: 1
 tags: ["Next.js", "React", "TypeScript", "前端"]
----
-
-# 使用Next.js构建现代博客
+:v-pre:
+---# 使用Next.js构建现代博客
 
 在当今的前端开发领域，Next.js 已经成为构建现代 Web 应用的首选框架之一。本文将介绍如何使用 Next.js 构建一个功能完整的博客系统。
 

@@ -6,9 +6,8 @@ tech_stack: "PHP"
 created_at: "2026-05-31T10:00:00+08:00"
 reading_time: 15
 tags: ["PHP", "Composer", "包管理"]
----
-
-# Composer深度使用指南
+:v-pre:
+---# Composer深度使用指南
 
 Composer是PHP生态的基石。理解其版本约束、自动加载和优化机制，能避免许多踩坑。
 

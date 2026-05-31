@@ -6,9 +6,8 @@ tech_stack: "PHP"
 created_at: "2026-05-31T10:00:00+08:00"
 reading_time: 15
 tags: ["PHP", "编码规范", "Clean Code"]
----
-
-# PHP编码规范与Clean Code
+:v-pre:
+---# PHP编码规范与Clean Code
 
 好的代码不仅要能运行，更要人能读。编码规范保证团队一致性，Clean Code原则保证代码可维护性。
 

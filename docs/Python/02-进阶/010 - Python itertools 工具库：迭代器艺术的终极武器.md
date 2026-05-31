@@ -7,10 +7,8 @@ created_at: "2026-04-29T06:16:59.401+08:00"
 updated_at: "2026-04-29T10:02:47.581+08:00"
 reading_time: 20
 tags: []
----
-
-
-# Python itertools 工具库：迭代器艺术的终极武器
+:v-pre:
+---# Python itertools 工具库：迭代器艺术的终极武器
 
 > **难度：⭐⭐⭐ 中高级** | **阅读时间：约 15 分钟**
 

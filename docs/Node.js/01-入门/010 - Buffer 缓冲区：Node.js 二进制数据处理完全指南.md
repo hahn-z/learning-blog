@@ -7,9 +7,8 @@ created_at: "2026-04-29T06:16:59.616+08:00"
 updated_at: "2026-04-29T10:02:47.912+08:00"
 reading_time: 32
 tags: []
----
-
-# Buffer 缓冲区
+:v-pre:
+---# Buffer 缓冲区
 
 > **难度：** ⭐⭐ 中等
 > **标签：** Node.js、Buffer、二进制数据

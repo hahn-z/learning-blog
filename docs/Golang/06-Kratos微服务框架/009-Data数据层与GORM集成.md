@@ -7,9 +7,8 @@ created_at: "2026-04-25T18:31:37.264+08:00"
 updated_at: "2026-04-29T10:02:45.358+08:00"
 reading_time: 38
 tags: []
----
-
-# 009-Data数据层与GORM集成
+:v-pre:
+---# 009-Data数据层与GORM集成
 
 > 难度：⭐⭐⭐⭐（高级）
 > 前置知识：GORM基础、数据库连接池、Redis缓存、Kratos biz层

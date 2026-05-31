@@ -7,9 +7,8 @@ created_at: "2026-04-26T21:16:45.497+08:00"
 updated_at: "2026-04-29T10:02:47.046+08:00"
 reading_time: 37
 tags: ["Swoole", "PHP"]
----
-
-# Swoole Table 共享内存表：多进程数据共享的终极方案
+:v-pre:
+---# Swoole Table 共享内存表：多进程数据共享的终极方案
 
 > **难度：** ⭐⭐☆☆☆ 中低
 > **适用版本：** Swoole 4.x+ / 5.x

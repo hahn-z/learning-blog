@@ -7,9 +7,8 @@ created_at: "2026-04-25T11:35:22.036+08:00"
 updated_at: "2026-04-29T10:02:44.715+08:00"
 reading_time: 26
 tags: ["并发"]
----
-
-# 038 - 并发模式（Pipeline / Fan-In-Out）
+:v-pre:
+---# 038 - 并发模式（Pipeline / Fan-In-Out）
 
 > 难度：⭐⭐⭐⭐（进阶）
 >

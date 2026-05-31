@@ -7,9 +7,8 @@ created_at: "2026-04-26T10:33:05.564+08:00"
 updated_at: "2026-04-29T10:02:45.925+08:00"
 reading_time: 53
 tags: []
----
-
-# 004-HTML5多媒体与Canvas
+:v-pre:
+---# 004-HTML5多媒体与Canvas
 
 > **难度：** 🟡 中级 | **阅读时间：** 30分钟 | **前置知识：** HTML基础、JavaScript基础
 

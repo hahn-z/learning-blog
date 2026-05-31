@@ -7,9 +7,8 @@ created_at: "2026-04-29T06:16:59.527+08:00"
 updated_at: "2026-04-29T10:02:47.76+08:00"
 reading_time: 25
 tags: []
----
-
-# Matplotlib 数据可视化实战指南
+:v-pre:
+---# Matplotlib 数据可视化实战指南
 
 > **难度：** ⭐⭐ 中级 | **预计阅读：** 25 分钟 | **标签：** Python, 数据可视化, Matplotlib
 

@@ -7,9 +7,8 @@ created_at: "2026-04-26T21:23:16.472+08:00"
 updated_at: "2026-04-29T10:02:47.171+08:00"
 reading_time: 26
 tags: ["Swoole", "PHP"]
----
-
----
+:v-pre:
+------
 slug: 036-laravel-integration
 title: Swoole与Laravel集成
 category: Swoole深度实战

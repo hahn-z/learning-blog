@@ -7,9 +7,8 @@ created_at: "2026-05-01T21:52:08.86+08:00"
 updated_at: "2026-05-01T22:17:02.015+08:00"
 reading_time: 10
 tags: []
----
-
-# 019 - Hyperf gRPC 服务端与客户端实现
+:v-pre:
+---# 019 - Hyperf gRPC 服务端与客户端实现
 
 > **难度：** ⭐⭐⭐⭐ | **前置知识：** Hyperf 框架、gRPC 原理（018）、Protobuf 定义 | **预估用时：** 60 分钟
 

@@ -7,9 +7,8 @@ created_at: "2026-04-25T11:35:22.357+08:00"
 updated_at: "2026-04-29T10:02:44.994+08:00"
 reading_time: 20
 tags: ["数据库"]
----
-
-# 069: Docker容器化部署
+:v-pre:
+---# 069: Docker容器化部署
 
 > **难度：⭐⭐⭐⭐ 高级** | Docker 是现代应用部署的标准方式，本文覆盖 Go 应用的 Dockerfile 最佳实践、镜像优化和 Compose 编排。
 >

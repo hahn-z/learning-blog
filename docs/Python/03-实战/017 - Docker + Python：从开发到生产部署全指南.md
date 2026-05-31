@@ -7,9 +7,8 @@ created_at: "2026-04-29T06:16:59.548+08:00"
 updated_at: "2026-04-29T10:02:47.79+08:00"
 reading_time: 25
 tags: []
----
-
-# Docker + Python：从开发到生产部署全指南
+:v-pre:
+---# Docker + Python：从开发到生产部署全指南
 
 > **难度：⭐⭐⭐ 中高级** | **预计阅读：20 分钟** | **Python 3.8+ / Docker 24+**
 

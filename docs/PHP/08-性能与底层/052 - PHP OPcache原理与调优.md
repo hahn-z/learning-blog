@@ -6,9 +6,8 @@ tech_stack: "PHP"
 created_at: "2026-05-31T10:00:00+08:00"
 reading_time: 15
 tags: ["PHP", "性能", "OPcache", "JIT"]
----
-
-# PHP OPcache原理与调优
+:v-pre:
+---# PHP OPcache原理与调优
 
 PHP每次请求都要经历"源码→词法分析→语法分析→AST→opcode→执行"的编译过程。OPcache缓存opcode，跳过编译阶段，是PHP性能提升最直接的方案。
 

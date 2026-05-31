@@ -7,9 +7,8 @@ created_at: "2026-04-25T11:35:22.42+08:00"
 updated_at: "2026-04-29T10:02:45.026+08:00"
 reading_time: 68
 tags: ["标准库"]
----
-
-# Go语言Elasticsearch搜索实战
+:v-pre:
+---# Go语言Elasticsearch搜索实战
 
 **难度：中高级** ⭐⭐⭐⭐
 
