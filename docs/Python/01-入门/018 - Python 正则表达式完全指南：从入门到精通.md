@@ -351,7 +351,7 @@ match = re.search(pattern, log)
 print(match.groupdict())
 ```
 
-4. 实现一个模板引擎，将 `{{ variable }}` 替换为字典中的值。
+4. 实现一个模板引擎，将 `&#123;&#123; variable &#125;&#125;` 替换为字典中的值。
 
 ### 🔴 高级
 
