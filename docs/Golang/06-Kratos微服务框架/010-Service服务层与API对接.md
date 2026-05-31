@@ -415,7 +415,7 @@ func RequestValidationMiddleware() middleware.Middleware {
 ## 四、执行预览
 
 ```bash
-# Start the service
+# Service服务层与API对接
 $ go run cmd/order/main.go -conf configs/config.yaml
 # INFO msg=server started http=:8080 grpc=:9000
 

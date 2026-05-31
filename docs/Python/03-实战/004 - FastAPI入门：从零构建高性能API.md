@@ -72,7 +72,7 @@ FastAPI入门
 ### v1：最简Hello World
 
 ```python
-# v1_minimal.py - The simplest FastAPI application
+# FastAPI入门：从零构建高性能API
 from fastapi import FastAPI
 
 app = FastAPI()

@@ -276,7 +276,7 @@ class SagaResult
 ```bash
 $ php bin/hyperf.php start
 
-# Successful saga:
+# 分布式事务理论（CAP/BASE/TCC/Saga）
 # [INFO] Saga started {"saga_id":"saga_662f..."}
 # [INFO] Saga completed successfully {"saga_id":"saga_662f...","user_id":1001}
 

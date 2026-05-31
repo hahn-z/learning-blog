@@ -80,7 +80,7 @@ FastAPI进阶
 ### v1：基础依赖注入
 
 ```python
-# v1_dep_injection.py - Basic dependency injection
+# FastAPI进阶：依赖注入与中间件实战
 from fastapi import FastAPI, Depends
 from typing import Optional
 

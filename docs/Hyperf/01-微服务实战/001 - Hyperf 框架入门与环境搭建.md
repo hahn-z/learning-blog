@@ -55,7 +55,7 @@ tags: []
 
 ```php
 #!/bin/bash
-# ✅ Environment setup script for Hyperf development
+# Hyperf 框架入门与环境搭建
 
 # Step 1: Install Swoole extension
 pecl install swoole

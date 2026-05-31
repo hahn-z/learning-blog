@@ -363,7 +363,7 @@ func I18nValidation() middleware.Middleware {
 ## 4. 执行预览
 
 ```bash
-# Generate proto with validation
+# 请求校验与参数绑定 | Kratos实战系列
 $ protoc --proto_path=. --go_out=. --validate_out=. api/user/v1/user.proto
 
 # Valid request

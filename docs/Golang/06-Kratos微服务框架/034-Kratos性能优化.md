@@ -349,7 +349,7 @@ func BatchInsert(db *gorm.DB, records interface{}, batchSize int) error {
 
 ```bash
 #!/bin/bash
-# benchmark.sh - Performance testing scripts
+# Kratos性能优化
 
 # 1. gRPC benchmark using ghz
 # Install: go install github.com/bojand/ghz/cmd/ghz@latest

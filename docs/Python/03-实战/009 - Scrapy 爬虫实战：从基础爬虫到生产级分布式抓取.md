@@ -80,7 +80,7 @@ scrapy genspider blogspider example.com
 ### v1 基础版本 - 单页爬取
 
 ```python
-# items.py - define data structure
+# Scrapy 爬虫实战：从基础爬虫到生产级分布式抓取
 import scrapy
 
 class BlogPostItem(scrapy.Item):

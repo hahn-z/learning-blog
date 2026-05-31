@@ -261,7 +261,7 @@ func NewHTTPServer(c *conf.Server, greeter *service.GreeterService) *http.Server
 ## 四、执行预览
 
 ```bash
-# Start server
+# Kratos中间件开发
 $ go run cmd/server/main.go
 INFO msg=server listening on: [::]:8000
 

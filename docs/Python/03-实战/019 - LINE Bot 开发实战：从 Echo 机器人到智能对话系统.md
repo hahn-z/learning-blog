@@ -79,7 +79,7 @@ LINE Bot 开发
 ### 代码演进 v1：基础文本回复机器人
 
 ```python
-# v1: Basic LINE Bot with Flask - Text echo reply
+# LINE Bot 开发实战：从 Echo 机器人到智能对话系统
 # Install: pip install flask line-bot-sdk
 
 import os

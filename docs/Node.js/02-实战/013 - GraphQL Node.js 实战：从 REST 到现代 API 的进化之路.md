@@ -180,7 +180,7 @@ startServer();
 $ node server.js
 🚀 Server ready at http://localhost:4000/graphql
 
-# Query in Playground
+# GraphQL Node.js 实战：从 REST 到现代 API 的进化之路
 query {
   posts {
     title

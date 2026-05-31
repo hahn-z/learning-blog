@@ -180,7 +180,7 @@ scrape_configs:
 
 ```bash
 $ curl http://localhost:9501/api/metrics
-# user_service_user_registrations_total{status="success"} 42
+# Prometheus 指标采集与 Hyperf 集成
 # user_service_user_registrations_total{status="error"} 3
 # user_service_registration_duration_seconds_bucket{le="0.1"} 30
 

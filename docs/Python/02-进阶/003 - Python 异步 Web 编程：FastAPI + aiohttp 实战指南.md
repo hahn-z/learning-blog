@@ -84,7 +84,7 @@ Client → [aiohttp/FastAPI Server] → Event Loop
 ### 3.1 FastAPI 异步 API 服务
 
 ```python
-# server.py — Run with: uvicorn server:app --reload
+# Python 异步 Web 编程：FastAPI + aiohttp 实战指南
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 import asyncio

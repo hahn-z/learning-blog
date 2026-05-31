@@ -68,7 +68,7 @@ tags: []
 ### 1. Docker Compose 部署 Kafka
 
 ```yaml
-# docker-compose.kafka.yml
+# Kafka 核心概念与 Docker 部署
 # ✅ Kafka 3.x with KRaft mode (no ZooKeeper needed)
 
 version: '3.8'

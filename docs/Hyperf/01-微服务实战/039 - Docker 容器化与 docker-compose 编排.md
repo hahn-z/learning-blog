@@ -57,7 +57,7 @@ tags: []
 ### 3.1 Dockerfile
 
 ```dockerfile
-# ✅ Multi-stage build for production optimization
+# Docker 容器化与 docker-compose 编排
 FROM php:8.2-cli AS base
 
 # ✅ Install system dependencies

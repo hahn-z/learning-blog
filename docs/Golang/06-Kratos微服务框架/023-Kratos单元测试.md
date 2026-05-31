@@ -35,7 +35,7 @@ Kratos 采用 DDD（领域驱动设计）分层架构，每层职责不同，测
 `gomock` 是 Go 官方维护的 mock 生成工具。通过 `mockgen` 命令根据接口生成 mock 实现，用于在测试中替换真实依赖。
 
 ```bash
-# Install mockgen
+# Kratos单元测试
 go install go.uber.org/mock/mockgen@latest
 
 # Generate mock for repository interface

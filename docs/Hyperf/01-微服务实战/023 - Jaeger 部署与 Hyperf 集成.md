@@ -64,7 +64,7 @@ tags: []
 ### 1. Docker Compose 部署 Jaeger
 
 ```yaml
-# docker-compose.jaeger.yml
+# Jaeger 部署与 Hyperf 集成
 # ✅ All-in-One mode for development, use production mode for production
 
 version: '3.8'

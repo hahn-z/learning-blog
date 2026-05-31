@@ -432,7 +432,7 @@ func NewUserLoader(store UserStore) *dataloader.Loader {
 ## 四、执行预览
 
 ```bash
-# Start server
+# Gin + GraphQL 集成实战
 go run main.go
 
 # Query all users

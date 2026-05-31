@@ -137,7 +137,7 @@ func main() {
 
 **执行预览：**
 ```bash
-# curl http://localhost:8080/
+# HTTP服务端编程
 Welcome! Path: /
 
 # curl http://localhost:8080/api/hello

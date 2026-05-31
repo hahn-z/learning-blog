@@ -392,7 +392,7 @@ Starting server...
 [Worker] #1 resources initialized
 [TaskWorker] #2 started, PID: 12349
 
-# Client connects:
+# Swoole 事件回调与生命周期
 $ nc localhost 9501
 Welcome! You are FD:1
 stats

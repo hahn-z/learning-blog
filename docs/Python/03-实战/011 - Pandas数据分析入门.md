@@ -64,7 +64,7 @@ Pandas 基础
 ### v1：数据结构基础
 
 ```python
-# pandas_basics_v1.py - Series and DataFrame fundamentals
+# Pandas数据分析入门
 import pandas as pd
 import numpy as np
 

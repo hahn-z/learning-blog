@@ -83,7 +83,7 @@ Python入门
 ### 第一个程序：Hello World
 
 ```python
-# hello.py - Your first Python program
+# Python简介与环境搭建
 # Every programmer's journey starts here!
 
 print("Hello, World!")

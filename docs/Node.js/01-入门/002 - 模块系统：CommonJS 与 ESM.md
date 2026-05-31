@@ -200,7 +200,7 @@ export const isDev = process.env.NODE_ENV !== 'production';
 ## 四、执行预览
 
 ```bash
-# CommonJS
+# 模块系统：CommonJS 与 ESM
 $ node app.js
 [App] INFO: PI = 3.14159
 [App] INFO: 2 + 3 = 5

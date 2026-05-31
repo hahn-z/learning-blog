@@ -282,7 +282,7 @@ class UserService
 ## 执行预览
 
 ```bash
-# Request with trace context
+# 分布式链路追踪原理与 OpenTelemetry
 $ curl -H "traceparent: 00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01" \
   http://localhost:9501/api/users/1
 

@@ -67,7 +67,7 @@ DRF 核心架构
 ### v1 基础版本 - 手动序列化
 
 ```python
-# models.py
+# Django REST Framework 完全指南：从手动序列化到生产级 API
 from django.db import models
 
 class Article(models.Model):

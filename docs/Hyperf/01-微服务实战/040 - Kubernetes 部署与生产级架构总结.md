@@ -59,7 +59,7 @@ tags: []
 ### 3.1 Namespace `k8s/namespace.yaml`
 
 ```yaml
-# ✅ Dedicated namespace for user service
+# Kubernetes 部署与生产级架构总结
 apiVersion: v1
 kind: Namespace
 metadata:

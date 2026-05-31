@@ -55,7 +55,7 @@ Telegram Bot 是运行在 Telegram 平台上的自动化程序。相比其他平
 ### v1：最简 Bot — 命令响应
 
 ```python
-# bot_v1.py - Simple echo bot
+# Telegram Bot 开发：从零到实战
 from telegram import Update
 from telegram.ext import (
     ApplicationBuilder, CommandHandler,

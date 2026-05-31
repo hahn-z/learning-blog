@@ -48,7 +48,7 @@ tags: []
 ### docker-compose.yml — Nacos 单机部署
 
 ```yaml
-# ✅ Nacos standalone mode with MySQL persistence
+# Nacos 入门与 Docker 部署
 version: '3.8'
 
 services:

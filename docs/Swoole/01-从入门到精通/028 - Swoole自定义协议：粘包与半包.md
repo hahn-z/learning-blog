@@ -313,7 +313,7 @@ $server->start();
 ## 四、执行预览
 
 ```
-# Terminal 1 - Server
+# Swoole自定义协议：粘包与半包
 $ php v3-protocol.php
 === Protocol V3 Server :9501 ===
 [+] fd=1 connected

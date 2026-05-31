@@ -281,7 +281,7 @@ class ComputerFacade:
 ## 四、执行预览
 
 ```text
-# Adapter
+# Python 结构型设计模式详解：适配器、装饰器、代理、组合、外观
 >>> eu = EUPlug()
 >>> adapted = USAdapter(eu)
 >>> adapted.connect_110v()

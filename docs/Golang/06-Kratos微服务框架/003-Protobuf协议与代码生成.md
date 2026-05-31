@@ -249,7 +249,7 @@ message ListGreetingRequest {
 ### 4.1 使用Makefile（推荐）
 
 ```makefile
-# Makefile
+# Protobuf协议与代码生成
 .PHONY: api
 api:
 	protoc --proto_path=. \

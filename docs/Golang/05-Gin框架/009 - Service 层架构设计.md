@@ -540,7 +540,7 @@ func main() {
 $ go run main.go
 Server starting on :8080
 
-# Create todo
+# Service 层架构设计
 $ curl -X POST http://localhost:8080/api/todos \
   -H "Content-Type: application/json" \
   -d '{"title":"Learn layered architecture","priority":"high"}'

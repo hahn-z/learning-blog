@@ -286,7 +286,7 @@ func main() {
 ## 四、执行预览
 
 ```bash
-# Run migrations
+# 数据库迁移与GORM实战
 $ go run cmd/server/main.go
 Database migrated successfully
 

@@ -483,7 +483,7 @@ HTTP Server starting on http://0.0.0.0:9501
 
 **测试API：**
 ```bash
-# Home page
+# Swoole实战教程005：HTTP服务器
 $ curl http://127.0.0.1:9501/
 <h1>Swoole HTTP Server</h1><p>Server is running!</p>
 

@@ -51,7 +51,7 @@ tags: []
 ### 3.1 安装依赖
 
 ```bash
-# ✅ Install Hyperf Kafka component
+# Hyperf 接入 Kafka 生产者与消费者
 composer require hyperf/kafka
 ```
 

@@ -337,7 +337,7 @@ $ node perf-app.js
 Performance-optimized server on port 3000
 Node.js v20.11.0, PID: 12345
 
-# Cache miss then hit
+# Node.js性能优化：从内存到并发的全链路调优
 $ curl -i http://localhost:3000/api/products
 X-Cache: MISS
 [{"id":1,"name":"Widget","price":9.99},...]

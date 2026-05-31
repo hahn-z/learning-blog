@@ -79,7 +79,7 @@ tags: []
 ### v1：基础描述符 — 类型验证
 
 ```python
-# v1: Basic descriptor for type validation
+# Python 描述符协议：掌控属性访问的终极武器
 class TypedField:
     """A descriptor that enforces type checking."""
 

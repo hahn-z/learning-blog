@@ -229,7 +229,7 @@ message PaginationResponse {
 
 ```bash
 #!/bin/bash
-# ✅ Compile Protobuf files to PHP code
+# gRPC 协议原理与 Protobuf 定义
 
 set -e
 

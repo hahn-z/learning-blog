@@ -277,7 +277,7 @@ func main() {
 
 **执行预览：**
 ```
-# Console output (slog):
+# 日志管理(slog/zap)
 {"time":"2024-06-15T10:00:00+08:00","level":"INFO","msg":"slog + lumberjack","component":"api","action":"register"}
 {"time":"2024-06-15T10:00:00+08:00","level":"ERROR","msg":"something went wrong","err":"internal","retry":true}
 

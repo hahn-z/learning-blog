@@ -107,7 +107,7 @@ from sqlalchemy.orm import (
     relationship, Session, sessionmaker
 )
 
-# ---------- 1. Base & Engine ----------
+# SQLAlchemy ORM 实战指南
 class Base(DeclarativeBase):
     '''Base class for all models.'''
     pass

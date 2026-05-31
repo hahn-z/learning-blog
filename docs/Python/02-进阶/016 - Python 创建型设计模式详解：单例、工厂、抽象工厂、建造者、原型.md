@@ -55,7 +55,7 @@ tags: []
 ```python
 """Singleton pattern - three Python implementations."""
 
-# --- v1: Module-level singleton (simplest) ---
+# Python 创建型设计模式详解：单例、工厂、抽象工厂、建造者、原型
 # In Python, modules are naturally singletons
 # config.py
 class _Config:

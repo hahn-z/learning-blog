@@ -104,7 +104,7 @@ requests 库
 ### v1 基础：GET 与 POST 请求
 
 ```python
-# v1: Basic GET and POST requests
+# Python HTTP请求：requests库从入门到生产实践
 import requests
 
 # --- GET request ---

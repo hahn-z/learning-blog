@@ -388,7 +388,7 @@ $server->start();
 ## 四、执行预览
 
 ```
-# Server
+# Swoole心跳检测与重连机制
 $ php v3-heartbeat.php
 === Production Heartbeat Server ===
 TCP: :9501 | Monitor: :9502

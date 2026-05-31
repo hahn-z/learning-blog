@@ -224,7 +224,7 @@ class UserService
 ## 四、执行预览
 
 ```bash
-# ✅ Successful registration
+# 用户注册与密码安全（Argon2ID + 验证器）
 $ curl -X POST http://127.0.0.1:9501/auth/register \
   -H "Content-Type: application/json" \
   -d '{"email":"hahn@example.com","username":"hahn","password":"Test1234","password_confirmation":"Test1234"}'

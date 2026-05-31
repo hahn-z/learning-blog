@@ -352,7 +352,7 @@ func main() {
 ## 执行预览
 
 ```bash
-# Test XSS defense - input is auto-escaped
+# Go 安全编程实战：防御常见 Web 攻击
 curl "http://localhost:8080/greet?name=<script>alert(1)</script>"
 # Output: <h1>Hello, &lt;script&gt;alert(1)&lt;/script&gt;!</h1>
 

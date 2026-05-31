@@ -24,7 +24,7 @@ tags: []
 - **查找极快**：O(1) 时间复杂度
 
 ```python
-# A person described by a dict
+# Python字典(Dictionary)详解：键值对的艺术
 person = {
     "name": "Alice",
     "age": 30,

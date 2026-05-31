@@ -290,7 +290,7 @@ class UserController
 ```bash
 $ php bin/hyperf.php start
 
-# Success:
+# Hyperf 分布式事务实现与补偿机制
 # [INFO] Saga started {"saga_id":"saga_662f...","type":"user_registration"}
 # [INFO] Executing step: create_user
 # [INFO] Executing step: init_points

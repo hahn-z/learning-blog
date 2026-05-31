@@ -469,7 +469,7 @@ func toItemDOs(items []*biz.OrderItem, orderID int64) []model.OrderItemDO {
 ## 四、执行预览
 
 ```bash
-# Run data layer tests (requires testcontainers or real DB)
+# Data数据层与GORM集成
 $ go test ./internal/data/... -v
 
 # Check database migration

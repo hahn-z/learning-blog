@@ -102,7 +102,7 @@ class Sorter:
         return self._strategy.sort(data)
 
 
-# Pythonic alternative: use plain functions
+# Python 行为型设计模式详解：策略、观察者、命令、迭代器、状态、责任链
 def sort_with(data: list, key: Callable = sorted) -> list:
     return key(data)
 ```

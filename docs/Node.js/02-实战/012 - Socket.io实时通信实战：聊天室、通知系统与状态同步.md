@@ -612,7 +612,7 @@ Connected: abc123
 Notification connected: zhangsan
 Chat connected: zhangsan
 
-# In browser console:
+# Socket.io实时通信实战：聊天室、通知系统与状态同步
 # socket.emit('message:send', { roomId: 'general', content: 'Hello!' }, console.log)
 # { success: true, messageId: 'msg_1745894400000' }
 ```

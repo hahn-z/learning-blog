@@ -87,7 +87,7 @@ asyncio 异步编程基础
 import asyncio
 import time
 
-# Basic coroutine
+# Python 异步编程基础：asyncio 从入门到实战
 async def say_hello(name, delay):
     print(f"Hello {name}! Waiting {delay}s...")
     await asyncio.sleep(delay)  # Non-blocking sleep

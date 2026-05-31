@@ -364,7 +364,7 @@ func main() {
 ## 四、执行预览
 
 ```bash
-# Start Kafka (docker)
+# Kratos Kafka 集成：消息队列、Consumer Group 与死信队列
 $ docker run -d --name kafka -p 9092:9092 confluentinc/cp-kafka:latest
 
 # Run producer

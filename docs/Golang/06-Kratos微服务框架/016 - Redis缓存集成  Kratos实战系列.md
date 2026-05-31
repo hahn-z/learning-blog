@@ -371,7 +371,7 @@ func (r *cachedUserRepo) GetUser(ctx context.Context, id int64) (*biz.User, erro
 ## 4. 执行预览
 
 ```bash
-# Start Redis
+# Redis缓存集成 | Kratos实战系列
 $ docker run -d --name redis -p 6379:6379 redis:7-alpine
 
 # Run application

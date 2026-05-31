@@ -277,7 +277,7 @@ func main() {
 ## 四、执行预览
 
 ```bash
-# Normal request
+# Kratos 熔断与限流：服务稳定性保障
 $ curl http://localhost:8000/api/v1/users/123
 {"id":"123","name":"John"}
 

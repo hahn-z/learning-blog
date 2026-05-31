@@ -275,7 +275,7 @@ func dialWithRetry() *grpc.ClientConn {
 ## 执行预览
 
 ```
-# Terminal 1: Start gRPC server with TLS
+# gRPC进阶与微服务通信
 $ go run server.go
 2024/01/15 10:00:00 gRPC server on :50051 (TLS enabled)
 

@@ -89,7 +89,7 @@ import uuid
 from functools import wraps
 from typing import Optional, Any
 
-# ---------- Connection ----------
+# Redis Python 实战指南
 r = redis.Redis(
     host='localhost',
     port=6379,

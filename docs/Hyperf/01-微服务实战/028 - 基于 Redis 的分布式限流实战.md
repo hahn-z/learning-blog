@@ -370,7 +370,7 @@ return [
 ## 执行预览
 
 ```bash
-# Normal request - rate limit headers in response
+# 基于 Redis 的分布式限流实战
 $ curl -v http://localhost:9501/api/users/1 2>&1 | grep -i rate
 < X-RateLimit-Limit: 200
 < X-RateLimit-Remaining: 199

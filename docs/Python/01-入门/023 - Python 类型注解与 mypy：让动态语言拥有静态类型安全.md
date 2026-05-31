@@ -86,7 +86,7 @@ Covering variables, functions, and collections
 """
 from typing import Optional
 
-# Variable annotations (Python 3.6+)
+# Python 类型注解与 mypy：让动态语言拥有静态类型安全
 name: str = "Alice"
 age: int = 30
 scores: list[float] = [89.5, 92.0, 78.3]

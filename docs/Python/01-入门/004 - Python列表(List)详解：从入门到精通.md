@@ -23,7 +23,7 @@ tags: []
 - **动态**：长度不固定，随时伸缩
 
 ```python
-# List can hold mixed types
+# Python列表(List)详解：从入门到精通
 a = [1, "hello", 3.14, True, None]
 ```
 

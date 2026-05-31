@@ -379,7 +379,7 @@ func main() {
 ## 四、执行预览
 
 ```bash
-# Start service
+# Kratos 优雅关闭与服务治理：零请求丢失
 $ go run main.go
 INFO service=user-service msg=Service started with health check
 

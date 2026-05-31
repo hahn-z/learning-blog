@@ -361,7 +361,7 @@ func (s *OrderService) CreateOrder(ctx context.Context, req *pb.CreateOrderReque
 ## 四、执行预览
 
 ```bash
-# Generate proto
+# gRPC服务间通信
 $ kratos proto client api/user/v1/user.proto
 # → api/user/v1/user.pb.go
 # → api/user/v1/user_grpc.pb.go

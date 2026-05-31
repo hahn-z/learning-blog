@@ -83,7 +83,7 @@ NestJS + TypeORM
 ### 项目准备
 
 ```bash
-# Install TypeORM dependencies
+# NestJS TypeORM 实战：数据库持久化与查询优化
 npm install @nestjs/typeorm typeorm mysql2
 # Or for PostgreSQL: npm install pg
 # Or for SQLite (dev): npm install better-sqlite3

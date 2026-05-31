@@ -280,7 +280,7 @@ Parsed: { name: 'Charlie', age: 35 }
 $ node gzip-server.js
 Gzip server at http://localhost:3000
 
-# Another terminal:
+# Node.js Stream 流处理完全指南
 $ curl http://localhost:3000/test.txt
 Hello World! This is a test file for stream demo.
 

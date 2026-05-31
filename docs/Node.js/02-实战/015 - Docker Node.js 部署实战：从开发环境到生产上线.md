@@ -80,7 +80,7 @@ Docker Node.js
 ### v1：基础 Dockerfile
 
 ```dockerfile
-# v1-basic/Dockerfile - Simple Node.js Docker image
+# Docker Node.js 部署实战：从开发环境到生产上线
 FROM node:20-alpine
 
 # Set working directory

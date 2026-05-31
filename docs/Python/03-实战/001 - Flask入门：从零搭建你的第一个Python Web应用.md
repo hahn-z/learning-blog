@@ -81,7 +81,7 @@ Flask入门
 ### v1: 最小Flask应用
 
 ```python
-# app_v1.py - Minimal Flask application
+# Flask入门：从零搭建你的第一个Python Web应用
 from flask import Flask
 
 app = Flask(__name__)

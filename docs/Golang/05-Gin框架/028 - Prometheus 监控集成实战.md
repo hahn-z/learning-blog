@@ -273,7 +273,7 @@ func main() {
 ## 四、执行预览
 
 ```bash
-# Start server
+# Prometheus 监控集成实战
 go run main.go
 
 # Generate some traffic

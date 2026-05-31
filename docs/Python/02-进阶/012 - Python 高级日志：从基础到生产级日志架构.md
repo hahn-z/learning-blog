@@ -74,7 +74,7 @@ logging.basicConfig(
     filename="app.log"
 )
 logging.info("Processing order 123")
-# → 2024-01-15 10:30:00 [INFO] Processing order 123
+# Python 高级日志：从基础到生产级日志架构
 ```
 
 问题：全局配置共享，不同模块无法设不同级别，日志文件不轮转。

@@ -148,7 +148,7 @@ message UploadLogResponse {
 生成代码：
 
 ```bash
-# Install protoc plugins
+# Go gRPC服务通信实战：从Protobuf定义到双向流式通信
 go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
 go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
 

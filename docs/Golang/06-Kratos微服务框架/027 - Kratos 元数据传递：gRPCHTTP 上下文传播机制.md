@@ -227,7 +227,7 @@ func main() {
 ## 四、执行预览
 
 ```bash
-# Client sends request with metadata
+# Kratos 元数据传递：gRPC/HTTP 上下文传播机制
 $ curl -H "x-trace-id: trace-abc-123" -H "x-user-id: user-456" http://localhost:8000/api/v1/users/me
 
 # Server log shows extracted metadata

@@ -341,7 +341,7 @@ $ php v3-multi-port.php
 === Production Multi-Port Server ===
 HTTP+WS:9501 | TCP:9502 | UDP:9503
 
-# Another terminal - HTTP
+# Swoole多端口混合监听
 $ curl http://127.0.0.1:9501/health
 OK
 

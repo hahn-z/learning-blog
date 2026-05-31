@@ -276,7 +276,7 @@ func NewOrderGRPCClient(addr string) v1.OrderServiceClient {
 ## 4. 执行预览
 
 ```bash
-# Start Jaeger all-in-one
+# 链路追踪 OpenTelemetry | Kratos实战系列
 $ docker run -d --name jaeger \
   -p 16686:16686 -p 14268:14268 \
   jaegertracing/all-in-one:1.52

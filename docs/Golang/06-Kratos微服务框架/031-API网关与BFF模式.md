@@ -270,7 +270,7 @@ func main() {
 ### 3.2 APISIX网关配置
 
 ```yaml
-# apisix_routes.yaml - Route configuration for APISIX gateway
+# API网关与BFF模式
 routes:
   # Route to BFF for user profile aggregation
   - uri: /api/v1/user/profile/*

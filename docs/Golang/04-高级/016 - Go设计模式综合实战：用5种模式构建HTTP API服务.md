@@ -466,7 +466,7 @@ cfg.StorageType = os.Getenv("STORAGE_TYPE")
 ## 四、执行预览
 
 ```bash
-# Start server
+# Go设计模式综合实战：用5种模式构建HTTP API服务
 $ go run main.go
 Server starting on :8080 (auth=JWT, storage=Memory)
 

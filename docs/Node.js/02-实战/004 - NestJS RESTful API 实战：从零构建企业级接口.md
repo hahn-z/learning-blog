@@ -77,7 +77,7 @@ NestJS RESTful API
 ### 项目初始化
 
 ```bash
-# Create new NestJS project
+# NestJS RESTful API 实战：从零构建企业级接口
 nest new blog-api
 cd blog-api
 

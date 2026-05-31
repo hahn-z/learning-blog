@@ -102,7 +102,7 @@ message CreateUserRequest {
 ### 生成代码
 
 ```bash
-# Install protoc plugins
+# gRPC 与 Gin 共存实战
 go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
 go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
 

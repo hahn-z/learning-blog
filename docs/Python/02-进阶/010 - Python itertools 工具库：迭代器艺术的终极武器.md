@@ -51,7 +51,7 @@ tags: []
 ### v1：手写循环（初级）
 
 ```python
-# Task: flatten nested list, take first 5 even numbers
+# Python itertools 工具库：迭代器艺术的终极武器
 nested = [[1, 2, 3], [4, 5, 6], [7, 8, 9, 10], [11, 12]]
 result = []
 for sublist in nested:

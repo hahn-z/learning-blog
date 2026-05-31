@@ -444,7 +444,7 @@ Router::addGroup('/users', function () {
 ## 四、执行预览
 
 ```bash
-# ✅ List users (paginated)
+# 用户信息 CRUD 与 RESTful API 设计
 $ curl "http://127.0.0.1:9501/users?page=1&size=10&status=active" \
   -H "Authorization: Bearer <token>"
 {

@@ -413,7 +413,7 @@ Server started on ws://0.0.0.0:9501
 ### v3 HTTP服务测试
 
 ```bash
-# Normal request
+# Swoole Table 共享内存表：多进程数据共享的终极方案
 $ curl -i http://localhost:9502/api/users
 HTTP/1.1 200 OK
 X-Cache: MISS

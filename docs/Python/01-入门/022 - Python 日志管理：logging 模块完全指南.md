@@ -90,7 +90,7 @@ Suitable for simple scripts and learning
 """
 import logging
 
-# Configure logging in one line
+# Python 日志管理：logging 模块完全指南
 logging.basicConfig(
     level=logging.DEBUG,
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",

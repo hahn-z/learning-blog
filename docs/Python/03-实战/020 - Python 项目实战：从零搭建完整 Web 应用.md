@@ -109,7 +109,7 @@ Python Web 应用实战
 ### 代码演进 v1：最小可用版本（单文件）
 
 ```python
-# v1: Minimal task manager - single file, SQLite, FastAPI
+# Python 项目实战：从零搭建完整 Web 应用
 # Install: pip install fastapi uvicorn sqlalchemy jinja2 python-multipart
 
 import os

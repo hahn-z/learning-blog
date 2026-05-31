@@ -84,7 +84,7 @@ tags: []
 ### v1：基础工作流（venv + pip）
 
 ```bash
-# v1: Basic venv + pip workflow
+# Python 虚拟环境与 pip：项目依赖管理完全指南
 
 # 1. Create a virtual environment
 python3 -m venv .venv

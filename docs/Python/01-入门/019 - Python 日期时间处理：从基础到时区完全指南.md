@@ -78,7 +78,7 @@ Python datetime
 ### v1 基础：获取与格式化
 
 ```python
-# v1: Basic datetime operations - get, format, parse
+# Python 日期时间处理：从基础到时区完全指南
 from datetime import datetime, date, time, timedelta
 
 # Get current time

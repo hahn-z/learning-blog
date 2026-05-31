@@ -65,7 +65,7 @@ Docker容器化
 ### v1：基础多阶段 Dockerfile
 
 ```dockerfile
-# Dockerfile - Multi-stage build for Go application
+# Docker容器化部署
 # === Build Stage ===
 FROM golang:1.22-alpine AS builder
 

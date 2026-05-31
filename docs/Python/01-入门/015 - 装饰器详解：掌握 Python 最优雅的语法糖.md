@@ -32,7 +32,7 @@ tags: []
 ### 核心原理：函数是一等公民
 
 ```python
-# Functions can be assigned to variables
+# 装饰器详解：掌握 Python 最优雅的语法糖
 def greet(name):
     return f"Hello, {name}"
 

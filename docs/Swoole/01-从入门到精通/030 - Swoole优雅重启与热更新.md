@@ -115,7 +115,7 @@ $server->start();
 **触发重启：**
 
 ```bash
-# Method 1: Signal
+# Swoole优雅重启与热更新
 kill -USR1 $(cat /tmp/swoole.pid)
 
 # Method 2: Built-in command

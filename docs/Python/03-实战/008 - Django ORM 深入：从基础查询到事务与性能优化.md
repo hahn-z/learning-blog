@@ -72,7 +72,7 @@ Django ORM 深入
 ### v1 基础版本 - 模型定义 + 简单查询
 
 ```python
-# models.py - v1: basic models
+# Django ORM 深入：从基础查询到事务与性能优化
 from django.db import models
 
 class Category(models.Model):

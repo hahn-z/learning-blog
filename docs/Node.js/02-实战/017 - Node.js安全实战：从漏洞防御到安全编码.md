@@ -392,7 +392,7 @@ $ curl -X POST http://localhost:3000/api/auth/register \
 $ curl http://localhost:3000/api/me -H "Authorization: Bearer eyJ..."
 {"userId":1}
 
-# Rate limit kicks in:
+# Node.js安全实战：从漏洞防御到安全编码
 $ for i in $(seq 1 110); do curl -s http://localhost:3000/api/me; done
 # After 100 requests: {"error":"Too many requests, please try again later"}
 

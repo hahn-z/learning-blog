@@ -272,7 +272,7 @@ func (s *Server) Chat(stream pb.Greeter_ChatServer) error {
 **编译 Proto 文件：**
 
 ```bash
-# Install protoc and Go plugins
+# gRPC基础
 go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
 go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
 

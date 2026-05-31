@@ -57,7 +57,7 @@ Celery 是 Python 生态中最流行的分布式任务队列框架。它解决�
 ### v1：最简 Celery 应用
 
 ```python
-# tasks.py - Minimal Celery setup
+# Celery 任务队列：从入门到生产级部署
 from celery import Celery
 
 # Use Redis as broker and backend

@@ -335,7 +335,7 @@ func NewOrderStatusError(from, to string) error {
 ### 3.3 代码生成命令
 
 ```bash
-# Generate protobuf code with Kratos plugins
+# 订单服务Proto设计与API定义
 protoc --proto_path=api \
        --proto_path=third_party \
        --go_out=api --go_opt=paths=source_relative \

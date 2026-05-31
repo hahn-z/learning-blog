@@ -613,7 +613,7 @@ describe('Posts API', () => {
 ### 3.8 Dockerfile + docker-compose
 
 ```dockerfile
-# Dockerfile
+# Node.js项目实战：从零搭建完整RESTful API服务
 FROM node:20-alpine AS builder
 WORKDIR /app
 COPY package*.json ./

@@ -68,7 +68,7 @@ Selenium 自动化
 ### v1：基础入门 — 百度搜索自动化
 
 ```python
-# selenium_basic.py - Basic Selenium automation: Baidu search
+# Selenium自动化测试实战
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.service import Service

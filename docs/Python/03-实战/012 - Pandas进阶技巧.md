@@ -66,7 +66,7 @@ Pandas 进阶
 ### v1：数据合并与重塑
 
 ```python
-# pandas_advanced_v1.py - Merge, reshape, and pivot operations
+# Pandas进阶技巧
 import pandas as pd
 import numpy as np
 

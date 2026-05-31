@@ -513,7 +513,7 @@ export class PostsController {
 ## 🔍 执行预览
 
 ```bash
-# Register a new user
+# NestJS 认证 JWT 实战：从注册登录到权限守卫
 $ curl -X POST http://localhost:3000/auth/register \
   -H "Content-Type: application/json" \
   -d '{"email":"admin@blog.com","username":"admin","password":"secret123"}'

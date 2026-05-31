@@ -86,7 +86,7 @@ Docker 容器化部署
 ### v1：单容器 Dockerfile
 
 ```dockerfile
-# Dockerfile - Multi-stage build for Gin application
+# Gin Docker 容器化部署
 # Stage 1: Build
 FROM golang:1.22-alpine AS builder
 

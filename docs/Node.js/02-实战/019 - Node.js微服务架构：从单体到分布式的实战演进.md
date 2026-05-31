@@ -311,7 +311,7 @@ connectMQ().then(() => {
 ### 3.4 Docker Compose编排
 
 ```yaml
-# docker-compose.yml - Full microservices stack
+# Node.js微服务架构：从单体到分布式的实战演进
 version: '3.8'
 
 services:

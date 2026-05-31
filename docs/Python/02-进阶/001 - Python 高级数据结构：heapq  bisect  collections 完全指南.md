@@ -75,7 +75,7 @@ Python 标准库藏着三把利器：`heapq`、`bisect`、`collections`。它们
 import heapq
 import random
 
-# --- Top-K problem: find top 5 scores ---
+# Python 高级数据结构：heapq / bisect / collections 完全指南
 scores = [random.randint(0, 100) for _ in range(100)]
 
 # Method 1: nlargest (simple)

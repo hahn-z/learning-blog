@@ -363,7 +363,7 @@ func listProductsV2(c *gin.Context) {
 ## 四、执行预览
 
 ```bash
-# Step 1: Install swag CLI tool
+# Gin 集成 Swagger API 文档
 $ go install github.com/swaggo/swag/cmd/swag@latest
 
 # Step 2: Initialize swagger docs (generates docs/ folder)

@@ -149,7 +149,7 @@ message Auth {
 ### 3.2 YAML配置文件
 
 ```yaml
-# configs/config.yaml - Default (development)
+# Kratos配置管理详解
 server:
   http:
     addr: 0.0.0.0:8000

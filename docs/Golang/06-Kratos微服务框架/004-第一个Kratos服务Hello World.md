@@ -75,7 +75,7 @@ tags: []
 ### 3.1 创建项目
 
 ```bash
-# Step 1: Create project
+# 第一个Kratos服务Hello World
 kratos new helloworld
 cd helloworld
 

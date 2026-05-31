@@ -514,7 +514,7 @@ func main() {
 ## 4. 执行预览
 
 ```bash
-# Create order
+# 订单支付与状态机 | Kratos实战系列
 $ curl -X POST http://localhost:8000/v1/orders \
   -d '{"user_id":1,"amount":9900}'
 {"id":1001,"status":"pending_payment","amount":9900}

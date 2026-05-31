@@ -64,7 +64,7 @@ tags: []
 ### 1. 安装熔断器组件
 
 ```bash
-# ✅ Install Hyperf circuit breaker component
+# 服务熔断原理与 Hyperf 熔断器实现
 composer require hyperf/circuit-breaker
 ```
 

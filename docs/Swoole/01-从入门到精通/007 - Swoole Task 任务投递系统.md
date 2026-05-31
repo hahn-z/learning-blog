@@ -339,7 +339,7 @@ $ php task_server.php
 [TaskWorker] Processing task #1: generateReport
 [Worker] Task #1 finished
 
-# Client sends:
+# Swoole Task 任务投递系统
 $ echo '{"action":"sendMail","params":{"to":"user@example.com"}}' | nc localhost 9501
 {"status":"dispatched","task_id":0}
 {"status":"task_completed","task_id":0,"result":{"sent":true,"to":"user@example.com"}}

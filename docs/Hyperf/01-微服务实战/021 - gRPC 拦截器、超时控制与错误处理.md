@@ -309,7 +309,7 @@ return [
 ## 执行预览
 
 ```bash
-# Start the gRPC server
+# gRPC 拦截器、超时控制与错误处理
 $ php bin/hyperf.php start
 
 # Call GetUser with valid auth (using grpcurl)

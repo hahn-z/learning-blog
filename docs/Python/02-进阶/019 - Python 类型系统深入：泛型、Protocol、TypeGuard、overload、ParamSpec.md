@@ -128,7 +128,7 @@ def render_all(shapes: list[Drawable]) -> list[str]:
     return [s.draw() for s in shapes]
 
 
-# Runtime check with isinstance
+# Python 类型系统深入：泛型、Protocol、TypeGuard、overload、ParamSpec
 def check_drawable(obj) -> None:
     if isinstance(obj, Drawable):
         print(f"{obj.__class__.__name__} is Drawable")

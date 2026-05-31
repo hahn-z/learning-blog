@@ -52,7 +52,7 @@ Docker 解决了"在我机器上能跑"的经典问题。对于 Python 项目，
 ### v1：最简 Dockerfile
 
 ```dockerfile
-# Dockerfile - Simple Python container
+# Docker + Python：从开发到生产部署全指南
 FROM python:3.12-slim
 
 WORKDIR /app

@@ -84,7 +84,7 @@ Flask-SQLAlchemy
 ### v1: 基础模型与CRUD
 
 ```python
-# app_v1.py - Basic SQLAlchemy models and CRUD
+# Flask SQLAlchemy实战：用ORM优雅操作数据库
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
 

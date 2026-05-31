@@ -490,7 +490,7 @@ func TestGetUserName_MockError(t *testing.T) {
 ## 四、执行预览
 
 ```bash
-# Run benchmarks
+# 测试进阶(Benchmark/Mock)
 $ go test -bench=. -benchmem
 BenchmarkReverse-8                  8732446    136 ns/op    32 B/op    1 allocs/op
 BenchmarkReverse_Sizes/len=10-8    18234567     65.2 ns/op    16 B/op    1 allocs/op

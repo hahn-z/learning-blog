@@ -244,7 +244,7 @@ func (s *customSampler) Description() string { return "custom" }
 ## 四、执行预览
 
 ```bash
-# Start Jaeger (all-in-one)
+# Go分布式链路追踪：OpenTelemetry实战
 $ docker run -d --name jaeger \
   -p 16686:16686 -p 4317:4317 \
   jaegertracing/all-in-one:latest

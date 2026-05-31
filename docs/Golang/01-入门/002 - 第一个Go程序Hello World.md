@@ -124,7 +124,7 @@ func main() {
 ### go run — 编译并运行
 
 ```bash
-# Compile and run immediately (temp binary, auto-deleted)
+# 第一个Go程序Hello World
 go run main.go
 
 # Run multiple files

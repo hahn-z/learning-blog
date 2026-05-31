@@ -110,7 +110,7 @@ print(u.age)  # 28 (str was auto-converted to int!)
 ### v1：dataclass 进阶用法
 
 ```python
-# v1: Advanced dataclass patterns
+# Python 数据类与验证：从 dataclass 到 Pydantic
 from dataclasses import dataclass, field, replace
 from typing import Optional
 import json

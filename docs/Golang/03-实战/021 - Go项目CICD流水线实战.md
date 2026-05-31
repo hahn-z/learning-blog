@@ -208,7 +208,7 @@ func main() {
 ### Dockerfile：多阶段构建
 
 ```dockerfile
-# Build stage
+# Go项目CI/CD流水线实战
 FROM golang:1.22-alpine AS builder
 
 WORKDIR /app

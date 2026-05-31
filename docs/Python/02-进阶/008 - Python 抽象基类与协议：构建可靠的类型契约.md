@@ -33,7 +33,7 @@ class Shape(ABC):
     @abstractmethod
     def perimeter(self) -> float: ...
 
-# Shape()  → TypeError: Can't instantiate abstract class
+# Python 抽象基类与协议：构建可靠的类型契约
 # class Circle(Shape): pass
 # Circle() → TypeError: area, perimeter not implemented
 ```

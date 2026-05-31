@@ -91,7 +91,7 @@ Python 上下文管理器
 ### v1：手动 try/finally
 
 ```python
-# Manual resource management - error prone
+# Python 多线程与 GIL：深入理解并发编程的基石
 f = None
 try:
     f = open("example.txt", "w")

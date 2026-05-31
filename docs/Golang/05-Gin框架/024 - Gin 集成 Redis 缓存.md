@@ -572,7 +572,7 @@ func max(a, b int) int {
 ## 四、执行预览
 
 ```bash
-# Start Redis
+# Gin 集成 Redis 缓存
 $ docker run -d --name redis -p 6379:6379 redis:7-alpine
 
 # v1: Cache middleware

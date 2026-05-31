@@ -75,7 +75,7 @@ from functools import lru_cache, wraps
 from time import perf_counter
 
 
-# --- timeit: micro benchmark ---
+# Python 性能优化与 Profiling 实战：从测量到加速
 def benchmark_concat():
     """Compare string concatenation strategies."""
 

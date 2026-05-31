@@ -508,7 +508,7 @@ $ npm run start:dev
 📦 Database service initialized
 🚀 Blog system running on http://localhost:3000
 
-# Create a user
+# NestJS模块与依赖注入：掌握企业级架构的核心
 $ curl -X POST http://localhost:3000/users \
   -H "Content-Type: application/json" \
   -d '{"name":"Alice","email":"alice@blog.com"}'

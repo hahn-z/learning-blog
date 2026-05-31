@@ -100,7 +100,7 @@ def expensive_query(user_id):
     time.sleep(1)  # Simulate slow DB query
     return f"Data for user {user_id}"
 
-# First call: miss (~1s)
+# Python functools 工具库：函数式编程的瑞士军刀
 start = time.time()
 r1 = expensive_query(42)
 print(f"Miss: {time.time()-start:.2f}s")

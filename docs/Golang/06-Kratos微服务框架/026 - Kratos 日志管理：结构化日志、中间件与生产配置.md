@@ -220,7 +220,7 @@ func main() {
 ## 四、执行预览
 
 ```bash
-# v2 output with logging middleware
+# Kratos 日志管理：结构化日志、中间件与生产配置
 $ go run main.go
 INFO service=user-service version=v1.0.0 msg=Starting user-service...
 INFO service=user-service kind=server component=grpc operation=/api.user.v1.UserService/GetUser args={} code=0 reason= took=1.23ms

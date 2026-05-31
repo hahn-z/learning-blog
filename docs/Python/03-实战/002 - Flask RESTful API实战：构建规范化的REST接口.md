@@ -82,7 +82,7 @@ Flask RESTful API
 ### v1: 基础CRUD API
 
 ```python
-# api_v1.py - Basic CRUD REST API
+# Flask RESTful API实战：构建规范化的REST接口
 from flask import Flask, request, jsonify
 
 app = Flask(__name__)

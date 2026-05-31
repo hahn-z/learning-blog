@@ -68,7 +68,7 @@ Docker容器化
 ### v1: 多阶段 Dockerfile
 
 ```dockerfile
-# Dockerfile - Multi-stage build for Kratos service
+# Docker容器化部署
 
 # ============ Build Stage ============
 FROM golang:1.23-alpine AS builder
