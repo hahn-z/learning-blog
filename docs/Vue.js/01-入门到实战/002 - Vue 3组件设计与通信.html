@@ -1,0 +1,557 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>002 - Vue 3组件设计与通信</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Vue.js/index.html">Vue.js</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Vue.js/01-入门到实战/index.html">Vue.js入门到实战</a>
+</nav>
+<h1>002 - Vue 3组件设计与通信</h1>
+<div class="meta">
+<span>📂 Vue.js入门到实战</span>
+<span>🏷️ Vue.js</span>
+</div>
+<article>
+
+
+<h1>Vue 3组件设计与通信</h1>
+
+<blockquote><p>📊 <strong>难度：中级</strong> | 🏷️ Vue.js 3.x | ⏱️ 阅读约 25 分钟</p></blockquote>
+
+<hr>
+
+<h2>📖 概念讲解</h2>
+
+<p>组件通信是Vue应用架构的核心。不同关系层级需要不同的通信模式。</p>
+
+<p><strong>通信模式总览：</strong></p>
+
+<table><thead><tr>
+<th>模式</th>
+<th>方向</th>
+<th>适用场景</th>
+<th>复杂度</th>
+</tr></thead><tbody>
+<tr>
+<td>Props</td>
+<td>父→子</td>
+<td>传递数据</td>
+<td>⭐</td>
+</tr>
+<tr>
+<td>Events</td>
+<td>子→父</td>
+<td>子组件通知</td>
+<td>⭐</td>
+</tr>
+<tr>
+<td>v-model</td>
+<td>双向</td>
+<td>表单类组件</td>
+<td>⭐⭐</td>
+</tr>
+<tr>
+<td>Provide/Inject</td>
+<td>跨层级</td>
+<td>深层传递</td>
+<td>⭐⭐</td>
+</tr>
+<tr>
+<td>EventBus</td>
+<td>任意</td>
+<td>简单全局通信</td>
+<td>⭐⭐</td>
+</tr>
+<tr>
+<td>Pinia</td>
+<td>全局</td>
+<td>复杂状态管理</td>
+<td>⭐⭐⭐</td>
+</tr>
+<tr>
+<td>$refs</td>
+<td>父→子</td>
+<td>直接操作子组件</td>
+<td>⭐⭐</td>
+</tr>
+</tbody></table>
+
+<p><strong>Props传递类型：</strong></p>
+
+<ul>
+<li><strong>基础类型</strong>：String, Number, Boolean（直接传递）</li>
+<li><strong>引用类型</strong>：Object, Array（注意引用传递）</li>
+<li><strong>函数类型</strong>：Function（作为回调传递）</li>
+<li><strong>v-bind批量传递</strong>：<code>v-bind="obj"</code> 将对象所有属性作为props传递</li>
+
+<p><strong>Provide/Inject：</strong></p>
+
+<p>解决"Props逐层透传"问题。祖先组件provide数据，后代组件inject使用。</p>
+
+<pre><code class="language-js">// Ancestor: provide
+import { provide, ref } from &#x27;vue&#x27;
+const theme = ref(&#x27;dark&#x27;)
+provide(&#x27;theme&#x27;, theme)       // 提供响应式数据
+provide(&#x27;theme&#x27;, &#x27;readonly&#x27;)  // 只读
+
+// Descendant: inject
+import { inject } from &#x27;vue&#x27;
+const theme = inject(&#x27;theme&#x27;, &#x27;light&#x27;)  // 第二参数是默认值</code></pre>
+
+<p><strong>组件设计原则：</strong></p>
+
+<ol>
+<li><strong>Smart vs Dumb组件</strong>：容器组件（有逻辑）vs 展示组件（纯UI）</li>
+</ul>
+<ol>
+<li><strong>单一职责</strong>：一个组件只做一件事</li>
+</ul>
+<ol>
+<li><strong>接口最小化</strong>：Props尽量少，Emits尽量少</li>
+</ul>
+<ol>
+<li><strong>插槽优先</strong>：灵活的内容分发优于复杂的Props</li>
+
+
+<h2>🧠 知识脑图</h2>
+
+<pre><code>组件设计与通信
+├── 通信模式
+│   ├── Props (父→子)
+│   ├── Events (子→父)
+│   ├── v-model (双向绑定)
+│   ├── Provide/Inject (跨层级)
+│   ├── $refs (直接操作)
+│   ├── $attrs (属性透传)
+│   └── Pinia (全局状态)
+├── Props进阶
+│   ├── 类型验证
+│   ├── Boolean转换
+│   ├── v-bind批量传递
+│   └── 单向数据流
+├── Events进阶
+│   ├── defineEmits声明
+│   ├── 事件验证
+│   └── v-model语法糖
+├── Provide/Inject
+│   ├── provide(key, value)
+│   ├── inject(key, default)
+│   ├── 响应式provide
+│   └── readonly保护
+├── 组件设计原则
+│   ├── Smart vs Dumb
+│   ├── 单一职责
+│   ├── 接口最小化
+│   └── 插槽优先
+└── 模式
+    ├── 受控组件
+    ├── 非受控组件
+    └── Renderless组件</code></pre>
+
+<h2>💻 完整代码</h2>
+
+<pre><code class="language-vue">&lt;!-- ComponentCommunicationDemo.vue --&gt;
+&lt;template&gt;
+  &lt;div class=&quot;demo&quot;&gt;
+    &lt;h2&gt;1. Props + Events (Parent ↔ Child)&lt;/h2&gt;
+    &lt;ChildForm
+      :model-value=&quot;formData&quot;
+      @update:model-value=&quot;formData = $event&quot;
+      :disabled=&quot;isSubmitting&quot;
+      @submit=&quot;handleSubmit&quot;
+    /&gt;
+
+    &lt;h2&gt;2. Provide/Inject (Deep nesting)&lt;/h2&gt;
+    &lt;p&gt;Current theme: {{ theme }} &lt;button @click=&quot;toggleTheme&quot;&gt;Toggle&lt;/button&gt;&lt;/p&gt;
+    &lt;DeepParent /&gt;
+
+    &lt;h2&gt;3. $attrs (Attribute fallthrough)&lt;/h2&gt;
+    &lt;WrappedInput
+      v-model=&quot;inputValue&quot;
+      class=&quot;custom-input&quot;
+      placeholder=&quot;Attrs fallthrough demo&quot;
+      data-testid=&quot;wrapped&quot;
+    /&gt;
+    &lt;p&gt;Value: {{ inputValue }}&lt;/p&gt;
+
+    &lt;h2&gt;4. Template Refs ($refs)&lt;/h2&gt;
+    &lt;RefChild ref=&quot;childRef&quot; /&gt;
+    &lt;button @click=&quot;callChildMethod&quot;&gt;Call Child Method&lt;/button&gt;
+    &lt;p&gt;Child state: {{ childState }}&lt;/p&gt;
+  &lt;/div&gt;
+&lt;/template&gt;
+
+&lt;script setup&gt;
+import { ref, provide, readonly } from &#x27;vue&#x27;
+
+// --- 1. Props + Events ---
+const formData = ref({ name: &#x27;&#x27;, email: &#x27;&#x27; })
+const isSubmitting = ref(false)
+
+function handleSubmit(data) {
+  isSubmitting.value = true
+  console.log(&#x27;Submitted:&#x27;, data)
+  setTimeout(() =&gt; { isSubmitting.value = false }, 1000)
+}
+
+// --- 2. Provide/Inject ---
+const theme = ref(&#x27;light&#x27;)
+provide(&#x27;theme&#x27;, readonly(theme))  // Readonly to prevent direct mutation
+provide(&#x27;toggleTheme&#x27;, toggleTheme)
+
+function toggleTheme() {
+  theme.value = theme.value === &#x27;light&#x27; ? &#x27;dark&#x27; : &#x27;light&#x27;
+}
+
+// Deep nesting simulation (inline for demo)
+import { defineComponent, inject, h } from &#x27;vue&#x27;
+
+const DeepChild = defineComponent({
+  setup() {
+    const theme = inject(&#x27;theme&#x27;)
+    const toggle = inject(&#x27;toggleTheme&#x27;)
+    return () =&gt; h(&#x27;div&#x27;, {
+      style: { padding: &#x27;0.5rem&#x27;, background: theme.value === &#x27;dark&#x27; ? &#x27;#333&#x27; : &#x27;#eee&#x27;, color: theme.value === &#x27;dark&#x27; ? &#x27;#fff&#x27; : &#x27;#000&#x27; }
+    }, [
+      h(&#x27;p&#x27;, `DeepChild theme: ${theme.value}`),
+      h(&#x27;button&#x27;, { onClick: toggle }, &#x27;Toggle from deep child&#x27;)
+    ])
+  }
+})
+
+const DeepParent = defineComponent({
+  setup() {
+    const theme = inject(&#x27;theme&#x27;)
+    return () =&gt; h(&#x27;div&#x27;, { style: { border: &#x27;1px solid #42b883&#x27;, padding: &#x27;0.5rem&#x27; } }, [
+      h(&#x27;p&#x27;, `Middle component, theme: ${theme.value}`),
+      h(DeepChild)
+    ])
+  }
+})
+
+// --- 3. $attrs ---
+const WrappedInput = defineComponent({
+  inheritAttrs: false,  // Prevent automatic attribute fallthrough
+  emits: [&#x27;update:modelValue&#x27;],
+  props: [&#x27;modelValue&#x27;],
+  setup(props, { attrs, emit }) {
+    return () =&gt; h(&#x27;div&#x27;, { class: &#x27;input-wrapper&#x27; }, [
+      h(&#x27;label&#x27;, &#x27;Wrapped: &#x27;),
+      h(&#x27;input&#x27;, {
+        ...attrs,  // Forward all attributes to inner input
+        value: props.modelValue,
+        onInput: (e) =&gt; emit(&#x27;update:modelValue&#x27;, e.target.value)
+      })
+    ])
+  }
+})
+const inputValue = ref(&#x27;&#x27;)
+
+// --- 4. Template Refs ---
+const childRef = ref(null)
+const childState = ref(&#x27;&#x27;)
+
+const RefChild = defineComponent({
+  setup() {
+    const secret = ref(&#x27;🤫 hidden data&#x27;)
+    const getSecret = () =&gt; secret.value
+    return { secret, getSecret }
+  },
+  template: &#x27;&lt;div&gt;RefChild component&lt;/div&gt;&#x27;
+})
+
+function callChildMethod() {
+  if (childRef.value) {
+    childState.value = childRef.value.getSecret()
+  }
+}
+&lt;/script&gt;</code></pre>
+
+<h2>👀 执行预览</h2>
+
+<p><strong>页面渲染效果：</strong></p>
+
+<pre><code>1. Props + Events (Parent ↔ Child)
+Name: [Alice____]
+Email: [alice@ex__]
+[Submit] (disabled during submitting)
+
+2. Provide/Inject (Deep nesting)
+Current theme: light [Toggle]
+┌─ Middle component, theme: light ────────┐
+│ ┌─ DeepChild theme: light ────────────┐ │
+│ │ [Toggle from deep child]            │ │
+│ └─────────────────────────────────────┘ │
+└─────────────────────────────────────────┘
+(点击任一Toggle按钮，所有层级的theme同步更新)
+
+3. $attrs (Attribute fallthrough)
+Wrapped: [Attrs fallthrough demo___]
+Value: typed text
+
+4. Template Refs ($refs)
+RefChild component
+[Call Child Method]
+Child state: 🤫 hidden data</code></pre>
+
+
+<h2>⚠️ 注意事项</h2>
+
+<table><thead><tr>
+<th>注意点</th>
+<th>说明</th>
+<th>建议</th>
+</tr></thead><tbody>
+<tr>
+<td>Props引用传递</td>
+<td>Object/Array是引用传递</td>
+<td>子组件修改会影响父组件</td>
+</tr>
+<tr>
+<td>Provide响应性</td>
+<td>直接provide非响应式值</td>
+<td>provide(ref)或provide(readonly(ref))</td>
+</tr>
+<tr>
+<td>$attrs透传</td>
+<td>默认自动透传到根元素</td>
+<td>inheritAttrs:false手动控制</td>
+</tr>
+<tr>
+<td>$refs时机</td>
+<td>模板ref在mounted后才可用</td>
+<td>onMounted中访问ref</td>
+</tr>
+<tr>
+<td>事件命名</td>
+<td>推荐kebab-case</td>
+<td><code>@update:model-value</code></td>
+</tr>
+<tr>
+<td>readonly</td>
+<td>保护provide数据不被直接修改</td>
+<td>配合provide使用</td>
+</tr>
+</tbody></table>
+
+<h2>🚫 避坑指南</h2>
+
+<h3>1. 直接修改对象类型的Props</h3>
+<p>❌ <strong>错误：</strong> <code>props.user.name = 'Bob'</code>（引用传递，父组件也被改了！）</p>
+<p>✅ <strong>正确：</strong> emit事件让父组件修改，或深拷贝后修改本地副本</p>
+
+<h3>2. Provide非响应式值</h3>
+<p>❌ <strong>错误：</strong> <code>provide('count', 0)</code> → inject后永远不变</p>
+<p>✅ <strong>正确：</strong> <code>provide('count', ref(0))</code> → inject得到响应式ref</p>
+
+<h3>3. $refs滥用</h3>
+<p>❌ <strong>错误：</strong> 用$refs做组件间通信（命令式）</p>
+<p>✅ <strong>正确：</strong> 优先用Props/Events（声明式），$refs只在必要时用</p>
+
+<h3>4. 循环依赖的Provide/Inject</h3>
+<p>❌ <strong>错误：</strong> 子组件provide，父组件inject（方向反了）</p>
+<p>✅ <strong>正确：</strong> 祖先provide，后代inject（自上而下）</p>
+
+<h3>5. 忘记readonly</h3>
+<p>❌ <strong>错误：</strong> inject组件直接修改provide的数据</p>
+<p>✅ <strong>正确：</strong> provide时用readonly包装，inject方通过事件/方法修改</p>
+
+<h2>🧪 练习题</h2>
+
+<h3>🟢 基础题</h3>
+<ol>
+<li>创建父子组件，父传name prop给子组件显示，子组件按钮emit事件改变名字。</li>
+</ul>
+<ol>
+<li>用provide/inject实现一个简单的主题切换（light/dark）。</li>
+
+<h3>🟡 进阶题</h3>
+<ol>
+<li>实现一个<code>v-model</code>自定义组件：一个滑块组件，支持<code>modelValue</code>和<code>update:modelValue</code>。</li>
+</ul>
+<ol>
+<li>实现一个三层嵌套组件，用provide/inject传递用户信息，最深层的组件可以显示和编辑。</li>
+
+<h3>🔴 挑战题</h3>
+<ol>
+<li>实现一个Renderless组件：一个<code><FetchData url="/api"></code>组件，通过作用域插槽暴露<code>{ data, loading, error }</code>，不渲染任何UI。</li>
+
+<h2>📝 知识点总结</h2>
+
+<pre><code>组件通信知识树
+├── 父子通信
+│   ├── Props (父→子)
+│   ├── Events (子→父)
+│   └── v-model (双向)
+├── 跨层级
+│   ├── Provide/Inject
+│   ├── readonly保护
+│   └── Symbol作为key
+├── 直接操作
+│   ├── $refs (模板引用)
+│   └── $attrs (属性透传)
+├── 全局
+│   ├── Pinia状态管理
+│   └── EventBus（mitt）
+├── 设计原则
+│   ├── Smart vs Dumb
+│   ├── 单一职责
+│   ├── 最小接口
+│   └── 插槽优先
+└── 模式
+    ├── 受控组件
+    ├── 非受控组件
+    └── Renderless组件</code></pre>
+
+
+<h2>🔄 举一反三</h2>
+
+<table><thead><tr>
+<th>概念</th>
+<th>生活类比</th>
+<th>说明</th>
+</tr></thead><tbody>
+<tr>
+<td>Props</td>
+<td>快递包裹</td>
+<td>父组件打包，子组件签收</td>
+</tr>
+<tr>
+<td>Events</td>
+<td>快递回执</td>
+<td>子组件签收后发回执给父</td>
+</tr>
+<tr>
+<td>v-model</td>
+<td>双向快递</td>
+<td>来回都能寄</td>
+</tr>
+<tr>
+<td>Provide/Inject</td>
+<td>广播电台</td>
+<td>祖先广播，后代接收</td>
+</tr>
+<tr>
+<td>$refs</td>
+<td>远程控制</td>
+<td>父组件直接操作子组件</td>
+</tr>
+<tr>
+<td>$attrs</td>
+<td>转发邮件</td>
+<td>收到后原封不动转发给内部元素</td>
+</tr>
+<tr>
+<td>readonly</td>
+<td>阅览室书刊</td>
+<td>可以看，不能带走或修改</td>
+</tr>
+</tbody></table>
+
+<h2>📚 参考资料</h2>
+
+<ol>
+<li><a href="https://vuejs.org/guide/components/props.html">Vue 3 Props</a></li>
+</ul>
+<ol>
+<li><a href="https://vuejs.org/guide/components/events.html">Vue 3 Component Events</a></li>
+</ul>
+<ol>
+<li><a href="https://vuejs.org/guide/components/provide-inject.html">Vue 3 Provide/Inject</a></li>
+</ul>
+<ol>
+<li><a href="https://vuejs.org/guide/components/v-model.html">Vue 3 Component v-model</a></li>
+</ul>
+<ol>
+<li><a href="https://vuejs.org/guide/essentials/template-refs.html">Vue 3 Template Refs</a></li>
+
+<h2>🚀 代码演进</h2>
+
+<h3>v1 - Props + Events基础通信</h3>
+
+<pre><code class="language-vue">&lt;!-- Parent --&gt;
+&lt;Child :name=&quot;userName&quot; @update=&quot;userName = $event&quot; /&gt;</code></pre>
+
+<h3>v2 - v-model双向绑定</h3>
+
+<pre><code class="language-vue">&lt;!-- Parent --&gt;
+&lt;Child v-model=&quot;userName&quot; /&gt;
+&lt;!-- Child --&gt;
+&lt;script setup&gt;
+defineProps([&#x27;modelValue&#x27;])
+defineEmits([&#x27;update:modelValue&#x27;])
+&lt;/script&gt;</code></pre>
+
+<h3>v3 - 完整通信体系</h3>
+
+<pre><code class="language-vue">&lt;!-- Parent: provide theme --&gt;
+&lt;script setup&gt;
+const theme = ref(&#x27;dark&#x27;)
+provide(&#x27;theme&#x27;, readonly(theme))
+&lt;/script&gt;
+
+&lt;!-- DeepChild: inject + custom v-model --&gt;
+&lt;script setup&gt;
+const theme = inject(&#x27;theme&#x27;, &#x27;light&#x27;)
+const props = defineProps([&#x27;modelValue&#x27;])
+const emit = defineEmits([&#x27;update:modelValue&#x27;])
+&lt;/script&gt;</code></pre>
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

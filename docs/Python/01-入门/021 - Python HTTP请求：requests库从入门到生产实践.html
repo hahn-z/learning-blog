@@ -1,0 +1,638 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>021 - Python HTTP请求：requests库从入门到生产实践</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Python/index.html">Python</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Python/01-入门/index.html">Python入门</a>
+</nav>
+<h1>021 - Python HTTP请求：requests库从入门到生产实践</h1>
+<div class="meta">
+<span>📂 Python入门</span>
+<span>🏷️ Python</span>
+</div>
+<article>
+
+
+<h2>📊 难度标注</h2>
+
+<blockquote><p><strong>难度等级：</strong> ⭐⭐⭐☆☆（中级）<br><strong>前置知识：</strong> Python基础语法、字典操作、异常处理<br><strong>预计学习时间：</strong> 40-50分钟<br><strong>适用场景：</strong> Web API调用、爬虫、数据采集、微服务通信</p></blockquote>
+
+<hr>
+
+<h2>📖 概念讲解</h2>
+
+<h3>什么是 HTTP 请求？</h3>
+
+<p>HTTP（HyperText Transfer Protocol）是互联网通信的基础协议。每次你打开网页、调用 API、提交表单，底层都是 HTTP 请求。Python 的 <code>requests</code> 库是最流行的 HTTP 客户端库，以"人类可读"的 API 设计著称。</p>
+
+<h3>HTTP 请求核心概念</h3>
+
+<pre><code>HTTP 请求构成：
+├── Method（方法）
+│   ├── GET     → 获取资源
+│   ├── POST    → 创建资源
+│   ├── PUT     → 更新资源（全量）
+│   ├── PATCH   → 更新资源（部分）
+│   └── DELETE  → 删除资源
+├── URL（地址）
+│   ├── 基础URL  → https://api.example.com
+│   ├── 路径     → /users/123
+│   └── 查询参数 → ?page=1&amp;limit=10
+├── Headers（请求头）
+│   ├── Content-Type → 数据格式
+│   ├── Authorization → 认证信息
+│   └── User-Agent   → 客户端标识
+├── Body（请求体）
+│   ├── JSON → 最常用
+│   ├── Form → 表单数据
+│   └── File → 文件上传
+└── Response（响应）
+    ├── Status Code → 200/404/500...
+    ├── Headers     → 响应头
+    └── Body        → 响应内容</code></pre>
+
+<p><strong>核心理解：</strong></p>
+<ul>
+<li><code>requests</code> 是同步阻塞库，一个请求完成后才发下一个</li>
+<li>Session 对象可以复用连接、保持 Cookie</li>
+<li>超时设置是生产环境的<strong>必须项</strong></li>
+
+<hr>
+
+<h2>🧠 知识脑图</h2>
+
+<pre><code>requests 库
+├── 基础请求
+│   ├── requests.get()
+│   ├── requests.post()
+│   ├── requests.put()
+│   ├── requests.delete()
+│   └── requests.patch()
+├── 请求参数
+│   ├── params     → URL查询参数
+│   ├── headers    → 请求头
+│   ├── json       → JSON请求体
+│   ├── data       → 表单数据
+│   └── cookies    → Cookie
+├── 响应处理
+│   ├── .status_code → 状态码
+│   ├── .json()      → JSON解析
+│   ├── .text        → 文本内容
+│   ├── .content     → 二进制内容
+│   └── .headers     → 响应头
+├── 高级功能
+│   ├── Session      → 会话管理
+│   ├── timeout      → 超时设置
+│   ├── auth         → 认证
+│   ├── proxies      → 代理
+│   └── files        → 文件上传
+├── 异常处理
+│   ├── Timeout
+│   ├── ConnectionError
+│   ├── HTTPError
+│   └── RequestException
+└── 最佳实践
+    ├── 重试策略
+    ├── 连接池
+    └── 超时必设</code></pre>
+
+<hr>
+
+<h2>💻 完整代码示例</h2>
+
+<h3>v1 基础：GET 与 POST 请求</h3>
+
+<pre><code class="language-python"># v1: Basic GET and POST requests
+import requests
+
+# --- GET request ---
+# Fetch data from a public API
+response = requests.get(&quot;https://httpbin.org/get&quot;)
+print(f&quot;Status: {response.status_code}&quot;)
+print(f&quot;Type: {response.headers.get(&#x27;content-type&#x27;)}&quot;)
+data = response.json()
+print(f&quot;Origin: {data.get(&#x27;origin&#x27;)}&quot;)
+
+# GET with query parameters
+params = {&quot;page&quot;: 1, &quot;limit&quot;: 10, &quot;sort&quot;: &quot;created_at&quot;}
+response = requests.get(&quot;https://httpbin.org/get&quot;, params=params)
+print(f&quot;URL: {response.url}&quot;)
+# URL becomes: https://httpbin.org/get?page=1&amp;limit=10&amp;sort=created_at
+
+# --- POST request with JSON ---
+payload = {&quot;username&quot;: &quot;alice&quot;, &quot;email&quot;: &quot;alice@example.com&quot;}
+response = requests.post(
+    &quot;https://httpbin.org/post&quot;,
+    json=payload  # Automatically sets Content-Type: application/json
+)
+print(f&quot;POST status: {response.status_code}&quot;)
+result = response.json()
+print(f&quot;Sent data: {result.get(&#x27;json&#x27;)}&quot;)
+
+# --- POST with form data ---
+form_data = {&quot;username&quot;: &quot;bob&quot;, &quot;password&quot;: &quot;secret123&quot;}
+response = requests.post(
+    &quot;https://httpbin.org/post&quot;,
+    data=form_data  # Sends as application/x-www-form-urlencoded
+)
+print(f&quot;Form data: {response.json().get(&#x27;form&#x27;)}&quot;)
+
+# --- Custom headers ---
+headers = {
+    &quot;User-Agent&quot;: &quot;MyApp/1.0&quot;,
+    &quot;Accept&quot;: &quot;application/json&quot;,
+    &quot;X-Custom-Header&quot;: &quot;hello&quot;
+}
+response = requests.get(&quot;https://httpbin.org/headers&quot;, headers=headers)
+print(f&quot;Custom header sent: {response.json().get(&#x27;headers&#x27;, {}).get(&#x27;X-Custom-Header&#x27;)}&quot;)</code></pre>
+
+<h3>v2 进阶：Session、异常处理与认证</h3>
+
+<pre><code class="language-python"># v2: Session, error handling, and authentication
+import requests
+from requests.exceptions import Timeout, ConnectionError, HTTPError, RequestException
+
+# --- Session for connection reuse ---
+session = requests.Session()
+session.headers.update({&quot;Authorization&quot;: &quot;Bearer demo-token&quot;})
+session.headers.update({&quot;User-Agent&quot;: &quot;MyApp/1.0&quot;})
+
+# All requests via session share headers and cookies
+r1 = session.get(&quot;https://httpbin.org/headers&quot;)
+r2 = session.get(&quot;https://httpbin.org/get&quot;)
+print(f&quot;Session request 1: {r1.status_code}&quot;)
+print(f&quot;Session request 2: {r2.status_code}&quot;)
+
+# Session maintains cookies automatically
+session.get(&quot;https://httpbin.org/cookies/set?session_id=abc123&quot;)
+r3 = session.get(&quot;https://httpbin.org/cookies&quot;)
+print(f&quot;Cookies: {r3.json().get(&#x27;cookies&#x27;)}&quot;)
+
+session.close()  # Always close session when done
+
+# --- Error handling ---
+def safe_get(url, timeout=5):
+    try:
+        response = requests.get(url, timeout=timeout)
+        response.raise_for_status()  # Raise exception for 4xx/5xx
+        return response.json()
+    except Timeout:
+        print(f&quot;Request timed out: {url}&quot;)
+        return None
+    except ConnectionError:
+        print(f&quot;Connection failed: {url}&quot;)
+        return None
+    except HTTPError as e:
+        print(f&quot;HTTP error: {e}&quot;)
+        return None
+    except RequestException as e:
+        print(f&quot;Request error: {e}&quot;)
+        return None
+
+result = safe_get(&quot;https://httpbin.org/get&quot;)
+print(f&quot;Safe get result: {result is not None}&quot;)
+
+# --- Basic authentication ---
+from requests.auth import HTTPBasicAuth
+response = requests.get(
+    &quot;https://httpbin.org/basic-auth/user/pass&quot;,
+    auth=HTTPBasicAuth(&quot;user&quot;, &quot;pass&quot;)
+)
+print(f&quot;Auth status: {response.status_code}&quot;)
+
+# --- Bearer token authentication ---
+token = &quot;your-api-token-here&quot;
+response = requests.get(
+    &quot;https://httpbin.org/headers&quot;,
+    headers={&quot;Authorization&quot;: f&quot;Bearer {token}&quot;}
+)
+print(f&quot;Bearer auth: {response.status_code}&quot;)</code></pre>
+
+<h3>v3 高级：重试策略、文件上传与异步考量</h3>
+
+<pre><code class="language-python"># v3: Retry strategy, file upload, and production patterns
+import requests
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
+import json
+import time
+
+# --- Retry strategy with Session ---
+def create_session(retries=3, backoff=0.3):
+    session = requests.Session()
+    retry = Retry(
+        total=retries,
+        backoff_factor=backoff,
+        status_forcelist=[500, 502, 503, 504],
+        allowed_methods=[&quot;GET&quot;, &quot;POST&quot;]
+    )
+    adapter = HTTPAdapter(max_retries=retry, pool_connections=10, pool_maxsize=10)
+    session.mount(&quot;http://&quot;, adapter)
+    session.mount(&quot;https://&quot;, adapter)
+    return session
+
+session = create_session()
+response = session.get(&quot;https://httpbin.org/get&quot;, timeout=5)
+print(f&quot;Retry session: {response.status_code}&quot;)
+session.close()
+
+# --- File upload ---
+# Upload single file
+with open(&quot;example.txt&quot;, &quot;w&quot;) as f:
+    f.write(&quot;Hello, this is a test file for upload.&quot;)
+
+with open(&quot;example.txt&quot;, &quot;rb&quot;) as f:
+    response = requests.post(
+        &quot;https://httpbin.org/post&quot;,
+        files={&quot;file&quot;: (&quot;example.txt&quot;, f, &quot;text/plain&quot;)}
+    )
+    print(f&quot;Upload status: {response.status_code}&quot;)
+
+# --- Download file ---
+response = requests.get(&quot;https://httpbin.org/json&quot;, stream=True)
+if response.status_code == 200:
+    with open(&quot;downloaded.json&quot;, &quot;wb&quot;) as f:
+        for chunk in response.iter_content(chunk_size=8192):
+            f.write(chunk)
+    print(&quot;File downloaded&quot;)
+
+# --- REST API wrapper pattern ---
+class APIClient:
+    def __init__(self, base_url, token=None):
+        self.base_url = base_url.rstrip(&quot;/&quot;)
+        self.session = requests.Session()
+        if token:
+            self.session.headers[&quot;Authorization&quot;] = f&quot;Bearer {token}&quot;
+        self.session.headers[&quot;Content-Type&quot;] = &quot;application/json&quot;
+
+    def get(self, path, **kwargs):
+        return self._request(&quot;GET&quot;, path, **kwargs)
+
+    def post(self, path, data=None, **kwargs):
+        return self._request(&quot;POST&quot;, path, json=data, **kwargs)
+
+    def put(self, path, data=None, **kwargs):
+        return self._request(&quot;PUT&quot;, path, json=data, **kwargs)
+
+    def delete(self, path, **kwargs):
+        return self._request(&quot;DELETE&quot;, path, **kwargs)
+
+    def _request(self, method, path, **kwargs):
+        url = f&quot;{self.base_url}{path}&quot;
+        kwargs.setdefault(&quot;timeout&quot;, 10)
+        response = self.session.request(method, url, **kwargs)
+        response.raise_for_status()
+        return response.json()
+
+    def close(self):
+        self.session.close()
+
+# Usage
+api = APIClient(&quot;https://httpbin.org&quot;)
+result = api.get(&quot;/get&quot;)
+print(f&quot;API client: {result.get(&#x27;url&#x27;)}&quot;)
+api.close()</code></pre>
+
+<hr>
+
+<h2>👀 执行预览</h2>
+
+<pre><code>Status: 200
+Type: application/json
+Origin: 192.168.1.100
+URL: https://httpbin.org/get?page=1&amp;limit=10&amp;sort=created_at
+POST status: 200
+Sent data: {&#x27;username&#x27;: &#x27;alice&#x27;, &#x27;email&#x27;: &#x27;alice@example.com&#x27;}
+Form data: {&#x27;username&#x27;: &#x27;bob&#x27;, &#x27;password&#x27;: &#x27;secret123&#x27;}
+Custom header sent: hello
+
+Session request 1: 200
+Session request 2: 200
+Cookies: {&#x27;session_id&#x27;: &#x27;abc123&#x27;}
+
+Safe get result: True
+Auth status: 200
+Bearer auth: 200
+
+Retry session: 200
+Upload status: 200
+File downloaded
+API client: https://httpbin.org/get</code></pre>
+
+<hr>
+
+<h2>⚠️ 注意事项</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>注意点</th>
+<th>建议</th>
+</tr></thead><tbody>
+<tr>
+<td>超时</td>
+<td>不设 timeout 会无限等待</td>
+<td>始终设置 timeout=(连接超时, 读取超时)</td>
+</tr>
+<tr>
+<td>编码</td>
+<td>response.text 自动猜测编码</td>
+<td>乱码时手动设置 <code>response.encoding = 'utf-8'</code></td>
+</tr>
+<tr>
+<td>JSON</td>
+<td>response.json() 可能抛异常</td>
+<td>用 try/except 包裹</td>
+</tr>
+<tr>
+<td>大文件</td>
+<td>response.content 全部读入内存</td>
+<td>使用 stream=True + iter_content</td>
+</tr>
+<tr>
+<td>HTTPS</td>
+<td>默认验证 SSL 证书</td>
+<td>不要设 verify=False（不安全）</td>
+</tr>
+<tr>
+<td>重定向</td>
+<td>默认跟随重定向</td>
+<td>设 allow_redirects=False 可禁止</td>
+</tr>
+<tr>
+<td>连接池</td>
+<td>每次请求创建新连接</td>
+<td>使用 Session 复用连接</td>
+</tr>
+<tr>
+<td>Cookie</td>
+<td>Session 自动管理 Cookie</td>
+<td>注意不要泄露敏感 Cookie</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>🚫 避坑指南</h2>
+
+<h3>❌ 不设 timeout</h3>
+<pre><code class="language-python"># Wrong: may hang forever
+response = requests.get(&quot;https://slow-api.example.com&quot;)</code></pre>
+<p>✅ <strong>正确做法：</strong> 始终设置超时</p>
+<pre><code class="language-python"># Correct: always set timeout
+response = requests.get(&quot;https://slow-api.example.com&quot;, timeout=10)
+# Or separate connect and read timeouts
+response = requests.get(url, timeout=(3.05, 10))  # (connect, read)</code></pre>
+
+<h3>❌ 忽略错误状态码</h3>
+<pre><code class="language-python"># Wrong: 404/500 won&#x27;t raise exception
+response = requests.get(&quot;https://api.example.com/users/999&quot;)
+data = response.json()  # May fail or return error message</code></pre>
+<p>✅ <strong>正确做法：</strong> 检查状态码或用 raise_for_status</p>
+<pre><code class="language-python"># Correct: check status explicitly
+response = requests.get(&quot;https://api.example.com/users/999&quot;)
+response.raise_for_status()  # Raises HTTPError for 4xx/5xx
+data = response.json()
+
+# Or check manually
+if response.status_code == 200:
+    data = response.json()
+else:
+    print(f&quot;Error: {response.status_code}&quot;)</code></pre>
+
+<h3>❌ 不使用 Session</h3>
+<pre><code class="language-python"># Wrong: new TCP connection for every request
+for i in range(100):
+    requests.get(f&quot;https://api.example.com/items/{i}&quot;)</code></pre>
+<p>✅ <strong>正确做法：</strong> 用 Session 复用连接</p>
+<pre><code class="language-python"># Correct: reuse connections with Session
+session = requests.Session()
+for i in range(100):
+    session.get(f&quot;https://api.example.com/items/{i}&quot;)
+session.close()</code></pre>
+
+<hr>
+
+<h2>🏋️ 练习题</h2>
+
+<h3>🟢 入门级</h3>
+
+<p><strong>题目1：</strong> 调用公开 API 获取随机用户信息并打印姓名和邮箱。</p>
+
+<pre><code class="language-python">import requests
+
+response = requests.get(&quot;https://randomuser.me/api/&quot;, timeout=10)
+data = response.json()
+user = data[&quot;results&quot;][0]
+print(f&quot;Name: {user[&#x27;name&#x27;][&#x27;first&#x27;]} {user[&#x27;name&#x27;][&#x27;last&#x27;]}&quot;)
+print(f&quot;Email: {user[&#x27;email&#x27;]}&quot;)</code></pre>
+
+<p><strong>题目2：</strong> 使用 GET 请求下载一个图片并保存到本地。</p>
+
+<h3>🟡 进阶级</h3>
+
+<p><strong>题目3：</strong> 实现一个带重试机制的请求函数，最多重试3次，每次间隔递增。</p>
+
+<pre><code class="language-python">import requests
+import time
+
+def retry_request(url, max_retries=3):
+    for attempt in range(max_retries):
+        try:
+            response = requests.get(url, timeout=10)
+            response.raise_for_status()
+            return response.json()
+        except requests.RequestException as e:
+            wait = 2 ** attempt
+            print(f&quot;Attempt {attempt+1} failed: {e}, retrying in {wait}s...&quot;)
+            time.sleep(wait)
+    return None</code></pre>
+
+<p><strong>题目4：</strong> 封装一个 GitHub API 客户端，支持获取用户信息和仓库列表。</p>
+
+<h3>🔴 挑战级</h3>
+
+<p><strong>题目5：</strong> 实现一个支持速率限制的 API 客户端，自动根据响应头 <code>X-RateLimit-Remaining</code> 调整请求频率。</p>
+
+<hr>
+
+<h2>🌳 知识点总结</h2>
+
+<pre><code>requests 库
+├── 请求方法
+│   ├── GET → 获取资源
+│   ├── POST → 创建/提交
+│   ├── PUT → 全量更新
+│   ├── PATCH → 部分更新
+│   └── DELETE → 删除
+├── 请求配置
+│   ├── params → 查询参数
+│   ├── json/data → 请求体
+│   ├── headers → 请求头
+│   ├── timeout → 超时
+│   └── auth → 认证
+├── 响应处理
+│   ├── .status_code → 状态码
+│   ├── .json() → 解析JSON
+│   ├── .text/.content → 内容
+│   └── raise_for_status() → 错误检查
+├── 高级特性
+│   ├── Session → 连接复用
+│   ├── Retry → 重试策略
+│   ├── stream → 流式下载
+│   └── files → 文件上传
+└── 异常体系
+    ├── Timeout → 超时
+    ├── ConnectionError → 连接失败
+    ├── HTTPError → HTTP错误
+    └── RequestException → 所有异常基类</code></pre>
+
+<hr>
+
+<h2>🔗 举一反三</h2>
+
+<table><thead><tr>
+<th>技术点</th>
+<th>本文用法</th>
+<th>扩展场景</th>
+</tr></thead><tbody>
+<tr>
+<td>GET + params</td>
+<td>查询API</td>
+<td>搜索接口、分页查询</td>
+</tr>
+<tr>
+<td>POST + json</td>
+<td>提交数据</td>
+<td>登录注册、表单提交</td>
+</tr>
+<tr>
+<td>Session</td>
+<td>复用连接</td>
+<td>批量API调用、爬虫</td>
+</tr>
+<tr>
+<td>timeout</td>
+<td>超时控制</td>
+<td>所有生产环境必设</td>
+</tr>
+<tr>
+<td>raise_for_status</td>
+<td>错误检查</td>
+<td>API调用异常处理</td>
+</tr>
+<tr>
+<td>Retry + HTTPAdapter</td>
+<td>自动重试</td>
+<td>不稳定网络、微服务调用</td>
+</tr>
+<tr>
+<td>Bearer token</td>
+<td>API认证</td>
+<td>OAuth2、JWT认证</td>
+</tr>
+<tr>
+<td>stream + iter_content</td>
+<td>流式下载</td>
+<td>大文件下载、进度条</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>📚 参考资料</h2>
+
+<ul>
+<li><a href="https://requests.readthedocs.io/">requests 官方文档</a></li>
+<li><a href="https://developer.mozilla.org/zh-CN/docs/Web/HTTP/Status">HTTP 状态码速查</a></li>
+<li><a href="https://restfulapi.net/">RESTful API 设计指南</a></li>
+<li><a href="https://urllib3.readthedocs.io/en/stable/reference/urllib3.util.html">urllib3 Retry 文档</a></li>
+<li><a href="https://www.python-httpx.org/">httpx</a> — 支持 async 的现代HTTP客户端</li>
+
+<hr>
+
+<h2>🔄 代码演进</h2>
+
+<table><thead><tr>
+<th>版本</th>
+<th>重点</th>
+<th>适用场景</th>
+</tr></thead><tbody>
+<tr>
+<td>v1 基础版</td>
+<td>GET/POST、参数、请求头</td>
+<td>快速脚本、API测试</td>
+</tr>
+<tr>
+<td>v2 进阶版</td>
+<td>Session、异常处理、认证</td>
+<td>正式项目、多请求场景</td>
+</tr>
+<tr>
+<td>v3 高级版</td>
+<td>重试策略、API封装、文件操作</td>
+<td>生产环境、微服务客户端</td>
+</tr>
+</tbody></table>
+
+<p><strong>演进路径：</strong> v1 满足单次请求 → v2 解决健壮性和连接管理 → v3 达到生产级别。实际开发中，v2 是最低标准（超时+异常处理），v3 适合核心业务。</p>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

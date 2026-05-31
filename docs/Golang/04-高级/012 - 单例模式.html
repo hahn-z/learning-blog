@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>012 - 单例模式</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Golang/index.html">Golang</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Golang/04-高级/index.html">Golang高级</a>
+</nav>
+<h1>012 - 单例模式</h1>
+<div class="meta">
+<span>📂 Golang高级</span>
+<span>🏷️ Golang</span>
+</div>
+<article>
+
+
+<h1>092-单例模式</h1>
+
+<blockquote><p><strong>难度：🟡 中高级</strong> | 预计阅读：20 分钟 | 2024 年更新</p></blockquote>
+
+<h2>一、概念讲解</h2>
+
+<p><strong>单例模式（Singleton）</strong> 确保一个类型只有一个实例，并提供全局访问点。在 Go 中，单例常用于：</p>
+<ul>
+<li>全局配置管理</li>
+<li>数据库连接池</li>
+<li>日志实例</li>
+<li>缓存服务</li>
+
+<p>Go 没有类和构造函数的访问修饰符，实现单例需要依靠包级别的可见性规则和同步原语。<strong>核心挑战：并发安全 + 延迟初始化。</strong></p>
+
+<h2>二、脑图</h2>
+
+<pre><code>单例模式
+├── 实现方式
+│   ├── sync.Once（推荐）
+│   ├── sync.Mutex 双检锁
+│   ├── init() 包初始化
+│   └── atomic.Value
+├── 应用场景
+│   ├── 配置管理
+│   ├── 连接池
+│   ├── 日志器
+│   └── 缓存
+├── 测试策略
+│   ├── 接口注入
+│   ├── 重新加载
+│   └── 测试替身
+└── 反模式
+    ├── 全局可变状态
+    ├── 隐式依赖
+    └── 过度使用</code></pre>
+
+<h2>三、完整 Go 代码</h2>
+
+<pre><code class="language-go">package main
+
+import (
+	&quot;fmt&quot;
+	&quot;sync&quot;
+	&quot;sync/atomic&quot;
+)
+
+// ============================================
+// V1: Basic — NOT thread-safe
+// ============================================
+
+var instanceV1 *ConfigV1
+
+type ConfigV1 struct {
+	AppName string
+	Port    int
+}
+
+func GetConfigV1() *ConfigV1 {
+	if instanceV1 == nil {
+		instanceV1 = &amp;ConfigV1{AppName: &quot;myapp&quot;, Port: 8080}
+	}
+	return instanceV1
+}
+
+// ============================================
+// V2: sync.Once — recommended approach
+// ============================================
+
+var (
+	once     sync.Once
+	instance *Config
+)
+
+// Config holds global application configuration
+type Config struct {
+	AppName string
+	Port    int
+	Version string
+}
+
+func GetConfig() *Config {
+	once.Do(func() {
+		instance = &amp;Config{
+			AppName: &quot;myapp&quot;,
+			Port:    8080,
+			Version: &quot;1.0.0&quot;,
+		}
+		fmt.Println(&quot;Config initialized once&quot;)
+	})
+	return instance
+}
+
+// ============================================
+// V3: Generic singleton with reload support
+// ============================================
+
+// Singleton provides a generic thread-safe singleton holder
+type Singleton[T any] struct {
+	value  atomic.Pointer[T]
+	once   sync.Once
+	build  func() *T
+	mu     sync.Mutex // for reload
+}
+
+// NewSingleton creates a singleton holder with a builder function
+func NewSingleton[T any](build func() *T) *Singleton[T] {
+	return &amp;Singleton[T]{build: build}
+}
+
+// Get returns the singleton instance, initializing on first call
+func (s *Singleton[T]) Get() *T {
+	s.once.Do(func() {
+		s.value.Store(s.build())
+	})
+	return s.value.Load()
+}
+
+// Reload recreates the singleton instance (thread-safe)
+func (s *Singleton[T]) Reload() *T {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	newVal := s.build()
+	s.value.Store(newVal)
+	return newVal
+}
+
+// ============================================
+// Demo
+// ============================================
+
+func main() {
+	// V2: sync.Once
+	var wg sync.WaitGroup
+	for i := 0; i &lt; 10; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			cfg := GetConfig()
+			fmt.Printf(&quot;goroutine got config: %s:%d\n&quot;, cfg.AppName, cfg.Port)
+		}()
+	}
+	wg.Wait()
+
+	// V3: Generic singleton with reload
+	cfgSingleton := NewSingleton(func() *Config {
+		return &amp;Config{AppName: &quot;reloaded-app&quot;, Port: 9090, Version: &quot;2.0.0&quot;}
+	})
+
+	cfg := cfgSingleton.Get()
+	fmt.Printf(&quot;Initial: %s v%s\n&quot;, cfg.AppName, cfg.Version)
+
+	cfg.Reload()
+	cfg2 := cfgSingleton.Get()
+	fmt.Printf(&quot;After reload: %s v%s\n&quot;, cfg2.AppName, cfg2.Version)
+}</code></pre>
+
+<h2>四、执行预览</h2>
+
+<pre><code>$ go run main.go
+Config initialized once
+goroutine got config: myapp:8080
+goroutine got config: myapp:8080
+... (10 lines)
+Initial: reloaded-app v2.0.0
+After reload: reloaded-app v2.0.0</code></pre>
+
+<h2>五、注意事项</h2>
+
+<table><thead><tr>
+<th>维度</th>
+<th>注意点</th>
+<th>说明</th>
+</tr></thead><tbody>
+<tr>
+<td>sync.Once</td>
+<td>只执行一次，即使 panic 也算执行过</td>
+<td>Go 1.21+ <code>sync.OnceFunc</code> 更安全</td>
+</tr>
+<tr>
+<td>init()</td>
+<td>包加载时执行，无法延迟</td>
+<td>适合必须初始化的场景</td>
+</tr>
+<tr>
+<td>并发安全</td>
+<td>多 goroutine 同时调用必须加锁</td>
+<td>sync.Once 内部已处理</td>
+</tr>
+<tr>
+<td>可测试性</td>
+<td>单例使测试难以隔离</td>
+<td>考虑依赖注入替代</td>
+</tr>
+<tr>
+<td>泛型</td>
+<td>Go 1.18+ 支持</td>
+<td>Singleton[T] 需要 Go 1.18+</td>
+</tr>
+</tbody></table>
+
+<h2>六、避坑指南</h2>
+
+<table><thead><tr>
+<th>❌ 错误做法</th>
+<th>✅ 正确做法</th>
+</tr></thead><tbody>
+<tr>
+<td>裸 if nil 判断创建单例</td>
+<td>用 <code>sync.Once</code> 保证并发安全</td>
+</tr>
+<tr>
+<td>单例中引用可变全局状态</td>
+<td>单例内部状态用 Mutex 保护</td>
+</tr>
+<tr>
+<td>init() 中初始化数据库连接</td>
+<td>用 <code>sync.Once</code> 延迟到首次使用</td>
+</tr>
+<tr>
+<td>到处硬编码 <code>GetConfig()</code></td>
+<td>通过接口注入，方便测试</td>
+</tr>
+<tr>
+<td>单例持有 goroutine 不释放</td>
+<td>提供 Close/Shutdown 方法</td>
+</tr>
+</tbody></table>
+
+<h2>七、练习题</h2>
+
+<p><strong>🟢 初级：</strong> 用 <code>sync.Once</code> 实现一个全局日志实例，支持 <code>Log(msg string)</code> 方法。</p>
+
+<p><strong>🟡 中级：</strong> 实现泛型单例 <code>Singleton[T]</code>，支持 <code>Reload()</code> 方法重新创建实例。</p>
+
+<p><strong>🔴 高级：</strong> 设计一个支持依赖注入的配置管理器，在测试中可以替换为 mock 实现，生产中使用单例。</p>
+
+<h2>八、知识点总结</h2>
+
+<pre><code>单例模式知识树
+├── 实现方式
+│   ├── sync.Once ← 推荐
+│   │   ├── 快速路径：atomic load
+│   │   └── 慢速路径：Mutex + double check
+│   ├── sync.Mutex 双检锁（DCL）
+│   ├── init() 包级初始化
+│   └── atomic.Pointer（Go 1.19+）
+├── 设计原则
+│   ├── 延迟初始化（Lazy）
+│   ├── 线程安全
+│   └── 全局唯一
+├── 权衡
+│   ├── 优点：全局统一状态、节省资源
+│   └── 缺点：隐式依赖、测试困难
+└── 替代方案
+    ├── 依赖注入（Wire/Dig）
+    ├── 服务定位器模式
+    └── 函数参数传递</code></pre>
+
+<h2>九、举一反三</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>实现方式</th>
+<th>适用条件</th>
+</tr></thead><tbody>
+<tr>
+<td>配置管理</td>
+<td>sync.Once</td>
+<td>启动时加载，运行时只读</td>
+</tr>
+<tr>
+<td>数据库连接池</td>
+<td>sync.Once + context</td>
+<td>需要优雅关闭</td>
+</tr>
+<tr>
+<td>日志实例</td>
+<td>sync.Once</td>
+<td>全局共享，很少改变</td>
+</tr>
+<tr>
+<td>分布式唯一 ID</td>
+<td>原子计数器</td>
+<td>需要严格递增</td>
+</tr>
+<tr>
+<td>缓存实例</td>
+<td>sync.Once + 定时刷新</td>
+<td>需要后台更新</td>
+</tr>
+</tbody></table>
+
+<h2>十、参考资料</h2>
+
+<ul>
+<li><a href="https://github.com/golang/go/blob/master/src/sync/once.go">Go sync.Once 源码分析</a></li>
+<li><a href="https://go.dev/doc/effective_go#initialization">Effective Go — Initialization</a></li>
+<li><a href="https://go.dev/doc/tutorial/generics">Go 泛型实战</a></li>
+<li><a href="https://blog.drewolson.org/dependency-injection-in-go"> Dependency Injection in Go</a></li>
+
+<h2>十一、代码演进</h2>
+
+<p><strong>V1 — 裸 if nil 判断：</strong></p>
+<ul>
+<li>简单直接，但存在竞态条件</li>
+<li>多 goroutine 可能创建多个实例</li>
+
+<p><strong>V2 — sync.Once 标准实现：</strong></p>
+<ul>
+<li>利用 <code>sync.Once</code> 保证只执行一次</li>
+<li>并发安全，推荐用法</li>
+<li>适合大多数单例场景</li>
+
+<p><strong>V3 — 泛型 Singleton[T] + Reload：</strong></p>
+<ul>
+<li>Go 1.18 泛型支持，类型安全</li>
+<li>支持 Reload 热更新</li>
+<li>可复用的通用单例容器</li>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

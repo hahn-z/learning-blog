@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>004 - 异步编程：回调函数</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Node.js/index.html">Node.js</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Node.js/01-入门/index.html">Node.js入门</a>
+</nav>
+<h1>004 - 异步编程：回调函数</h1>
+<div class="meta">
+<span>📂 Node.js入门</span>
+<span>🏷️ Node.js</span>
+</div>
+<article>
+
+
+<h1>异步编程：回调函数</h1>
+
+<blockquote><p><strong>难度：</strong> ⭐⭐（初级）<br><strong>阅读时间：</strong> 约 15 分钟<br><strong>前置知识：</strong> JavaScript 基础语法、函数作为参数传递</p></blockquote>
+
+<hr>
+
+<h2>一、概念讲解</h2>
+
+<p>Node.js 最核心的设计理念就是<strong>异步非阻塞 I/O</strong>。当 Node.js 执行文件读取、网络请求等耗时操作时，它不会停下来等待结果，而是继续执行后面的代码。等操作完成后，通过<strong>回调函数（Callback）</strong>通知你结果。</p>
+
+<p><strong>什么是回调函数？</strong></p>
+
+<p>回调函数就是"你做完之后告诉我"的机制——把一个函数作为参数传给另一个函数，当操作完成时调用它。</p>
+
+<p><strong>生活中的类比：</strong></p>
+
+<p>你去餐厅点餐，服务员给你一个取餐号码牌（注册回调），你可以继续刷手机（不阻塞），等餐好了服务员叫号（触发回调）。</p>
+
+<hr>
+
+<h2>二、知识脑图</h2>
+
+<pre><code>异步编程：回调函数
+├── 为什么需要异步
+│   ├── 单线程模型
+│   ├── 阻塞 vs 非阻塞
+│   └── 事件循环（Event Loop）
+├── 回调函数基础
+│   ├── 函数作为参数
+│   ├── 同步回调 vs 异步回调
+│   └── 错误优先模式（Error-first Callback）
+├── 常见异步 API
+│   ├── fs.readFile / fs.writeFile
+│   ├── setTimeout / setInterval
+│   └── http.request
+├── 回调地狱（Callback Hell）
+│   ├── 嵌套过深
+│   ├── 可读性差
+│   └── 难以维护
+└── 解决方案预告
+    ├── Promise
+    ├── async/await
+    └── 控制流库</code></pre>
+
+<hr>
+
+<h2>三、完整代码示例</h2>
+
+<h3>3.1 基础：同步 vs 异步文件读取</h3>
+
+<pre><code class="language-javascript">// sync-vs-async.js
+const fs = require(&#x27;fs&#x27;);
+
+// ---- Synchronous (blocking) ----
+console.log(&#x27;1. Start reading sync...&#x27;);
+const data = fs.readFileSync(__filename, &#x27;utf-8&#x27;);
+console.log(`2. Sync read ${data.length} chars`);
+console.log(&#x27;3. After sync read&#x27;);
+
+console.log(&#x27;---&#x27;);
+
+// ---- Asynchronous (non-blocking) ----
+console.log(&#x27;4. Start reading async...&#x27;);
+fs.readFile(__filename, &#x27;utf-8&#x27;, (err, data) =&gt; {
+  if (err) throw err;
+  console.log(`6. Async read ${data.length} chars`);
+});
+console.log(&#x27;5. After async read (comes before 6!)&#x27;);</code></pre>
+
+<h3>3.2 错误优先回调模式</h3>
+
+<pre><code class="language-javascript">// error-first-callback.js
+const fs = require(&#x27;fs&#x27;);
+
+// Error-first callback: first param is error, second is result
+fs.readFile(&#x27;/nonexistent/file.txt&#x27;, &#x27;utf-8&#x27;, (err, data) =&gt; {
+  if (err) {
+    console.error(&#x27;Error occurred:&#x27;, err.message);
+    return; // Always return early on error
+  }
+  console.log(&#x27;File content:&#x27;, data);
+});
+
+console.log(&#x27;This prints first because readFile is async&#x27;);</code></pre>
+
+<h3>3.3 回调地狱示例及拆分</h3>
+
+<pre><code class="language-javascript">// callback-hell.js
+const fs = require(&#x27;fs&#x27;);
+const path = require(&#x27;path&#x27;);
+
+// ❌ Callback Hell - deeply nested, hard to read
+fs.readFile(&#x27;file1.txt&#x27;, &#x27;utf-8&#x27;, (err, data1) =&gt; {
+  if (err) { console.error(err); return; }
+  fs.readFile(&#x27;file2.txt&#x27;, &#x27;utf-8&#x27;, (err, data2) =&gt; {
+    if (err) { console.error(err); return; }
+    fs.readFile(&#x27;file3.txt&#x27;, &#x27;utf-8&#x27;, (err, data3) =&gt; {
+      if (err) { console.error(err); return; }
+      console.log(&#x27;All files read!&#x27;);
+      console.log(data1 + data2 + data3);
+    });
+  });
+});
+
+// ✅ Flatten with named functions
+function readFilesSequentially(files, callback) {
+  const results = [];
+
+  function readNext(index) {
+    if (index &gt;= files.length) {
+      return callback(null, results);
+    }
+    fs.readFile(files[index], &#x27;utf-8&#x27;, (err, data) =&gt; {
+      if (err) return callback(err);
+      results.push(data);
+      readNext(index + 1);
+    });
+  }
+
+  readNext(0);
+}
+
+// Usage
+readFilesSequentially([&#x27;file1.txt&#x27;, &#x27;file2.txt&#x27;, &#x27;file3.txt&#x27;], (err, results) =&gt; {
+  if (err) {
+    console.error(&#x27;Failed:&#x27;, err.message);
+    return;
+  }
+  console.log(&#x27;All files read:&#x27;, results.join(&#x27;\n&#x27;));
+});</code></pre>
+
+<hr>
+
+<h2>四、执行预览</h2>
+
+<pre><code>$ node sync-vs-async.js
+1. Start reading sync...
+2. Sync read 512 chars
+3. After sync read
+---
+4. Start reading async...
+5. After async read (comes before 6!)
+6. Async read 512 chars
+
+$ node error-first-callback.js
+This prints first because readFile is async
+Error occurred: ENOENT: no such file or directory, open &#x27;/nonexistent/file.txt&#x27;</code></pre>
+
+<hr>
+
+<h2>五、注意事项</h2>
+
+<table><thead><tr>
+<th>要点</th>
+<th>说明</th>
+</tr></thead><tbody>
+<tr>
+<td>回调是异步的基础</td>
+<td>Promise 和 async/await 底层仍然依赖回调机制</td>
+</tr>
+<tr>
+<td>始终检查错误</td>
+<td>Node.js 约定回调第一个参数是 error，永远不要忽略它</td>
+</tr>
+<tr>
+<td>不要同步调用回调</td>
+<td>异步回调应在下一个事件循环 tick 中调用，避免 Zalgo</td>
+</tr>
+<tr>
+<td>避免深度嵌套</td>
+<td>超过 3 层嵌套就该重构，用命名函数或控制流库拆分</td>
+</tr>
+<tr>
+<td>回调中 this 指向</td>
+<td>箭头函数没有自己的 this，普通函数的 this 可能丢失</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>六、避坑指南</h2>
+
+<h3>❌ 坑 1：忘记处理错误</h3>
+
+<pre><code class="language-javascript">// ❌ Bad - ignoring error
+fs.readFile(&#x27;data.json&#x27;, &#x27;utf-8&#x27;, (err, data) =&gt; {
+  console.log(JSON.parse(data)); // crashes if err is set!
+});
+
+// ✅ Good - always check error first
+fs.readFile(&#x27;data.json&#x27;, &#x27;utf-8&#x27;, (err, data) =&gt; {
+  if (err) {
+    console.error(&#x27;Read failed:&#x27;, err.message);
+    return;
+  }
+  console.log(JSON.parse(data));
+});</code></pre>
+
+<h3>❌ 坑 2：在循环中用回调处理异步</h3>
+
+<pre><code class="language-javascript">// ❌ Bad - all callbacks share the same i
+for (var i = 0; i &lt; 5; i++) {
+  setTimeout(() =&gt; console.log(i), 100); // prints 5,5,5,5,5
+}
+
+// ✅ Good - use let (block scoping)
+for (let i = 0; i &lt; 5; i++) {
+  setTimeout(() =&gt; console.log(i), 100); // prints 0,1,2,3,4
+}</code></pre>
+
+<h3>❌ 坑 3：同步释放 Zalgo</h3>
+
+<pre><code class="language-javascript">// ❌ Bad - sometimes sync, sometimes async (Zalgo!)
+function getData(cache, callback) {
+  if (cache) {
+    callback(null, cache); // synchronous!
+  } else {
+    fs.readFile(&#x27;data.txt&#x27;, &#x27;utf-8&#x27;, callback); // async
+  }
+}
+
+// ✅ Good - always async
+function getData(cache, callback) {
+  if (cache) {
+    process.nextTick(() =&gt; callback(null, cache));
+  } else {
+    fs.readFile(&#x27;data.txt&#x27;, &#x27;utf-8&#x27;, callback);
+  }
+}</code></pre>
+
+<hr>
+
+<h2>七、练习题</h2>
+
+<h3>🟢 初级：基础回调</h3>
+
+<p>编写一个函数 <code>readPackageJson(callback)</code>，读取当前目录的 <code>package.json</code> 文件，如果文件不存在则返回错误，否则解析 JSON 并返回对象。</p>
+
+<pre><code class="language-javascript">const fs = require(&#x27;fs&#x27;);
+
+function readPackageJson(callback) {
+  // Your code here
+}</code></pre>
+
+<p><details></p>
+<p><summary>参考答案</summary></p>
+
+<pre><code class="language-javascript">function readPackageJson(callback) {
+  fs.readFile(&#x27;package.json&#x27;, &#x27;utf-8&#x27;, (err, data) =&gt; {
+    if (err) return callback(err);
+    try {
+      callback(null, JSON.parse(data));
+    } catch (e) {
+      callback(e);
+    }
+  });
+}</code></pre>
+<p></details></p>
+
+<h3>🟡 中级：串行执行</h3>
+
+<p>编写函数 <code>readFilesSeries(files, callback)</code>，按顺序读取多个文件，任一文件失败则立即回调错误，全部成功则返回内容数组。</p>
+
+<h3>🔴 高级：并行 + 限制并发</h3>
+
+<p>实现 <code>parallelLimit(tasks, limit, callback)</code>，tasks 是回调函数数组，最多同时执行 limit 个，全部完成后回调结果数组。</p>
+
+<hr>
+
+<h2>八、知识点总结</h2>
+
+<pre><code>异步编程：回调函数
+├── 核心理解
+│   ├── Node.js 单线程 + 事件循环
+│   ├── 回调 = 完成后的通知机制
+│   └── 非阻塞 = 不等结果，先干别的
+├── 编程模式
+│   ├── 错误优先回调 (err, result) =&gt; {}
+│   ├── 命名函数拆分嵌套
+│   └── process.nextTick / setImmediate
+├── 关键 API
+│   ├── fs.readFile(path, encoding, callback)
+│   ├── setTimeout(fn, ms)
+│   └── 自定义异步函数设计
+└── 局限性
+    ├── 回调地狱
+    ├── 错误传播困难
+    └── → 引出 Promise（下一章）</code></pre>
+
+<hr>
+
+<h2>九、举一反三</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>回调模式</th>
+<th>关键点</th>
+</tr></thead><tbody>
+<tr>
+<td>文件读取</td>
+<td><code>fs.readFile(path, cb)</code></td>
+<td>错误优先</td>
+</tr>
+<tr>
+<td>HTTP 请求</td>
+<td><code>http.get(url, res => {})</code></td>
+<td>响应流式处理</td>
+</tr>
+<tr>
+<td>定时器</td>
+<td><code>setTimeout(cb, ms)</code></td>
+<td>最小延迟约 1ms</td>
+</tr>
+<tr>
+<td>数据库查询</td>
+<td><code>db.query(sql, cb)</code></td>
+<td>连接池管理</td>
+</tr>
+<tr>
+<td>事件监听</td>
+<td><code>emitter.on('event', cb)</code></td>
+<td>可多次触发</td>
+</tr>
+<tr>
+<td>流处理</td>
+<td><code>stream.on('data', cb)</code></td>
+<td>背压控制</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>十、参考资料</h2>
+
+<ul>
+<li><a href="https://nodejs.org/en/learn/asynchronous-work#blocking-vs-non-blocking">Node.js 官方文档 - Callback</a></li>
+<li><a href="https://developer.mozilla.org/zh-CN/docs/Glossary/Callback_function">MDN - 回调函数</a></li>
+<li><a href="http://callbackhell.com/">回调地狱</a></li>
+
+<hr>
+
+<h2>十一、代码演进</h2>
+
+<h3>v1：最基础的回调</h3>
+
+<pre><code class="language-javascript">fs.readFile(&#x27;a.txt&#x27;, &#x27;utf-8&#x27;, (err, data) =&gt; {
+  console.log(data);
+});</code></pre>
+
+<h3>v2：错误处理 + 嵌套操作</h3>
+
+<pre><code class="language-javascript">fs.readFile(&#x27;a.txt&#x27;, &#x27;utf-8&#x27;, (err, data) =&gt; {
+  if (err) { console.error(err); return; }
+  const upper = data.toUpperCase();
+  fs.writeFile(&#x27;a-upper.txt&#x27;, upper, (err) =&gt; {
+    if (err) { console.error(err); return; }
+    console.log(&#x27;Done!&#x27;);
+  });
+});</code></pre>
+
+<h3>v3：命名函数拆分（可维护）</h3>
+
+<pre><code class="language-javascript">function handleRead(err, data) {
+  if (err) return console.error(err);
+  fs.writeFile(&#x27;a-upper.txt&#x27;, data.toUpperCase(), handleWrite);
+}
+
+function handleWrite(err) {
+  if (err) return console.error(err);
+  console.log(&#x27;Done!&#x27;);
+}
+
+fs.readFile(&#x27;a.txt&#x27;, &#x27;utf-8&#x27;, handleRead);</code></pre>
+
+<hr>
+
+<blockquote><p><strong>下一章：</strong> <a href="/posts/005-promises">Promise 异步编程</a> — 用 Promise 告别回调地狱</p></blockquote>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

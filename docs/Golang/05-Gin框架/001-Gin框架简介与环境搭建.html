@@ -1,0 +1,584 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>001-Gin框架简介与环境搭建</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Golang/index.html">Golang</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Golang/05-Gin框架/index.html">Gin框架</a>
+</nav>
+<h1>001-Gin框架简介与环境搭建</h1>
+<div class="meta">
+<span>📂 Gin框架</span>
+<span>🏷️ Golang</span>
+</div>
+<article>
+
+
+<h1>Gin框架简介与环境搭建</h1>
+
+<blockquote><p><strong>难度：⭐ 入门级</strong> | 预计阅读：20分钟 | 适合：Go基础已掌握，初次接触Web框架的开发者</p></blockquote>
+
+<h2>一、概念讲解</h2>
+
+<h3>1.1 Gin是什么？</h3>
+
+<p>Gin是Go语言中最流行的Web框架之一，基于<code>net/http</code>标准库构建，核心优势是<strong>高性能路由</strong>——使用了基于基数树(Radix Tree)的路由引擎，路由查找复杂度接近O(1)。</p>
+
+<p>一句话概括：<strong>Gin = httprouter的极速路由 + 优雅的中间件机制 + 便捷的API开发工具链</strong>。</p>
+
+<h3>1.2 Gin的定位</h3>
+
+<p>Gin并不是"全功能框架"（像Django那种），它更像是一个<strong>微框架</strong>（类似Flask/Express），核心只做：</p>
+
+<ul>
+<li>路由分发</li>
+<li>中间件编排</li>
+<li>请求参数绑定/验证</li>
+<li>响应渲染</li>
+
+<p>数据库ORM、认证、配置管理等需要自己选型搭配，这也意味着<strong>灵活性极高</strong>。</p>
+
+<h3>1.3 与其他Go Web框架对比</h3>
+
+<table><thead><tr>
+<th>特性</th>
+<th>Gin</th>
+<th>Echo</th>
+<th>Fiber</th>
+<th>Chi</th>
+</tr></thead><tbody>
+<tr>
+<td>性能</td>
+<td>极高</td>
+<td>极高</td>
+<td>最高(基于fasthttp)</td>
+<td>高</td>
+</tr>
+<tr>
+<td>路由引擎</td>
+<td>基数树</td>
+<td>基数树</td>
+<td>基数树</td>
+<td>基数树</td>
+</tr>
+<tr>
+<td>中间件</td>
+<td>✅ 洋葱模型</td>
+<td>✅ 洋葱模型</td>
+<td>✅ 洋葱模型</td>
+<td>✅ 链式</td>
+</tr>
+<tr>
+<td>底层HTTP库</td>
+<td>net/http</td>
+<td>net/http</td>
+<td>fasthttp</td>
+<td>net/http</td>
+</tr>
+<tr>
+<td>生态/社区</td>
+<td>⭐⭐⭐⭐⭐</td>
+<td>⭐⭐⭐⭐</td>
+<td>⭐⭐⭐</td>
+<td>⭐⭐⭐</td>
+</tr>
+<tr>
+<td>学习曲线</td>
+<td>低</td>
+<td>低</td>
+<td>低(类Express)</td>
+<td>极低</td>
+</tr>
+<tr>
+<td>适合场景</td>
+<td>API服务/微服务</td>
+<td>API服务</td>
+<td>高性能API</td>
+<td>轻量API</td>
+</tr>
+</tbody></table>
+
+<p><strong>选型建议：</strong></p>
+<ul>
+<li>需要<strong>生态最完善</strong>、文档最丰富 → <strong>Gin</strong></li>
+<li>团队已熟悉Express风格 → <strong>Echo/Fiber</strong></li>
+<li>追求极致轻量、只加路由不加框架感 → <strong>Chi</strong></li>
+
+<h2>二、脑图</h2>
+
+<pre><code>Gin框架全景
+├── 核心概念
+│   ├── Router (路由引擎)
+│   ├── Context (请求上下文)
+│   ├── Middleware (中间件链)
+│   └── Engine (应用实例)
+├── 基础能力
+│   ├── 路由匹配 (GET/POST/PUT/DELETE)
+│   ├── 参数绑定 (JSON/Query/Form/URI)
+│   ├── 响应渲染 (JSON/HTML/XML/String)
+│   └── 错误处理 (Recovery中间件)
+├── 项目结构
+│   ├── 单文件Demo
+│   ├── MVC分层
+│   └── 模块化组织
+└── 生态工具
+    ├── gin-swagger (API文档)
+    ├── air (热重载)
+    └── golangci-lint (代码检查)</code></pre>
+
+<h2>三、完整代码：Hello World起步</h2>
+
+<h3>3.1 项目初始化</h3>
+
+<pre><code class="language-bash"># Create project directory
+mkdir gin-demo &amp;&amp; cd gin-demo
+
+# Initialize Go module
+go mod init gin-demo
+
+# Install Gin
+go get -u github.com/gin-gonic/gin</code></pre>
+
+<h3>3.2 最简Hello World</h3>
+
+<pre><code class="language-go">// main.go - The simplest Gin application
+package main
+
+import (
+    &quot;net/http&quot;
+    &quot;github.com/gin-gonic/gin&quot;
+)
+
+func main() {
+    // Create a default router with Logger and Recovery middleware
+    r := gin.Default()
+
+    // Define a GET route
+    r.GET(&quot;/ping&quot;, func(c *gin.Context) {
+        c.JSON(http.StatusOK, gin.H{
+            &quot;message&quot;: &quot;pong&quot;,
+        })
+    })
+
+    // Start server on port 8080
+    r.Run(&quot;:8080&quot;)
+}</code></pre>
+
+<h3>3.3 运行预览</h3>
+
+<pre><code class="language-bash">$ go run main.go
+[GIN-debug] [WARNING] Creating an Engine instance with the Logger and Recovery middleware already attached.
+[GIN-debug] GET    /ping                     --&gt; main.main.func1 (3 handlers)
+
+$ curl http://localhost:8080/ping
+{&quot;message&quot;:&quot;pong&quot;}</code></pre>
+
+<h3>3.4 gin.Default vs gin.New</h3>
+
+<pre><code class="language-go">// gin.Default() = gin.New() + Logger() + Recovery()
+// Equivalent to:
+r := gin.New()
+r.Use(gin.Logger())   // Log request details to stdout
+r.Use(gin.Recovery()) // Recover from panics, return 500
+
+// When to use gin.New()?
+// - You want custom logging (e.g., to file/ELK)
+// - You want to control middleware order precisely
+// - Production environment where you replace built-in middleware
+
+// When to use gin.Default()?
+// - Quick prototyping
+// - Development environment
+// - Default behavior is fine for your needs</code></pre>
+
+<h3>3.5 路由/中间件/JSON响应初体验</h3>
+
+<pre><code class="language-go">// demo.go - Quick taste of Gin&#x27;s core features
+package main
+
+import (
+    &quot;net/http&quot;
+    &quot;github.com/gin-gonic/gin&quot;
+)
+
+func main() {
+    r := gin.Default()
+
+    // Route with path parameter
+    r.GET(&quot;/hello/:name&quot;, func(c *gin.Context) {
+        name := c.Param(&quot;name&quot;)
+        c.JSON(http.StatusOK, gin.H{
+            &quot;greeting&quot;: &quot;Hello, &quot; + name + &quot;!&quot;,
+        })
+    })
+
+    // POST route with JSON body binding
+    r.POST(&quot;/echo&quot;, func(c *gin.Context) {
+        var body map[string]interface{}
+        if err := c.ShouldBindJSON(&amp;body); err != nil {
+            c.JSON(http.StatusBadRequest, gin.H{&quot;error&quot;: err.Error()})
+            return
+        }
+        c.JSON(http.StatusOK, gin.H{
+            &quot;you_sent&quot;: body,
+        })
+    })
+
+    // Custom middleware demo
+    r.Use(func(c *gin.Context) {
+        c.Header(&quot;X-Custom-Header&quot;, &quot;Gin-Is-Awesome&quot;)
+        c.Next() // Pass to next handler
+    })
+
+    // Query parameter
+    r.GET(&quot;/search&quot;, func(c *gin.Context) {
+        q := c.DefaultQuery(&quot;q&quot;, &quot;nothing&quot;)
+        page := c.DefaultQuery(&quot;page&quot;, &quot;1&quot;)
+        c.JSON(http.StatusOK, gin.H{
+            &quot;query&quot;: q,
+            &quot;page&quot;:  page,
+        })
+    })
+
+    r.Run(&quot;:8080&quot;)
+}</code></pre>
+
+<h3>3.6 推荐项目结构</h3>
+
+<pre><code>gin-demo/
+├── main.go              # Entry point
+├── go.mod
+├── go.sum
+├── config/
+│   └── config.go        # Configuration loading
+├── router/
+│   └── router.go        # Route definitions
+├── middleware/
+│   ├── auth.go          # Authentication middleware
+│   ├── cors.go          # CORS middleware
+│   └── logger.go        # Custom logging
+├── handler/
+│   ├── user.go          # User handlers
+│   └── product.go       # Product handlers
+├── model/
+│   ├── user.go          # Data models
+│   └── product.go
+├── service/
+│   └── user.go          # Business logic
+└── repository/
+    └── user.go          # Data access layer</code></pre>
+
+<h2>四、执行预览</h2>
+
+<pre><code class="language-bash"># Test different endpoints
+$ curl http://localhost:8080/hello/Gopher
+{&quot;greeting&quot;:&quot;Hello, Gopher!&quot;}
+
+$ curl -X POST http://localhost:8080/echo \
+  -H &quot;Content-Type: application/json&quot; \
+  -d &#x27;{&quot;language&quot;:&quot;Go&quot;,&quot;framework&quot;:&quot;Gin&quot;}&#x27;
+{&quot;you_sent&quot;:{&quot;framework&quot;:&quot;Gin&quot;,&quot;language&quot;:&quot;Go&quot;}}
+
+$ curl http://localhost:8080/search?q=gin&amp;page=2
+{&quot;page&quot;:&quot;2&quot;,&quot;query&quot;:&quot;gin&quot;}
+
+# Notice the custom header
+$ curl -I http://localhost:8080/search?q=test
+X-Custom-Header: Gin-Is-Awesome</code></pre>
+
+<h2>五、注意事项</h2>
+
+<table><thead><tr>
+<th>事项</th>
+<th>说明</th>
+<th>建议</th>
+</tr></thead><tbody>
+<tr>
+<td>Go版本</td>
+<td>Gin 1.9+需要Go 1.20+</td>
+<td>使用<code>go version</code>确认</td>
+</tr>
+<tr>
+<td>代理设置</td>
+<td>国内下载Gin可能超时</td>
+<td>设置<code>GOPROXY=https://goproxy.cn,direct</code></td>
+</tr>
+<tr>
+<td>热重载</td>
+<td>每次修改需重启</td>
+<td>安装<code>air</code>实现热重载：<code>go install github.com/air-verse/air@latest</code></td>
+</tr>
+<tr>
+<td>生产模式</td>
+<td>默认是debug模式</td>
+<td>设置<code>gin.SetMode(gin.ReleaseMode)</code></td>
+</tr>
+<tr>
+<td>端口冲突</td>
+<td>8080可能被占用</td>
+<td><code>lsof -i:8080</code>检查，或换端口</td>
+</tr>
+</tbody></table>
+
+<h2>六、避坑指南</h2>
+
+<h3>❌ 不检查Go模块初始化直接go get</h3>
+<pre><code class="language-bash"># Bad: No go.mod, dependency management is a mess
+go get github.com/gin-gonic/gin</code></pre>
+<h3>✅ 先初始化模块再安装</h3>
+<pre><code class="language-bash">go mod init your-project-name
+go get github.com/gin-gonic/gin</code></pre>
+
+<h3>❌ 生产环境使用gin.DebugMode</h3>
+<pre><code class="language-go">// Bad: Debug mode outputs verbose routing info
+r := gin.Default() // default is debug mode</code></pre>
+<h3>✅ 设置ReleaseMode</h3>
+<pre><code class="language-go">gin.SetMode(gin.ReleaseMode)
+r := gin.Default()</code></pre>
+
+<h3>❌ 不处理路由冲突</h3>
+<pre><code class="language-go">// Bad: Will panic at startup
+r.GET(&quot;/users/:id&quot;, handler1)
+r.GET(&quot;/users/:name&quot;, handler2) // CONFLICT! :id and :name overlap</code></pre>
+<h3>✅ 保持参数命名一致或使用不同路径</h3>
+<pre><code class="language-go">r.GET(&quot;/users/:id&quot;, handler1)       // OK
+r.GET(&quot;/users/profile/:id&quot;, handler2) // Different path structure</code></pre>
+
+<h2>七、练习题</h2>
+
+<h3>🟢 初级：跑通Hello World</h3>
+<ol>
+<li>创建一个Gin项目，实现<code>/</code>路由返回<code>{"status": "running"}</code></li>
+</ul>
+<ol>
+<li>添加<code>/health</code>路由返回200状态码和健康检查信息</li>
+
+<h3>🟡 中级：多路由初体验</h3>
+<ol>
+<li>实现一个简单的API：<code>GET /api/v1/greet?name=xxx</code>返回个性化问候语</li>
+</ul>
+<ol>
+<li>使用<code>gin.New()</code>创建引擎，手动添加Logger和Recovery中间件</li>
+
+<h3>🔴 高级：项目结构搭建</h3>
+<ol>
+<li>按照推荐项目结构，将路由定义拆分到<code>router/router.go</code>，handler拆分到<code>handler/</code>目录</li>
+
+<h2>八、知识点总结</h2>
+
+<pre><code>Gin入门知识树
+├── 安装与初始化
+│   ├── go mod init
+│   ├── go get gin
+│   └── GOPROXY配置
+├── 核心对象
+│   ├── gin.Engine (路由引擎)
+│   │   ├── gin.Default() (带中间件)
+│   │   └── gin.New() (纯净版)
+│   └── gin.Context (请求上下文)
+│       ├── c.JSON()
+│       ├── c.Param()
+│       └── c.Query()
+├── 路由基础
+│   ├── HTTP方法绑定
+│   ├── 路径参数
+│   └── 查询参数
+└── 运行模式
+    ├── DebugMode (默认)
+    ├── ReleaseMode (生产)
+    └── TestMode (测试)</code></pre>
+
+<h2>九、举一反三</h2>
+
+<table><thead><tr>
+<th>你学到的</th>
+<th>可以迁移到</th>
+<th>怎么迁移</th>
+</tr></thead><tbody>
+<tr>
+<td>Gin的路由匹配</td>
+<td>Echo的路由</td>
+<td>几乎相同的API，<code>e.GET("/path", handler)</code></td>
+</tr>
+<tr>
+<td>gin.Default()</td>
+<td>Express的express()</td>
+<td>同样的"带默认中间件"理念</td>
+</tr>
+<tr>
+<td>gin.H快捷写法</td>
+<td>Fiber的Map返回</td>
+<td><code>c.JSON(fiber.Map{...})</code></td>
+</tr>
+<tr>
+<td>Context概念</td>
+<td>所有Go Web框架</td>
+<td>Context是Go Web框架的通用模式</td>
+</tr>
+<tr>
+<td>模块化项目结构</td>
+<td>任何Go项目</td>
+<td>handler/service/repo分层是通用最佳实践</td>
+</tr>
+</tbody></table>
+
+<h2>十、参考资料</h2>
+
+<ul>
+<li><a href="https://gin-gonic.com/docs/">Gin官方文档</a></li>
+<li><a href="https://github.com/gin-gonic/gin">Gin GitHub仓库</a></li>
+<li><a href="https://github.com/smallnest/go-web-framework-benchmark">Go Web框架性能对比</a></li>
+<li><a href="https://github.com/air-verse/air">Air热重载工具</a></li>
+
+<h2>十一、代码演进</h2>
+
+<h3>v1: 最小可运行版本</h3>
+<pre><code class="language-go">package main
+
+import &quot;github.com/gin-gonic/gin&quot;
+
+func main() {
+    r := gin.Default()
+    r.GET(&quot;/ping&quot;, func(c *gin.Context) {
+        c.JSON(200, gin.H{&quot;message&quot;: &quot;pong&quot;})
+    })
+    r.Run()
+}</code></pre>
+
+<h3>v2: 多路由+参数绑定</h3>
+<pre><code class="language-go">package main
+
+import (
+    &quot;net/http&quot;
+    &quot;github.com/gin-gonic/gin&quot;
+)
+
+func main() {
+    r := gin.Default()
+
+    r.GET(&quot;/&quot;, func(c *gin.Context) {
+        c.JSON(http.StatusOK, gin.H{&quot;status&quot;: &quot;running&quot;})
+    })
+
+    r.GET(&quot;/hello/:name&quot;, func(c *gin.Context) {
+        c.JSON(http.StatusOK, gin.H{&quot;greeting&quot;: &quot;Hello, &quot; + c.Param(&quot;name&quot;)})
+    })
+
+    r.Run(&quot;:8080&quot;)
+}</code></pre>
+
+<h3>v3: 模块化+中间件+ReleaseMode</h3>
+<pre><code class="language-go">package main
+
+import (
+    &quot;log&quot;
+    &quot;net/http&quot;
+    &quot;github.com/gin-gonic/gin&quot;
+)
+
+// Custom middleware for request logging
+func RequestLogger() gin.HandlerFunc {
+    return func(c *gin.Context) {
+        log.Printf(&quot;[REQUEST] %s %s&quot;, c.Request.Method, c.Request.URL.Path)
+        c.Next()
+    }
+}
+
+// Handler functions separated for clarity
+func PingHandler(c *gin.Context) {
+    c.JSON(http.StatusOK, gin.H{&quot;message&quot;: &quot;pong&quot;, &quot;version&quot;: &quot;1.0.0&quot;})
+}
+
+func HelloHandler(c *gin.Context) {
+    name := c.Param(&quot;name&quot;)
+    c.JSON(http.StatusOK, gin.H{&quot;greeting&quot;: &quot;Hello, &quot; + name + &quot;!&quot;})
+}
+
+func SearchHandler(c *gin.Context) {
+    q := c.DefaultQuery(&quot;q&quot;, &quot;&quot;)
+    if q == &quot;&quot; {
+        c.JSON(http.StatusBadRequest, gin.H{&quot;error&quot;: &quot;query parameter &#x27;q&#x27; is required&quot;})
+        return
+    }
+    c.JSON(http.StatusOK, gin.H{&quot;query&quot;: q, &quot;results&quot;: []string{}})
+}
+
+func main() {
+    gin.SetMode(gin.ReleaseMode)
+    r := gin.New()
+    r.Use(gin.Recovery())
+    r.Use(RequestLogger())
+
+    r.GET(&quot;/ping&quot;, PingHandler)
+    r.GET(&quot;/hello/:name&quot;, HelloHandler)
+    r.GET(&quot;/search&quot;, SearchHandler)
+
+    log.Println(&quot;Server starting on :8080&quot;)
+    if err := r.Run(&quot;:8080&quot;); err != nil {
+        log.Fatal(&quot;Server failed:&quot;, err)
+    }
+}</code></pre>
+
+<hr>
+
+<p><em>下一篇：<a href="/posts/002-gin-routing">路由详解：从基础到RESTful</a> →</em></p>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

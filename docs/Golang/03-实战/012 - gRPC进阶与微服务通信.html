@@ -1,0 +1,498 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>012 - gRPC进阶与微服务通信</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Golang/index.html">Golang</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Golang/03-实战/index.html">Golang实战</a>
+</nav>
+<h1>012 - gRPC进阶与微服务通信</h1>
+<div class="meta">
+<span>📂 Golang实战</span>
+<span>🏷️ Golang</span>
+</div>
+<article>
+
+
+<h1>067: gRPC进阶与微服务通信</h1>
+
+<blockquote><p><strong>难度：⭐⭐⭐⭐⭐ 专家级</strong> | 深入 TLS 加密、Token 认证、服务发现、负载均衡、gRPC 网关等生产级话题。<br><br><strong>前置知识：</strong> gRPC 基础（066篇）、TLS/SSL 基本概念、JWT 认证<br><br><strong>学习目标：</strong> 掌握 gRPC 生产环境必备技能：安全传输、认证授权、服务发现、REST 网关转换。</p></blockquote>
+
+<h2>概念讲解</h2>
+
+<p>gRPC 进阶涉及四个生产级话题：</p>
+
+<ul>
+<li><strong>TLS 加密：</strong> 生产环境必须启用 TLS，防止数据泄露和中间人攻击。支持单向 TLS（客户端验证服务端）和 mTLS（双向验证）。</li>
+<li><strong>Token 认证：</strong> 通过拦截器从 metadata（类似 HTTP Header）中提取 JWT Token，验证后才允许调用。</li>
+<li><strong>服务发现与负载均衡：</strong> 微服务环境下，客户端需要知道服务端地址。方案有 DNS、Consul、etcd 等。gRPC 内置 round-robin 负载均衡。</li>
+<li><strong>gRPC Gateway：</strong> 将 gRPC 服务暴露为 RESTful HTTP 接口，让浏览器和传统 HTTP 客户端也能访问。</li>
+
+<h2>脑图</h2>
+
+<pre><code>gRPC进阶
+├── 安全
+│   ├── TLS 单向认证
+│   ├── mTLS 双向认证
+│   └── JWT Token 认证
+├── 服务发现
+│   ├── DNS Resolver
+│   ├── Consul 注册/发现
+│   └── etcd Lease/Watch
+├── 负载均衡
+│   ├── Round-Robin (内置)
+│   ├── 自定义 Resolver
+│   └── 服务端 LB (Proxy)
+├── gRPC Gateway
+│   ├── proto HTTP 注解
+│   ├── runtime.ServeMux
+│   └── 流式请求映射
+└── 高级特性
+    ├── 超时与重试策略
+    ├── Proto3 oneof/map/wrapper
+    └── 服务配置 (ServiceConfig)</code></pre>
+
+<h2>代码演进</h2>
+
+<h3>v1：TLS 加密 + JWT 认证</h3>
+
+<pre><code class="language-go">// tls_server.go - Server with TLS and JWT auth
+package main
+
+import (
+    &quot;context&quot;
+    &quot;crypto/tls&quot;
+    &quot;log&quot;
+    &quot;net&quot;
+    &quot;strings&quot;
+
+    &quot;google.golang.org/grpc&quot;
+    &quot;google.golang.org/grpc/codes&quot;
+    &quot;google.golang.org/grpc/credentials&quot;
+    &quot;google.golang.org/grpc/metadata&quot;
+    &quot;google.golang.org/grpc/status&quot;
+    pb &quot;github.com/example/proto&quot;
+)
+
+func main() {
+    // Load TLS certificate
+    cert, err := tls.LoadX509KeyPair(&quot;server.crt&quot;, &quot;server.key&quot;)
+    if err != nil {
+        log.Fatal(err)
+    }
+    creds := credentials.NewTLS(&amp;tls.Config{
+        Certificates: []tls.Certificate{cert},
+    })
+
+    lis, _ := net.Listen(&quot;tcp&quot;, &quot;:50051&quot;)
+    s := grpc.NewServer(
+        grpc.Creds(creds),
+        grpc.UnaryInterceptor(AuthInterceptor),
+    )
+    pb.RegisterGreeterServer(s, &amp;server{})
+    log.Fatal(s.Serve(lis))
+}
+
+// AuthInterceptor validates JWT token from metadata
+func AuthInterceptor(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
+    // Skip auth for login method
+    if info.FullMethod == &quot;/api.Auth/Login&quot; {
+        return handler(ctx, req)
+    }
+
+    md, ok := metadata.FromIncomingContext(ctx)
+    if !ok {
+        return nil, status.Error(codes.Unauthenticated, &quot;missing metadata&quot;)
+    }
+
+    tokens := md.Get(&quot;authorization&quot;)
+    if len(tokens) == 0 {
+        return nil, status.Error(codes.Unauthenticated, &quot;missing token&quot;)
+    }
+
+    token := strings.TrimPrefix(tokens[0], &quot;Bearer &quot;)
+    userID, err := validateJWT(token)
+    if err != nil {
+        return nil, status.Error(codes.Unauthenticated, &quot;invalid token&quot;)
+    }
+
+    // Inject user info into context for downstream handlers
+    ctx = context.WithValue(ctx, &quot;userID&quot;, userID)
+    return handler(ctx, req)
+}
+
+func validateJWT(token string) (string, error) {
+    // Real implementation: parse and verify JWT signature
+    // Use github.com/golang-jwt/jwt/v5
+    return &quot;user123&quot;, nil
+}</code></pre>
+
+<p><strong>TLS 客户端：</strong></p>
+
+<pre><code class="language-go">// tls_client.go
+func main() {
+    creds := credentials.NewTLS(&amp;tls.Config{
+        InsecureSkipVerify: true, // Production: use CA cert pool
+    })
+    conn, err := grpc.Dial(&quot;localhost:50051&quot;,
+        grpc.WithTransportCredentials(creds),
+    )
+    if err != nil {
+        log.Fatal(err)
+    }
+    defer conn.Close()
+    // ... make calls with metadata
+    ctx := metadata.AppendToOutgoingContext(context.Background(),
+        &quot;authorization&quot;, &quot;Bearer my-jwt-token&quot;)
+    resp, err := client.SayHello(ctx, &amp;pb.HelloRequest{Name: &quot;TLS&quot;})
+    // ...
+}</code></pre>
+
+<h3>v2：服务发现 + 负载均衡</h3>
+
+<pre><code class="language-go">// consul_register.go - Register service to Consul
+package discovery
+
+import (
+    &quot;log&quot;
+    &quot;github.com/hashicorp/consul/api&quot;
+)
+
+func RegisterService(consulAddr, serviceName, serviceAddr string, port int) error {
+    config := api.DefaultConfig()
+    config.Address = consulAddr
+    client, err := api.NewClient(config)
+    if err != nil {
+        return err
+    }
+
+    registration := &amp;api.AgentServiceRegistration{
+        ID:      serviceName + &quot;-&quot; + serviceAddr,
+        Name:    serviceName,
+        Address: serviceAddr,
+        Port:    port,
+        Check: &amp;api.AgentServiceCheck{
+            GRPC:     serviceAddr + &quot;/health&quot;,
+            Interval: &quot;10s&quot;,
+            Timeout:  &quot;5s&quot;,
+        },
+    }
+    return client.Agent().ServiceRegister(registration)
+}
+
+// Client with DNS resolver + round-robin LB
+func dialWithLB() *grpc.ClientConn {
+    conn, err := grpc.Dial(
+        &quot;dns:///my-service:50051&quot;, // DNS-based service discovery
+        grpc.WithDefaultServiceConfig(`{&quot;loadBalancingConfig&quot;:[{&quot;round_robin&quot;:{}}]}`),
+        grpc.WithTransportCredentials(insecure.NewCredentials()),
+    )
+    if err != nil {
+        log.Fatal(err)
+    }
+    return conn
+}</code></pre>
+
+<h3>v3：gRPC Gateway + 重试策略</h3>
+
+<pre><code class="language-protobuf">// Add HTTP annotation to proto
+import &quot;google/api/annotations.proto&quot;;
+
+service Greeter {
+  rpc SayHello(HelloRequest) returns (HelloResponse) {
+    option (google.api.http) = {
+      get: &quot;/v1/hello/{name}&quot;
+    };
+  }
+}</code></pre>
+
+<pre><code class="language-go">// gateway.go - REST proxy for gRPC service
+package main
+
+import (
+    &quot;context&quot;
+    &quot;log&quot;
+    &quot;net/http&quot;
+
+    &quot;github.com/grpc-ecosystem/grpc-gateway/v2/runtime&quot;
+    &quot;google.golang.org/grpc&quot;
+    &quot;google.golang.org/grpc/credentials/insecure&quot;
+    pb &quot;github.com/example/proto&quot;
+)
+
+func main() {
+    ctx := context.Background()
+    mux := runtime.NewServeMux()
+    opts := []grpc.DialOption{grpc.WithTransportCredentials(insecure.NewCredentials())}
+
+    // Register gateway handler pointing to gRPC server
+    err := pb.RegisterGreeterHandlerFromEndpoint(ctx, mux, &quot;localhost:50051&quot;, opts)
+    if err != nil {
+        log.Fatal(err)
+    }
+
+    log.Println(&quot;Gateway on :8080&quot;)
+    log.Fatal(http.ListenAndServe(&quot;:8080&quot;, mux))
+}</code></pre>
+
+<p><strong>重试策略配置：</strong></p>
+
+<pre><code class="language-go">// Client with retry policy
+func dialWithRetry() *grpc.ClientConn {
+    serviceConfig := `{
+        &quot;methodConfig&quot;: [{
+            &quot;name&quot;: [{&quot;service&quot;: &quot;helloworld.Greeter&quot;}],
+            &quot;retryPolicy&quot;: {
+                &quot;maxAttempts&quot;: 3,
+                &quot;initialBackoff&quot;: &quot;0.1s&quot;,
+                &quot;maxBackoff&quot;: &quot;1s&quot;,
+                &quot;backoffMultiplier&quot;: 2,
+                &quot;retryableStatusCodes&quot;: [&quot;UNAVAILABLE&quot;]
+            }
+        }]
+    }`
+    conn, err := grpc.Dial(&quot;localhost:50051&quot;,
+        grpc.WithDefaultServiceConfig(serviceConfig),
+        grpc.WithTransportCredentials(insecure.NewCredentials()),
+    )
+    if err != nil {
+        log.Fatal(err)
+    }
+    return conn
+}</code></pre>
+
+<h2>执行预览</h2>
+
+<pre><code># Terminal 1: Start gRPC server with TLS
+$ go run server.go
+2024/01/15 10:00:00 gRPC server on :50051 (TLS enabled)
+
+# Terminal 2: Start gateway
+$ go run gateway.go
+2024/01/15 10:00:05 Gateway on :8080
+
+# Terminal 3: Test via curl (REST → gRPC)
+$ curl http://localhost:8080/v1/hello/World
+{&quot;message&quot;:&quot;Hello World&quot;,&quot;timestamp&quot;:&quot;1705315205&quot;}
+
+# Terminal 4: gRPC client with auth
+$ go run client.go
+2024/01/15 10:01:00 Response: Hello TLS
+
+# Without token → UNAUTHENTICATED
+$ go run client.go -no-token
+rpc error: code = Unauthenticated desc = missing token</code></pre>
+
+<h2>注意事项</h2>
+
+<table><thead><tr>
+<th>项目</th>
+<th>说明</th>
+<th>严重度</th>
+</tr></thead><tbody>
+<tr>
+<td>TLS 证书管理</td>
+<td>生产建议 cert-manager 或 Let's Encrypt 自动管理</td>
+<td>⚠️ 重要</td>
+</tr>
+<tr>
+<td>mTLS 双向认证</td>
+<td>服务间通信推荐 mTLS，零信任网络必备</td>
+<td>⚠️ 重要</td>
+</tr>
+<tr>
+<td>Gateway 性能开销</td>
+<td>HTTP→gRPC 多一层转换，极致性能场景需评估</td>
+<td>💡 提示</td>
+</tr>
+<tr>
+<td>服务发现延迟</td>
+<td>Consul/etcd 健康检查有间隔，下线后有短暂不可用窗口</td>
+<td>⚠️ 注意</td>
+</tr>
+<tr>
+<td>重试放大故障</td>
+<td>合理设 maxAttempts 和 retryableStatusCodes，避免雪崩</td>
+<td>🔴 严重</td>
+</tr>
+</tbody></table>
+
+<h2>避坑指南</h2>
+
+<table><thead><tr>
+<th>❌ 错误做法</th>
+<th>✅ 正确做法</th>
+</tr></thead><tbody>
+<tr>
+<td><code>InsecureSkipVerify: true</code> 上生产</td>
+<td>使用 CA 证书池验证服务端证书</td>
+</tr>
+<tr>
+<td>Token 存 metadata key 随意命名</td>
+<td>用标准 key <code>authorization</code>，遵循 Bearer 规范</td>
+</tr>
+<tr>
+<td>不设重试的 retryableStatusCodes</td>
+<td>只对 UNAVAILABLE 重试，不要对 InvalidArgument 重试</td>
+</tr>
+<tr>
+<td>Consul 注册不做健康检查</td>
+<td>配置 GRPC/HTTP 健康检查，自动摘除不健康节点</td>
+</tr>
+<tr>
+<td>Gateway 不设超时</td>
+<td>Gateway 和 gRPC 都设超时，防止级联阻塞</td>
+</tr>
+<tr>
+<td>忽略 grpc.Dial 返回的 error</td>
+<td>始终检查错误，即使 Dial 是异步的</td>
+</tr>
+</tbody></table>
+
+<h2>练习题</h2>
+
+<p><strong>🟢 入门：启用 TLS 单向认证</strong></p>
+<p>用 <code>openssl</code> 生成自签名证书，配置 gRPC 服务端和客户端 TLS，验证加密通信。</p>
+
+<p><strong>🟡 进阶：用 etcd 实现服务注册发现</strong></p>
+<p>使用 <code>go.etcd.io/etcd/client/v3</code> 的 Lease + Watch 机制替代 Consul，实现服务注册、心跳续约、服务发现。</p>
+
+<p><strong>🔴 挑战：gRPC Gateway 全链路</strong></p>
+<p>为一个包含 3 个 RPC 方法的 gRPC 服务添加 grpc-gateway，支持 GET/POST 映射，通过 curl 测试，对比 gRPC 和 HTTP 延迟（用 <code>ghz</code> 压测）。</p>
+
+<h2>知识点总结</h2>
+
+<pre><code>gRPC进阶
+├── TLS安全
+│   ├── tls.LoadX509KeyPair
+│   ├── credentials.NewTLS
+│   └── mTLS (cert pool verify)
+├── 认证授权
+│   ├── metadata.FromIncomingContext
+│   ├── UnaryInterceptor 鉴权
+│   └── context.WithValue 注入
+├── 服务发现
+│   ├── DNS Resolver (dns:///)
+│   ├── Consul (注册 + 健康检查)
+│   └── etcd (Lease + Watch)
+├── 负载均衡
+│   ├── round_robin (内置)
+│   └── ServiceConfig 配置
+├── Gateway
+│   ├── proto HTTP 注解
+│   ├── runtime.NewServeMux
+│   └── RegisterHandlerFromEndpoint
+└── 可靠性
+    ├── 重试策略 (retryPolicy)
+    └── 超时控制 (context)</code></pre>
+
+<h2>举一反三</h2>
+
+<table><thead><tr>
+<th>本文学到</th>
+<th>可迁移到</th>
+<th>应用场景</th>
+</tr></thead><tbody>
+<tr>
+<td>TLS/mTLS</td>
+<td>任何 RPC 框架</td>
+<td>服务间零信任通信</td>
+</tr>
+<tr>
+<td>JWT 拦截器</td>
+<td>HTTP Middleware</td>
+<td>API Gateway 统一认证</td>
+</tr>
+<tr>
+<td>服务注册/发现</td>
+<td>K8s Service、Nginx</td>
+<td>动态扩缩容</td>
+</tr>
+<tr>
+<td>Round-Robin LB</td>
+<td>Nginx upstream</td>
+<td>请求分发</td>
+</tr>
+<tr>
+<td>gRPC Gateway</td>
+<td>GraphQL → REST</td>
+<td>多协议适配层</td>
+</tr>
+<tr>
+<td>重试策略</td>
+<td>任何网络调用</td>
+<td>弹性容错</td>
+</tr>
+</tbody></table>
+
+<h2>参考资料</h2>
+
+<ul>
+<li><a href="https://grpc.io/docs/guides/auth/">gRPC Security 最佳实践</a></li>
+<li><a href="https://github.com/grpc-ecosystem/grpc-gateway">grpc-gateway 项目</a></li>
+<li><a href="https://developer.hashicorp.com/consul/docs/discovery">Consul Service Discovery</a></li>
+<li><a href="https://github.com/grpc/grpc-go/blob/master/Documentation/load-balancing.md">gRPC-Go Load Balancing</a></li>
+
+<hr>
+
+<p>_TLS 认证、服务发现、负载均衡、REST 网关，gRPC 生产化四件套。_ 🔐</p>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

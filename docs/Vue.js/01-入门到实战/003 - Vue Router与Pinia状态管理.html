@@ -1,0 +1,630 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>003 - Vue Router与Pinia状态管理</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Vue.js/index.html">Vue.js</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Vue.js/01-入门到实战/index.html">Vue.js入门到实战</a>
+</nav>
+<h1>003 - Vue Router与Pinia状态管理</h1>
+<div class="meta">
+<span>📂 Vue.js入门到实战</span>
+<span>🏷️ Vue.js</span>
+</div>
+<article>
+
+
+<h1>Vue Router与Pinia状态管理</h1>
+
+<blockquote><p>📊 <strong>难度：中级</strong> | 🏷️ Vue.js 3.x | ⏱️ 阅读约 25 分钟</p></blockquote>
+
+<hr>
+
+<h2>📖 概念讲解</h2>
+
+<p>Vue Router和Pinia是Vue 3生态的两大核心库，分别负责路由管理和状态管理。</p>
+
+<p><strong>Vue Router 4 核心概念：</strong></p>
+
+<table><thead><tr>
+<th>概念</th>
+<th>说明</th>
+</tr></thead><tbody>
+<tr>
+<td>路由配置</td>
+<td><code>createRouter</code> + 路由表定义</td>
+</tr>
+<tr>
+<td>动态路由</td>
+<td><code>/user/:id</code> 参数化路径</td>
+</tr>
+<tr>
+<td>嵌套路由</td>
+<td>子路由在父路由的<code><router-view></code>中渲染</td>
+</tr>
+<tr>
+<td>导航守卫</td>
+<td><code>beforeEach</code>等钩子控制路由跳转</td>
+</tr>
+<tr>
+<td>懒加载</td>
+<td><code>() => import('./View.vue')</code> 按需加载</td>
+</tr>
+</tbody></table>
+
+<p><strong>Pinia 核心概念：</strong></p>
+
+<p>Pinia是Vue 3官方推荐的状态管理库，替代Vuex。</p>
+
+<table><thead><tr>
+<th>概念</th>
+<th>说明</th>
+</tr></thead><tbody>
+<tr>
+<td>Store</td>
+<td>状态容器，通过<code>defineStore</code>定义</td>
+</tr>
+<tr>
+<td>State</td>
+<td>存储数据（类似data）</td>
+</tr>
+<tr>
+<td>Getters</td>
+<td>派生数据（类似computed）</td>
+</tr>
+<tr>
+<td>Actions</td>
+<td>方法（同步+异步都支持）</td>
+</tr>
+<tr>
+<td>Plugins</td>
+<td>扩展功能（持久化、日志等）</td>
+</tr>
+</tbody></table>
+
+<p><strong>Pinia vs Vuex：</strong></p>
+
+<table><thead><tr>
+<th>特性</th>
+<th>Pinia</th>
+<th>Vuex</th>
+</tr></thead><tbody>
+<tr>
+<td>Mutations</td>
+<td>无（Actions直接改）</td>
+<td>必须通过Mutations</td>
+</tr>
+<tr>
+<td>TypeScript</td>
+<td>完美支持</td>
+<td>需要大量类型声明</td>
+</tr>
+<tr>
+<td>模块化</td>
+<td>天然多Store</td>
+<td>需要modules配置</td>
+</tr>
+<tr>
+<td>体积</td>
+<td>~1KB</td>
+<td>~6KB</td>
+</tr>
+<tr>
+<td>Composition API</td>
+<td>原生支持</td>
+<td>需要额外API</td>
+</tr>
+</tbody></table>
+
+<p><strong>路由与状态协作：</strong></p>
+
+<p>典型场景：路由守卫中检查Pinia store的登录状态，未登录跳转登录页。</p>
+
+
+<h2>🧠 知识脑图</h2>
+
+<pre><code>Vue Router + Pinia
+├── Vue Router
+│   ├── createRouter / createWebHistory
+│   ├── 路由配置 (routes)
+│   ├── 动态路由 /user/:id
+│   ├── 嵌套路由 children
+│   ├── 导航守卫
+│   │   ├── beforeEach (全局)
+│   │   ├── beforeEnter (路由级)
+│   │   └── onBeforeRouteLeave (组件级)
+│   ├── 懒加载 () =&gt; import()
+│   └── useRoute / useRouter
+├── Pinia
+│   ├── defineStore
+│   ├── State → 数据
+│   ├── Getters → 派生
+│   ├── Actions → 方法
+│   ├── storeToRefs → 解构
+│   └── 插件 (持久化等)
+└── 协作模式
+    ├── 守卫检查登录状态
+    ├── 路由参数驱动store
+    └── action后跳转路由</code></pre>
+
+<h2>💻 完整代码</h2>
+
+<pre><code class="language-vue">&lt;!-- RouterPiniaDemo.vue - Combined demo --&gt;
+&lt;template&gt;
+  &lt;div class=&quot;demo&quot;&gt;
+    &lt;!-- Navigation --&gt;
+    &lt;nav&gt;
+      &lt;router-link to=&quot;/&quot;&gt;Home&lt;/router-link&gt;
+      &lt;router-link to=&quot;/about&quot;&gt;About&lt;/router-link&gt;
+      &lt;router-link to=&quot;/users&quot;&gt;Users&lt;/router-link&gt;
+      &lt;router-link to=&quot;/admin&quot;&gt;Admin&lt;/router-link&gt;
+      &lt;button @click=&quot;authStore.toggleLogin()&quot;&gt;
+        {{ authStore.isLoggedIn ? &#x27;Logout&#x27; : &#x27;Login&#x27; }}
+      &lt;/button&gt;
+    &lt;/nav&gt;
+
+    &lt;!-- Route view --&gt;
+    &lt;router-view /&gt;
+  &lt;/div&gt;
+&lt;/template&gt;
+
+&lt;!--
+  === router.js - Route Configuration ===
+  import { createRouter, createWebHistory } from &#x27;vue-router&#x27;
+
+  // Lazy-loaded route components
+  const routes = [
+    { path: &#x27;/&#x27;, name: &#x27;Home&#x27;, component: () =&gt; import(&#x27;./views/Home.vue&#x27;) },
+    { path: &#x27;/about&#x27;, name: &#x27;About&#x27;, component: () =&gt; import(&#x27;./views/About.vue&#x27;) },
+    {
+      path: &#x27;/users&#x27;,
+      name: &#x27;Users&#x27;,
+      component: () =&gt; import(&#x27;./views/Users.vue&#x27;),
+      children: [
+        // Nested route with dynamic param
+        { path: &#x27;:id&#x27;, name: &#x27;UserDetail&#x27;, component: () =&gt; import(&#x27;./views/UserDetail.vue&#x27;) }
+      ]
+    },
+    {
+      path: &#x27;/admin&#x27;,
+      name: &#x27;Admin&#x27;,
+      component: () =&gt; import(&#x27;./views/Admin.vue&#x27;),
+      // Route-level guard: check auth
+      beforeEnter: (to, from, next) =&gt; {
+        const auth = useAuthStore()
+        auth.isLoggedIn ? next() : next(&#x27;/?redirect=admin&#x27;)
+      }
+    }
+  ]
+
+  const router = createRouter({
+    history: createWebHistory(),
+    routes
+  })
+
+  // Global navigation guard
+  router.beforeEach((to, from) =&gt; {
+    const auth = useAuthStore()
+    if (to.meta.requiresAuth &amp;&amp; !auth.isLoggedIn) {
+      return { path: &#x27;/&#x27;, query: { redirect: to.fullPath } }
+    }
+  })
+
+  export default router
+--&gt;
+
+&lt;!--
+  === stores/auth.js - Auth Store ===
+  import { defineStore } from &#x27;pinia&#x27;
+  import { ref, computed } from &#x27;vue&#x27;
+
+  export const useAuthStore = defineStore(&#x27;auth&#x27;, () =&gt; {
+    // State
+    const user = ref(null)
+    const token = ref(&#x27;&#x27;)
+
+    // Getters
+    const isLoggedIn = computed(() =&gt; !!token.value)
+    const userName = computed(() =&gt; user.value?.name || &#x27;Guest&#x27;)
+
+    // Actions
+    function login(userData, userToken) {
+      user.value = userData
+      token.value = userToken
+      localStorage.setItem(&#x27;token&#x27;, userToken)
+    }
+
+    function logout() {
+      user.value = null
+      token.value = &#x27;&#x27;
+      localStorage.removeItem(&#x27;token&#x27;)
+    }
+
+    function toggleLogin() {
+      if (isLoggedIn.value) {
+        logout()
+      } else {
+        login({ id: 1, name: &#x27;Admin&#x27;, role: &#x27;admin&#x27; }, &#x27;mock-jwt-token&#x27;)
+      }
+    }
+
+    return { user, token, isLoggedIn, userName, login, logout, toggleLogin }
+  })
+--&gt;
+
+&lt;!--
+  === stores/user.js - User Store ===
+  import { defineStore } from &#x27;pinia&#x27;
+  import { ref, computed } from &#x27;vue&#x27;
+
+  export const useUserStore = defineStore(&#x27;users&#x27;, () =&gt; {
+    const users = ref([
+      { id: 1, name: &#x27;Alice&#x27;, email: &#x27;alice@demo.com&#x27;, role: &#x27;admin&#x27; },
+      { id: 2, name: &#x27;Bob&#x27;, email: &#x27;bob@demo.com&#x27;, role: &#x27;user&#x27; },
+      { id: 3, name: &#x27;Charlie&#x27;, email: &#x27;charlie@demo.com&#x27;, role: &#x27;user&#x27; }
+    ])
+
+    const userCount = computed(() =&gt; users.value.length)
+    const admins = computed(() =&gt; users.value.filter(u =&gt; u.role === &#x27;admin&#x27;))
+
+    function getUserById(id) {
+      return users.value.find(u =&gt; u.id === Number(id))
+    }
+
+    function addUser(user) {
+      users.value.push({ ...user, id: Date.now() })
+    }
+
+    function removeUser(id) {
+      users.value = users.value.filter(u =&gt; u.id !== id)
+    }
+
+    return { users, userCount, admins, getUserById, addUser, removeUser }
+  })
+--&gt;
+
+&lt;!--
+  === views/Home.vue ===
+  &lt;template&gt;
+    &lt;h1&gt;Home&lt;/h1&gt;
+    &lt;p&gt;Welcome! Logged in: {{ authStore.isLoggedIn ? authStore.userName : &#x27;No&#x27; }}&lt;/p&gt;
+    &lt;p&gt;Total users in store: {{ userStore.userCount }}&lt;/p&gt;
+  &lt;/template&gt;
+  &lt;script setup&gt;
+  import { useAuthStore } from &#x27;../stores/auth&#x27;
+  import { useUserStore } from &#x27;../stores/user&#x27;
+  const authStore = useAuthStore()
+  const userStore = useUserStore()
+  &lt;/script&gt;
+--&gt;
+
+&lt;!--
+  === views/UserDetail.vue - Dynamic route ===
+  &lt;template&gt;
+    &lt;div v-if=&quot;user&quot;&gt;
+      &lt;h2&gt;{{ user.name }}&lt;/h2&gt;
+      &lt;p&gt;Email: {{ user.email }}&lt;/p&gt;
+      &lt;p&gt;Role: {{ user.role }}&lt;/p&gt;
+    &lt;/div&gt;
+    &lt;p v-else&gt;User not found&lt;/p&gt;
+    &lt;router-link to=&quot;/users&quot;&gt;Back to Users&lt;/router-link&gt;
+  &lt;/template&gt;
+  &lt;script setup&gt;
+  import { useRoute } from &#x27;vue-router&#x27;
+  import { useUserStore } from &#x27;../stores/user&#x27;
+  import { computed } from &#x27;vue&#x27;
+
+  const route = useRoute()
+  const userStore = useUserStore()
+  const user = computed(() =&gt; userStore.getUserById(route.params.id))
+  &lt;/script&gt;
+--&gt;
+
+&lt;script setup&gt;
+// Simplified inline demo of Pinia store pattern
+import { ref, computed, reactive } from &#x27;vue&#x27;
+
+// Simulated auth store
+const authStore = reactive({
+  user: ref(null),
+  token: ref(&#x27;&#x27;),
+  isLoggedIn: computed(() =&gt; false),
+  toggleLogin() {
+    this.token = this.token ? &#x27;&#x27; : &#x27;mock-jwt&#x27;
+    this.user = this.token ? { name: &#x27;Admin&#x27; } : null
+  }
+})
+&lt;/script&gt;</code></pre>
+
+<h2>👀 执行预览</h2>
+
+<p><strong>页面渲染效果：</strong></p>
+
+<pre><code>[Home] [About] [Users] [Admin]  [Login]
+
+--- Home Page ---
+Welcome! Logged in: No
+Total users in store: 3
+
+--- 点击Login后 ---
+[Home] [About] [Users] [Admin]  [Logout]
+
+--- Users Page ---
+• Alice (alice@demo.com) - admin  [View]
+• Bob (bob@demo.com) - user       [View]
+• Charlie (charlie@demo.com) - user [View]
+
+--- /users/1 (动态路由) ---
+Alice
+Email: alice@demo.com
+Role: admin
+[Back to Users]
+
+--- 未登录访问Admin ---
+自动跳转到首页，URL: /?redirect=/admin</code></pre>
+
+
+<h2>⚠️ 注意事项</h2>
+
+<table><thead><tr>
+<th>注意点</th>
+<th>说明</th>
+<th>建议</th>
+</tr></thead><tbody>
+<tr>
+<td>History模式</td>
+<td>需要服务器配置回退</td>
+<td>开发用history，部署配置fallback</td>
+</tr>
+<tr>
+<td>懒加载</td>
+<td>大型应用必须按路由拆分</td>
+<td><code>() => import('./View.vue')</code></td>
+</tr>
+<tr>
+<td>Pinia解构</td>
+<td>直接解构失去响应性</td>
+<td>用<code>storeToRefs(store)</code>解构</td>
+</tr>
+<tr>
+<td>守卫异步</td>
+<td>beforeEach支持async</td>
+<td>适合检查远程登录状态</td>
+</tr>
+<tr>
+<td>路由meta</td>
+<td>携带路由元信息</td>
+<td>用于权限判断、页面标题等</td>
+</tr>
+<tr>
+<td>Store命名</td>
+<td>defineStore第一个参数唯一</td>
+<td>推荐文件名即store名</td>
+</tr>
+</tbody></table>
+
+<h2>🚫 避坑指南</h2>
+
+<h3>1. 解构Pinia Store失去响应性</h3>
+<p>❌ <strong>错误：</strong> <code>const { users, userCount } = useUserStore()</code></p>
+<p>✅ <strong>正确：</strong> <code>const { users, userCount } = storeToRefs(useUserStore())</code></p>
+
+<h3>2. 路由404</h3>
+<p>❌ <strong>错误：</strong> History模式部署后刷新页面404</p>
+<p>✅ <strong>正确：</strong> 服务器配置所有路径回退到index.html</p>
+
+<h3>3. 在Pinia Action中忘记异步</h3>
+<p>❌ <strong>错误：</strong> <code>async function fetchUsers()</code> 但调用时不await</p>
+<p>✅ <strong>正确：</strong> <code>await userStore.fetchUsers()</code> 或<code>.then()</code></p>
+
+<h3>4. 路由守卫死循环</h3>
+<p>❌ <strong>错误：</strong> beforeEach中<code>next('/login')</code>又触发守卫</p>
+<p>✅ <strong>正确：</strong> 判断目标路由避免循环：<code>if (to.path !== '/login') next('/login')</code></p>
+
+<h3>5. v-for中用router-link</h3>
+<p>❌ <strong>错误：</strong> <code><div v-for="item in list"><router-link :to="item.path"></router-link></div></code></p>
+<p>✅ <strong>正确：</strong> <code><router-link></code>可以作为li的父元素或用programmatic navigation</p>
+
+<h2>🧪 练习题</h2>
+
+<h3>🟢 基础题</h3>
+<ol>
+<li>配置3个路由（Home/About/Contact），实现导航和页面切换。</li>
+</ul>
+<ol>
+<li>创建一个Pinia store管理购物车（items数组、addItem、removeItem、total）。</li>
+
+<h3>🟡 进阶题</h3>
+<ol>
+<li>实现带权限的路由守卫：未登录访问/admin跳转/login，登录后跳回原页面。</li>
+</ul>
+<ol>
+<li>创建一个<code>useProductStore</code>，包含从API获取产品列表的异步action，配合loading状态。</li>
+
+<h3>🔴 挑战题</h3>
+<ol>
+<li>实现一个完整的用户管理系统：列表页、详情页、编辑页，路由+Pinia联动，支持增删改查。</li>
+
+<h2>📝 知识点总结</h2>
+
+<pre><code>Vue Router + Pinia
+├── Vue Router
+│   ├── routes配置
+│   ├── 动态参数 /:id
+│   ├── 嵌套路由 children
+│   ├── 导航守卫 beforeEach
+│   ├── 懒加载 () =&gt; import()
+│   └── useRoute / useRouter
+├── Pinia
+│   ├── defineStore(&#x27;name&#x27;, setup)
+│   ├── State → ref/reactive
+│   ├── Getters → computed
+│   ├── Actions → function
+│   ├── storeToRefs解构
+│   └── Plugins持久化
+└── 协作
+    ├── 守卫查登录
+    ├── 参数驱动store
+    └── action后跳转</code></pre>
+
+
+<h2>🔄 举一反三</h2>
+
+<table><thead><tr>
+<th>概念</th>
+<th>生活类比</th>
+<th>说明</th>
+</tr></thead><tbody>
+<tr>
+<td>Vue Router</td>
+<td>地图导航</td>
+<td>URL是地址，路由是路线</td>
+</tr>
+<tr>
+<td>路由守卫</td>
+<td>保安检查</td>
+<td>到达目的地前先检查权限</td>
+</tr>
+<tr>
+<td>动态路由</td>
+<td>快递单号</td>
+<td>同一模板，不同数据</td>
+</tr>
+<tr>
+<td>懒加载</td>
+<td>即时配送</td>
+<td>需要时才发货</td>
+</tr>
+<tr>
+<td>Pinia Store</td>
+<td>仓库</td>
+<td>所有组件共享的数据中心</td>
+</tr>
+<tr>
+<td>Getters</td>
+<td>仓库管理员</td>
+<td>按需取货、整理归类</td>
+</tr>
+<tr>
+<td>Actions</td>
+<td>采购员</td>
+<td>去外部(API)进货</td>
+</tr>
+</tbody></table>
+
+<h2>📚 参考资料</h2>
+
+<ol>
+<li><a href="https://router.vuejs.org/">Vue Router 4 文档</a></li>
+</ul>
+<ol>
+<li><a href="https://pinia.vuejs.org/">Pinia 文档</a></li>
+</ul>
+<ol>
+<li><a href="https://router.vuejs.org/guide/advanced/lazy-loading.html">Vue 3 路由懒加载</a></li>
+</ul>
+<ol>
+<li><a href="https://prazdevs.github.io/pinia-plugin-persistedstate/">Pinia 持久化插件</a></li>
+
+<h2>🚀 代码演进</h2>
+
+<h3>v1 - 基础路由配置</h3>
+
+<pre><code class="language-js">import { createRouter, createWebHistory } from &#x27;vue-router&#x27;
+const router = createRouter({
+  history: createWebHistory(),
+  routes: [
+    { path: &#x27;/&#x27;, component: Home },
+    { path: &#x27;/about&#x27;, component: About }
+  ]
+})</code></pre>
+
+<h3>v2 - 动态路由 + 守卫</h3>
+
+<pre><code class="language-js">const routes = [
+  { path: &#x27;/user/:id&#x27;, component: UserDetail, beforeEnter: checkAuth }
+]
+router.beforeEach((to, from, next) =&gt; {
+  const auth = useAuthStore()
+  auth.isLoggedIn ? next() : next(&#x27;/login&#x27;)
+})</code></pre>
+
+<h3>v3 - 完整Router + Pinia架构</h3>
+
+<pre><code class="language-js">// router.js - lazy load + guards
+const routes = [
+  { path: &#x27;/&#x27;, component: () =&gt; import(&#x27;./views/Home.vue&#x27;) },
+  { path: &#x27;/admin&#x27;, component: () =&gt; import(&#x27;./views/Admin.vue&#x27;),
+    meta: { requiresAuth: true } }
+]
+
+// stores/auth.js - Pinia setup syntax
+export const useAuthStore = defineStore(&#x27;auth&#x27;, () =&gt; {
+  const token = ref(localStorage.getItem(&#x27;token&#x27;))
+  const isLoggedIn = computed(() =&gt; !!token.value)
+  async function login(credentials) {
+    const { data } = await api.post(&#x27;/login&#x27;, credentials)
+    token.value = data.token
+    localStorage.setItem(&#x27;token&#x27;, data.token)
+  }
+  return { token, isLoggedIn, login }
+})</code></pre>
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

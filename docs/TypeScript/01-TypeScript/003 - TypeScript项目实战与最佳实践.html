@@ -1,0 +1,560 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>003 - TypeScript项目实战与最佳实践</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/TypeScript/index.html">TypeScript</a>
+<span class="sep">›</span>
+<a href="/tech-blog/TypeScript/01-TypeScript/index.html">TypeScript</a>
+</nav>
+<h1>003 - TypeScript项目实战与最佳实践</h1>
+<div class="meta">
+<span>📂 TypeScript</span>
+<span>🏷️ TypeScript</span>
+</div>
+<article>
+
+
+<h1>TypeScript项目实战与最佳实践</h1>
+
+<blockquote><p><strong>难度：</strong> ⭐⭐⭐ 进阶级 | <strong>阅读时间：</strong> 约20分钟 | <strong>前置知识：</strong> TypeScript基础、接口与泛型</p></blockquote>
+
+<h2>一、概念讲解</h2>
+
+<p>在实际项目中，TypeScript不仅仅是添加类型注解。真正的工程化实践包括：合理的项目结构、严格的tsconfig配置、错误处理模式、类型安全的数据验证、以及与第三方库的类型集成。</p>
+
+<h3>核心原则</h3>
+
+<ol>
+<li><strong>严格模式优先</strong>：开启 <code>strict: true</code></li>
+</ul>
+<ol>
+<li><strong>类型驱动开发</strong>：先定义类型，再写实现</li>
+</ul>
+<ol>
+<li><strong>边界验证</strong>：运行时数据和编译时类型都要处理</li>
+</ul>
+<ol>
+<li><strong>渐进式迁移</strong>：旧项目可以用 <code>allowJs</code> 逐步引入</li>
+
+<h2>二、脑图</h2>
+
+<pre><code>TypeScript 项目实战
+├── 项目结构
+│   ├── src/types/ → 全局类型定义
+│   ├── src/services/ → 业务逻辑
+│   ├── src/utils/ → 工具函数
+│   └── src/__tests__/ → 测试
+├── tsconfig 配置
+│   ├── strict: true
+│   ├── paths 别名
+│   ├── baseUrl
+│   └── include / exclude
+├── 错误处理
+│   ├── Result 模式
+│   ├── 自定义错误类
+│   └── 类型守卫
+├── 数据验证
+│   ├── Zod
+│   ├── io-ts
+│   └── TypeBox
+├── 设计模式
+│   ├── Builder 模式
+│   ├── 工厂模式
+│   └── 策略模式
+└── 最佳实践
+    ├── 命名规范
+    ├── 类型导入
+    └── 避免类型断言</code></pre>
+
+<h2>三、完整TypeScript代码</h2>
+
+<pre><code class="language-typescript">// ============================================
+// TypeScript Project Best Practices - Full Demo
+// ============================================
+
+// --- 1. Result Pattern for Error Handling ---
+type Result&lt;T, E = Error&gt; =
+  | { success: true; data: T }
+  | { success: false; error: E };
+
+class AppError extends Error {
+  constructor(
+    message: string,
+    public readonly code: string,
+    public readonly statusCode: number = 500
+  ) {
+    super(message);
+    this.name = &quot;AppError&quot;;
+  }
+}
+
+// --- 2. Type-safe API Layer ---
+interface ApiConfig {
+  baseURL: string;
+  timeout: number;
+  headers: Record&lt;string, string&gt;;
+}
+
+class ApiClient {
+  constructor(private config: ApiConfig) {}
+
+  async get&lt;T&gt;(url: string): Promise&lt;Result&lt;T&gt;&gt; {
+    try {
+      const response = await fetch(`${this.config.baseURL}${url}`, {
+        headers: this.config.headers,
+        signal: AbortSignal.timeout(this.config.timeout),
+      });
+
+      if (!response.ok) {
+        return {
+          success: false,
+          error: new AppError(
+            `HTTP ${response.status}`,
+            &quot;HTTP_ERROR&quot;,
+            response.status
+          ),
+        };
+      }
+
+      const data = (await response.json()) as T;
+      return { success: true, data };
+    } catch (err) {
+      return {
+        success: false,
+        error: new AppError(
+          err instanceof Error ? err.message : &quot;Unknown error&quot;,
+          &quot;NETWORK_ERROR&quot;
+        ),
+      };
+    }
+  }
+
+  async post&lt;T, B&gt;(url: string, body: B): Promise&lt;Result&lt;T&gt;&gt; {
+    try {
+      const response = await fetch(`${this.config.baseURL}${url}`, {
+        method: &quot;POST&quot;,
+        headers: {
+          &quot;Content-Type&quot;: &quot;application/json&quot;,
+          ...this.config.headers,
+        },
+        body: JSON.stringify(body),
+      });
+
+      if (!response.ok) {
+        return {
+          success: false,
+          error: new AppError(
+            `HTTP ${response.status}`,
+            &quot;HTTP_ERROR&quot;,
+            response.status
+          ),
+        };
+      }
+
+      const data = (await response.json()) as T;
+      return { success: true, data };
+    } catch (err) {
+      return {
+        success: false,
+        error: new AppError(
+          err instanceof Error ? err.message : &quot;Unknown error&quot;,
+          &quot;NETWORK_ERROR&quot;
+        ),
+      };
+    }
+  }
+}
+
+// --- 3. Type-safe Event System ---
+type EventKey&lt;T extends Record&lt;string, unknown&gt;&gt; = keyof T &amp; string;
+type EventHandler&lt;T&gt; = (payload: T) =&gt; void;
+
+class EventBus&lt;Events extends Record&lt;string, unknown&gt;&gt; {
+  private handlers = new Map&lt;string, Set&lt;EventHandler&lt;unknown&gt;&gt;&gt;();
+
+  on&lt;K extends EventKey&lt;Events&gt;&gt;(
+    event: K,
+    handler: EventHandler&lt;Events[K]&gt;
+  ): () =&gt; void {
+    if (!this.handlers.has(event)) {
+      this.handlers.set(event, new Set());
+    }
+    this.handlers.get(event)!.add(handler as EventHandler&lt;unknown&gt;);
+
+    // Return unsubscribe function
+    return () =&gt; {
+      this.handlers.get(event)?.delete(handler as EventHandler&lt;unknown&gt;);
+    };
+  }
+
+  emit&lt;K extends EventKey&lt;Events&gt;&gt;(event: K, payload: Events[K]): void {
+    this.handlers.get(event)?.forEach((handler) =&gt; handler(payload));
+  }
+}
+
+// --- 4. Type-safe Configuration Builder ---
+interface DatabaseConfig {
+  host: string;
+  port: number;
+  database: string;
+  username: string;
+  password: string;
+  ssl: boolean;
+  poolSize: number;
+}
+
+class ConfigBuilder&lt;T extends Record&lt;string, unknown&gt;&gt; {
+  private config = {} as Partial&lt;T&gt;;
+
+  set&lt;K extends keyof T&gt;(key: K, value: T[K]): this {
+    this.config[key] = value;
+    return this;
+  }
+
+  build(): T {
+    // Runtime validation
+    const missing = Object.keys(this.config).filter(
+      (k) =&gt; this.config[k as keyof T] === undefined
+    );
+    if (missing.length &gt; 0) {
+      throw new Error(`Missing config keys: ${missing.join(&quot;, &quot;)}`);
+    }
+    return this.config as T;
+  }
+}
+
+// --- 5. Type-safe Repository Pattern ---
+interface BaseEntity {
+  id: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+interface Repository&lt;T extends BaseEntity&gt; {
+  findById(id: string): Promise&lt;Result&lt;T&gt;&gt;;
+  findAll(filter?: Partial&lt;T&gt;): Promise&lt;Result&lt;T[]&gt;&gt;;
+  create(data: Omit&lt;T, &quot;id&quot; | &quot;createdAt&quot; | &quot;updatedAt&quot;&gt;): Promise&lt;Result&lt;T&gt;&gt;;
+  update(id: string, data: Partial&lt;Omit&lt;T, &quot;id&quot; | &quot;createdAt&quot;&gt;&gt;): Promise&lt;Result&lt;T&gt;&gt;;
+  delete(id: string): Promise&lt;Result&lt;void&gt;&gt;;
+}
+
+// In-memory implementation
+class InMemoryRepository&lt;T extends BaseEntity&gt; implements Repository&lt;T&gt; {
+  private items = new Map&lt;string, T&gt;();
+
+  async findById(id: string): Promise&lt;Result&lt;T&gt;&gt; {
+    const item = this.items.get(id);
+    if (!item) {
+      return { success: false, error: new AppError(&quot;Not found&quot;, &quot;NOT_FOUND&quot;, 404) };
+    }
+    return { success: true, data: item };
+  }
+
+  async findAll(filter?: Partial&lt;T&gt;): Promise&lt;Result&lt;T[]&gt;&gt; {
+    let items = Array.from(this.items.values());
+    if (filter) {
+      items = items.filter((item) =&gt;
+        Object.entries(filter).every(
+          ([key, value]) =&gt; item[key as keyof T] === value
+        )
+      );
+    }
+    return { success: true, data: items };
+  }
+
+  async create(
+    data: Omit&lt;T, &quot;id&quot; | &quot;createdAt&quot; | &quot;updatedAt&quot;&gt;
+  ): Promise&lt;Result&lt;T&gt;&gt; {
+    const now = new Date();
+    const item = {
+      ...data,
+      id: crypto.randomUUID(),
+      createdAt: now,
+      updatedAt: now,
+    } as T;
+    this.items.set(item.id, item);
+    return { success: true, data: item };
+  }
+
+  async update(
+    id: string,
+    data: Partial&lt;Omit&lt;T, &quot;id&quot; | &quot;createdAt&quot;&gt;&gt;
+  ): Promise&lt;Result&lt;T&gt;&gt; {
+    const existing = this.items.get(id);
+    if (!existing) {
+      return { success: false, error: new AppError(&quot;Not found&quot;, &quot;NOT_FOUND&quot;, 404) };
+    }
+    const updated = { ...existing, ...data, updatedAt: new Date() } as T;
+    this.items.set(id, updated);
+    return { success: true, data: updated };
+  }
+
+  async delete(id: string): Promise&lt;Result&lt;void&gt;&gt; {
+    if (!this.items.has(id)) {
+      return { success: false, error: new AppError(&quot;Not found&quot;, &quot;NOT_FOUND&quot;, 404) };
+    }
+    this.items.delete(id);
+    return { success: true, data: undefined };
+  }
+}
+
+// --- 6. Usage Example ---
+interface Product extends BaseEntity {
+  name: string;
+  price: number;
+  category: string;
+  inStock: boolean;
+}
+
+async function demo() {
+  const repo = new InMemoryRepository&lt;Product&gt;();
+
+  // Create
+  const createResult = await repo.create({
+    name: &quot;TypeScript Guide&quot;,
+    price: 49.99,
+    category: &quot;Books&quot;,
+    inStock: true,
+  });
+
+  if (createResult.success) {
+    console.log(&quot;Created:&quot;, createResult.data.name);
+    const id = createResult.data.id;
+
+    // Update
+    const updateResult = await repo.update(id, { price: 39.99 });
+    if (updateResult.success) {
+      console.log(&quot;Updated price:&quot;, updateResult.data.price);
+    }
+
+    // Query
+    const allResult = await repo.findAll({ category: &quot;Books&quot; });
+    if (allResult.success) {
+      console.log(&quot;Books count:&quot;, allResult.data.length);
+    }
+  }
+}
+
+demo();</code></pre>
+
+<h2>四、执行预览</h2>
+
+<pre><code>$ npx ts-node project-demo.ts
+Created: TypeScript Guide
+Updated price: 39.99
+Books count: 1</code></pre>
+
+<h2>五、注意事项</h2>
+
+<table><thead><tr>
+<th>实践</th>
+<th>说明</th>
+<th>建议</th>
+</tr></thead><tbody>
+<tr>
+<td>strict模式</td>
+<td>开启所有严格检查</td>
+<td>新项目务必开启</td>
+</tr>
+<tr>
+<td>类型导入</td>
+<td>使用 <code>import type</code></td>
+<td>避免运行时导入副作用</td>
+</tr>
+<tr>
+<td>错误处理</td>
+<td>不要用 try/catch 包裹一切</td>
+<td>用 Result 模式替代异常</td>
+</tr>
+<tr>
+<td>枚举</td>
+<td>const enum 有tree-shaking问题</td>
+<td>用字面量联合类型替代</td>
+</tr>
+<tr>
+<td>any</td>
+<td>紧急情况用 unknown</td>
+<td>渐进式消除 any</td>
+</tr>
+</tbody></table>
+
+<h2>六、避坑指南</h2>
+
+<pre><code class="language-typescript">// ❌ 不处理可能的null
+const user = users.find(u =&gt; u.id === id);
+console.log(user.name); // Error: user may be undefined
+// ✅ 空值检查
+const user = users.find(u =&gt; u.id === id);
+if (user) console.log(user.name);
+
+// ❌ 直接JSON.parse返回any
+const data = JSON.parse(response) as User;
+// ✅ 运行时验证
+function validateUser(data: unknown): User {
+  if (typeof data === &quot;object&quot; &amp;&amp; data !== null &amp;&amp; &quot;name&quot; in data) {
+    return data as User;
+  }
+  throw new Error(&quot;Invalid user data&quot;);
+}
+
+// ❌ 在业务逻辑中使用类型断言
+const price = value as number;
+// ✅ 使用类型守卫
+if (typeof value === &quot;number&quot;) { /* safe */ }
+
+// ❌ 省略函数返回类型
+function calculate(input: number) { return input * 1.1; }
+// ✅ 显式标注返回类型
+function calculate(input: number): number { return input * 1.1; }</code></pre>
+
+<h2>七、练习题</h2>
+
+<h3>🟢 入门</h3>
+<ol>
+<li>配置一个严格的 <code>tsconfig.json</code>，开启所有严格选项</li>
+</ul>
+<ol>
+<li>为一个简单的 Express 路由添加类型</li>
+
+<h3>🟡 进阶</h3>
+<ol>
+<li>实现类型安全的 <code>localStorage</code> 封装（泛型 get/set）</li>
+</ul>
+<ol>
+<li>用 Result 模式重构一个使用 try/catch 的函数</li>
+
+<h3>🔴 挑战</h3>
+<ol>
+<li>实现一个类型安全的发布-订阅系统，支持事件名称自动补全</li>
+
+<h2>八、知识点总结</h2>
+
+<pre><code>TypeScript项目实战
+├── Result模式 → 替代异常的安全错误处理
+├── 类型安全API → 泛型HTTP客户端
+├── 事件系统 → 类型安全的发布/订阅
+├── Builder模式 → 链式配置构建
+├── Repository模式 → 统一数据访问接口
+└── 工程规范 → strict, import type, 显式返回类型</code></pre>
+
+<h2>九、举一反三</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>模式</th>
+<th>优势</th>
+</tr></thead><tbody>
+<tr>
+<td>HTTP请求</td>
+<td>Result<T></td>
+<td>类型安全的错误处理</td>
+</tr>
+<tr>
+<td>状态管理</td>
+<td>EventBus<Events></td>
+<td>事件名和payload类型安全</td>
+</tr>
+<tr>
+<td>数据库操作</td>
+<td>Repository<T></td>
+<td>统一CRUD接口</td>
+</tr>
+<tr>
+<td>配置管理</td>
+<td>ConfigBuilder<T></td>
+<td>链式调用+类型检查</td>
+</tr>
+<tr>
+<td>表单验证</td>
+<td>Zod schema</td>
+<td>运行时+编译时双重保障</td>
+</tr>
+</tbody></table>
+
+<h2>十、参考资料</h2>
+
+<ul>
+<li><a href="https://www.typescriptlang.org/docs/handbook/declaration-files/do-s-and-don-ts.html">TypeScript Best Practices</a></li>
+<li><a href="https://effect.website/">Effect-TS - Result Pattern</a></li>
+<li><a href="https://zod.dev">Zod - TypeScript-first Schema Validation</a></li>
+
+<h2>十一、代码演进</h2>
+
+<h3>v1 → 基础CRUD</h3>
+
+<pre><code class="language-typescript">function getUser(id: string) {
+  return db.query(&quot;SELECT * FROM users WHERE id = ?&quot;, [id]);
+}</code></pre>
+
+<h3>v2 → 泛型Repository</h3>
+
+<pre><code class="language-typescript">class Repository&lt;T&gt; {
+  async findById(id: string): Promise&lt;T | null&gt; { /* ... */ }
+}</code></pre>
+
+<h3>v3 → Result模式 + 完整类型安全</h3>
+
+<pre><code class="language-typescript">class Repository&lt;T extends BaseEntity&gt; {
+  async findById(id: string): Promise&lt;Result&lt;T&gt;&gt; { /* ... */ }
+  async create(data: Omit&lt;T, &quot;id&quot;&gt;): Promise&lt;Result&lt;T&gt;&gt; { /* ... */ }
+}</code></pre>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

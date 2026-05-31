@@ -1,0 +1,487 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>032 - 消息可靠性投递与幂等消费设计</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Hyperf/index.html">Hyperf</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Hyperf/01-微服务实战/index.html">Hyperf微服务实战</a>
+</nav>
+<h1>032 - 消息可靠性投递与幂等消费设计</h1>
+<div class="meta">
+<span>📂 Hyperf微服务实战</span>
+<span>🏷️ Hyperf</span>
+</div>
+<article>
+
+
+<h1>消息可靠性投递与幂等消费设计</h1>
+
+<blockquote><p><strong>难度：</strong> ⭐⭐⭐⭐<br><strong>前置知识：</strong> Kafka 基础（031篇）、数据库事务、唯一索引<br><strong>预估用时：</strong> 50-70 分钟</p></blockquote>
+
+<h2>1. 概念讲解</h2>
+
+<p><strong>消息可靠性</strong>指消息从生产到消费的全链路不丢失、不重复、不乱序；<strong>幂等消费</strong>指同一条消息被消费多次，业务结果与消费一次完全一致。</p>
+
+<p>类比理解：寄快递时，保价+签收确认 = 可靠投递；收件人根据快递单号去重，同一个单号的包裹签收一次就够 = 幂等消费。在用户服务中，用户注册消息可能因网络重试被投递多次，如果没有幂等机制，就会发送多封欢迎邮件、重复创建积分账户。</p>
+
+<h2>2. 实时脑图</h2>
+
+<pre><code>┌──────────────────────────────────────────────┐
+│         Message Reliability Pipeline          │
+├──────────────────────────────────────────────┤
+│                                               │
+│  Producer ──► Kafka ──► Consumer              │
+│     │                      │                  │
+│     ▼                      ▼                  │
+│  [Confirm Callback]   [Idempotent Check]      │
+│     │                      │                  │
+│     ├─ success → done    ├─ exists → skip ✅  │
+│     └─ fail → retry      └─ new → process    │
+│                               │               │
+│                          [Business Logic]      │
+│                               │               │
+│                          [Commit Offset]       │
+│                               │               │
+│                          [Record Event ID]     │
+└──────────────────────────────────────────────┘</code></pre>
+
+<h2>3. 完整代码</h2>
+
+<h3>3.1 可靠生产者 <code>app/Kafka/Producer/ReliableProducer.php</code></h3>
+
+<pre><code class="language-php">&lt;?php
+declare(strict_types=1);
+
+namespace App\Kafka\Producer;
+
+use Hyperf\Kafka\Producer;
+use Hyperf\Di\Annotation\Inject;
+use Psr\Log\LoggerInterface;
+
+class ReliableProducer
+{
+    #[Inject]
+    private Producer $producer;
+
+    #[Inject]
+    private LoggerInterface $logger;
+
+    private const MAX_RETRY = 3;
+
+    /**
+     * ✅ Reliable send with retry mechanism
+     */
+    public function reliableSend(string $topic, array $payload, string $key = &#x27;&#x27;): bool
+    {
+        // ✅ Attach event ID and timestamp for tracing
+        $payload[&#x27;event_id&#x27;] = $payload[&#x27;event_id&#x27;] ?? uniqid(&#x27;evt_&#x27;, true);
+        $payload[&#x27;sent_at&#x27;] = date(&#x27;c&#x27;);
+
+        $body = json_encode($payload, JSON_THROW_ON_ERROR);
+
+        for ($attempt = 1; $attempt &lt;= self::MAX_RETRY; $attempt++) {
+            try {
+                $this-&gt;producer-&gt;send($topic, $body, $key);
+                $this-&gt;logger-&gt;info(&#x27;Message sent successfully&#x27;, [
+                    &#x27;topic&#x27; =&gt; $topic,
+                    &#x27;event_id&#x27; =&gt; $payload[&#x27;event_id&#x27;],
+                    &#x27;attempt&#x27; =&gt; $attempt,
+                ]);
+                return true;
+            } catch (\Throwable $e) {
+                $this-&gt;logger-&gt;warning(&#x27;Send failed, retrying&#x27;, [
+                    &#x27;topic&#x27; =&gt; $topic,
+                    &#x27;attempt&#x27; =&gt; $attempt,
+                    &#x27;error&#x27; =&gt; $e-&gt;getMessage(),
+                ]);
+                if ($attempt &gt;= self::MAX_RETRY) {
+                    // 🔴 Dead letter: persist to DB for manual processing
+                    $this-&gt;persistToDeadLetter($topic, $body, $e-&gt;getMessage());
+                    return false;
+                }
+                usleep(100000 * $attempt); // ✅ Linear backoff
+            }
+        }
+        return false;
+    }
+
+    private function persistToDeadLetter(string $topic, string $body, string $error): void
+    {
+        $this-&gt;logger-&gt;error(&#x27;Dead letter: message permanently failed&#x27;, [
+            &#x27;topic&#x27; =&gt; $topic,
+            &#x27;body&#x27; =&gt; $body,
+            &#x27;error&#x27; =&gt; $error,
+        ]);
+    }
+}</code></pre>
+
+<h3>3.2 幂等消费者 <code>app/Kafka/Consumer/IdempotentConsumer.php</code></h3>
+
+<pre><code class="language-php">&lt;?php
+declare(strict_types=1);
+
+namespace App\Kafka\Consumer;
+
+use Hyperf\Kafka\Annotation\Consumer;
+use Hyperf\Kafka\AbstractConsumer;
+use Hyperf\Di\Annotation\Inject;
+use App\Repository\EventLogRepository;
+use Psr\Log\LoggerInterface;
+use longlang\phpkafka\Consumer\ConsumeMessage;
+
+#[Consumer(
+    topic: &#x27;user.registered&#x27;,
+    groupId: &#x27;idempotent-email-group&#x27;,
+    autoCommit: false
+)]
+class IdempotentConsumer extends AbstractConsumer
+{
+    #[Inject]
+    private EventLogRepository $eventLog;
+
+    #[Inject]
+    private LoggerInterface $logger;
+
+    public function consume(ConsumeMessage $message): void
+    {
+        $data = json_decode($message-&gt;getValue(), true, 512, JSON_THROW_ON_ERROR);
+        $eventId = $data[&#x27;event_id&#x27;] ?? throw new \InvalidArgumentException(&#x27;Missing event_id&#x27;);
+
+        // ✅ Idempotency gate: check if already processed
+        if ($this-&gt;eventLog-&gt;isProcessed($eventId)) {
+            $this-&gt;logger-&gt;info(&#x27;Duplicate event skipped&#x27;, [&#x27;event_id&#x27; =&gt; $eventId]);
+            $message-&gt;getConsumer()-&gt;ack($message);
+            return;
+        }
+
+        try {
+            // ✅ Process within a DB transaction for atomicity
+            $this-&gt;eventLog-&gt;processInTransaction($eventId, function () use ($data) {
+                $this-&gt;handleUserRegistered($data);
+            });
+
+            $message-&gt;getConsumer()-&gt;ack($message);
+            $this-&gt;logger-&gt;info(&#x27;Event processed&#x27;, [&#x27;event_id&#x27; =&gt; $eventId]);
+        } catch (\Throwable $e) {
+            $this-&gt;logger-&gt;error(&#x27;Event processing failed&#x27;, [
+                &#x27;event_id&#x27; =&gt; $eventId,
+                &#x27;error&#x27; =&gt; $e-&gt;getMessage(),
+            ]);
+            throw $e;
+        }
+    }
+
+    private function handleUserRegistered(array $data): void
+    {
+        $this-&gt;logger-&gt;info(&quot;Welcome email sent to {$data[&#x27;email&#x27;]}&quot;, [
+            &#x27;user_id&#x27; =&gt; $data[&#x27;user_id&#x27;],
+        ]);
+    }
+}</code></pre>
+
+<h3>3.3 事件日志仓储 <code>app/Repository/EventLogRepository.php</code></h3>
+
+<pre><code class="language-php">&lt;?php
+declare(strict_types=1);
+
+namespace App\Repository;
+
+use Hyperf\DbConnection\Db;
+use Psr\Log\LoggerInterface;
+use Hyperf\Di\Annotation\Inject;
+
+class EventLogRepository
+{
+    #[Inject]
+    private Db $db;
+
+    #[Inject]
+    private LoggerInterface $logger;
+
+    /**
+     * ✅ Check if event has been processed (idempotency key)
+     */
+    public function isProcessed(string $eventId): bool
+    {
+        return $this-&gt;db-&gt;table(&#x27;event_log&#x27;)
+            -&gt;where(&#x27;event_id&#x27;, $eventId)
+            -&gt;where(&#x27;status&#x27;, &#x27;processed&#x27;)
+            -&gt;exists();
+    }
+
+    /**
+     * ✅ Atomic: mark event + execute business logic in one transaction
+     */
+    public function processInTransaction(string $eventId, callable $businessLogic): void
+    {
+        $this-&gt;db-&gt;transaction(function () use ($eventId, $businessLogic) {
+            // ✅ INSERT with UNIQUE constraint prevents duplicate
+            $this-&gt;db-&gt;table(&#x27;event_log&#x27;)-&gt;insertOrIgnore([
+                &#x27;event_id&#x27; =&gt; $eventId,
+                &#x27;status&#x27; =&gt; &#x27;processed&#x27;,
+                &#x27;processed_at&#x27; =&gt; date(&#x27;c&#x27;),
+            ]);
+
+            $businessLogic();
+        });
+    }
+}</code></pre>
+
+<h3>3.4 数据库迁移 <code>migrations/2024_01_01_create_event_log_table.php</code></h3>
+
+<pre><code class="language-php">&lt;?php
+// ✅ Migration: event_log table with unique constraint for idempotency
+use Hyperf\Database\Schema\Schema;
+use Hyperf\Database\Schema\Blueprint;
+use Hyperf\Database\Migrations\Migration;
+
+class CreateEventLogTable extends Migration
+{
+    public function up(): void
+    {
+        Schema::create(&#x27;event_log&#x27;, function (Blueprint $table) {
+            $table-&gt;id();
+            // ✅ UNIQUE constraint ensures no duplicate event processing
+            $table-&gt;string(&#x27;event_id&#x27;, 64)-&gt;unique();
+            $table-&gt;string(&#x27;status&#x27;, 20)-&gt;default(&#x27;processed&#x27;);
+            $table-&gt;timestamp(&#x27;processed_at&#x27;)-&gt;nullable();
+            $table-&gt;timestamps();
+            $table-&gt;index(&#x27;created_at&#x27;);
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::dropIfExists(&#x27;event_log&#x27;);
+    }
+}</code></pre>
+
+<h2>4. 执行预览</h2>
+
+<pre><code class="language-bash">$ php bin/hyperf.php start
+
+# First delivery:
+# [INFO] Event processed {&quot;event_id&quot;:&quot;evt_662f1a...&quot;}
+
+# Duplicate delivery (Kafka retry):
+# [INFO] Duplicate event skipped {&quot;event_id&quot;:&quot;evt_662f1a...&quot;}
+
+# Dead letter after 3 retries:
+# [ERROR] Dead letter: message permanently failed {&quot;topic&quot;:&quot;user.registered&quot;,&quot;error&quot;:&quot;...&quot;}</code></pre>
+
+<h2>5. 注意事项</h2>
+
+<table><thead><tr>
+<th>约束</th>
+<th>说明</th>
+<th>违反后果</th>
+</tr></thead><tbody>
+<tr>
+<td>event_id 必须全局唯一</td>
+<td>用 <code>uniqid</code> 或 UUID</td>
+<td>幂等检查失效，重复处理</td>
+</tr>
+<tr>
+<td>event_log 表必须有 UNIQUE 约束</td>
+<td>防止并发写入重复行</td>
+<td>并发场景下同一事件被处理两次</td>
+</tr>
+<tr>
+<td>业务逻辑和标记必须同一事务</td>
+<td>原子性保证</td>
+<td>标记了但业务未执行，或反之</td>
+</tr>
+<tr>
+<td>死信记录不可丢</td>
+<td>持久化到 DB 或死信队列</td>
+<td>消息永久丢失无迹可查</td>
+</tr>
+<tr>
+<td>重试要有退避策略</td>
+<td>线性或指数退避</td>
+<td>立即重试加重系统负载</td>
+</tr>
+</tbody></table>
+
+<h2>6. 避坑指南</h2>
+
+<table><thead><tr>
+<th>错误</th>
+<th>现象</th>
+<th>正确做法</th>
+</tr></thead><tbody>
+<tr>
+<td>先 ack 再处理</td>
+<td>处理失败但 offset 已提交，消息丢失</td>
+<td>先处理，成功后再 ack</td>
+</tr>
+<tr>
+<td>SELECT 再 INSERT 无事务</td>
+<td>并发时两个消费者都通过 SELECT 检查</td>
+<td>INSERT + UNIQUE 约束 + 事务</td>
+</tr>
+<tr>
+<td>event_id 用自增 ID</td>
+<td>分布式环境不唯一</td>
+<td>用 UUID 或 snowflake ID</td>
+</tr>
+<tr>
+<td>不设最大重试</td>
+<td>无限重试导致消费阻塞</td>
+<td>设 MAX_RETRY + 死信队列</td>
+</tr>
+<tr>
+<td>只记日志不持久化死信</td>
+<td>服务重启后死信丢失</td>
+<td>持久化到 DB 或独立 Topic</td>
+</tr>
+</tbody></table>
+
+<h2>7. 练习题</h2>
+
+<p>🟢 <strong>基础题 1：</strong> 为 <code>order.created</code> 事件实现幂等消费，使用 <code>order_id</code> 作为幂等键。</p>
+
+<p>🟢 <strong>基础题 2：</strong> 实现一个死信队列消费者，从 <code>dead_letter</code> Topic 读取失败消息并告警。</p>
+
+<p>🟡 <strong>进阶题：</strong> 设计一个跨服务的幂等方案，要求订单服务和库存服务使用同一个幂等键。</p>
+
+<p>🔴 <strong>开放题：</strong> 如何在 Kafka Consumer 中实现 Exactly-Once 语义？分析其与 At-Least-Once + 幂等的利弊。</p>
+
+<h2>8. 知识点总结</h2>
+
+<pre><code>Message Reliability
+├── Producer Side
+│   ├── Retry mechanism (3 attempts)
+│   ├── Backoff strategy (linear/exponential)
+│   └── Dead letter persistence
+├── Consumer Side
+│   ├── Manual commit (autoCommit=false)
+│   ├── Idempotency check (event_id)
+│   └── Transactional processing
+├── Event Log Table
+│   ├── UNIQUE constraint on event_id
+│   ├── INSERT ... ON DUPLICATE KEY IGNORE
+│   └── Atomic mark + business logic
+└── Reliability Patterns
+    ├── At-Least-Once + Idempotent
+    ├── Dead Letter Queue
+    └── Monitoring &amp; Alerting</code></pre>
+
+<h2>9. 举一反三</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>幂等键设计</th>
+<th>去重策略</th>
+</tr></thead><tbody>
+<tr>
+<td>支付回调</td>
+<td><code>payment_id + callback_seq</code></td>
+<td>Redis SET NX + TTL</td>
+</tr>
+<tr>
+<td>订单状态变更</td>
+<td><code>order_id + from_status + to_status</code></td>
+<td>状态机 + 乐观锁</td>
+</tr>
+<tr>
+<td>数据同步</td>
+<td><code>source_id + sync_version</code></td>
+<td>版本号比较，跳过旧版本</td>
+</tr>
+</tbody></table>
+
+<h2>10. 参考资料</h2>
+
+<ul>
+<li>🏆 <strong>权威：</strong> <a href="https://kafka.apache.org/documentation/#semantics">Kafka Exactly-Once Semantics</a></li>
+<li>⭐ <strong>推荐：</strong> <a href="https://martin.kleppmann.com/">Martin Kleppmann: Exactly-Once is NOT Exactly-Once</a></li>
+<li>🏆 <strong>官方：</strong> <a href="https://hyperf.wiki/3.1/#/zh-cn/kafka">Hyperf Kafka 文档</a></li>
+<li>📖 <strong>延伸：</strong> 《Designing Data-Intensive Applications》第 11 章</li>
+
+<h2>11. 代码演进</h2>
+
+<h3>v1 ❌ 无任何保障</h3>
+
+<pre><code class="language-php">// ❌ No retry, no idempotency, auto commit
+$this-&gt;producer-&gt;send($topic, json_encode($data));
+// Consumer: process then auto-ack, no error handling</code></pre>
+
+<h3>v2 ✅ 重试 + 手动提交</h3>
+
+<pre><code class="language-php">// ✅ Retry mechanism + manual commit
+for ($i = 1; $i &lt;= 3; $i++) {
+    try {
+        $this-&gt;producer-&gt;send($topic, $body, $key);
+        break;
+    } catch (\Throwable $e) {
+        usleep(100000 * $i);
+    }
+}
+// Consumer: try { process(); ack(); } catch { throw; }</code></pre>
+
+<h3>v3 🟢 完整可靠方案</h3>
+
+<pre><code class="language-php">// 🟢 Retry + dead letter + idempotent + transactional
+$this-&gt;reliableSend($topic, $payload, $key);
+// Consumer: eventLog-&gt;isProcessed() → processInTransaction() → ack()</code></pre>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

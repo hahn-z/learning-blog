@@ -1,0 +1,577 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>013 - JavaScript ES6 模块化：import 与 export 完全指南</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/JavaScript/index.html">JavaScript</a>
+<span class="sep">›</span>
+<a href="/tech-blog/JavaScript/01-ES6+/index.html">JavaScript ES6+</a>
+</nav>
+<h1>013 - JavaScript ES6 模块化：import 与 export 完全指南</h1>
+<div class="meta">
+<span>📂 JavaScript ES6+</span>
+<span>🏷️ JavaScript</span>
+</div>
+<article>
+
+
+<h2>难度标注</h2>
+
+<blockquote><p>🟡 <strong>中等难度</strong> — 需要理解模块系统原理、构建工具配置</p></blockquote>
+
+<h2>概念讲解</h2>
+
+<h3>什么是模块化？</h3>
+
+<p>模块化是将代码拆分为独立文件（模块），每个模块有自己的作用域，通过 <code>export</code> 暴露接口，通过 <code>import</code> 引用其他模块的功能。</p>
+
+<p><strong>模块化的好处：</strong></p>
+<ul>
+<li><strong>封装</strong>：模块内部变量不会污染全局</li>
+<li><strong>复用</strong>：一个模块可以在多个地方使用</li>
+<li><strong>维护</strong>：代码分文件管理，职责清晰</li>
+<li><strong>依赖管理</strong>：明确声明模块间的依赖关系</li>
+
+<h3>ES6 模块 vs CommonJS</h3>
+
+<table><thead><tr>
+<th>特性</th>
+<th>ES6 Module</th>
+<th>CommonJS</th>
+</tr></thead><tbody>
+<tr>
+<td>语法</td>
+<td><code>import</code>/<code>export</code></td>
+<td><code>require</code>/<code>module.exports</code></td>
+</tr>
+<tr>
+<td>加载</td>
+<td>编译时静态分析</td>
+<td>运行时动态加载</td>
+</tr>
+<tr>
+<td>值的类型</td>
+<td><strong>引用</strong>（实时绑定）</td>
+<td><strong>值的拷贝</strong></td>
+</tr>
+<tr>
+<td>顶层 this</td>
+<td><code>undefined</code></td>
+<td>模块对象</td>
+</tr>
+<tr>
+<td>Tree-shaking</td>
+<td>✅ 支持</td>
+<td>❌ 不支持</td>
+</tr>
+<tr>
+<td>使用场景</td>
+<td>前端（浏览器、打包工具）</td>
+<td>Node.js 后端</td>
+</tr>
+</tbody></table>
+
+<h3>静态 vs 动态导入</h3>
+
+<pre><code class="language-javascript">// Static import: analyzed at compile time
+import { utils } from &#x27;./utils.js&#x27;;
+
+// Dynamic import: loaded at runtime (returns Promise)
+const module = await import(&#x27;./heavy-module.js&#x27;);</code></pre>
+
+<h2>脑图</h2>
+
+<pre><code>              ES6 模块化
+                  │
+       ┌──────────┼──────────┐
+       │          │          │
+    export     import     高级用法
+       │          │          │
+   ┌───┴───┐  ┌──┴──┐  ┌───┴────┐
+   │named  │  │named│  │dynamic │
+   │default│  │default│ │rename │
+   │re-export│ │namespace│ │circular│
+   └───────┘  └─────┘  └────────┘</code></pre>
+
+<h2>完整 JS 代码</h2>
+
+<h3>export — 导出模块</h3>
+
+<pre><code class="language-javascript">// ============ math-utils.js ============
+
+// Named exports: export individual items
+export const PI = 3.14159;
+
+export function add(a, b) {
+  return a + b;
+}
+
+export function multiply(a, b) {
+  return a * b;
+}
+
+export class Calculator {
+  constructor() {
+    this.result = 0;
+  }
+  add(n) { this.result += n; return this; }
+  getResult() { return this.result; }
+}
+
+// Private: not exported, only accessible within this module
+function internalHelper() {
+  return &#x27;internal&#x27;;
+}</code></pre>
+
+<pre><code class="language-javascript">// ============ logger.js ============
+
+// Default export: one per module
+export default class Logger {
+  constructor(prefix) {
+    this.prefix = prefix;
+  }
+  log(msg) {
+    console.log(`[${this.prefix}] ${msg}`);
+  }
+}
+
+// Can also have named exports alongside default
+export const LEVELS = { DEBUG: 0, INFO: 1, ERROR: 2 };</code></pre>
+
+<pre><code class="language-javascript">// ============ constants.js ============
+
+// Export list (declare first, export later)
+const MAX_SIZE = 100;
+const MIN_SIZE = 1;
+const DEFAULT_PAGE = 1;
+
+export { MAX_SIZE, MIN_SIZE, DEFAULT_PAGE };
+
+// Re-export from another module
+export { add, multiply } from &#x27;./math-utils.js&#x27;;
+export * from &#x27;./math-utils.js&#x27;;          // re-export all
+export { default as Calculator } from &#x27;./math-utils.js&#x27;; // rename default</code></pre>
+
+<h3>import — 导入模块</h3>
+
+<pre><code class="language-javascript">// ============ app.js ============
+
+// Named imports
+import { add, multiply } from &#x27;./math-utils.js&#x27;;
+
+// Default import
+import Logger from &#x27;./logger.js&#x27;;
+
+// Import default + named
+import Logger, { LEVELS } from &#x27;./logger.js&#x27;;
+
+// Rename during import
+import { add as sum, multiply as mul } from &#x27;./math-utils.js&#x27;;
+
+// Namespace import (import all as object)
+import * as math from &#x27;./math-utils.js&#x27;;
+console.log(math.add(1, 2));       // 3
+console.log(math.PI);               // 3.14159
+
+// Side-effect import (run module code only)
+import &#x27;./polyfill.js&#x27;;</code></pre>
+
+<h3>动态导入</h3>
+
+<pre><code class="language-javascript">// ============ Dynamic Import ============
+
+// Load module on demand (returns a Promise)
+async function loadChart() {
+  const { Chart } = await import(&#x27;./chart-module.js&#x27;);
+  return new Chart(&#x27;#container&#x27;);
+}
+
+// Conditional loading
+async function getFormatter(locale) {
+  if (locale === &#x27;zh&#x27;) {
+    const { formatZh } = await import(&#x27;./formatters/zh.js&#x27;);
+    return formatZh;
+  }
+  const { formatEn } = await import(&#x27;./formatters/en.js&#x27;);
+  return formatEn;
+}
+
+// With try/catch for error handling
+async function safeImport(specifier) {
+  try {
+    return await import(specifier);
+  } catch (err) {
+    console.error(`Failed to load: ${specifier}`, err);
+    return null;
+  }
+}
+
+// React lazy loading pattern
+// const HeavyComponent = React.lazy(() =&gt; import(&#x27;./HeavyComponent&#x27;));</code></pre>
+
+<h3>模块模式实战</h3>
+
+<pre><code class="language-javascript">// ============ config.js: Singleton pattern ============
+
+// Module-level variable (private state)
+let _config = {
+  apiBase: &#x27;https://api.example.com&#x27;,
+  timeout: 5000
+};
+
+// Exported getter/setter
+export function getConfig() {
+  return { ..._config }; // return copy
+}
+
+export function setConfig(updates) {
+  _config = { ..._config, ...updates };
+}
+
+// ============ api.js: Depends on config ============
+import { getConfig } from &#x27;./config.js&#x27;;
+
+export async function fetchData(endpoint) {
+  const { apiBase, timeout } = getConfig();
+  const controller = new AbortController();
+  const timer = setTimeout(() =&gt; controller.abort(), timeout);
+  try {
+    const res = await fetch(`${apiBase}${endpoint}`, { signal: controller.signal });
+    return await res.json();
+  } finally {
+    clearTimeout(timer);
+  }
+}</code></pre>
+
+<h2>执行预览</h2>
+
+<pre><code>// math-utils.js exports
+export const PI = 3.14159
+export function add(a,b) { return a+b }
+
+// app.js imports
+import { add } from &#x27;./math-utils.js&#x27;
+add(1, 2) → 3
+
+import * as math from &#x27;./math-utils.js&#x27;
+math.add(3, 4) → 7
+
+import Logger, { LEVELS } from &#x27;./logger.js&#x27;
+new Logger(&#x27;app&#x27;).log(&#x27;hi&#x27;) → [app] hi
+
+// Dynamic import
+const mod = await import(&#x27;./heavy.js&#x27;)
+mod.doSomething() → loaded!</code></pre>
+
+<h2>注意事项</h2>
+
+<table><thead><tr>
+<th>注意点</th>
+<th>说明</th>
+</tr></thead><tbody>
+<tr>
+<td><strong>浏览器要求</strong></td>
+<td><code><script type="module"></code> 才能使用 ES6 模块</td>
+</tr>
+<tr>
+<td><strong>文件扩展名</strong></td>
+<td>浏览器中必须写 <code>.js</code> 后缀，Node 中可省略</td>
+</tr>
+<tr>
+<td><strong>严格模式</strong></td>
+<td>ES6 模块自动启用严格模式（不可取消）</td>
+</tr>
+<tr>
+<td><strong>异步加载</strong></td>
+<td>浏览器中模块默认 <code>defer</code> 加载</td>
+</tr>
+<tr>
+<td><strong>CORS</strong></td>
+<td>跨域模块需要正确的 CORS 头</td>
+</tr>
+<tr>
+<td><strong>路径</strong></td>
+<td>必须使用相对路径 <code>./</code> 或绝对路径，不能省略 <code>./</code></td>
+</tr>
+<tr>
+<td><strong>循环依赖</strong></td>
+<td>可能得到未初始化的 export（需要重构避免）</td>
+</tr>
+</tbody></table>
+
+<h2>避坑指南</h2>
+
+<h3>❌ 忘记 type="module"</h3>
+<pre><code class="language-html">&lt;!-- ❌ Wrong: treated as classic script, import fails --&gt;
+&lt;script src=&quot;app.js&quot;&gt;&lt;/script&gt;
+
+&lt;!-- ✅ Correct: enable ES6 module mode --&gt;
+&lt;script type=&quot;module&quot; src=&quot;app.js&quot;&gt;&lt;/script&gt;</code></pre>
+
+<h3>❌ 混用 ES6 模块和 CommonJS</h3>
+<pre><code class="language-javascript">// ❌ Wrong: cannot use require in ES6 module
+import { something } from &#x27;pkg&#x27;;
+const other = require(&#x27;other-pkg&#x27;); // SyntaxError in ESM
+
+// ✅ Correct: use import consistently
+import something from &#x27;pkg&#x27;;
+import other from &#x27;other-pkg&#x27;;</code></pre>
+
+<h3>❌ 修改导入的值</h3>
+<pre><code class="language-javascript">// ❌ Wrong: imports are read-only bindings
+import { config } from &#x27;./config.js&#x27;;
+config.timeout = 10000; // TypeError in strict mode (if config is primitive)
+
+// ✅ Correct: import and create local copy
+import { config } from &#x27;./config.js&#x27;;
+const myConfig = { ...config, timeout: 10000 };</code></pre>
+
+<h3>❌ 循环依赖</h3>
+<pre><code class="language-javascript">// ❌ a.js imports from b.js, b.js imports from a.js
+// → may get undefined for not-yet-initialized exports
+
+// ✅ Correct: extract shared code to c.js
+// a.js → imports from c.js
+// b.js → imports from c.js</code></pre>
+
+<h2>练习题</h2>
+
+<h3>🟢 入门：基本导入导出</h3>
+
+<pre><code class="language-javascript">// 1. Create string-utils.js that exports:
+//    - capitalize(str): &quot;hello&quot; → &quot;Hello&quot;
+//    - truncate(str, len): &quot;hello world&quot;, 8 → &quot;hello...&quot;
+//    - default export: a function reverse(str)
+
+// 2. In app.js, import and use all of the above</code></pre>
+
+<h3>🟡 进阶：模块设计</h3>
+
+<pre><code class="language-javascript">// 3. Design a module pattern for a simple key-value store:
+//    store.set(&#x27;key&#x27;, &#x27;value&#x27;)
+//    store.get(&#x27;key&#x27;) → &#x27;value&#x27;
+//    store.getAll() → {key: &#x27;value&#x27;}
+//    store.remove(&#x27;key&#x27;)
+//    Hint: use module-level private variable
+
+// 4. Create a plugin system using dynamic imports:
+//    loadPlugin(&#x27;analytics&#x27;) → imports ./plugins/analytics.js</code></pre>
+
+<h3>🔴 挑战：循环依赖与架构</h3>
+
+<pre><code class="language-javascript">// 5. Refactor circular dependency:
+//    userService.js imports from logger.js
+//    logger.js imports from config.js
+//    config.js imports from userService.js (to get user preferences)
+//    → How to break the cycle?</code></pre>
+
+<p><details></p>
+<p><summary>📋 参考答案</summary></p>
+
+<pre><code class="language-javascript">// 1. string-utils.js
+export function capitalize(str) {
+  return str.charAt(0).toUpperCase() + str.slice(1);
+}
+export function truncate(str, len) {
+  return str.length &gt; len ? str.slice(0, len - 3) + &#x27;...&#x27; : str;
+}
+export default function reverse(str) {
+  return str.split(&#x27;&#x27;).reverse().join(&#x27;&#x27;);
+}
+
+// 2. app.js
+import reverse, { capitalize, truncate } from &#x27;./string-utils.js&#x27;;
+console.log(capitalize(&#x27;hello&#x27;));     // Hello
+console.log(truncate(&#x27;hello world&#x27;, 8)); // hello...
+console.log(reverse(&#x27;hello&#x27;));        // olleh
+
+// 3. store.js
+const _store = {};
+export const store = {
+  set(key, value) { _store[key] = value; },
+  get(key) { return _store[key]; },
+  getAll() { return { ..._store }; },
+  remove(key) { delete _store[key]; }
+};
+
+// 4. plugin-loader.js
+export async function loadPlugin(name) {
+  try {
+    return await import(`./plugins/${name}.js`);
+  } catch (err) {
+    console.error(`Plugin &#x27;${name}&#x27; not found:`, err);
+    return null;
+  }
+}
+
+// 5. Extract config to separate module, remove config→userService dependency
+// config.js: pure config, no imports from userService
+// userService.js: imports config + logger
+// logger.js: imports config only</code></pre>
+<p></details></p>
+
+<h2>知识点总结</h2>
+
+<pre><code>ES6 模块化
+├── export
+│   ├── Named export: export const/fn/class
+│   ├── Default export: export default X
+│   ├── Export list: export { a, b, c }
+│   └── Re-export: export { x } from &#x27;./y.js&#x27;
+├── import
+│   ├── Named: import { a, b } from &#x27;./mod&#x27;
+│   ├── Default: import X from &#x27;./mod&#x27;
+│   ├── Rename: import { a as b } from &#x27;./mod&#x27;
+│   ├── Namespace: import * as mod from &#x27;./mod&#x27;
+│   └── Side-effect: import &#x27;./polyfill&#x27;
+├── Dynamic Import
+│   ├── import(&#x27;./mod&#x27;) → Promise
+│   ├── 按需加载 / 代码分割
+│   └── 配合 try/catch 错误处理
+├── 核心特性
+│   ├── 编译时静态分析
+│   ├── 实时绑定（引用而非拷贝）
+│   ├── 自动严格模式
+│   └── 支持 Tree-shaking
+└── 常见问题
+    ├── 循环依赖 → 提取共享模块
+    ├── 路径必须写 ./ 
+    └── 浏览器需 type=&quot;module&quot;</code></pre>
+
+<h2>举一反三</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>方案</th>
+<th>示例</th>
+</tr></thead><tbody>
+<tr>
+<td>工具函数库</td>
+<td>named export + namespace import</td>
+<td><code>import * as utils from './utils'</code></td>
+</tr>
+<tr>
+<td>单一主类</td>
+<td>default export</td>
+<td><code>export default class App {}</code></td>
+</tr>
+<tr>
+<td>配置模块</td>
+<td>singleton 模式</td>
+<td>模块级变量 + getter/setter</td>
+</tr>
+<tr>
+<td>按需加载</td>
+<td>dynamic import</td>
+<td><code>await import('./heavy')</code></td>
+</tr>
+<tr>
+<td>插件系统</td>
+<td>dynamic import + 约定路径</td>
+<td><code>import(\</code>./plugins/\${name}\<code>)</code></td>
+</tr>
+<tr>
+<td>聚合导出</td>
+<td>re-export</td>
+<td><code>export { a } from './a'</code></td>
+</tr>
+</tbody></table>
+
+<h2>参考资料</h2>
+
+<ul>
+<li><a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Statements/import">MDN: import</a></li>
+<li><a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Statements/export">MDN: export</a></li>
+<li><a href="https://nodejs.org/api/esm.html">Node.js ES Modules</a></li>
+<li><a href="https://hacks.mozilla.org/2015/08/es6-in-depth-modules/">ES6 Modules in Depth</a></li>
+
+<h2>代码演进</h2>
+
+<h3>v1 — 全局脚本</h3>
+<pre><code class="language-javascript">// Everything in one file, global scope
+var API_BASE = &#x27;https://api.example.com&#x27;;
+function fetchData(url) { /* ... */ }
+function renderChart(data) { /* ... */ }
+// Risk: naming collisions, hard to maintain</code></pre>
+
+<h3>v2 — IIFE 模块模式</h3>
+<pre><code class="language-javascript">// Immediately Invoked Function Expression
+var ApiModule = (function() {
+  var baseUrl = &#x27;https://api.example.com&#x27;;
+  function fetch(url) { /* use baseUrl */ }
+  return { fetch: fetch };
+})();
+// Better: scoped, but manual dependency management</code></pre>
+
+<h3>v3 — ES6 模块</h3>
+<pre><code class="language-javascript">// api.js
+const baseUrl = &#x27;https://api.example.com&#x27;;
+export async function fetch(endpoint) { /* ... */ }
+
+// chart.js
+import { fetch } from &#x27;./api.js&#x27;;
+export function render(selector) { /* ... */ }
+
+// app.js
+import { render } from &#x27;./chart.js&#x27;;
+render(&#x27;#app&#x27;);
+// Clean: explicit deps, tree-shakeable, scope isolated</code></pre>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

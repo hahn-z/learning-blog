@@ -1,0 +1,710 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>017 - Redis 协程客户端详解</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Swoole/index.html">Swoole</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Swoole/01-从入门到精通/index.html">Swoole从入门到精通</a>
+</nav>
+<h1>017 - Redis 协程客户端详解</h1>
+<div class="meta">
+<span>📂 Swoole从入门到精通</span>
+<span>🏷️ Swoole</span>
+</div>
+<article>
+
+
+<h1>Redis 协程客户端详解</h1>
+
+<blockquote><p><strong>难度标注：</strong> ⭐⭐⭐ 中级 | 预计阅读时间：20 分钟</p></blockquote>
+
+<h2>一、概念讲解</h2>
+
+<p><code>Swoole\Coroutine\Redis</code> 是 Swoole 内置的 Redis 协程客户端，基于 Swoole 协程实现<strong>非阻塞 IO</strong>。当你执行 Redis 命令时，当前协程自动挂起，等数据返回后自动恢复，不影响其他协程运行。</p>
+
+<h3>为什么不用 phpredis？</h3>
+
+<table><thead><tr>
+<th>特性</th>
+<th>phpredis (扩展)</th>
+<th>Swoole\Coroutine\Redis</th>
+</tr></thead><tbody>
+<tr>
+<td>阻塞</td>
+<td>同步阻塞</td>
+<td>协程非阻塞</td>
+</tr>
+<tr>
+<td>并发</td>
+<td>一个连接同时只能一个请求</td>
+<td>多协程共享，自动调度</td>
+</tr>
+<tr>
+<td>连接池</td>
+<td>需要外部实现</td>
+<td>配合 Channel 轻松实现</td>
+</tr>
+<tr>
+<td>协程兼容</td>
+<td>需要开启 hook</td>
+<td>原生支持</td>
+</tr>
+<tr>
+<td>部署</td>
+<td>需要编译扩展</td>
+<td>Swoole 内置</td>
+</tr>
+</tbody></table>
+
+<p><strong>核心原理：</strong></p>
+
+<pre><code>协程A: $redis-&gt;get(&#x27;key1&#x27;) → 挂起 → ... → 恢复 → 拿到结果
+协程B: $redis-&gt;set(&#x27;key2&#x27;,&#x27;v&#x27;) → 挂起 → ... → 恢复 → 拿到结果
+协程C: 正常执行其他代码...
+
+单线程内，多个 Redis 请求并发执行，互不阻塞！</code></pre>
+
+<h2>二、脑图（ASCII）</h2>
+
+<pre><code>Coroutine\Redis
+├── 连接管理
+│   ├── connect() / connect()       # 建立连接
+│   ├── close()                     # 关闭连接
+│   └── connected()                 # 检查连接状态
+├── 数据操作
+│   ├── String: get/set/del/incr/decr
+│   ├── Hash: hGet/hSet/hMGet/hMGet/hDel
+│   ├── List: lPush/rPush/lPop/rPop
+│   ├── Set: sAdd/sRem/sMembers
+│   └── Sorted Set: zAdd/zRange/zRem
+├── 高级功能
+│   ├── subscribe/psubscribe        # 发布订阅
+│   ├── multi/exec                  # 事务
+│   ├── eval                        # Lua 脚本
+│   ├── pipeline                    # 管道（原生不支持，需变通）
+│   └── scan/hScan/zScan            # 游标遍历
+└── 连接池
+    ├── Swoole\Coroutine\Channel
+    ├── 借出/归还机制
+    └── 心跳保活</code></pre>
+
+<h2>三、完整代码</h2>
+
+<h3>v1：基础 CRUD 操作</h3>
+
+<pre><code class="language-php">&lt;?php
+// Basic Redis Coroutine Operations - v1
+Co\run(function () {
+    $redis = new Swoole\Coroutine\Redis();
+    
+    // Connect to Redis
+    $connected = $redis-&gt;connect(&#x27;127.0.0.1&#x27;, 6379);
+    if (!$connected) {
+        echo &quot;Connect failed: {$redis-&gt;errMsg}\n&quot;;
+        return;
+    }
+    
+    echo &quot;Connected to Redis\n&quot;;
+    
+    // ===== String Operations =====
+    $redis-&gt;set(&#x27;user:name&#x27;, &#x27;Alice&#x27;);
+    $redis-&gt;set(&#x27;user:age&#x27;, 25);
+    $redis-&gt;setex(&#x27;session:abc&#x27;, 3600, &#x27;token_xyz&#x27;); // TTL 1 hour
+    
+    echo &quot;Name: &quot; . $redis-&gt;get(&#x27;user:name&#x27;) . &quot;\n&quot;;      // Alice
+    echo &quot;Age: &quot; . $redis-&gt;get(&#x27;user:age&#x27;) . &quot;\n&quot;;         // 25
+    echo &quot;Incr: &quot; . $redis-&gt;incr(&#x27;user:age&#x27;) . &quot;\n&quot;;       // 26
+    echo &quot;Exists: &quot; . ($redis-&gt;exists(&#x27;user:name&#x27;) ? &#x27;yes&#x27; : &#x27;no&#x27;) . &quot;\n&quot;; // yes
+    
+    // ===== Hash Operations =====
+    $redis-&gt;hMSet(&#x27;user:1001&#x27;, [
+        &#x27;name&#x27; =&gt; &#x27;Bob&#x27;,
+        &#x27;email&#x27; =&gt; &#x27;bob@example.com&#x27;,
+        &#x27;age&#x27; =&gt; 30,
+    ]);
+    
+    $user = $redis-&gt;hGetAll(&#x27;user:1001&#x27;);
+    echo &quot;User Hash: &quot; . json_encode($user) . &quot;\n&quot;;
+    
+    echo &quot;Email: &quot; . $redis-&gt;hGet(&#x27;user:1001&#x27;, &#x27;email&#x27;) . &quot;\n&quot;;
+    
+    // ===== List Operations =====
+    $redis-&gt;del(&#x27;queue:tasks&#x27;);
+    $redis-&gt;rPush(&#x27;queue:tasks&#x27;, &#x27;task_1&#x27;);
+    $redis-&gt;rPush(&#x27;queue:tasks&#x27;, &#x27;task_2&#x27;);
+    $redis-&gt;rPush(&#x27;queue:tasks&#x27;, &#x27;task_3&#x27;);
+    
+    echo &quot;Queue length: &quot; . $redis-&gt;lLen(&#x27;queue:tasks&#x27;) . &quot;\n&quot;;  // 3
+    echo &quot;Pop: &quot; . $redis-&gt;lPop(&#x27;queue:tasks&#x27;) . &quot;\n&quot;;           // task_1
+    
+    // ===== Set Operations =====
+    $redis-&gt;sAdd(&#x27;tags:article:1&#x27;, &#x27;php&#x27;, &#x27;swoole&#x27;, &#x27;coroutine&#x27;);
+    $redis-&gt;sAdd(&#x27;tags:article:2&#x27;, &#x27;php&#x27;, &#x27;redis&#x27;);
+    
+    $common = $redis-&gt;sInter(&#x27;tags:article:1&#x27;, &#x27;tags:article:2&#x27;);
+    echo &quot;Common tags: &quot; . json_encode($common) . &quot;\n&quot;; // [&quot;php&quot;]
+    
+    // ===== Sorted Set =====
+    $redis-&gt;zAdd(&#x27;leaderboard&#x27;, 100, &#x27;Alice&#x27;);
+    $redis-&gt;zAdd(&#x27;leaderboard&#x27;, 85, &#x27;Bob&#x27;);
+    $redis-&gt;zAdd(&#x27;leaderboard&#x27;, 120, &#x27;Charlie&#x27;);
+    
+    $top = $redis-&gt;zRevRange(&#x27;leaderboard&#x27;, 0, 2, true);
+    echo &quot;Leaderboard: &quot; . json_encode($top) . &quot;\n&quot;;
+    
+    // ===== Key Management =====
+    $keys = $redis-&gt;keys(&#x27;user:*&#x27;);
+    echo &quot;User keys: &quot; . json_encode($keys) . &quot;\n&quot;;
+    
+    // Clean up
+    $redis-&gt;del(&#x27;user:name&#x27;, &#x27;user:age&#x27;, &#x27;session:abc&#x27;);
+    $redis-&gt;del(&#x27;user:1001&#x27;, &#x27;queue:tasks&#x27;);
+    $redis-&gt;del(&#x27;tags:article:1&#x27;, &#x27;tags:article:2&#x27;, &#x27;leaderboard&#x27;);
+    
+    echo &quot;Done!\n&quot;;
+    $redis-&gt;close();
+});</code></pre>
+
+<h3>v2：连接池实现</h3>
+
+<pre><code class="language-php">&lt;?php
+// Redis Connection Pool - v2
+class RedisPool
+{
+    private Swoole\Coroutine\Channel $pool;
+    private string $host;
+    private int $port;
+    private int $maxSize;
+    private int $currentSize = 0;
+    
+    public function __construct(string $host, int $port, int $maxSize = 20)
+    {
+        $this-&gt;host = $host;
+        $this-&gt;port = $port;
+        $this-&gt;maxSize = $maxSize;
+        $this-&gt;pool = new Swoole\Coroutine\Channel($maxSize);
+    }
+    
+    // Get a connection from pool
+    public function get(): Swoole\Coroutine\Redis
+    {
+        // Try to get from pool first
+        if (!$this-&gt;pool-&gt;isEmpty()) {
+            $redis = $this-&gt;pool-&gt;pop(0.001);
+            if ($redis &amp;&amp; $redis-&gt;connected) {
+                return $redis;
+            }
+        }
+        
+        // Create new connection if under limit
+        if ($this-&gt;currentSize &lt; $this-&gt;maxSize) {
+            $this-&gt;currentSize++;
+            return $this-&gt;createConnection();
+        }
+        
+        // Wait for a connection to be returned
+        $redis = $this-&gt;pool-&gt;pop(5.0); // 5s timeout
+        if ($redis === false) {
+            throw new \RuntimeException(&quot;Redis pool exhausted, timeout waiting for connection&quot;);
+        }
+        
+        if (!$redis-&gt;connected) {
+            $this-&gt;currentSize--;
+            return $this-&gt;get(); // Retry
+        }
+        
+        return $redis;
+    }
+    
+    // Return connection to pool
+    public function put(Swoole\Coroutine\Redis $redis): void
+    {
+        if ($redis-&gt;connected) {
+            $this-&gt;pool-&gt;push($redis);
+        } else {
+            $this-&gt;currentSize--;
+        }
+    }
+    
+    // Create a new Redis connection
+    private function createConnection(): Swoole\Coroutine\Redis
+    {
+        $redis = new Swoole\Coroutine\Redis();
+        $redis-&gt;setOptions([
+            &#x27;connect_timeout&#x27; =&gt; 2,
+            &#x27;read_timeout&#x27; =&gt; 3,
+            &#x27;serialize&#x27; =&gt; false,
+        ]);
+        
+        $connected = $redis-&gt;connect($this-&gt;host, $this-&gt;port);
+        if (!$connected) {
+            $this-&gt;currentSize--;
+            throw new \RuntimeException(&quot;Redis connect failed: {$redis-&gt;errMsg}&quot;);
+        }
+        
+        return $redis;
+    }
+    
+    public function stats(): array
+    {
+        return [
+            &#x27;pool_size&#x27; =&gt; $this-&gt;pool-&gt;length(),
+            &#x27;current_size&#x27; =&gt; $this-&gt;currentSize,
+            &#x27;max_size&#x27; =&gt; $this-&gt;maxSize,
+        ];
+    }
+}
+
+// --- Usage in HTTP Server ---
+$pool = new RedisPool(&#x27;127.0.0.1&#x27;, 6379, 20);
+
+$server = new Swoole\Http\Server(&#x27;0.0.0.0&#x27;, 9501);
+$server-&gt;set([&#x27;worker_num&#x27; =&gt; 2]);
+
+$server-&gt;on(&#x27;request&#x27;, function ($request, $response) use ($pool) {
+    $uri = $request-&gt;server[&#x27;request_uri&#x27;];
+    
+    try {
+        $redis = $pool-&gt;get();
+        
+        switch ($uri) {
+            case &#x27;/counter&#x27;:
+                $val = $redis-&gt;incr(&#x27;api:counter&#x27;);
+                $response-&gt;end(&quot;Counter: {$val}\n&quot;);
+                break;
+                
+            case &#x27;/cache&#x27;:
+                $key = $request-&gt;get[&#x27;key&#x27;] ?? &#x27;default&#x27;;
+                $val = $redis-&gt;get(&quot;cache:{$key}&quot;);
+                if ($val === false) {
+                    $val = &#x27;computed_value_&#x27; . time();
+                    $redis-&gt;setex(&quot;cache:{$key}&quot;, 60, $val);
+                    $response-&gt;end(&quot;Cache MISS, set: {$val}\n&quot;);
+                } else {
+                    $response-&gt;end(&quot;Cache HIT: {$val}\n&quot;);
+                }
+                break;
+                
+            case &#x27;/pool-stats&#x27;:
+                $response-&gt;end(json_encode($pool-&gt;stats()));
+                break;
+                
+            default:
+                $response-&gt;end(&quot;OK\n&quot;);
+        }
+        
+        $pool-&gt;put($redis); // Always return connection!
+    } catch (\Throwable $e) {
+        $response-&gt;status(500);
+        $response-&gt;end(&quot;Error: &quot; . $e-&gt;getMessage());
+    }
+});
+
+$server-&gt;start();</code></pre>
+
+<h3>v3：Redis 发布订阅 + Lua 脚本</h3>
+
+<pre><code class="language-php">&lt;?php
+// Redis Pub/Sub + Lua Scripting - v3
+Co\run(function () {
+    // ===== Publisher =====
+    go(function () {
+        $redis = new Swoole\Coroutine\Redis();
+        $redis-&gt;connect(&#x27;127.0.0.1&#x27;, 6379);
+        
+        // Publish messages periodically
+        for ($i = 0; $i &lt; 5; $i++) {
+            Co\System::sleep(1);
+            $msg = json_encode([&#x27;id&#x27; =&gt; $i, &#x27;data&#x27; =&gt; &#x27;hello_&#x27; . $i, &#x27;ts&#x27; =&gt; time()]);
+            $redis-&gt;publish(&#x27;channel:events&#x27;, $msg);
+            echo &quot;[Publisher] Sent: hello_{$i}\n&quot;;
+        }
+        
+        $redis-&gt;close();
+    });
+    
+    // ===== Subscriber =====
+    go(function () {
+        $redis = new Swoole\Coroutine\Redis();
+        $redis-&gt;connect(&#x27;127.0.0.1&#x27;, 6379);
+        
+        echo &quot;[Subscriber] Listening on channel:events\n&quot;;
+        
+        // subscribe() blocks and returns messages
+        while (true) {
+            $msg = $redis-&gt;subscribe([&#x27;channel:events&#x27;]);
+            if (!$msg) break;
+            
+            // $msg = [&#x27;subscribe&#x27;, &#x27;channel:events&#x27;, 1] on first call
+            // Then [&#x27;message&#x27;, &#x27;channel:events&#x27;, &#x27;{&quot;id&quot;:0,...}&#x27;]
+            if ($msg[0] === &#x27;message&#x27;) {
+                $payload = json_decode($msg[2], true);
+                echo &quot;[Subscriber] Received: &quot; . json_encode($payload) . &quot;\n&quot;;
+            }
+            
+            // For demo: stop after 5 messages
+            static $count = 0;
+            if (++$count &gt;= 5) {
+                $redis-&gt;close();
+                break;
+            }
+        }
+    });
+    
+    // ===== Lua Script Demo =====
+    go(function () {
+        Co\System::sleep(6); // Wait for pub/sub demo
+        
+        $redis = new Swoole\Coroutine\Redis();
+        $redis-&gt;connect(&#x27;127.0.0.1&#x27;, 6379);
+        
+        // Atomic counter with limit using Lua
+        // If counter &lt; limit, increment and return new value
+        // Otherwise return -1
+        $script = &lt;&lt;&lt;LUA
+local key = KEYS[1]
+local limit = tonumber(ARGV[1])
+local current = tonumber(redis.call(&#x27;GET&#x27;, key) or &#x27;0&#x27;)
+if current &lt; limit then
+    local new_val = redis.call(&#x27;INCR&#x27;, key)
+    redis.call(&#x27;EXPIRE&#x27;, key, ARGV[2])
+    return new_val
+else
+    return -1
+end
+LUA;
+        
+        $redis-&gt;del(&#x27;rate_limit:user:1&#x27;);
+        
+        // Simulate rate limiting: max 3 requests per 60s
+        for ($i = 0; $i &lt; 5; $i++) {
+            $result = $redis-&gt;eval($script, [&#x27;rate_limit:user:1&#x27;, 3, 60], 1);
+            if ($result === -1) {
+                echo &quot;[Lua] Rate limited! Request blocked (#&quot; . ($i + 1) . &quot;)\n&quot;;
+            } else {
+                echo &quot;[Lua] Request allowed, count: {$result}\n&quot;;
+            }
+        }
+        
+        // ===== Distributed Lock with Lua =====
+        $lockScript = &lt;&lt;&lt;&#x27;LUA&#x27;
+local key = KEYS[1]
+local value = ARGV[1]
+local ttl = tonumber(ARGV[2])
+if redis.call(&#x27;SET&#x27;, key, value, &#x27;NX&#x27;, &#x27;EX&#x27;, ttl) then
+    return 1
+else
+    return 0
+end
+LUA;
+        
+        $unlockScript = &lt;&lt;&lt;&#x27;LUA&#x27;
+local key = KEYS[1]
+local value = ARGV[1]
+if redis.call(&#x27;GET&#x27;, key) == value then
+    return redis.call(&#x27;DEL&#x27;, key)
+else
+    return 0
+end
+LUA;
+        
+        $lockKey = &#x27;lock:order:1001&#x27;;
+        $lockValue = uniqid(&#x27;lock_&#x27;, true);
+        
+        // Acquire lock
+        $locked = $redis-&gt;eval($lockScript, [$lockKey, $lockValue, 10], 1);
+        if ($locked) {
+            echo &quot;[Lock] Acquired lock: {$lockKey}\n&quot;;
+            
+            // Do critical work...
+            Co\System::sleep(0.5);
+            
+            // Release lock
+            $released = $redis-&gt;eval($unlockScript, [$lockKey, $lockValue], 1);
+            echo &quot;[Lock] Released: &quot; . ($released ? &#x27;OK&#x27; : &#x27;FAIL (not owner)&#x27;) . &quot;\n&quot;;
+        } else {
+            echo &quot;[Lock] Failed to acquire lock\n&quot;;
+        }
+        
+        $redis-&gt;close();
+    });
+});</code></pre>
+
+<h2>四、执行预览</h2>
+
+<pre><code>$ php redis_v1.php
+Connected to Redis
+Name: Alice
+Age: 25
+Incr: 26
+Exists: yes
+User Hash: {&quot;name&quot;:&quot;Bob&quot;,&quot;email&quot;:&quot;bob@example.com&quot;,&quot;age&quot;:&quot;30&quot;}
+Email: bob@example.com
+Queue length: 3
+Pop: task_1
+Common tags: [&quot;php&quot;]
+Leaderboard: {&quot;Charlie&quot;:&quot;120&quot;,&quot;Alice&quot;:&quot;100&quot;,&quot;Bob&quot;:&quot;85&quot;}
+User keys: [&quot;user:1001&quot;,&quot;user:name&quot;,&quot;user:age&quot;]
+Done!
+
+$ php redis_v3.php
+[Subscriber] Listening on channel:events
+[Publisher] Sent: hello_0
+[Subscriber] Received: {&quot;id&quot;:0,&quot;data&quot;:&quot;hello_0&quot;,&quot;ts&quot;:1714000000}
+[Publisher] Sent: hello_1
+[Subscriber] Received: {&quot;id&quot;:1,&quot;data&quot;:&quot;hello_1&quot;,&quot;ts&quot;:1714000001}
+...
+[Lua] Request allowed, count: 1
+[Lua] Request allowed, count: 2
+[Lua] Request allowed, count: 3
+[Lua] Rate limited! Request blocked (#4)
+[Lua] Rate limited! Request blocked (#5)
+[Lock] Acquired lock: lock:order:1001
+[Lock] Released: OK</code></pre>
+
+<h2>五、注意事项</h2>
+
+<table><thead><tr>
+<th>项目</th>
+<th>说明</th>
+</tr></thead><tbody>
+<tr>
+<td>subscribe 阻塞</td>
+<td>subscribe 会阻塞当前协程，需要用独立的 go() 协程</td>
+</tr>
+<tr>
+<td>连接超时</td>
+<td>建议设置 connect_timeout 和 read_timeout</td>
+</tr>
+<tr>
+<td>序列化</td>
+<td>默认不序列化，需要自己 json_encode/serialize</td>
+</tr>
+<tr>
+<td>错误处理</td>
+<td>检查返回值 false，用 errMsg 获取错误信息</td>
+</tr>
+<tr>
+<td>连接池大小</td>
+<td>建议 CPU 核心数 × 2~4，过多浪费 Redis 连接</td>
+</tr>
+<tr>
+<td>multi/exec</td>
+<td>支持事务，但注意事务期间不能穿插其他命令</td>
+</tr>
+</tbody></table>
+
+<h2>六、避坑指南</h2>
+
+<table><thead><tr>
+<th>❌ 错误做法</th>
+<th>✅ 正确做法</th>
+</tr></thead><tbody>
+<tr>
+<td>每次请求 new Redis + connect</td>
+<td>使用连接池复用连接</td>
+</tr>
+<tr>
+<td>subscribe 和普通命令共用连接</td>
+<td>subscribe 用独立连接，不能用同一连接执行其他命令</td>
+</tr>
+<tr>
+<td>不处理 Redis 断线重连</td>
+<td>get() 时检查 connected，断线则重建连接</td>
+</tr>
+<tr>
+<td>用 keys() 扫描大量 key</td>
+<td>用 scan() 渐进遍历，避免阻塞 Redis</td>
+</tr>
+<tr>
+<td>忘记归还连接池</td>
+<td>用 try/finally 确保连接归还</td>
+</tr>
+<tr>
+<td>大 key 直接 get</td>
+<td>用 hScan/sScan 分批读取</td>
+</tr>
+</tbody></table>
+
+<h2>七、练习题</h2>
+
+<p><strong>🟢 基础题：</strong></p>
+<ol>
+<li>使用 Coroutine\Redis 实现一个简单的缓存层：先查 Redis，miss 时"计算"后写入</li>
+</ul>
+<ol>
+<li>实现一个排行榜，使用 Sorted Set 存储分数，支持 Top 10 查询</li>
+
+<p><strong>🟡 进阶题：</strong></p>
+<ol>
+<li>实现一个 Redis 连接池，支持最大连接数限制和等待超时</li>
+</ul>
+<ol>
+<li>用 Lua 脚本实现分布式限流器（滑动窗口算法）</li>
+
+<p><strong>🔴 挑战题：</strong></p>
+<ol>
+<li>实现 Redis 发布订阅 + 连接池，支持多频道订阅和消息分发</li>
+</ul>
+<ol>
+<li>实现 Redlock 分布式锁算法（多 Redis 实例）</li>
+
+<h2>八、知识点总结</h2>
+
+<pre><code>Coroutine\Redis 知识树
+├── 基础操作
+│   ├── connect / close
+│   ├── String (get/set/del/incr)
+│   ├── Hash (hGet/hSet/hMGet/hMSet)
+│   ├── List (lPush/rPush/lPop/rPop)
+│   ├── Set (sAdd/sRem/sMembers)
+│   └── ZSet (zAdd/zRange/zRem)
+├── 高级功能
+│   ├── subscribe / publish
+│   ├── multi / exec (事务)
+│   ├── eval (Lua 脚本)
+│   └── scan / hScan / zScan
+├── 连接池
+│   ├── Channel 实现
+│   ├── 借出/归还/健康检查
+│   └── 断线重连
+└── 最佳实践
+    ├── 超时配置
+    ├── 错误处理
+    └── 大 key 处理</code></pre>
+
+<h2>九、举一反三</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>Redis 数据结构</th>
+<th>实现思路</th>
+</tr></thead><tbody>
+<tr>
+<td>验证码存储</td>
+<td>String + SETEX</td>
+<td>设置过期时间，验证后删除</td>
+</tr>
+<tr>
+<td>用户会话</td>
+<td>Hash</td>
+<td>hMSet 存储多字段，TTL 管理过期</td>
+</tr>
+<tr>
+<td>消息队列</td>
+<td>List (lPush + brPop)</td>
+<td>或用 Stream (XADD/XREAD)</td>
+</tr>
+<tr>
+<td>排行榜</td>
+<td>Sorted Set</td>
+<td>zAdd 加分，zRevRange 取排名</td>
+</tr>
+<tr>
+<td>好友关系</td>
+<td>Set</td>
+<td>sAdd 添加，sInter 共同好友</td>
+</tr>
+<tr>
+<td>分布式锁</td>
+<td>String + Lua</td>
+<td>SET NX EX + Lua 释放</td>
+</tr>
+<tr>
+<td>限流</td>
+<td>Sorted Set / Lua</td>
+<td>滑动窗口或令牌桶</td>
+</tr>
+</tbody></table>
+
+<h2>十、参考资料</h2>
+
+<ul>
+<li><a href="https://wiki.swoole.com/#/coroutine_client/redis">Swoole Coroutine\Redis</a></li>
+<li><a href="https://redis.io/commands">Redis 命令参考</a></li>
+<li><a href="https://redis.io/docs/manual/programmability/eval-intro/">Redis Lua 脚本</a></li>
+<li><a href="https://redis.io/docs/manual/patterns/distributed-locks/">Redlock 算法</a></li>
+
+<h2>十一、代码演进</h2>
+
+<table><thead><tr>
+<th>版本</th>
+<th>特点</th>
+<th>适用场景</th>
+</tr></thead><tbody>
+<tr>
+<td>v1 基础版</td>
+<td>全数据类型 CRUD 操作演示</td>
+<td>学习 Redis 协程客户端</td>
+</tr>
+<tr>
+<td>v2 连接池</td>
+<td>Channel 连接池 + HTTP 服务集成</td>
+<td>生产环境 Web 服务</td>
+</tr>
+<tr>
+<td>v3 高级版</td>
+<td>Pub/Sub + Lua 脚本 + 分布式锁</td>
+<td>消息系统、分布式协调</td>
+</tr>
+</tbody></table>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

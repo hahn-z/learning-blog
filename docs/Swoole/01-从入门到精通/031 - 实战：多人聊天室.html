@@ -1,0 +1,566 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>031 - 实战：多人聊天室</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Swoole/index.html">Swoole</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Swoole/01-从入门到精通/index.html">Swoole从入门到精通</a>
+</nav>
+<h1>031 - 实战：多人聊天室</h1>
+<div class="meta">
+<span>📂 Swoole从入门到精通</span>
+<span>🏷️ Swoole</span>
+</div>
+<article>
+
+
+<h2>难度标注</h2>
+
+<blockquote><p><strong>难度：★★★☆☆（中级）</strong><br>前置知识：PHP 基础、Swoole WebSocket、Redis 基本操作</p></blockquote>
+
+<h2>概念讲解</h2>
+
+<p>多人聊天室是实时通信的典型场景。传统 PHP 基于 HTTP 请求-响应模型，无法实现服务器主动推送。Swoole 的 WebSocket Server 提供了持久连接能力，使得实时聊天变得简单高效。</p>
+
+<p><strong>核心概念：</strong></p>
+
+<ul>
+<li><strong>WebSocket</strong>：全双工通信协议，客户端和服务器建立持久连接后可双向发送消息</li>
+<li><strong>Fd（File Descriptor）</strong>：Swoole 中每个客户端连接的唯一标识</li>
+<li><strong>广播</strong>：服务器收到消息后转发给所有在线用户</li>
+<li><strong>房间（Room）</strong>：将用户分组，实现群聊隔离</li>
+
+<p><strong>架构设计：</strong></p>
+
+<pre><code>Client A ←→ │            │ ←→ Client B
+Client C ←→ │  Swoole    │ ←→ Client D
+Client E ←→ │  WebSocket │ ←→ Client F
+            │   Server   │
+            └─────┬──────┘
+                  │
+            ┌─────┴──────┐
+            │   Redis    │
+            │ (用户状态)  │
+            └────────────┘</code></pre>
+
+<h2>脑图</h2>
+
+<pre><code>多人聊天室
+├── 服务端
+│   ├── WebSocket Server
+│   │   ├── onOpen - 连接建立
+│   │   ├── onMessage - 消息处理
+│   │   └── onClose - 连接关闭
+│   ├── 房间管理
+│   │   ├── 创建房间
+│   │   ├── 加入/离开房间
+│   │   └── 房间列表
+│   └── 用户管理
+│       ├── 在线用户列表
+│       ├── 昵称绑定
+│       └── 心跳检测
+├── 客户端
+│   ├── WebSocket 连接
+│   ├── 消息发送/接收
+│   └── UI 渲染
+└── 消息协议
+    ├── 文本消息
+    ├── 系统通知
+    ├── 用户列表更新
+    └── 心跳包</code></pre>
+
+<h2>完整代码</h2>
+
+<h3>服务端（chat_server.php）</h3>
+
+<pre><code class="language-php">&lt;?php
+// chat_server.php - Swoole WebSocket Chat Room Server
+
+Swoole\Runtime::enableCoroutine();
+
+$server = new Swoole\WebSocket\Server(&quot;0.0.0.0&quot;, 9501);
+
+// Global state (use Redis in production)
+$rooms = [];       // room_id =&gt; [fd =&gt; nickname]
+$userFdMap = [];   // fd =&gt; [&#x27;nickname&#x27; =&gt; x, &#x27;room&#x27; =&gt; y]
+
+$server-&gt;on(&#x27;WorkerStart&#x27;, function ($server, $workerId) {
+    echo &quot;[Worker {$workerId}] Started\n&quot;;
+});
+
+$server-&gt;on(&#x27;open&#x27;, function ($server, $request) use (&amp;$userFdMap) {
+    echo &quot;[Open] New connection: fd={$request-&gt;fd}\n&quot;;
+    // Send welcome message
+    $server-&gt;push($request-&gt;fd, json_encode([
+        &#x27;type&#x27; =&gt; &#x27;system&#x27;,
+        &#x27;msg&#x27;  =&gt; &#x27;Welcome! Please set your nickname.&#x27;,
+        &#x27;time&#x27; =&gt; date(&#x27;H:i:s&#x27;),
+    ]));
+});
+
+$server-&gt;on(&#x27;message&#x27;, function ($server, $frame) use (&amp;$rooms, &amp;$userFdMap) {
+    $fd   = $frame-&gt;fd;
+    $data = json_decode($frame-&gt;data, true);
+
+    if (!$data || !isset($data[&#x27;type&#x27;])) {
+        return;
+    }
+
+    switch ($data[&#x27;type&#x27;]) {
+        case &#x27;login&#x27;:
+            // User sets nickname and joins a room
+            $nickname = trim($data[&#x27;nickname&#x27;] ?? &#x27;Anonymous&#x27;);
+            $roomId   = trim($data[&#x27;room&#x27;] ?? &#x27;lobby&#x27;);
+
+            $userFdMap[$fd] = [
+                &#x27;nickname&#x27; =&gt; $nickname,
+                &#x27;room&#x27;     =&gt; $roomId,
+            ];
+
+            if (!isset($rooms[$roomId])) {
+                $rooms[$roomId] = [];
+            }
+            $rooms[$roomId][$fd] = $nickname;
+
+            // Notify room
+            broadcastToRoom($server, $rooms, $roomId, json_encode([
+                &#x27;type&#x27; =&gt; &#x27;system&#x27;,
+                &#x27;msg&#x27;  =&gt; &quot;{$nickname} joined the room.&quot;,
+                &#x27;time&#x27; =&gt; date(&#x27;H:i:s&#x27;),
+            ]), $excludeFd = null);
+
+            // Send room user list to the new user
+            $server-&gt;push($fd, json_encode([
+                &#x27;type&#x27; =&gt; &#x27;userlist&#x27;,
+                &#x27;users&#x27; =&gt; array_values($rooms[$roomId]),
+                &#x27;room&#x27;  =&gt; $roomId,
+            ]));
+
+            echo &quot;[Login] {$nickname} joined room &#x27;{$roomId}&#x27;\n&quot;;
+            break;
+
+        case &#x27;chat&#x27;:
+            // Regular chat message
+            if (!isset($userFdMap[$fd])) {
+                $server-&gt;push($fd, json_encode([
+                    &#x27;type&#x27; =&gt; &#x27;error&#x27;,
+                    &#x27;msg&#x27;  =&gt; &#x27;Please login first.&#x27;,
+                ]));
+                return;
+            }
+
+            $userInfo = $userFdMap[$fd];
+            $roomId   = $userInfo[&#x27;room&#x27;];
+            $msg      = trim($data[&#x27;msg&#x27;] ?? &#x27;&#x27;);
+
+            if ($msg === &#x27;&#x27;) {
+                return;
+            }
+
+            $payload = json_encode([
+                &#x27;type&#x27;     =&gt; &#x27;chat&#x27;,
+                &#x27;nickname&#x27; =&gt; $userInfo[&#x27;nickname&#x27;],
+                &#x27;msg&#x27;      =&gt; $msg,
+                &#x27;time&#x27;     =&gt; date(&#x27;H:i:s&#x27;),
+            ]);
+
+            broadcastToRoom($server, $rooms, $roomId, $payload);
+            break;
+
+        case &#x27;ping&#x27;:
+            // Heartbeat response
+            $server-&gt;push($fd, json_encode([&#x27;type&#x27; =&gt; &#x27;pong&#x27;]));
+            break;
+    }
+});
+
+$server-&gt;on(&#x27;close&#x27;, function ($server, $fd) use (&amp;$rooms, &amp;$userFdMap) {
+    if (!isset($userFdMap[$fd])) {
+        return;
+    }
+
+    $userInfo = $userFdMap[$fd];
+    $nickname = $userInfo[&#x27;nickname&#x27;];
+    $roomId   = $userInfo[&#x27;room&#x27;];
+
+    // Remove from room
+    unset($rooms[$roomId][$fd]);
+    if (empty($rooms[$roomId])) {
+        unset($rooms[$roomId]);
+    }
+
+    // Remove user mapping
+    unset($userFdMap[$fd]);
+
+    // Notify room
+    if (isset($rooms[$roomId])) {
+        broadcastToRoom($server, $rooms, $roomId, json_encode([
+            &#x27;type&#x27; =&gt; &#x27;system&#x27;,
+            &#x27;msg&#x27;  =&gt; &quot;{$nickname} left the room.&quot;,
+            &#x27;time&#x27; =&gt; date(&#x27;H:i:s&#x27;),
+        ]), $excludeFd = null);
+    }
+
+    echo &quot;[Close] {$nickname} left room &#x27;{$roomId}&#x27;\n&quot;;
+});
+
+/**
+ * Broadcast message to all users in a room
+ */
+function broadcastToRoom($server, &amp;$rooms, $roomId, $message, $excludeFd = null) {
+    if (!isset($rooms[$roomId])) {
+        return;
+    }
+
+    foreach ($rooms[$roomId] as $fd =&gt; $nickname) {
+        if ($fd === $excludeFd) {
+            continue;
+        }
+        if ($server-&gt;isEstablished($fd)) {
+            $server-&gt;push($fd, $message);
+        }
+    }
+}
+
+$server-&gt;set([
+    &#x27;heartbeat_check_interval&#x27; =&gt; 30,
+    &#x27;heartbeat_idle_time&#x27;      =&gt; 60,
+]);
+
+echo &quot;Chat Server started on ws://0.0.0.0:9501\n&quot;;
+$server-&gt;start();</code></pre>
+
+<h3>客户端（chat_client.html）</h3>
+
+<pre><code class="language-html">&lt;!DOCTYPE html&gt;
+&lt;html&gt;
+&lt;head&gt;
+    &lt;meta charset=&quot;UTF-8&quot;&gt;
+    &lt;title&gt;Swoole Chat Room&lt;/title&gt;
+    &lt;style&gt;
+        body { font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }
+        #chat-box { border: 1px solid #ccc; height: 400px; overflow-y: auto; padding: 10px; margin: 10px 0; }
+        .msg-system { color: #888; font-style: italic; }
+        .msg-chat { margin: 4px 0; }
+        .msg-chat .nick { font-weight: bold; color: #2196F3; }
+        #input-area { display: flex; gap: 8px; }
+        #msg-input { flex: 1; padding: 8px; }
+        button { padding: 8px 16px; cursor: pointer; }
+    &lt;/style&gt;
+&lt;/head&gt;
+&lt;body&gt;
+    &lt;h2&gt;Swoole Chat Room&lt;/h2&gt;
+    &lt;div id=&quot;login-area&quot;&gt;
+        &lt;input id=&quot;nickname&quot; placeholder=&quot;Nickname&quot;&gt;
+        &lt;input id=&quot;room&quot; placeholder=&quot;Room&quot; value=&quot;lobby&quot;&gt;
+        &lt;button onclick=&quot;doLogin()&quot;&gt;Join&lt;/button&gt;
+    &lt;/div&gt;
+    &lt;div id=&quot;chat-box&quot; style=&quot;display:none;&quot;&gt;&lt;/div&gt;
+    &lt;div id=&quot;input-area&quot; style=&quot;display:none;&quot;&gt;
+        &lt;input id=&quot;msg-input&quot; placeholder=&quot;Type a message...&quot; onkeydown=&quot;if(event.key===&#x27;Enter&#x27;)sendMsg()&quot;&gt;
+        &lt;button onclick=&quot;sendMsg()&quot;&gt;Send&lt;/button&gt;
+    &lt;/div&gt;
+
+    &lt;script&gt;
+        let ws = null;
+
+        function doLogin() {
+            const nick = document.getElementById(&#x27;nickname&#x27;).value;
+            const room = document.getElementById(&#x27;room&#x27;).value;
+            if (!nick) return alert(&#x27;Enter a nickname&#x27;);
+
+            ws = new WebSocket(&#x27;ws://localhost:9501&#x27;);
+            ws.onopen = () =&gt; {
+                ws.send(JSON.stringify({ type: &#x27;login&#x27;, nickname: nick, room: room }));
+                document.getElementById(&#x27;login-area&#x27;).style.display = &#x27;none&#x27;;
+                document.getElementById(&#x27;chat-box&#x27;).style.display = &#x27;block&#x27;;
+                document.getElementById(&#x27;input-area&#x27;).style.display = &#x27;flex&#x27;;
+            };
+            ws.onmessage = (e) =&gt; {
+                const data = JSON.parse(e.data);
+                const box = document.getElementById(&#x27;chat-box&#x27;);
+                if (data.type === &#x27;chat&#x27;) {
+                    box.innerHTML += `&lt;div class=&quot;msg-chat&quot;&gt;&lt;span class=&quot;nick&quot;&gt;${data.nickname}:&lt;/span&gt; ${data.msg} &lt;small&gt;${data.time}&lt;/small&gt;&lt;/div&gt;`;
+                } else if (data.type === &#x27;system&#x27;) {
+                    box.innerHTML += `&lt;div class=&quot;msg-system&quot;&gt;${data.msg}&lt;/div&gt;`;
+                }
+                box.scrollTop = box.scrollHeight;
+            };
+            ws.onclose = () =&gt; {
+                box.innerHTML += &#x27;&lt;div class=&quot;msg-system&quot;&gt;Disconnected.&lt;/div&gt;&#x27;;
+            };
+        }
+
+        function sendMsg() {
+            const input = document.getElementById(&#x27;msg-input&#x27;);
+            if (!input.value.trim()) return;
+            ws.send(JSON.stringify({ type: &#x27;chat&#x27;, msg: input.value }));
+            input.value = &#x27;&#x27;;
+        }
+    &lt;/script&gt;
+&lt;/body&gt;
+&lt;/html&gt;</code></pre>
+
+<h2>执行预览</h2>
+
+<pre><code class="language-bash"># Terminal 1: Start the server
+$ php chat_server.php
+Chat Server started on ws://0.0.0.0:9501
+[Worker 0] Started
+[Open] New connection: fd=1
+[Login] Alice joined room &#x27;lobby&#x27;
+[Open] New connection: fd=2
+[Login] Bob joined room &#x27;lobby&#x27;
+
+# Terminal 2: Open chat_client.html in browser
+# Alice: &quot;Hello everyone!&quot; → broadcast to all users in lobby
+# Bob: &quot;Hi Alice!&quot; → broadcast to all users in lobby
+
+# Server output:
+[Close] Alice left room &#x27;lobby&#x27;</code></pre>
+
+<h2>注意事项</h2>
+
+<table><thead><tr>
+<th>项目</th>
+<th>说明</th>
+</tr></thead><tbody>
+<tr>
+<td>并发模型</td>
+<td>每个 Worker 进程维护独立的 $rooms 数组，多 Worker 下需用 Table 或 Redis 共享状态</td>
+</tr>
+<tr>
+<td>内存泄漏</td>
+<td>onClose 必须清理用户数据，否则数组持续增长</td>
+</tr>
+<tr>
+<td>心跳配置</td>
+<td>设置 heartbeat_check_interval 防止僵尸连接</td>
+</tr>
+<tr>
+<td>消息大小</td>
+<td>默认 max_frame_size 为 2MB，大文件传输需调整</td>
+</tr>
+<tr>
+<td>安全过滤</td>
+<td>生产环境需过滤 XSS、限制消息频率</td>
+</tr>
+<tr>
+<td>集群部署</td>
+<td>单机 $rooms 无法跨进程共享，集群需 Redis Pub/Sub</td>
+</tr>
+</tbody></table>
+
+<h2>避坑指南</h2>
+
+<table><thead><tr>
+<th>❌ 常见错误</th>
+<th>✅ 正确做法</th>
+</tr></thead><tbody>
+<tr>
+<td>用 $_SESSION 存用户状态</td>
+<td>Swoole 是常驻内存，用 $userFdMap 或 Redis</td>
+</tr>
+<tr>
+<td>onMessage 中直接 print 输出</td>
+<td>用 echo 输出到终端，push 给客户端</td>
+</tr>
+<tr>
+<td>忽略 isEstablished 检查</td>
+<td>push 前先检查 $server->isEstablished($fd)</td>
+</tr>
+<tr>
+<td>多 Worker 直接操作全局变量</td>
+<td>用 Swoole\Table 或 Redis 实现跨进程共享</td>
+</tr>
+<tr>
+<td>不处理心跳</td>
+<td>配置 heartbeat_check_interval + 客户端定时 ping</td>
+</tr>
+<tr>
+<td>JSON 编码忽略 UTF-8</td>
+<td>json_encode 加 JSON_UNESCAPED_UNICODE</td>
+</tr>
+</tbody></table>
+
+<h2>练习题</h2>
+
+<h3>🟢 基础题</h3>
+<ol>
+<li>实现一个 "私聊" 功能：用户输入 <code>@nickname msg</code> 只发给指定用户</li>
+</ul>
+<ol>
+<li>在前端添加在线用户列表显示</li>
+
+<h3>🟡 进阶题</h3>
+<ol>
+<li>用 Swoole\Table 替换 $rooms 数组，实现多 Worker 间状态共享</li>
+</ul>
+<ol>
+<li>添加消息历史功能：用户进入房间后能看到最近 20 条消息</li>
+
+<h3>🔴 挑战题</h3>
+<ol>
+<li>用 Redis Pub/Sub 实现多服务器集群聊天</li>
+</ul>
+<ol>
+<li>实现房间密码保护功能，加入房间需验证密码</li>
+
+<h2>知识点总结</h2>
+
+<pre><code>Swoole 聊天室知识树
+├── WebSocket 协议
+│   ├── 握手过程
+│   ├── 帧格式
+│   └── 心跳机制
+├── Swoole\WebSocket\Server
+│   ├── onOpen / onMessage / onClose
+│   ├── push() 推送消息
+│   └── isEstablished() 检测连接
+├── 状态管理
+│   ├── 内存数组（单 Worker）
+│   ├── Swoole\Table（多 Worker）
+│   └── Redis（集群）
+├── 消息协议设计
+│   ├── type 字段区分消息类型
+│   ├── JSON 编解码
+│   └── 错误处理
+└── 生产优化
+    ├── 心跳检测
+    ├── 消息限流
+    └── 连接数控制</code></pre>
+
+<h2>举一反三</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>技术方案</th>
+<th>核心改动</th>
+</tr></thead><tbody>
+<tr>
+<td>客服系统</td>
+<td>WebSocket + 排队机制</td>
+<td>按客服分组 Room，加入排队逻辑</td>
+</tr>
+<tr>
+<td>直播弹幕</td>
+<td>WebSocket + 消息限流</td>
+<td>限流 + 最近 N 条消息批量推送</td>
+</tr>
+<tr>
+<td>协同编辑</td>
+<td>WebSocket + OT 算法</td>
+<td>消息加版本号，服务端做冲突合并</td>
+</tr>
+<tr>
+<td>游戏大厅</td>
+<td>WebSocket + 房间状态机</td>
+<td>Room 加状态（等待/进行中/结束）</td>
+</tr>
+</tbody></table>
+
+<h2>参考资料</h2>
+
+<ul>
+<li><a href="https://wiki.swoole.com/#/start/start_ws_server">Swoole WebSocket Server 官方文档</a></li>
+<li><a href="https://tools.ietf.org/html/rfc6455">WebSocket 协议 RFC 6455</a></li>
+<li><a href="https://wiki.swoole.com/#/memory/table">Swoole Table 文档</a></li>
+
+<h2>代码演进</h2>
+
+<h3>v1 - 基础版：单房间广播</h3>
+
+<pre><code class="language-php">// Simplest version: no rooms, no nicknames, just broadcast
+$server-&gt;on(&#x27;message&#x27;, function ($server, $frame) {
+    foreach ($server-&gt;connections as $fd) {
+        if ($server-&gt;isEstablished($fd)) {
+            $server-&gt;push($fd, $frame-&gt;data);
+        }
+    }
+});</code></pre>
+
+<h3>v2 - 多房间 + 昵称（本文主体）</h3>
+
+<ul>
+<li>新增 <code>$rooms</code> 和 <code>$userFdMap</code> 全局状态</li>
+<li>支持 login/chat/ping 消息类型</li>
+<li>房间隔离广播</li>
+
+<h3>v3 - 生产级（Redis + 多 Worker）</h3>
+
+<pre><code class="language-php">// Use Redis for cross-worker state sharing
+$redis = new Swoole\Coroutine\Redis();
+$redis-&gt;connect(&#x27;127.0.0.1&#x27;, 6379);
+
+// Publish message to Redis channel
+$redis-&gt;publish(&quot;room:{$roomId}&quot;, json_encode($payload));
+
+// Subscribe in each worker
+Swoole\Runtime::go(function () use ($redis) {
+    $sub = new Swoole\Coroutine\Redis();
+    $sub-&gt;connect(&#x27;127.0.0.1&#x27;, 6379);
+    $sub-&gt;subscribe([&#x27;room:lobby&#x27;]);
+    while ($msg = $sub-&gt;recv()) {
+        // Push to local clients in this worker
+    }
+});</code></pre>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

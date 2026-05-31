@@ -1,0 +1,502 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>025 - 自定义指令</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Vue.js/index.html">Vue.js</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Vue.js/01-入门到实战/index.html">Vue.js入门到实战</a>
+</nav>
+<h1>025 - 自定义指令</h1>
+<div class="meta">
+<span>📂 Vue.js入门到实战</span>
+<span>🏷️ Vue.js</span>
+</div>
+<article>
+
+
+<h2>难度标注</h2>
+
+<blockquote><p>🟡 <strong>中级</strong> — 需要 Vue 3 基础、了解指令概念</p></blockquote>
+
+<h2>概念讲解</h2>
+
+<h3>什么是自定义指令？</h3>
+
+<p>自定义指令（Custom Directives）允许你<strong>封装底层 DOM 操作</strong>，以声明式的方式应用到元素上。适用于需要直接操作 DOM 的场景。</p>
+
+<h3>指令钩子函数</h3>
+
+<table><thead><tr>
+<th>钩子</th>
+<th>触发时机</th>
+</tr></thead><tbody>
+<tr>
+<td><code>created</code></td>
+<td>元素创建后，属性/事件绑定前</td>
+</tr>
+<tr>
+<td><code>beforeMount</code></td>
+<td>元素挂载到 DOM 前</td>
+</tr>
+<tr>
+<td><code>mounted</code></td>
+<td>元素挂载后（最常用）</td>
+</tr>
+<tr>
+<td><code>beforeUpdate</code></td>
+<td>父组件更新前</td>
+</tr>
+<tr>
+<td><code>updated</code></td>
+<td>父组件更新后</td>
+</tr>
+<tr>
+<td><code>beforeUnmount</code></td>
+<td>元素卸载前</td>
+</tr>
+<tr>
+<td><code>unmounted</code></td>
+<td>元素卸载后</td>
+</tr>
+</tbody></table>
+
+<h3>指令与组件的选择</h3>
+
+<blockquote><p>优先用组件，只在需要<strong>复用底层 DOM 操作</strong>时才用指令。</p></blockquote>
+
+<h2>脑图</h2>
+
+<pre><code>自定义指令
+├── 钩子函数
+│   ├── mounted — 最常用
+│   ├── updated — 值变化时
+│   └── unmounted — 清理
+├── 注册方式
+│   ├── app.directive() — 全局
+│   └── directives: {} — 局部（setup 中 vXxx）
+├── 实用指令
+│   ├── v-focus — 自动聚焦
+│   ├── v-permission — 权限控制
+│   ├── v-debounce — 防抖点击
+│   ├── v-lazy — 图片懒加载
+│   └── v-copy — 一键复制
+└── 简写
+    └── (el, binding) =&gt; { ... }
+       等同于 mounted + updated</code></pre>
+
+<h2>完整代码</h2>
+
+<pre><code class="language-javascript">// directives/index.js — Common custom directives
+
+// Auto-focus directive
+export const vFocus = {
+  mounted(el) {
+    el.focus()
+  }
+}
+
+// Permission control directive
+// Usage: v-permission=&quot;[&#x27;admin&#x27;, &#x27;editor&#x27;]&quot;
+export const vPermission = {
+  mounted(el, binding) {
+    const requiredRoles = binding.value
+    const userRoles = JSON.parse(localStorage.getItem(&#x27;roles&#x27;) || &#x27;[]&#x27;)
+    const hasPermission = requiredRoles.some(role =&gt; userRoles.includes(role))
+
+    if (!hasPermission) {
+      // Remove element from DOM
+      el.parentNode?.removeChild(el)
+    }
+  }
+}
+
+// Debounce click directive
+// Usage: v-debounce=&quot;handleSubmit&quot; or v-debounce:500=&quot;handleSubmit&quot;
+export const vDebounce = {
+  mounted(el, binding) {
+    const delay = binding.arg ? parseInt(binding.arg) : 300
+    let timer = null
+
+    el.addEventListener(&#x27;click&#x27;, () =&gt; {
+      if (timer) clearTimeout(timer)
+      timer = setTimeout(() =&gt; {
+        binding.value()
+      }, delay)
+    })
+  },
+
+  unmounted(el) {
+    // Clean up is handled by element removal
+  }
+}
+
+// Copy to clipboard directive
+// Usage: v-copy=&quot;&#x27;text to copy&#x27;&quot;
+export const vCopy = {
+  mounted(el, binding) {
+    el.style.cursor = &#x27;pointer&#x27;
+    el.addEventListener(&#x27;click&#x27;, () =&gt; {
+      navigator.clipboard.writeText(binding.value)
+        .then(() =&gt; {
+          // Visual feedback
+          const original = el.textContent
+          el.textContent = &#x27;Copied!&#x27;
+          setTimeout(() =&gt; { el.textContent = original }, 1500)
+        })
+        .catch(() =&gt; {
+          // Fallback for older browsers
+          const textarea = document.createElement(&#x27;textarea&#x27;)
+          textarea.value = binding.value
+          document.body.appendChild(textarea)
+          textarea.select()
+          document.execCommand(&#x27;copy&#x27;)
+          document.body.removeChild(textarea)
+        })
+    })
+  }
+}
+
+// Image lazy loading directive
+// Usage: v-lazy=&quot;imageUrl&quot;
+export const vLazy = {
+  mounted(el, binding) {
+    const observer = new IntersectionObserver(
+      (entries) =&gt; {
+        entries.forEach(entry =&gt; {
+          if (entry.isIntersecting) {
+            el.src = binding.value
+            el.classList.add(&#x27;loaded&#x27;)
+            observer.unobserve(el)
+          }
+        })
+      },
+      { rootMargin: &#x27;100px&#x27; }
+    )
+    observer.observe(el)
+    el._lazyObserver = observer
+  },
+
+  unmounted(el) {
+    el._lazyObserver?.disconnect()
+  }
+}
+
+// Long press directive
+// Usage: v-longpress=&quot;handleLongPress&quot;
+export const vLongpress = {
+  mounted(el, binding) {
+    let timer = null
+
+    el.addEventListener(&#x27;mousedown&#x27;, () =&gt; {
+      timer = setTimeout(() =&gt; binding.value(), 500)
+    })
+
+    el.addEventListener(&#x27;mouseup&#x27;, () =&gt; {
+      if (timer) clearTimeout(timer)
+    })
+
+    el.addEventListener(&#x27;mouseleave&#x27;, () =&gt; {
+      if (timer) clearTimeout(timer)
+    })
+  }
+}</code></pre>
+
+<pre><code class="language-javascript">// main.js — Register directives globally
+import { createApp } from &#x27;vue&#x27;
+import App from &#x27;./App.vue&#x27;
+
+const app = createApp(App)
+
+// Register globally
+app.directive(&#x27;focus&#x27;, vFocus)
+app.directive(&#x27;permission&#x27;, vPermission)
+app.directive(&#x27;debounce&#x27;, vDebounce)
+app.directive(&#x27;copy&#x27;, vCopy)
+app.directive(&#x27;lazy&#x27;, vLazy)
+
+app.mount(&#x27;#app&#x27;)</code></pre>
+
+<pre><code class="language-vue">&lt;!-- components/DirectiveDemo.vue — Using custom directives --&gt;
+&lt;script setup&gt;
+import { ref } from &#x27;vue&#x27;
+
+const imageUrl = ref(&#x27;https://picsum.photos/400/300&#x27;)
+const copyText = ref(&#x27;Hello from v-copy!&#x27;)
+
+function handleClick() {
+  console.log(&#x27;Debounced click!&#x27;)
+}
+
+function handleLongPress() {
+  alert(&#x27;Long pressed!&#x27;)
+}
+&lt;/script&gt;
+
+&lt;template&gt;
+  &lt;div&gt;
+    &lt;!-- Auto-focus --&gt;
+    &lt;input v-focus placeholder=&quot;Auto-focused&quot; /&gt;
+
+    &lt;!-- Permission control --&gt;
+    &lt;button v-permission=&quot;[&#x27;admin&#x27;]&quot;&gt;Admin Only Button&lt;/button&gt;
+
+    &lt;!-- Debounce click --&gt;
+    &lt;button v-debounce:500=&quot;handleClick&quot;&gt;Debounced Button (500ms)&lt;/button&gt;
+
+    &lt;!-- Copy text --&gt;
+    &lt;span v-copy=&quot;copyText&quot;&gt;Click to copy: {{ copyText }}&lt;/span&gt;
+
+    &lt;!-- Lazy load image --&gt;
+    &lt;img v-lazy=&quot;imageUrl&quot; alt=&quot;Lazy loaded&quot; style=&quot;width: 400px&quot; /&gt;
+
+    &lt;!-- Long press --&gt;
+    &lt;button v-longpress=&quot;handleLongPress&quot;&gt;Hold me (500ms)&lt;/button&gt;
+  &lt;/div&gt;
+&lt;/template&gt;</code></pre>
+
+<h2>执行预览</h2>
+
+<pre><code>页面加载:
+  → v-focus: input 自动获得焦点
+
+用户角色 [&quot;user&quot;]:
+  → v-permission=&quot;[&#x27;admin&#x27;]&quot;: 按钮被移除
+
+用户角色 [&quot;admin&quot;]:
+  → v-permission=&quot;[&#x27;admin&#x27;]&quot;: 按钮正常显示
+
+点击 debounced 按钮:
+  → 500ms 内重复点击只执行最后一次
+
+点击 copy 文本:
+  → 文本复制到剪贴板
+  → 显示 &quot;Copied!&quot; 1.5秒后恢复
+
+滚动到图片位置:
+  → IntersectionObserver 检测到可见
+  → 设置 src 加载图片</code></pre>
+
+<h2>注意事项</h2>
+
+<table><thead><tr>
+<th>注意点</th>
+<th>说明</th>
+</tr></thead><tbody>
+<tr>
+<td>指令命名</td>
+<td><code>vFocus</code> 对应 <code>v-focus</code>（自动转换）</td>
+</tr>
+<tr>
+<td>简写形式</td>
+<td><code>(el, binding) => {}</code> 等同于 mounted + updated</td>
+</tr>
+<tr>
+<td>清理资源</td>
+<td>unmounted 中清理 observer、事件监听等</td>
+</tr>
+<tr>
+<td>binding.value</td>
+<td>指令绑定值，如 <code>v-xxx="expr"</code> 中的 expr</td>
+</tr>
+<tr>
+<td>binding.arg</td>
+<td>指令参数，如 <code>v-xxx:500</code> 中的 "500"</td>
+</tr>
+<tr>
+<td>binding.modifiers</td>
+<td>修饰符，如 <code>v-xxx.prevent</code> 中的 <code>{ prevent: true }</code></td>
+</tr>
+</tbody></table>
+
+<h2>避坑指南</h2>
+
+<table><thead><tr>
+<th>❌ 错误做法</th>
+<th>✅ 正确做法</th>
+</tr></thead><tbody>
+<tr>
+<td>指令中修改组件状态</td>
+<td>指令只做 DOM 操作，状态管理用组件</td>
+</tr>
+<tr>
+<td>不清理副作用</td>
+<td>unmounted 中 disconnect observer / removeEventListener</td>
+</tr>
+<tr>
+<td>用指令实现 v-if 功能</td>
+<td>逻辑显示/隐藏用 v-if，指令做 DOM 操作</td>
+</tr>
+<tr>
+<td>全局注册太多指令</td>
+<td>常用的全局，不常用的局部注册</td>
+</tr>
+<tr>
+<td>指令中硬编码数据</td>
+<td>通过 binding.value 动态传入</td>
+</tr>
+</tbody></table>
+
+<h2>练习题</h2>
+
+<h3>🟢 基础</h3>
+<ol>
+<li>实现 v-focus 指令，让元素自动聚焦</li>
+</ul>
+<ol>
+<li>实现 v-color 指令，动态设置元素背景色</li>
+
+<h3>🟡 进阶</h3>
+<ol>
+<li>实现 v-debounce 指令，支持自定义延迟时间</li>
+</ul>
+<ol>
+<li>实现 v-lazy 图片懒加载指令，使用 IntersectionObserver</li>
+
+<h3>🔴 挑战</h3>
+<ol>
+<li>实现 v-click-outside 指令，点击元素外部时触发回调</li>
+
+<h2>知识点总结</h2>
+
+<pre><code>自定义指令
+├── 钩子
+│   ├── mounted(el, binding) — 最常用
+│   ├── updated(el, binding) — 值更新
+│   └── unmounted(el) — 清理
+├── binding 对象
+│   ├── value — 绑定值
+│   ├── arg — 参数 (v-xxx:arg)
+│   ├── modifiers — 修饰符 (v-xxx.mod)
+│   └── oldValue — 旧值
+├── 注册
+│   ├── app.directive(&#x27;xxx&#x27;, {}) — 全局
+│   └── const vXxx = {} — setup 局部
+├── 实用指令
+│   ├── v-focus / v-permission
+│   ├── v-debounce / v-lazy
+│   └── v-copy / v-longpress
+└── 简写
+    └── (el, binding) =&gt; { ... }</code></pre>
+
+<h2>举一反三</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>指令</th>
+<th>技巧</th>
+</tr></thead><tbody>
+<tr>
+<td>自动聚焦</td>
+<td>v-focus</td>
+<td>mounted + el.focus()</td>
+</tr>
+<tr>
+<td>权限隐藏</td>
+<td>v-permission</td>
+<td>el.parentNode.removeChild()</td>
+</tr>
+<tr>
+<td>防抖点击</td>
+<td>v-debounce</td>
+<td>setTimeout 延迟执行</td>
+</tr>
+<tr>
+<td>图片懒加载</td>
+<td>v-lazy</td>
+<td>IntersectionObserver</td>
+</tr>
+<tr>
+<td>一键复制</td>
+<td>v-copy</td>
+<td>navigator.clipboard</td>
+</tr>
+<tr>
+<td>点击外部</td>
+<td>v-click-outside</td>
+<td>contains(event.target)</td>
+</tr>
+</tbody></table>
+
+<h2>参考资料</h2>
+
+<ul>
+<li><a href="https://vuejs.org/guide/reusability/custom-directives.html">Vue 3 官方文档 - Custom Directives</a></li>
+<li><a href="https://vuejs.org/api/custom-directive.html">Vue 3 API - Directive</a></li>
+
+<h2>代码演进</h2>
+
+<h3>v1 — 最简指令</h3>
+<pre><code class="language-javascript">const vFocus = { mounted(el) { el.focus() } }</code></pre>
+
+<h3>v2 — 带参数和清理</h3>
+<pre><code class="language-javascript">const vLazy = {
+  mounted(el, binding) { observer.observe(el) },
+  unmounted(el) { el._observer?.disconnect() }
+}</code></pre>
+
+<h3>v3 — 完整方案（本文代码）</h3>
+<ul>
+<li>多种实用指令</li>
+<li>全局/局部注册</li>
+<li>完整清理逻辑</li>
+<li>binding 完整使用</li>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

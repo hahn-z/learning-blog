@@ -1,0 +1,631 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>021 - gRPC 拦截器、超时控制与错误处理</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Hyperf/index.html">Hyperf</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Hyperf/01-微服务实战/index.html">Hyperf微服务实战</a>
+</nav>
+<h1>021 - gRPC 拦截器、超时控制与错误处理</h1>
+<div class="meta">
+<span>📂 Hyperf微服务实战</span>
+<span>🏷️ Hyperf</span>
+</div>
+<article>
+
+
+<h1>gRPC 拦截器、超时控制与错误处理</h1>
+
+<h2>难度标注</h2>
+
+<p>⭐⭐⭐（中级）</p>
+
+<p><strong>前置知识：</strong> gRPC 基础概念、PHP 8.2+、Hyperf 3.x 框架基础、Protobuf 语法</p>
+
+<p><strong>预估用时：</strong> 45-60 分钟</p>
+
+<hr>
+
+<h2>概念讲解</h2>
+
+<p><strong>gRPC 拦截器（Interceptor）</strong> 是一种中间件机制，能够在 gRPC 请求进入实际业务处理之前或之后，统一执行横切逻辑（如认证、日志、链路追踪、限流等），类似于 HTTP 中间件但在 gRPC 层面运作。</p>
+
+<p><strong>现实类比：</strong> 想象你住的高级公寓，大堂有个保安（拦截器）。每次有人来访，保安先检查身份证（认证），登记来访记录（日志），确认你没有超时逗留（超时控制），如果出了问题还会给你一个标准化的回复（错误处理）。保安处理完这些通用事务后，才放行到具体的楼层。</p>
+
+<p><strong>技术场景：</strong> 在用户微服务中，所有 gRPC 接口都需要统一鉴权、记录调用日志、控制超时。如果每个方法都写一遍这些逻辑，代码会非常冗余且难以维护。拦截器把这些横切关注点集中管理，业务代码只关注业务本身。</p>
+
+<hr>
+
+<h2>实时脑图</h2>
+
+<pre><code>                    gRPC Client Request
+                          │
+                          ▼
+                ┌─────────────────────┐
+                │  Client Interceptor  │
+                │  ┌───────────────┐  │
+                │  │ Auth Check    │──│── Fail → gRPC UNAUTHENTICATED
+                │  └───────┬───────┘  │
+                │  ┌───────▼───────┐  │
+                │  │ Logging       │  │
+                │  └───────┬───────┘  │
+                │  ┌───────▼───────┐  │
+                │  │ Deadline Prop │  │
+                │  └───────┬───────┘  │
+                └──────────┼──────────┘
+                           │
+                           ▼
+                  ┌─────────────────┐
+                  │  Service Handler │
+                  │  GetUser()       │
+                  └────────┬────────┘
+                           │
+                           ▼
+                ┌─────────────────────┐
+                │  Response / Error    │
+                │  ┌───────────────┐  │
+                │  │ Status Code   │──│── OK / ERROR
+                │  │ + Metadata    │  │
+                │  └───────────────┘  │
+                └─────────────────────┘</code></pre>
+
+<hr>
+
+<h2>完整代码</h2>
+
+<h3>1. gRPC 拦截器实现</h3>
+
+<pre><code class="language-php">&lt;?php
+// app/GRPC/Interceptor/AuthInterceptor.php
+
+declare(strict_types=1);
+
+namespace App\GRPC\Interceptor;
+
+use Hyperf\GrpcServer\Exception\GrpcException;
+use Hyperf\Context\Context;
+use Psr\Http\Message\ServerRequestInterface;
+use Swoole\Http\Request;
+
+class AuthInterceptor
+{
+    // ✅ Valid API key prefix for internal services
+    private const API_KEY_PREFIX = &#x27;usr-svc-&#x27;;
+
+    public function handle(Request $request, \Closure $next): mixed
+    {
+        // 🟡 Extract metadata from gRPC headers
+        $authHeader = $request-&gt;header[&#x27;authorization&#x27;] ?? &#x27;&#x27;;
+        
+        if (!$this-&gt;authenticate($authHeader)) {
+            // 🔴 Return standard gRPC UNAUTHENTICATED status
+            throw new GrpcException(
+                &#x27;Invalid or missing API key&#x27;,
+                \Grpc\STATUS_UNAUTHENTICATED
+            );
+        }
+
+        // ✅ Store user context for downstream handlers
+        Context::set(&#x27;auth.api_key&#x27;, $authHeader);
+        
+        // ✅ Log the incoming request
+        $this-&gt;logRequest($request);
+
+        return $next($request);
+    }
+
+    private function authenticate(string $key): bool
+    {
+        // 🟢 Simple key validation - production should use JWT/OAuth
+        return str_starts_with($key, self::API_KEY_PREFIX) 
+            &amp;&amp; strlen($key) &gt; 16;
+    }
+
+    private function logRequest(Request $request): void
+    {
+        $path = $request-&gt;server[&#x27;path&#x27;] ?? &#x27;unknown&#x27;;
+        $start = microtime(true);
+        Context::set(&#x27;request.start_time&#x27;, $start);
+        
+        logger()-&gt;info(&#x27;gRPC request incoming&#x27;, [
+            &#x27;path&#x27; =&gt; $path,
+            &#x27;time&#x27; =&gt; date(&#x27;Y-m-d H:i:s&#x27;),
+        ]);
+    }
+}</code></pre>
+
+<h3>2. 超时控制中间件</h3>
+
+<pre><code class="language-php">&lt;?php
+// app/GRPC/Middleware/TimeoutMiddleware.php
+
+declare(strict_types=1);
+
+namespace App\GRPC\Middleware;
+
+use Hyperf\Context\Context;
+use Hyperf\GrpcServer\Exception\GrpcException;
+use Swoole\Http\Request;
+
+class TimeoutMiddleware
+{
+    // ✅ Default timeout: 5 seconds for user service
+    private const DEFAULT_TIMEOUT_MS = 5000;
+
+    public function handle(Request $request, \Closure $next): mixed
+    {
+        $deadline = $this-&gt;extractDeadline($request);
+        $remaining = $deadline - microtime(true);
+
+        if ($remaining &lt;= 0) {
+            // 🔴 Request already expired before reaching handler
+            throw new GrpcException(
+                &#x27;Request deadline exceeded before processing&#x27;,
+                \Grpc\STATUS_DEADLINE_EXCEEDED
+            );
+        }
+
+        // 🟢 Store deadline for downstream services to check
+        Context::set(&#x27;grpc.deadline&#x27;, $deadline);
+        Context::set(&#x27;grpc.timeout_ms&#x27;, (int)($remaining * 1000));
+
+        return $next($request);
+    }
+
+    private function extractDeadline(Request $request): float
+    {
+        // ✅ Try gRPC deadline from metadata (grpc-timeout header)
+        $timeoutHeader = $request-&gt;header[&#x27;grpc-timeout&#x27;] ?? null;
+        
+        if ($timeoutHeader) {
+            return microtime(true) + $this-&gt;parseTimeout($timeoutHeader);
+        }
+
+        // 🟢 Fallback to default timeout
+        return microtime(true) + (self::DEFAULT_TIMEOUT_MS / 1000);
+    }
+
+    private function parseTimeout(string $header): float
+    {
+        // Parse gRPC timeout format: e.g., &quot;5S&quot; = 5 seconds, &quot;500m&quot; = 500ms
+        $unit = strtolower(substr($header, -1));
+        $value = (int)substr($header, 0, -1);
+
+        return match ($unit) {
+            &#x27;h&#x27; =&gt; $value * 3600,      // hours
+            &#x27;m&#x27; =&gt; $value / 1000,      // milliseconds (gRPC uses &#x27;m&#x27; for ms)
+            &#x27;s&#x27; =&gt; (float)$value,       // seconds
+            &#x27;u&#x27; =&gt; $value / 1_000_000,  // microseconds
+            &#x27;n&#x27; =&gt; $value / 1_000_000_000, // nanoseconds
+            default =&gt; self::DEFAULT_TIMEOUT_MS / 1000,
+        };
+    }
+}</code></pre>
+
+<h3>3. 统一错误处理与响应</h3>
+
+<pre><code class="language-php">&lt;?php
+// app/GRPC/Handler/UserServiceHandler.php
+
+declare(strict_types=1);
+
+namespace App\GRPC\Handler;
+
+use App\GRPC\Exception\GrpcExceptionHandler;
+use Hyperf\GrpcServer\Exception\GrpcException;
+use Hyperf\Context\Context;
+use Pb\UserServiceInterface;
+use Pb\GetUserRequest;
+use Pb\UserResponse;
+
+class UserServiceHandler implements UserServiceInterface
+{
+    public function GetUser(GetUserRequest $request): UserResponse
+    {
+        $userId = $request-&gt;getId();
+        
+        // ✅ Check deadline before expensive operation
+        $this-&gt;checkDeadline();
+
+        try {
+            $user = $this-&gt;findUser($userId);
+            
+            if ($user === null) {
+                // 🟡 Business error: user not found
+                throw new GrpcException(
+                    &quot;User not found: {$userId}&quot;,
+                    \Grpc\STATUS_NOT_FOUND
+                );
+            }
+
+            // ✅ Build successful response with rich metadata
+            return (new UserResponse())
+                -&gt;setId($user[&#x27;id&#x27;])
+                -&gt;setName($user[&#x27;name&#x27;])
+                -&gt;setEmail($user[&#x27;email&#x27;])
+                -&gt;setStatus($user[&#x27;status&#x27;]);
+
+        } catch (GrpcException $e) {
+            // 🟢 Re-throw gRPC exceptions as-is
+            throw $e;
+        } catch (\Throwable $e) {
+            // 🔴 Wrap unexpected errors as INTERNAL
+            logger()-&gt;error(&#x27;Unexpected error in GetUser&#x27;, [
+                &#x27;user_id&#x27; =&gt; $userId,
+                &#x27;error&#x27; =&gt; $e-&gt;getMessage(),
+            ]);
+            throw new GrpcException(
+                &#x27;Internal server error&#x27;,
+                \Grpc\STATUS_INTERNAL
+            );
+        }
+    }
+
+    private function checkDeadline(): void
+    {
+        $deadline = Context::get(&#x27;grpc.deadline&#x27;);
+        if ($deadline !== null &amp;&amp; microtime(true) &gt; $deadline) {
+            throw new GrpcException(
+                &#x27;Operation deadline exceeded&#x27;,
+                \Grpc\STATUS_DEADLINE_EXCEEDED
+            );
+        }
+    }
+
+    private function findUser(int $id): ?array
+    {
+        // Simulate database lookup
+        $users = [
+            1 =&gt; [&#x27;id&#x27; =&gt; 1, &#x27;name&#x27; =&gt; &#x27;Hahn&#x27;, &#x27;email&#x27; =&gt; &#x27;hahn@example.com&#x27;, &#x27;status&#x27; =&gt; &#x27;active&#x27;],
+            2 =&gt; [&#x27;id&#x27; =&gt; 2, &#x27;name&#x27; =&gt; &#x27;Alice&#x27;, &#x27;email&#x27; =&gt; &#x27;alice@example.com&#x27;, &#x27;status&#x27; =&gt; &#x27;active&#x27;],
+        ];
+        return $users[$id] ?? null;
+    }
+}</code></pre>
+
+<h3>4. 拦截器注册配置</h3>
+
+<pre><code class="language-php">&lt;?php
+// config/autoload/grpc.php
+
+declare(strict_types=1);
+
+return [
+    &#x27;server&#x27; =&gt; [
+        &#x27;listeners&#x27; =&gt; [
+            // ✅ Register interceptors in order: auth → timeout → logging → handler
+            \App\GRPC\Interceptor\AuthInterceptor::class,
+            \App\GRPC\Middleware\TimeoutMiddleware::class,
+        ],
+    ],
+];</code></pre>
+
+<hr>
+
+<h2>执行预览</h2>
+
+<pre><code class="language-bash"># Start the gRPC server
+$ php bin/hyperf.php start
+
+# Call GetUser with valid auth (using grpcurl)
+$ grpcurl -plaintext \
+  -H &quot;authorization: usr-svc-secret-key-12345&quot; \
+  -d &#x27;{&quot;id&quot;: 1}&#x27; \
+  localhost:9503 pb.UserService/GetUser
+
+# Expected success response:
+{
+  &quot;id&quot;: &quot;1&quot;,
+  &quot;name&quot;: &quot;Hahn&quot;,
+  &quot;email&quot;: &quot;hahn@example.com&quot;,
+  &quot;status&quot;: &quot;active&quot;
+}
+
+# Call with invalid auth
+$ grpcurl -plaintext \
+  -H &quot;authorization: invalid-key&quot; \
+  -d &#x27;{&quot;id&quot;: 1}&#x27; \
+  localhost:9503 pb.UserService/GetUser
+
+# Expected error:
+ERROR:
+  Code: Unauthenticated
+  Message: Invalid or missing API key
+
+# Call with timeout
+$ grpcurl -plaintext \
+  -H &quot;authorization: usr-svc-secret-key-12345&quot; \
+  -H &quot;grpc-timeout: 1m&quot; \
+  -d &#x27;{&quot;id&quot;: 1}&#x27; \
+  localhost:9503 pb.UserService/GetUser
+
+# Expected: normal response (1ms timeout would trigger DEADLINE_EXCEEDED)</code></pre>
+
+<hr>
+
+<h2>注意事项</h2>
+
+<table><thead><tr>
+<th>约束</th>
+<th>说明</th>
+<th>违反后果</th>
+</tr></thead><tbody>
+<tr>
+<td>拦截器顺序很重要</td>
+<td>认证必须放在最前面</td>
+<td>未认证请求可能绕过鉴权</td>
+</tr>
+<tr>
+<td>gRPC Status Code 规范</td>
+<td>使用标准状态码，不要自定义</td>
+<td>客户端无法正确处理错误</td>
+</tr>
+<tr>
+<td>超时要传播到下游</td>
+<td>下游服务应检查剩余时间</td>
+<td>上游超时但下游仍在执行</td>
+</tr>
+<tr>
+<td>错误信息不要暴露内部细节</td>
+<td>生产环境隐藏堆栈和 SQL</td>
+<td>安全漏洞，信息泄露</td>
+</tr>
+<tr>
+<td>拦截器不要做重业务逻辑</td>
+<td>保持轻量，只做横切关注点</td>
+<td>拦截器变重，维护困难</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>避坑指南</h2>
+
+<table><thead><tr>
+<th>典型错误</th>
+<th>现象</th>
+<th>正确做法</th>
+</tr></thead><tbody>
+<tr>
+<td>拦截器中直接返回响应</td>
+<td>后续拦截器和 handler 都不执行</td>
+<td>用异常中断，或正常流向 next</td>
+</tr>
+<tr>
+<td>忽略 gRPC timeout header</td>
+<td>所有请求都走默认超时</td>
+<td>解析 <code>grpc-timeout</code> header 并传播</td>
+</tr>
+<tr>
+<td>用 HTTP 状态码代替 gRPC Status</td>
+<td>客户端收到的错误码不正确</td>
+<td>始终使用 <code>\Grpc\STATUS_*</code> 常量</td>
+</tr>
+<tr>
+<td>拦截器里做数据库查询</td>
+<td>性能下降，连接池耗尽</td>
+<td>拦截器只做轻量操作</td>
+</tr>
+<tr>
+<td>超时值硬编码</td>
+<td>无法针对不同接口调整</td>
+<td>支持配置化，允许 per-method 超时</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>练习题</h2>
+
+<h3>🟢 基础题</h3>
+
+<ol>
+<li><strong>实现一个日志拦截器</strong>：记录每个 gRPC 请求的路径、耗时和状态码，输出到日志文件。</li>
+
+<ol>
+<li><strong>超时传播</strong>：在拦截器中获取上游传递的 deadline，并在 handler 中检查是否超时。</li>
+
+<h3>🟡 进阶题</h3>
+
+<ol>
+<li><strong>per-method 超时配置</strong>：设计一个配置系统，允许不同 gRPC 方法设置不同的超时时间（如 <code>GetUser</code> 2秒，<code>ListUsers</code> 10秒）。</li>
+
+<h3>🔴 开放题</h3>
+
+<ol>
+<li><strong>设计一个限流拦截器</strong>：基于令牌桶算法，在拦截器层面实现对 gRPC 接口的限流，支持 per-method 和 per-client 两种维度。</li>
+
+<hr>
+
+<h2>知识点总结</h2>
+
+<pre><code>gRPC 拦截器与错误处理
+├── 拦截器机制
+│   ├── 客户端拦截器（ClientInterceptor）
+│   ├── 服务端拦截器（ServerInterceptor）
+│   ├── 执行顺序与链式调用
+│   └── 横切关注点分离
+├── 超时控制
+│   ├── Deadline Propagation
+│   ├── grpc-timeout header 解析
+│   ├── 默认超时与 per-method 配置
+│   └── 上下文中传递 deadline
+├── 错误处理
+│   ├── gRPC Status Code 体系
+│   │   ├── OK (0)
+│   │   ├── UNAUTHENTICATED (16)
+│   │   ├── NOT_FOUND (5)
+│   │   ├── DEADLINE_EXCEEDED (4)
+│   │   └── INTERNAL (13)
+│   ├── 错误元数据（Metadata）
+│   └── 错误信息脱敏
+└── 最佳实践
+    ├── 拦截器注册顺序
+    ├── 统一错误封装
+    └── 请求日志标准化</code></pre>
+
+<hr>
+
+<h2>举一反三</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>变种说明</th>
+<th>关键差异</th>
+</tr></thead><tbody>
+<tr>
+<td>HTTP 中间件 → gRPC 拦截器</td>
+<td>同样的横切逻辑在不同协议</td>
+<td>gRPC 用 Metadata 而非 Header，状态码体系不同</td>
+</tr>
+<tr>
+<td>单服务拦截器 → 微服务链路拦截</td>
+<td>多个服务串联时的拦截器设计</td>
+<td>需要传播 trace context 和 deadline</td>
+</tr>
+<tr>
+<td>认证拦截器 → 多租户拦截器</td>
+<td>根据不同租户隔离资源</td>
+<td>需要解析 token 并设置租户上下文</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>参考资料</h2>
+
+<table><thead><tr>
+<th>资料</th>
+<th>链接</th>
+<th>权威等级</th>
+</tr></thead><tbody>
+<tr>
+<td>gRPC 官方文档 - Interceptors</td>
+<td>https://grpc.io/docs/guides/interceptors/</td>
+<td>⭐⭐⭐⭐⭐</td>
+</tr>
+<tr>
+<td>gRPC Status Code</td>
+<td>https://grpc.github.io/grpc/core/md_doc_statuscodes.html</td>
+<td>⭐⭐⭐⭐⭐</td>
+</tr>
+<tr>
+<td>Hyperf gRPC 文档</td>
+<td>https://hyperf.wiki/3.0/#/zh-cn/grpc</td>
+<td>⭐⭐⭐⭐</td>
+</tr>
+<tr>
+<td>Google AIP - Errors</td>
+<td>https://google.aip.dev/193</td>
+<td>⭐⭐⭐⭐</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>代码演进</h2>
+
+<h3>v1 ❌ 错误做法：无拦截器，每个方法重复鉴权</h3>
+
+<pre><code class="language-php">public function GetUser(GetUserRequest $request): UserResponse
+{
+    // ❌ Repeated auth logic in every method
+    $auth = $this-&gt;request-&gt;getHeaderLine(&#x27;authorization&#x27;);
+    if (!$this-&gt;authService-&gt;validate($auth)) {
+        throw new GrpcException(&#x27;Unauthorized&#x27;, \Grpc\STATUS_UNAUTHENTICATED);
+    }
+    
+    // ❌ No timeout handling
+    $user = $this-&gt;userRepository-&gt;find($request-&gt;getId());
+    return (new UserResponse())-&gt;setName($user-&gt;name);
+}</code></pre>
+
+<h3>v2 ✅ 正确做法：拦截器统一处理</h3>
+
+<pre><code class="language-php">// Interceptor handles auth and timeout
+// Handler only focuses on business logic
+public function GetUser(GetUserRequest $request): UserResponse
+{
+    $user = $this-&gt;userRepository-&gt;find($request-&gt;getId());
+    if ($user === null) {
+        throw new GrpcException(&#x27;User not found&#x27;, \Grpc\STATUS_NOT_FOUND);
+    }
+    return (new UserResponse())
+        -&gt;setId($user-&gt;id)
+        -&gt;setName($user-&gt;name)
+        -&gt;setEmail($user-&gt;email);
+}</code></pre>
+
+<h3>v3 🟢 优化：支持 per-method 配置 + 上下文传递</h3>
+
+<pre><code class="language-php">// Interceptor with per-method timeout config
+public function handle(Request $request, \Closure $next): mixed
+{
+    $path = $request-&gt;server[&#x27;path&#x27;] ?? &#x27;&#x27;;
+    $timeout = $this-&gt;config-&gt;getMethodTimeout($path) ?? self::DEFAULT_TIMEOUT_MS;
+    $deadline = microtime(true) + ($timeout / 1000);
+    Context::set(&#x27;grpc.deadline&#x27;, $deadline);
+    Context::set(&#x27;grpc.method&#x27;, $path);
+    
+    return $next($request);
+}</code></pre>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

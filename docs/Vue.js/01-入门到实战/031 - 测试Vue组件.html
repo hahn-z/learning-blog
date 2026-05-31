@@ -1,0 +1,583 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>031 - 测试Vue组件</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Vue.js/index.html">Vue.js</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Vue.js/01-入门到实战/index.html">Vue.js入门到实战</a>
+</nav>
+<h1>031 - 测试Vue组件</h1>
+<div class="meta">
+<span>📂 Vue.js入门到实战</span>
+<span>🏷️ Vue.js</span>
+</div>
+<article>
+
+
+
+<h2>难度标注</h2>
+<blockquote><p><strong>难度：🔴 高级</strong> | <strong>前置知识：Vue 3 组件、Composition API、Vite</strong> | <strong>预计学习时间：60 分钟</strong></p></blockquote>
+
+<h2>概念讲解</h2>
+
+<h3>什么是 Vue 组件测试？</h3>
+
+<p>Vue 组件测试是指通过自动化工具验证组件的<strong>渲染输出、用户交互、状态变化</strong>是否符合预期。测试分为三个层级：</p>
+
+<ul>
+<li><strong>单元测试（Unit Test）</strong>：测试单个函数或组合式逻辑</li>
+<li><strong>组件测试（Component Test）</strong>：测试组件的渲染和交互</li>
+<li><strong>E2E 测试（End-to-End Test）</strong>：测试完整用户流程</li>
+
+<h3>核心工具链</h3>
+
+<table><thead><tr>
+<th>工具</th>
+<th>用途</th>
+<th>特点</th>
+</tr></thead><tbody>
+<tr>
+<td>Vitest</td>
+<td>测试运行器</td>
+<td>Vite 原生集成，速度极快</td>
+</tr>
+<tr>
+<td>Vue Test Utils</td>
+<td>组件挂载工具</td>
+<td>官方维护，API 稳定</td>
+</tr>
+<tr>
+<td>happy-dom / jsdom</td>
+<td>DOM 模拟</td>
+<td>happy-dom 更快，jsdom 更兼容</td>
+</tr>
+<tr>
+<td>Cypress / Playwright</td>
+<td>E2E 测试</td>
+<td>真实浏览器环境</td>
+</tr>
+</tbody></table>
+
+<h2>脑图</h2>
+
+<pre><code>Vue 组件测试
+├── 工具链
+│   ├── Vitest (运行器)
+│   ├── Vue Test Utils (挂载)
+│   └── happy-dom (DOM)
+├── 测试类型
+│   ├── 单元测试 (函数/逻辑)
+│   ├── 组件测试 (渲染/交互)
+│   └── E2E 测试 (流程)
+├── 测试内容
+│   ├── 渲染输出
+│   ├── 用户交互
+│   ├── Props / Emits
+│   ├── Slots
+│   └── 异步行为
+└── 最佳实践
+    ├── 测试行为而非实现
+    ├── 用户视角优先
+    └── 合理覆盖率</code></pre>
+
+<h2>完整代码</h2>
+
+<h3>项目配置</h3>
+
+<pre><code class="language-bash"># vite.config.ts
+npm install -D vitest @vue/test-utils happy-dom @vitest/coverage-v8</code></pre>
+
+<pre><code class="language-ts">// vite.config.ts
+import { defineConfig } from &#x27;vite&#x27;
+import vue from &#x27;@vitejs/plugin-vue&#x27;
+
+export default defineConfig({
+  plugins: [vue()],
+  test: {
+    environment: &#x27;happy-dom&#x27;,
+    coverage: {
+      provider: &#x27;v8&#x27;,
+      reporter: [&#x27;text&#x27;, &#x27;json&#x27;, &#x27;html&#x27;]
+    }
+  }
+})</code></pre>
+
+<h3>待测组件</h3>
+
+<pre><code class="language-vue">&lt;!-- src/components/Counter.vue --&gt;
+&lt;template&gt;
+  &lt;div class=&quot;counter&quot;&gt;
+    &lt;h2&gt;{{ title }}&lt;/h2&gt;
+    &lt;p class=&quot;count&quot; data-testid=&quot;count&quot;&gt;{{ count }}&lt;/p&gt;
+    &lt;p class=&quot;status&quot;&gt;{{ status }}&lt;/p&gt;
+    &lt;button data-testid=&quot;increment&quot; @click=&quot;increment&quot;&gt;+1&lt;/button&gt;
+    &lt;button data-testid=&quot;decrement&quot; @click=&quot;decrement&quot;&gt;-1&lt;/button&gt;
+    &lt;button data-testid=&quot;reset&quot; @click=&quot;reset&quot;&gt;Reset&lt;/button&gt;
+    &lt;slot name=&quot;footer&quot; :count=&quot;count&quot; /&gt;
+  &lt;/div&gt;
+&lt;/template&gt;
+
+&lt;script setup lang=&quot;ts&quot;&gt;
+import { ref, computed } from &#x27;vue&#x27;
+
+const props = withDefaults(defineProps&lt;{
+  title?: string
+  initialValue?: number
+  min?: number
+  max?: number
+}&gt;(), {
+  title: &#x27;Counter&#x27;,
+  initialValue: 0,
+  min: -10,
+  max: 10
+})
+
+const emit = defineEmits&lt;{
+  change: [value: number]
+  limit: [direction: &#x27;min&#x27; | &#x27;max&#x27;]
+}&gt;()
+
+const count = ref(props.initialValue)
+
+const status = computed(() =&gt; {
+  if (count.value &gt;= props.max) return &#x27;At maximum&#x27;
+  if (count.value &lt;= props.min) return &#x27;At minimum&#x27;
+  return &#x27;Normal&#x27;
+})
+
+function increment() {
+  if (count.value &lt; props.max) {
+    count.value++
+    emit(&#x27;change&#x27;, count.value)
+  } else {
+    emit(&#x27;limit&#x27;, &#x27;max&#x27;)
+  }
+}
+
+function decrement() {
+  if (count.value &gt; props.min) {
+    count.value--
+    emit(&#x27;change&#x27;, count.value)
+  } else {
+    emit(&#x27;limit&#x27;, &#x27;min&#x27;)
+  }
+}
+
+function reset() {
+  count.value = props.initialValue
+  emit(&#x27;change&#x27;, count.value)
+}
+&lt;/script&gt;</code></pre>
+
+<h3>单元测试</h3>
+
+<pre><code class="language-ts">// src/composables/useCounter.test.ts
+import { describe, it, expect } from &#x27;vitest&#x27;
+import { useCounter } from &#x27;./useCounter&#x27;
+
+describe(&#x27;useCounter&#x27;, () =&gt; {
+  it(&#x27;initializes with default value&#x27;, () =&gt; {
+    const { count } = useCounter()
+    expect(count.value).toBe(0)
+  })
+
+  it(&#x27;initializes with custom value&#x27;, () =&gt; {
+    const { count } = useCounter(10)
+    expect(count.value).toBe(10)
+  })
+
+  it(&#x27;increments correctly&#x27;, () =&gt; {
+    const { count, increment } = useCounter(5)
+    increment()
+    expect(count.value).toBe(6)
+  })
+
+  it(&#x27;respects max limit&#x27;, () =&gt; {
+    const { count, increment } = useCounter(9, { max: 10 })
+    increment()
+    expect(count.value).toBe(10)
+    increment()
+    expect(count.value).toBe(10) // no change beyond max
+  })
+})</code></pre>
+
+<h3>组件测试</h3>
+
+<pre><code class="language-ts">// src/components/Counter.test.ts
+import { describe, it, expect } from &#x27;vitest&#x27;
+import { mount } from &#x27;@vue/test-utils&#x27;
+import Counter from &#x27;./Counter.vue&#x27;
+
+describe(&#x27;Counter.vue&#x27;, () =&gt; {
+  // Helper to create wrapper with default props
+  const createWrapper = (props = {}) =&gt;
+    mount(Counter, { props: { ...props } })
+
+  it(&#x27;renders title prop&#x27;, () =&gt; {
+    const wrapper = createWrapper({ title: &#x27;My Counter&#x27; })
+    expect(wrapper.find(&#x27;h2&#x27;).text()).toBe(&#x27;My Counter&#x27;)
+  })
+
+  it(&#x27;displays initial count value&#x27;, () =&gt; {
+    const wrapper = createWrapper({ initialValue: 5 })
+    expect(wrapper.find(&#x27;[data-testid=&quot;count&quot;]&#x27;).text()).toBe(&#x27;5&#x27;)
+  })
+
+  it(&#x27;increments count on button click&#x27;, async () =&gt; {
+    const wrapper = createWrapper({ initialValue: 0 })
+    await wrapper.find(&#x27;[data-testid=&quot;increment&quot;]&#x27;).trigger(&#x27;click&#x27;)
+    expect(wrapper.find(&#x27;[data-testid=&quot;count&quot;]&#x27;).text()).toBe(&#x27;1&#x27;)
+  })
+
+  it(&#x27;decrements count on button click&#x27;, async () =&gt; {
+    const wrapper = createWrapper({ initialValue: 5 })
+    await wrapper.find(&#x27;[data-testid=&quot;decrement&quot;]&#x27;).trigger(&#x27;click&#x27;)
+    expect(wrapper.find(&#x27;[data-testid=&quot;count&quot;]&#x27;).text()).toBe(&#x27;4&#x27;)
+  })
+
+  it(&#x27;resets count to initial value&#x27;, async () =&gt; {
+    const wrapper = createWrapper({ initialValue: 3 })
+    await wrapper.find(&#x27;[data-testid=&quot;increment&quot;]&#x27;).trigger(&#x27;click&#x27;)
+    await wrapper.find(&#x27;[data-testid=&quot;reset&quot;]&#x27;).trigger(&#x27;click&#x27;)
+    expect(wrapper.find(&#x27;[data-testid=&quot;count&quot;]&#x27;).text()).toBe(&#x27;3&#x27;)
+  })
+
+  it(&#x27;emits change event on increment&#x27;, async () =&gt; {
+    const wrapper = createWrapper()
+    await wrapper.find(&#x27;[data-testid=&quot;increment&quot;]&#x27;).trigger(&#x27;click&#x27;)
+    expect(wrapper.emitted(&#x27;change&#x27;)).toBeTruthy()
+    expect(wrapper.emitted(&#x27;change&#x27;)![0]).toEqual([1])
+  })
+
+  it(&#x27;emits limit event when hitting max&#x27;, async () =&gt; {
+    const wrapper = createWrapper({ initialValue: 10, max: 10 })
+    await wrapper.find(&#x27;[data-testid=&quot;increment&quot;]&#x27;).trigger(&#x27;click&#x27;)
+    expect(wrapper.emitted(&#x27;limit&#x27;)).toBeTruthy()
+    expect(wrapper.emitted(&#x27;limit&#x27;)![0]).toEqual([&#x27;max&#x27;])
+  })
+
+  it(&#x27;renders scoped slot content&#x27;, () =&gt; {
+    const wrapper = mount(Counter, {
+      props: { initialValue: 7 },
+      slots: {
+        footer: `&lt;template #footer=&quot;{ count }&quot;&gt;
+          &lt;span data-testid=&quot;slot&quot;&gt;Count: {{ count }}&lt;/span&gt;
+        &lt;/template&gt;`
+      }
+    })
+    expect(wrapper.find(&#x27;[data-testid=&quot;slot&quot;]&#x27;).text()).toBe(&#x27;Count: 7&#x27;)
+  })
+
+  it(&#x27;updates status text based on count&#x27;, async () =&gt; {
+    const wrapper = createWrapper({ initialValue: 10, max: 10 })
+    expect(wrapper.find(&#x27;.status&#x27;).text()).toBe(&#x27;At maximum&#x27;)
+  })
+})</code></pre>
+
+<h3>异步组件测试</h3>
+
+<pre><code class="language-ts">// src/components/UserList.test.ts
+import { describe, it, expect, vi } from &#x27;vitest&#x27;
+import { mount, flushPromises } from &#x27;@vue/test-utils&#x27;
+import UserList from &#x27;./UserList.vue&#x27;
+
+// Mock the API module
+vi.mock(&#x27;@/api/users&#x27;, () =&gt; ({
+  fetchUsers: vi.fn(() =&gt;
+    Promise.resolve([
+      { id: 1, name: &#x27;Alice&#x27; },
+      { id: 2, name: &#x27;Bob&#x27; }
+    ])
+  )
+}))
+
+describe(&#x27;UserList.vue (async)&#x27;, () =&gt; {
+  it(&#x27;shows loading state then renders users&#x27;, async () =&gt; {
+    const wrapper = mount(UserList)
+    // Loading state
+    expect(wrapper.find(&#x27;[data-testid=&quot;loading&quot;]&#x27;).exists()).toBe(true)
+    // Wait for API call to resolve
+    await flushPromises()
+    // Users rendered
+    expect(wrapper.find(&#x27;[data-testid=&quot;loading&quot;]&#x27;).exists()).toBe(false)
+    expect(wrapper.findAll(&#x27;[data-testid=&quot;user&quot;]&#x27;)).toHaveLength(2)
+    expect(wrapper.findAll(&#x27;[data-testid=&quot;user&quot;]&#x27;)[0].text()).toBe(&#x27;Alice&#x27;)
+  })
+})</code></pre>
+
+<h2>执行预览</h2>
+
+<pre><code class="language-bash">$ npm run test
+
+ ✓ src/composables/useCounter.test.ts (4 tests) 12ms
+ ✓ src/components/Counter.test.ts (9 tests) 45ms
+ ✓ src/components/UserList.test.ts (1 test) 28ms
+
+ Test Files  3 passed (3)
+      Tests  14 passed (14)
+   Duration  320ms
+
+ % Coverage report from v8
+---------------------------|---------|----------|---------|
+ File                      | % Stmts | % Branch | % Funcs |
+---------------------------|---------|----------|---------|
+ All files                 |   95.2  |   88.9   |  100.0  |
+  Counter.vue              |   100   |   100    |  100    |
+  useCounter.ts            |   90.0  |   80.0   |  100    |
+---------------------------|---------|----------|---------|</code></pre>
+
+<h2>注意事项</h2>
+
+<table><thead><tr>
+<th>事项</th>
+<th>说明</th>
+<th>建议</th>
+</tr></thead><tbody>
+<tr>
+<td>测试环境</td>
+<td>happy-dom vs jsdom</td>
+<td>默认 happy-dom，有问题切 jsdom</td>
+</tr>
+<tr>
+<td>异步更新</td>
+<td>DOM 不会同步更新</td>
+<td>用 <code>await wrapper.vm.$nextTick()</code> 或 <code>flushPromises()</code></td>
+</tr>
+<tr>
+<td>全局组件</td>
+<td>mount 不注册全局组件</td>
+<td>需手动传入 <code>global.components</code></td>
+</tr>
+<tr>
+<td>Pinia</td>
+<td>测试中需要安装</td>
+<td>用 <code>createTestingPinia()</code></td>
+</tr>
+<tr>
+<td>路由</td>
+<td>需要 <code>vue-router</code> mock</td>
+<td>用 <code>createRouter</code> + <code>createWebHistory</code> 或 mock</td>
+</tr>
+<tr>
+<td>定时器</td>
+<td><code>setTimeout</code> 导致测试慢</td>
+<td><code>vi.useFakeTimers()</code> + <code>vi.advanceTimersByTime()</code></td>
+</tr>
+<tr>
+<td>data-testid</td>
+<td>使用测试标记</td>
+<td>比用 CSS 类名更稳定</td>
+</tr>
+</tbody></table>
+
+<h2>避坑指南</h2>
+
+<ul>
+<li>❌ <code>wrapper.find('.btn')</code> 依赖 CSS 类名 → ✅ <code>wrapper.find('[data-testid="submit"]')</code> 用测试标记</li>
+<li>❌ 测试组件内部实现细节 → ✅ 测试用户可见的行为和输出</li>
+<li>❌ <code>expect(wrapper.vm.count).toBe(1)</code> 直接访问内部状态 → ✅ <code>expect(wrapper.text()).toContain('1')</code> 验证渲染结果</li>
+<li>❌ 忘记 <code>await</code> 异步操作 → ✅ 所有 <code>trigger</code>、<code>setValue</code> 后都 <code>await</code></li>
+<li>❌ 在 <code>beforeEach</code> 中做复杂设置 → ✅ 工厂函数 <code>createWrapper()</code> 更灵活</li>
+<li>❌ 覆盖率 100% 执念 → ✅ 关键路径覆盖 > 追求数字</li>
+
+<h2>练习题</h2>
+
+<h3>🟢 基础</h3>
+<ol>
+<li>编写一个测试，验证 <code>Button.vue</code> 点击后 emit <code>click</code> 事件</li>
+</ul>
+<ol>
+<li>测试一个接受 <code>title</code> prop 的组件是否正确渲染标题</li>
+
+<h3>🟡 进阶</h3>
+<ol>
+<li>测试一个包含异步数据加载的组件，验证 loading → 数据展示的流程</li>
+</ul>
+<ol>
+<li>编写测试验证 <code>v-model</code> 双向绑定是否正常工作</li>
+
+<h3>🔴 挑战</h3>
+<ol>
+<li>为使用 Pinia store 的组件编写测试（mock store 状态）</li>
+</ul>
+<ol>
+<li>测试一个包含 <code>teleport</code> 的模态框组件</li>
+
+<h2>知识点总结</h2>
+
+<pre><code>Vue 组件测试知识树
+├── 基础
+│   ├── mount() / shallowMount()
+│   ├── wrapper.find() / findAll()
+│   ├── wrapper.trigger() / setValue()
+│   ├── wrapper.emitted()
+│   └── wrapper.text() / html()
+├── 异步处理
+│   ├── flushPromises()
+│   ├── await nextTick()
+│   └── vi.useFakeTimers()
+├── Mock
+│   ├── vi.mock() 模块
+│   ├── vi.fn() 函数
+│   ├── vi.spyOn() 监听
+│   └── createTestingPinia()
+├── 插槽测试
+│   ├── 默认插槽
+│   ├── 具名插槽
+│   └── 作用域插槽
+└── 覆盖率
+    ├── Statements
+    ├── Branches
+    ├── Functions
+    └── Lines</code></pre>
+
+<h2>举一反三</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>适用方法</th>
+<th>示例</th>
+</tr></thead><tbody>
+<tr>
+<td>测试 Props 渲染</td>
+<td><code>wrapper.find().text()</code></td>
+<td>验证标题文本</td>
+</tr>
+<tr>
+<td>测试用户交互</td>
+<td><code>trigger('click')</code> + <code>emitted()</code></td>
+<td>点击按钮后检查事件</td>
+</tr>
+<tr>
+<td>测试表单输入</td>
+<td><code>setValue()</code> + <code>trigger('submit')</code></td>
+<td>模拟表单提交</td>
+</tr>
+<tr>
+<td>测试条件渲染</td>
+<td><code>wrapper.find().exists()</code></td>
+<td>v-if 切换后元素存在性</td>
+</tr>
+<tr>
+<td>测试列表渲染</td>
+<td><code>wrapper.findAll()</code> + length</td>
+<td>v-for 列表数量</td>
+</tr>
+<tr>
+<td>测试路由跳转</td>
+<td><code>mock push</code> + <code>toHaveBeenCalledWith</code></td>
+<td>编程式导航</td>
+</tr>
+<tr>
+<td>测试 Pinia</td>
+<td><code>createTestingPinia()</code></td>
+<td>模拟 store 状态</td>
+</tr>
+<tr>
+<td>测试异步组件</td>
+<td><code>flushPromises()</code></td>
+<td>API 调用后验证</td>
+</tr>
+</tbody></table>
+
+<h2>参考资料</h2>
+
+<ul>
+<li><a href="https://test-utils.vuejs.org/">Vue Test Utils 官方文档</a></li>
+<li><a href="https://vitest.dev/">Vitest 官方文档</a></li>
+<li><a href="https://vuejs.org/guide/scaling-up/testing.html">Vue.js 测试指南</a></li>
+
+<h2>代码演进</h2>
+
+<h3>v1 — 基础渲染测试</h3>
+<pre><code class="language-ts">// Simple smoke test
+it(&#x27;renders&#x27;, () =&gt; {
+  const wrapper = mount(Counter)
+  expect(wrapper.find(&#x27;.counter&#x27;).exists()).toBe(true)
+})</code></pre>
+
+<h3>v2 — 完整交互测试</h3>
+<pre><code class="language-ts">// Test interactions and events
+it(&#x27;increments and emits&#x27;, async () =&gt; {
+  const wrapper = mount(Counter)
+  await wrapper.find(&#x27;[data-testid=&quot;increment&quot;]&#x27;).trigger(&#x27;click&#x27;)
+  expect(wrapper.find(&#x27;[data-testid=&quot;count&quot;]&#x27;).text()).toBe(&#x27;1&#x27;)
+  expect(wrapper.emitted(&#x27;change&#x27;)).toBeTruthy()
+})</code></pre>
+
+<h3>v3 — 生产级测试套件</h3>
+<pre><code class="language-ts">// Factory function + edge cases + async + coverage
+const createWrapper = (props = {}, slots = {}) =&gt;
+  mount(Counter, { props: { ...props }, slots, global: { plugins: [] } })
+
+describe(&#x27;Counter&#x27;, () =&gt; {
+  it.each([[-10, &#x27;min&#x27;], [10, &#x27;max&#x27;]])(
+    &#x27;emits limit at boundary %i&#x27;,
+    async (value, direction) =&gt; {
+      const wrapper = createWrapper({ initialValue: value, [direction]: value })
+      const btn = direction === &#x27;max&#x27; ? &#x27;increment&#x27; : &#x27;decrement&#x27;
+      await wrapper.find(`[data-testid=&quot;${btn}&quot;]`).trigger(&#x27;click&#x27;)
+      expect(wrapper.emitted(&#x27;limit&#x27;)![0]).toEqual([direction])
+    }
+  )
+})</code></pre>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

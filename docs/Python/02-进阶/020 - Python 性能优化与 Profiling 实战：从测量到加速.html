@@ -1,0 +1,653 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>020 - Python 性能优化与 Profiling 实战：从测量到加速</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Python/index.html">其他</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Python/02-进阶/index.html">Python进阶</a>
+</nav>
+<h1>020 - Python 性能优化与 Profiling 实战：从测量到加速</h1>
+<div class="meta">
+<span>📂 Python进阶</span>
+<span>🏷️ 其他</span>
+</div>
+<article>
+
+
+<h1>Python 性能优化与 Profiling</h1>
+
+<blockquote><p><strong>难度：★★★★☆ 高级</strong><br>系统性讲解 Python 性能分析工具和优化策略：cProfile、line_profiler、memory_profiler、timeit、算法优化、内置函数利用、Cython 加速。</p></blockquote>
+
+<h2>一、概念讲解</h2>
+
+<p>性能优化三步法：<strong>测量 → 分析 → 优化</strong>。不要凭直觉优化，让数据说话。</p>
+
+<p><strong>性能分析工具链：</strong></p>
+
+<table><thead><tr>
+<th>工具</th>
+<th>用途</th>
+<th>粒度</th>
+</tr></thead><tbody>
+<tr>
+<td><code>timeit</code></td>
+<td>微基准测试</td>
+<td>代码片段</td>
+</tr>
+<tr>
+<td><code>cProfile</code></td>
+<td>函数级性能分析</td>
+<td>函数调用</td>
+</tr>
+<tr>
+<td><code>line_profiler</code></td>
+<td>逐行分析</td>
+<td>代码行</td>
+</tr>
+<tr>
+<td><code>memory_profiler</code></td>
+<td>内存使用分析</td>
+<td>代码行</td>
+</tr>
+<tr>
+<td><code>py-spy</code></td>
+<td>采样分析(无需修改代码)</td>
+<td>进程级</td>
+</tr>
+<tr>
+<td><code>scalene</code></td>
+<td>CPU+内存+GPU 分析</td>
+<td>代码行</td>
+</tr>
+</tbody></table>
+
+<p><strong>优化策略优先级：</strong></p>
+
+<ol>
+<li>算法与数据结构（最关键）</li>
+</ul>
+<ol>
+<li>利用内置函数和标准库（C 实现）</li>
+</ul>
+<ol>
+<li>减少不必要的计算（缓存、懒加载）</li>
+</ul>
+<ol>
+<li>并发/并行（多线程、多进程、异步）</li>
+</ul>
+<ol>
+<li>C 扩展（Cython、ctypes、PyO3）</li>
+
+<h2>二、脑图</h2>
+
+<pre><code>性能优化
+├── 测量工具
+│   ├── timeit
+│   ├── cProfile
+│   ├── line_profiler
+│   └── memory_profiler
+├── 优化策略
+│   ├── 算法选择
+│   ├── 内置函数
+│   ├── 生成器
+│   └── 缓存
+├── 并发加速
+│   ├── threading (IO)
+│   ├── multiprocessing (CPU)
+│   └── asyncio (IO)
+└── 底层加速
+    ├── Cython
+    ├── ctypes / cffi
+    └── PyO3 (Rust)</code></pre>
+
+<h2>三、完整代码</h2>
+
+<h3>3.1 测量工具</h3>
+
+<pre><code class="language-python">&quot;&quot;&quot;Profiling tools - measure before optimizing.&quot;&quot;&quot;
+
+import timeit
+import cProfile
+import pstats
+import io
+from functools import lru_cache, wraps
+from time import perf_counter
+
+
+# --- timeit: micro benchmark ---
+def benchmark_concat():
+    &quot;&quot;&quot;Compare string concatenation strategies.&quot;&quot;&quot;
+
+    def plus_concat():
+        s = &quot;&quot;
+        for i in range(1000):
+            s += str(i)
+        return s
+
+    def join_concat():
+        return &quot;&quot;.join(str(i) for i in range(1000))
+
+    def list_join():
+        return &quot;&quot;.join([str(i) for i in range(1000)])
+
+    t1 = timeit.timeit(plus_concat, number=1000)
+    t2 = timeit.timeit(join_concat, number=1000)
+    t3 = timeit.timeit(list_join, number=1000)
+
+    print(f&quot;+ in loop:  {t1:.4f}s&quot;)
+    print(f&quot;join:       {t2:.4f}s&quot;)
+    print(f&quot;list+join:  {t3:.4f}s&quot;)
+    print(f&quot;Speedup: {t1/t2:.1f}x&quot;)
+
+
+# --- cProfile: function-level profiling ---
+def profile_example():
+    &quot;&quot;&quot;Profile a computation-heavy function.&quot;&quot;&quot;
+
+    def slow_fibonacci(n):
+        if n &lt;= 1:
+            return n
+        return slow_fibonacci(n - 1) + slow_fibonacci(n - 2)
+
+    profiler = cProfile.Profile()
+    profiler.enable()
+    result = slow_fibonacci(30)
+    profiler.disable()
+
+    stream = io.StringIO()
+    stats = pstats.Stats(profiler, stream=stream)
+    stats.sort_stats(&quot;cumulative&quot;)
+    stats.print_stats(10)
+    print(stream.getvalue())
+    return result
+
+
+# --- Custom timer decorator ---
+def timed(func):
+    &quot;&quot;&quot;Decorator to measure function execution time.&quot;&quot;&quot;
+
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        start = perf_counter()
+        result = func(*args, **kwargs)
+        elapsed = perf_counter() - start
+        print(f&quot;{func.__name__}: {elapsed:.4f}s&quot;)
+        return result
+
+    return wrapper</code></pre>
+
+<h3>3.2 算法优化实例</h3>
+
+<pre><code class="language-python">&quot;&quot;&quot;Algorithm optimization - choose the right data structure.&quot;&quot;&quot;
+
+from collections import Counter, defaultdict
+import heapq
+
+
+def dedup_list(data: list) -&gt; list:
+    &quot;&quot;&quot;O(n) dedup preserving order.&quot;&quot;&quot;
+    seen = set()
+    result = []
+    for item in data:
+        if item not in seen:
+            seen.add(item)
+            result.append(item)
+    return result
+
+
+def top_k_frequent(items: list, k: int) -&gt; list[tuple]:
+    &quot;&quot;&quot;Find top K frequent items efficiently.&quot;&quot;&quot;
+    counter = Counter(items)
+    # heapq.nlargest is O(n log k), better than sorting O(n log n)
+    return heapq.nlargest(k, counter.items(), key=lambda x: x[1])
+
+
+def group_by(items: list, key_fn) -&gt; dict:
+    &quot;&quot;&quot;Group items by key function.&quot;&quot;&quot;
+    groups = defaultdict(list)
+    for item in items:
+        groups[key_fn(item)].append(item)
+    return dict(groups)
+
+
+def find_anagrams(words: list[str]) -&gt; dict[str, list[str]]:
+    &quot;&quot;&quot;Group anagrams efficiently using sorted key.&quot;&quot;&quot;
+    groups = defaultdict(list)
+    for word in words:
+        key = &quot;&quot;.join(sorted(word))
+        groups[key].append(word)
+    return dict(groups)</code></pre>
+
+<h3>3.3 内存优化</h3>
+
+<pre><code class="language-python">&quot;&quot;&quot;Memory optimization - generators, __slots__, and weakref.&quot;&quot;&quot;
+
+import sys
+from dataclasses import dataclass
+
+
+# --- Generator vs list for large sequences ---
+def range_list(n: int) -&gt; list[int]:
+    &quot;&quot;&quot;Returns full list - O(n) memory.&quot;&quot;&quot;
+    return list(range(n))
+
+
+def range_gen(n: int):
+    &quot;&quot;&quot;Generator - O(1) memory.&quot;&quot;&quot;
+    for i in range(n):
+        yield i
+
+
+# --- __slots__ for memory savings ---
+class PointNormal:
+    &quot;&quot;&quot;Regular class - uses __dict__ for attributes.&quot;&quot;&quot;
+
+    def __init__(self, x: float, y: float):
+        self.x = x
+        self.y = y
+
+
+class PointSlots:
+    &quot;&quot;&quot;With __slots__ - fixed attribute set, less memory.&quot;&quot;&quot;
+    __slots__ = (&quot;x&quot;, &quot;y&quot;)
+
+    def __init__(self, x: float, y: float):
+        self.x = x
+        self.y = y
+
+
+def compare_memory():
+    &quot;&quot;&quot;Compare memory usage of normal vs slots.&quot;&quot;&quot;
+    normal = PointNormal(1.0, 2.0)
+    slots = PointSlots(1.0, 2.0)
+
+    size_normal = sys.getsizeof(normal.__dict__)
+    size_slots = sys.getsizeof(slots)
+
+    print(f&quot;Normal __dict__: {size_normal} bytes&quot;)
+    print(f&quot;Slots object:   {size_slots} bytes&quot;)
+
+
+# --- Lazy loading with property ---
+class DataPipeline:
+    &quot;&quot;&quot;Load data only when first accessed.&quot;&quot;&quot;
+
+    def __init__(self, source: str):
+        self._source = source
+        self._data = None
+
+    @property
+    def data(self):
+        if self._data is None:
+            print(f&quot;Loading from {self._source}...&quot;)
+            self._data = list(range(1000))
+        return self._data</code></pre>
+
+<h3>3.4 并发加速</h3>
+
+<pre><code class="language-python">&quot;&quot;&quot;Concurrency patterns for performance.&quot;&quot;&quot;
+
+import asyncio
+from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor
+
+
+# --- CPU-bound: multiprocessing ---
+def cpu_heavy(n: int) -&gt; int:
+    &quot;&quot;&quot;CPU-intensive computation.&quot;&quot;&quot;
+    total = 0
+    for i in range(n):
+        total += i * i
+    return total
+
+
+def parallel_compute(numbers: list[int]) -&gt; list[int]:
+    &quot;&quot;&quot;Distribute CPU work across processes.&quot;&quot;&quot;
+    with ProcessPoolExecutor() as pool:
+        results = list(pool.map(cpu_heavy, numbers))
+    return results
+
+
+# --- IO-bound: threading ---
+def fetch_url(url: str) -&gt; str:
+    &quot;&quot;&quot;Simulate IO-bound work.&quot;&quot;&quot;
+    import time
+    time.sleep(0.1)
+    return f&quot;Response from {url}&quot;
+
+
+def parallel_fetch(urls: list[str]) -&gt; list[str]:
+    &quot;&quot;&quot;Fetch URLs concurrently with threads.&quot;&quot;&quot;
+    with ThreadPoolExecutor(max_workers=10) as pool:
+        return list(pool.map(fetch_url, urls))
+
+
+# --- IO-bound: asyncio ---
+async def async_fetch(url: str) -&gt; str:
+    &quot;&quot;&quot;Async version of fetch.&quot;&quot;&quot;
+    await asyncio.sleep(0.1)
+    return f&quot;Response from {url}&quot;
+
+
+async def async_fetch_all(urls: list[str]) -&gt; list[str]:
+    &quot;&quot;&quot;Fetch all URLs concurrently with asyncio.&quot;&quot;&quot;
+    tasks = [async_fetch(url) for url in urls]
+    return await asyncio.gather(*tasks)</code></pre>
+
+<h3>3.5 缓存策略</h3>
+
+<pre><code class="language-python">&quot;&quot;&quot;Caching strategies for performance.&quot;&quot;&quot;
+
+from functools import lru_cache
+import time
+
+
+# --- lru_cache for pure functions ---
+@lru_cache(maxsize=256)
+def fibonacci(n: int) -&gt; int:
+    if n &lt;= 1:
+        return n
+    return fibonacci(n - 1) + fibonacci(n - 2)
+
+
+# --- Manual cache with TTL ---
+class TTLCache:
+    &quot;&quot;&quot;Cache with time-to-live expiration.&quot;&quot;&quot;
+
+    def __init__(self, ttl: float = 60.0):
+        self._ttl = ttl
+        self._store: dict = {}
+
+    def get(self, key: str):
+        if key in self._store:
+            value, timestamp = self._store[key]
+            if time.time() - timestamp &lt; self._ttl:
+                return value
+            del self._store[key]
+        return None
+
+    def set(self, key: str, value):
+        self._store[key] = (value, time.time())
+
+
+cache = TTLCache(ttl=30.0)</code></pre>
+
+<h2>四、执行预览</h2>
+
+<pre><code class="language-text"># Benchmark
+&gt;&gt;&gt; benchmark_concat()
++ in loop:  0.1234s
+join:       0.0456s
+list+join:  0.0478s
+Speedup: 2.7x
+
+# Profile fibonacci
+&gt;&gt;&gt; profile_example()
+     2692537 function calls (3 primitive calls)
+ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+2692537/1    0.312    0.000    0.312    0.312 test.py:5(slow_fibonacci)
+
+# Generator memory
+&gt;&gt;&gt; sys.getsizeof(range_list(1_000_000))
+8000056
+&gt;&gt;&gt; sys.getsizeof(range_gen(1_000_000))
+200
+
+# Cache speedup
+&gt;&gt;&gt; fibonacci(100)  # Instant with cache
+354224848179261915075
+&gt;&gt;&gt; fibonacci.cache_info()
+CacheInfo(hits=98, misses=101, maxsize=256, currsize=101)</code></pre>
+
+<h2>五、注意事项</h2>
+
+<table><thead><tr>
+<th>要点</th>
+<th>说明</th>
+</tr></thead><tbody>
+<tr>
+<td>先测量再优化</td>
+<td>不要凭直觉猜瓶颈</td>
+</tr>
+<tr>
+<td>大O不是全部</td>
+<td>常数因子在小数据集上更重要</td>
+</tr>
+<tr>
+<td>过早优化</td>
+<td>代码可读性 > 微优化</td>
+</tr>
+<tr>
+<td>GIL 限制</td>
+<td>CPU 密集型必须用多进程，不能用多线程</td>
+</tr>
+<tr>
+<td>内存 vs 速度</td>
+<td>缓存用空间换时间，注意内存限制</td>
+</tr>
+</tbody></table>
+
+<h2>六、避坑指南</h2>
+
+<table><thead><tr>
+<th>❌ 错误做法</th>
+<th>✅ 正确做法</th>
+</tr></thead><tbody>
+<tr>
+<td>凭感觉猜瓶颈</td>
+<td>用 cProfile 找热点</td>
+</tr>
+<tr>
+<td>优化非关键路径</td>
+<td>先优化占比最大的函数</td>
+</tr>
+<tr>
+<td>用多线程做 CPU 密集</td>
+<td>多线程适合 IO，CPU 用多进程</td>
+</tr>
+<tr>
+<td>字符串循环拼接</td>
+<td>用 <code>"".join()</code></td>
+</tr>
+<tr>
+<td>手写循环代替内置</td>
+<td><code>map</code>/<code>filter</code>/<code>sum</code> 等内置函数更快</td>
+</tr>
+<tr>
+<td><code>list(range(n))</code> 占满内存</td>
+<td>用生成器或 <code>range()</code> 惰性求值</td>
+</tr>
+</tbody></table>
+
+<h2>七、练习题</h2>
+
+<h3>🟢 入门</h3>
+<ol>
+<li>用 <code>timeit</code> 比较 <code>list.append</code> vs 列表推导式的性能</li>
+</ul>
+<ol>
+<li>用 <code>cProfile</code> 分析你的一个项目，找出最耗时的3个函数</li>
+
+<h3>🟡 进阶</h3>
+<ol>
+<li>实现一个支持 LRU 淘汰和 TTL 过期的缓存类</li>
+</ul>
+<ol>
+<li>对比 <code>multiprocessing.Pool</code> vs <code>concurrent.futures.ProcessPoolExecutor</code> 的性能差异</li>
+
+<h3>🔴 挑战</h3>
+<ol>
+<li>用 Cython 将一个纯 Python 计算函数加速 10 倍以上</li>
+</ul>
+<ol>
+<li>实现一个内存敏感的大文件处理管道，用生成器链式处理，峰值内存不超过 100MB</li>
+
+<h2>八、知识点总结</h2>
+
+<pre><code>性能优化
+├── 测量
+│   ├── timeit ✓ 微基准
+│   ├── cProfile ✓ 函数级
+│   ├── line_profiler ✓ 行级
+│   └── memory_profiler
+├── 优化
+│   ├── 算法 O(n) vs O(n²)
+│   ├── 数据结构选择
+│   ├── 内置函数 ✓ C实现
+│   └── 缓存 ✓ lru_cache
+├── 并发
+│   ├── threading (IO)
+│   ├── multiprocessing (CPU)
+│   └── asyncio (IO)
+└── 加速
+    ├── Cython
+    ├── cffi / ctypes
+    └── PyO3 (Rust)</code></pre>
+
+<h2>九、举一反三</h2>
+
+<table><thead><tr>
+<th>工具/策略</th>
+<th>适用场景</th>
+<th>典型加速比</th>
+</tr></thead><tbody>
+<tr>
+<td><code>cProfile</code></td>
+<td>找瓶颈</td>
+<td>N/A</td>
+</tr>
+<tr>
+<td>算法优化</td>
+<td>全场景</td>
+<td>10x~1000x</td>
+</tr>
+<tr>
+<td><code>lru_cache</code></td>
+<td>纯函数重复调用</td>
+<td>100x+</td>
+</tr>
+<tr>
+<td><code>__slots__</code></td>
+<td>大量小对象</td>
+<td>30%~50% 内存</td>
+</tr>
+<tr>
+<td>生成器</td>
+<td>大数据流</td>
+<td>内存降 99%</td>
+</tr>
+<tr>
+<td>multiprocessing</td>
+<td>CPU 密集</td>
+<td>接近核心数倍</td>
+</tr>
+<tr>
+<td>asyncio</td>
+<td>高并发 IO</td>
+<td>10x~100x 连接</td>
+</tr>
+<tr>
+<td>Cython</td>
+<td>热点数值计算</td>
+<td>10x~100x</td>
+</tr>
+</tbody></table>
+
+<h2>十、参考资料</h2>
+
+<ul>
+<li><a href="https://docs.python.org/3/library/profile.html">Python docs - cProfile</a></li>
+<li><a href="https://github.com/pyutils/line_profiler">line_profiler</a></li>
+<li><a href="https://github.com/plasma-umass/scalene">scalene</a></li>
+<li>《High Performance Python》- Micha Gorelick</li>
+<li><a href="https://cython.readthedocs.io/">Cython documentation</a></li>
+
+<h2>十一、代码演进：Fibonacci 的优化之路</h2>
+
+<pre><code class="language-python"># v1: Naive recursion - O(2^n)
+def fib_v1(n):
+    if n &lt;= 1:
+        return n
+    return fib_v1(n - 1) + fib_v1(n - 2)
+# fib_v1(40) takes ~30s
+
+
+# v2: Memoization with lru_cache - O(n)
+from functools import lru_cache
+
+@lru_cache(maxsize=None)
+def fib_v2(n):
+    if n &lt;= 1:
+        return n
+    return fib_v2(n - 1) + fib_v2(n - 2)
+# fib_v2(1000) instant
+
+
+# v3: Iterative - O(n), O(1) space, no recursion limit
+def fib_v3(n):
+    if n &lt;= 1:
+        return n
+    a, b = 0, 1
+    for _ in range(2, n + 1):
+        a, b = b, a + b
+    return b
+# fib_v3(10_000) instant, no stack overflow</code></pre>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

@@ -1,0 +1,629 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>006 - 用户服务项目初始化与数据库设计</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Hyperf/index.html">Hyperf</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Hyperf/01-微服务实战/index.html">Hyperf微服务实战</a>
+</nav>
+<h1>006 - 用户服务项目初始化与数据库设计</h1>
+<div class="meta">
+<span>📂 Hyperf微服务实战</span>
+<span>🏷️ Hyperf</span>
+</div>
+<article>
+
+
+<h1>用户服务项目初始化与数据库设计</h1>
+
+<blockquote><p><strong>难度：</strong> ⭐⭐<br><strong>前置知识：</strong> Hyperf 入门（001）、配置管理（005）、MySQL 基础<br><strong>预估用时：</strong> 50 分钟</p></blockquote>
+
+<hr>
+
+<h2>一、概念讲解</h2>
+
+<p><strong>一句话定义：</strong> 数据库设计是围绕业务需求抽象出实体、定义表结构、建立关系和索引的过程，是应用系统的数据基础。</p>
+
+<p><strong>现实类比：</strong> 设计用户服务就像规划一个图书馆——用户是读者，订单是借阅记录，积分是信用分。你需要设计读者卡（user 表）、借阅登记簿（order 表）、积分流水账（point_log 表），并建立索引让检索快速完成。</p>
+
+<p><strong>技术场景：</strong> 用户服务是整个微服务体系的"登录门户"，承载用户注册、登录、信息管理、权限验证。良好的数据库设计需要考虑：密码安全（hash + salt）、数据一致性（事务）、查询性能（索引）、扩展性（分表预留）。</p>
+
+<hr>
+
+<h2>二、实时脑图</h2>
+
+<pre><code>用户服务数据库
+├── users (用户主表)
+│   ├── id (PK)
+│   ├── email (UNIQUE, 索引)
+│   ├── username (UNIQUE)
+│   ├── password_hash
+│   ├── status (active/banned)
+│   └── created_at, updated_at
+├── user_profiles (用户扩展信息)
+│   ├── user_id (FK → users.id)
+│   ├── avatar, nickname, bio
+│   └── phone
+├── user_tokens (登录令牌)
+│   ├── id, user_id, token_hash
+│   ├── type (refresh/access)
+│   └── expires_at, created_at
+└── user_logs (操作日志)
+    ├── id, user_id, action, ip
+    └── created_at</code></pre>
+
+<hr>
+
+<h2>三、完整代码</h2>
+
+<h3>3.1 数据库迁移文件</h3>
+
+<pre><code class="language-php">&lt;?php
+// ✅ database/migrations/2026_05_01_000001_create_users_table.php
+
+declare(strict_types=1);
+
+use Hyperf\Database\Schema\Blueprint;
+use Hyperf\Database\Schema\Schema;
+
+Schema::create(&#x27;users&#x27;, function (Blueprint $table) {
+    // ✅ Primary key with BIGINT for scalability
+    $table-&gt;bigIncrements(&#x27;id&#x27;)-&gt;comment(&#x27;User ID&#x27;);
+
+    // 🟢 Authentication fields (indexed for login queries)
+    $table-&gt;string(&#x27;email&#x27;, 100)-&gt;unique()-&gt;nullable()-&gt;comment(&#x27;User email (login key)&#x27;);
+    $table-&gt;string(&#x27;phone&#x27;, 20)-&gt;unique()-&gt;nullable()-&gt;comment(&#x27;User phone (login key)&#x27;);
+    $table-&gt;string(&#x27;username&#x27;, 50)-&gt;unique()-&gt;nullable()-&gt;comment(&#x27;Username (display name)&#x27;);
+
+    // ✅ Password hash (never store plain text!)
+    $table-&gt;string(&#x27;password&#x27;, 255)-&gt;nullable()-&gt;comment(&#x27;Password hash (bcrypt)&#x27;);
+
+    // 🟢 User status and metadata
+    $table-&gt;enum(&#x27;status&#x27;, [&#x27;active&#x27;, &#x27;inactive&#x27;, &#x27;banned&#x27;])-&gt;default(&#x27;active&#x27;);
+    $table-&gt;timestamp(&#x27;last_login_at&#x27;)-&gt;nullable();
+    $table-&gt;string(&#x27;last_login_ip&#x27;, 50)-&gt;nullable();
+
+    // 🔴 Soft delete - don&#x27;t actually delete user records
+    $table-&gt;timestamp(&#x27;deleted_at&#x27;)-&gt;nullable();
+
+    // ✅ Standard timestamps
+    $table-&gt;timestamp(&#x27;created_at&#x27;)-&gt;useCurrent();
+    $table-&gt;timestamp(&#x27;updated_at&#x27;)-&gt;useCurrentOnUpdate();
+
+    // ✅ Indexes
+    $table-&gt;index([&#x27;email&#x27;, &#x27;status&#x27;])-&gt;name(&#x27;idx_email_status&#x27;);
+    $table-&gt;index(&#x27;last_login_at&#x27;)-&gt;name(&#x27;idx_last_login&#x27;);
+});</code></pre>
+
+<pre><code class="language-php">&lt;?php
+// ✅ database/migrations/2026_05_01_000002_create_user_profiles_table.php
+
+Schema::create(&#x27;user_profiles&#x27;, function (Blueprint $table) {
+    $table-&gt;bigIncrements(&#x27;id&#x27;);
+    
+    // ✅ One-to-one relationship with users table
+    $table-&gt;bigInteger(&#x27;user_id&#x27;)-&gt;unsigned()-&gt;unique()-&gt;comment(&#x27;Foreign key to users.id&#x27;);
+    $table-&gt;foreign(&#x27;user_id&#x27;)-&gt;references(&#x27;id&#x27;)-&gt;on(&#x27;users&#x27;)-&gt;onDelete(&#x27;cascade&#x27;);
+
+    // 🟢 Extended user information
+    $table-&gt;string(&#x27;avatar&#x27;, 500)-&gt;nullable()-&gt;comment(&#x27;Avatar URL&#x27;);
+    $table-&gt;string(&#x27;nickname&#x27;, 50)-&gt;nullable()-&gt;comment(&#x27;Display nickname&#x27;);
+    $table-&gt;string(&#x27;gender&#x27;, 10)-&gt;nullable()-&gt;comment(&#x27;Gender: male/female/other&#x27;);
+    $table-&gt;date(&#x27;birthday&#x27;)-&gt;nullable()-&gt;comment(&#x27;Birthday&#x27;);
+    $table-&gt;string(&#x27;bio&#x27;, 500)-&gt;nullable()-&gt;comment(&#x27;User bio/intro&#x27;);
+
+    // ✅ Timestamps
+    $table-&gt;timestamp(&#x27;created_at&#x27;)-&gt;useCurrent();
+    $table-&gt;timestamp(&#x27;updated_at&#x27;)-&gt;useCurrentOnUpdate();
+});</code></pre>
+
+<pre><code class="language-php">&lt;?php
+// ✅ database/migrations/2026_05_01_000003_create_user_tokens_table.php
+
+Schema::create(&#x27;user_tokens&#x27;, function (Blueprint $table) {
+    $table-&gt;bigIncrements(&#x27;id&#x27;);
+    
+    // 🟢 Token belongs to a user
+    $table-&gt;bigInteger(&#x27;user_id&#x27;)-&gt;unsigned()-&gt;comment(&#x27;Foreign key to users.id&#x27;);
+    $table-&gt;foreign(&#x27;user_id&#x27;)-&gt;references(&#x27;id&#x27;)-&gt;on(&#x27;users&#x27;)-&gt;onDelete(&#x27;cascade&#x27;);
+
+    // 🔴 Security: Store token hash, not plain token
+    $table-&gt;string(&#x27;token_hash&#x27;, 255)-&gt;comment(&#x27;Hashed token value&#x27;);
+    $table-&gt;enum(&#x27;type&#x27;, [&#x27;access&#x27;, &#x27;refresh&#x27;])-&gt;comment(&#x27;Token type&#x27;);
+
+    // 🟢 Token expiration
+    $table-&gt;timestamp(&#x27;expires_at&#x27;)-&gt;nullable()-&gt;comment(&#x27;Token expiration time&#x27;);
+    
+    // 🟢 For cleanup: delete expired tokens
+    $table-&gt;boolean(&#x27;revoked&#x27;)-&gt;default(false)-&gt;comment(&#x27;Whether token is revoked&#x27;);
+
+    // ✅ Index for fast token lookup
+    $table-&gt;index([&#x27;user_id&#x27;, &#x27;type&#x27;, &#x27;revoked&#x27;])-&gt;name(&#x27;idx_user_type_revoked&#x27;);
+    $table-&gt;index(&#x27;expires_at&#x27;)-&gt;name(&#x27;idx_expires_at&#x27;);
+    
+    $table-&gt;timestamp(&#x27;created_at&#x27;)-&gt;useCurrent();
+});</code></pre>
+
+<h3>3.2 User Model</h3>
+
+<pre><code class="language-php">&lt;?php
+// ✅ app/Model/User.php
+
+declare(strict_types=1);
+
+namespace App\Model;
+
+use Hyperf\DbConnection\Model\Model;
+
+class User extends Model
+{
+    protected ?string $table = &#x27;users&#x27;;
+
+    // ✅ Mass assignable fields (whitelist for security)
+    protected array $fillable = [
+        &#x27;email&#x27;,
+        &#x27;phone&#x27;,
+        &#x27;username&#x27;,
+        &#x27;password&#x27;,
+        &#x27;status&#x27;,
+        &#x27;last_login_at&#x27;,
+        &#x27;last_login_ip&#x27;,
+    ];
+
+    // ✅ Hidden fields (never exposed in JSON serialization)
+    protected array $hidden = [
+        &#x27;password&#x27;,
+    ];
+
+    // 🟢 Cast to native types
+    protected array $casts = [
+        &#x27;last_login_at&#x27; =&gt; &#x27;datetime&#x27;,
+        &#x27;deleted_at&#x27; =&gt; &#x27;datetime&#x27;,
+    ];
+
+    // 🟢 One-to-one relationship with profile
+    public function profile()
+    {
+        return $this-&gt;hasOne(UserProfile::class, &#x27;user_id&#x27;, &#x27;id&#x27;);
+    }
+
+    // 🟢 One-to-many relationship with tokens
+    public function tokens()
+    {
+        return $this-&gt;hasMany(UserToken::class, &#x27;user_id&#x27;, &#x27;id&#x27;);
+    }
+
+    // 🔴 Helper: Check if user is active
+    public function isActive(): bool
+    {
+        return $this-&gt;status === &#x27;active&#x27;;
+    }
+
+    // 🔴 Helper: Verify password
+    public function verifyPassword(string $password): bool
+    {
+        return password_verify($password, $this-&gt;password);
+    }
+
+    // 🔴 Helper: Hash password before save
+    public function setPasswordAttribute(string $password): void
+    {
+        $this-&gt;attributes[&#x27;password&#x27;] = password_hash($password, PASSWORD_BCRYPT);
+    }
+}</code></pre>
+
+<h3>3.3 UserProfile Model</h3>
+
+<pre><code class="language-php">&lt;?php
+// ✅ app/Model/UserProfile.php
+
+declare(strict_types=1);
+
+namespace App\Model;
+
+use Hyperf\DbConnection\Model\Model;
+
+class UserProfile extends Model
+{
+    protected ?string $table = &#x27;user_profiles&#x27;;
+
+    protected array $fillable = [
+        &#x27;user_id&#x27;,
+        &#x27;avatar&#x27;,
+        &#x27;nickname&#x27;,
+        &#x27;gender&#x27;,
+        &#x27;birthday&#x27;,
+        &#x27;bio&#x27;,
+    ];
+
+    protected array $casts = [
+        &#x27;birthday&#x27; =&gt; &#x27;date&#x27;,
+    ];
+
+    // 🟢 Reverse relationship
+    public function user()
+    {
+        return $this-&gt;belongsTo(User::class, &#x27;user_id&#x27;, &#x27;id&#x27;);
+    }
+}</code></pre>
+
+<h3>3.4 UserToken Model</h3>
+
+<pre><code class="language-php">&lt;?php
+// ✅ app/Model/UserToken.php
+
+declare(strict_types=1);
+
+namespace App\Model;
+
+use Hyperf\DbConnection\Model\Model;
+
+class UserToken extends Model
+{
+    protected ?string $table = &#x27;user_tokens&#x27;;
+
+    protected array $fillable = [
+        &#x27;user_id&#x27;,
+        &#x27;token_hash&#x27;,
+        &#x27;type&#x27;,
+        &#x27;expires_at&#x27;,
+        &#x27;revoked&#x27;,
+    ];
+
+    protected array $casts = [
+        &#x27;expires_at&#x27; =&gt; &#x27;datetime&#x27;,
+        &#x27;revoked&#x27; =&gt; &#x27;boolean&#x27;,
+    ];
+
+    // 🔴 Create access token (expires in 2 hours)
+    public static function createAccessToken(int $userId, string $token): self
+    {
+        return self::create([
+            &#x27;user_id&#x27; =&gt; $userId,
+            &#x27;token_hash&#x27; =&gt; hash(&#x27;sha256&#x27;, $token),
+            &#x27;type&#x27; =&gt; &#x27;access&#x27;,
+            &#x27;expires_at&#x27; =&gt; now()-&gt;addHours(2),
+        ]);
+    }
+
+    // 🔴 Create refresh token (expires in 7 days)
+    public static function createRefreshToken(int $userId, string $token): self
+    {
+        return self::create([
+            &#x27;user_id&#x27; =&gt; $userId,
+            &#x27;token_hash&#x27; =&gt; hash(&#x27;sha256&#x27;, $token),
+            &#x27;type&#x27; =&gt; &#x27;refresh&#x27;,
+            &#x27;expires_at&#x27; =&gt; now()-&gt;addDays(7),
+        ]);
+    }
+
+    // 🔴 Check if token is expired
+    public function isExpired(): bool
+    {
+        return $this-&gt;expires_at &amp;&amp; $this-&gt;expires_at-&gt;isPast();
+    }
+
+    // 🔴 Verify token hash
+    public function verifyToken(string $token): bool
+    {
+        return hash_equals($this-&gt;token_hash, hash(&#x27;sha256&#x27;, $token));
+    }
+}</code></pre>
+
+<h3>3.5 数据库迁移执行命令</h3>
+
+<pre><code class="language-bash"># ✅ Run migrations
+$ php bin/hyperf.php migrate
+
+[2026-05-01] Migration: 2026_05_01_000001_create_users_table
+[2026-05-01] Migration: 2026_05_01_000002_create_user_profiles_table  
+[2026-05-01] Migration: 2026_05_01_000003_create_user_tokens_table
+
+# ✅ Rollback migrations
+$ php bin/hyperf.php migrate:rollback</code></pre>
+
+<hr>
+
+<h2>四、执行预览</h2>
+
+<pre><code class="language-sql">-- Show tables
+mysql&gt; SHOW TABLES;
++-------------------------+
+| Tables_in_user_service   |
++-------------------------+
+| user_logs               |
+| user_profiles           |
+| user_tokens             |
+| users                   |
++-------------------------+
+
+-- Users table structure
+mysql&gt; DESC users;
++----------------+------------------+------+-----+---------+----------------+
+| Field          | Type             | Null | Key | Default | Extra          |
++----------------+------------------+------+-----+---------+----------------+
+| id             | bigint unsigned  | NO   | PRI | NULL    | auto_increment |
+| email          | varchar(100)     | YES  | MUL | NULL    |                |
+| phone          | varchar(20)      | YES  | UNI | NULL    |                |
+| username       | varchar(50)      | YES  | UNI | NULL    |                |
+| password       | varchar(255)     | YES  |     | NULL    |                |
+| status         | enum(...)        | YES  |     | active  |                |
+| last_login_at  | timestamp        | YES  | MUL | NULL    |                |
+| last_login_ip  | varchar(50)      | YES  |     | NULL    |                |
+| deleted_at     | timestamp        | YES  |     | NULL    |                |
+| created_at     | timestamp        | YES  |     | CURRENT_TIMESTAMP |        |
+| updated_at     | timestamp        | YES  |     | CURRENT_TIMESTAMP |        |
++----------------+------------------+------+-----+---------+----------------+</code></pre>
+
+<hr>
+
+<h2>五、注意事项</h2>
+
+<table><thead><tr>
+<th>约束</th>
+<th>说明</th>
+<th>违反后果</th>
+</tr></thead><tbody>
+<tr>
+<td>密码必须 hash 存储</td>
+<td>明文密码泄露 = 所有用户被盗</td>
+<td>数据库泄露后直接接管账号</td>
+</tr>
+<tr>
+<td>外键约束必须设置</td>
+<td>保证数据完整性</td>
+<td>孤儿记录，数据不一致</td>
+</tr>
+<tr>
+<td>索引要合理</td>
+<td>查询字段建索引</td>
+<td>登录查询慢，数据库负载高</td>
+</tr>
+<tr>
+<td>软删除优于硬删除</td>
+<td>deleted_at 标记删除</td>
+<td>历史数据丢失，无法恢复</td>
+</tr>
+<tr>
+<td>字段长度要预留</td>
+<td>varchar 考虑未来扩展</td>
+<td>数据截断，报错</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>六、避坑指南</h2>
+
+<table><thead><tr>
+<th>典型错误</th>
+<th>现象</th>
+<th>正确做法</th>
+</tr></thead><tbody>
+<tr>
+<td>❌ 直接保存密码明文</td>
+<td>用户密码泄露到 DB</td>
+<td>始终 <code>password_hash()</code> 存储</td>
+</tr>
+<tr>
+<td>❌ 删除用户用 <code>DELETE</code></td>
+<td>数据永久丢失</td>
+<td>用 <code>deleted_at</code> 软删除</td>
+</tr>
+<tr>
+<td>❌ 忘记建索引</td>
+<td>登录查询全表扫描</td>
+<td>email/phone 登录字段建索引</td>
+</tr>
+<tr>
+<td>❌ 用 <code>text</code> 存手机号</td>
+<td>占用空间大</td>
+<td>用 <code>varchar(20)</code> 足够</td>
+</tr>
+<tr>
+<td>❌ 表名用复数</td>
+<td>Hyperf 约定是单数</td>
+<td>Model 自动加 <code>s</code>，表用复数</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>七、练习题</h2>
+
+<p>🟢 <strong>基础题 1：</strong> 创建 <code>user_logs</code> 表，记录用户操作日志（登录、注册、更新资料），包含用户 ID、操作类型、IP、时间。</p>
+
+<p>🟢 <strong>基础题 2：</strong> 为 <code>users</code> 表添加 <code>balance</code>（余额）字段， decimal(10,2) 类型，默认值 0。</p>
+
+<p>🟡 <strong>进阶题：</strong> 设计多租户方案：在 <code>users</code> 表添加 <code>tenant_id</code> 字段，所有查询自动按租户过滤（使用全局 Scope）。</p>
+
+<p>🔴 <strong>开放题：</strong> 设计分库分表方案：当用户表超过 1000 万行时，按 user_id 分 10 个表。给出分表路由策略和代码实现。</p>
+
+<hr>
+
+<h2>八、知识点总结</h2>
+
+<pre><code>数据库设计
+├── 表设计
+│   ├── users (用户主表)
+│   ├── user_profiles (扩展信息)
+│   ├── user_tokens (令牌管理)
+│   └── user_logs (操作日志)
+├── 字段设计
+│   ├── 主键自增
+│   ├── 外键约束
+│   ├── 索引优化
+│   └── 软删除 (deleted_at)
+├── Eloquent Model
+│   ├── fillable (白名单)
+│   ├── hidden (隐藏字段)
+│   ├── casts (类型转换)
+│   └── 关联关系 (hasOne/hasMany/belongsTo)
+└── 安全实践
+    ├── 密码 hash 存储
+    ├── Token hash 存储
+    └── SQL 注入防护 (ORM 自动处理)</code></pre>
+
+<hr>
+
+<h2>九、举一反三</h2>
+
+<table><thead><tr>
+<th>变种场景</th>
+<th>关键差异</th>
+<th>适配方式</th>
+</tr></thead><tbody>
+<tr>
+<td>微服务多数据源</td>
+<td>用户服务 + 订单服务分开</td>
+<td>配置多个数据库连接，运行时切换</td>
+</tr>
+<tr>
+<td>读写分离</td>
+<td>主库写，从库读</td>
+<td>配置读写数据源，查询走从库</td>
+</tr>
+<tr>
+<td>分表分库</td>
+<td>用户量 > 1000 万</td>
+<td>按 ID 取模分表，配置分片路由</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>十、参考资料</h2>
+
+<table><thead><tr>
+<th>资料</th>
+<th>权威等级</th>
+<th>链接</th>
+</tr></thead><tbody>
+<tr>
+<td>Hyperf 数据库迁移文档</td>
+<td>⭐⭐⭐⭐⭐</td>
+<td>https://hyperf.wiki/3.1/#/zh-cn/db/migration</td>
+</tr>
+<tr>
+<td>Laravel Eloquent 文档</td>
+<td>⭐⭐⭐⭐</td>
+<td>https://laravel.com/docs/11.x/eloquent</td>
+</tr>
+<tr>
+<td>MySQL 数据库设计规范</td>
+<td>⭐⭐⭐⭐</td>
+<td>https://dev.mysql.com/doc/refman/8.0/en/</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>十一、代码演进</h2>
+
+<h3>v1 ❌ 简单粗暴的表设计</h3>
+
+<pre><code class="language-sql">-- ❌ No indexes, no foreign keys, plain password
+CREATE TABLE users (
+  id INT PRIMARY KEY AUTO_INCREMENT,
+  email VARCHAR(255),
+  password VARCHAR(255),
+  name VARCHAR(100)
+);</code></pre>
+
+<h3>v2 ✅ 规范化设计</h3>
+
+<pre><code class="language-sql">-- ✅ With indexes, foreign keys, soft delete
+CREATE TABLE users (
+  id BIGINT UNSIGNED PRIMARY KEY AUTO_INCREMENT,
+  email VARCHAR(100) UNIQUE,
+  password VARCHAR(255),
+  status ENUM(&#x27;active&#x27;, &#x27;banned&#x27;) DEFAULT &#x27;active&#x27;,
+  deleted_at TIMESTAMP NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  INDEX idx_email (email)
+);</code></pre>
+
+<h3>v3 🟢 生产级设计（含安全 + 性能）</h3>
+
+<pre><code class="language-sql">-- 🟢 Full design with relationships, token management, and security
+CREATE TABLE users (
+  id BIGINT UNSIGNED PRIMARY KEY AUTO_INCREMENT,
+  email VARCHAR(100) UNIQUE COMMENT &#x27;User email for login&#x27;,
+  phone VARCHAR(20) UNIQUE COMMENT &#x27;User phone for login&#x27;,
+  username VARCHAR(50) UNIQUE COMMENT &#x27;Display username&#x27;,
+  password VARCHAR(255) COMMENT &#x27;Password hash (bcrypt)&#x27;,
+  status ENUM(&#x27;active&#x27;, &#x27;inactive&#x27;, &#x27;banned&#x27;) DEFAULT &#x27;active&#x27;,
+  last_login_at TIMESTAMP NULL COMMENT &#x27;Last successful login time&#x27;,
+  last_login_ip VARCHAR(50) NULL COMMENT &#x27;Last login IP address&#x27;,
+  deleted_at TIMESTAMP NULL COMMENT &#x27;Soft delete timestamp&#x27;,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  INDEX idx_email_status (email, status),
+  INDEX idx_last_login (last_login_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT=&#x27;User master table&#x27;;</code></pre>
+
+<hr>
+
+<p><strong>上一篇：</strong> <a href="/post/005-config-management">005 - 配置管理与环境隔离最佳实践</a></p>
+<p><strong>下一篇：</strong> <a href="/post/007-user-register-security">007 - 用户注册与密码安全</a></p>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

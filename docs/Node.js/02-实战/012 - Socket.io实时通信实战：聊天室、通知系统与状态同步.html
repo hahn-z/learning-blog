@@ -1,0 +1,952 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>012 - Socket.io实时通信实战：聊天室、通知系统与状态同步</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Node.js/index.html">Node.js</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Node.js/02-实战/index.html">Node.js实战</a>
+</nav>
+<h1>012 - Socket.io实时通信实战：聊天室、通知系统与状态同步</h1>
+<div class="meta">
+<span>📂 Node.js实战</span>
+<span>🏷️ Node.js</span>
+</div>
+<article>
+
+
+<h2>⚡ 难度标注</h2>
+
+<p><strong>难度：⭐⭐⭐⭐ 中高级</strong> | 预计学习时间：55分钟 | 前置知识：Node.js、Express基础、HTTP协议</p>
+
+<hr>
+
+<h2>📖 概念讲解</h2>
+
+<h3>WebSocket vs HTTP</h3>
+
+<p>HTTP是请求-响应模式，服务器无法主动推送。WebSocket是全双工协议，建立一次连接后双方可随时互发消息：</p>
+
+<pre><code>HTTP:     Client → Request → Server → Response → Client (结束)
+WebSocket: Client → Upgrade → Server ←→ 双向通信 ←→ (持续)</code></pre>
+
+<h3>Socket.io = WebSocket + 降级 + 房间 + 更多</h3>
+
+<p>Socket.io不仅仅是WebSocket的封装，它提供：</p>
+
+<table><thead><tr>
+<th>特性</th>
+<th>原生WebSocket</th>
+<th>Socket.io</th>
+</tr></thead><tbody>
+<tr>
+<td>传输协议</td>
+<td>仅WebSocket</td>
+<td>WebSocket + HTTP长轮询降级</td>
+</tr>
+<tr>
+<td>自动重连</td>
+<td>需手动实现</td>
+<td>内置，可配置</td>
+</tr>
+<tr>
+<td>命名空间</td>
+<td>无</td>
+<td>支持（多逻辑通道）</td>
+</tr>
+<tr>
+<td>房间</td>
+<td>无</td>
+<td>支持（分组广播）</td>
+</tr>
+<tr>
+<td>消息确认</td>
+<td>需手动实现</td>
+<td>内置ack回调</td>
+</tr>
+<tr>
+<td>二进制支持</td>
+<td>✅</td>
+<td>✅</td>
+</tr>
+<tr>
+<td>集群扩展</td>
+<td>需自行实现</td>
+<td>Redis Adapter</td>
+</tr>
+</tbody></table>
+
+<h3>核心概念</h3>
+
+<ul>
+<li><strong>Namespace</strong>：逻辑隔离通道（如 <code>/chat</code>、<code>/notifications</code>），默认 <code>/</code></li>
+<li><strong>Room</strong>：在Namespace内分组，支持join/leave和定向广播</li>
+<li><strong>Event</strong>：自定义事件名替代HTTP路由，<code>emit</code>发送、<code>on</code>监听</li>
+<li><strong>Adapter</strong>：集群模式下同步状态的适配器（Redis/MongoDB等）</li>
+
+<hr>
+
+<h2>🧠 知识脑图</h2>
+
+<pre><code>Socket.io
+├── Server Setup
+│   ├── new Server(httpServer)
+│   ├── CORS configuration
+│   └── Options (pingInterval, pingTimeout)
+├── Connection Lifecycle
+│   ├── connection event
+│   ├── disconnect event
+│   └── Error handling
+├── Events
+│   ├── emit (send)
+│   ├── on (receive)
+│   └── ack (callback/confirmation)
+├── Namespace
+│   ├── io.of(&#x27;/namespace&#x27;)
+│   ├── Authorization middleware
+│   └── Isolated event handling
+├── Rooms
+│   ├── socket.join(room)
+│   ├── socket.leave(room)
+│   ├── io.to(room).emit()
+│   └── socket.rooms (current rooms)
+├── Authentication
+│   ├── JWT token verification
+│   ├── Middleware on connection
+│   └── Token refresh
+├── Scaling
+│   ├── Redis Adapter
+│   ├── Sticky sessions
+│   └── Multiple nodes
+└── Best Practices
+    ├── Error handling
+    ├── Memory leak prevention
+    ├── Rate limiting
+    └── Heartbeat tuning</code></pre>
+
+<hr>
+
+<h2>💻 完整代码：实时聊天 + 通知 + 在线状态系统</h2>
+
+<h3>项目结构</h3>
+
+<pre><code>project/
+├── src/
+│   ├── server.js
+│   ├── socket/
+│   │   ├── index.js
+│   │   ├── chat.js
+│   │   ├── notification.js
+│   │   └── presence.js
+│   ├── middleware/
+│   │   └── auth.js
+│   └── utils/
+│       └── rateLimit.js
+├── public/
+│   └── index.html
+├── package.json
+└── .env</code></pre>
+
+<h3>v1 基础聊天室（连接 + 事件 + 房间）</h3>
+
+<pre><code class="language-javascript">// src/server.js - Express + Socket.io setup
+const express = require(&#x27;express&#x27;);
+const http = require(&#x27;http&#x27;);
+const { Server } = require(&#x27;socket.io&#x27;);
+
+const app = express();
+const server = http.createServer(app);
+
+// Socket.io server with CORS
+const io = new Server(server, {
+  cors: {
+    origin: process.env.CLIENT_URL || &#x27;http://localhost:3000&#x27;,
+    methods: [&#x27;GET&#x27;, &#x27;POST&#x27;]
+  },
+  pingInterval: 25000, // Send ping every 25s
+  pingTimeout: 20000   // Disconnect if no pong in 20s
+});
+
+// Serve static files
+app.use(express.static(&#x27;public&#x27;));
+
+// Basic health check
+app.get(&#x27;/health&#x27;, (req, res) =&gt; {
+  res.json({ status: &#x27;ok&#x27;, connections: io.engine.clientsCount });
+});
+
+module.exports = { app, server, io };</code></pre>
+
+<pre><code class="language-javascript">// src/socket/index.js - Socket.io event handler
+const { io } = require(&#x27;../server&#x27;);
+const { verifyToken } = require(&#x27;../middleware/auth&#x27;);
+
+// Connected users tracking
+const connectedUsers = new Map();
+
+io.on(&#x27;connection&#x27;, (socket) =&gt; {
+  console.log(`Connected: ${socket.id}`);
+  const { userId, username } = socket.handshake.auth;
+
+  // Track connected user
+  connectedUsers.set(socket.id, { userId, username, joinedAt: new Date() });
+
+  // Broadcast online users count
+  io.emit(&#x27;users:count&#x27;, connectedUsers.size);
+
+  // ===== ROOM MANAGEMENT =====
+
+  // Join a chat room
+  socket.on(&#x27;room:join&#x27;, (roomId) =&gt; {
+    socket.join(roomId);
+    console.log(`${username} joined room: ${roomId}`);
+
+    // Notify others in the room
+    socket.to(roomId).emit(&#x27;user:joined&#x27;, {
+      userId, username, timestamp: new Date()
+    });
+
+    // Send current room members to the joiner
+    const roomSockets = io.sockets.adapter.rooms.get(roomId);
+    if (roomSockets) {
+      const members = [...roomSockets]
+        .map(id =&gt; connectedUsers.get(id))
+        .filter(Boolean);
+      socket.emit(&#x27;room:members&#x27;, members);
+    }
+  });
+
+  // Leave a chat room
+  socket.on(&#x27;room:leave&#x27;, (roomId) =&gt; {
+    socket.leave(roomId);
+    socket.to(roomId).emit(&#x27;user:left&#x27;, {
+      userId, username, timestamp: new Date()
+    });
+  });
+
+  // ===== CHAT MESSAGES =====
+
+  // Send message to a room
+  socket.on(&#x27;message:send&#x27;, (data, ack) =&gt; {
+    const { roomId, content, type = &#x27;text&#x27; } = data;
+
+    // Validate message
+    if (!content || !content.trim()) {
+      return ack?.({ error: &#x27;Message cannot be empty&#x27; });
+    }
+    if (content.length &gt; 2000) {
+      return ack?.({ error: &#x27;Message too long (max 2000 chars)&#x27; });
+    }
+
+    const message = {
+      id: `msg_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+      roomId,
+      sender: { userId, username },
+      content: content.trim(),
+      type,
+      timestamp: new Date()
+    };
+
+    // Broadcast to everyone in the room (including sender for confirmation)
+    io.to(roomId).emit(&#x27;message:new&#x27;, message);
+
+    // Acknowledge with message ID
+    ack?.({ success: true, messageId: message.id });
+  });
+
+  // ===== TYPING INDICATOR =====
+
+  socket.on(&#x27;typing:start&#x27;, (roomId) =&gt; {
+    socket.to(roomId).emit(&#x27;typing:update&#x27;, {
+      userId, username, roomId, isTyping: true
+    });
+  });
+
+  socket.on(&#x27;typing:stop&#x27;, (roomId) =&gt; {
+    socket.to(roomId).emit(&#x27;typing:update&#x27;, {
+      userId, username, roomId, isTyping: false
+    });
+  });
+
+  // ===== DISCONNECT =====
+
+  socket.on(&#x27;disconnect&#x27;, (reason) =&gt; {
+    console.log(`Disconnected: ${socket.id} (${reason})`);
+    connectedUsers.delete(socket.id);
+    io.emit(&#x27;users:count&#x27;, connectedUsers.size);
+
+    // Notify all rooms this user was in
+    const rooms = [...socket.rooms].filter(r =&gt; r !== socket.id);
+    rooms.forEach(roomId =&gt; {
+      socket.to(roomId).emit(&#x27;user:left&#x27;, {
+        userId, username, timestamp: new Date()
+      });
+    });
+  });
+});</code></pre>
+
+<pre><code class="language-html">&lt;!-- public/index.html - Simple chat client --&gt;
+&lt;!DOCTYPE html&gt;
+&lt;html&gt;
+&lt;head&gt;
+  &lt;title&gt;Socket.io Chat&lt;/title&gt;
+  &lt;script src=&quot;/socket.io/socket.io.js&quot;&gt;&lt;/script&gt;
+&lt;/head&gt;
+&lt;body&gt;
+  &lt;div id=&quot;chat&quot;&gt;
+    &lt;div id=&quot;messages&quot;&gt;&lt;/div&gt;
+    &lt;input id=&quot;msgInput&quot; placeholder=&quot;Type a message...&quot; autocomplete=&quot;off&quot;&gt;
+    &lt;button id=&quot;sendBtn&quot;&gt;Send&lt;/button&gt;
+    &lt;p&gt;Online: &lt;span id=&quot;userCount&quot;&gt;0&lt;/span&gt;&lt;/p&gt;
+  &lt;/div&gt;
+  &lt;script&gt;
+    const socket = io({ auth: { userId: &#x27;user1&#x27;, username: &#x27;TestUser&#x27; } });
+    const ROOM = &#x27;general&#x27;;
+
+    socket.on(&#x27;connect&#x27;, () =&gt; {
+      console.log(&#x27;Connected:&#x27;, socket.id);
+      socket.emit(&#x27;room:join&#x27;, ROOM);
+    });
+
+    socket.on(&#x27;message:new&#x27;, (msg) =&gt; {
+      const el = document.createElement(&#x27;div&#x27;);
+      el.textContent = `${msg.sender.username}: ${msg.content}`;
+      document.getElementById(&#x27;messages&#x27;).appendChild(el);
+    });
+
+    socket.on(&#x27;users:count&#x27;, (count) =&gt; {
+      document.getElementById(&#x27;userCount&#x27;).textContent = count;
+    });
+
+    document.getElementById(&#x27;sendBtn&#x27;).onclick = () =&gt; {
+      const input = document.getElementById(&#x27;msgInput&#x27;);
+      const content = input.value.trim();
+      if (!content) return;
+      socket.emit(&#x27;message:send&#x27;, { roomId: ROOM, content }, (ack) =&gt; {
+        if (ack?.success) input.value = &#x27;&#x27;;
+      });
+    };
+  &lt;/script&gt;
+&lt;/body&gt;
+&lt;/html&gt;</code></pre>
+
+<h3>v2 命名空间 + JWT认证 + 实时通知</h3>
+
+<pre><code class="language-javascript">// src/middleware/auth.js - JWT authentication for Socket.io
+const jwt = require(&#x27;jsonwebtoken&#x27;);
+
+const JWT_SECRET = process.env.JWT_SECRET || &#x27;your-secret-key&#x27;;
+
+function verifyToken(token) {
+  try {
+    return jwt.verify(token, JWT_SECRET);
+  } catch (err) {
+    return null;
+  }
+}
+
+// Socket.io authentication middleware
+function socketAuthMiddleware(socket, next) {
+  const token = socket.handshake.auth.token ||
+                socket.handshake.headers.authorization?.replace(&#x27;Bearer &#x27;, &#x27;&#x27;);
+
+  if (!token) {
+    return next(new Error(&#x27;Authentication required&#x27;));
+  }
+
+  const decoded = verifyToken(token);
+  if (!decoded) {
+    return next(new Error(&#x27;Invalid or expired token&#x27;));
+  }
+
+  // Attach user info to socket
+  socket.user = {
+    userId: decoded.userId,
+    username: decoded.username,
+    role: decoded.role || &#x27;user&#x27;
+  };
+
+  next();
+}
+
+module.exports = { verifyToken, socketAuthMiddleware };</code></pre>
+
+<pre><code class="language-javascript">// src/socket/notification.js - Notification namespace
+const { io } = require(&#x27;../server&#x27;);
+const { socketAuthMiddleware } = require(&#x27;../middleware/auth&#x27;);
+
+// Create /notifications namespace with auth
+const notifNs = io.of(&#x27;/notifications&#x27;);
+notifNs.use(socketAuthMiddleware);
+
+// Track user -&gt; socket mapping for targeted notifications
+const userSockets = new Map();
+
+notifNs.on(&#x27;connection&#x27;, (socket) =&gt; {
+  const { userId } = socket.user;
+
+  // Map user to socket (support multiple devices)
+  if (!userSockets.has(userId)) {
+    userSockets.set(userId, new Set());
+  }
+  userSockets.get(userId).add(socket.id);
+
+  // Join user&#x27;s personal notification room
+  socket.join(`user:${userId}`);
+
+  console.log(`Notification connected: ${socket.user.username}`);
+
+  // Send unread notifications on connect
+  socket.emit(&#x27;notifications:unread&#x27;, {
+    count: Math.floor(Math.random() * 10), // Placeholder
+    notifications: []
+  });
+
+  // Mark notification as read
+  socket.on(&#x27;notification:read&#x27;, async (notifId, ack) =&gt; {
+    // In production: update database
+    console.log(`Notification ${notifId} read by ${userId}`);
+    ack?.({ success: true });
+  });
+
+  socket.on(&#x27;disconnect&#x27;, () =&gt; {
+    const sockets = userSockets.get(userId);
+    if (sockets) {
+      sockets.delete(socket.id);
+      if (sockets.size === 0) userSockets.delete(userId);
+    }
+  });
+});
+
+// Export function to send notification to specific user
+function sendNotification(userId, notification) {
+  notifNs.to(`user:${userId}`).emit(&#x27;notification:new&#x27;, {
+    ...notification,
+    timestamp: new Date()
+  });
+}
+
+module.exports = { sendNotification };</code></pre>
+
+<pre><code class="language-javascript">// src/socket/chat.js - Chat namespace with auth and rate limiting
+const { io } = require(&#x27;../server&#x27;);
+const { socketAuthMiddleware } = require(&#x27;../middleware/auth&#x27;);
+
+const chatNs = io.of(&#x27;/chat&#x27;);
+chatNs.use(socketAuthMiddleware);
+
+// Simple rate limiter (per socket)
+const messageTimestamps = new Map();
+
+function checkRateLimit(socketId, limit = 20, windowMs = 10000) {
+  const now = Date.now();
+  if (!messageTimestamps.has(socketId)) {
+    messageTimestamps.set(socketId, []);
+  }
+  const timestamps = messageTimestamps.get(socketId);
+
+  // Remove old timestamps outside window
+  while (timestamps.length &amp;&amp; timestamps[0] &lt; now - windowMs) {
+    timestamps.shift();
+  }
+
+  if (timestamps.length &gt;= limit) return false;
+  timestamps.push(now);
+  return true;
+}
+
+chatNs.on(&#x27;connection&#x27;, (socket) =&gt; {
+  const { userId, username } = socket.user;
+
+  socket.on(&#x27;room:join&#x27;, (roomId) =&gt; {
+    socket.join(roomId);
+    socket.to(roomId).emit(&#x27;user:joined&#x27;, { userId, username });
+  });
+
+  socket.on(&#x27;message:send&#x27;, (data, ack) =&gt; {
+    // Rate limiting
+    if (!checkRateLimit(socket.id)) {
+      return ack?.({ error: &#x27;Rate limited. Slow down!&#x27; });
+    }
+
+    const { roomId, content } = data;
+    if (!content?.trim() || content.length &gt; 2000) {
+      return ack?.({ error: &#x27;Invalid message&#x27; });
+    }
+
+    const message = {
+      id: `msg_${Date.now()}`,
+      roomId, content,
+      sender: { userId, username },
+      timestamp: new Date()
+    };
+
+    chatNs.to(roomId).emit(&#x27;message:new&#x27;, message);
+    ack?.({ success: true, messageId: message.id });
+  });
+
+  socket.on(&#x27;disconnect&#x27;, () =&gt; {
+    messageTimestamps.delete(socket.id);
+  });
+});</code></pre>
+
+<h3>v3 Redis Adapter集群扩展 + 在线状态 + 生产配置</h3>
+
+<pre><code class="language-javascript">// src/socket/presence.js - Online presence with Redis
+const { io } = require(&#x27;../server&#x27;);
+const Redis = require(&#x27;ioredis&#x27;);
+
+const redis = new Redis(process.env.REDIS_URL);
+const PRESENCE_KEY = &#x27;presence:online&#x27;;
+const USER_TTL = 60; // seconds
+
+class PresenceService {
+  constructor() {
+    this.redis = redis;
+  }
+
+  // Mark user online
+  async goOnline(userId, meta = {}) {
+    const key = `${PRESENCE_KEY}:${userId}`;
+    await this.redis.setex(key, USER_TTL, JSON.stringify({
+      ...meta,
+      lastSeen: new Date().toISOString()
+    }));
+  }
+
+  // Refresh presence (called periodically)
+  async heartbeat(userId) {
+    const key = `${PRESENCE_KEY}:${userId}`;
+    await this.redis.expire(key, USER_TTL);
+  }
+
+  // Mark user offline
+  async goOffline(userId) {
+    await this.redis.del(`${PRESENCE_KEY}:${userId}`);
+  }
+
+  // Check if user is online
+  async isOnline(userId) {
+    return await this.redis.exists(`${PRESENCE_KEY}:${userId}`);
+  }
+
+  // Get all online users
+  async getOnlineUsers() {
+    const keys = await this.redis.keys(`${PRESENCE_KEY}:*`);
+    if (keys.length === 0) return [];
+
+    const values = await this.redis.mget(...keys);
+    return keys.map((key, i) =&gt; {
+      const userId = key.replace(`${PRESENCE_KEY}:`, &#x27;&#x27;);
+      return { userId, ...JSON.parse(values[i] || &#x27;{}&#x27;) };
+    });
+  }
+}
+
+module.exports = new PresenceService();</code></pre>
+
+<pre><code class="language-javascript">// src/server.js - Full production setup with Redis Adapter
+const express = require(&#x27;express&#x27;);
+const http = require(&#x27;http&#x27;);
+const { Server } = require(&#x27;socket.io&#x27;);
+const { createAdapter } = require(&#x27;@socket.io/redis-adapter&#x27;);
+const Redis = require(&#x27;ioredis&#x27;);
+
+const app = express();
+const server = http.createServer(app);
+
+const io = new Server(server, {
+  cors: {
+    origin: [process.env.CLIENT_URL || &#x27;http://localhost:3000&#x27;],
+    methods: [&#x27;GET&#x27;, &#x27;POST&#x27;],
+    credentials: true
+  },
+  pingInterval: 25000,
+  pingTimeout: 20000,
+  maxHttpBufferSize: 1e6, // 1MB max message size
+  connectTimeout: 10000
+});
+
+// Redis Adapter for cluster scaling
+const pubClient = new Redis(process.env.REDIS_URL);
+const subClient = new Redis(process.env.REDIS_URL);
+io.adapter(createAdapter(pubClient, subClient));
+
+// Register all socket modules
+require(&#x27;./socket/chat&#x27;);
+require(&#x27;./socket/notification&#x27;);
+const presence = require(&#x27;./socket/presence&#x27;);
+
+// Presence heartbeat every 30s
+const heartbeatInterval = setInterval(() =&gt; {
+  io.emit(&#x27;presence:heartbeat&#x27;);
+}, 30000);
+
+// Graceful shutdown
+process.on(&#x27;SIGTERM&#x27;, async () =&gt; {
+  console.log(&#x27;Shutting down...&#x27;);
+  clearInterval(heartbeatInterval);
+  io.disconnectSockets(true);
+  server.close();
+  process.exit(0);
+});
+
+const PORT = process.env.PORT || 3001;
+server.listen(PORT, () =&gt; {
+  console.log(`Socket.io server running on port ${PORT}`);
+});
+
+module.exports = { app, server, io };</code></pre>
+
+<pre><code class="language-javascript">// Production client connection example
+// const socket = io(&#x27;https://your-server.com/chat&#x27;, {
+//   auth: { token: jwtToken },
+//   transports: [&#x27;websocket&#x27;],       // Force WebSocket only in production
+//   reconnection: true,
+//   reconnectionAttempts: 10,
+//   reconnectionDelay: 1000,
+//   reconnectionDelayMax: 10000,
+//   timeout: 10000
+// });
+//
+// socket.on(&#x27;connect_error&#x27;, (err) =&gt; {
+//   if (err.message === &#x27;Authentication required&#x27;) {
+//     // Redirect to login
+//   }
+// });</code></pre>
+
+<hr>
+
+<h2>▶️ 执行预览</h2>
+
+<pre><code class="language-bash">$ npm install socket.io express jsonwebtoken ioredis @socket.io/redis-adapter
+$ node src/server.js
+
+Socket.io server running on port 3001
+Connected: abc123
+Notification connected: zhangsan
+Chat connected: zhangsan
+
+# In browser console:
+# socket.emit(&#x27;message:send&#x27;, { roomId: &#x27;general&#x27;, content: &#x27;Hello!&#x27; }, console.log)
+# { success: true, messageId: &#x27;msg_1745894400000&#x27; }</code></pre>
+
+<hr>
+
+<h2>⚠️ 注意事项</h2>
+
+<table><thead><tr>
+<th>类别</th>
+<th>要点</th>
+<th>说明</th>
+</tr></thead><tbody>
+<tr>
+<td>连接</td>
+<td>CORS配置</td>
+<td>生产环境精确指定origin，不用<code>*</code></td>
+</tr>
+<tr>
+<td>连接</td>
+<td>transports</td>
+<td>生产环境可强制websocket，开发保留polling</td>
+</tr>
+<tr>
+<td>认证</td>
+<td>middleware</td>
+<td>在namespace级别验证JWT，不信任客户端数据</td>
+</tr>
+<tr>
+<td>消息</td>
+<td>大小限制</td>
+<td>maxHttpBufferSize控制，默认1MB</td>
+</tr>
+<tr>
+<td>消息</td>
+<td>速率限制</td>
+<td>必须实现，防止消息洪水攻击</td>
+</tr>
+<tr>
+<td>房间</td>
+<td>内存</td>
+<td>单机百万房间以上考虑性能，集群用Adapter</td>
+</tr>
+<tr>
+<td>扩展</td>
+<td>Redis Adapter</td>
+<td>多节点必须用Adapter同步房间/事件</td>
+</tr>
+<tr>
+<td>扩展</td>
+<td>Sticky Session</td>
+<td>多节点部署时需要（Nginx ip_hash或cookie）</td>
+</tr>
+<tr>
+<td>内存</td>
+<td>房间清理</td>
+<td>用户断开自动离开房间，但自定义Map需手动清理</td>
+</tr>
+<tr>
+<td>安全</td>
+<td>输入验证</td>
+<td>不信任客户端发来的任何数据</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>🚫 避坑指南</h2>
+
+<p>❌ <strong>不做认证，任何人可连接</strong></p>
+<pre><code class="language-javascript">// BAD: No authentication
+io.on(&#x27;connection&#x27;, (socket) =&gt; {
+  // Anyone can connect!
+});</code></pre>
+<p>✅ <strong>使用中间件验证身份</strong></p>
+<pre><code class="language-javascript">// GOOD: Verify JWT on connection
+io.use((socket, next) =&gt; {
+  const token = socket.handshake.auth.token;
+  try {
+    socket.user = jwt.verify(token, SECRET);
+    next();
+  } catch {
+    next(new Error(&#x27;Unauthorized&#x27;));
+  }
+});</code></pre>
+
+<p>❌ <strong>向所有人广播</strong></p>
+<pre><code class="language-javascript">// BAD: Broadcasts to ALL connected sockets globally
+io.emit(&#x27;message&#x27;, data);</code></pre>
+<p>✅ <strong>定向发送到房间或用户</strong></p>
+<pre><code class="language-javascript">// GOOD: Send to specific room
+io.to(roomId).emit(&#x27;message&#x27;, data);
+// GOOD: Send to specific user
+io.to(`user:${userId}`).emit(&#x27;notification&#x27;, data);</code></pre>
+
+<p>❌ <strong>在socket.id上存储业务状态</strong></p>
+<pre><code class="language-javascript">// BAD: socket.id changes on reconnect
+const userSocket = socket.id;
+// After reconnect, this is stale!</code></pre>
+<p>✅ <strong>用userId映射，处理重连</strong></p>
+<pre><code class="language-javascript">// GOOD: Map userId to socket, handle multiple devices
+userSockets.set(userId, socket.id);
+// On reconnect, update the mapping</code></pre>
+
+<p>❌ <strong>不处理断线重连后的状态恢复</strong></p>
+<pre><code class="language-javascript">// BAD: User misses messages during disconnect
+socket.on(&#x27;connect&#x27;, () =&gt; {
+  socket.emit(&#x27;room:join&#x27;, &#x27;general&#x27;);
+  // Missed messages during offline period!
+});</code></pre>
+<p>✅ <strong>重连时同步缺失消息</strong></p>
+<pre><code class="language-javascript">// GOOD: Fetch missed messages on reconnect
+socket.on(&#x27;connect&#x27;, () =&gt; {
+  socket.emit(&#x27;room:join&#x27;, &#x27;general&#x27;);
+  socket.emit(&#x27;messages:sync&#x27;, { lastMessageId, roomId }, (missed) =&gt; {
+    renderMessages(missed);
+  });
+});</code></pre>
+
+<hr>
+
+<h2>🏋️ 练习题</h2>
+
+<h3>🟢 入门级</h3>
+
+<ol>
+<li>创建一个基础Socket.io服务器和客户端，实现：连接时显示"用户加入"、发送消息、断开时显示"用户离开"。</li>
+
+<ol>
+<li>实现一个房间功能：用户可以输入房间名加入，消息只在同房间内可见。支持列出当前房间内的在线用户。</li>
+
+<h3>🟡 进阶级</h3>
+
+<ol>
+<li>实现JWT认证的Socket.io聊天系统：未登录用户无法连接，登录后才能发送消息。支持私聊（指定userId发送）。</li>
+
+<ol>
+<li>实现在线状态系统：用Redis存储用户在线状态，支持查看好友列表中谁在线、谁离线，支持多设备同时在线。</li>
+
+<h3>🔴 挑战级</h3>
+
+<ol>
+<li>实现一个完整的协作白板系统：多用户实时绘图，使用操作转换（OT）或CRDT解决并发冲突，支持撤销/重做、光标位置同步。</li>
+
+<ol>
+<li>设计一个支持10万并发连接的Socket.io架构：包括负载均衡策略、Redis Adapter配置、连接数监控、优雅扩缩容、消息持久化方案。</li>
+
+<hr>
+
+<h2>📚 知识点总结</h2>
+
+<pre><code>Socket.io 实时通信
+├── 基础
+│   ├── Server: new Server(httpServer, options)
+│   ├── Client: io(url, options)
+│   ├── Events: emit / on / ack
+│   └── Lifecycle: connect / disconnect / reconnect
+├── 组织方式
+│   ├── Namespace: io.of(&#x27;/path&#x27;)
+│   ├── Room: join / leave / to().emit()
+│   └── 适配器: Redis / MongoDB
+├── 认证
+│   ├── Middleware: io.use(fn)
+│   ├── JWT: handshake.auth.token
+│   └── 错误处理: next(new Error())
+├── 生产配置
+│   ├── CORS精确配置
+│   ├── 心跳参数调优
+│   ├── 速率限制
+│   └── 消息大小限制
+├── 扩展
+│   ├── Redis Adapter集群
+│   ├── Sticky Session
+│   └── 负载均衡
+└── 常见应用
+    ├── 聊天室 (Room + Message)
+    ├── 实时通知 (Namespace + userId)
+    ├── 在线状态 (Redis + Heartbeat)
+    └── 协作编辑 (OT/CRDT)</code></pre>
+
+<hr>
+
+<h2>🔗 举一反三</h2>
+
+<table><thead><tr>
+<th>本文学到的</th>
+<th>延伸场景</th>
+<th>关键差异</th>
+</tr></thead><tbody>
+<tr>
+<td>Socket.io聊天</td>
+<td>WebSocket原生</td>
+<td>原生更轻量，无降级和房间，需自建</td>
+</tr>
+<tr>
+<td>单机Socket.io</td>
+<td>集群部署</td>
+<td>需Redis Adapter + Sticky Session</td>
+</tr>
+<tr>
+<td>文本消息</td>
+<td>音视频通话</td>
+<td>用WebRTC + Socket.io做信令</td>
+</tr>
+<tr>
+<td>实时通知</td>
+<td>Server-Sent Events</td>
+<td>SSE单向推送、更简单、HTTP协议</td>
+</tr>
+<tr>
+<td>聊天室</td>
+<td>协作编辑</td>
+<td>需OT/CRDT算法处理并发冲突</td>
+</tr>
+<tr>
+<td>Redis Adapter</td>
+<td>Kafka Adapter</td>
+<td>Kafka适合更高吞吐、持久化消息</td>
+</tr>
+<tr>
+<td>Web聊天</td>
+<td>移动端推送</td>
+<td>需集成APNs/FCM，Socket.io不适合后台推送</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>📖 参考资料</h2>
+
+<ul>
+<li><a href="https://socket.io/docs/v4/">Socket.io官方文档</a></li>
+<li><a href="https://socket.io/docs/v4/redis-adapter/">Socket.io Redis Adapter</a></li>
+<li><a href="https://developer.mozilla.org/en-US/docs/Web/API/WebSocket">WebSocket API - MDN</a></li>
+<li><a href="https://socket.io/how-to/use-with-jwt">Socket.io认证最佳实践</a></li>
+<li><a href="https://socket.io/docs/v4/using-multiple-nodes/">横向扩展Socket.io</a></li>
+
+<hr>
+
+<h2>🔄 代码演进总结</h2>
+
+<table><thead><tr>
+<th>版本</th>
+<th>主题</th>
+<th>核心能力</th>
+</tr></thead><tbody>
+<tr>
+<td>v1</td>
+<td>基础聊天室</td>
+<td>连接管理、自定义事件、房间join/leave、消息广播</td>
+</tr>
+<tr>
+<td>v2</td>
+<td>认证 + 通知</td>
+<td>JWT认证中间件、Namespace隔离、速率限制、定向通知</td>
+</tr>
+<tr>
+<td>v3</td>
+<td>集群 + 生产</td>
+<td>Redis Adapter多节点、在线状态(Redis)、生产配置、优雅关闭</td>
+</tr>
+</tbody></table>
+
+<blockquote><p>💡 <strong>学习路径</strong>：v1理解Socket.io基本模型 → v2学会安全和多通道 → v3掌握生产级集群部署。实时系统的核心挑战是：可靠性（重连+消息补发）、安全性（认证+限流）、可扩展性（Adapter+负载均衡）。</p></blockquote>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

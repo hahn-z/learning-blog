@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>014 - Vue 3 依赖注入 Provide/Inject</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Vue.js/index.html">Vue.js</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Vue.js/01-入门到实战/index.html">Vue.js入门到实战</a>
+</nav>
+<h1>014 - Vue 3 依赖注入 Provide/Inject</h1>
+<div class="meta">
+<span>📂 Vue.js入门到实战</span>
+<span>🏷️ Vue.js</span>
+</div>
+<article>
+
+
+<h1>052-Vue 3 依赖注入 Provide/Inject</h1>
+
+<blockquote><p><strong>难度标注：</strong> 🟡 中级 | <strong>前置知识：</strong> Vue 3 组合式 API、Props/Emits</p></blockquote>
+
+<hr>
+
+<h2>一、概念讲解</h2>
+
+<p>当组件层级很深时，用 Props 逐层传递数据（prop drilling）非常痛苦。<strong>Provide/Inject</strong> 让祖先组件直接向任意后代组件注入数据，跳过中间层级。</p>
+
+<pre><code>App (provide: theme)
+├── Header (不需要知道 theme)
+│   └── Nav
+├── Main
+│   ├── Sidebar
+│   └── Content
+│       └── Button (inject: theme) ← 直接获取！</code></pre>
+
+<h3>核心API</h3>
+
+<ul>
+<li><strong><code>provide(key, value)</code></strong>——提供数据</li>
+<li><strong><code>inject(key, defaultValue)</code></strong>——注入数据</li>
+<li><strong>InjectionKey<T></strong>——TypeScript 类型安全的 key</li>
+
+<hr>
+
+<h2>二、脑图（ASCII）</h2>
+
+<pre><code>Provide / Inject
+├── provide()
+│   ├── 字符串 key
+│   ├── Symbol key（推荐）
+│   ├── InjectionKey&lt;T&gt;（TS）
+│   └── 响应式数据
+│       ├── ref → 注入 ref
+│       ├── reactive → 注入 proxy
+│       └── readonly → 只读注入
+├── inject()
+│   ├── 注入值
+│   ├── 默认值
+│   └── 工厂函数默认值
+├── 使用场景
+│   ├── 主题系统
+│   ├── 国际化 i18n
+│   ├── 表单验证
+│   └── 配置项
+├── 响应性保持
+│   ├── provide ref 保持响应
+│   └── readonly 防止子组件修改
+└── 与 Pinia 对比
+    ├── 局部状态 → P/I
+    └── 全局状态 → Pinia</code></pre>
+
+<hr>
+
+<h2>三、完整代码示例</h2>
+
+<pre><code class="language-vue">&lt;!-- ThemeProvider.vue --&gt;
+&lt;template&gt;
+  &lt;div :class=&quot;[&#x27;app&#x27;, `theme-${theme}`]&quot;&gt;
+    &lt;slot /&gt;
+  &lt;/div&gt;
+&lt;/template&gt;
+
+&lt;script setup&gt;
+import { provide, readonly, ref, computed } from &#x27;vue&#x27;
+
+const theme = ref(&#x27;light&#x27;)
+
+function toggleTheme() {
+  theme.value = theme.value === &#x27;light&#x27; ? &#x27;dark&#x27; : &#x27;light&#x27;
+}
+
+// Provide reactive state as readonly
+provide(&#x27;theme&#x27;, {
+  current: readonly(theme),
+  toggle: toggleTheme
+})
+
+provide(&#x27;isDark&#x27;, computed(() =&gt; theme.value === &#x27;dark&#x27;))
+&lt;/script&gt;
+
+&lt;style&gt;
+.theme-light { background: #fff; color: #333; }
+.theme-dark { background: #1a1a2e; color: #e0e0e0; }
+&lt;/style&gt;</code></pre>
+
+<pre><code class="language-vue">&lt;!-- ThemedButton.vue - Deep child uses inject --&gt;
+&lt;template&gt;
+  &lt;button :class=&quot;[&#x27;themed-btn&#x27;, theme.current]&quot; @click=&quot;$emit(&#x27;click&#x27;)&quot;&gt;
+    &lt;slot /&gt;
+  &lt;/button&gt;
+&lt;/template&gt;
+
+&lt;script setup&gt;
+import { inject } from &#x27;vue&#x27;
+
+// Inject with default value fallback
+const theme = inject(&#x27;theme&#x27;, {
+  current: { value: &#x27;light&#x27; },
+  toggle: () =&gt; {}
+})
+
+defineEmits([&#x27;click&#x27;])
+&lt;/script&gt;
+
+&lt;style scoped&gt;
+.themed-btn { padding: 8px 16px; border-radius: 6px; cursor: pointer; border: none; }
+.themed-btn.light { background: #42b883; color: white; }
+.themed-btn.dark { background: #35495e; color: white; }
+&lt;/style&gt;</code></pre>
+
+<pre><code class="language-vue">&lt;!-- ThemeToggle.vue --&gt;
+&lt;template&gt;
+  &lt;button @click=&quot;theme.toggle()&quot;&gt;
+    {{ theme.current }} mode → Switch to {{ theme.current === &#x27;light&#x27; ? &#x27;dark&#x27; : &#x27;light&#x27; }}
+  &lt;/button&gt;
+&lt;/template&gt;
+
+&lt;script setup&gt;
+import { inject } from &#x27;vue&#x27;
+const theme = inject(&#x27;theme&#x27;)
+&lt;/script&gt;</code></pre>
+
+<pre><code class="language-vue">&lt;!-- App.vue --&gt;
+&lt;template&gt;
+  &lt;ThemeProvider&gt;
+    &lt;ThemeToggle /&gt;
+    &lt;ThemedButton&gt;Click me&lt;/ThemedButton&gt;
+  &lt;/ThemeProvider&gt;
+&lt;/template&gt;
+
+&lt;script setup&gt;
+import ThemeProvider from &#x27;./ThemeProvider.vue&#x27;
+import ThemeToggle from &#x27;./ThemeToggle.vue&#x27;
+import ThemedButton from &#x27;./ThemedButton.vue&#x27;
+&lt;/script&gt;</code></pre>
+
+<hr>
+
+<h2>四、执行预览</h2>
+
+<pre><code>┌──────────────────────────────────────┐
+│  [light mode → Switch to dark]       │ ← ThemeToggle
+│                                      │
+│  [Click me]                          │ ← ThemedButton (green bg)
+└──────────────────────────────────────┘
+
+(点击后背景变深色、文字变白)</code></pre>
+
+<hr>
+
+<h2>五、注意事项</h2>
+
+<table><thead><tr>
+<th>事项</th>
+<th>说明</th>
+<th>建议</th>
+</tr></thead><tbody>
+<tr>
+<td>响应性</td>
+<td>provide 的值如果是 ref/reactive 则保持响应</td>
+<td>需要响应就 provide ref</td>
+</tr>
+<tr>
+<td>只读保护</td>
+<td>子组件可以修改注入的 reactive 对象</td>
+<td>用 <code>readonly()</code> 包装后 provide</td>
+</tr>
+<tr>
+<td>key 碰撞</td>
+<td>字符串 key 可能冲突</td>
+<td>用 Symbol 或 InjectionKey</td>
+</tr>
+<tr>
+<td>默认值</td>
+<td>inject 第二参数为默认值</td>
+<td>始终提供默认值，防止组件独立使用时报错</td>
+</tr>
+<tr>
+<td>调试困难</td>
+<td>不像 Props 那么直观</td>
+<td>在 DevTools 中可以查看 provide/inject</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>六、避坑指南</h2>
+
+<table><thead><tr>
+<th>❌ 错误做法</th>
+<th>✅ 正确做法</th>
+</tr></thead><tbody>
+<tr>
+<td>provide 普通值期望响应</td>
+<td><code>provide('x', ref(0))</code> 提供 ref</td>
+</tr>
+<tr>
+<td>inject 时不设默认值</td>
+<td><code>inject('key', defaultValue)</code> 始终设默认值</td>
+</tr>
+<tr>
+<td>字符串 key 到处写</td>
+<td>提取为 Symbol 常量集中管理</td>
+</tr>
+<tr>
+<td>子组件直接修改 inject 的值</td>
+<td><code>readonly()</code> 包装 + 提供修改方法</td>
+</tr>
+<tr>
+<td>用 P/I 替代所有状态管理</td>
+<td>全局共享状态用 Pinia，局部用 P/I</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>七、练习题</h2>
+
+<h3>🟢 基础</h3>
+<ol>
+<li>创建 provide/inject 传递用户名，在子组件中显示。</li>
+</ul>
+<ol>
+<li>给 inject 添加默认值，确保组件可以独立运行。</li>
+
+<h3>🟡 进阶</h3>
+<ol>
+<li>实现一个 <code>FormProvider</code>，provide 表单数据和验证规则，深层 <code>FormField</code> 组件 inject 使用。</li>
+</ul>
+<ol>
+<li>用 Symbol + <code>InjectionKey<T></code> 实现类型安全的 provide/inject。</li>
+
+<h3>🔴 挑战</h3>
+<ol>
+<li>实现一个完整的主题系统：支持多主题切换、CSS 变量注入、组件级主题覆盖。</li>
+
+<hr>
+
+<h2>八、知识点总结</h2>
+
+<pre><code>Provide / Inject
+├── provide(key, value)
+│   ├── 值类型
+│   ├── ref / reactive（响应式）
+│   └── readonly（只读保护）
+├── inject(key, default?)
+│   ├── 获取 provide 的值
+│   ├── 默认值 / 工厂函数
+│   └── 保持响应性
+├── Key 管理
+│   ├── 字符串（简单）
+│   ├── Symbol（推荐）
+│   └── InjectionKey&lt;T&gt;（TS）
+└── 设计模式
+    ├── Provider + Consumer
+    ├── 作用域状态
+    └── 插件配置注入</code></pre>
+
+<hr>
+
+<h2>九、举一反三</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>provide 内容</th>
+<th>inject 使用</th>
+</tr></thead><tbody>
+<tr>
+<td>主题</td>
+<td><code>{ theme, toggle }</code></td>
+<td>组件读取主题、切换</td>
+</tr>
+<tr>
+<td>国际化</td>
+<td><code>{ locale, t, setLocale }</code></td>
+<td>组件翻译文本</td>
+</tr>
+<tr>
+<td>表单</td>
+<td><code>{ values, errors, validate }</code></td>
+<td>字段组件读写值</td>
+</tr>
+<tr>
+<td>配置</td>
+<td><code>{ apiBase, features }</code></td>
+<td>任何组件读取配置</td>
+</tr>
+<tr>
+<td>权限</td>
+<td><code>{ user, permissions }</code></td>
+<td>组件判断是否显示</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>十、参考资料</h2>
+
+<ul>
+<li><a href="https://vuejs.org/guide/components/provide-inject.html">Vue 3 Provide/Inject 官方文档</a></li>
+<li><a href="https://vuejs.org/api/utility-types.html#injectionkey-t">InjectionKey TypeScript</a></li>
+
+<hr>
+
+<h2>十一、代码演进</h2>
+
+<h3>v1 - 简单字符串 key</h3>
+<pre><code class="language-javascript">provide(&#x27;username&#x27;, &#x27;Alice&#x27;)
+const name = inject(&#x27;username&#x27;, &#x27;Guest&#x27;)</code></pre>
+
+<h3>v2 - 响应式 + readonly</h3>
+<pre><code class="language-javascript">const theme = ref(&#x27;light&#x27;)
+provide(&#x27;theme&#x27;, { current: readonly(theme), toggle: () =&gt; { /* ... */ } })
+const { current, toggle } = inject(&#x27;theme&#x27;)</code></pre>
+
+<h3>v3 - TypeScript + Symbol + Composable</h3>
+<pre><code class="language-typescript">export const ThemeKey: InjectionKey&lt;{
+  current: Readonly&lt;Ref&lt;string&gt;&gt;
+  toggle: () =&gt; void
+}&gt; = Symbol(&#x27;theme&#x27;)
+
+export function useTheme() {
+  const ctx = inject(ThemeKey)
+  if (!ctx) throw new Error(&#x27;useTheme must be used within ThemeProvider&#x27;)
+  return ctx
+}</code></pre>
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

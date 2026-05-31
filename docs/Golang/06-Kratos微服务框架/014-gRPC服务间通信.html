@@ -1,0 +1,658 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>014-gRPC服务间通信</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Golang/index.html">Golang</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Golang/06-Kratos微服务框架/index.html">Kratos框架</a>
+</nav>
+<h1>014-gRPC服务间通信</h1>
+<div class="meta">
+<span>📂 Kratos框架</span>
+<span>🏷️ Golang</span>
+</div>
+<article>
+
+
+
+<h1>014-gRPC服务间通信</h1>
+
+<blockquote><p><strong>难度：</strong> ⭐⭐⭐⭐ | <strong>适合：</strong> 需要实现微服务间高效通信的开发者</p></blockquote>
+
+<h2>一、概念讲解</h2>
+
+<p>微服务架构中，服务间通信是核心基础设施。gRPC基于HTTP/2和Protocol Buffers，提供高性能、类型安全的RPC调用，是Go微服务间通信的首选。</p>
+
+<h3>gRPC vs HTTP REST</h3>
+
+<table><thead><tr>
+<th>特性</th>
+<th>gRPC</th>
+<th>HTTP REST</th>
+</tr></thead><tbody>
+<tr>
+<td>协议</td>
+<td>HTTP/2</td>
+<td>HTTP/1.1</td>
+</tr>
+<tr>
+<td>序列化</td>
+<td>Protobuf (binary)</td>
+<td>JSON (text)</td>
+</tr>
+<tr>
+<td>性能</td>
+<td>高 (3-10x faster)</td>
+<td>一般</td>
+</tr>
+<tr>
+<td>类型安全</td>
+<td>强 (protobuf schema)</td>
+<td>弱 (需要手动校验)</td>
+</tr>
+<tr>
+<td>流式通信</td>
+<td>支持 (bidirectional)</td>
+<td>不支持</td>
+</tr>
+<tr>
+<td>代码生成</td>
+<td>自动生成客户端/服务端</td>
+<td>手动或OpenAPI</td>
+</tr>
+<tr>
+<td>浏览器访问</td>
+<td>需要gRPC-Web</td>
+<td>直接支持</td>
+</tr>
+</tbody></table>
+
+<h3>Kratos中的gRPC通信架构</h3>
+
+<pre><code>┌────────────┐                   ┌────────────┐
+│  Service A │ ──gRPC Call──→    │  Service B │
+│  (Client)  │ ←──Response──     │  (Server)  │
+├────────────┤                   ├────────────┤
+│ Transport  │                   │ Transport  │
+│ Middleware │                   │ Middleware │
+│ Codec      │                   │ Codec      │
+└────────────┘                   └────────────┘
+      │                                ↑
+      └── Service Discovery ───────────┘</code></pre>
+
+<h2>二、脑图</h2>
+
+<pre><code>gRPC服务间通信
+├── Proto定义
+│   ├── Service定义
+│   ├── Message定义
+│   └── 代码生成(kratos proto)
+├── 服务端
+│   ├── Service实现
+│   ├── gRPC Server注册
+│   └── 中间件配置
+├── 客户端
+│   ├── 连接创建
+│   ├── 服务发现集成
+│   ├── 超时配置
+│   └── 重试策略
+├── 错误处理
+│   ├── Kratos错误规范
+│   ├── gRPC Status Code映射
+│   └── 错误详情传递
+├── 拦截器链
+│   ├── 客户端拦截器
+│   └── 服务端拦截器
+└── 高级特性
+    ├── 流式RPC
+    ├── Metadata传递
+    └── 连接池管理</code></pre>
+
+<h2>三、完整Go代码</h2>
+
+<h3>v1: 基础gRPC调用</h3>
+
+<pre><code class="language-protobuf">// api/user/v1/user.proto
+syntax = &quot;proto3&quot;;
+package user.v1;
+
+option go_package = &quot;kratos-demo/api/user/v1&quot;;
+
+service UserService {
+    rpc GetUser(GetUserRequest) returns GetUserReply {}
+}
+
+message GetUserRequest {
+    int64 id = 1;
+}
+
+message GetUserReply {
+    int64 id = 1;
+    string name = 2;
+    string email = 3;
+}</code></pre>
+
+<pre><code class="language-go">// Generate proto code
+// kratos proto client api/user/v1/user.proto</code></pre>
+
+<pre><code class="language-go">// internal/service/user.go - gRPC Server implementation
+package service
+
+import (
+    &quot;context&quot;
+
+    pb &quot;kratos-demo/api/user/v1&quot;
+)
+
+type UserService struct {
+    pb.UnimplementedUserServiceServer
+}
+
+// GetUser implements UserService gRPC method
+func (s *UserService) GetUser(ctx context.Context, req *pb.GetUserRequest) (*pb.GetUserReply, error) {
+    // Simulate database query
+    return &amp;pb.GetUserReply{
+        Id:    req.Id,
+        Name:  &quot;Kratos User&quot;,
+        Email: &quot;user@kratos.dev&quot;,
+    }, nil
+}</code></pre>
+
+<pre><code class="language-go">// cmd/user/main.go - Start gRPC server
+package main
+
+import (
+    &quot;log&quot;
+
+    &quot;github.com/go-kratos/kratos/v2&quot;
+    &quot;github.com/go-kratos/kratos/v2/transport/grpc&quot;
+    &quot;kratos-demo/internal/service&quot;
+    pb &quot;kratos-demo/api/user/v1&quot;
+)
+
+func main() {
+    userSvc := &amp;service.UserService{}
+
+    grpcSrv := grpc.NewServer(
+        grpc.Address(&quot;:9000&quot;),
+    )
+    pb.RegisterUserServiceServer(grpcSrv, userSvc)
+
+    app := kratos.New(kratos.Server(grpcSrv))
+    if err := app.Run(); err != nil {
+        log.Fatal(err)
+    }
+}</code></pre>
+
+<h3>v2: 客户端调用 + 错误处理 + 超时</h3>
+
+<pre><code class="language-go">// internal/data/user_client.go - gRPC client with timeout
+package data
+
+import (
+    &quot;context&quot;
+    &quot;time&quot;
+
+    &quot;github.com/go-kratos/kratos/v2/transport/grpc&quot;
+    pb &quot;kratos-demo/api/user/v1&quot;
+)
+
+type UserRepo struct {
+    client pb.UserServiceClient
+}
+
+// NewUserRepo create user repository with gRPC client
+func NewUserRepo() *UserRepo {
+    conn, err := grpc.DialInsecure(
+        context.Background(),
+        grpc.WithEndpoint(&quot;localhost:9000&quot;),
+        grpc.WithTimeout(5*time.Second),      // Connection timeout
+    )
+    if err != nil {
+        panic(err)
+    }
+    return &amp;UserRepo{client: pb.NewUserServiceClient(conn)}
+}
+
+// GetUser fetches user with context timeout
+func (r *UserRepo) GetUser(ctx context.Context, id int64) (*pb.GetUserReply, error) {
+    // Set per-request timeout
+    ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
+    defer cancel()
+
+    reply, err := r.client.GetUser(ctx, &amp;pb.GetUserRequest{Id: id})
+    if err != nil {
+        return nil, fmt.Errorf(&quot;user service call failed: %w&quot;, err)
+    }
+    return reply, nil
+}</code></pre>
+
+<pre><code class="language-go">// internal/service/order.go - Error handling best practices
+package service
+
+import (
+    &quot;context&quot;
+
+    &quot;github.com/go-kratos/kratos/v2/errors&quot;
+)
+
+var (
+    // ErrUserNotFound user not found error
+    ErrUserNotFound = errors.NotFound(&quot;USER_NOT_FOUND&quot;, &quot;user not found&quot;)
+    // ErrUserTimeout user service timeout
+    ErrUserTimeout = errors.Timeout(&quot;USER_TIMEOUT&quot;, &quot;user service timeout&quot;)
+)
+
+// CreateOrder creates order with user validation
+func (s *OrderService) CreateOrder(ctx context.Context, req *pb.CreateOrderRequest) (*pb.CreateOrderReply, error) {
+    // Validate user exists via gRPC call
+    user, err := s.userRepo.GetUser(ctx, req.UserId)
+    if err != nil {
+        // Map transport errors to domain errors
+        if errors.IsTimeout(err) {
+            return nil, ErrUserTimeout
+        }
+        return nil, ErrUserNotFound
+    }
+
+    // Business logic...
+    return &amp;pb.CreateOrderReply{
+        OrderId: &quot;ORD-001&quot;,
+        Status:  &quot;CREATED&quot;,
+    }, nil
+}</code></pre>
+
+<h3>v3: 拦截器链 + 服务发现 + 完整调用链</h3>
+
+<pre><code class="language-go">// internal/server/grpc.go - Server with full interceptor chain
+package server
+
+import (
+    &quot;time&quot;
+
+    &quot;github.com/go-kratos/kratos/v2/log&quot;
+    &quot;github.com/go-kratos/kratos/v2/middleware/logging&quot;
+    &quot;github.com/go-kratos/kratos/v2/middleware/recovery&quot;
+    &quot;github.com/go-kratos/kratos/v2/middleware/tracing&quot;
+    &quot;github.com/go-kratos/kratos/v2/middleware/validate&quot;
+    &quot;github.com/go-kratos/kratos/v2/registry&quot;
+    &quot;github.com/go-kratos/kratos/v2/selector/p2c&quot;
+    kgrpc &quot;github.com/go-kratos/kratos/v2/transport/grpc&quot;
+    consuld &quot;github.com/go-kratos/kratos/contrib/registry/consul/v2&quot;
+    &quot;github.com/hashicorp/consul/api&quot;
+)
+
+func NewGRPCServer(c *conf.Server, userSvc *service.UserService) *kgrpc.Server {
+    var opts = []kgrpc.ServerOption{
+        kgrpc.Address(c.Grpc.Addr),
+        kgrpc.Timeout(10 * time.Second),
+        kgrpc.Middleware(
+            recovery.Recovery(),
+            tracing.Server(),
+            logging.Server(log.DefaultLogger),
+            validate.Validator(),
+        ),
+    }
+    srv := kgrpc.NewServer(opts...)
+    pb.RegisterUserServiceServer(srv, userSvc)
+    return srv
+}</code></pre>
+
+<pre><code class="language-go">// internal/data/user_client.go - Full-featured client
+package data
+
+import (
+    &quot;context&quot;
+    &quot;time&quot;
+
+    &quot;github.com/go-kratos/kratos/v2/log&quot;
+    &quot;github.com/go-kratos/kratos/v2/middleware/recovery&quot;
+    &quot;github.com/go-kratos/kratos/v2/middleware/tracing&quot;
+    &quot;github.com/go-kratos/kratos/v2/registry&quot;
+    &quot;github.com/go-kratos/kratos/v2/selector&quot;
+    &quot;github.com/go-kratos/kratos/v2/selector/p2c&quot;
+    kgrpc &quot;github.com/go-kratos/kratos/v2/transport/grpc&quot;
+    consuld &quot;github.com/go-kratos/kratos/contrib/registry/consul/v2&quot;
+    &quot;github.com/hashicorp/consul/api&quot;
+    pb &quot;kratos-demo/api/user/v1&quot;
+)
+
+// NewUserClient creates gRPC client with discovery + middleware + load balance
+func NewUserClient(r registry.Discovery) pb.UserServiceClient {
+    conn, err := kgrpc.DialInsecure(
+        context.Background(),
+        kgrpc.WithEndpoint(&quot;discovery:///user-service&quot;),
+        kgrpc.WithDiscovery(r),
+        kgrpc.WithSelector(selector.SetGlobalSelector(p2c.New())),
+        kgrpc.WithTimeout(5*time.Second),
+        // Client-side middleware
+        kgrpc.WithMiddleware(
+            recovery.Recovery(),
+            tracing.Client(),  // Note: Client() not Server()
+        ),
+    )
+    if err != nil {
+        panic(err)
+    }
+    return pb.NewUserServiceClient(conn)
+}</code></pre>
+
+<pre><code class="language-go">// internal/service/order.go - Cross-service call with full error chain
+package service
+
+import (
+    &quot;context&quot;
+    &quot;fmt&quot;
+
+    &quot;github.com/go-kratos/kratos/v2/log&quot;
+    pb &quot;kratos-demo/api/order/v1&quot;
+    userpb &quot;kratos-demo/api/user/v1&quot;
+)
+
+type OrderService struct {
+    pb.UnimplementedOrderServiceServer
+    userClient userpb.UserServiceClient
+    log        *log.Helper
+}
+
+// CreateOrder demonstrates full cross-service call chain
+func (s *OrderService) CreateOrder(ctx context.Context, req *pb.CreateOrderRequest) (*pb.CreateOrderReply, error) {
+    // Step 1: Validate user via gRPC call
+    user, err := s.userClient.GetUser(ctx, &amp;userpb.GetUserRequest{Id: req.UserId})
+    if err != nil {
+        s.log.WithContext(ctx).Errorf(&quot;get user failed: %v&quot;, err)
+        return nil, fmt.Errorf(&quot;validate user failed: %w&quot;, err)
+    }
+
+    // Step 2: Create order
+    orderID := fmt.Sprintf(&quot;ORD-%d&quot;, req.UserId)
+
+    // Step 3: Return response with user info
+    return &amp;pb.CreateOrderReply{
+        OrderId:  orderID,
+        UserName: user.Name,
+        Status:   &quot;CREATED&quot;,
+    }, nil
+}</code></pre>
+
+<h2>四、执行预览</h2>
+
+<pre><code class="language-bash"># Generate proto
+$ kratos proto client api/user/v1/user.proto
+# → api/user/v1/user.pb.go
+# → api/user/v1/user_grpc.pb.go
+
+# Start user service
+$ go run cmd/user/main.go
+INFO msg=server listening on: [::]:9000
+
+# Start order service (calls user service)
+$ go run cmd/order/main.go
+INFO msg=server listening on: [::]:9001
+
+# Call order service (HTTP → gRPC internal call)
+$ curl http://localhost:8000/order -d &#x27;{&quot;user_id&quot;:1}&#x27;
+{&quot;order_id&quot;:&quot;ORD-001&quot;,&quot;user_name&quot;:&quot;Kratos User&quot;,&quot;status&quot;:&quot;CREATED&quot;}
+
+# Check traces (with Jaeger)
+$ open http://localhost:16686
+# → See: HTTP Gateway → Order Service gRPC → User Service gRPC
+
+# Error case: user service down
+$ curl http://localhost:8000/order -d &#x27;{&quot;user_id&quot;:1}&#x27;
+{&quot;code&quot;:504,&quot;reason&quot;:&quot;USER_TIMEOUT&quot;,&quot;message&quot;:&quot;validate user failed: context deadline exceeded&quot;}</code></pre>
+
+<h2>五、注意事项</h2>
+
+<table><thead><tr>
+<th>注意点</th>
+<th>说明</th>
+<th>建议</th>
+</tr></thead><tbody>
+<tr>
+<td>Protobuf版本</td>
+<td>proto2 vs proto3不兼容</td>
+<td>统一使用proto3</td>
+</tr>
+<tr>
+<td>超时设置</td>
+<td>没超时=无限等待</td>
+<td>每层设置合理超时</td>
+</tr>
+<tr>
+<td>连接复用</td>
+<td>每次请求新建连接浪费</td>
+<td>客户端连接池复用</td>
+</tr>
+<tr>
+<td>错误映射</td>
+<td>gRPC错误码≠业务错误码</td>
+<td>使用Kratos errors包</td>
+</tr>
+<tr>
+<td>向后兼容</td>
+<td>字段变更破坏旧客户端</td>
+<td>只加字段不删不改编号</td>
+</tr>
+<tr>
+<td>流式场景</td>
+<td>流式RPC需要特殊处理</td>
+<td>先掌握Unary，再学Stream</td>
+</tr>
+</tbody></table>
+
+<h2>六、避坑指南</h2>
+
+<table><thead><tr>
+<th>❌ 错误做法</th>
+<th>✅ 正确做法</th>
+</tr></thead><tbody>
+<tr>
+<td>直接用 <code>grpc.Dial</code></td>
+<td>用 <code>kratos.DialInsecure</code> 封装</td>
+</tr>
+<tr>
+<td>不设超时</td>
+<td>每个gRPC调用设context timeout</td>
+</tr>
+<tr>
+<td>用 <code>status.Errorf</code> 返回错误</td>
+<td>用 <code>errors.New()</code> / <code>errors.NotFound()</code> 等</td>
+</tr>
+<tr>
+<td>proto字段编号随便改</td>
+<td>编号一旦分配不再变更</td>
+</tr>
+<tr>
+<td>不处理连接断开</td>
+<td>加recovery中间件 + 重试策略</td>
+</tr>
+<tr>
+<td>客户端不传trace context</td>
+<td>客户端加 <code>tracing.Client()</code></td>
+</tr>
+<tr>
+<td>大payload用Unary RPC</td>
+<td>超过1MB考虑用Streaming RPC</td>
+</tr>
+</tbody></table>
+
+<h2>七、练习题</h2>
+
+<h3>🟢 基础题</h3>
+<ol>
+<li>定义一个Product服务的proto文件，包含GetProduct和ListProducts两个RPC</li>
+</ul>
+<ol>
+<li>实现Product gRPC Server并启动</li>
+
+<h3>🟡 进阶题</h3>
+<ol>
+<li>实现Order服务通过gRPC调用User服务和Product服务，完成下单逻辑</li>
+</ul>
+<ol>
+<li>给所有gRPC调用添加链路追踪，在Jaeger中查看完整调用链</li>
+
+<h3>🔴 挑战题</h3>
+<ol>
+<li>实现gRPC双向流式通信：实时订单状态推送</li>
+</ul>
+<ol>
+<li>实现gRPC调用重试策略：指数退避 + 可重试错误码白名单</li>
+
+<h2>八、知识点总结</h2>
+
+<pre><code>gRPC服务间通信
+├── Proto定义
+│   ├── syntax proto3
+│   ├── service / rpc定义
+│   ├── message字段编号
+│   └── kratos proto client 代码生成
+├── 服务端
+│   ├── grpc.NewServer()
+│   ├── Service实现 UnimplementedXxxServer
+│   └── Server中间件
+├── 客户端
+│   ├── grpc.DialInsecure()
+│   ├── discovery:/// scheme
+│   ├── Client中间件 (tracing.Client())
+│   └── 负载均衡 selector
+├── 错误体系
+│   ├── errors.New / NotFound / Timeout
+│   ├── gRPC status code映射
+│   └── errors.Is / As 判断
+├── 超时控制
+│   ├── 连接级超时
+│   ├── 请求级 context.WithTimeout
+│   └── 超时传播 (deadline propagation)
+└── 可观测性
+    ├── tracing (OpenTelemetry)
+    ├── logging (请求日志)
+    └── metrics (调用指标)</code></pre>
+
+<h2>九、举一反三</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>方案</th>
+<th>技术</th>
+</tr></thead><tbody>
+<tr>
+<td>同步调用</td>
+<td>Unary RPC</td>
+<td>标准gRPC调用</td>
+</tr>
+<tr>
+<td>流式数据</td>
+<td>Server Streaming</td>
+<td>实时日志/事件推送</td>
+</tr>
+<tr>
+<td>双向通信</td>
+<td>Bidirectional Streaming</td>
+<td>聊天/实时协作</td>
+</tr>
+<tr>
+<td>批量查询</td>
+<td>Unary + repeated字段</td>
+<td>批量接口设计</td>
+</tr>
+<tr>
+<td>文件传输</td>
+<td>Client Streaming</td>
+<td>分块上传</td>
+</tr>
+<tr>
+<td>事件通知</td>
+<td>gRPC + Pub/Sub</td>
+<td>异步解耦</td>
+</tr>
+</tbody></table>
+
+<h2>十、参考资料</h2>
+
+<ul>
+<li><a href="https://go-kratos.dev/docs/component/transport/grpc">Kratos官方文档 - gRPC</a></li>
+<li><a href="https://grpc.io/docs/languages/go/quickstart/">gRPC Go Quick Start</a></li>
+<li><a href="https://protobuf.dev/programming-guides/proto3/">Protocol Buffers v3 Guide</a></li>
+<li><a href="https://go-kratos.dev/docs/component/errors">Kratos错误处理</a></li>
+
+<h2>十一、代码演进</h2>
+
+<h3>v1 → v2 的变化</h3>
+<ul>
+<li>从单服务到客户端/服务端分离</li>
+<li>添加超时控制（连接级+请求级）</li>
+<li>引入Kratos错误体系</li>
+<li>展示错误映射和处理模式</li>
+
+<h3>v2 → v3 的变化</h3>
+<ul>
+<li>完整拦截器链（客户端+服务端）</li>
+<li>服务发现集成（discovery:///）</li>
+<li>负载均衡策略（P2C）</li>
+<li>跨服务调用链路（Order→User）</li>
+<li>可观测性（tracing贯穿全链路）</li>
+
+<h3>核心演进路径</h3>
+<pre><code>基础gRPC调用 → 超时+错误处理 → 服务发现+拦截器链+全链路追踪</code></pre>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

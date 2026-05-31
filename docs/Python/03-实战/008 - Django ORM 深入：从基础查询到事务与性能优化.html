@@ -1,0 +1,530 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>008 - Django ORM 深入：从基础查询到事务与性能优化</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Python/index.html">Python</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Python/03-实战/index.html">Python实战</a>
+</nav>
+<h1>008 - Django ORM 深入：从基础查询到事务与性能优化</h1>
+<div class="meta">
+<span>📂 Python实战</span>
+<span>🏷️ Python</span>
+</div>
+<article>
+
+
+<h2>难度标注</h2>
+
+<blockquote><p><strong>难度：⭐⭐⭐ 中级</strong> | 预计阅读时间：18分钟 | 前置知识：Django基础、SQL基础</p></blockquote>
+
+<h2>概念讲解</h2>
+
+<h3>ORM 是什么？</h3>
+
+<p>ORM（Object-Relational Mapping）把数据库表映射为 Python 类，让你用 <strong>Python 代码操作数据库</strong>，而不是写 SQL。</p>
+
+<pre><code>Python 对象  &lt;-&gt;  ORM  &lt;-&gt;  数据库表
+Article.objects.filter(title__contains=&quot;DRF&quot;)
+-&gt; SELECT * FROM article WHERE title LIKE &#x27;%DRF%&#x27;</code></pre>
+
+<h3>Django ORM 核心能力</h3>
+
+<table><thead><tr>
+<th>能力</th>
+<th>说明</th>
+<th>示例</th>
+</tr></thead><tbody>
+<tr>
+<td>查询</td>
+<td>filter/exclude/annotate</td>
+<td><code>Article.objects.filter(views__gte=100)</code></td>
+</tr>
+<tr>
+<td>关联</td>
+<td>ForeignKey/ManyToMany/OneToOne</td>
+<td><code>article.author.username</code></td>
+</tr>
+<tr>
+<td>聚合</td>
+<td>Count/Sum/Avg/Max/Min</td>
+<td><code>Comment.objects.count()</code></td>
+</tr>
+<tr>
+<td>事务</td>
+<td>atomic/transaction</td>
+<td><code>with transaction.atomic():</code></td>
+</tr>
+<tr>
+<td>迁移</td>
+<td>makemigrations/migrate</td>
+<td>版本化数据库变更</td>
+</tr>
+<tr>
+<td>QuerySet 惰性</td>
+<td>不执行不查询</td>
+<td>链式调用直到求值</td>
+</tr>
+</tbody></table>
+
+<h2>脑图</h2>
+
+<pre><code>Django ORM 深入
+├── 查询
+│   ├── filter / exclude / get
+│   ├── Q 对象（复杂 OR 查询）
+│   ├── F 对象（字段间比较/更新）
+│   ├── annotate（注解/计算字段）
+│   └── aggregate（聚合）
+├── 关联
+│   ├── ForeignKey（多对一）
+│   ├── ManyToManyField（多对多）
+│   ├── OneToOneField（一对一）
+│   ├── select_related（JOIN 优化）
+│   └── prefetch_related（二次查询优化）
+├── 性能
+│   ├── only / defer（字段懒加载）
+│   ├── bulk_create / bulk_update
+│   ├── iterator()（大结果集流式）
+│   └── explain()（查看执行计划）
+├── 事务
+│   ├── atomic()
+│   ├── savepoint
+│   └── on_commit 回调
+└── 高级
+    ├── Raw SQL / raw()
+    ├── Extra / annotations
+    ├── 自定义 Manager
+    └── 多数据库路由</code></pre>
+
+<h2>完整代码：电商数据模型</h2>
+
+<h3>v1 基础版本 - 模型定义 + 简单查询</h3>
+
+<pre><code class="language-python"># models.py - v1: basic models
+from django.db import models
+
+class Category(models.Model):
+    name = models.CharField(max_length=100)
+
+    def __str__(self):
+        return self.name
+
+class Product(models.Model):
+    name = models.CharField(max_length=200)
+    price = models.DecimalField(max_digits=10, decimal_places=2)
+    stock = models.IntegerField(default=0)
+    category = models.ForeignKey(Category, on_delete=models.CASCADE, related_name=&quot;products&quot;)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return self.name
+
+class Order(models.Model):
+    user = models.ForeignKey(&quot;auth.User&quot;, on_delete=models.CASCADE)
+    products = models.ManyToManyField(Product, through=&quot;OrderItem&quot;)
+    created_at = models.DateTimeField(auto_now_add=True)
+    status = models.CharField(max_length=20, default=&quot;pending&quot;)
+
+class OrderItem(models.Model):
+    order = models.ForeignKey(Order, on_delete=models.CASCADE)
+    product = models.ForeignKey(Product, on_delete=models.CASCADE)
+    quantity = models.IntegerField(default=1)
+    price = models.DecimalField(max_digits=10, decimal_places=2)  # snapshot price</code></pre>
+
+<pre><code class="language-python"># queries_v1.py - basic CRUD
+from .models import Product, Category, Order
+
+# Create
+cat = Category.objects.create(name=&quot;Electronics&quot;)
+prod = Product.objects.create(name=&quot;MacBook&quot;, price=12999.00, stock=50, category=cat)
+
+# Read
+products = Product.objects.filter(price__gte=1000, stock__gt=0)
+product = Product.objects.get(name=&quot;MacBook&quot;)
+
+# Update
+Product.objects.filter(name=&quot;MacBook&quot;).update(price=11999.00)
+
+# Delete
+Product.objects.filter(stock=0).delete()</code></pre>
+
+<h3>v2 进阶版本 - 关联查询 + 聚合 + Q/F</h3>
+
+<pre><code class="language-python"># queries_v2.py - advanced queries
+from django.db.models import Count, Sum, Avg, F, Q
+from .models import Product, Category, Order
+
+# --- Q objects: complex OR conditions ---
+# Find products: (price &lt; 500 AND in stock) OR (name contains &quot;Pro&quot;)
+products = Product.objects.filter(
+    Q(price__lt=500, stock__gt=0) | Q(name__icontains=&quot;Pro&quot;)
+)
+
+# --- F objects: compare/update fields dynamically ---
+# Increase all prices by 10%
+Product.objects.update(price=F(&quot;price&quot;) * 1.10)
+
+# --- Aggregation ---
+# Total revenue
+revenue = OrderItem.objects.aggregate(
+    total=Sum(F(&quot;quantity&quot;) * F(&quot;price&quot;))
+)
+# -&gt; {&#x27;total&#x27;: Decimal(&#x27;258000.00&#x27;)}
+
+# Average price per category
+Category.objects.annotate(
+    avg_price=Avg(&quot;products__price&quot;),
+    product_count=Count(&quot;products&quot;)
+).values(&quot;name&quot;, &quot;avg_price&quot;, &quot;product_count&quot;)
+# -&gt; [{&#x27;name&#x27;:&#x27;Electronics&#x27;,&#x27;avg_price&#x27;:8500,&#x27;product_count&#x27;:12}, ...]
+
+# --- select_related vs prefetch_related ---
+# select_related: ForeignKey (SQL JOIN, single query)
+orders = Order.objects.select_related(&quot;user&quot;).all()
+
+# prefetch_related: ManyToMany / reverse FK (2 queries)
+categories = Category.objects.prefetch_related(&quot;products&quot;).all()
+for cat in categories:
+    products = list(cat.products.all())  # no extra query
+
+# --- Annotation with Case/When ---
+from django.db.models import Case, When, Value, CharField
+
+products = Product.objects.annotate(
+    stock_status=Case(
+        When(stock=0, then=Value(&quot;out_of_stock&quot;)),
+        When(stock__lt=10, then=Value(&quot;low&quot;)),
+        default=Value(&quot;in_stock&quot;),
+        output_field=CharField(),
+    )
+)</code></pre>
+
+<h3>v3 生产版本 - 事务 + 批量操作 + 性能优化</h3>
+
+<pre><code class="language-python"># queries_v3.py - production patterns
+from django.db import transaction
+from django.db.models import F, Sum
+from .models import Product, Order, OrderItem
+
+# --- Transaction with atomic ---
+def create_order(user, items):
+    &quot;&quot;&quot;
+    Create order with stock deduction in a single transaction.
+    items = [{&quot;product_id&quot;: 1, &quot;quantity&quot;: 2}, ...]
+    &quot;&quot;&quot;
+    with transaction.atomic():
+        order = Order.objects.create(user=user, status=&quot;pending&quot;)
+
+        for item in items:
+            product = Product.objects.select_for_update().get(pk=item[&quot;product_id&quot;])
+
+            if product.stock &lt; item[&quot;quantity&quot;]:
+                raise ValueError(f&quot;Insufficient stock for {product.name}&quot;)
+
+            # Deduct stock using F() to avoid race condition
+            Product.objects.filter(pk=product.pk).update(
+                stock=F(&quot;stock&quot;) - item[&quot;quantity&quot;]
+            )
+
+            OrderItem.objects.create(
+                order=order,
+                product=product,
+                quantity=item[&quot;quantity&quot;],
+                price=product.price,  # snapshot current price
+            )
+
+        # Calculate total
+        total = order.items.aggregate(
+            total=Sum(F(&quot;quantity&quot;) * F(&quot;price&quot;))
+        )[&quot;total&quot;]
+
+        order.status = &quot;confirmed&quot;
+        order.save()
+
+    return order
+
+# --- Bulk operations ---
+# Bulk create (single INSERT)
+new_products = [
+    Product(name=f&quot;Product {i}&quot;, price=99.00, stock=100, category=cat)
+    for i in range(1000)
+]
+Product.objects.bulk_create(new_products, batch_size=500)
+
+# Bulk update (single UPDATE)
+products = Product.objects.filter(price__lt=100)
+for p in products:
+    p.price *= 1.10
+Product.objects.bulk_update(products, [&quot;price&quot;], batch_size=500)
+
+# --- Performance: only/defer ---
+# Only load needed fields (saves memory and bandwidth)
+Product.objects.only(&quot;name&quot;, &quot;price&quot;).all()
+
+# --- Performance: iterator for large datasets ---
+for product in Product.objects.iterator(chunk_size=1000):
+    process(product)  # memory-efficient iteration
+
+# --- Custom Manager ---
+class ProductManager(models.Manager):
+    def available(self):
+        return self.filter(stock__gt=0, is_active=True)
+
+    def by_category(self, category_name):
+        return self.filter(category__name=category_name)
+
+class Product(models.Model):
+    # ... fields ...
+    objects = ProductManager()  # override default manager
+
+# Usage: Product.objects.available().filter(price__lt=1000)</code></pre>
+
+<h2>执行预览</h2>
+
+<pre><code class="language-bash">python manage.py shell
+
+&gt;&gt;&gt; from shop.models import *
+&gt;&gt;&gt; Category.objects.annotate(product_count=Count(&quot;products&quot;)).values(&quot;name&quot;,&quot;product_count&quot;)
+&lt;QuerySet [{&#x27;name&#x27;: &#x27;Electronics&#x27;, &#x27;product_count&#x27;: 12}]&gt;
+
+&gt;&gt;&gt; Product.objects.filter(Q(price__lt=500) | Q(name__contains=&quot;Pro&quot;))
+&lt;QuerySet [&lt;Product: MacBook Pro&gt;, &lt;Product: USB Cable&gt;]&gt;
+
+&gt;&gt;&gt; Product.objects.update(price=F(&quot;price&quot;)*1.1)
+12  # 12 rows updated
+
+&gt;&gt;&gt; with transaction.atomic():
+...     order = create_order(user, [{&quot;product_id&quot;:1,&quot;quantity&quot;:2}])
+&gt;&gt;&gt; order.status
+&#x27;confirmed&#x27;
+
+&gt;&gt;&gt; Product.objects.explain()
+&quot;Seq Scan on shop_product  (cost=0.00..15.50 rows=550 width=200)&quot;</code></pre>
+
+<h2>注意事项</h2>
+
+<table><thead><tr>
+<th>项目</th>
+<th>说明</th>
+<th>建议</th>
+</tr></thead><tbody>
+<tr>
+<td>N+1 问题</td>
+<td>循环中访问关联对象</td>
+<td><code>select_related</code>/<code>prefetch_related</code></td>
+</tr>
+<tr>
+<td>QuerySet 惰性</td>
+<td>赋值不执行查询</td>
+<td>注意在循环外调用 <code>.all()</code></td>
+</tr>
+<tr>
+<td>F() 并发</td>
+<td>更新时用 F() 避免竞态</td>
+<td><code>stock=F("stock")-1</code></td>
+</tr>
+<tr>
+<td>select_for_update</td>
+<td>事务中锁定行</td>
+<td>配合 <code>transaction.atomic()</code> 使用</td>
+</tr>
+<tr>
+<td>bulk_create 限制</td>
+<td>不触发 <code>save()</code> 信号</td>
+<td>ManyToMany 不支持批量</td>
+</tr>
+<tr>
+<td>迁移风险</td>
+<td>删字段会丢数据</td>
+<td>生产用 <code>--fake</code> + 手动 SQL</td>
+</tr>
+</tbody></table>
+
+<h2>避坑指南</h2>
+
+<p>❌ <strong>在循环中逐条查询关联对象</strong></p>
+<pre><code class="language-python">for order in Order.objects.all():
+    print(order.user.name)  # N+1 query!</code></pre>
+<p>✅ <strong>用 select_related 一次查询</strong></p>
+<pre><code class="language-python">for order in Order.objects.select_related(&quot;user&quot;).all():
+    print(order.user.name)  # 1 query total</code></pre>
+
+<p>❌ <strong>直接赋值更新计数字段（竞态条件）</strong></p>
+<pre><code class="language-python">product.stock -= 1
+product.save()  # race condition!</code></pre>
+<p>✅ <strong>用 F() 原子更新</strong></p>
+<pre><code class="language-python">Product.objects.filter(pk=pk).update(stock=F(&quot;stock&quot;)-1)</code></pre>
+
+<p>❌ <strong>对大数据集用 list() 全部加载</strong></p>
+<p>✅ <strong>用 <code>.iterator(chunk_size=1000)</code> 流式处理</strong></p>
+
+<p>❌ <strong>在 Django 信号里做重型操作</strong></p>
+<p>✅ <strong>用 <code>transaction.on_commit()</code> 延迟到事务提交后</strong></p>
+
+<h2>练习题</h2>
+
+<p>🟢 <strong>基础题：构建查询</strong></p>
+<p>给定 Product 模型，写出：价格在 100-500 之间、库存 > 0、按价格降序的查询。</p>
+
+<p>🟡 <strong>进阶题：统计报表</strong></p>
+<p>用 annotate + aggregate 统计每个用户的：订单数、总消费金额、平均客单价。</p>
+
+<p>🔴 <strong>挑战题：库存扣减系统</strong></p>
+<p>实现一个 <code>deduct_stock(product_id, quantity)</code> 函数，要求：事务保护、并发安全（select_for_update）、库存不足抛异常、记录操作日志。</p>
+
+<h2>知识点总结</h2>
+
+<pre><code>Django ORM
+├── 基础查询
+│   ├── filter / exclude / get / values
+│   ├── 查找表达式：__gt, __contains, __icontains, __in...
+│   └── 排序：order_by() / Meta.ordering
+├── 高级查询
+│   ├── Q() - OR / NOT 条件组合
+│   ├── F() - 字段引用 / 原子更新
+│   ├── annotate - 行级计算
+│   └── aggregate - 全局聚合
+├── 关联优化
+│   ├── select_related - FK JOIN
+│   ├── prefetch_related - 反向/多对多
+│   └── Prefetch对象 - 控制预查询
+├── 性能
+│   ├── only / defer - 字段裁剪
+│   ├── bulk_create / bulk_update
+│   └── iterator - 流式读取
+└── 事务
+    ├── atomic() - 事务管理
+    ├── select_for_update - 行锁
+    └── on_commit - 提交后回调</code></pre>
+
+<h2>举一反三</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>方案</th>
+<th>关键 API</th>
+</tr></thead><tbody>
+<tr>
+<td>分页查询</td>
+<td><code>Paginator</code> 或切片</td>
+<td><code>qs[offset:offset+limit]</code></td>
+</tr>
+<tr>
+<td>全文搜索</td>
+<td>PostgreSQL <code>SearchVector</code></td>
+<td><code>SearchVectorField</code></td>
+</tr>
+<tr>
+<td>软删除</td>
+<td>自定义 <code>SoftDeleteManager</code></td>
+<td>过滤 <code>is_deleted=False</code></td>
+</tr>
+<tr>
+<td>多租户</td>
+<td>自定义 Manager + Middleware</td>
+<td>自动注入 <code>tenant_id</code> 过滤</td>
+</tr>
+<tr>
+<td>读写分离</td>
+<td>数据库路由 <code>DATABASE_ROUTERS</code></td>
+<td><code>db_for_read</code> / <code>db_for_write</code></td>
+</tr>
+<tr>
+<td>慢查询排查</td>
+<td><code>connection.queries</code> + Silk</td>
+<td>SQL 日志分析</td>
+</tr>
+</tbody></table>
+
+<h2>参考资料</h2>
+
+<ul>
+<li><a href="https://docs.djangoproject.com/en/stable/topics/db/queries/">Django ORM 官方文档 - Making queries</a></li>
+<li><a href="https://docs.djangoproject.com/en/stable/topics/db/aggregation/">Django ORM aggregation</a></li>
+<li><a href="https://docs.djangoproject.com/en/stable/topics/db/transactions/">Django Database transactions</a></li>
+<li><a href="https://github.com/jazzband/django-silk">django-silk - 请求 profiling 工具</a></li>
+
+<h2>代码演进总结</h2>
+
+<table><thead><tr>
+<th>版本</th>
+<th>特点</th>
+<th>适用场景</th>
+</tr></thead><tbody>
+<tr>
+<td>v1</td>
+<td>基础模型 + 简单 CRUD</td>
+<td>学习入门</td>
+</tr>
+<tr>
+<td>v2</td>
+<td>Q/F + 聚合 + 关联优化</td>
+<td>中等复杂度项目</td>
+</tr>
+<tr>
+<td>v3</td>
+<td>事务 + 批量 + 并发安全</td>
+<td>生产环境</td>
+</tr>
+</tbody></table>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

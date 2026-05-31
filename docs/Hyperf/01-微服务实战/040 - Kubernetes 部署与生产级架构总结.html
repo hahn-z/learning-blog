@@ -1,0 +1,529 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>040 - Kubernetes 部署与生产级架构总结</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Hyperf/index.html">Hyperf</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Hyperf/01-微服务实战/index.html">Hyperf微服务实战</a>
+</nav>
+<h1>040 - Kubernetes 部署与生产级架构总结</h1>
+<div class="meta">
+<span>📂 Hyperf微服务实战</span>
+<span>🏷️ Hyperf</span>
+</div>
+<article>
+
+
+<h1>Kubernetes 部署与生产级架构总结</h1>
+
+<blockquote><p><strong>难度：</strong> ⭐⭐⭐⭐⭐<br><strong>前置知识：</strong> Docker 容器化（039篇）、Linux 网络、YAML 基础<br><strong>预估用时：</strong> 60-90 分钟</p></blockquote>
+
+<h2>1. 概念讲解</h2>
+
+<p><strong>Kubernetes（K8s）</strong> 是容器编排平台，自动化部署、扩缩容和管理容器化应用。核心概念包括 Pod（最小调度单元）、Service（服务发现和负载均衡）、Deployment（声明式更新）、ConfigMap/Secret（配置管理）。</p>
+
+<p>类比理解：如果说 Docker 是把应用装进集装箱，Kubernetes 就是自动化码头——它决定哪个集装箱放在哪个货位（调度），根据负载增减集装箱数量（扩缩容），集装箱坏了自动换新的（自愈），外面的人只需要知道码头地址不需要知道具体哪个集装箱（服务发现）。</p>
+
+<p>本篇是系列收官之作，将用户服务部署到 K8s，并总结整个 Hyperf 微服务实战系列的核心架构。</p>
+
+<h2>2. 实时脑图</h2>
+
+<pre><code>┌─────────────────────────────────────────────────────┐
+│       Kubernetes Production Architecture              │
+├─────────────────────────────────────────────────────┤
+│                                                      │
+│  [Ingress/Nginx]                                     │
+│       |                                              │
+│       v                                              │
+│  [Service: user-service]                             │
+│       |                                              │
+│  ┌────┼────┐                                         │
+│  v    v    v                                         │
+│ [Pod] [Pod] [Pod]  (HPA: 3-10 replicas)             │
+│                                                      │
+│  Dependencies:                                       │
+│  ├── ConfigMap (env vars)                            │
+│  ├── Secret (db password)                            │
+│  ├── PVC (persistent storage)                        │
+│  └── HPA (auto-scaling)                              │
+│                                                      │
+│  Architecture Summary:                               │
+│  ├── 031-032: Kafka messaging                        │
+│  ├── 033-035: Distributed transactions (Saga)        │
+│  ├── 036-037: Prometheus + Grafana monitoring        │
+│  ├── 038: ELK logging                                │
+│  ├── 039: Docker containerization                    │
+│  └── 040: Kubernetes deployment                      │
+└─────────────────────────────────────────────────────┘</code></pre>
+
+<h2>3. 完整代码</h2>
+
+<h3>3.1 Namespace <code>k8s/namespace.yaml</code></h3>
+
+<pre><code class="language-yaml"># ✅ Dedicated namespace for user service
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: user-service
+  labels:
+    app: user-service</code></pre>
+
+<h3>3.2 ConfigMap <code>k8s/configmap.yaml</code></h3>
+
+<pre><code class="language-yaml"># ✅ Non-sensitive configuration
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: user-service-config
+  namespace: user-service
+data:
+  APP_ENV: &quot;production&quot;
+  DB_HOST: &quot;mysql-service&quot;
+  DB_PORT: &quot;3306&quot;
+  DB_DATABASE: &quot;user_service&quot;
+  REDIS_HOST: &quot;redis-service&quot;
+  KAFKA_BROKERS: &quot;kafka-service:9092&quot;
+  METRIC_DRIVER: &quot;prometheus&quot;</code></pre>
+
+<h3>3.3 Secret <code>k8s/secret.yaml</code></h3>
+
+<pre><code class="language-yaml"># ✅ Sensitive configuration (base64 encoded)
+apiVersion: v1
+kind: Secret
+metadata:
+  name: user-service-secret
+  namespace: user-service
+type: Opaque
+data:
+  DB_USERNAME: cm9vdA==           # root
+  DB_PASSWORD: c2VjcmV0           # secret
+  APP_KEY: YmFzZTY0LWVuY29kZWQ=  # base64-encoded</code></pre>
+
+<h3>3.4 Deployment <code>k8s/deployment.yaml</code></h3>
+
+<pre><code class="language-yaml"># ✅ Deployment with health checks and resource limits
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: user-service
+  namespace: user-service
+  labels:
+    app: user-service
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: user-service
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1          # ✅ One extra pod during update
+      maxUnavailable: 0    # ✅ Zero downtime
+  template:
+    metadata:
+      labels:
+        app: user-service
+    spec:
+      containers:
+        - name: user-service
+          image: registry.example.com/user-service:latest
+          ports:
+            - containerPort: 9501
+          envFrom:
+            - configMapRef:
+                name: user-service-config
+            - secretRef:
+                name: user-service-secret
+          # ✅ Liveness probe: restart if unhealthy
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 9501
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            failureThreshold: 3
+          # ✅ Readiness probe: only route traffic when ready
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 9501
+            initialDelaySeconds: 10
+            periodSeconds: 5
+          # ✅ Resource limits
+          resources:
+            requests:
+              memory: &quot;256Mi&quot;
+              cpu: &quot;250m&quot;
+            limits:
+              memory: &quot;512Mi&quot;
+              cpu: &quot;500m&quot;
+          # ✅ Graceful shutdown
+          lifecycle:
+            preStop:
+              exec:
+                command: [&quot;sh&quot;, &quot;-c&quot;, &quot;sleep 5&quot;]
+      terminationGracePeriodSeconds: 30</code></pre>
+
+<h3>3.5 Service <code>k8s/service.yaml</code></h3>
+
+<pre><code class="language-yaml"># ✅ ClusterIP service for internal communication
+apiVersion: v1
+kind: Service
+metadata:
+  name: user-service
+  namespace: user-service
+spec:
+  selector:
+    app: user-service
+  ports:
+    - port: 9501
+      targetPort: 9501
+  type: ClusterIP
+---
+# ✅ LoadBalancer for external access
+apiVersion: v1
+kind: Service
+metadata:
+  name: user-service-external
+  namespace: user-service
+spec:
+  selector:
+    app: user-service
+  ports:
+    - port: 80
+      targetPort: 9501
+  type: LoadBalancer</code></pre>
+
+<h3>3.6 HPA 自动扩缩容 <code>k8s/hpa.yaml</code></h3>
+
+<pre><code class="language-yaml"># ✅ Horizontal Pod Autoscaler
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: user-service-hpa
+  namespace: user-service
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: user-service
+  minReplicas: 3
+  maxReplicas: 10
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: 80</code></pre>
+
+<h3>3.7 Ingress <code>k8s/ingress.yaml</code></h3>
+
+<pre><code class="language-yaml"># ✅ Ingress for HTTP routing
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: user-service-ingress
+  namespace: user-service
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+spec:
+  rules:
+    - host: api.example.com
+      http:
+        paths:
+          - path: /api
+            pathType: Prefix
+            backend:
+              service:
+                name: user-service
+                port:
+                  number: 9501</code></pre>
+
+<h3>3.8 部署脚本 <code>k8s/deploy.sh</code></h3>
+
+<pre><code class="language-bash">#!/bin/bash
+set -e
+
+# ✅ Deploy user service to Kubernetes
+echo &quot;Deploying user-service to K8s...&quot;
+
+# Apply resources in order
+kubectl apply -f k8s/namespace.yaml
+kubectl apply -f k8s/configmap.yaml
+kubectl apply -f k8s/secret.yaml
+kubectl apply -f k8s/deployment.yaml
+kubectl apply -f k8s/service.yaml
+kubectl apply -f k8s/hpa.yaml
+kubectl apply -f k8s/ingress.yaml
+
+# ✅ Wait for rollout
+echo &quot;Waiting for deployment to be ready...&quot;
+kubectl rollout status deployment/user-service -n user-service --timeout=120s
+
+echo &quot;Deployment complete!&quot;
+kubectl get pods -n user-service</code></pre>
+
+<h2>4. 执行预览</h2>
+
+<pre><code class="language-bash"># Deploy
+$ bash k8s/deploy.sh
+# Deploying user-service to K8s...
+# deployment.apps/user-service rolled out
+
+# Check pods
+$ kubectl get pods -n user-service
+# NAME                            READY   STATUS    RESTARTS   AGE
+# user-service-5f7b8c6d4d-abc12   1/1     Running   0          2m
+# user-service-5f7b8c6d4d-def34   1/1     Running   0          2m
+# user-service-5f7b8c6d4d-ghi56   1/1     Running   0          2m
+
+# Test
+$ curl http://api.example.com/api/register -X POST \
+  -H &quot;Content-Type: application/json&quot; \
+  -d &#x27;{&quot;username&quot;:&quot;test&quot;,&quot;email&quot;:&quot;test@example.com&quot;,&quot;password&quot;:&quot;12345678&quot;}&#x27;
+
+# Scale manually
+$ kubectl scale deployment user-service --replicas=5 -n user-service
+
+# Check HPA
+$ kubectl get hpa -n user-service
+# NAME                 REFERENCE           TARGETS   MINPODS   MAXPODS   REPLICAS
+# user-service-hpa     Deployment/user     30%/70%   3         10        3</code></pre>
+
+<h2>5. 注意事项</h2>
+
+<table><thead><tr>
+<th>约束</th>
+<th>说明</th>
+<th>违反后果</th>
+</tr></thead><tbody>
+<tr>
+<td>资源限制必须设置</td>
+<td>requests + limits</td>
+<td>Pod 抢占资源，节点不稳定</td>
+</tr>
+<tr>
+<td>镜像用私有仓库</td>
+<td>不要用 latest 标签部署</td>
+<td>无法回滚，版本不可控</td>
+</tr>
+<tr>
+<td>Secret 不要明文存仓库</td>
+<td>用 Sealed Secrets 或 Vault</td>
+<td>密码泄露</td>
+</tr>
+<tr>
+<td>滚动更新策略配置</td>
+<td>maxSurge + maxUnavailable</td>
+<td>更新时服务中断</td>
+</tr>
+<tr>
+<td>Swoole 需要优雅关闭</td>
+<td>preStop hook + sleep</td>
+<td>请求被中断</td>
+</tr>
+</tbody></table>
+
+<h2>6. 避坑指南</h2>
+
+<table><thead><tr>
+<th>错误</th>
+<th>现象</th>
+<th>正确做法</th>
+</tr></thead><tbody>
+<tr>
+<td>不配 readinessProbe</td>
+<td>Pod 还没启动就收到流量</td>
+<td>配 readinessProbe，ready 后才接流量</td>
+</tr>
+<tr>
+<td>用 latest 标签</td>
+<td>无法确定运行版本</td>
+<td>用 git SHA 或语义版本号</td>
+</tr>
+<tr>
+<td>不配 HPA</td>
+<td>流量突增无法自动扩容</td>
+<td>配 CPU/内存指标 HPA</td>
+</tr>
+<tr>
+<td>ConfigMap 改了 Pod 不更新</td>
+<td>Deployment 不感知 ConfigMap 变更</td>
+<td>用Reloader 或手动 rollout restart</td>
+</tr>
+<tr>
+<td>PVC 没配 StorageClass</td>
+<td>数据无法持久化</td>
+<td>显式指定 StorageClass</td>
+</tr>
+</tbody></table>
+
+<h2>7. 练习题</h2>
+
+<p>🟢 <strong>基础题 1：</strong> 为 MySQL 和 Redis 创建独立的 Deployment 和 Service。</p>
+
+<p>🟢 <strong>基础题 2：</strong> 编写一个 rollback 脚本，回滚到上一个版本。</p>
+
+<p>🟡 <strong>进阶题：</strong> 使用 Helm Chart 重构所有 K8s 配置，支持 values.yaml 变量覆盖。</p>
+
+<p>🔴 <strong>开放题：</strong> 设计一个完整的 GitOps 流水线：代码推送 -> CI 构建 -> CD 自动部署到 K8s。</p>
+
+<h2>8. 知识点总结</h2>
+
+<pre><code>Kubernetes Deployment
+├── Core Resources
+│   ├── Namespace (isolation)
+│   ├── ConfigMap (config)
+│   ├── Secret (sensitive data)
+│   ├── Deployment (pod management)
+│   ├── Service (discovery + LB)
+│   ├── HPA (auto-scaling)
+│   └── Ingress (HTTP routing)
+├── Deployment Strategy
+│   ├── RollingUpdate (zero downtime)
+│   └── maxSurge=1, maxUnavailable=0
+├── Health Checks
+│   ├── livenessProbe (restart unhealthy)
+│   └── readinessProbe (traffic routing)
+└── Series Architecture Summary
+    ├── 031-032: Kafka messaging + reliability
+    ├── 033-035: Distributed transactions (Saga)
+    ├── 036-037: Monitoring (Prometheus + Grafana)
+    ├── 038: Logging (ELK)
+    ├── 039: Containerization (Docker)
+    └── 040: Orchestration (Kubernetes)</code></pre>
+
+<h2>9. 举一反三</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>K8s 资源</th>
+<th>关键配置</th>
+</tr></thead><tbody>
+<tr>
+<td>多环境部署</td>
+<td>同一 Chart + 不同 values</td>
+<td>values-dev.yaml / values-prod.yaml</td>
+</tr>
+<tr>
+<td>蓝绿部署</td>
+<td>两个 Deployment + Service 切换</td>
+<td>selector 版本标签</td>
+</tr>
+<tr>
+<td>金丝雀发布</td>
+<td>Istio VirtualService + weight</td>
+<td>10% 新版本 + 90% 旧版本</td>
+</tr>
+</tbody></table>
+
+<h2>10. 参考资料</h2>
+
+<ul>
+<li>🏆 <a href="https://kubernetes.io/docs/home/">Kubernetes 官方文档</a></li>
+<li>🏆 <a href="https://kubernetes.io/docs/concepts/configuration/overview/">K8s 最佳实践</a></li>
+<li>⭐ <a href="https://helm.sh/docs/chart_template_guide/">Helm Chart 模板指南</a></li>
+<li>📖 <a href="https://hyperf.wiki/3.1/#/zh-cn/deploy">Hyperf 生产部署</a></li>
+
+<h2>11. 代码演进</h2>
+
+<h3>v1 ❌ 手动部署</h3>
+<pre><code class="language-bash"># SSH to server, git pull, composer install, restart
+# No version control, no rollback, no scaling</code></pre>
+
+<h3>v2 ✅ Docker + Compose</h3>
+<pre><code class="language-yaml"># docker-compose up -d
+# Single server, manual scaling, no self-healing</code></pre>
+
+<h3>v3 🟢 Kubernetes</h3>
+<pre><code class="language-yaml"># kubectl apply -f k8s/
+# Auto-scaling (HPA), self-healing (probes), rolling updates
+# GitOps pipeline, multi-environment, production-ready</code></pre>
+
+<hr>
+
+<h2>📚 系列总结</h2>
+
+<p>恭喜你完成了 Hyperf 微服务实战系列全部 40 篇文章的学习！以下是完整知识图谱：</p>
+
+<pre><code>Hyperf 微服务实战系列
+├── 入门篇 (001-010)
+│   └── Hyperf 基础、Swoole、协程、依赖注入
+├── 核心篇 (011-020)
+│   └── 路由、中间件、数据库、Redis、队列
+├── 服务篇 (021-030)
+│   └── gRPC、服务注册、配置中心、API 网关
+└── 生产篇 (031-040) ← 你在这里
+    ├── 消息队列：Kafka + 可靠投递 + 幂等消费
+    ├── 分布式事务：CAP/SAGA + Hyperf 实现
+    ├── 可观测性：Prometheus + Grafana + ELK
+    └── 部署运维：Docker + Kubernetes</code></pre>
+
+<p><strong>核心理念：架构先行，简洁优先，端到端交付。</strong></p>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

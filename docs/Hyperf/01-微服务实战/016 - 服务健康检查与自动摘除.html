@@ -1,0 +1,667 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>016 - 服务健康检查与自动摘除</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Hyperf/index.html">Hyperf</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Hyperf/01-微服务实战/index.html">Hyperf微服务实战</a>
+</nav>
+<h1>016 - 服务健康检查与自动摘除</h1>
+<div class="meta">
+<span>📂 Hyperf微服务实战</span>
+<span>🏷️ Hyperf</span>
+</div>
+<article>
+
+
+<h1>016 - 服务健康检查与自动摘除</h1>
+
+<blockquote><p><strong>难度：</strong> ⭐⭐ | <strong>前置知识：</strong> 服务注册（014）、服务发现（015）| <strong>预估用时：</strong> 40 分钟</p></blockquote>
+
+<h2>概念讲解</h2>
+
+<p><strong>一句话定义：</strong> 健康检查是定期向服务实例发送探测请求，验证其是否正常响应，不健康的实例自动从注册中心摘除，避免流量打到故障节点。</p>
+
+<p><strong>现实类比：</strong> 就像医生定期体检——医生给你做检查（健康检查），结果正常就标记健康（healthy=true），有问题就建议休息（摘除）。同事发现你"病了"后就不会给你派活了。</p>
+
+<p><strong>技术场景：</strong> 用户服务实例进程崩溃、数据库连接失败或响应超时时，Nacos 通过健康检查标记为不健康，其他服务（订单服务）调用时自动跳过该实例，继续使用健康实例。</p>
+
+<h2>实时脑图</h2>
+
+<pre><code>Nacos Server
+    │
+    │ heartbeat (every 5s)
+    ▼
+┌─────────────────────────────────────────────────┐
+│              Health Check Engine                 │
+│                                                  │
+│  user-service instances:                         │
+│  ├── 10.0.1.11:9501  healthy ✓  last beat: 1s   │
+│  ├── 10.0.1.12:9501  healthy ✓  last beat: 3s   │
+│  ├── 10.0.1.13:9501  healthy ✗  timeout &gt; 15s   │ ← auto-deregister
+│  └── 10.0.1.14:9501  healthy ✗  manual offline  │
+└─────────────────────────────────────────────────┘
+         │
+         │ Discovery query
+         ▼
+Order Service
+         │
+         │ Only gets healthy instances
+         ▼
+┌─────────────────────────────────────────────┐
+│ Load balancer picks:                        │
+│  ┌──────────────────────┐                  │
+│  │ 10.0.1.11:9501  ✓    │                  │
+│  │ 10.0.1.12:9501  ✓    │                  │
+│  └──────────────────────┘                  │
+│  (10.0.1.13 and .14 excluded)               │
+└─────────────────────────────────────────────┘</code></pre>
+
+<h2>完整代码</h2>
+
+<h3>健康检查控制器 — HealthController.php</h3>
+
+<pre><code class="language-php">&lt;?php
+
+declare(strict_types=1);
+
+namespace App\Controller;
+
+use Hyperf\DbConnection\Db;
+use Hyperf\Di\Annotation\Inject;
+use Hyperf\HttpServer\Annotation\Controller;
+use Hyperf\HttpServer\Annotation\GetMapping;
+use Hyperf\Redis\Redis;
+use Psr\Log\LoggerInterface;
+
+#[Controller(prefix: &#x27;/health&#x27;)]
+class HealthController
+{
+    #[Inject]
+    private LoggerInterface $logger;
+
+    #[Inject]
+    private Redis $redis;
+
+    /**
+     * ✅ Simple liveness check — process is running
+     */
+    #[GetMapping(path: &#x27;/live&#x27;)]
+    public function liveness(): array
+    {
+        return [
+            &#x27;status&#x27; =&gt; &#x27;UP&#x27;,
+            &#x27;timestamp&#x27; =&gt; time(),
+            &#x27;service&#x27; =&gt; &#x27;user-service&#x27;,
+        ];
+    }
+
+    /**
+     * ✅ Readiness check — dependencies are ready
+     */
+    #[GetMapping(path: &#x27;/ready&#x27;)]
+    public function readiness(): array
+    {
+        $checks = [
+            &#x27;database&#x27; =&gt; $this-&gt;checkDatabase(),
+            &#x27;redis&#x27; =&gt; $this-&gt;checkRedis(),
+            &#x27;nacos&#x27; =&gt; $this-&gt;checkNacos(),
+        ];
+
+        $allHealthy = !in_array(false, $checks, true);
+
+        return [
+            &#x27;status&#x27; =&gt; $allHealthy ? &#x27;UP&#x27; : &#x27;DOWN&#x27;,
+            &#x27;checks&#x27; =&gt; $checks,
+            &#x27;timestamp&#x27; =&gt; time(),
+        ];
+    }
+
+    /**
+     * ✅ Detailed health check for monitoring
+     */
+    #[GetMapping(path: &#x27;/detail&#x27;)]
+    public function detail(): array
+    {
+        return [
+            &#x27;status&#x27; =&gt; &#x27;UP&#x27;,
+            &#x27;timestamp&#x27; =&gt; time(),
+            &#x27;service&#x27; =&gt; &#x27;user-service&#x27;,
+            &#x27;version&#x27; =&gt; env(&#x27;APP_VERSION&#x27;, &#x27;1.0.0&#x27;),
+            &#x27;checks&#x27; =&gt; [
+                &#x27;database&#x27; =&gt; $this-&gt;checkDatabase(),
+                &#x27;redis&#x27; =&gt; $this-&gt;checkRedis(),
+                &#x27;nacos&#x27; =&gt; $this-&gt;checkNacos(),
+                &#x27;disk&#x27; =&gt; $this-&gt;checkDisk(),
+            ],
+            &#x27;metrics&#x27; =&gt; [
+                &#x27;connections&#x27; =&gt; $this-&gt;getConnectionCount(),
+                &#x27;memory_mb&#x27; =&gt; round(memory_get_usage(true) / 1024 / 1024, 2),
+            ],
+        ];
+    }
+
+    private function checkDatabase(): array
+    {
+        try {
+            Db::select(&#x27;SELECT 1&#x27;);
+            return [&#x27;status&#x27; =&gt; &#x27;UP&#x27;, &#x27;latency_ms&#x27; =&gt; 5];
+        } catch (\Throwable $e) {
+            $this-&gt;logger-&gt;error(&#x27;Database health check failed&#x27;, [&#x27;error&#x27; =&gt; $e-&gt;getMessage()]);
+            return [&#x27;status&#x27; =&gt; &#x27;DOWN&#x27;, &#x27;error&#x27; =&gt; $e-&gt;getMessage()];
+        }
+    }
+
+    private function checkRedis(): array
+    {
+        try {
+            $start = microtime(true);
+            $this-&gt;redis-&gt;ping();
+            $latency = round((microtime(true) - $start) * 1000, 2);
+
+            return [&#x27;status&#x27; =&gt; &#x27;UP&#x27;, &#x27;latency_ms&#x27; =&gt; $latency];
+        } catch (\Throwable $e) {
+            $this-&gt;logger-&gt;error(&#x27;Redis health check failed&#x27;, [&#x27;error&#x27; =&gt; $e-&gt;getMessage()]);
+            return [&#x27;status&#x27; =&gt; &#x27;DOWN&#x27;, &#x27;error&#x27; =&gt; $e-&gt;getMessage()];
+        }
+    }
+
+    private function checkNacos(): array
+    {
+        $nacosHost = env(&#x27;NACOS_HOST&#x27;, &#x27;127.0.0.1&#x27;);
+        $nacosPort = env(&#x27;NACOS_PORT&#x27;, 8848);
+        $url = &quot;http://{$nacosHost}:{$nacosPort}/nacos/v1/console/health/readiness&quot;;
+
+        $start = microtime(true);
+        $response = @file_get_contents($url);
+        $latency = round((microtime(true) - $start) * 1000, 2);
+
+        if ($response === &#x27;UP&#x27;) {
+            return [&#x27;status&#x27; =&gt; &#x27;UP&#x27;, &#x27;latency_ms&#x27; =&gt; $latency];
+        }
+
+        return [&#x27;status&#x27; =&gt; &#x27;DOWN&#x27;, &#x27;error&#x27; =&gt; &#x27;Nacos not ready&#x27;];
+    }
+
+    private function checkDisk(): array
+    {
+        $free = disk_free_space(&#x27;/&#x27;);
+        $total = disk_total_space(&#x27;/&#x27;);
+        $usagePercent = round((1 - $free / $total) * 100, 2);
+
+        $status = $usagePercent &lt; 90 ? &#x27;UP&#x27; : &#x27;DOWN&#x27;;
+
+        return [
+            &#x27;status&#x27; =&gt; $status,
+            &#x27;usage_percent&#x27; =&gt; $usagePercent,
+            &#x27;free_gb&#x27; =&gt; round($free / 1024 / 1024 / 1024, 2),
+        ];
+    }
+
+    private function getConnectionCount(): int
+    {
+        // Return active DB connections or coroutine count
+        return 42; // Mock value
+    }
+}</code></pre>
+
+<h3>Nacos 健康检查配置 — config/autoload/services.php</h3>
+
+<pre><code class="language-php">&lt;?php
+// ✅ Nacos heartbeat and health check configuration
+
+declare(strict_types=1);
+
+return [
+    &#x27;enable&#x27; =&gt; [
+        &#x27;discovery&#x27; =&gt; true,
+        &#x27;register&#x27; =&gt; true,
+    ],
+    &#x27;drivers&#x27; =&gt; [
+        &#x27;nacos&#x27; =&gt; [
+            &#x27;host&#x27; =&gt; env(&#x27;NACOS_HOST&#x27;, &#x27;127.0.0.1&#x27;),
+            &#x27;port&#x27; =&gt; (int) env(&#x27;NACOS_PORT&#x27;, 8848),
+            &#x27;username&#x27; =&gt; env(&#x27;NACOS_USERNAME&#x27;, &#x27;nacos&#x27;),
+            &#x27;password&#x27; =&gt; env(&#x27;NACOS_PASSWORD&#x27;, &#x27;nacos&#x27;),
+            &#x27;group_name&#x27; =&gt; env(&#x27;NACOS_SERVICE_GROUP&#x27;, &#x27;DEFAULT_GROUP&#x27;),
+            &#x27;namespace_id&#x27; =&gt; env(&#x27;NACOS_NAMESPACE&#x27;, &#x27;&#x27;),
+
+            // 🟡 Heartbeat configuration
+            &#x27;heartbeat&#x27; =&gt; [
+                &#x27;interval&#x27; =&gt; 5000,  // ms
+                &#x27;timeout&#x27; =&gt; 15000,  // ms (Nacos considers unhealthy if no heartbeat for 15s)
+                &#x27;ttl&#x27; =&gt; 20000,      // ms (TTL for ephemeral instances)
+            ],
+
+            // 🟢 Custom health check endpoint
+            &#x27;health_check&#x27; =&gt; [
+                &#x27;url&#x27; =&gt; &#x27;/health/live&#x27;,
+                &#x27;interval&#x27; =&gt; 10000,
+            ],
+        ],
+    ],
+];</code></pre>
+
+<h3>自定义健康检查事件监听器 — HealthCheckListener.php</h3>
+
+<pre><code class="language-php">&lt;?php
+
+declare(strict_types=1);
+
+namespace App\Listener;
+
+use Hyperf\Event\Annotation\Listener;
+use Hyperf\Event\Contract\ListenerInterface;
+use Hyperf\Framework\Event\BeforeServerStart;
+use Psr\Log\LoggerInterface;
+
+#[Listener]
+class HealthCheckListener implements ListenerInterface
+{
+    public function __construct(
+        private LoggerInterface $logger
+    ) {}
+
+    public function listen(): array
+    {
+        return [BeforeServerStart::class];
+    }
+
+    public function process(object $event): void
+    {
+        $this-&gt;logger-&gt;info(&#x27;Starting health check pre-flight...&#x27;);
+
+        // 🟡 Verify all dependencies are healthy before starting
+        $checks = [
+            &#x27;database&#x27; =&gt; $this-&gt;checkDatabase(),
+            &#x27;redis&#x27; =&gt; $this-&gt;checkRedis(),
+            &#x27;nacos&#x27; =&gt; $this-&gt;checkNacos(),
+        ];
+
+        $allHealthy = !in_array(false, $checks, true);
+
+        if (!$allHealthy) {
+            $this-&gt;logger-&gt;error(&#x27;Pre-flight health check failed&#x27;, [&#x27;checks&#x27; =&gt; $checks]);
+            // throw new \RuntimeException(&#x27;Dependencies not ready&#x27;);
+        }
+
+        $this-&gt;logger-&gt;info(&#x27;Pre-flight health check passed&#x27;, [&#x27;checks&#x27; =&gt; $checks]);
+    }
+
+    private function checkDatabase(): bool
+    {
+        try {
+            \Hyperf\DbConnection\Db::select(&#x27;SELECT 1&#x27;);
+            return true;
+        } catch (\Throwable $e) {
+            return false;
+        }
+    }
+
+    private function checkRedis(): bool
+    {
+        try {
+            $this-&gt;container-&gt;get(\Hyperf\Redis\Redis::class)-&gt;ping();
+            return true;
+        } catch (\Throwable $e) {
+            return false;
+        }
+    }
+
+    private function checkNacos(): bool
+    {
+        $url = &#x27;http://127.0.0.1:8848/nacos/v1/console/health/readiness&#x27;;
+        return @file_get_contents($url) === &#x27;UP&#x27;;
+    }
+}</code></pre>
+
+<h3>K8s 健康检查配置 — k8s-healthcheck.yaml</h3>
+
+<pre><code class="language-yaml">apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: user-service
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: user-service
+  template:
+    metadata:
+      labels:
+        app: user-service
+    spec:
+      containers:
+        - name: user-service
+          image: user-service:1.0.0
+          ports:
+            - containerPort: 9501
+
+          # ✅ Liveness probe — restart if unhealthy
+          livenessProbe:
+            httpGet:
+              path: /health/live
+              port: 9501
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+
+          # ✅ Readiness probe — stop traffic if not ready
+          readinessProbe:
+            httpGet:
+              path: /health/ready
+              port: 9501
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 2</code></pre>
+
+<h3>健康检查测试脚本 — test-healthcheck.php</h3>
+
+<pre><code class="language-php">&lt;?php
+// ✅ Test health check endpoints
+
+declare(strict_types=1);
+
+$baseUrl = &#x27;http://127.0.0.1:9501&#x27;;
+
+echo &quot;🧪 Health Check Test\n\n&quot;;
+
+// 1. Liveness check
+echo &quot;1️⃣ Liveness Check (/health/live):\n&quot;;
+$response = @file_get_contents(&quot;{$baseUrl}/health/live&quot;);
+echo json_encode(json_decode($response) ?: [], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) . &quot;\n\n&quot;;
+
+// 2. Readiness check
+echo &quot;2️⃣ Readiness Check (/health/ready):\n&quot;;
+$response = @file_get_contents(&quot;{$baseUrl}/health/ready&quot;);
+$data = json_decode($response, true);
+
+if (isset($data[&#x27;checks&#x27;])) {
+    foreach ($data[&#x27;checks&#x27;] as $name =&gt; $check) {
+        $status = $check[&#x27;status&#x27;] === &#x27;UP&#x27; ? &#x27;✅&#x27; : &#x27;❌&#x27;;
+        echo &quot;   {$status} {$name}: {$check[&#x27;status&#x27;]}&quot;;
+        if (isset($check[&#x27;latency_ms&#x27;])) {
+            echo &quot; ({$check[&#x27;latency_ms&#x27;]}ms)&quot;;
+        }
+        echo &quot;\n&quot;;
+    }
+}
+
+echo &quot;\n3️⃣ Detailed Check (/health/detail):\n&quot;;
+$response = @file_get_contents(&quot;{$baseUrl}/health/detail&quot;);
+echo json_encode(json_decode($response) ?: [], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) . &quot;\n&quot;;
+
+echo &quot;\n✅ Test complete!\n&quot;;</code></pre>
+
+<h2>执行预览</h2>
+
+<pre><code class="language-bash"># 启动用户服务
+$ php bin/hyperf.php start
+
+# 测试健康检查
+$ php test-healthcheck.php
+🧪 Health Check Test
+
+1️⃣ Liveness Check (/health/live):
+{
+    &quot;status&quot;: &quot;UP&quot;,
+    &quot;timestamp&quot;: 1714567890,
+    &quot;service&quot;: &quot;user-service&quot;
+}
+
+2️⃣ Readiness Check (/health/ready):
+   ✅ database: UP (5ms)
+   ✅ redis: UP (2ms)
+   ✅ nacos: UP (8ms)
+
+3️⃣ Detailed Check (/health/detail):
+{
+    &quot;status&quot;: &quot;UP&quot;,
+    &quot;timestamp&quot;: 1714567890,
+    &quot;checks&quot;: {
+        &quot;database&quot;: {&quot;status&quot;: &quot;UP&quot;, &quot;latency_ms&quot;: 5},
+        &quot;redis&quot;: {&quot;status&quot;: &quot;UP&quot;, &quot;latency_ms&quot;: 2},
+        &quot;nacos&quot;: {&quot;status&quot;: &quot;UP&quot;, &quot;latency_ms&quot;: 8},
+        &quot;disk&quot;: {&quot;status&quot;: &quot;UP&quot;, &quot;usage_percent&quot;: 45.2}
+    },
+    &quot;metrics&quot;: {
+        &quot;connections&quot;: 42,
+        &quot;memory_mb&quot;: 64.5
+    }
+}
+
+✅ Test complete!
+
+# 在 Nacos 控制台查看实例健康状态
+# 所有实例显示为 healthy ✓</code></pre>
+
+<h2>注意事项</h2>
+
+<table><thead><tr>
+<th>约束</th>
+<th>说明</th>
+<th>违反后果</th>
+</tr></thead><tbody>
+<tr>
+<td>🔴 liveness 和 readiness 区分</td>
+<td>liveness 重启容器，readiness 停流量</td>
+<td>混用导致误重启或流量泄露</td>
+</tr>
+<tr>
+<td>🟡 检查间隔</td>
+<td>不要太频繁（5-10s），也不要太长（>30s）</td>
+<td>频繁检查增加负载，太长延迟发现故障</td>
+</tr>
+<tr>
+<td>🟢 依赖检查超时</td>
+<td>每个检查要有超时（1-3s）</td>
+<td>单个依赖挂起导致整个检查卡死</td>
+</tr>
+<tr>
+<td>🔴 优雅降级</td>
+<td>次要依赖失败不影响整体状态</td>
+<td>小问题导致整个服务不可用</td>
+</tr>
+<tr>
+<td>🟡 日志级别</td>
+<td>健康检查失败要记录警告或错误</td>
+<td>无法排查故障原因</td>
+</tr>
+</tbody></table>
+
+<h2>避坑指南</h2>
+
+<table><thead><tr>
+<th>错误</th>
+<th>现象</th>
+<th>正确做法</th>
+</tr></thead><tbody>
+<tr>
+<td>liveness 响应慢</td>
+<td>容器被频繁重启</td>
+<td>liveness 只检查进程，不查依赖</td>
+</tr>
+<tr>
+<td>readiness 不检查 DB</td>
+<td>流量打到 DB 失败的实例</td>
+<td>readiness 要检查所有关键依赖</td>
+</tr>
+<tr>
+<td>检查超时太长</td>
+<td>探测超时，误判不健康</td>
+<td>单个检查超时设置 1-3 秒</td>
+</tr>
+<tr>
+<td>忘记返回 JSON</td>
+<td>探测失败</td>
+<td>确保 Content-Type: application/json</td>
+</tr>
+<tr>
+<td>没有缓存健康状态</td>
+<td>每次请求都查所有依赖</td>
+<td>缓存结果，定期刷新</td>
+</tr>
+</tbody></table>
+
+<h2>练习题</h2>
+
+<h3>🟢 基础</h3>
+<ol>
+<li>实现 <code>/health/live</code> 和 <code>/health/ready</code> 两个端点，验证 Nacos 能正确标记健康状态。</li>
+</ul>
+<ol>
+<li>停止数据库，观察 Nacos 是否将实例标记为不健康。</li>
+
+<h3>🟡 进阶</h3>
+<ol>
+<li>实现一个自定义的依赖健康检查器（如第三方 API），支持重试和超时配置。</li>
+
+<h3>🔴 开放</h3>
+<ol>
+<li>设计一个自我保护机制：当连续 3 次健康检查失败时，主动从 Nacos 注销并停止接收流量。</li>
+
+<h2>知识点总结</h2>
+
+<pre><code>健康检查
+├── 检查类型
+│   ├── Liveness — 进程是否运行
+│   ├── Readiness — 依赖是否就绪
+│   └── Startup — 启动是否完成
+├── Nacos 心跳机制
+│   ├── 实例定时发送心跳
+│   ├── 超时未收到心跳 → 标记不健康
+│   └── 长时间不健康 → 自动摘除
+├── Hyperf 实现
+│   ├── HealthController
+│   ├── 配置 heartbeat 间隔
+│   └── 自定义健康检查端点
+└── Kubernetes 集成
+    ├── livenessProbe
+    ├── readinessProbe
+    └── startupProbe</code></pre>
+
+<h2>举一反三</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>适配方式</th>
+<th>关键差异</th>
+</tr></thead><tbody>
+<tr>
+<td>优雅停机</td>
+<td>停机前先返回 readiness=DOWN</td>
+<td>停止接收新流量，处理完现有请求</td>
+</tr>
+<tr>
+<td>滚动发布</td>
+<td>新实例 readiness=UP 后才下线旧实例</td>
+<td>零停机部署</td>
+</tr>
+<tr>
+<td>故障自愈</td>
+<td>readiness=DOWN 自动触发重启</td>
+<td>容器编排平台（K8s）支持</td>
+</tr>
+</tbody></table>
+
+<h2>参考资料</h2>
+
+<ul>
+<li>⭐⭐⭐ <a href="https://nacos.io/zh-cn/docs/cluster-mode-quick-start.html">Nacos 健康检查文档</a></li>
+<li>⭐⭐⭐ <a href="https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-startup-probes/">K8s 健康检查配置</a></li>
+<li>⭐⭐ <a href="https://hyperf.wiki/3.1/#/zh-cn/lifecycle">Hyperf 生命周期事件</a></li>
+
+<h2>代码演进</h2>
+
+<h3>v1 ❌ 无健康检查</h3>
+
+<pre><code class="language-php">// ❌ No health check — Nacos doesn&#x27;t know if service is down
+// Instance stays in registry even when process crashed</code></pre>
+
+<h3>v2 ✅ 简单心跳</h3>
+
+<pre><code class="language-php">// ✅ Nacos heartbeat marks instance unhealthy on timeout
+&#x27;heartbeat&#x27; =&gt; 5000,  // Send heartbeat every 5s
+// Nacos marks unhealthy if no heartbeat for 15s</code></pre>
+
+<h3>v3 🟢 完整健康检查体系</h3>
+
+<pre><code class="language-php">// 🟢 Full health check with liveness/readiness/startup
+#[GetMapping(path: &#x27;/ready&#x27;)]
+public function readiness(): array
+{
+    return [
+        &#x27;status&#x27; =&gt; $this-&gt;checkDatabase() &amp;&amp; $this-&gt;checkRedis() ? &#x27;UP&#x27; : &#x27;DOWN&#x27;,
+        &#x27;checks&#x27; =&gt; [&#x27;database&#x27; =&gt; ..., &#x27;redis&#x27; =&gt; ...],
+    ];
+}
+
+// K8s integration
+livenessProbe:
+  httpGet:
+    path: /health/live
+readinessProbe:
+  httpGet:
+    path: /health/ready</code></pre>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

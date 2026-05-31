@@ -1,0 +1,502 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>014 - 策略模式</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Golang/index.html">Golang</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Golang/04-高级/index.html">Golang高级</a>
+</nav>
+<h1>014 - 策略模式</h1>
+<div class="meta">
+<span>📂 Golang高级</span>
+<span>🏷️ Golang</span>
+</div>
+<article>
+
+
+<h1>094-策略模式</h1>
+
+<blockquote><p><strong>难度：🟡 中级</strong> | 预计阅读：20 分钟 | 2024 年更新</p></blockquote>
+
+<h2>一、概念讲解</h2>
+
+<p><strong>策略模式（Strategy Pattern）</strong> 定义一系列算法，将每个算法封装起来，并使它们可以互相替换。策略模式让算法的变化独立于使用算法的客户端。</p>
+
+<p><strong>核心要素：</strong></p>
+<ul>
+<li><strong>Context（上下文）</strong>：持有策略引用，将请求委托给策略对象</li>
+<li><strong>Strategy（策略接口）</strong>：定义算法的统一接口</li>
+<li><strong>ConcreteStrategy（具体策略）</strong>：实现策略接口的具体算法</li>
+
+<p><strong>Go 的优势：</strong> 函数是一等公民，简单策略直接用函数类型即可，无需定义 struct。复杂策略才需要接口+struct。</p>
+
+<p><strong>典型场景：</strong></p>
+<ul>
+<li>支付方式选择（微信/支付宝/银行卡）</li>
+<li>排序算法切换</li>
+<li>压缩格式选择（gzip/lz4/zstd）</li>
+<li>路由策略（轮询/随机/权重）</li>
+
+<h2>二、脑图</h2>
+
+<pre><code>策略模式
+├── 核心角色
+│   ├── Context — 持有策略
+│   ├── Strategy 接口
+│   └── ConcreteStrategy 实现
+├── Go 实现
+│   ├── 函数类型（轻量）
+│   ├── 接口 + struct（标准）
+│   └── 泛型策略（Go 1.18+）
+├── 应用场景
+│   ├── 支付路由
+│   ├── 负载均衡
+│   ├── 数据压缩
+│   └── 价格计算
+└── 组合模式
+    ├── 策略 + 工厂
+    ├── 策略 + 配置
+    └── 策略链</code></pre>
+
+<h2>三、完整 Go 代码</h2>
+
+<pre><code class="language-go">package main
+
+import (
+	&quot;fmt&quot;
+	&quot;math/rand&quot;
+	&quot;time&quot;
+)
+
+// ============================================
+// V1: Function-type strategy (lightweight)
+// ============================================
+
+// DiscountStrategy calculates the discounted price
+type DiscountStrategy func(original float64) float64
+
+// No discount
+func NoDiscount() DiscountStrategy {
+	return func(original float64) float64 { return original }
+}
+
+// Percentage discount
+func PercentDiscount(pct float64) DiscountStrategy {
+	return func(original float64) float64 { return original * (1 - pct) }
+}
+
+// Fixed amount discount
+func FixedDiscount(amount float64) DiscountStrategy {
+	return func(original float64) float64 {
+		if original &lt; amount {
+			return 0
+		}
+		return original - amount
+	}
+}
+
+// Tiered discount based on total amount
+func TieredDiscount() DiscountStrategy {
+	return func(original float64) float64 {
+		switch {
+		case original &gt;= 1000:
+			return original * 0.8 // 20% off
+		case original &gt;= 500:
+			return original * 0.9 // 10% off
+		case original &gt;= 100:
+			return original * 0.95 // 5% off
+		default:
+			return original
+		}
+	}
+}
+
+// Order uses a discount strategy
+type Order struct {
+	Product  string
+	Price    float64
+	strategy DiscountStrategy
+}
+
+func (o *Order) SetStrategy(s DiscountStrategy) { o.strategy = s }
+func (o *Order) FinalPrice() float64            { return o.strategy(o.Price) }
+
+// ============================================
+// V2: Interface-based strategy (standard)
+// ============================================
+
+// LoadBalanceStrategy selects a backend server
+type LoadBalanceStrategy interface {
+	Pick(servers []Server) Server
+}
+
+// Server represents a backend server
+type Server struct {
+	ID     string
+	Weight int
+	Addr   string
+}
+
+// RoundRobin strategy
+type RoundRobin struct{ current int }
+
+func (rr *RoundRobin) Pick(servers []Server) Server {
+	s := servers[rr.current%len(servers)]
+	rr.current++
+	return s
+}
+
+// WeightedRandom strategy
+type WeightedRandom struct {
+	rng   *rand.Rand
+	total int
+}
+
+func NewWeightedRandom(servers []Server) *WeightedRandom {
+	total := 0
+	for _, s := range servers {
+		total += s.Weight
+	}
+	return &amp;WeightedRandom{rng: rand.New(rand.NewSource(time.Now().UnixNano())), total: total}
+}
+
+func (wr *WeightedRandom) Pick(servers []Server) Server {
+	r := wr.rng.Intn(wr.total)
+	cum := 0
+	for _, s := range servers {
+		cum += s.Weight
+		if r &lt; cum {
+			return s
+		}
+	}
+	return servers[0]
+}
+
+// LeastConnection strategy
+type LeastConnection struct{ connections map[string]int }
+
+func NewLeastConnection() *LeastConnection {
+	return &amp;LeastConnection{connections: make(map[string]int)}
+}
+
+func (lc *LeastConnection) Pick(servers []Server) Server {
+	var best Server
+	min := int(^uint(0) &gt;&gt; 1) // max int
+	for _, s := range servers {
+		c := lc.connections[s.ID]
+		if c &lt; min {
+			min = c
+			best = s
+		}
+	}
+	lc.connections[best.ID]++
+	return best
+}
+
+// LoadBalancer is the context
+type LoadBalancer struct {
+	strategy LoadBalanceStrategy
+	servers  []Server
+}
+
+func (lb *LoadBalancer) SetStrategy(s LoadBalanceStrategy) { lb.strategy = s }
+func (lb *LoadBalancer) Next() Server                      { return lb.strategy.Pick(lb.servers) }
+
+// ============================================
+// V3: Generic strategy with config-driven selection
+// ============================================
+
+// StrategyRegistry holds named strategies
+type StrategyRegistry[T any] struct {
+	strategies map[string]T
+	default_   string
+}
+
+func NewStrategyRegistry[T any]() *StrategyRegistry[T] {
+	return &amp;StrategyRegistry[T]{strategies: make(map[string]T)}
+}
+
+func (sr *StrategyRegistry[T]) Register(name string, strategy T) {
+	sr.strategies[name] = strategy
+	if sr.default_ == &quot;&quot; {
+		sr.default_ = name
+	}
+}
+
+func (sr *StrategyRegistry[T]) Get(name string) (T, bool) {
+	if name == &quot;&quot; {
+		name = sr.default_
+	}
+	s, ok := sr.strategies[name]
+	return s, ok
+}
+
+// ============================================
+// Demo
+// ============================================
+
+func main() {
+	// V1: Function strategy
+	order := Order{Product: &quot;MacBook&quot;, Price: 1299, strategy: TieredDiscount()}
+	fmt.Printf(&quot;V1: %s $%.2f → $%.2f\n&quot;, order.Product, order.Price, order.FinalPrice())
+
+	order.SetStrategy(PercentDiscount(0.15))
+	fmt.Printf(&quot;V1: %s $%.2f → $%.2f (15%% off)\n&quot;, order.Product, order.Price, order.FinalPrice())
+
+	// V2: Interface strategy
+	servers := []Server{
+		{ID: &quot;s1&quot;, Weight: 3, Addr: &quot;10.0.0.1:8080&quot;},
+		{ID: &quot;s2&quot;, Weight: 1, Addr: &quot;10.0.0.2:8080&quot;},
+		{ID: &quot;s3&quot;, Weight: 1, Addr: &quot;10.0.0.3:8080&quot;},
+	}
+
+	lb := &amp;LoadBalancer{servers: servers}
+
+	lb.SetStrategy(&amp;RoundRobin{})
+	fmt.Printf(&quot;V2 RoundRobin: &quot;)
+	for i := 0; i &lt; 5; i++ { fmt.Printf(&quot;%s &quot;, lb.Next().ID) }
+	fmt.Println()
+
+	lb.SetStrategy(NewLeastConnection())
+	fmt.Printf(&quot;V2 LeastConn: &quot;)
+	for i := 0; i &lt; 5; i++ { fmt.Printf(&quot;%s &quot;, lb.Next().ID) }
+	fmt.Println()
+
+	// V3: Registry
+	reg := NewStrategyRegistry[DiscountStrategy]()
+	reg.Register(&quot;tiered&quot;, TieredDiscount())
+	reg.Register(&quot;vip&quot;, PercentDiscount(0.3))
+	reg.Register(&quot;none&quot;, NoDiscount())
+
+	if s, ok := reg.Get(&quot;vip&quot;); ok {
+		order.SetStrategy(s)
+		fmt.Printf(&quot;V3 Registry(vip): $%.2f → $%.2f\n&quot;, order.Price, order.FinalPrice())
+	}
+}</code></pre>
+
+<h2>四、执行预览</h2>
+
+<pre><code>$ go run main.go
+V1: MacBook $1299.00 → $1039.20
+V1: MacBook $1299.00 → $1104.15 (15% off)
+V2 RoundRobin: s1 s2 s3 s1 s2
+V2 LeastConn: s1 s2 s3 s1 s2
+V3 Registry(vip): $1299.00 → $909.30</code></pre>
+
+<h2>五、注意事项</h2>
+
+<table><thead><tr>
+<th>维度</th>
+<th>注意点</th>
+<th>说明</th>
+</tr></thead><tbody>
+<tr>
+<td>函数 vs 接口</td>
+<td>简单逻辑用函数，复杂状态用接口</td>
+<td>函数类型更轻量</td>
+</tr>
+<tr>
+<td>策略无状态</td>
+<td>尽量让策略无状态</td>
+<td>有状态策略需注意并发安全</td>
+</tr>
+<tr>
+<td>默认策略</td>
+<td>提供合理的默认行为</td>
+<td>避免空策略导致 panic</td>
+</tr>
+<tr>
+<td>配置驱动</td>
+<td>从配置文件/环境变量选择策略</td>
+<td>运行时切换无需改代码</td>
+</tr>
+</tbody></table>
+
+<h2>六、避坑指南</h2>
+
+<table><thead><tr>
+<th>❌ 错误做法</th>
+<th>✅ 正确做法</th>
+</tr></thead><tbody>
+<tr>
+<td>if-else/switch 散落在业务代码中</td>
+<td>封装为策略，业务代码只调用接口</td>
+</tr>
+<tr>
+<td>策略内部依赖全局变量</td>
+<td>通过构造函数注入依赖</td>
+</tr>
+<tr>
+<td>每种策略一个独立包</td>
+<td>简单策略放在同一文件，复杂才拆包</td>
+</tr>
+<tr>
+<td>策略创建时做重量级初始化</td>
+<td>懒加载或对象池</td>
+</tr>
+<tr>
+<td>忘记设置策略（nil panic）</td>
+<td>提供默认策略或零值策略</td>
+</tr>
+</tbody></table>
+
+<h2>七、练习题</h2>
+
+<p><strong>🟢 初级：</strong> 用函数类型实现 3 种排序策略（升序、降序、按长度），对字符串切片排序。</p>
+
+<p><strong>🟡 中级：</strong> 实现负载均衡器的加权轮询策略（Weighted Round Robin），确保请求按权重比例分配。</p>
+
+<p><strong>🔴 高级：</strong> 设计一个策略注册中心，支持从 YAML 配置文件动态加载和切换策略，运行时通过 HTTP API 热替换。</p>
+
+<h2>八、知识点总结</h2>
+
+<pre><code>策略模式知识树
+├── 核心思想
+│   ├── 算法封装
+│   ├── 运行时替换
+│   └── 开闭原则（OCP）
+├── Go 实现
+│   ├── 函数类型（func 类型）
+│   │   ├── 闭包捕获参数
+│   │   └── 无需 struct
+│   ├── 接口 + struct
+│   │   ├── 支持有状态策略
+│   │   └── 便于测试 mock
+│   └── 泛型注册表
+│       ├── StrategyRegistry[T]
+│       └── 类型安全的选择
+├── 组合使用
+│   ├── 策略 + 工厂（创建策略）
+│   ├── 策略 + 观察者（策略切换通知）
+│   └── 策略 + 命令（策略作为命令参数）
+└── 与类似模式区别
+    ├── vs 状态模式：策略由外部选择，状态由内部切换
+    ├── vs 模板方法：策略组合，模板继承
+    └── vs 命令模式：策略侧重算法替换，命令侧重操作封装</code></pre>
+
+<h2>九、举一反三</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>策略接口</th>
+<th>具体策略</th>
+<th>收益</th>
+</tr></thead><tbody>
+<tr>
+<td>支付系统</td>
+<td><code>Pay(amount) error</code></td>
+<td>微信/支付宝/银联</td>
+<td>新增支付方式零改动</td>
+</tr>
+<tr>
+<td>数据压缩</td>
+<td><code>Compress(data) []byte</code></td>
+<td>gzip/lz4/zstd</td>
+<td>按场景选最优算法</td>
+</tr>
+<tr>
+<td>日志输出</td>
+<td><code>Write(level, msg)</code></td>
+<td>Console/File/Remote</td>
+<td>环境适配</td>
+</tr>
+<tr>
+<td>缓存淘汰</td>
+<td><code>Evict(cache)</code></td>
+<td>LRU/LFU/FIFO</td>
+<td>按业务特性选择</td>
+</tr>
+<tr>
+<td>路由分发</td>
+<td><code>Match(path) Handler</code></td>
+<td>精确/前缀/正则</td>
+<td>灵活路由</td>
+</tr>
+</tbody></table>
+
+<h2>十、参考资料</h2>
+
+<ul>
+<li><a href="https://gobyexample.com/function-values">Go by Example: Function Values</a></li>
+<li><a href="https://refactoring.guru/design-patterns/strategy/go">Strategy Pattern - Refactoring Guru</a></li>
+<li><a href="https://pkg.go.dev/sort#Interface">Go 标准库 sort.Interface</a> — 策略模式的经典应用</li>
+
+<h2>十一、代码演进</h2>
+
+<p><strong>V1 — 函数类型策略（轻量级）：</strong></p>
+<ul>
+<li>用 <code>func</code> 类型定义策略，闭包捕获参数</li>
+<li>适合无状态的简单算法</li>
+<li>折扣计算示例：百分比/固定/阶梯</li>
+
+<p><strong>V2 — 接口策略（标准模式）：</strong></p>
+<ul>
+<li>定义 <code>LoadBalanceStrategy</code> 接口</li>
+<li>实现轮询/加权随机/最少连接</li>
+<li>Context（LoadBalancer）持有策略引用</li>
+
+<p><strong>V3 — 泛型注册表（配置驱动）：</strong></p>
+<ul>
+<li><code>StrategyRegistry[T]</code> 类型安全注册</li>
+<li>支持命名注册和默认策略</li>
+<li>可从配置文件读取策略名，运行时选择</li>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

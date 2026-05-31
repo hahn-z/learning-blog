@@ -1,0 +1,589 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>027 - Swoole多端口混合监听</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Swoole/index.html">Swoole</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Swoole/01-从入门到精通/index.html">Swoole从入门到精通</a>
+</nav>
+<h1>027 - Swoole多端口混合监听</h1>
+<div class="meta">
+<span>📂 Swoole从入门到精通</span>
+<span>🏷️ Swoole</span>
+</div>
+<article>
+
+
+<h1>Swoole多端口混合监听</h1>
+
+<blockquote><p>难度：⭐⭐⭐（中级）</p></blockquote>
+
+<h2>一、概念讲解</h2>
+
+<h3>什么是多端口混合监听？</h3>
+
+<p>在生产环境中，一个服务往往需要同时提供多种协议的支持。比如：</p>
+
+<ul>
+<li><strong>HTTP API</strong>：给前端/移动端提供 RESTful 接口</li>
+<li><strong>WebSocket</strong>：实时推送（聊天、通知、行情）</li>
+<li><strong>TCP</strong>：物联网设备上报、内部RPC通信</li>
+
+<p>传统方案是启动多个进程，分别监听不同端口。Swoole 的多端口监听允许<strong>一个 Server 进程</strong>同时监听多个端口，每个端口使用不同的协议和事件回调，共享同一组 Worker 进程。</p>
+
+<h3>核心优势</h3>
+
+<table><thead><tr>
+<th>优势</th>
+<th>说明</th>
+</tr></thead><tbody>
+<tr>
+<td>资源复用</td>
+<td>共享 Worker 进程池，内存占用低</td>
+</tr>
+<tr>
+<td>管理简单</td>
+<td>一个进程，一套配置，统一监控</td>
+</tr>
+<tr>
+<td>性能提升</td>
+<td>减少进程间通信和上下文切换</td>
+</tr>
+<tr>
+<td>代码集中</td>
+<td>业务逻辑在同一代码库，方便维护</td>
+</tr>
+</tbody></table>
+
+<h3>架构示意</h3>
+
+<pre><code>                    ┌──────────────────────────┐
+                    │     Main Server :9501     │
+                    │   (HTTP + WebSocket)      │
+                    │                           │
+Client ──HTTP──►    │  Port 9501 ──► onRequest  │
+                    │                           │
+Client ──WS────►    │  Port 9501 ──► onMessage  │
+                    │                           │
+                    ├──────────────────────────┤
+                    │   Port 9502 (TCP Server)  │
+                    │                           │
+Device ──TCP───►    │  Port 9502 ──► onReceive  │
+                    │                           │
+                    ├──────────────────────────┤
+                    │   Port 9503 (UDP Server)  │
+                    │                           │
+Client ──UDP───►    │  Port 9503 ──► onPacket   │
+                    └──────────────────────────┘
+                        共享 Worker 进程池</code></pre>
+
+<h2>二、脑图</h2>
+
+<pre><code>Swoole 多端口监听
+├── 基础概念
+│   ├── 主服务器 (Main Server)
+│   ├── 端口监听器 (Port Listener)
+│   └── 协议类型
+│       ├── SWOOLE_SOCK_TCP
+│       ├── SWOOLE_SOCK_UDP
+│       └── SWOOLE_SOCK_TCP6
+├── 核心方法
+│   ├── $server-&gt;listen()  添加监听端口
+│   ├── $port-&gt;set()       配置端口参数
+│   └── $port-&gt;on()        注册事件回调
+├── 使用场景
+│   ├── HTTP + WebSocket 混合
+│   ├── TCP + UDP 混合
+│   └── 多业务端口隔离
+└── 注意事项
+    ├── 主 Server 必须是 Base 模式或 Worker 模式
+    ├── 子端口不能使用 onTask/onFinish（仅主 Server）
+    └── SSL/TLS 需单独配置每个端口</code></pre>
+
+<h2>三、代码演进</h2>
+
+<h3>v1：基础多端口监听</h3>
+
+<pre><code class="language-php">&lt;?php
+// v1: Basic multi-port server
+// Main: HTTP on 9501, Additional: TCP on 9502
+
+$server = new Swoole\Http\Server(&quot;0.0.0.0&quot;, 9501);
+
+// Main HTTP server handler
+$server-&gt;on(&quot;request&quot;, function ($request, $response) {
+    $response-&gt;header(&quot;Content-Type&quot;, &quot;application/json&quot;);
+    $response-&gt;end(json_encode([
+        &quot;service&quot; =&gt; &quot;main-http&quot;,
+        &quot;port&quot; =&gt; 9501,
+        &quot;time&quot; =&gt; date(&quot;Y-m-d H:i:s&quot;)
+    ]));
+});
+
+// Add TCP listener on port 9502
+$tcpPort = $server-&gt;listen(&quot;0.0.0.0&quot;, 9502, SWOOLE_SOCK_TCP);
+
+$tcpPort-&gt;on(&quot;receive&quot;, function ($server, $fd, $reactorId, $data) {
+    echo &quot;[TCP:9502] Received from fd={$fd}: {$data}\n&quot;;
+    $server-&gt;send($fd, &quot;TCP Echo: &quot; . $data);
+});
+
+$tcpPort-&gt;on(&quot;close&quot;, function ($server, $fd) {
+    echo &quot;[TCP:9502] Client fd={$fd} closed\n&quot;);
+});
+
+echo &quot;Server started: HTTP=:9501, TCP=:9502\n&quot;;
+$server-&gt;start();</code></pre>
+
+<h3>v2：HTTP + WebSocket + TCP 三合一</h3>
+
+<pre><code class="language-php">&lt;?php
+// v2: HTTP + WebSocket + TCP hybrid server
+// Port 9501: HTTP + WebSocket, Port 9502: TCP
+
+$server = new Swoole\WebSocket\Server(&quot;0.0.0.0&quot;, 9501);
+
+// Shared data store (per-worker)
+$connections = [];
+
+// --- HTTP Handler ---
+$server-&gt;on(&quot;request&quot;, function ($request, $response) {
+    $path = $request-&gt;server[&quot;request_uri&quot;] ?? &quot;/&quot;;
+    
+    if ($path === &quot;/status&quot;) {
+        $response-&gt;header(&quot;Content-Type&quot;, &quot;application/json&quot;);
+        $response-&gt;end(json_encode([
+            &quot;status&quot; =&gt; &quot;running&quot;,
+            &quot;services&quot; =&gt; [&quot;http&quot;, &quot;websocket&quot;, &quot;tcp&quot;],
+            &quot;ports&quot; =&gt; [9501, 9502],
+            &quot;workers&quot; =&gt; swoole_cpu_num()
+        ]));
+    } else {
+        $response-&gt;end(&quot;&lt;h1&gt;Multi-Port Server&lt;/h1&gt;
+            &lt;p&gt;HTTP: :9501&lt;/p&gt;
+            &lt;p&gt;WebSocket: ws://:9501&lt;/p&gt;
+            &lt;p&gt;TCP: :9502&lt;/p&gt;&quot;);
+    }
+});
+
+// --- WebSocket Handler ---
+$server-&gt;on(&quot;open&quot;, function ($server, $request) {
+    global $connections;
+    $connections[$request-&gt;fd] = [
+        &quot;type&quot; =&gt; &quot;websocket&quot;,
+        &quot;connected_at&quot; =&gt; time()
+    ];
+    echo &quot;[WS] New connection fd={$request-&gt;fd}\n&quot;;
+    $server-&gt;push($request-&gt;fd, json_encode([&quot;msg&quot; =&gt; &quot;Welcome!&quot;, &quot;fd&quot; =&gt; $request-&gt;fd]));
+});
+
+$server-&gt;on(&quot;message&quot;, function ($server, $frame) {
+    global $connections;
+    echo &quot;[WS] Message from fd={$frame-&gt;fd}: {$frame-&gt;data}\n&quot;;
+    
+    $data = json_decode($frame-&gt;data, true);
+    
+    // Broadcast to all WebSocket clients
+    foreach ($connections as $fd =&gt; $info) {
+        if ($info[&quot;type&quot;] === &quot;websocket&quot; &amp;&amp; $server-&gt;isEstablished($fd)) {
+            $server-&gt;push($fd, json_encode([
+                &quot;from&quot; =&gt; $frame-&gt;fd,
+                &quot;msg&quot; =&gt; $data[&quot;msg&quot;] ?? $frame-&gt;data,
+                &quot;time&quot; =&gt; date(&quot;H:i:s&quot;)
+            ]));
+        }
+    }
+});
+
+$server-&gt;on(&quot;close&quot;, function ($server, $fd) {
+    global $connections;
+    unset($connections[$fd]);
+    echo &quot;[CLOSE] fd={$fd} disconnected\n&quot;;
+});
+
+// --- TCP Listener on 9502 ---
+$tcpPort = $server-&gt;listen(&quot;0.0.0.0&quot;, 9502, SWOOLE_SOCK_TCP);
+$tcpPort-&gt;set([
+    &quot;open_length_check&quot; =&gt; true,
+    &quot;package_length_type&quot; =&gt; &quot;N&quot;,
+    &quot;package_length_offset&quot; =&gt; 0,
+    &quot;package_body_offset&quot; =&gt; 4,
+    &quot;package_max_length&quot; =&gt; 81920
+]);
+
+$tcpPort-&gt;on(&quot;receive&quot;, function ($server, $fd, $reactorId, $data) {
+    global $connections;
+    $body = substr($data, 4); // Skip 4-byte length header
+    echo &quot;[TCP:9502] fd={$fd} data={$body}\n&quot;;
+    
+    $connections[$fd] = [&quot;type&quot; =&gt; &quot;tcp&quot;, &quot;connected_at&quot; =&gt; time()];
+    
+    // Echo back with length header
+    $response = &quot;ACK: &quot; . $body;
+    $server-&gt;send($fd, pack(&quot;N&quot;, strlen($response)) . $response);
+});
+
+$tcpPort-&gt;on(&quot;close&quot;, function ($server, $fd) {
+    global $connections;
+    unset($connections[$fd]);
+    echo &quot;[TCP:9502] fd={$fd} closed\n&quot;;
+});
+
+$server-&gt;set([
+    &quot;worker_num&quot; =&gt; swoole_cpu_num(),
+    &quot;daemonize&quot; =&gt; false,
+    &quot;log_file&quot; =&gt; &quot;/tmp/swoole-multi-port.log&quot;
+]);
+
+echo &quot;=== Multi-Port Server Started ===\n&quot;;
+echo &quot;HTTP + WebSocket: :9501\n&quot;;
+echo &quot;TCP (length-check): :9502\n&quot;;
+$server-&gt;start();</code></pre>
+
+<h3>v3：生产级多端口（含UDP、监控、热重启支持）</h3>
+
+<pre><code class="language-php">&lt;?php
+// v3: Production-grade multi-port server
+// :9501 HTTP+WS | :9502 TCP | :9503 UDP | :9504 Metrics
+
+use Swoole\WebSocket\Server;
+use Swoole\Http\Request;
+use Swoole\Http\Response;
+
+$server = new Server(&quot;0.0.0.0&quot;, 9501);
+
+// --- Global config ---
+$server-&gt;set([
+    &quot;worker_num&quot; =&gt; swoole_cpu_num() * 2,
+    &quot;task_worker_num&quot; =&gt; 4,
+    &quot;max_request&quot; =&gt; 10000,
+    &quot;daemonize&quot; =&gt; false,
+    &quot;log_file&quot; =&gt; &quot;/tmp/swoole-server.log&quot;,
+    &quot;heartbeat_check_interval&quot; =&gt; 60,
+    &quot;heartbeat_idle_time&quot; =&gt; 300,
+    &quot;reload_async&quot; =&gt; true,
+    &quot;max_coroutine&quot; =&gt; 100000
+]);
+
+// --- Shared state (Table for cross-worker) ---
+$statTable = new Swoole\Table(1024);
+$statTable-&gt;column(&quot;count&quot;, Swoole\Table::TYPE_INT);
+$statTable-&gt;column(&quot;last_active&quot;, Swoole\Table::TYPE_INT);
+$statTable-&gt;create();
+
+// --- HTTP routes ---
+$server-&gt;on(&quot;request&quot;, function (Request $request, Response $response) use ($statTable) {
+    $path = $request-&gt;server[&quot;request_uri&quot;];
+    
+    switch ($path) {
+        case &quot;/health&quot;:
+            $response-&gt;end(&quot;OK&quot;);
+            break;
+        case &quot;/metrics&quot;:
+            $total = 0;
+            foreach ($statTable as $k =&gt; $row) { $total += $row[&quot;count&quot;]; }
+            $response-&gt;header(&quot;Content-Type&quot;, &quot;application/json&quot;);
+            $response-&gt;end(json_encode([
+                &quot;total_connections&quot; =&gt; $total,
+                &quot;workers&quot; =&gt; swoole_cpu_num() * 2,
+                &quot;memory&quot; =&gt; round(memory_get_usage(true) / 1024 / 1024, 2) . &quot;MB&quot;
+            ]));
+            break;
+        default:
+            $response-&gt;end(&quot;Multi-Port Server v3&quot;);
+    }
+});
+
+// --- WebSocket ---
+$server-&gt;on(&quot;open&quot;, function ($server, $req) use ($statTable) {
+    $statTable-&gt;set(&quot;ws:&quot; . $req-&gt;fd, [&quot;count&quot; =&gt; 1, &quot;last_active&quot; =&gt; time()]);
+    $server-&gt;push($req-&gt;fd, json_encode([&quot;type&quot; =&gt; &quot;connected&quot;, &quot;fd&quot; =&gt; $req-&gt;fd]));
+});
+
+$server-&gt;on(&quot;message&quot;, function ($server, $frame) use ($statTable) {
+    $statTable-&gt;set(&quot;ws:&quot; . $frame-&gt;fd, [&quot;count&quot; =&gt; 1, &quot;last_active&quot; =&gt; time()]);
+    // Task async processing
+    $server-&gt;task($frame-&gt;data);
+});
+
+$server-&gt;on(&quot;task&quot;, function ($server, $taskId, $srcWorkerId, $data) {
+    // Process in task worker
+    return strtoupper($data);
+});
+
+$server-&gt;on(&quot;finish&quot;, function ($server, $taskId, $data) {
+    echo &quot;[Task#{$taskId}] Finished: {$data}\n&quot;;
+});
+
+// --- TCP on :9502 ---
+$tcp = $server-&gt;listen(&quot;0.0.0.0&quot;, 9502, SWOOLE_SOCK_TCP);
+$tcp-&gt;set([
+    &quot;open_eof_split&quot; =&gt; true,
+    &quot;package_eof&quot; =&gt; &quot;\r\n&quot;,
+    &quot;package_max_length&quot; =&gt; 65536
+]);
+$tcp-&gt;on(&quot;receive&quot;, function ($server, $fd, $rid, $data) use ($statTable) {
+    $msg = trim($data);
+    $statTable-&gt;set(&quot;tcp:&quot; . $fd, [&quot;count&quot; =&gt; 1, &quot;last_active&quot; =&gt; time()]);
+    $server-&gt;send($fd, &quot;ECHO {$msg}\r\n&quot;);
+});
+
+// --- UDP on :9503 ---
+$udp = $server-&gt;listen(&quot;0.0.0.0&quot;, 9503, SWOOLE_SOCK_UDP);
+$udp-&gt;on(&quot;packet&quot;, function ($server, $data, $clientInfo) {
+    $addr = $clientInfo[&quot;address&quot;];
+    $port = $clientInfo[&quot;port&quot;];
+    echo &quot;[UDP:9503] From {$addr}:{$port}: {$data}\n&quot;;
+    $server-&gt;sendto($addr, $port, &quot;UDP OK: &quot; . $data);
+});
+
+$server-&gt;on(&quot;close&quot;, function ($server, $fd) use ($statTable) {
+    $statTable-&gt;del(&quot;ws:&quot; . $fd);
+    $statTable-&gt;del(&quot;tcp:&quot; . $fd);
+});
+
+echo &quot;=== Production Multi-Port Server ===\n&quot;;
+echo &quot;HTTP+WS:9501 | TCP:9502 | UDP:9503\n&quot;;
+$server-&gt;start();</code></pre>
+
+<h2>四、执行预览</h2>
+
+<pre><code>$ php v3-multi-port.php
+=== Production Multi-Port Server ===
+HTTP+WS:9501 | TCP:9502 | UDP:9503
+
+# Another terminal - HTTP
+$ curl http://127.0.0.1:9501/health
+OK
+
+$ curl http://127.0.0.1:9501/metrics
+{&quot;total_connections&quot;:3,&quot;workers&quot;:8,&quot;memory&quot;:&quot;4.25MB&quot;}
+
+# TCP test
+$ echo &quot;hello world&quot; | nc 127.0.0.1 9502
+ECHO hello world
+
+# UDP test
+$ echo &quot;ping&quot; | nc -u 127.0.0.1 9503
+UDP OK: ping</code></pre>
+
+<h2>五、注意事项</h2>
+
+<table><thead><tr>
+<th>项目</th>
+<th>说明</th>
+</tr></thead><tbody>
+<tr>
+<td>onTask/onFinish</td>
+<td>仅主 Server 可注册，子端口不可用</td>
+</tr>
+<tr>
+<td>SSL配置</td>
+<td>每个端口独立配置 <code>$port->set(["ssl_cert_file"=>...])</code></td>
+</tr>
+<tr>
+<td>进程共享</td>
+<td>所有端口共享 Worker 进程池</td>
+</tr>
+<tr>
+<td>协议检测</td>
+<td>同一端口不能混用多种应用层协议（HTTP和WS除外）</td>
+</tr>
+<tr>
+<td>端口冲突</td>
+<td>确保端口未被占用，<code>listen()</code> 会报错</td>
+</tr>
+<tr>
+<td>连接隔离</td>
+<td>不同端口的 fd 可能相同，通过 server_port 区分</td>
+</tr>
+</tbody></table>
+
+<h2>六、避坑指南</h2>
+
+<table><thead><tr>
+<th>❌ 错误做法</th>
+<th>✅ 正确做法</th>
+</tr></thead><tbody>
+<tr>
+<td>在子端口注册 <code>onTask</code></td>
+<td>在主 Server 注册 <code>onTask</code>，子端口通过 <code>$server->task()</code> 调用</td>
+</tr>
+<tr>
+<td>多个 <code>new Server()</code> 监听多端口</td>
+<td>用 <code>$server->listen()</code> 添加子端口</td>
+</tr>
+<tr>
+<td>子端口设置 <code>worker_num</code></td>
+<td>worker_num 只在主 Server 设置</td>
+</tr>
+<tr>
+<td>用全局变量存跨 Worker 数据</td>
+<td>用 <code>Swoole\Table</code> 或 Redis 共享</td>
+</tr>
+<tr>
+<td>忽略 fd 冲突</td>
+<td>用 <code>server->getClientInfo($fd)</code> 获取端口信息</td>
+</tr>
+</tbody></table>
+
+<h2>七、练习题</h2>
+
+<h3>🟢 基础题</h3>
+<ol>
+<li>创建一个 HTTP Server(:9501) + TCP Listener(:9502)，HTTP 返回 "Hello"，TCP 回显收到的消息。</li>
+</ul>
+<ol>
+<li>在 TCP Listener 上启用 EOF 分包（<code>\n</code> 作为分隔符）。</li>
+
+<h3>🟡 进阶题</h3>
+<ol>
+<li>实现 HTTP+WS+TCP 三合一服务器，WebSocket 广播收到的消息给所有客户端。</li>
+</ul>
+<ol>
+<li>用 <code>Swoole\Table</code> 统计各端口的连接数，通过 HTTP 接口 <code>/stats</code> 查询。</li>
+
+<h3>🔴 挑战题</h3>
+<ol>
+<li>设计一个网关服务：HTTP(:9501) 接收请求后，通过 TCP(:9502) 转发给后端服务，实现简单的代理转发。</li>
+
+<h2>八、知识点总结</h2>
+
+<pre><code>多端口监听知识树
+├── 核心API
+│   ├── $server-&gt;listen($host, $port, $type)
+│   ├── $port-&gt;set($config)
+│   └── $port-&gt;on($event, $callback)
+├── 协议类型常量
+│   ├── SWOOLE_SOCK_TCP
+│   ├── SWOOLE_SOCK_UDP
+│   ├── SWOOLE_SOCK_TCP6 (IPv6)
+│   └── SWOOLE_SOCK_UDP6
+├── 限制
+│   ├── 子端口无 task/finish
+│   ├── 共享 Worker 进程
+│   └── fd 可能跨端口重复
+└── 最佳实践
+    ├── 用 Table 共享状态
+    ├── 区分连接来源
+    └── 独立配置 SSL</code></pre>
+
+<h2>九、举一反三</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>方案</th>
+</tr></thead><tbody>
+<tr>
+<td>API网关</td>
+<td>HTTP接收请求 → TCP转发后端 → 返回响应</td>
+</tr>
+<tr>
+<td>IoT平台</td>
+<td>TCP接设备数据 → HTTP推送通知 → WS实时展示</td>
+</tr>
+<tr>
+<td>游戏服务器</td>
+<td>TCP游戏逻辑 + HTTP管理后台 + WS观战</td>
+</tr>
+<tr>
+<td>微服务代理</td>
+<td>主端口路由 → 多个内部TCP端口分发</td>
+</tr>
+<tr>
+<td>消息队列</td>
+<td>TCP生产者 + TCP消费者 + HTTP管理接口</td>
+</tr>
+</tbody></table>
+
+<h2>十、参考资料</h2>
+
+<ul>
+<li><a href="https://wiki.swoole.com/#/server/methods?id=listen">Swoole Server::listen 官方文档</a></li>
+<li><a href="https://wiki.swoole.com/#/server/port">Swoole 多端口监听示例</a></li>
+<li><a href="https://wiki.swoole.com/#/websocket_server">Swoole WebSocket Server</a></li>
+<li><a href="https://wiki.swoole.com/#/memory/table">Swoole Table 共享内存</a></li>
+
+<h2>十一、代码演进总结</h2>
+
+<table><thead><tr>
+<th>版本</th>
+<th>特点</th>
+<th>适用场景</th>
+</tr></thead><tbody>
+<tr>
+<td>v1</td>
+<td>基础 HTTP+TCP 双端口</td>
+<td>学习入门</td>
+</tr>
+<tr>
+<td>v2</td>
+<td>HTTP+WS+TCP 三合一，含协议分包</td>
+<td>中小型项目</td>
+</tr>
+<tr>
+<td>v3</td>
+<td>生产级，含UDP、Table共享、Task异步</td>
+<td>生产环境</td>
+</tr>
+</tbody></table>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

@@ -1,0 +1,596 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>038 - 性能调优与内核参数</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Swoole/index.html">Swoole</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Swoole/01-从入门到精通/index.html">Swoole从入门到精通</a>
+</nav>
+<h1>038 - 性能调优与内核参数</h1>
+<div class="meta">
+<span>📂 Swoole从入门到精通</span>
+<span>🏷️ Swoole</span>
+</div>
+<article>
+
+
+<hr>
+<p>slug: 038-performance-tuning</p>
+<p>title: 性能调优与内核参数</p>
+<p>category: Swoole深度实战</p>
+<p>difficulty: ⭐⭐⭐⭐高级</p>
+<p>tags: [Swoole, 性能调优, 内核参数, ulimit, TCP优化, 连接池]</p>
+<hr>
+
+<h1>性能调优与内核参数</h1>
+
+<blockquote><p><strong>难度：⭐⭐⭐⭐高级</strong> | 预计阅读时间：22分钟</p></blockquote>
+
+<h2>一、概念讲解</h2>
+
+<p>Swoole应用在生产环境的性能不仅取决于代码质量，还与操作系统内核参数、Swoole配置、网络栈优化密切相关。一次系统的性能调优可以让吞吐量提升<strong>2-5倍</strong>。</p>
+
+<h3>调优层次模型</h3>
+
+<pre><code>┌─────────────────────────────┐
+│     应用层调优               │ ← 业务逻辑、数据库查询
+├─────────────────────────────┤
+│     Swoole配置调优           │ ← Worker数、协程数、缓冲区
+├─────────────────────────────┤
+│     PHP运行时调优            │ ← OPcache、JIT、内存限制
+├─────────────────────────────┤
+│     Linux内核参数            │ ← fd限制、TCP栈、backlog
+├─────────────────────────────┤
+│     硬件层                   │ ← CPU、内存、网卡、磁盘
+└─────────────────────────────┘</code></pre>
+
+<h2>二、脑图</h2>
+
+<pre><code>Swoole性能调优
+├── Linux内核参数
+│   ├── fs.file-max（最大文件描述符）
+│   ├── net.core.somaxconn（监听队列）
+│   ├── net.ipv4.tcp_*（TCP参数）
+│   ├── vm.swappiness（swap倾向）
+│   └── ulimit配置
+├── Swoole配置
+│   ├── worker_num
+│   ├── max_coroutine
+│   ├── socket_buffer_size
+│   ├── package_max_length
+│   └── 连接池参数
+├── PHP优化
+│   ├── OPcache配置
+│   ├── JIT编译器
+│   └── 内存管理
+└── 监控与基准
+    ├── Benchmark工具
+    ├── 火焰图分析
+    ├── 内存分析
+    └── 慢日志</code></pre>
+
+<h2>三、代码演进</h2>
+
+<h3>v1: 内核参数优化脚本</h3>
+
+<pre><code class="language-bash">#!/bin/bash
+# v1_sysctl_tuning.sh - System kernel parameter tuning for Swoole
+# Run as root
+
+echo &quot;=== Swoole System Tuning ===&quot;
+
+# === File Descriptors ===
+# Max file descriptors for entire system
+echo &quot;fs.file-max = 1048576&quot; &gt;&gt; /etc/sysctl.conf
+
+# Allow core dumps
+echo &quot;fs.suid_dumpable = 0&quot; &gt;&gt; /etc/sysctl.conf
+
+# === TCP Stack Optimization ===
+# Maximum connection queue (listen backlog)
+echo &quot;net.core.somaxconn = 65535&quot; &gt;&gt; /etc/sysctl.conf
+
+# Socket receive/send buffer
+echo &quot;net.core.rmem_max = 16777216&quot; &gt;&gt; /etc/sysctl.conf
+echo &quot;net.core.wmem_max = 16777216&quot; &gt;&gt; /etc/sysctl.conf
+echo &quot;net.core.rmem_default = 262144&quot; &gt;&gt; /etc/sysctl.conf
+echo &quot;net.core.wmem_default = 262144&quot; &gt;&gt; /etc/sysctl.conf
+
+# TCP connection settings
+echo &quot;net.ipv4.tcp_max_syn_backlog = 65535&quot; &gt;&gt; /etc/sysctl.conf
+echo &quot;net.ipv4.tcp_syncookies = 1&quot; &gt;&gt; /etc/sysctl.conf
+echo &quot;net.ipv4.tcp_tw_reuse = 1&quot; &gt;&gt; /etc/sysctl.conf
+echo &quot;net.ipv4.tcp_fin_timeout = 15&quot; &gt;&gt; /etc/sysctl.conf
+echo &quot;net.ipv4.tcp_keepalive_time = 300&quot; &gt;&gt; /etc/sysctl.conf
+echo &quot;net.ipv4.tcp_keepalive_intvl = 15&quot; &gt;&gt; /etc/sysctl.conf
+echo &quot;net.ipv4.tcp_keepalive_probes = 3&quot; &gt;&gt; /etc/sysctl.conf
+echo &quot;net.ipv4.tcp_max_tw_buckets = 65535&quot; &gt;&gt; /etc/sysctl.conf
+
+# Local port range (for outgoing connections)
+echo &quot;net.ipv4.ip_local_port_range = 1024 65535&quot; &gt;&gt; /etc/sysctl.conf
+
+# TCP memory
+echo &quot;net.ipv4.tcp_rmem = 4096 87380 16777216&quot; &gt;&gt; /etc/sysctl.conf
+echo &quot;net.ipv4.tcp_wmem = 4096 65536 16777216&quot; &gt;&gt; /etc/sysctl.conf
+
+# Connection tracking (if using conntrack)
+echo &quot;net.netfilter.nf_conntrack_max = 1048576&quot; &gt;&gt; /etc/sysctl.conf
+
+# === Memory ===
+# Minimize swap usage
+echo &quot;vm.swappiness = 1&quot; &gt;&gt; /etc/sysctl.conf
+
+# === Apply ===
+sysctl -p
+
+# === ulimit Settings ===
+cat &gt;&gt; /etc/security/limits.conf &lt;&lt; &#x27;EOF&#x27;
+* soft nofile 1048576
+* hard nofile 1048576
+* soft nproc 65535
+* hard nproc 65535
+root soft nofile 1048576
+root hard nofile 1048576
+EOF
+
+echo &quot;=== Done! Reboot recommended ===&quot;</code></pre>
+
+<h3>v2: Swoole配置优化</h3>
+
+<pre><code class="language-php">&lt;?php
+// v2_swoole_config.php - Optimized Swoole server configuration
+
+$server = new Swoole\Http\Server(&quot;0.0.0.0&quot;, 9501, SWOOLE_PROCESS);
+
+$cpuCores = swoole_cpu_num();
+
+$server-&gt;set([
+    // === Worker Configuration ===
+    // IO-intensive: 2-4x CPU cores; CPU-intensive: 1x CPU cores
+    &#x27;worker_num&#x27; =&gt; $cpuCores * 2,
+    
+    // Max coroutines per worker (default 100000, adjust per memory)
+    &#x27;max_coroutine&#x27; =&gt; 50000,
+    
+    // Restart worker after N requests (prevent memory leaks)
+    &#x27;max_request&#x27; =&gt; 3000,
+    &#x27;max_request_grace&#x27; =&gt; 100, // Grace period before restart
+    
+    // Task workers for async tasks
+    &#x27;task_worker_num&#x27; =&gt; $cpuCores,
+    &#x27;task_enable_coroutine&#x27; =&gt; true,
+    
+    // === Network ===
+    // Listen backlog (should &lt;= net.core.somaxconn)
+    &#x27;backlog&#x27; =&gt; 65535,
+    
+    // TCP keepalive
+    &#x27;open_tcp_keepalive&#x27; =&gt; true,
+    &#x27;tcp_keepidle&#x27; =&gt; 300,    // seconds before first probe
+    &#x27;tcp_keepinterval&#x27; =&gt; 15, // seconds between probes
+    &#x27;tcp_keepcount&#x27; =&gt; 3,     // probes before disconnect
+    
+    // Nagle algorithm (disable for low latency)
+    &#x27;open_tcp_nodelay&#x27; =&gt; true,
+    
+    // === Buffer ===
+    &#x27;socket_buffer_size&#x27; =&gt; 8 * 1024 * 1024, // 8MB per connection
+    &#x27;package_max_length&#x27; =&gt; 5 * 1024 * 1024,  // 5MB max package
+    
+    // === Static Files ===
+    &#x27;enable_static_handler&#x27; =&gt; true,
+    &#x27;document_root&#x27; =&gt; &#x27;/var/www/public&#x27;,
+    &#x27;static_handler_locations&#x27; =&gt; [&#x27;/static&#x27;, &#x27;/assets&#x27;],
+    
+    // === Process Management ===
+    &#x27;daemonize&#x27; =&gt; true,
+    &#x27;pid_file&#x27; =&gt; &#x27;/var/run/swoole.pid&#x27;,
+    &#x27;log_file&#x27; =&gt; &#x27;/var/log/swoole.log&#x27;,
+    &#x27;log_level&#x27; =&gt; SWOOLE_LOG_WARNING,
+    
+    // === Performance ===
+    &#x27;send_yield&#x27; =&gt; true,          // Yield on send buffer full
+    &#x27;heartbeat_check_interval&#x27; =&gt; 30,
+    &#x27;heartbeat_idle_time&#x27; =&gt; 60,
+    
+    // === Memory ===
+    &#x27;discard_timeout_request&#x27; =&gt; true, // Discard requests during reload
+    
+    // === Hooks ===
+    &#x27;hook_flags&#x27; =&gt; SWOOLE_HOOK_ALL,  // Hook all blocking functions
+]);
+
+// Connection pool for MySQL
+class MySQLPool
+{
+    private Swoole\Database\PDOPool $pool;
+    
+    public function __construct(int $size = 64)
+    {
+        $this-&gt;pool = new Swoole\Database\PDOPool(
+            (new Swoole\Database\PDOConfig())
+                -&gt;withHost(&#x27;127.0.0.1&#x27;)
+                -&gt;withPort(3306)
+                -&gt;withDbName(&#x27;myapp&#x27;)
+                -&gt;withCharset(&#x27;utf8mb4&#x27;)
+                -&gt;withUsername(&#x27;root&#x27;)
+                -&gt;withPassword(&#x27;secret&#x27;),
+            $size
+        );
+    }
+    
+    public function get(): Swoole\Database\PDOProxy
+    {
+        return $this-&gt;pool-&gt;get();
+    }
+    
+    public function put(Swoole\Database\PDOProxy $pdo): void
+    {
+        $this-&gt;pool-&gt;put($pdo);
+    }
+}
+
+// Connection pool for Redis
+class RedisPool
+{
+    private Swoole\Database\RedisPool $pool;
+    
+    public function __construct(int $size = 64)
+    {
+        $this-&gt;pool = new Swoole\Database\RedisPool(
+            (new Swoole\Database\RedisConfig())
+                -&gt;withHost(&#x27;127.0.0.1&#x27;)
+                -&gt;withPort(6379)
+                -&gt;withAuth(&#x27;secret&#x27;)
+                -&gt;withDbIndex(0),
+            $size
+        );
+    }
+    
+    public function get(): Swoole\Database\RedisProxy
+    {
+        return $this-&gt;pool-&gt;get();
+    }
+    
+    public function put(Swoole\Database\RedisProxy $redis): void
+    {
+        $this-&gt;pool-&gt;put($redis);
+    }
+}
+
+// Initialize pools on worker start
+$mysqlPool = null;
+$redisPool = null;
+
+$server-&gt;on(&#x27;workerStart&#x27;, function ($server, $workerId) use (&amp;$mysqlPool, &amp;$redisPool) {
+    $mysqlPool = new MySQLPool(64);
+    $redisPool = new RedisPool(64);
+});
+
+$server-&gt;on(&#x27;request&#x27;, function ($request, $response) use (&amp;$mysqlPool, &amp;$redisPool) {
+    $pdo = $mysqlPool-&gt;get();
+    $redis = $redisPool-&gt;get();
+    
+    try {
+        $stmt = $pdo-&gt;prepare(&#x27;SELECT * FROM users WHERE id = ? LIMIT 1&#x27;);
+        $stmt-&gt;execute([1]);
+        $user = $stmt-&gt;fetch();
+        
+        $redis-&gt;set(&#x27;user:1&#x27;, json_encode($user));
+        $response-&gt;end(json_encode($user));
+    } finally {
+        $mysqlPool-&gt;put($pdo);
+        $redisPool-&gt;put($redis);
+    }
+});
+
+$server-&gt;start();</code></pre>
+
+<h3>v3: OPcache与基准测试</h3>
+
+<pre><code class="language-ini">; php.ini optimizations for Swoole
+[OPcache]
+opcache.enable=1
+opcache.enable_cli=1          ; Required for CLI-based Swoole!
+opcache.memory_consumption=512
+opcache.interned_strings_buffer=64
+opcache.max_accelerated_files=20000
+opcache.validate_timestamps=0  ; Disable in production
+opcache.save_comments=1
+opcache.fast_shutdown=1
+opcache.jit_buffer_size=128M   ; PHP 8.0+ JIT
+opcache.jit=1255               ; JIT mode: tracing, optimize everything
+
+[PHP]
+memory_limit=512M
+realpath_cache_size=4096K
+realpath_cache_ttl=600</code></pre>
+
+<pre><code class="language-bash">#!/bin/bash
+# v3_benchmark.sh - Performance benchmark script
+
+echo &quot;=== Swoole Benchmark ===&quot;
+
+# Warm up
+echo &quot;Warming up...&quot;
+for i in $(seq 1 100); do
+    curl -s http://127.0.0.1:9501/ &gt; /dev/null
+done
+
+# HTTP benchmark with wrk
+echo &quot;\n--- wrk HTTP Benchmark ---&quot;
+wrk -t4 -c1000 -d30s --latency http://127.0.0.1:9501/
+
+# With keep-alive
+echo &quot;\n--- wrk with Keep-Alive ---&quot;
+wrk -t4 -c1000 -d30s --latency -H &quot;Connection: keep-alive&quot; http://127.0.0.1:9501/
+
+# JSON API benchmark
+echo &quot;\n--- JSON API Benchmark ---&quot;
+wrk -t4 -c500 -d15s --latency -s post.lua http://127.0.0.1:9501/api/users
+
+echo &quot;\n=== Benchmark Complete ===&quot;</code></pre>
+
+<p><strong>执行预览：</strong></p>
+<pre><code>$ sudo bash v1_sysctl_tuning.sh
+=== Swoole System Tuning ===
+net.core.somaxconn = 65535
+... (kernel params applied)
+=== Done! Reboot recommended ===
+
+$ wrk -t4 -c1000 -d30s http://127.0.0.1:9501/
+Running 30s test @ http://127.0.0.1:9501/
+  4 threads, 1000 connections
+  Thread Stats   Avg      Stdev     Max   +/- Stdev
+    Latency     2.35ms    1.12ms   45.23ms   89.12%
+    Req/Sec   106.78k     8.23k   125.45k    76.67%
+  12753421 requests in 30.01s, 2.45GB read
+Requests/sec: 424976.32
+Transfer/sec:     83.58MB</code></pre>
+
+<h2>四、注意事项</h2>
+
+<table><thead><tr>
+<th>参数</th>
+<th>推荐值</th>
+<th>说明</th>
+</tr></thead><tbody>
+<tr>
+<td><code>worker_num</code></td>
+<td>CPU×2（IO密集）/ CPU（CPU密集）</td>
+<td>不是越多越好</td>
+</tr>
+<tr>
+<td><code>max_request</code></td>
+<td>1000-5000</td>
+<td>过低浪费重启开销，过高可能内存泄漏</td>
+</tr>
+<tr>
+<td><code>backlog</code></td>
+<td>≤<code>somaxconn</code></td>
+<td>超过内核限制无效</td>
+</tr>
+<tr>
+<td><code>socket_buffer_size</code></td>
+<td>2-8MB</td>
+<td>过大浪费内存</td>
+</tr>
+<tr>
+<td><code>max_coroutine</code></td>
+<td>10000-100000</td>
+<td>取决于可用内存</td>
+</tr>
+<tr>
+<td><code>ulimit -n</code></td>
+<td>≥65535</td>
+<td>否则连接数上不去</td>
+</tr>
+</tbody></table>
+
+<h2>五、避坑指南</h2>
+
+<table><thead><tr>
+<th>❌ 错误做法</th>
+<th>✅ 正确做法</th>
+</tr></thead><tbody>
+<tr>
+<td><code>worker_num</code>设为CPU×8</td>
+<td>IO密集设×2-4，CPU密集设×1</td>
+</tr>
+<tr>
+<td>忘记开启<code>opcache.enable_cli</code></td>
+<td>Swoole是CLI运行，必须启用</td>
+</tr>
+<tr>
+<td><code>validate_timestamps=1</code>生产环境</td>
+<td>设为0，用reload代替自动检测</td>
+</tr>
+<tr>
+<td>不设<code>max_request</code></td>
+<td>设置合理值防止内存泄漏</td>
+</tr>
+<tr>
+<td><code>tcp_tw_reuse=1</code>加<code>tcp_tw_recycle=1</code></td>
+<td>只开reuse，recycle在NAT环境有问题</td>
+</tr>
+<tr>
+<td>忽略<code>send_yield</code></td>
+<td>开启防止发送缓冲区满时阻塞</td>
+</tr>
+</tbody></table>
+
+<h2>六、练习题</h2>
+
+<h3>🟢 入门</h3>
+<ol>
+<li>调整系统<code>ulimit</code>和<code>somaxconn</code>，验证Swoole能绑定更多连接</li>
+</ul>
+<ol>
+<li>用<code>wrk</code>压测你的Swoole HTTP服务，记录QPS和延迟</li>
+
+<h3>🟡 进阶</h3>
+<ol>
+<li>实现MySQL连接池，对比有/无连接池的性能差异</li>
+</ul>
+<ol>
+<li>调整<code>worker_num</code>从2到16，绘制QPS曲线找到最优点</li>
+
+<h3>🔴 挑战</h3>
+<ol>
+<li>用火焰图（php-spx或phperf/xhgui）分析性能瓶颈</li>
+</ul>
+<ol>
+<li>实现10万并发WebSocket连接，调优内核参数</li>
+
+<h2>七、知识点总结</h2>
+
+<pre><code>Swoole性能调优
+├── 系统层
+│   ├── sysctl TCP参数调优
+│   ├── ulimit文件描述符
+│   └── 网卡中断绑CPU（RSS/RPS）
+├── Swoole层
+│   ├── worker_num选择策略
+│   ├── max_request防泄漏
+│   ├── 连接池（PDO/Redis）
+│   └── hook_flags（协程化阻塞IO）
+├── PHP层
+│   ├── OPcache配置
+│   ├── JIT编译器
+│   └── 内存管理
+└── 监控
+    ├── wrk/ab基准测试
+    ├── 火焰图分析
+    ├── 内存使用监控
+    └── 慢查询日志</code></pre>
+
+<h2>八、举一反三</h2>
+
+<table><thead><tr>
+<th>瓶颈</th>
+<th>诊断工具</th>
+<th>优化方向</th>
+</tr></thead><tbody>
+<tr>
+<td>CPU 100%</td>
+<td>top + 火焰图</td>
+<td>减少计算、缓存、加Worker</td>
+</tr>
+<tr>
+<td>连接数上不去</td>
+<td>ss -s + ulimit</td>
+<td>调fd限制、somaxconn</td>
+</tr>
+<tr>
+<td>延迟高</td>
+<td>wrk --latency</td>
+<td>连接池、减少IO</td>
+</tr>
+<tr>
+<td>内存持续增长</td>
+<td>memory_get_usage</td>
+<td>max_request、排查泄漏</td>
+</tr>
+<tr>
+<td>大量TIME_WAIT</td>
+<td>ss -ant</td>
+<td>tcp_tw_reuse、连接复用</td>
+</tr>
+<tr>
+<td>频繁GC</td>
+<td>php -i opcache</td>
+<td>增大buffer、减少对象创建</td>
+</tr>
+</tbody></table>
+
+<h2>九、参考资料</h2>
+
+<ul>
+<li><a href="https://wiki.swoole.com/#/other/sysctl">Swoole官方 - 内核参数</a></li>
+<li><a href="https://access.redhat.com/documentation/en-us/red_hat_enterprise_linux/8/html/configuring_and_managing_networking/getting-started-with-tuned_configuring-and-managing-networking">Linux TCP Tuning</a></li>
+<li><a href="https://www.php.net/manual/en/opcache.configuration.php">PHP OPcache文档</a></li>
+<li><a href="https://github.com/wg/wrk">wrk HTTP基准测试</a></li>
+
+<h2>十、代码演进总结</h2>
+
+<table><thead><tr>
+<th>版本</th>
+<th>特点</th>
+<th>适用场景</th>
+</tr></thead><tbody>
+<tr>
+<td>v1 内核参数</td>
+<td>sysctl/ulimit一键调优</td>
+<td>部署前准备</td>
+</tr>
+<tr>
+<td>v2 Swoole配置</td>
+<td>Worker、连接池、缓冲区</td>
+<td>服务配置</td>
+</tr>
+<tr>
+<td>v3 OPcache+基准</td>
+<td>PHP优化+性能验证</td>
+<td>上线前验证</td>
+</tr>
+</tbody></table>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

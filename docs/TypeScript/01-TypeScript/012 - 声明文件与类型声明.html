@@ -1,0 +1,455 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>012 - 声明文件与类型声明</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/TypeScript/index.html">TypeScript</a>
+<span class="sep">›</span>
+<a href="/tech-blog/TypeScript/01-TypeScript/index.html">TypeScript</a>
+</nav>
+<h1>012 - 声明文件与类型声明</h1>
+<div class="meta">
+<span>📂 TypeScript</span>
+<span>🏷️ TypeScript</span>
+</div>
+<article>
+
+
+<h1>声明文件与类型声明</h1>
+
+<blockquote><p><strong>难度：</strong> ⭐⭐⭐ 进阶级 | <strong>阅读时间：</strong> 约15分钟 | <strong>前置知识：</strong> TypeScript基础、模块系统</p></blockquote>
+
+<h2>一、概念讲解</h2>
+
+<p>当你在TypeScript项目中使用JavaScript第三方库时，TypeScript编译器需要知道这些库的类型信息。<strong>声明文件（.d.ts）</strong> 就是用来描述JavaScript代码的类型信息的。</p>
+
+<h3>为什么需要声明文件？</h3>
+
+<pre><code class="language-typescript">// Using lodash without types
+import _ from &quot;lodash&quot;;
+_.groupBy(arr, fn); // TypeScript has no idea what this returns!
+
+// After installing @types/lodash
+import _ from &quot;lodash&quot;;
+const grouped = _.groupBy(arr, fn); // TypeScript knows the exact return type</code></pre>
+
+<h3>声明文件的来源</h3>
+
+<ol>
+<li><strong>内置类型</strong>：库自带 <code>.d.ts</code> 文件（如 axios、zod）</li>
+</ul>
+<ol>
+<li><strong>DefinitelyTyped</strong>：社区维护的 <code>@types/xxx</code> 包</li>
+</ul>
+<ol>
+<li><strong>自己编写</strong>：为无类型的库手写声明文件</li>
+
+<h2>二、脑图</h2>
+
+<pre><code>声明文件
+├── .d.ts 文件
+│   ├── 全局声明
+│   ├── 模块声明
+│   └── 三斜线指令
+├── declare 关键字
+│   ├── declare var/let/const
+│   ├── declare function
+│   ├── declare class
+│   ├── declare enum
+│   ├── declare namespace
+│   └── declare module
+├── 类型来源
+│   ├── 内置 (库自带)
+│   ├── @types/xxx (DefinitelyTyped)
+│   └── 手写
+├── 编写规范
+│   ├── export 导出
+│   ├── 默认导出
+│   └── 命名空间
+└── 工具
+    ├── tsc --declaration
+    ├── dts-bundle-generator
+    └── api-extractor</code></pre>
+
+<h2>三、完整TypeScript代码</h2>
+
+<pre><code class="language-typescript">// ============================================
+// Declaration Files &amp; Type Declarations
+// ============================================
+
+// --- 1. Global Declaration (global.d.ts) ---
+// Declare global variables that exist at runtime
+declare const __APP_VERSION__: string;
+declare const __DEV__: boolean;
+declare const ga: (command: string, ...args: unknown[]) =&gt; void;
+
+// --- 2. Module Declaration (modules.d.ts) ---
+// Declare types for untyped JS modules
+
+// Simple module with default export
+declare module &quot;legacy-utils&quot; {
+  function format(str: string, ...args: unknown[]): string;
+  function parse(json: string): unknown;
+  export { format, parse };
+}
+
+// Module with default export
+declare module &quot;math-helpers&quot; {
+  const helpers: {
+    add(a: number, b: number): number;
+    multiply(a: number, b: number): number;
+  };
+  export default helpers;
+}
+
+// Wildcard module declaration (for assets)
+declare module &quot;*.png&quot; {
+  const src: string;
+  export default src;
+}
+
+declare module &quot;*.svg&quot; {
+  const src: string;
+  export default src;
+}
+
+declare module &quot;*.css&quot; {
+  const classes: Record&lt;string, string&gt;;
+  export default classes;
+}
+
+// --- 3. Ambient Namespace ---
+declare namespace NodeJS {
+  interface ProcessEnv {
+    readonly NODE_ENV: &quot;development&quot; | &quot;production&quot; | &quot;test&quot;;
+    readonly DATABASE_URL: string;
+    readonly API_KEY: string;
+    readonly PORT?: string;
+  }
+}
+
+// --- 4. Augmenting Existing Types ---
+// Add properties to existing interfaces (module augmentation)
+declare module &quot;express&quot; {
+  interface Request {
+    user?: {
+      id: string;
+      name: string;
+      role: &quot;admin&quot; | &quot;user&quot;;
+    };
+  }
+}
+
+// Augment global types
+declare global {
+  interface Array&lt;T&gt; {
+    // Custom array method
+    last(): T | undefined;
+    first(): T | undefined;
+  }
+
+  interface String {
+    toTitleCase(): string;
+  }
+}
+
+// --- 5. Writing Declaration Files for a Library ---
+// types/my-library/index.d.ts
+interface MyLibraryOptions {
+  theme: &quot;light&quot; | &quot;dark&quot;;
+  locale: string;
+  debug?: boolean;
+  onInit?: () =&gt; void;
+  onError?: (error: Error) =&gt; void;
+}
+
+interface MyLibrary {
+  init(options: MyLibraryOptions): void;
+  destroy(): void;
+  getVersion(): string;
+  on(event: string, handler: (...args: unknown[]) =&gt; void): void;
+  off(event: string, handler: (...args: unknown[]) =&gt; void): void;
+}
+
+declare class MyLibrary {
+  constructor(container: HTMLElement);
+}
+
+export = MyLibrary;
+export as namespace MyLib;
+
+// --- 6. Type-only Imports ---
+// Use &#x27;import type&#x27; for type-only imports
+import type { Request, Response } from &quot;express&quot;;
+
+// This compiles to nothing in JS output
+type Handler = (req: Request, res: Response) =&gt; void;
+
+// --- 7. Utility: Extract types from untyped code ---
+// Given a JS function, create its typed wrapper
+function typedWrapper&lt;TArgs extends unknown[], TReturn&gt;(
+  fn: (...args: TArgs) =&gt; TReturn
+): (...args: TArgs) =&gt; TReturn {
+  return fn;
+}
+
+// --- 8. Declaration Merging ---
+// Interfaces with same name are automatically merged
+interface Config {
+  host: string;
+  port: number;
+}
+
+interface Config {
+  database: string;
+  username: string;
+}
+
+// Result: Config has all 4 properties
+const config: Config = {
+  host: &quot;localhost&quot;,
+  port: 5432,
+  database: &quot;myapp&quot;,
+  username: &quot;admin&quot;,
+};
+
+// --- 9. Practical: Type-safe env variables ---
+function getEnv(key: keyof NodeJS.ProcessEnv): string | undefined {
+  return process.env[key];
+}
+
+const dbUrl = getEnv(&quot;DATABASE_URL&quot;); // string | undefined
+const nodeEnv = getEnv(&quot;NODE_ENV&quot;); // string | undefined
+
+// --- 10. Generating .d.ts from TypeScript ---
+// When publishing a library, enable in tsconfig:
+// {
+//   &quot;compilerOptions&quot;: {
+//     &quot;declaration&quot;: true,
+//     &quot;declarationMap&quot;: true,
+//     &quot;outDir&quot;: &quot;./dist&quot;
+//   }
+// }</code></pre>
+
+<h2>四、执行预览</h2>
+
+<pre><code>$ npx tsc --noEmit declarations.ts
+# 编译通过，类型检查无误 ✅
+
+$ npx tsc --declaration --outDir dist index.ts
+$ ls dist/
+index.d.ts  index.js  index.js.map</code></pre>
+
+<h2>五、注意事项</h2>
+
+<table><thead><tr>
+<th>要点</th>
+<th>说明</th>
+<th>建议</th>
+</tr></thead><tbody>
+<tr>
+<td>查找顺序</td>
+<td>先库自带，再@types，最后手写</td>
+<td><code>npm info <pkg> types</code> 检查是否自带类型</td>
+</tr>
+<tr>
+<td>声明合并</td>
+<td>同名接口自动合并</td>
+<td>注意不要意外合并</td>
+</tr>
+<tr>
+<td>全局污染</td>
+<td><code>declare global</code> 修改全局类型</td>
+<td>谨慎使用，优先模块化</td>
+</tr>
+<tr>
+<td>any导出</td>
+<td><code>declare module "xxx"</code> 默认返回any</td>
+<td>尽量写详细的类型声明</td>
+</tr>
+<tr>
+<td>三斜线</td>
+<td><code>/// <reference types="..." /></code></td>
+<td>现代项目用import替代</td>
+</tr>
+</tbody></table>
+
+<h2>六、避坑指南</h2>
+
+<pre><code class="language-typescript">// ❌ 使用 any 作为模块声明
+declare module &quot;unknown-lib&quot;; // Everything is any
+// ✅ 至少写出常用API的类型
+declare module &quot;unknown-lib&quot; {
+  export function main(config: unknown): Promise&lt;unknown&gt;;
+}
+
+// ❌ 在 .d.ts 中使用 const/let（不会真正创建变量）
+// ✅ 使用 declare const 声明已存在的全局变量
+
+// ❌ 忘记 export 导致全局污染
+declare function helper(): void; // 污染全局
+// ✅ 使用 export 限定作用域
+export declare function helper(): void;
+
+// ❌ 修改第三方类型没有用 declare module
+// ✅ 正确的模块增强
+declare module &quot;express&quot; {
+  interface Request { customProp: string; }
+}</code></pre>
+
+<h2>七、练习题</h2>
+
+<h3>🟢 入门</h3>
+<ol>
+<li>为一个简单的JS工具库编写 <code>.d.ts</code> 声明文件</li>
+</ul>
+<ol>
+<li>为 <code>process.env</code> 添加类型声明</li>
+
+<h3>🟡 进阶</h3>
+<ol>
+<li>编写支持泛型的模块声明（如 <code>declare module "my-lib"<T></code>）</li>
+</ul>
+<ol>
+<li>使用模块增强为 Express Request 添加自定义属性</li>
+
+<h3>🔴 挑战</h3>
+<ol>
+<li>为一个复杂的JS库（如 jQuery）编写完整的类型声明</li>
+
+<h2>八、知识点总结</h2>
+
+<pre><code>声明文件体系
+├── .d.ts → 纯类型声明，无运行时代码
+├── declare → 告诉TS&quot;这个已存在&quot;
+├── 三种来源 → 库自带 / @types / 手写
+├── 模块声明 → declare module &quot;name&quot;
+├── 全局声明 → declare global / declare var
+├── 声明合并 → 同名接口自动合并
+└── 模块增强 → 扩展第三方类型</code></pre>
+
+<h2>九、举一反三</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>声明方式</th>
+<th>示例</th>
+</tr></thead><tbody>
+<tr>
+<td>全局变量</td>
+<td><code>declare const</code></td>
+<td><code>declare const __DEV__: boolean</code></td>
+</tr>
+<tr>
+<td>图片/CSS导入</td>
+<td><code>declare module "*.png"</code></td>
+<td>webpack资源类型</td>
+</tr>
+<tr>
+<td>环境变量</td>
+<td>ProcessEnv接口</td>
+<td>类型安全的环境变量</td>
+</tr>
+<tr>
+<td>第三方扩展</td>
+<td><code>declare module</code></td>
+<td>扩展Express Request</td>
+</tr>
+<tr>
+<td>库发布</td>
+<td><code>declaration: true</code></td>
+<td>自动生成.d.ts</td>
+</tr>
+</tbody></table>
+
+<h2>十、参考资料</h2>
+
+<ul>
+<li><a href="https://www.typescriptlang.org/docs/handbook/declaration-files/templates.html">TypeScript Handbook - .d.ts Templates</a></li>
+<li><a href="https://github.com/DefinitelyTyped/DefinitelyTyped">DefinitelyTyped</a></li>
+<li><a href="https://www.typescriptlang.org/docs/handbook/declaration-merging.html">TypeScript Handbook - Module Augmentation</a></li>
+
+<h2>十一、代码演进</h2>
+
+<h3>v1 → 简单模块声明</h3>
+
+<pre><code class="language-typescript">declare module &quot;my-lib&quot; {
+  export function doSomething(input: string): number;
+}</code></pre>
+
+<h3>v2 → 带泛型和接口</h3>
+
+<pre><code class="language-typescript">declare module &quot;my-lib&quot; {
+  interface Options&lt;T&gt; { data: T; verbose: boolean; }
+  export function process&lt;T&gt;(options: Options&lt;T&gt;): Promise&lt;T&gt;;
+  export default process;
+}</code></pre>
+
+<h3>v3 → 完整的库声明文件</h3>
+
+<pre><code class="language-typescript">// types/my-lib/index.d.ts
+export class Client {
+  constructor(config: ClientConfig);
+  request&lt;T&gt;(endpoint: string): Promise&lt;ApiResponse&lt;T&gt;&gt;;
+}
+export interface ClientConfig { baseUrl: string; timeout?: number; }
+export interface ApiResponse&lt;T&gt; { data: T; status: number; }</code></pre>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

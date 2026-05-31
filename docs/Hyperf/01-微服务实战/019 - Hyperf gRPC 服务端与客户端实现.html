@@ -1,0 +1,888 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>019 - Hyperf gRPC 服务端与客户端实现</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Hyperf/index.html">Hyperf</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Hyperf/01-微服务实战/index.html">Hyperf微服务实战</a>
+</nav>
+<h1>019 - Hyperf gRPC 服务端与客户端实现</h1>
+<div class="meta">
+<span>📂 Hyperf微服务实战</span>
+<span>🏷️ Hyperf</span>
+</div>
+<article>
+
+
+<h1>019 - Hyperf gRPC 服务端与客户端实现</h1>
+
+<blockquote><p><strong>难度：</strong> ⭐⭐⭐⭐ | <strong>前置知识：</strong> Hyperf 框架、gRPC 原理（018）、Protobuf 定义 | <strong>预估用时：</strong> 60 分钟</p></blockquote>
+
+<h2>概念讲解</h2>
+
+<p><strong>一句话定义：</strong> Hyperf gRPC 实现是在 Hyperf 框架上提供 gRPC 服务端和客户端支持，结合 Hyperf 的依赖注入、协程、中间件等特性，构建高性能的微服务通信系统。</p>
+
+<p><strong>现实类比：</strong> 就像两家公司建立专线电话——A 公司的销售通过专线直接打电话给 B 公司的客服，不用经过总机，通话清晰、效率高。Hyperf 就像"专线电话"的运营商，提供底层支持。</p>
+
+<p><strong>技术场景：</strong> 订单服务作为 gRPC 客户端，调用用户服务的 gRPC 接口获取用户信息。Hyperf gRPC 服务端处理请求，查询数据库，返回 Protobuf 格式的响应。通过 Hyperf 中间件实现认证、日志、限流等功能。</p>
+
+<h2>实时脑图</h2>
+
+<pre><code>┌──────────────────────────────────────────────────────────────┐
+│                 Order Service (gRPC Client)                  │
+│                                                               │
+│  ┌──────────────────┐      Call     ┌────────────────────┐  │
+│  │ OrderController  │─────────────►│ UserServiceClient  │  │
+│  │                  │              │                    │  │
+│  │ getUser(123)     │◄─────────────│ GetUserRequest    │  │
+│  └──────────────────┘   Return     └────────────────────┘  │
+│                                     │                        │
+└─────────────────────────────────────┼────────────────────────┘
+                                      │
+                                      │ gRPC Call (HTTP/2)
+                                      │ Protobuf Binary
+                                      ▼
+┌──────────────────────────────────────────────────────────────┐
+│                  User Service (gRPC Server)                   │
+│                                                               │
+│  ┌──────────────────┐              ┌────────────────────┐  │
+│  │ gRPC Server     │─────────────►│ UserServiceImpl    │  │
+│  │                  │              │                    │  │
+│  │ /user.v1.UserService/GetUser   │ getUser()         │  │
+│  └──────────────────┘              └────────────────────┘  │
+│         │                                │                   │
+│         │ ┌──────────────────────────────┼────────────────┐ │
+│         │ │ Hyperf Middlewares          │                │ │
+│         │ │ - Authentication             │                │ │
+│         │ │ - Logging                    │                │ │
+│         │ │ - Rate Limit                 │                │ │
+│         │ └──────────────────────────────┼────────────────┘ │
+│         ▼                                ▼                   │
+│  ┌──────────────────┐              ┌────────────────────┐  │
+│  │ Protobuf         │◄─────────────│ Database / Cache   │  │
+│  │ Serializer       │              │                    │  │
+│  └──────────────────┘              └────────────────────┘  │
+└──────────────────────────────────────────────────────────────┘</code></pre>
+
+<h2>完整代码</h2>
+
+<h3>安装依赖</h3>
+
+<pre><code class="language-bash">pecl install grpc
+composer require hyperf/grpc-server
+composer require hyperf/grpc-client</code></pre>
+
+<h3>gRPC 服务端配置 — config/autoload/server.php</h3>
+
+<pre><code class="language-php">&lt;?php
+// ✅ gRPC server configuration
+
+declare(strict_types=1);
+
+use Hyperf\Server\Event;
+
+return [
+    &#x27;mode&#x27; =&gt; SWOOLE_PROCESS,
+    &#x27;servers&#x27; =&gt; [
+        // 🟡 HTTP server for health checks
+        [
+            &#x27;name&#x27; =&gt; &#x27;http&#x27;,
+            &#x27;type&#x27; =&gt; SWOOLE_SOCK_TCP,
+            &#x27;host&#x27; =&gt; &#x27;0.0.0.0&#x27;,
+            &#x27;port&#x27; =&gt; (int) env(&#x27;HTTP_PORT&#x27;, 9500),
+            &#x27;sock_type&#x27; =&gt; SWOOLE_SOCK_TCP,
+            &#x27;callbacks&#x27; =&gt; [
+                Event::ON_REQUEST =&gt; [Hyperf\HttpServer\Server::class, &#x27;onRequest&#x27;],
+            ],
+        ],
+        // ✅ gRPC server
+        [
+            &#x27;name&#x27; =&gt; &#x27;grpc&#x27;,
+            &#x27;type&#x27; =&gt; SWOOLE_SOCK_TCP,
+            &#x27;host&#x27; =&gt; &#x27;0.0.0.0&#x27;,
+            &#x27;port&#x27; =&gt; (int) env(&#x27;GRPC_PORT&#x27;, 9501),
+            &#x27;sock_type&#x27; =&gt; SWOOLE_SOCK_TCP,
+            &#x27;callbacks&#x27; =&gt; [
+                Event::ON_RECEIVE =&gt; [\Hyperf\GrpcServer\Server::class, &#x27;onReceive&#x27;],
+            ],
+            &#x27;settings&#x27; =&gt; [
+                &#x27;open_http2_protocol&#x27; =&gt; true,  // 🟢 Enable HTTP/2 for gRPC
+                &#x27;heartbeat_idle_time&#x27; =&gt; 60,
+            ],
+        ],
+    ],
+];</code></pre>
+
+<h3>gRPC 服务实现 — UserServiceImpl.php</h3>
+
+<pre><code class="language-php">&lt;?php
+
+declare(strict_types=1);
+
+namespace App\GRPC\Service;
+
+use App\Model\User as UserModel;
+use App\GRPC\Helper\ProtobufHelper;
+use Hyperf\Di\Annotation\Inject;
+use Hyperf\Logger\LoggerFactory;
+use Psr\Log\LoggerInterface;
+use User\V1\UserService as UserServiceInterface;
+use User\V1\GetUserRequest;
+use User\V1\GetUserResponse;
+use User\V1\ListUsersRequest;
+use User\V1\ListUsersResponse;
+use User\V1\CreateUserRequest;
+use User\V1\CreateUserResponse;
+use User\V1\UpdateUserRequest;
+use User\V1\UpdateUserResponse;
+use User\V1\User;
+use User\V1\UserProfile;
+use User\V1\UserStatus;
+use Google\Protobuf\GPBEmpty;
+use Hyperf\GrpcServer\BaseServer;
+
+class UserServiceImpl extends BaseServer implements UserServiceInterface
+{
+    private LoggerInterface $logger;
+
+    public function __construct(LoggerFactory $loggerFactory)
+    {
+        $this-&gt;logger = $loggerFactory-&gt;get(&#x27;grpc&#x27;);
+    }
+
+    /**
+     * ✅ Get user by ID
+     */
+    public function GetUser(GetUserRequest $request): GetUserResponse
+    {
+        $userId = $request-&gt;getUserId();
+        $includeProfile = $request-&gt;getIncludeProfile();
+
+        $this-&gt;logger-&gt;info(&#x27;GetUser called&#x27;, [
+            &#x27;user_id&#x27; =&gt; $userId,
+            &#x27;include_profile&#x27; =&gt; $includeProfile,
+        ]);
+
+        // 🟡 Query from database
+        $userModel = UserModel::find($userId);
+
+        if ($userModel === null) {
+            $this-&gt;logger-&gt;warning(&#x27;User not found&#x27;, [&#x27;user_id&#x27; =&gt; $userId]);
+
+            $response = new GetUserResponse();
+            $response-&gt;setUser(null);  // Optional field, null is allowed
+
+            return $response;
+        }
+
+        // ✅ Convert to protobuf
+        $user = $this-&gt;toProtobufUser($userModel, $includeProfile);
+
+        $response = new GetUserResponse();
+        $response-&gt;setUser($user);
+
+        $this-&gt;logger-&gt;info(&#x27;GetUser returned&#x27;, [&#x27;user_id&#x27; =&gt; $userId]);
+
+        return $response;
+    }
+
+    /**
+     * ✅ List users with pagination
+     */
+    public function ListUsers(ListUsersRequest $request): ListUsersResponse
+    {
+        $page = $request-&gt;getPage() ?: 1;
+        $pageSize = min($request-&gt;getPageSize() ?: 20, 100);  // 🟡 Limit max page size
+        $search = $request-&gt;getSearch() ?: &#x27;&#x27;;
+        $statusFilter = $request-&gt;getStatus();
+
+        $this-&gt;logger-&gt;info(&#x27;ListUsers called&#x27;, [
+            &#x27;page&#x27; =&gt; $page,
+            &#x27;page_size&#x27; =&gt; $pageSize,
+            &#x27;search&#x27; =&gt; $search,
+            &#x27;status&#x27; =&gt; $statusFilter?-&gt;name,
+        ]);
+
+        // 🟡 Query with filters
+        $query = UserModel::query();
+
+        if ($search) {
+            $query-&gt;where(&#x27;username&#x27;, &#x27;like&#x27;, &quot;%{$search}%&quot;)
+                  -&gt;orWhere(&#x27;email&#x27;, &#x27;like&#x27;, &quot;%{$search}%&quot;);
+        }
+
+        if ($statusFilter !== UserStatus::UNKNOWN) {
+            $query-&gt;where(&#x27;status&#x27;, $statusFilter-&gt;value);
+        }
+
+        $total = $query-&gt;count();
+        $users = $query-&gt;offset(($page - 1) * $pageSize)
+                       -&gt;limit($pageSize)
+                       -&gt;get();
+
+        // ✅ Convert to protobuf
+        $userList = [];
+        foreach ($users as $userModel) {
+            $userList[] = $this-&gt;toProtobufUser($userModel, false);
+        }
+
+        $response = new ListUsersResponse();
+        $response-&gt;setUsers($userList);
+        $response-&gt;setTotal($total);
+        $response-&gt;setPage($page);
+        $response-&gt;setPageSize($pageSize);
+
+        return $response;
+    }
+
+    /**
+     * ✅ Create new user
+     */
+    public function CreateUser(CreateUserRequest $request): CreateUserResponse
+    {
+        $this-&gt;logger-&gt;info(&#x27;CreateUser called&#x27;, [
+            &#x27;username&#x27; =&gt; $request-&gt;getUsername(),
+            &#x27;email&#x27; =&gt; $request-&gt;getEmail(),
+        ]);
+
+        // 🟡 Validate
+        $existing = UserModel::where(&#x27;email&#x27;, $request-&gt;getEmail())-&gt;first();
+        if ($existing !== null) {
+            throw new \RuntimeException(&#x27;Email already exists&#x27;, 400);
+        }
+
+        // ✅ Create user
+        $userModel = new UserModel();
+        $userModel-&gt;username = $request-&gt;getUsername();
+        $userModel-&gt;email = $request-&gt;getEmail();
+        $userModel-&gt;password_hash = password_hash($request-&gt;getPassword(), PASSWORD_BCRYPT);
+        $userModel-&gt;status = UserStatus::ACTIVE-&gt;value;
+        $userModel-&gt;created_at = time();
+        $userModel-&gt;updated_at = time();
+
+        if ($request-&gt;hasProfile()) {
+            $profile = $request-&gt;getProfile();
+            $userModel-&gt;first_name = $profile-&gt;getFirstName() ?: &#x27;&#x27;;
+            $userModel-&gt;last_name = $profile-&gt;getLastName() ?: &#x27;&#x27;;
+            $userModel-&gt;bio = $profile-&gt;getBio() ?: &#x27;&#x27;;
+        }
+
+        $userModel-&gt;save();
+
+        // ✅ Convert to protobuf response
+        $user = $this-&gt;toProtobufUser($userModel, true);
+
+        $response = new CreateUserResponse();
+        $response-&gt;setUser($user);
+
+        $this-&gt;logger-&gt;info(&#x27;User created&#x27;, [&#x27;user_id&#x27; =&gt; $userModel-&gt;id]);
+
+        return $response;
+    }
+
+    /**
+     * ✅ Update user
+     */
+    public function UpdateUser(UpdateUserRequest $request): UpdateUserResponse
+    {
+        $userId = $request-&gt;getUserId();
+
+        $this-&gt;logger-&gt;info(&#x27;UpdateUser called&#x27;, [&#x27;user_id&#x27; =&gt; $userId]);
+
+        $userModel = UserModel::find($userId);
+
+        if ($userModel === null) {
+            throw new \RuntimeException(&#x27;User not found&#x27;, 404);
+        }
+
+        // 🟡 Update fields
+        if ($request-&gt;hasUsername()) {
+            $userModel-&gt;username = $request-&gt;getUsername();
+        }
+
+        if ($request-&gt;hasEmail()) {
+            $userModel-&gt;email = $request-&gt;getEmail();
+        }
+
+        if ($request-&gt;hasProfile()) {
+            $profile = $request-&gt;getProfile();
+            if ($profile-&gt;hasFirstName()) {
+                $userModel-&gt;first_name = $profile-&gt;getFirstName();
+            }
+            if ($profile-&gt;hasLastName()) {
+                $userModel-&gt;last_name = $profile-&gt;getLastName();
+            }
+            if ($profile-&gt;hasBio()) {
+                $userModel-&gt;bio = $profile-&gt;getBio();
+            }
+        }
+
+        $userModel-&gt;updated_at = time();
+        $userModel-&gt;save();
+
+        // ✅ Convert to protobuf response
+        $user = $this-&gt;toProtobufUser($userModel, true);
+
+        $response = new UpdateUserResponse();
+        $response-&gt;setUser($user);
+
+        $this-&gt;logger-&gt;info(&#x27;User updated&#x27;, [&#x27;user_id&#x27; =&gt; $userId]);
+
+        return $response;
+    }
+
+    /**
+     * ✅ Convert database model to protobuf user
+     */
+    private function toProtobufUser(UserModel $model, bool $includeProfile): User
+    {
+        $user = new User();
+        $user-&gt;setId($model-&gt;id);
+        $user-&gt;setUsername($model-&gt;username);
+        $user-&gt;setEmail($model-&gt;email);
+        $user-&gt;setStatus(UserStatus::tryFrom($model-&gt;status) ?? UserStatus::UNKNOWN);
+        $user-&gt;setCreatedAt(ProtobufHelper::toTimestamp($model-&gt;created_at));
+        $user-&gt;setUpdatedAt(ProtobufHelper::toTimestamp($model-&gt;updated_at));
+
+        if ($includeProfile) {
+            $profile = new UserProfile();
+            $profile-&gt;setFirstName($model-&gt;first_name ?: &#x27;&#x27;);
+            $profile-&gt;setLastName($model-&gt;last_name ?: &#x27;&#x27;);
+            $profile-&gt;setBio($model-&gt;bio ?: &#x27;&#x27;);
+            $user-&gt;setProfile($profile);
+        }
+
+        return $user;
+    }
+}</code></pre>
+
+<h3>gRPC 客户端 — UserServiceClient.php</h3>
+
+<pre><code class="language-php">&lt;?php
+
+declare(strict_types=1);
+
+namespace App\GRPC\Client;
+
+use Hyperf\GrpcClient\Client;
+use Hyperf\Guzzle\ClientFactory;
+use User\V1\UserService as UserServiceInterface;
+use User\V1\GetUserRequest;
+use User\V1\GetUserResponse;
+use User\V1\ListUsersRequest;
+use User\V1\ListUsersResponse;
+use Hyperf\Di\Annotation\Inject;
+use Psr\Log\LoggerInterface;
+use Hyperf\Grpc\StatusCode;
+use RuntimeException;
+
+class UserServiceClient
+{
+    private ?Client $client = null;
+    private LoggerInterface $logger;
+
+    public function __construct(
+        LoggerInterface $logger
+    ) {
+        $this-&gt;logger = $logger;
+    }
+
+    /**
+     * ✅ Get gRPC client instance
+     */
+    private function getClient(): Client
+    {
+        if ($this-&gt;client === null) {
+            $host = env(&#x27;GRPC_USER_SERVICE_HOST&#x27;, &#x27;127.0.0.1&#x27;);
+            $port = (int) env(&#x27;GRPC_USER_SERVICE_PORT&#x27;, 9501);
+
+            $this-&gt;client = new Client(&quot;{$host}:{$port}&quot;, [
+                &#x27;credentials&#x27; =&gt; null,  // 🟡 Insecure connection (for dev)
+                &#x27;timeout&#x27; =&gt; 5.0,
+            ]);
+        }
+
+        return $this-&gt;client;
+    }
+
+    /**
+     * ✅ Call GetUser RPC
+     */
+    public function getUser(int $userId, bool $includeProfile = false): ?GetUserResponse
+    {
+        $request = new GetUserRequest();
+        $request-&gt;setUserId($userId);
+        $request-&gt;setIncludeProfile($includeProfile);
+
+        $this-&gt;logger-&gt;info(&#x27;Calling user.v1.UserService/GetUser&#x27;, [
+            &#x27;user_id&#x27; =&gt; $userId,
+        ]);
+
+        /** @var GetUserResponse $response */
+        [$response, $status] = $this-&gt;getClient()-&gt;getUser($request);
+
+        if ($status-&gt;code !== StatusCode::OK) {
+            $this-&gt;logger-&gt;error(&#x27;GetUser failed&#x27;, [
+                &#x27;user_id&#x27; =&gt; $userId,
+                &#x27;status_code&#x27; =&gt; $status-&gt;code,
+                &#x27;status_message&#x27; =&gt; $status-&gt;details,
+            ]);
+
+            return null;
+        }
+
+        $this-&gt;logger-&gt;info(&#x27;GetUser succeeded&#x27;, [
+            &#x27;user_id&#x27; =&gt; $userId,
+            &#x27;user&#x27; =&gt; $response-&gt;getUser()?-&gt;getUsername(),
+        ]);
+
+        return $response;
+    }
+
+    /**
+     * ✅ Call ListUsers RPC
+     */
+    public function listUsers(int $page = 1, int $pageSize = 20, ?string $search = null): ?ListUsersResponse
+    {
+        $request = new ListUsersRequest();
+        $request-&gt;setPage($page);
+        $request-&gt;setPageSize($pageSize);
+        if ($search !== null) {
+            $request-&gt;setSearch($search);
+        }
+
+        $this-&gt;logger-&gt;info(&#x27;Calling user.v1.UserService/ListUsers&#x27;, [
+            &#x27;page&#x27; =&gt; $page,
+            &#x27;page_size&#x27; =&gt; $pageSize,
+        ]);
+
+        /** @var ListUsersResponse $response */
+        [$response, $status] = $this-&gt;getClient()-&gt;listUsers($request);
+
+        if ($status-&gt;code !== StatusCode::OK) {
+            $this-&gt;logger-&gt;error(&#x27;ListUsers failed&#x27;, [
+                &#x27;status_code&#x27; =&gt; $status-&gt;code,
+                &#x27;status_message&#x27; =&gt; $status-&gt;details,
+            ]);
+
+            return null;
+        }
+
+        return $response;
+    }
+
+    /**
+     * ✅ Get user with retry
+     */
+    public function getUserWithRetry(int $userId, int $maxRetries = 3): ?GetUserResponse
+    {
+        for ($attempt = 1; $attempt &lt;= $maxRetries; $attempt++) {
+            $response = $this-&gt;getUser($userId);
+
+            if ($response !== null) {
+                return $response;
+            }
+
+            $this-&gt;logger-&gt;warning(&#x27;GetUser retry&#x27;, [
+                &#x27;attempt&#x27; =&gt; $attempt,
+                &#x27;max_retries&#x27; =&gt; $maxRetries,
+            ]);
+
+            if ($attempt &lt; $maxRetries) {
+                sleep(1);
+            }
+        }
+
+        return null;
+    }
+}</code></pre>
+
+<h3>gRPC 中间件 — AuthenticationInterceptor.php</h3>
+
+<pre><code class="language-php">&lt;?php
+
+declare(strict_types=1);
+
+namespace App\Middleware;
+
+use Grpc\ServerCall;
+use Grpc\ServerCallContext;
+use Hyperf\GrpcServer\CoreMiddleware;
+use Hyperf\HttpServer\Contract\RequestInterface;
+use Hyperf\HttpServer\Contract\ResponseInterface;
+use Psr\Http\Message\ResponseInterface;
+use Psr\Http\Message\ServerRequestInterface;
+use Psr\Http\Server\RequestHandlerInterface;
+use Psr\Log\LoggerInterface;
+
+class GrpcAuthMiddleware
+{
+    private LoggerInterface $logger;
+
+    public function __construct(LoggerInterface $logger)
+    {
+        $this-&gt;logger = $logger;
+    }
+
+    /**
+     * ✅ Authenticate gRPC requests
+     */
+    public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
+    {
+        // 🟡 Get token from metadata
+        $metadata = $request-&gt;getUri()-&gt;getScheme();
+
+        // In gRPC, metadata is passed via :authority header or custom metadata
+        $authHeader = $request-&gt;getHeaderLine(&#x27;authorization&#x27;);
+
+        if (empty($authHeader)) {
+            $this-&gt;logger-&gt;warning(&#x27;gRPC request missing authorization&#x27;);
+
+            return $this-&gt;errorResponse(StatusCode::UNAUTHENTICATED, &#x27;Missing authorization&#x27;);
+        }
+
+        // 🟢 Validate token
+        if (!$this-&gt;validateToken($authHeader)) {
+            $this-&gt;logger-&gt;warning(&#x27;gRPC invalid token&#x27;);
+
+            return $this-&gt;errorResponse(StatusCode::PERMISSION_DENIED, &#x27;Invalid token&#x27;);
+        }
+
+        // ✅ Pass to next handler
+        return $handler-&gt;handle($request);
+    }
+
+    private function validateToken(string $token): bool
+    {
+        // 🟡 Extract token from &quot;Bearer &lt;token&gt;&quot; format
+        $parts = explode(&#x27; &#x27;, $token);
+        if (count($parts) !== 2 || $parts[0] !== &#x27;Bearer&#x27;) {
+            return false;
+        }
+
+        $actualToken = $parts[1];
+
+        // 🟡 Validate token (simplified example)
+        return $actualToken === env(&#x27;GRPC_AUTH_TOKEN&#x27;, &#x27;secret-token&#x27;);
+    }
+
+    private function errorResponse(int $code, string $message): ResponseInterface
+    {
+        // Return gRPC error response
+        // This is a simplified example - actual implementation varies
+        return \Hyperf\Support\make(ResponseInterface::class)-&gt;withStatus($code, $message);
+    }
+}</code></pre>
+
+<h3>测试脚本 — test-grpc.php</h3>
+
+<pre><code class="language-php">&lt;?php
+// ✅ Test gRPC service
+
+declare(strict_types=1);
+
+require_once __DIR__ . &#x27;/../vendor/autoload.php&#x27;;
+
+use App\GRPC\Client\UserServiceClient;
+use User\V1\UserStatus;
+
+echo &quot;🧪 gRPC Test\n\n&quot;;
+
+$client = new UserServiceClient();
+
+// 1. Get user
+echo &quot;1️⃣ Getting user:\n&quot;;
+$response = $client-&gt;getUser(123, true);
+if ($response &amp;&amp; $response-&gt;getUser()) {
+    $user = $response-&gt;getUser();
+    echo &quot;   ID: {$user-&gt;getId()}\n&quot;;
+    echo &quot;   Username: {$user-&gt;getUsername()}\n&quot;;
+    echo &quot;   Email: {$user-&gt;getEmail()}\n&quot;;
+    echo &quot;   Status: {$user-&gt;getStatus()-&gt;name}\n&quot;;
+    if ($user-&gt;hasProfile()) {
+        $profile = $user-&gt;getProfile();
+        echo &quot;   Profile: {$profile-&gt;getFirstName()} {$profile-&gt;getLastName()}\n&quot;;
+    }
+} else {
+    echo &quot;   ❌ Failed to get user\n&quot;;
+}
+
+// 2. List users
+echo &quot;\n2️⃣ Listing users:\n&quot;;
+$response = $client-&gt;listUsers(1, 5, &#x27;john&#x27;);
+if ($response) {
+    echo &quot;   Total: {$response-&gt;getTotal()}\n&quot;;
+    echo &quot;   Page: {$response-&gt;getPage()}\n&quot;;
+    echo &quot;   Users: &quot; . count($response-&gt;getUsers()) . &quot;\n&quot;;
+} else {
+    echo &quot;   ❌ Failed to list users\n&quot;;
+}
+
+// 3. Test retry
+echo &quot;\n3️⃣ Testing retry mechanism:\n&quot;;
+$response = $client-&gt;getUserWithRetry(999, 3);
+if ($response) {
+    echo &quot;   ✅ Succeeded after retry\n&quot;;
+} else {
+    echo &quot;   ⚠️  Failed after all retries\n&quot;;
+}
+
+echo &quot;\n✅ gRPC test complete!\n&quot;;</code></pre>
+
+<h2>执行预览</h2>
+
+<pre><code class="language-bash"># 启动 gRPC 服务端
+$ php bin/hyperf.php start
+[INFO] gRPC server started on 0.0.0.0:9501
+[INFO] HTTP server started on 0.0.0.0:9500
+
+# 测试 gRPC 客户端
+$ php test-grpc.php
+🧪 gRPC Test
+
+1️⃣ Getting user:
+   ID: 123
+   Username: john_doe
+   Email: john@example.com
+   Status: ACTIVE
+   Profile: John Doe
+
+2️⃣ Listing users:
+   Total: 42
+   Page: 1
+   Users: 5
+
+3️⃣ Testing retry mechanism:
+   ⚠️  Failed after all retries
+
+✅ gRPC test complete!
+
+# 服务端日志
+[INFO] GetUser called { &quot;user_id&quot;: 123, &quot;include_profile&quot;: true }
+[INFO] GetUser returned { &quot;user_id&quot;: 123 }
+[INFO] ListUsers called { &quot;page&quot;: 1, &quot;page_size&quot;: 5, &quot;search&quot;: &quot;john&quot; }</code></pre>
+
+<h2>注意事项</h2>
+
+<table><thead><tr>
+<th>约束</th>
+<th>说明</th>
+<th>违反后果</th>
+</tr></thead><tbody>
+<tr>
+<td>🔴 必须编译 proto</td>
+<td>proto 文件必须编译生成 PHP 代码</td>
+<td>运行时找不到类</td>
+</tr>
+<tr>
+<td>🟡 HTTP/2 必须开启</td>
+<td>gRPC 基于 HTTP/2</td>
+<td>连接失败</td>
+</tr>
+<tr>
+<td>🟢 认证机制</td>
+<td>生产环境必须启用认证</td>
+<td>任意客户端可调用</td>
+</tr>
+<tr>
+<td>🟡 超时设置</td>
+<td>客户端设置合理超时（3-5s）</td>
+<td>请求挂起导致阻塞</td>
+</tr>
+<tr>
+<td>🔴 错误处理</td>
+<td>正确处理 gRPC 状态码</td>
+<td>无法判断调用是否成功</td>
+</tr>
+</tbody></table>
+
+<h2>避坑指南</h2>
+
+<table><thead><tr>
+<th>错误</th>
+<th>现象</th>
+<th>正确做法</th>
+</tr></thead><tbody>
+<tr>
+<td>忘记编译 proto</td>
+<td>Class 'User\V1\User' not found</td>
+<td>运行 <code>protoc</code> 编译</td>
+</tr>
+<tr>
+<td>HTTP/2 未启用</td>
+<td>gRPC 连接失败</td>
+<td>设置 <code>open_http2_protocol = true</code></td>
+</tr>
+<tr>
+<td>中间件错误</td>
+<td>500 Internal Server Error</td>
+<td>检查中间件返回 gRPC 错误响应</td>
+</tr>
+<tr>
+<td>超时太长</td>
+<td>请求挂起</td>
+<td>设置客户端 timeout 3-5s</td>
+</tr>
+<tr>
+<td>未处理状态码</td>
+<td>调用失败但业务继续运行</td>
+<td>检查 <code>$status->code</code></td>
+</tr>
+</tbody></table>
+
+<h2>练习题</h2>
+
+<h3>🟢 基础</h3>
+<ol>
+<li>实现一个 GetByEmail RPC 方法，通过邮箱查询用户。</li>
+</ul>
+<ol>
+<li>编写测试脚本，调用 GetUser 并验证返回数据。</li>
+
+<h3>🟡 进阶</h3>
+<ol>
+<li>实现一个流式 RPC StreamUsers，每次发送一个用户数据（服务器端流）。</li>
+
+<h3>🔴 开放</h3>
+<ol>
+<li>设计一个 gRPC 网关：支持协议转换（HTTP → gRPC），对外提供 RESTful API，内部调用 gRPC 服务。</li>
+
+<h2>知识点总结</h2>
+
+<pre><code>Hyperf gRPC 实现
+├── 服务端
+│   ├── config/autoload/server.php
+│   ├── UserServiceImpl
+│   ├── 实现服务接口
+│   └── 数据库查询 + Protobuf 转换
+├── 客户端
+│   ├── Hyperf\GrpcClient\Client
+│   ├── 调用 RPC 方法
+│   └── 错误处理 + 重试
+├── 中间件
+│   ├── 认证（Authentication）
+│   ├── 日志（Logging）
+│   └── 限流（Rate Limit）
+└── 最佳实践
+    ├── proto 编译
+    ├── HTTP/2 开启
+    ├── 超时设置
+    └── 错误处理</code></pre>
+
+<h2>举一反三</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>适配方式</th>
+<th>关键差异</th>
+</tr></thead><tbody>
+<tr>
+<td>多语言服务</td>
+<td>.proto 文件共享</td>
+<td>Go、Java、Python 都能调用</td>
+</tr>
+<tr>
+<td>SSL/TLS 加密</td>
+<td>配置 credentials 证书</td>
+<td>加密通信</td>
+</tr>
+<tr>
+<td>双向流式通信</td>
+<td>stream 关键字</td>
+<td>实时消息推送</td>
+</tr>
+</tbody></table>
+
+<h2>参考资料</h2>
+
+<ul>
+<li>⭐⭐⭐ <a href="https://hyperf.wiki/3.1/#/zh-cn/grpc-server">Hyperf gRPC Server 文档</a></li>
+<li>⭐⭐⭐ <a href="https://hyperf.wiki/3.1/#/zh-cn/grpc-client">Hyperf gRPC Client 文档</a></li>
+<li>⭐⭐ <a href="https://github.com/grpc/grpc-php/tree/master/examples">gPHP gRPC 示例</a></li>
+
+<h2>代码演进</h2>
+
+<h3>v1 ❌ HTTP REST API</h3>
+
+<pre><code class="language-php">// ❌ REST API with JSON
+$response = file_get_contents(&#x27;http://api/users/123&#x27;);
+$user = json_decode($response);</code></pre>
+
+<h3>v2 ✅ gRPC 调用</h3>
+
+<pre><code class="language-php">// ✅ gRPC call
+$client = new Client(&#x27;user-service:9501&#x27;);
+[$response, $status] = $client-&gt;getUser($request);</code></pre>
+
+<h3>v3 🟢 完整 Hyperf gRPC 服务</h3>
+
+<pre><code class="language-php">// 🟢 Full Hyperf gRPC implementation
+class UserServiceImpl extends BaseServer implements UserServiceInterface
+{
+    public function GetUser(GetUserRequest $request): GetUserResponse
+    {
+        $userModel = UserModel::find($request-&gt;getUserId());
+        $user = $this-&gt;toProtobufUser($userModel, true);
+        return (new GetUserResponse())-&gt;setUser($user);
+    }
+}</code></pre>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

@@ -1,0 +1,605 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>036 - Swoole与Laravel集成</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Swoole/index.html">Swoole</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Swoole/01-从入门到精通/index.html">Swoole从入门到精通</a>
+</nav>
+<h1>036 - Swoole与Laravel集成</h1>
+<div class="meta">
+<span>📂 Swoole从入门到精通</span>
+<span>🏷️ Swoole</span>
+</div>
+<article>
+
+
+<hr>
+<p>slug: 036-laravel-integration</p>
+<p>title: Swoole与Laravel集成</p>
+<p>category: Swoole深度实战</p>
+<p>difficulty: ⭐⭐⭐中级</p>
+<p>tags: [Swoole, Laravel, Octane, 性能优化, 框架集成]</p>
+<hr>
+
+<h1>Swoole与Laravel集成</h1>
+
+<blockquote><p><strong>难度：⭐⭐⭐中级</strong> | 预计阅读时间：20分钟</p></blockquote>
+
+<h2>一、概念讲解</h2>
+
+<p>Laravel是PHP最流行的框架之一，但传统PHP-FPM每次请求都要重新加载框架，性能开销大。通过Swoole，Laravel可以常驻内存运行，<strong>性能提升5-10倍</strong>。</p>
+
+<h3>集成方案对比</h3>
+
+<table><thead><tr>
+<th>方案</th>
+<th>原理</th>
+<th>性能提升</th>
+<th>易用性</th>
+<th>推荐度</th>
+</tr></thead><tbody>
+<tr>
+<td>Laravel Octane</td>
+<td>官方包，支持Swoole/RoadRunner</td>
+<td>5-10x</td>
+<td>⭐⭐⭐⭐⭐</td>
+<td>✅ 首选</td>
+</tr>
+<tr>
+<td>LaravelS</td>
+<td>第三方包</td>
+<td>5-8x</td>
+<td>⭐⭐⭐⭐</td>
+<td>备选</td>
+</tr>
+<tr>
+<td>手动集成</td>
+<td>自己引导Laravel</td>
+<td>3-5x</td>
+<td>⭐⭐</td>
+<td>学习用</td>
+</tr>
+<tr>
+<td>Swoole HTTP Server + Lumen</td>
+<td>轻量框架</td>
+<td>8-12x</td>
+<td>⭐⭐⭐</td>
+<td>高性能场景</td>
+</tr>
+</tbody></table>
+
+<h3>Laravel Octane架构</h3>
+
+<pre><code>客户端请求 → Swoole HTTP Server（常驻进程）
+                ↓
+         Laravel App（内存中）
+                ↓
+         路由 → 中间件 → 控制器 → 响应</code></pre>
+
+<h2>二、脑图</h2>
+
+<pre><code>Swoole + Laravel
+├── Laravel Octane
+│   ├── 安装配置
+│   ├── Swoole驱动
+│   ├── 命令行管理
+│   └── 配置优化
+├── 内存管理
+│   ├── 全局状态污染
+│   ├── 静态变量重置
+│   ├── 数据库连接池
+│   └── 内存泄漏排查
+├── 兼容性
+│   ├── 全局中间件
+│   ├── 静态变量
+│   ├── 单例模式
+│   └── 第三方包兼容
+└── 性能优化
+    ├── 预加载配置
+    ├── Worker预热
+    ├── 缓存策略
+    └── 限流配置</code></pre>
+
+<h2>三、代码演进</h2>
+
+<h3>v1: 安装Laravel Octane</h3>
+
+<pre><code class="language-bash"># Step 1: Install Laravel Octane
+composer require laravel/octane
+
+# Step 2: Publish configuration
+php artisan octane:install
+
+# Step 3: Select Swoole as driver (choose from prompt)
+# This creates config/octane.php
+
+# Step 4: Start the server
+php artisan octane:start --workers=4 --task-workers=2 --max-requests=500</code></pre>
+
+<pre><code class="language-php">&lt;?php
+// config/octane.php - Key configuration options
+
+return [
+    &#x27;server&#x27; =&gt; &#x27;swoole&#x27;,
+    
+    &#x27;swoole&#x27; =&gt; [
+        // Number of worker processes
+        &#x27;options&#x27; =&gt; [
+            &#x27;worker_num&#x27; =&gt; 4,
+            &#x27;task_worker_num&#x27; =&gt; 2,
+            &#x27;max_request&#x27; =&gt; 500,       // Restart worker after N requests
+            &#x27;package_max_length&#x27; =&gt; 10 * 1024 * 1024, // 10MB
+            &#x27;heartbeat_check_interval&#x27; =&gt; 30,
+            &#x27;heartbeat_idle_time&#x27; =&gt; 60,
+        ],
+        
+        // Tables for shared memory
+        &#x27;tables&#x27; =&gt; [
+            &#x27;sessions&#x27; =&gt; [
+                &#x27;size&#x27; =&gt; 1000,
+                &#x27;columns&#x27; =&gt; [
+                    &#x27;data&#x27; =&gt; &#x27;string:4096&#x27;,
+                    &#x27;expires_at&#x27; =&gt; &#x27;int&#x27;,
+                ],
+            ],
+        ],
+    ],
+    
+    // Warm bindings that should be preloaded
+    &#x27;warm&#x27; =&gt; [
+        ...\Illuminate\Database\ConnectionResolverInterface::class,
+        ...\Illuminate\Queue\QueueManager::class,
+    ],
+    
+    // Flush bindings between requests
+    &#x27;flush&#x27; =&gt; [
+        // Add bindings that need to be reset per request
+    ],
+];</code></pre>
+
+<h3>v2: 适配Laravel应用</h3>
+
+<pre><code class="language-php">&lt;?php
+// app/Http/Controllers/UserController.php
+
+namespace App\Http\Controllers;
+
+use App\Models\User;
+use Laravel\Octane\Facades\Octane;
+
+class UserController extends Controller
+{
+    /**
+     * List users with concurrent query optimization
+     */
+    public function index()
+    {
+        // Octane::concurrently runs tasks in parallel coroutines
+        [$users, $count, $roles] = Octane::concurrently([
+            fn () =&gt; User::select(&#x27;id&#x27;, &#x27;name&#x27;, &#x27;email&#x27;)-&gt;paginate(15),
+            fn () =&gt; User::count(),
+            fn () =&gt; \App\Models\Role::all([&#x27;id&#x27;, &#x27;name&#x27;]),
+        ]);
+        
+        return response()-&gt;json([
+            &#x27;users&#x27; =&gt; $users,
+            &#x27;total&#x27; =&gt; $count,
+            &#x27;roles&#x27; =&gt; $roles,
+        ]);
+    }
+    
+    /**
+     * Get user profile with cache
+     */
+    public function show(int $id)
+    {
+        return Octane::cache(&#x27;user:&#x27; . $id, fn () =&gt; 
+            User::with(&#x27;profile&#x27;, &#x27;roles&#x27;)-&gt;findOrFail($id),
+        120 // TTL in seconds
+        );
+    }
+}</code></pre>
+
+<pre><code class="language-php">&lt;?php
+// app/Http/Middleware/HandleSwooleCompatibility.php
+
+namespace App\Http\Middleware;
+
+use Closure;
+
+/**
+ * Fix global state pollution in Swoole workers.
+ * IMPORTANT: Register this as the FIRST global middleware.
+ */
+class HandleSwooleCompatibility
+{
+    public function handle($request, Closure $next)
+    {
+        // Reset static caches that may leak between requests
+        app(&#x27;log&#x27;)-&gt;forgetContext();
+        
+        // Clear any request-specific static state
+        \App\Services\PermissionService::clearCache();
+        
+        $response = $next($request);
+        
+        // Ensure no leaked state after response
+        return $response;
+    }
+}</code></pre>
+
+<pre><code class="language-php">&lt;?php
+// app/Providers/AppServiceProvider.php - Boot method additions
+
+namespace App\Providers;
+
+use Illuminate\Support\ServiceProvider;
+use Laravel\Octane\Events\WorkerStarting;
+use Laravel\Octane\Events\RequestReceived;
+
+class AppServiceProvider extends ServiceProvider
+{
+    public function boot()
+    {
+        // Warm up connections when worker starts
+        $this-&gt;app[&#x27;events&#x27;]-&gt;listen(WorkerStarting::class, function () {
+            // Pre-warm database connection
+            try {
+                \Illuminate\Support\Facades\DB::connection()-&gt;getPdo();
+            } catch (\Throwable $e) {
+                // Connection will be retried on first request
+            }
+            
+            // Pre-warm cache connection
+            \Illuminate\Support\Facades\Cache::getStore();
+            
+            echo &quot;[Worker] Warmed up connections.\n&quot;;
+        });
+    }
+}</code></pre>
+
+<h3>v3: 高级用法与Task Worker</h3>
+
+<pre><code class="language-php">&lt;?php
+// app/Services/ReportService.php - Heavy tasks dispatched to Task Workers
+
+namespace App\Services;
+
+use Laravel\Octane\Facades\Octane;
+
+class ReportService
+{
+    /**
+     * Generate monthly report using Task Workers
+     */
+    public function generateMonthlyReport(int $year, int $month): string
+    {
+        // Run heavy computation in Task Worker
+        return Octane::runInSandbox(function () use ($year, $month) {
+            $startDate = \Carbon\Carbon::create($year, $month, 1);
+            $endDate = $startDate-&gt;copy()-&gt;endOfMonth();
+            
+            // This runs in a separate task worker process
+            // Won&#x27;t block normal request workers
+            $orders = \App\Models\Order::whereBetween(&#x27;created_at&#x27;, [$startDate, $endDate])
+                -&gt;with([&#x27;items.product&#x27;, &#x27;customer&#x27;])
+                -&gt;get();
+            
+            $report = [
+                &#x27;period&#x27; =&gt; $startDate-&gt;format(&#x27;Y-m&#x27;),
+                &#x27;total_orders&#x27; =&gt; $orders-&gt;count(),
+                &#x27;total_revenue&#x27; =&gt; $orders-&gt;sum(&#x27;total_amount&#x27;),
+                &#x27;top_products&#x27; =&gt; $orders-&gt;flatMap-&gt;items
+                    -&gt;groupBy(&#x27;product_id&#x27;)
+                    -&gt;map-&gt;sum(&#x27;quantity&#x27;)
+                    -&gt;sortDesc()
+                    -&gt;take(10),
+            ];
+            
+            // Store report
+            $filename = &quot;reports/{$year}-{$month}.json&quot;;
+            \Illuminate\Support\Facades\Storage::put($filename, json_encode($report, JSON_PRETTY_PRINT));
+            
+            return $filename;
+        });
+    }
+}</code></pre>
+
+<pre><code class="language-php">&lt;?php
+// app/Console/Commands/OctaneStatusCommand.php
+
+namespace App\Console\Commands;
+
+use Illuminate\Console\Command;
+
+class OctaneStatusCommand extends Command
+{
+    protected $signature = &#x27;octane:status&#x27;;
+    protected $description = &#x27;Check Octane server status&#x27;;
+    
+    public function handle()
+    {
+        $config = config(&#x27;octane.swoole.options&#x27;, []);
+        
+        $this-&gt;info(&#x27;Octane Swoole Configuration:&#x27;);
+        $this-&gt;table([&#x27;Parameter&#x27;, &#x27;Value&#x27;], [
+            [&#x27;Workers&#x27;, $config[&#x27;worker_num&#x27;] ?? &#x27;auto&#x27;],
+            [&#x27;Task Workers&#x27;, $config[&#x27;task_worker_num&#x27;] ?? 0],
+            [&#x27;Max Requests&#x27;, $config[&#x27;max_request&#x27;] ?? &#x27;unlimited&#x27;],
+            [&#x27;Host&#x27;, config(&#x27;octane.host&#x27;, &#x27;127.0.0.1&#x27;)],
+            [&#x27;Port&#x27;, config(&#x27;octane.port&#x27;, 8000)],
+        ]);
+        
+        // Test endpoint
+        $client = new \GuzzleHttp\Client();
+        try {
+            $start = microtime(true);
+            $response = $client-&gt;get(&#x27;http://127.0.0.1:&#x27; . config(&#x27;octane.port&#x27;, 8000) . &#x27;/api/health&#x27;);
+            $duration = round((microtime(true) - $start) * 1000, 2);
+            $this-&gt;info(&quot;Health check: {$response-&gt;getStatusCode()} ({$duration}ms)&quot;);
+        } catch (\Throwable $e) {
+            $this-&gt;error(&#x27;Server not responding: &#x27; . $e-&gt;getMessage());
+        }
+    }
+}</code></pre>
+
+<p><strong>执行预览：</strong></p>
+<pre><code>$ php artisan octane:start --workers=4 --max-requests=500
+
+   INFO  Server running…
+
+  Local: http://127.0.0.1:8000
+  
+  Workers: 4
+  Max Requests: 500
+  Runtime: Swoole 5.1.2
+
+  Press Ctrl+C to stop the server
+
+[Worker] Warmed up connections.
+[Worker] Warmed up connections.
+[Worker] Warmed up connections.
+[Worker] Warmed up connections.</code></pre>
+
+<h2>四、注意事项</h2>
+
+<table><thead><tr>
+<th>项目</th>
+<th>说明</th>
+</tr></thead><tbody>
+<tr>
+<td>全局状态</td>
+<td>静态变量、全局变量在请求间不会重置，需手动清理</td>
+</tr>
+<tr>
+<td>内存泄漏</td>
+<td>第三方包可能泄漏，用<code>max_request</code>定期重启Worker</td>
+</tr>
+<tr>
+<td>文件上传</td>
+<td>Swoole的文件上传处理与FPM不同，注意测试</td>
+</tr>
+<tr>
+<td>请求生命周期</td>
+<td>部分FPM专属功能不可用（如<code>fastcgi_finish_request</code>）</td>
+</tr>
+<tr>
+<td>数据库连接</td>
+<td>Worker重启后连接可能断开，需要重连机制</td>
+</tr>
+<tr>
+<td>Session驱动</td>
+<td>文件Session可能有问题，建议用Redis/数据库</td>
+</tr>
+</tbody></table>
+
+<h2>五、避坑指南</h2>
+
+<table><thead><tr>
+<th>❌ 错误做法</th>
+<th>✅ 正确做法</th>
+</tr></thead><tbody>
+<tr>
+<td>在构造函数中缓存请求相关数据</td>
+<td>在方法中获取，或使用resolve回调</td>
+</tr>
+<tr>
+<td>使用<code>$_SERVER</code>/<code>$_GET</code>超全局变量</td>
+<td>使用Laravel Request对象</td>
+</tr>
+<tr>
+<td>静态变量存储请求数据</td>
+<td>每次请求从Request对象获取</td>
+</tr>
+<tr>
+<td>忽略第三方包的全局状态</td>
+<td>测试每个包在常驻内存下的表现</td>
+</tr>
+<tr>
+<td>不设max_request</td>
+<td>设置500-1000防止内存泄漏</td>
+</tr>
+<tr>
+<td>在Provider中绑定一次性数据</td>
+<td>使用<code>flush</code>配置清理绑定</td>
+</tr>
+</tbody></table>
+
+<h2>六、练习题</h2>
+
+<h3>🟢 入门</h3>
+<ol>
+<li>在现有Laravel项目中安装Octane，启动并测试基本功能</li>
+</ul>
+<ol>
+<li>用<code>wrk</code>压测对比FPM和Octane的性能差异</li>
+
+<h3>🟡 进阶</h3>
+<ol>
+<li>使用<code>Octane::concurrently</code>并行查询3个不同的数据源</li>
+</ul>
+<ol>
+<li>实现一个内存缓存服务，用Octane Tables存储</li>
+
+<h3>🔴 挑战</h3>
+<ol>
+<li>将Laravel队列Worker迁移到Swoole Task Worker</li>
+</ul>
+<ol>
+<li>实现Octane的WebSocket支持（基于Swoole WebSocket Server）</li>
+
+<h2>七、知识点总结</h2>
+
+<pre><code>Swoole + Laravel集成
+├── Laravel Octane
+│   ├── 安装与配置
+│   ├── Swoole驱动选择
+│   ├── Worker/Task Worker
+│   └── Tables（共享内存）
+├── 关键API
+│   ├── Octane::concurrently() → 并发执行
+│   ├── Octane::cache() → 内存缓存
+│   ├── Octane::runInSandbox() → 隔离执行
+│   └── Octane::tick() → 定时任务
+├── 内存管理
+│   ├── 全局状态重置
+│   ├── flush配置
+│   ├── max_request重启
+│   └── 内存监控
+└── 兼容性
+    ├── 中间件适配
+    ├── 第三方包兼容
+    ├── Session/Cache驱动
+    └── 文件上传处理</code></pre>
+
+<h2>八、举一反三</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>方案</th>
+<th>备注</th>
+</tr></thead><tbody>
+<tr>
+<td>API服务</td>
+<td>Octane + API Routes</td>
+<td>性能提升最明显</td>
+</tr>
+<tr>
+<td>Web应用</td>
+<td>Octane + Blade</td>
+<td>注意Session驱动</td>
+</tr>
+<tr>
+<td>后台任务</td>
+<td>Octane Task Worker</td>
+<td>替代Queue Worker</td>
+</tr>
+<tr>
+<td>WebSocket</td>
+<td>Swoole WS Server + Laravel</td>
+<td>需要自定义集成</td>
+</tr>
+<tr>
+<td>定时任务</td>
+<td>Octane::tick()</td>
+<td>替代部分crontab</td>
+</tr>
+<tr>
+<td>微服务</td>
+<td>Octane + gRPC</td>
+<td>Swoole gRPC支持</td>
+</tr>
+</tbody></table>
+
+<h2>九、参考资料</h2>
+
+<ul>
+<li><a href="https://laravel.com/docs/octane">Laravel Octane 官方文档</a></li>
+<li><a href="https://www.swoole.co.uk/article/laravel">Swoole + Laravel 最佳实践</a></li>
+<li><a href="https://github.com/laravel/octane">Laravel Octane 源码分析</a></li>
+<li><a href="https://laravel.com/docs/deployment#optimization">Laravel性能优化指南</a></li>
+
+<h2>十、代码演进总结</h2>
+
+<table><thead><tr>
+<th>版本</th>
+<th>特点</th>
+<th>适用场景</th>
+</tr></thead><tbody>
+<tr>
+<td>v1 安装配置</td>
+<td>Octane安装、Swoole配置</td>
+<td>项目接入</td>
+</tr>
+<tr>
+<td>v2 应用适配</td>
+<td>中间件、并发查询、缓存</td>
+<td>功能开发</td>
+</tr>
+<tr>
+<td>v3 高级用法</td>
+<td>Task Worker、监控命令</td>
+<td>生产优化</td>
+</tr>
+</tbody></table>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

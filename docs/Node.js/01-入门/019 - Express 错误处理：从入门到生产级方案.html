@@ -1,0 +1,655 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>019 - Express 错误处理：从入门到生产级方案</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Node.js/index.html">Node.js</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Node.js/01-入门/index.html">Node.js入门</a>
+</nav>
+<h1>019 - Express 错误处理：从入门到生产级方案</h1>
+<div class="meta">
+<span>📂 Node.js入门</span>
+<span>🏷️ Node.js</span>
+</div>
+<article>
+
+
+<h2>难度标注</h2>
+
+<blockquote><p>🟡 <strong>中级难度</strong> | 需要掌握 Express 基础路由和中间件概念</p></blockquote>
+
+<h2>概念讲解</h2>
+
+<h3>什么是错误处理？</h3>
+
+<p>在 Express 应用中，错误处理是指捕获、记录和响应用户请求过程中发生的异常。一个没有错误处理的应用就像一辆没有刹车的车——跑得越快越危险。</p>
+
+<p>Express 提供了一套<strong>错误处理中间件</strong>机制，它和普通中间件的区别在于拥有 <strong>4 个参数</strong>：<code>(err, req, res, next)</code>。</p>
+
+<h3>错误的来源</h3>
+
+<p>在实际项目中，错误主要来自三类：</p>
+
+<ol>
+<li><strong>路由处理错误</strong> — 业务逻辑中的 <code>throw</code> 或 <code>next(err)</code></li>
+</ul>
+<ol>
+<li><strong>同步错误</strong> — 函数内部直接 <code>throw new Error()</code></li>
+</ul>
+<ol>
+<li><strong>异步错误</strong> — <code>Promise</code> rejection、<code>async/await</code> 的异常</li>
+
+<h3>Express 默认的错误处理行为</h3>
+
+<p>Express 自带一个默认的错误处理器，它会在没有自定义错误中间件时：</p>
+<ul>
+<li>在开发环境返回 HTML 错误页面和堆栈信息</li>
+<li>在生产环境隐藏堆栈信息</li>
+
+<p>但这个默认行为对 API 项目来说并不友好——我们需要 JSON 格式的错误响应。</p>
+
+<h2>脑图</h2>
+
+<pre><code>Express 错误处理
+├── 错误来源
+│   ├── 同步错误 (throw)
+│   ├── 异步错误 (Promise rejection)
+│   └── next(err) 显式传递
+├── 错误中间件
+│   ├── 四参数签名 (err, req, res, next)
+│   ├── 放在所有中间件之后
+│   └── 可链式使用多个
+├── 错误分类
+│   ├── 400 Bad Request
+│   ├── 401 Unauthorized
+│   ├── 404 Not Found
+│   └── 500 Internal Server Error
+└── 最佳实践
+    ├── 自定义 Error 类
+    ├── 集中式错误处理
+    ├── 错误日志记录
+    └── 安全的错误响应</code></pre>
+
+<h2>完整代码</h2>
+
+<h3>v1：基础错误处理</h3>
+
+<pre><code class="language-js">// v1-basic-error-handler.js
+// Basic Express error handling with a global error middleware
+
+const express = require(&#x27;express&#x27;);
+const app = express();
+
+app.use(express.json());
+
+// A route that triggers an error
+app.get(&#x27;/divide&#x27;, (req, res, next) =&gt; {
+  const a = Number(req.query.a);
+  const b = Number(req.query.b);
+
+  if (b === 0) {
+    return next(new Error(&#x27;Division by zero is not allowed&#x27;));
+  }
+
+  res.json({ result: a / b });
+});
+
+// 404 handler - no route matched
+app.use((req, res, next) =&gt; {
+  res.status(404).json({ error: &#x27;Not Found&#x27;, path: req.path });
+});
+
+// Global error handling middleware (4 parameters!)
+app.use((err, req, res, next) =&gt; {
+  console.error(`[ERROR] ${new Date().toISOString()}: ${err.message}`);
+
+  res.status(500).json({
+    error: err.message,
+    timestamp: new Date().toISOString()
+  });
+});
+
+app.listen(3000, () =&gt; console.log(&#x27;v1 running on :3000&#x27;));</code></pre>
+
+<h3>v2：自定义错误类 + HTTP 状态码</h3>
+
+<pre><code class="language-js">// v2-custom-errors.js
+// Custom error classes with proper HTTP status codes
+
+const express = require(&#x27;express&#x27;);
+const app = express();
+app.use(express.json());
+
+// Custom error classes
+class AppError extends Error {
+  constructor(message, statusCode) {
+    super(message);
+    this.statusCode = statusCode;
+    this.isOperational = true; // Mark as expected error
+    Error.captureStackTrace(this, this.constructor);
+  }
+}
+
+class NotFoundError extends AppError {
+  constructor(resource) {
+    super(`${resource} not found`, 404);
+  }
+}
+
+class ValidationError extends AppError {
+  constructor(message) {
+    super(message, 400);
+  }
+}
+
+class AuthError extends AppError {
+  constructor(message = &#x27;Unauthorized&#x27;) {
+    super(message, 401);
+  }
+}
+
+// Simulated database
+const users = [
+  { id: 1, name: &#x27;Alice&#x27;, email: &#x27;alice@example.com&#x27; },
+  { id: 2, name: &#x27;Bob&#x27;, email: &#x27;bob@example.com&#x27; }
+];
+
+// GET /users/:id - find a user
+app.get(&#x27;/users/:id&#x27;, (req, res, next) =&gt; {
+  const id = Number(req.params.id);
+
+  if (isNaN(id)) {
+    return next(new ValidationError(&#x27;User ID must be a number&#x27;));
+  }
+
+  const user = users.find(u =&gt; u.id === id);
+  if (!user) {
+    return next(new NotFoundError(&#x27;User&#x27;));
+  }
+
+  res.json(user);
+});
+
+// POST /users - create a user with validation
+app.post(&#x27;/users&#x27;, (req, res, next) =&gt; {
+  const { name, email } = req.body;
+
+  if (!name || !email) {
+    return next(new ValidationError(&#x27;name and email are required&#x27;));
+  }
+
+  if (!email.includes(&#x27;@&#x27;)) {
+    return next(new ValidationError(&#x27;Invalid email format&#x27;));
+  }
+
+  const newUser = { id: users.length + 1, name, email };
+  users.push(newUser);
+  res.status(201).json(newUser);
+});
+
+// Auth middleware example
+const authMiddleware = (req, res, next) =&gt; {
+  const token = req.headers.authorization;
+  if (!token) {
+    return next(new AuthError(&#x27;Missing authorization token&#x27;));
+  }
+  next();
+};
+
+app.get(&#x27;/profile&#x27;, authMiddleware, (req, res) =&gt; {
+  res.json({ message: &#x27;Secret profile data&#x27; });
+});
+
+// 404 handler
+app.use((req, res, next) =&gt; {
+  next(new NotFoundError(&#x27;Route&#x27;));
+});
+
+// Global error handler
+app.use((err, req, res, next) =&gt; {
+  // Default to 500 if no status code
+  const statusCode = err.statusCode || 500;
+  const isDev = process.env.NODE_ENV !== &#x27;production&#x27;;
+
+  console.error(`[${statusCode}] ${err.message}`);
+
+  const response = {
+    error: err.message,
+    status: statusCode,
+    timestamp: new Date().toISOString()
+  };
+
+  // Only show stack trace in development
+  if (isDev &amp;&amp; err.stack) {
+    response.stack = err.stack;
+  }
+
+  res.status(statusCode).json(response);
+});
+
+app.listen(3000, () =&gt; console.log(&#x27;v2 running on :3000&#x27;));</code></pre>
+
+<h3>v3：生产级错误处理（含 async wrapper + 日志）</h3>
+
+<pre><code class="language-js">// v3-production-error-handler.js
+// Production-grade error handling with async wrapper and logging
+
+const express = require(&#x27;express&#x27;);
+const fs = require(&#x27;fs&#x27;);
+const path = require(&#x27;path&#x27;);
+const app = express();
+app.use(express.json());
+
+// === Error Classes ===
+class AppError extends Error {
+  constructor(message, statusCode) {
+    super(message);
+    this.statusCode = statusCode;
+    this.isOperational = true;
+    Error.captureStackTrace(this, this.constructor);
+  }
+}
+
+class NotFoundError extends AppError {
+  constructor(resource) { super(`${resource} not found`, 404); }
+}
+
+class ValidationError extends AppError {
+  constructor(message) { super(message, 400); }
+}
+
+// === Async Handler Wrapper ===
+// Wraps async route handlers to catch rejected promises automatically
+const asyncHandler = (fn) =&gt; (req, res, next) =&gt; {
+  Promise.resolve(fn(req, res, next)).catch(next);
+};
+
+// === Logger ===
+const logError = (err) =&gt; {
+  const logEntry = {
+    time: new Date().toISOString(),
+    message: err.message,
+    stack: err.stack,
+    statusCode: err.statusCode || 500
+  };
+
+  // Append to error log file
+  const logPath = path.join(__dirname, &#x27;error.log&#x27;);
+  fs.appendFileSync(logPath, JSON.stringify(logEntry) + &#x27;\n&#x27;);
+
+  // Also log to console with color
+  const code = err.statusCode || 500;
+  console.error(`\x1b[31m[${code}]\x1b[0m ${err.message}`);
+};
+
+// === Simulated Database ===
+const db = {
+  findUser: async (id) =&gt; {
+    await new Promise(r =&gt; setTimeout(r, 100)); // simulate async
+    const users = [
+      { id: 1, name: &#x27;Alice&#x27; },
+      { id: 2, name: &#x27;Bob&#x27; }
+    ];
+    return users.find(u =&gt; u.id === id) || null;
+  },
+
+  createUser: async (data) =&gt; {
+    await new Promise(r =&gt; setTimeout(r, 100));
+    if (!data.name || !data.email) {
+      throw new ValidationError(&#x27;name and email are required&#x27;);
+    }
+    return { id: Date.now(), ...data };
+  }
+};
+
+// === Routes ===
+app.get(&#x27;/users/:id&#x27;, asyncHandler(async (req, res) =&gt; {
+  const id = Number(req.params.id);
+  if (isNaN(id)) throw new ValidationError(&#x27;ID must be a number&#x27;);
+
+  const user = await db.findUser(id);
+  if (!user) throw new NotFoundError(&#x27;User&#x27;);
+
+  res.json(user);
+}));
+
+app.post(&#x27;/users&#x27;, asyncHandler(async (req, res) =&gt; {
+  const user = await db.createUser(req.body);
+  res.status(201).json(user);
+}));
+
+// Trigger an unexpected error for testing
+app.get(&#x27;/crash&#x27;, asyncHandler(async (req, res) =&gt; {
+  undefinedVariable.foo; // ReferenceError!
+}));
+
+// 404
+app.use((req, res, next) =&gt; {
+  next(new NotFoundError(&#x27;Route&#x27;));
+});
+
+// === Global Error Handler ===
+app.use((err, req, res, next) =&gt; {
+  logError(err);
+
+  const statusCode = err.statusCode || 500;
+  const isOperational = err.isOperational || false;
+  const isDev = process.env.NODE_ENV !== &#x27;production&#x27;;
+
+  // Operational errors: safe to expose message
+  // Programming errors: do NOT leak details
+  const message = isOperational
+    ? err.message
+    : &#x27;Internal Server Error&#x27;;
+
+  const response = {
+    error: message,
+    status: statusCode,
+    timestamp: new Date().toISOString()
+  };
+
+  if (isDev) {
+    response.stack = err.stack;
+    response.isOperational = isOperational;
+  }
+
+  res.status(statusCode).json(response);
+});
+
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () =&gt; {
+  console.log(`v3 running on :${PORT} (${process.env.NODE_ENV || &#x27;development&#x27;})`);
+});</code></pre>
+
+<h2>执行预览</h2>
+
+<pre><code class="language-bash"># 启动 v3
+$ node v3-production-error-handler.js
+v3 running on :3000 (development)
+
+# 正常请求
+$ curl http://localhost:3000/users/1
+{&quot;id&quot;:1,&quot;name&quot;:&quot;Alice&quot;}
+
+# 用户不存在
+$ curl http://localhost:3000/users/999
+{&quot;error&quot;:&quot;User not found&quot;,&quot;status&quot;:404,&quot;timestamp&quot;:&quot;2025-01-15T10:30:00.000Z&quot;}
+
+# 参数验证失败
+$ curl http://localhost:3000/users/abc
+{&quot;error&quot;:&quot;ID must be a number&quot;,&quot;status&quot;:400,&quot;timestamp&quot;:&quot;2025-01-15T10:30:05.000Z&quot;}
+
+# 未捕获的编程错误
+$ curl http://localhost:3000/crash
+{&quot;error&quot;:&quot;Internal Server Error&quot;,&quot;status&quot;:500,&quot;stack&quot;:&quot;...&quot;,&quot;isOperational&quot;:false}
+
+# 404 路由
+$ curl http://localhost:3000/unknown
+{&quot;error&quot;:&quot;Route not found&quot;,&quot;status&quot;:404,&quot;timestamp&quot;:&quot;2025-01-15T10:30:10.000Z&quot;}</code></pre>
+
+<h2>注意事项</h2>
+
+<table><thead><tr>
+<th>事项</th>
+<th>说明</th>
+<th>严重度</th>
+</tr></thead><tbody>
+<tr>
+<td>错误中间件必须 4 参数</td>
+<td>Express 通过参数个数识别错误中间件</td>
+<td>🔴 高</td>
+</tr>
+<tr>
+<td>放在所有路由之后</td>
+<td>否则无法捕获前面的错误</td>
+<td>🔴 高</td>
+</tr>
+<tr>
+<td>async 错误需要 next</td>
+<td>Express 4 不会自动捕获 async 错误</td>
+<td>🔴 高</td>
+</tr>
+<tr>
+<td>生产环境隐藏堆栈</td>
+<td>不要暴露内部实现细节</td>
+<td>🟡 中</td>
+</tr>
+<tr>
+<td>区分操作性/编程性错误</td>
+<td>影响错误信息是否暴露给用户</td>
+<td>🟡 中</td>
+</tr>
+<tr>
+<td>记录错误日志</td>
+<td>方便排查问题</td>
+<td>🟡 中</td>
+</tr>
+<tr>
+<td>使用 process.on 兜底</td>
+<td>捕获未处理的 Promise rejection</td>
+<td>🟢 建议</td>
+</tr>
+</tbody></table>
+
+<h2>避坑指南</h2>
+
+<table><thead><tr>
+<th>❌ 错误做法</th>
+<th>✅ 正确做法</th>
+</tr></thead><tbody>
+<tr>
+<td><code>app.use((err, req, res) => {})</code> 只有3个参数</td>
+<td>必须写 4 个参数 <code>(err, req, res, next)</code>，Express 靠参数个数判断</td>
+</tr>
+<tr>
+<td>在 async 函数中 throw 后忘记处理</td>
+<td>用 <code>asyncHandler</code> 包装或 <code>try/catch</code> + <code>next(err)</code></td>
+</tr>
+<tr>
+<td>所有错误都返回 500</td>
+<td>根据错误类型返回合适的 HTTP 状态码</td>
+</tr>
+<tr>
+<td>把错误堆栈发给用户</td>
+<td>生产环境只返回友好提示，堆栈写日志</td>
+</tr>
+<tr>
+<td><code>res.json()</code> 之后又 <code>next(err)</code></td>
+<td>只选一个：要么发响应，要么传给错误中间件</td>
+</tr>
+<tr>
+<td>不处理 unhandledRejection</td>
+<td>添加 <code>process.on('unhandledRejection')</code> 兜底</td>
+</tr>
+<tr>
+<td>多个 <code>res.send()</code> / <code>res.json()</code></td>
+<td>确保每个请求只发一次响应</td>
+</tr>
+</tbody></table>
+
+<h2>练习题</h2>
+
+<h3>🟢 入门题</h3>
+
+<ol>
+<li>写一个 Express 路由，当请求参数 <code>age</code> 小于 0 或大于 150 时，返回 400 错误</li>
+</ul>
+<ol>
+<li>创建一个全局错误中间件，将所有错误统一返回 JSON 格式 <code>{ error, status, timestamp }</code></li>
+
+<h3>🟡 进阶题</h3>
+
+<ol>
+<li>实现 <code>asyncHandler</code> 高阶函数，自动捕获 async 路由中的异常并传给 <code>next()</code></li>
+</ul>
+<ol>
+<li>创建一个 <code>AppError</code> 基类，支持自定义状态码和错误类型（<code>ValidationError</code>、<code>NotFoundError</code>、<code>AuthError</code>），并在全局中间件中根据类型区分处理</li>
+
+<h3>🔴 挑战题</h3>
+
+<ol>
+<li>实现一个完整的错误处理体系：自定义错误类 + asyncHandler + 错误日志文件 + 生产/开发环境区分 + <code>process.on</code> 兜底 + 请求 ID 追踪</li>
+
+<h2>知识点总结</h2>
+
+<pre><code>Express 错误处理
+├── 错误中间件
+│   ├── 签名: (err, req, res, next) — 4参数缺一不可
+│   ├── 位置: 所有路由和中间件之后
+│   └── 可注册多个，按顺序执行
+├── 错误传递
+│   ├── next(err) — 显式传递
+│   ├── throw — 同步代码中自动捕获
+│   └── asyncHandler — 包装异步函数自动捕获
+├── 自定义错误
+│   ├── AppError 基类 (message + statusCode)
+│   ├── isOperational 标记可预期错误
+│   └── 子类: NotFound / Validation / Auth
+├── 生产环境
+│   ├── 隐藏堆栈信息
+│   ├── 不暴露内部错误细节
+│   └── 记录到日志文件
+└── 兜底机制
+    ├── process.on(&#x27;uncaughtException&#x27;)
+    └── process.on(&#x27;unhandledRejection&#x27;)</code></pre>
+
+<h2>举一反三</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>方案</th>
+<th>关键点</th>
+</tr></thead><tbody>
+<tr>
+<td>REST API 错误</td>
+<td>自定义 AppError + 全局中间件</td>
+<td>统一 JSON 格式</td>
+</tr>
+<tr>
+<td>表单验证</td>
+<td>ValidationError + 400</td>
+<td>列出所有字段错误</td>
+</tr>
+<tr>
+<td>数据库操作失败</td>
+<td>try/catch → AppError</td>
+<td>区分连接错误和查询错误</td>
+</tr>
+<tr>
+<td>第三方 API 调用失败</td>
+<td>axios 拦截器 + AppError</td>
+<td>设置超时 + 重试</td>
+</tr>
+<tr>
+<td>文件上传错误</td>
+<td>multer 错误处理</td>
+<td>LIMIT_FILE_SIZE 等</td>
+</tr>
+<tr>
+<td>JWT 认证失败</td>
+<td>AuthError + 401</td>
+<td>区分过期和无效</td>
+</tr>
+<tr>
+<td>限流触发</td>
+<td>429 Too Many Requests</td>
+<td>返回 Retry-After</td>
+</tr>
+<tr>
+<td>WebSocket 错误</td>
+<td>socket.on('error')</td>
+<td>断线重连机制</td>
+</tr>
+</tbody></table>
+
+<h2>参考资料</h2>
+
+<ul>
+<li><a href="https://expressjs.com/en/guide/error-handling.html">Express 官方文档 - 错误处理</a></li>
+<li><a href="https://expressjs.com/en/guide/error-handling.html#catching-errors-in-async">Express 常见问题 - async 错误</a></li>
+<li><a href="https://www.joyent.com/node-js/production/design/errors">Joyent - Node.js 生产环境错误处理</a></li>
+<li><a href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Status">MDN - HTTP 状态码</a></li>
+
+<h2>代码演进</h2>
+
+<pre><code>v1: 基础错误中间件
+├── next(err) 手动传递
+├── 统一 500 响应
+└── 问题: 没有状态码区分，所有错误都是 500
+
+        ↓ 改进
+
+v2: 自定义错误类
+├── AppError 基类 (message + statusCode)
+├── NotFoundError / ValidationError / AuthError
+├── 全局中间件根据 statusCode 返回
+└── 问题: async 错误需要手动 try/catch
+
+        ↓ 改进
+
+v3: 生产级方案
+├── asyncHandler 包装器自动捕获
+├── isOperational 区分可预期/不可预期错误
+├── 错误日志记录到文件
+├── 生产环境隐藏堆栈
+└── process.on 兜底</code></pre>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

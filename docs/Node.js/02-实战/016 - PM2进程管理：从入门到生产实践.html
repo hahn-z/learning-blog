@@ -1,0 +1,605 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>016 - PM2进程管理：从入门到生产实践</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Node.js/index.html">Node.js</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Node.js/02-实战/index.html">Node.js实战</a>
+</nav>
+<h1>016 - PM2进程管理：从入门到生产实践</h1>
+<div class="meta">
+<span>📂 Node.js实战</span>
+<span>🏷️ Node.js</span>
+</div>
+<article>
+
+
+<h1>PM2进程管理：从入门到生产实践</h1>
+
+<blockquote><p><strong>难度：</strong> ⭐⭐ 中级 | <strong>预计阅读：</strong> 15分钟<br><br><strong>前置知识：</strong> Node.js基础、Express/Koa、Linux命令行基础</p></blockquote>
+
+<hr>
+
+<h2>1. 概念讲解</h2>
+
+<p>PM2（Process Manager 2）是Node.js生产环境的进程管理器。它能让你告别 <code>nohup node app.js &</code> 的原始时代。</p>
+
+<p><strong>为什么需要PM2？</strong></p>
+
+<ul>
+<li>Node.js单线程，一个未捕获异常就崩溃</li>
+<li>手动管理多个服务太痛苦</li>
+<li>需要自动重启、日志收集、负载均衡</li>
+<li>部署流程需要零停机</li>
+
+<p><strong>PM2核心能力：</strong></p>
+
+<table><thead><tr>
+<th>能力</th>
+<th>说明</th>
+</tr></thead><tbody>
+<tr>
+<td>进程守护</td>
+<td>崩溃自动重启</td>
+</tr>
+<tr>
+<td>负载均衡</td>
+<td>Cluster模式利用多核</td>
+</tr>
+<tr>
+<td>日志管理</td>
+<td>统一收集、轮转</td>
+</tr>
+<tr>
+<td>部署系统</td>
+<td>内置deploy命令</td>
+</tr>
+<tr>
+<td>监控面板</td>
+<td>monit / plus</td>
+</tr>
+<tr>
+<td>启动脚本</td>
+<td>开机自启</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>2. 脑图</h2>
+
+<pre><code>PM2 进程管理
+├── 基础用法
+│   ├── start / stop / restart
+│   ├── delete / reload
+│   ├── logs / flush
+│   └── monit / list
+├── 配置文件
+│   ├── ecosystem.config.js
+│   ├── apps 数组
+│   └── deploy 配置
+├── Cluster模式
+│   ├── -i max
+│   ├── 0秒停机 reload
+│   └── 共享端口
+├── 日志管理
+│   ├── 合并日志
+│   ├── 日志轮转 pm2-logrotate
+│   └── JSON格式输出
+├── 进程监控
+│   ├── pm2 monit
+│   ├── pm2 show &lt;name&gt;
+│   └── PM2 Plus (SaaS)
+└── 生产部署
+    ├── startup (systemd)
+    ├── save / resurrect
+    └── deploy (SSH)</code></pre>
+
+<hr>
+
+<h2>3. 完整代码</h2>
+
+<h3>3.1 示例应用（被管理的服务）</h3>
+
+<pre><code class="language-javascript">// server.js - A sample Express app to be managed by PM2
+const express = require(&#x27;express&#x27;);
+const app = express();
+const PORT = process.env.PORT || 3000;
+
+// Simulate occasional crashes for demo purposes
+let requestCount = 0;
+
+app.get(&#x27;/&#x27;, (req, res) =&gt; {
+  requestCount++;
+  res.json({
+    message: &#x27;Hello from PM2-managed app&#x27;,
+    pid: process.pid,
+    requestCount,
+    uptime: process.uptime(),
+    memory: process.memoryUsage()
+  });
+});
+
+// Crash simulation endpoint (for testing auto-restart)
+app.get(&#x27;/crash&#x27;, (req, res) =&gt; {
+  res.json({ message: &#x27;Crashing in 1 second...&#x27; });
+  setTimeout(() =&gt; {
+    throw new Error(&#x27;Simulated crash for PM2 demo&#x27;);
+  }, 1000);
+});
+
+// Health check endpoint
+app.get(&#x27;/health&#x27;, (req, res) =&gt; {
+  res.json({ status: &#x27;ok&#x27;, pid: process.pid });
+});
+
+app.listen(PORT, () =&gt; {
+  console.log(`Server started on port ${PORT}, PID: ${process.pid}`);
+});</code></pre>
+
+<h3>3.2 PM2 配置文件</h3>
+
+<pre><code class="language-javascript">// ecosystem.config.js - PM2 process configuration file
+module.exports = {
+  apps: [
+    {
+      name: &#x27;my-api&#x27;,
+      script: &#x27;./server.js&#x27;,
+      
+      // Instances: &#x27;max&#x27; = CPU cores, or specific number
+      instances: &#x27;max&#x27;,
+      exec_mode: &#x27;cluster&#x27;,
+      
+      // Environment variables
+      env: {
+        NODE_ENV: &#x27;development&#x27;,
+        PORT: 3000
+      },
+      env_production: {
+        NODE_ENV: &#x27;production&#x27;,
+        PORT: 8080
+      },
+      
+      // Auto restart settings
+      max_restarts: 10,
+      restart_delay: 4000,
+      min_uptime: &#x27;10s&#x27;,
+      max_memory_restart: &#x27;500M&#x27;,
+      
+      // Log configuration
+      log_date_format: &#x27;YYYY-MM-DD HH:mm:ss Z&#x27;,
+      error_file: &#x27;./logs/error.log&#x27;,
+      out_file: &#x27;./logs/out.log&#x27;,
+      merge_logs: true,
+      
+      // Graceful shutdown
+      kill_timeout: 5000,
+      listen_timeout: 10000,
+      
+      // Watch mode (dev only, DO NOT use in production)
+      watch: false,
+      ignore_watch: [&#x27;node_modules&#x27;, &#x27;logs&#x27;]
+    },
+    {
+      name: &#x27;my-worker&#x27;,
+      script: &#x27;./worker.js&#x27;,
+      instances: 1,
+      exec_mode: &#x27;fork&#x27;,
+      env: {
+        NODE_ENV: &#x27;development&#x27;
+      },
+      env_production: {
+        NODE_ENV: &#x27;production&#x27;
+      },
+      cron_restart: &#x27;0 3 * * *&#x27;  // Restart daily at 3 AM
+    }
+  ],
+
+  deploy: {
+    production: {
+      user: &#x27;deploy&#x27;,
+      host: &#x27;your-server.com&#x27;,
+      ref: &#x27;origin/main&#x27;,
+      repo: &#x27;git@github.com:yourname/repo.git&#x27;,
+      path: &#x27;/var/www/myapp&#x27;,
+      &#x27;pre-deploy-local&#x27;: &#x27;&#x27;,
+      &#x27;post-deploy&#x27;: &#x27;npm install &amp;&amp; pm2 reload ecosystem.config.js --env production&#x27;,
+      &#x27;pre-setup&#x27;: &#x27;&#x27;
+    }
+  }
+};</code></pre>
+
+<h3>3.3 Worker 进程</h3>
+
+<pre><code class="language-javascript">// worker.js - Background worker process
+const { Worker, isMainThread } = require(&#x27;worker_threads&#x27;);
+
+class BackgroundWorker {
+  constructor() {
+    this.isRunning = false;
+    this.interval = null;
+  }
+
+  start() {
+    this.isRunning = true;
+    console.log(`Worker started, PID: ${process.pid}`);
+    
+    // Run periodic task every 30 seconds
+    this.interval = setInterval(() =&gt; {
+      this.processTask();
+    }, 30000);
+  }
+
+  async processTask() {
+    const startTime = Date.now();
+    try {
+      // Simulate background work (e.g., email sending, data cleanup)
+      console.log(`[${new Date().toISOString()}] Processing background task...`);
+      
+      // Your actual background work here
+      await new Promise(resolve =&gt; setTimeout(resolve, 1000));
+      
+      const duration = Date.now() - startTime;
+      console.log(`Task completed in ${duration}ms`);
+    } catch (err) {
+      console.error(&#x27;Task failed:&#x27;, err.message);
+    }
+  }
+
+  stop() {
+    this.isRunning = false;
+    if (this.interval) clearInterval(this.interval);
+    console.log(&#x27;Worker stopped gracefully&#x27;);
+  }
+}
+
+// Graceful shutdown handlers
+const worker = new BackgroundWorker();
+worker.start();
+
+process.on(&#x27;SIGINT&#x27;, () =&gt; {
+  worker.stop();
+  process.exit(0);
+});
+
+process.on(&#x27;SIGTERM&#x27;, () =&gt; {
+  worker.stop();
+  process.exit(0);
+});</code></pre>
+
+<h3>3.4 代码演进</h3>
+
+<p><strong>v1 — 最简启动（开发用）：</strong></p>
+<pre><code class="language-bash"># Install and basic start
+npm install -g pm2
+pm2 start server.js --name my-api</code></pre>
+
+<p><strong>v2 — 配置文件 + Cluster模式：</strong></p>
+<pre><code class="language-bash"># Use ecosystem config with cluster mode
+pm2 start ecosystem.config.js
+pm2 reload my-api    # Zero-downtime restart</code></pre>
+
+<p><strong>v3 — 生产环境完整方案：</strong></p>
+<pre><code class="language-bash"># Full production setup
+pm2 startup                    # Generate systemd script
+pm2 start ecosystem.config.js --env production
+pm2 save                       # Save process list
+pm2 install pm2-logrotate      # Log rotation module
+pm2 set pm2-logrotate:max_size 100M
+pm2 set pm2-logrotate:retain 30</code></pre>
+
+<hr>
+
+<h2>4. 执行预览</h2>
+
+<pre><code class="language-bash">$ pm2 start ecosystem.config.js
+[PM2][WARN] Applications my-api, my-worker not running, starting...
+[PM2] App [my-api] launched in cluster mode (x4 instances)
+[PM2] App [my-worker] launched in fork mode (x1 instance)
+
+┌────┬──────────────┬─────────┬─────────┬───────┐
+│ id │ name         │ status  │ cpu     │ memory│
+├────┼──────────────┼─────────┼─────────┼───────┤
+│ 0  │ my-api       │ online  │ 0%      │ 45.2m │
+│ 1  │ my-api       │ online  │ 0%      │ 44.8m │
+│ 2  │ my-api       │ online  │ 0%      │ 45.0m │
+│ 3  │ my-api       │ online  │ 0%      │ 44.9m │
+│ 4  │ my-worker    │ online  │ 0%      │ 32.1m │
+└────┴──────────────┴─────────┴─────────┴───────┘
+
+$ curl http://localhost:8080/
+{&quot;message&quot;:&quot;Hello from PM2-managed app&quot;,&quot;pid&quot;:12345,&quot;requestCount&quot;:1}
+
+$ curl http://localhost:8080/crash
+{&quot;message&quot;:&quot;Crashing in 1 second...&quot;}
+
+# PM2 auto-restarts the crashed process:
+$ pm2 list
+# my-api still shows 4 online instances, restart count incremented</code></pre>
+
+<hr>
+
+<h2>5. 注意事项</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>注意事项</th>
+<th>严重程度</th>
+</tr></thead><tbody>
+<tr>
+<td>Cluster模式</td>
+<td>Session/WebSocket需要用Redis共享，内存不能共享</td>
+<td>🔴 高</td>
+</tr>
+<tr>
+<td>日志</td>
+<td>默认日志不轮转，磁盘会满</td>
+<td>🟡 中</td>
+</tr>
+<tr>
+<td>watch模式</td>
+<td>生产环境绝对不要开watch</td>
+<td>🔴 高</td>
+</tr>
+<tr>
+<td>内存泄漏</td>
+<td>配置max_memory_restart作为兜底</td>
+<td>🟡 中</td>
+</tr>
+<tr>
+<td>graceful shutdown</td>
+<td>kill_timeout要大于业务处理最长耗时</td>
+<td>🔴 高</td>
+</tr>
+<tr>
+<td>0.1秒重启</td>
+<td>min_uptime设太小会导致反复重启</td>
+<td>🟡 中</td>
+</tr>
+<tr>
+<td>端口冲突</td>
+<td>多实例cluster模式共享端口，fork模式要不同端口</td>
+<td>🔴 高</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>6. 避坑指南</h2>
+
+<table><thead><tr>
+<th>❌ 常见错误</th>
+<th>✅ 正确做法</th>
+</tr></thead><tbody>
+<tr>
+<td><code>pm2 start app.js</code> 开发也用PM2</td>
+<td>开发用 <code>nodemon</code>，生产用PM2</td>
+</tr>
+<tr>
+<td>不配置日志轮转</td>
+<td>安装 <code>pm2-logrotate</code> 模块</td>
+</tr>
+<tr>
+<td><code>pm2 restart</code> 停机重启</td>
+<td>用 <code>pm2 reload</code> 零停机重启</td>
+</tr>
+<tr>
+<td>不处理SIGTERM信号</td>
+<td>注册process.on('SIGTERM')做清理</td>
+</tr>
+<tr>
+<td>Cluster模式用内存存Session</td>
+<td>用Redis/Memcached共享状态</td>
+</tr>
+<tr>
+<td>忘记 <code>pm2 save</code></td>
+<td>每次改完进程列表都save</td>
+</tr>
+<tr>
+<td>直接root运行PM2</td>
+<td>创建专用用户运行</td>
+</tr>
+<tr>
+<td><code>instances: 'max'</code> 在低配机器</td>
+<td>根据CPU和内存设合理数量</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>7. 练习题</h2>
+
+<h3>🟢 基础题</h3>
+
+<ol>
+<li>创建一个Express应用，用PM2启动并验证崩溃自动重启</li>
+</ul>
+<ol>
+<li>使用ecosystem.config.js配置2个不同的应用同时运行</li>
+</ul>
+<ol>
+<li>用 <code>pm2 monit</code> 观察1分钟内的内存变化</li>
+
+<h3>🟡 进阶题</h3>
+
+<ol>
+<li>配置Cluster模式，用 <code>ab</code> 或 <code>wrk</code> 压测对比单进程和多进程的QPS</li>
+</ul>
+<ol>
+<li>配置pm2-logrotate，设置日志最大100MB，保留10份</li>
+</ul>
+<ol>
+<li>配置deploy，实现本地一条命令部署到远程服务器</li>
+
+<h3>🔴 挑战题</h3>
+
+<ol>
+<li>实现一个graceful shutdown方案：收到SIGTERM后，停止接收新请求，等现有请求处理完再退出</li>
+</ul>
+<ol>
+<li>编写PM2启动后的健康检查脚本，确认所有实例正常后再接入流量</li>
+
+<hr>
+
+<h2>8. 知识点总结</h2>
+
+<pre><code>PM2 进程管理
+├── 启动与停止
+│   ├── start/stop/restart/delete
+│   ├── reload (0秒停机)
+│   └── scale (动态增减实例)
+├── 配置
+│   ├── ecosystem.config.js
+│   ├── env / env_production
+│   └── instances / exec_mode
+├── 集群
+│   ├── Cluster模式原理
+│   ├── Master-Worker架构
+│   └── 共享端口机制
+├── 运维
+│   ├── logs / monit / show
+│   ├── startup / save
+│   └── deploy
+└── 最佳实践
+    ├── graceful shutdown
+    ├── 日志轮转
+    └── 内存监控重启</code></pre>
+
+<hr>
+
+<h2>9. 举一反三</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>方案</th>
+<th>关键配置</th>
+</tr></thead><tbody>
+<tr>
+<td>API服务需要高可用</td>
+<td>Cluster + nginx upstream</td>
+<td><code>instances: 'max'</code>, <code>exec_mode: 'cluster'</code></td>
+</tr>
+<tr>
+<td>定时任务服务</td>
+<td>Fork模式 + cron_restart</td>
+<td><code>cron_restart: '0 <em>/6 </em> <em> </em>'</code></td>
+</tr>
+<tr>
+<td>微服务多进程</td>
+<td>一个ecosystem配多个app</td>
+<td>apps数组配置多个服务</td>
+</tr>
+<tr>
+<td>容器化部署</td>
+<td>PM2 alpine镜像</td>
+<td><code>keymetrics/pm2:latest-alpine</code></td>
+</tr>
+<tr>
+<td>多服务器部署</td>
+<td>PM2 deploy + SSH</td>
+<td>deploy配置块</td>
+</tr>
+<tr>
+<td>CI/CD集成</td>
+<td>pm2 reload不中断</td>
+<td>post-deploy hook中reload</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>10. 参考资料</h2>
+
+<ul>
+<li><a href="https://pm2.keymetrics.io/docs/usage/quick-start/">PM2 官方文档</a></li>
+<li><a href="https://nodejs.org/api/cluster.html">Node.js Cluster文档</a></li>
+<li><a href="https://github.com/keymetrics/pm2-logrotate">PM2 Logrotate模块</a></li>
+<li><a href="https://pm2.io/">PM2 Plus监控平台</a></li>
+<li><a href="https://nodejs.org/en/docs/guides/">Production Best Practices (Node.js)</a></li>
+
+<hr>
+
+<h2>11. 代码演进路线</h2>
+
+<pre><code>v1 (开发阶段)           v2 (测试环境)           v3 (生产环境)
+┌─────────────┐        ┌──────────────┐       ┌────────────────┐
+│ node app.js │   →    │ pm2 start    │   →   │ ecosystem +    │
+│ (手动管理)   │        │ --name myapp │       │ cluster +      │
+│             │        │ (基本守护)    │       │ logrotate +    │
+│ Ctrl+C 停止  │        │ 自动重启     │       │ systemd +      │
+│             │        │              │       │ deploy         │
+└─────────────┘        └──────────────┘       └────────────────┘</code></pre>
+
+<p><strong>演进要点：</strong></p>
+<ol>
+<li><strong>v1→v2：</strong> 引入进程守护，解决崩溃重启问题</li>
+</ul>
+<ol>
+<li><strong>v2→v3：</strong> 引入Cluster、日志管理、开机自启、部署自动化</li>
+</ul>
+<ol>
+<li><strong>关键决策：</strong> 生产环境必须用ecosystem.config.js，不要命令行参数</li>
+
+<hr>
+
+<blockquote><p>💡 <strong>一句话总结：</strong> PM2让Node.js生产部署从"手动挡"变成"自动挡"，核心就三件事——守护进程、集群管理、日志运维。</p></blockquote>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

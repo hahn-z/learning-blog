@@ -1,0 +1,622 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>030 - Swoole优雅重启与热更新</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Swoole/index.html">Swoole</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Swoole/01-从入门到精通/index.html">Swoole从入门到精通</a>
+</nav>
+<h1>030 - Swoole优雅重启与热更新</h1>
+<div class="meta">
+<span>📂 Swoole从入门到精通</span>
+<span>🏷️ Swoole</span>
+</div>
+<article>
+
+
+<h1>Swoole优雅重启与热更新</h1>
+
+<blockquote><p>难度：⭐⭐⭐⭐（中高级）</p></blockquote>
+
+<h2>一、概念讲解</h2>
+
+<h3>为什么需要优雅重启？</h3>
+
+<p>PHP-FPM 模式下每次请求都是全新进程，代码修改立即生效。但 Swoole 是<strong>常驻内存</strong>的，代码只在启动时加载一次。修改代码后：</p>
+
+<ul>
+<li>❌ 直接 <code>kill -9</code>：所有连接瞬间断开，数据丢失</li>
+<li>✅ <strong>优雅重启</strong>：平滑切换 Worker，不中断服务</li>
+
+<h3>Swoole 热更新原理</h3>
+
+<pre><code>Master Process (PID=1000)
+├── Manager Process (PID=1001)
+│   ├── Worker #0 (PID=1002) ← 旧代码
+│   ├── Worker #1 (PID=1003) ← 旧代码
+│   ├── Worker #2 (PID=1004) ← 旧代码
+│   └── Worker #3 (PID=1005) ← 旧代码
+│
+│  $ kill -USR1 1000  (发送 reload 信号)
+│
+│   ├── Worker #0 (PID=1006) ← 新代码 ✨
+│   ├── Worker #1 (PID=1007) ← 新代码 ✨
+│   ├── Worker #2 (PID=1008) ← 新代码 ✨
+│   └── Worker #3 (PID=1009) ← 新代码 ✨
+
+关键：逐个替换，总有 Worker 在服务，不中断！</code></pre>
+
+<h3>reload 的工作流程</h3>
+
+<ol>
+<li>收到 <code>SIGUSR1</code> 信号（或调用 <code>$server->reload()</code>）</li>
+</ul>
+<ol>
+<li>Manager 创建新 Worker 进程（加载最新代码）</li>
+</ul>
+<ol>
+<li>旧 Worker 处理完当前请求后退出</li>
+</ul>
+<ol>
+<li>全部替换完成，新代码生效</li>
+
+<h2>二、脑图</h2>
+
+<pre><code>优雅重启与热更新
+├── 原理
+│   ├── Master 不重启（保持监听）
+│   ├── Manager 逐个替换 Worker
+│   └── 旧 Worker 处理完请求后退出
+├── 触发方式
+│   ├── kill -USR1 &lt;pid&gt;
+│   ├── $server-&gt;reload()
+│   ├── HTTP 接口触发
+│   └── 文件监控自动 reload
+├── 配置
+│   ├── reload_async = true
+│   ├── max_request = 10000
+│   └── pid_file
+├── 注意事项
+│   ├── 只更新 Worker 代码
+│   ├── Task Worker 也需要 reload
+│   ├── 全局变量不重置（需 include）
+│   └── onWorkerStart 中加载业务代码
+└── 文件监控
+    ├── inotify 扩展
+    ├── Swoole\Timer 轮询
+    └── watchman</code></pre>
+
+<h2>三、代码演进</h2>
+
+<h3>v1：基础优雅重启</h3>
+
+<pre><code class="language-php">&lt;?php
+// v1: Basic graceful reload
+// Directory structure:
+//   server.php  - this file (entry point, rarely changed)
+//   app/        - business logic (frequently changed)
+
+$server = new Swoole\Http\Server(&quot;0.0.0.0&quot;, 9501);
+
+$server-&gt;set([
+    &quot;worker_num&quot; =&gt; 4,
+    &quot;pid_file&quot; =&gt; &quot;/tmp/swoole.pid&quot;,       // Store PID for reload
+    &quot;reload_async&quot; =&gt; true,                 // Async reload (recommended)
+    &quot;max_request&quot; =&gt; 10000                  // Prevent memory leaks
+]);
+
+// Load business code in onWorkerStart (not at top-level!)
+$server-&gt;on(&quot;WorkerStart&quot;, function ($server, $workerId) {
+    // This runs AFTER reload, so new code takes effect
+    require_once __DIR__ . &quot;/app/routes.php&quot;;
+});
+
+$server-&gt;on(&quot;request&quot;, function ($request, $response) {
+    // Delegate to loaded routes
+    $response-&gt;end(&quot;Worker #&quot; . $server-&gt;worker_id . &quot; | PID:&quot; . getmypid() . &quot; | &quot; . date(&quot;H:i:s&quot;));
+});
+
+echo &quot;Server PID: &quot; . getmypid() . &quot;\n&quot;;
+echo &quot;Reload: kill -USR1 &quot; . getmypid() . &quot;\n&quot;;
+$server-&gt;start();</code></pre>
+
+<p><strong>触发重启：</strong></p>
+
+<pre><code class="language-bash"># Method 1: Signal
+kill -USR1 $(cat /tmp/swoole.pid)
+
+# Method 2: Built-in command
+php server.php reload</code></pre>
+
+<h3>v2：文件监控自动热更新</h3>
+
+<pre><code class="language-php">&lt;?php
+// v2: Auto-reload with file watcher
+// Watches app/ directory, triggers reload on change
+
+$server = new Swoole\Http\Server(&quot;0.0.0.0&quot;, 9501);
+
+$server-&gt;set([
+    &quot;worker_num&quot; =&gt; 4,
+    &quot;pid_file&quot; =&gt; &quot;/tmp/swoole.pid&quot;,
+    &quot;reload_async&quot; =&gt; true,
+    &quot;max_request&quot; =&gt; 10000,
+    &quot;task_worker_num&quot; =&gt; 2,
+    &quot;log_file&quot; =&gt; &quot;/tmp/swoole.log&quot;
+]);
+
+// --- File watcher in Manager process ---
+$watchDir = __DIR__ . &quot;/app&quot;;
+$lastReload = 0;
+
+if (function_exists(&quot;inotify_init&quot;)) {
+    // Method A: inotify (efficient, needs extension)
+    $inotify = inotify_init();
+    stream_set_blocking($inotify, false);
+    
+    $watchDescriptor = inotify_add_watch($inotify, $watchDir, IN_MODIFY | IN_CREATE | IN_DELETE);
+    
+    Swoole\Timer::tick(1000, function () use ($inotify, $server, &amp;$lastReload) {
+        $events = inotify_read($inotify);
+        if ($events &amp;&amp; (time() - $lastReload &gt; 2)) {
+            $lastReload = time();
+            echo &quot;[Reload] File changed, reloading workers...\n&quot;;
+            $server-&gt;reload();
+        }
+    });
+    echo &quot;Watching: {$watchDir} (inotify)\n&quot;;
+} else {
+    // Method B: File mtime polling (fallback)
+    $fileHashes = [];
+    
+    Swoole\Timer::tick(2000, function () use ($watchDir, $server, &amp;$fileHashes, &amp;$lastReload) {
+        $changed = false;
+        $iterator = new RecursiveIteratorIterator(
+            new RecursiveDirectoryIterator($watchDir)
+        );
+        
+        foreach ($iterator as $file) {
+            if ($file-&gt;isFile() &amp;&amp; $file-&gt;getExtension() === &quot;php&quot;) {
+                $path = $file-&gt;getPathname();
+                $mtime = $file-&gt;getMTime();
+                
+                if (!isset($fileHashes[$path]) || $fileHashes[$path] !== $mtime) {
+                    $fileHashes[$path] = $mtime;
+                    $changed = true;
+                    echo &quot;[Change] {$path}\n&quot;;
+                }
+            }
+        }
+        
+        if ($changed &amp;&amp; (time() - $lastReload &gt; 3)) {
+            $lastReload = time();
+            echo &quot;[Reload] Files changed, reloading...\n&quot;;
+            $server-&gt;reload();
+        }
+    });
+    echo &quot;Watching: {$watchDir} (polling)\n&quot;;
+}
+
+// --- Business logic loading ---
+$server-&gt;on(&quot;WorkerStart&quot;, function ($server, $workerId) {
+    require_once __DIR__ . &quot;/app/routes.php&quot;;
+});
+
+$server-&gt;on(&quot;request&quot;, function ($request, $response) use ($server) {
+    $response-&gt;header(&quot;Content-Type&quot;, &quot;application/json&quot;);
+    $response-&gt;end(json_encode([
+        &quot;worker&quot; =&gt; $server-&gt;worker_id,
+        &quot;pid&quot; =&gt; getmypid(),
+        &quot;time&quot; =&gt; date(&quot;Y-m-d H:i:s&quot;),
+        &quot;memory&quot; =&gt; round(memory_get_usage(true) / 1024 / 1024, 2) . &quot;MB&quot;
+    ]));
+});
+
+$server-&gt;start();</code></pre>
+
+<h3>v3：生产级热更新（含版本管理、灰度、回滚）</h3>
+
+<pre><code class="language-php">&lt;?php
+// v3: Production hot-update with version management
+// Features: version tracking, health check, rollback, zero-downtime
+
+$server = new Swoole\Http\Server(&quot;0.0.0.0&quot;, 9501);
+
+// Version tracking (shared across workers)
+$versionTable = new Swoole\Table(1);
+$versionTable-&gt;column(&quot;version&quot;, Swoole\Table::TYPE_STRING, 32);
+$versionTable-&gt;column(&quot;deployed_at&quot;, Swoole\Table::TYPE_INT);
+$versionTable-&gt;column(&quot;deployed_by&quot;, Swoole\Table::TYPE_STRING, 64);
+$versionTable-&gt;create();
+
+$server-&gt;set([
+    &quot;worker_num&quot; =&gt; swoole_cpu_num() * 2,
+    &quot;task_worker_num&quot; =&gt; 4,
+    &quot;pid_file&quot; =&gt; &quot;/tmp/swoole-app.pid&quot;,
+    &quot;reload_async&quot; =&gt; true,
+    &quot;max_request&quot; =&gt; 50000,
+    &quot;log_file&quot; =&gt; &quot;/var/log/swoole-app.log&quot;,
+    &quot;heartbeat_check_interval&quot; =&gt; 30,
+    &quot;heartbeat_idle_time&quot; =&gt; 120
+]);
+
+// --- Load business code with version ---
+$server-&gt;on(&quot;WorkerStart&quot;, function ($server, $workerId) use ($versionTable) {
+    // Generate version from git or timestamp
+    $version = trim(shell_exec(&quot;cd &quot; . __DIR__ . &quot; &amp;&amp; git rev-parse --short HEAD 2&gt;/dev/null&quot;) ?: date(&quot;YmdHis&quot;));
+    
+    // Load all business modules
+    $modules = glob(__DIR__ . &quot;/app/*.php&quot;);
+    foreach ($modules as $module) {
+        // Clear opcode cache to ensure fresh code
+        if (function_exists(&quot;opcache_invalidate&quot;)) {
+            opcache_invalidate($module, true);
+        }
+        require_once $module;
+    }
+    
+    // Record version
+    $versionTable-&gt;set(&quot;current&quot;, [
+        &quot;version&quot; =&gt; $version,
+        &quot;deployed_at&quot; =&gt; time(),
+        &quot;deployed_by&quot; =&gt; getmypid()
+    ]);
+    
+    echo &quot;[Worker#{$workerId}] Loaded version={$version} PID=&quot; . getmypid() . &quot;\n&quot;;
+});
+
+// --- HTTP handlers ---
+$server-&gt;on(&quot;request&quot;, function ($request, $response) use ($server, $versionTable) {
+    $path = $request-&gt;server[&quot;request_uri&quot;] ?? &quot;/&quot;;
+    $method = $request-&gt;server[&quot;request_method&quot;];
+    
+    switch ($path) {
+        case &quot;/health&quot;:
+            $response-&gt;end(&quot;OK&quot;);
+            break;
+            
+        case &quot;/version&quot;:
+            $v = $versionTable-&gt;get(&quot;current&quot;);
+            $response-&gt;header(&quot;Content-Type&quot;, &quot;application/json&quot;);
+            $response-&gt;end(json_encode([
+                &quot;version&quot; =&gt; $v[&quot;version&quot;] ?? &quot;unknown&quot;,
+                &quot;deployed_at&quot; =&gt; date(&quot;Y-m-d H:i:s&quot;, $v[&quot;deployed_at&quot;] ?? 0),
+                &quot;worker_id&quot; =&gt; $server-&gt;worker_id,
+                &quot;pid&quot; =&gt; getmypid()
+            ]));
+            break;
+            
+        case &quot;/reload&quot;:
+            // HTTP-triggered reload (with auth check)
+            $token = $request-&gt;header[&quot;x-reload-token&quot;] ?? &quot;&quot;;
+            if ($token !== getenv(&quot;RELOAD_TOKEN&quot;)) {
+                $response-&gt;status(403);
+                $response-&gt;end(&quot;Forbidden&quot;);
+                return;
+            }
+            $response-&gt;end(&quot;Reloading...&quot;);
+            $server-&gt;reload();
+            break;
+            
+        default:
+            $response-&gt;end(&quot;Server v3 running&quot;);
+    }
+});
+
+// --- Master process startup ---
+echo &quot;=== Production Server v3 ===\n&quot;;
+echo &quot;PID: &quot; . getmypid() . &quot;\n&quot;;
+echo &quot;Workers: &quot; . swoole_cpu_num() * 2 . &quot;\n&quot;;
+echo &quot;Reload: kill -USR1 &quot; . getmypid() . &quot; or POST /reload\n&quot;;
+$server-&gt;start();</code></pre>
+
+<p><strong>部署脚本（deploy.sh）：</strong></p>
+
+<pre><code class="language-bash">#!/bin/bash
+# deploy.sh - Safe deployment with health check
+
+set -e
+PID_FILE=&quot;/tmp/swoole-app.pid&quot;
+HEALTH_URL=&quot;http://127.0.0.1:9501/health&quot;
+
+echo &quot;=== Deploying ===&quot;
+
+# 1. Pull latest code
+cd /app
+git pull origin main
+echo &quot;[1/4] Code pulled&quot;
+
+# 2. Check syntax
+find app/ -name &quot;*.php&quot; -exec php -l {} \; | grep -v &quot;No syntax errors&quot;
+if [ $? -eq 0 ]; then
+    echo &quot;[ABORT] Syntax errors found!&quot;
+    exit 1
+fi
+echo &quot;[2/4] Syntax OK&quot;
+
+# 3. Trigger graceful reload
+PID=$(cat $PID_FILE)
+kill -USR1 $PID
+echo &quot;[3/4] Reload signal sent to PID=$PID&quot;
+
+# 4. Wait and health check
+for i in $(seq 1 30); do
+    sleep 1
+    if curl -sf $HEALTH_URL &gt; /dev/null 2&gt;&amp;1; then
+        echo &quot;[4/4] Health check passed (${i}s)&quot;
+        VERSION=$(curl -s http://127.0.0.1:9501/version | jq -r .version)
+        echo &quot;Deployed: $VERSION&quot;
+        exit 0
+    fi
+done
+
+echo &quot;[FAIL] Health check timeout after 30s&quot;
+echo &quot;Rolling back...&quot;
+git reset --hard HEAD~1
+kill -USR1 $PID
+exit 1</code></pre>
+
+<h2>四、执行预览</h2>
+
+<pre><code># Start server
+$ php v3-server.php
+=== Production Server v3 ===
+PID: 12345
+Workers: 8
+[Worker#0] Loaded version=a1b2c3d PID=12346
+[Worker#1] Loaded version=a1b2c3d PID=12347
+...
+
+# Before reload
+$ curl http://127.0.0.1:9501/version
+{&quot;version&quot;:&quot;a1b2c3d&quot;,&quot;deployed_at&quot;:&quot;2026-04-28 22:00:00&quot;}
+
+# Trigger reload
+$ kill -USR1 12345
+[Worker#0] Loaded version=f4e5d6c PID=12350  ← New PID, new code
+[Worker#1] Loaded version=f4e5d6c PID=12351
+...
+
+# After reload
+$ curl http://127.0.0.1:9501/version
+{&quot;version&quot;:&quot;f4e5d6c&quot;,&quot;deployed_at&quot;:&quot;2026-04-28 22:01:00&quot;}
+
+# Deploy script
+$ ./deploy.sh
+=== Deploying ===
+[1/4] Code pulled
+[2/4] Syntax OK
+[3/4] Reload signal sent to PID=12345
+[4/4] Health check passed (3s)
+Deployed: x7y8z9a</code></pre>
+
+<h2>五、注意事项</h2>
+
+<table><thead><tr>
+<th>项目</th>
+<th>说明</th>
+</tr></thead><tbody>
+<tr>
+<td>reload 只影响 Worker</td>
+<td>Master/Manager 进程代码不会更新</td>
+</tr>
+<tr>
+<td>onWorkerStart 加载</td>
+<td>业务代码必须在 <code>onWorkerStart</code> 中 include/require，不能在文件顶部</td>
+</tr>
+<tr>
+<td>reload_async</td>
+<td>设为 <code>true</code> 让旧 Worker 处理完当前请求再退出</td>
+</tr>
+<tr>
+<td>max_request</td>
+<td>防止内存泄漏，Worker 处理N个请求后自动重启</td>
+</tr>
+<tr>
+<td>Task Worker</td>
+<td>reload 默认只更新 Worker，需 <code>kill -USR2</code> 更新 Task Worker</td>
+</tr>
+<tr>
+<td>opcache</td>
+<td>如开启 opcache，reload 后可能需要 <code>opcache_invalidate()</code></td>
+</tr>
+</tbody></table>
+
+<h2>六、避坑指南</h2>
+
+<table><thead><tr>
+<th>❌ 错误做法</th>
+<th>✅ 正确做法</th>
+</tr></thead><tbody>
+<tr>
+<td>业务代码写在文件顶部</td>
+<td>在 <code>onWorkerStart</code> 中 require</td>
+</tr>
+<tr>
+<td><code>kill -9</code> 强杀进程</td>
+<td><code>kill -USR1</code> 优雅 reload</td>
+</tr>
+<tr>
+<td>不设 max_request</td>
+<td>设置 <code>max_request</code> 防止内存泄漏</td>
+</tr>
+<tr>
+<td>忽略 opcache 缓存</td>
+<td>reload 前清 opcache 或用 <code>opcache_invalidate</code></td>
+</tr>
+<tr>
+<td>不做健康检查</td>
+<td>reload 后验证服务是否正常</td>
+</tr>
+<tr>
+<td>直接改入口文件</td>
+<td>入口文件尽量不动，业务代码分离到 app/</td>
+</tr>
+</tbody></table>
+
+<h2>七、练习题</h2>
+
+<h3>🟢 基础题</h3>
+<ol>
+<li>创建 HTTP Server，记录 PID 到文件，用 <code>kill -USR1</code> 触发 reload，观察 Worker PID 变化。</li>
+</ul>
+<ol>
+<li>在 <code>onWorkerStart</code> 中加载一个 PHP 文件，修改该文件后 reload，验证新代码生效。</li>
+
+<h3>🟡 进阶题</h3>
+<ol>
+<li>实现文件监控：用 <code>Swoole\Timer</code> 轮询 app/ 目录，检测到 .php 文件修改后自动 reload。</li>
+</ul>
+<ol>
+<li>实现 HTTP 接口 <code>/reload</code>，带 Token 认证，触发热更新。</li>
+
+<h3>🔴 挑战题</h3>
+<ol>
+<li>实现蓝绿部署：同时启动两个 Server 实例（不同端口），通过 Nginx upstream 切换流量，实现零停机部署。</li>
+
+<h2>八、知识点总结</h2>
+
+<pre><code>优雅重启知识树
+├── 信号
+│   ├── SIGUSR1 → reload Worker
+│   ├── SIGUSR2 → reload Task Worker
+│   └── SIGTERM → 安全关闭
+├── 配置
+│   ├── reload_async = true
+│   ├── max_request
+│   ├── pid_file
+│   └── log_file
+├── 代码结构
+│   ├── 入口文件（不变）
+│   ├── onWorkerStart（加载业务代码）
+│   └── app/ 目录（业务代码）
+├── 触发方式
+│   ├── kill -USR1
+│   ├── $server-&gt;reload()
+│   ├── HTTP 接口
+│   └── 文件监控
+└── 部署
+    ├── git pull + reload
+    ├── 健康检查
+    ├── 回滚机制
+    └── 灰度发布</code></pre>
+
+<h2>九、举一反三</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>热更新策略</th>
+</tr></thead><tbody>
+<tr>
+<td>Web API 服务</td>
+<td>onWorkerStart + max_request + reload</td>
+</tr>
+<tr>
+<td>WebSocket 长连接</td>
+<td>reload_async 保持连接不断</td>
+</tr>
+<tr>
+<td>CLI 常驻任务</td>
+<td>Supervisor 管理 + 信号 reload</td>
+</tr>
+<tr>
+<td>微服务</td>
+<td>K8s rolling update + 健康检查</td>
+</tr>
+<tr>
+<td>定时任务</td>
+<td>Cron 替换 + 锁防重复</td>
+</tr>
+</tbody></table>
+
+<h2>十、参考资料</h2>
+
+<ul>
+<li><a href="https://wiki.swoole.com/#/server/methods?id=reload">Swoole Server::reload</a></li>
+<li><a href="https://wiki.swoole.com/#/server/options?id=reload_async">Swoole 信号处理</a></li>
+<li><a href="https://wiki.swoole.com/#/server/events?id=onworkerstart">Swoole onWorkerStart</a></li>
+<li><a href="https://nginx.org/en/docs/control.html#upgrade">Nginx 零停机部署</a></li>
+
+<h2>十一、代码演进总结</h2>
+
+<table><thead><tr>
+<th>版本</th>
+<th>特点</th>
+<th>适用场景</th>
+</tr></thead><tbody>
+<tr>
+<td>v1</td>
+<td>基础 reload + PID文件</td>
+<td>学习和简单服务</td>
+</tr>
+<tr>
+<td>v2</td>
+<td>文件监控自动 reload</td>
+<td>开发环境</td>
+</tr>
+<tr>
+<td>v3</td>
+<td>生产级：版本管理、健康检查、部署脚本</td>
+<td>生产环境</td>
+</tr>
+</tbody></table>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

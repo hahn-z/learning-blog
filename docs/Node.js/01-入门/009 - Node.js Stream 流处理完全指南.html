@@ -1,0 +1,745 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>009 - Node.js Stream 流处理完全指南</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Node.js/index.html">Node.js</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Node.js/01-入门/index.html">Node.js入门</a>
+</nav>
+<h1>009 - Node.js Stream 流处理完全指南</h1>
+<div class="meta">
+<span>📂 Node.js入门</span>
+<span>🏷️ Node.js</span>
+</div>
+<article>
+
+
+<h1>Node.js Stream 流处理完全指南</h1>
+
+<blockquote><p><strong>难度：</strong> ⭐⭐⭐ 中等<br><strong>前置知识：</strong> EventEmitter、Buffer 基础、文件系统操作<br><strong>阅读时间：</strong> 约 30 分钟</p></blockquote>
+
+<hr>
+
+<h2>一、概念讲解</h2>
+
+<h3>什么是 Stream？</h3>
+
+<p>Stream（流）是 Node.js 中处理流式数据的抽象接口。简单说：<strong>数据不用全部加载到内存，而是一块一块地处理。</strong></p>
+
+<p>类比：</p>
+<ul>
+<li><strong>桶打水</strong>：把整个桶扔进水池装满再提走（Buffer 方式）</li>
+<li><strong>水管接水</strong>：接一根管子，水持续流过来（Stream 方式）</li>
+
+<p>处理 1GB 的文件：</p>
+<ul>
+<li>Buffer 方式：需要 1GB 内存</li>
+<li>Stream 方式：可能只需要几 MB 内存</li>
+
+<h3>四种流类型</h3>
+
+<table><thead><tr>
+<th>类型</th>
+<th>说明</th>
+<th>典型场景</th>
+</tr></thead><tbody>
+<tr>
+<td><strong>Readable</strong></td>
+<td>可读流，数据的来源</td>
+<td><code>fs.createReadStream</code>, <code>process.stdin</code></td>
+</tr>
+<tr>
+<td><strong>Writable</strong></td>
+<td>可写流，数据的目的地</td>
+<td><code>fs.createWriteStream</code>, <code>process.stdout</code></td>
+</tr>
+<tr>
+<td><strong>Duplex</strong></td>
+<td>双工流，可读又可写</td>
+<td><code>net.Socket</code>, <code>TLS socket</code></td>
+</tr>
+<tr>
+<td><strong>Transform</strong></td>
+<td>转换流，读入数据变换后输出</td>
+<td><code>zlib.createGzip()</code>, <code>crypto streams</code></td>
+</tr>
+</tbody></table>
+
+<h3>两种读取模式</h3>
+
+<pre><code>Readable Stream 模式：
+
+1. Flowing Mode（流动模式）
+   数据自动流出 → 通过 &#x27;data&#x27; 事件消费
+  暂停: stream.pause()  恢复: stream.resume()
+
+2. Paused Mode（暂停模式）
+   需要主动调用 stream.read() 来拉取数据
+   切换到流动: stream.resume() 或绑定 &#x27;data&#x27; 监听器</code></pre>
+
+<h3>Stream 与 EventEmitter 的关系</h3>
+
+<p>所有 Stream 都是 EventEmitter 的实例，通过事件通知数据状态：</p>
+
+<table><thead><tr>
+<th>流类型</th>
+<th>事件</th>
+</tr></thead><tbody>
+<tr>
+<td>Readable</td>
+<td><code>data</code>, <code>end</code>, <code>error</code>, <code>close</code></td>
+</tr>
+<tr>
+<td>Writable</td>
+<td><code>drain</code>, <code>finish</code>, <code>error</code>, <code>close</code></td>
+</tr>
+<tr>
+<td>Duplex</td>
+<td>两者都有</td>
+</tr>
+<tr>
+<td>Transform</td>
+<td>同 Duplex</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>二、脑图</h2>
+
+<pre><code>Stream 流处理
+├── 四种类型
+│   ├── Readable (可读)
+│   ├── Writable (可写)
+│   ├── Duplex (双工)
+│   └── Transform (转换)
+├── 核心概念
+│   ├── Buffer 缓冲区
+│   ├── HighWaterMark 水位线
+│   ├── Backpressure 背压
+│   └── Pipe 管道
+├── 常用 API
+│   ├── fs.createReadStream / WriteStream
+│   ├── stream.Readable / Writable
+│   ├── stream.Transform
+│   ├── stream.PassThrough
+│   └── stream.pipeline
+├── 关键事件
+│   ├── data / end / error
+│   ├── finish / drain
+│   └── pipe / unpipe
+└── 实践场景
+    ├── 大文件处理
+    ├── HTTP 请求/响应
+    ├── 压缩解压
+    └── 日志处理</code></pre>
+
+<hr>
+
+<h2>三、完整代码示例</h2>
+
+<h3>示例 1：文件复制（pipe）</h3>
+
+<pre><code class="language-js">// file-copy-stream.js
+// Copy a large file using streams and pipe
+
+const fs = require(&#x27;fs&#x27;);
+const path = require(&#x27;path&#x27;);
+
+const src = path.join(__dirname, &#x27;bigfile.txt&#x27;);
+const dst = path.join(__dirname, &#x27;copy.txt&#x27;);
+
+// Create a test file first (100MB)
+console.log(&#x27;Creating test file...&#x27;);
+const ws = fs.createWriteStream(src);
+for (let i = 0; i &lt; 1_000_000; i++) {
+  ws.write(`Line ${i}: This is a test line for stream demo.\n`);
+}
+ws.end(() =&gt; {
+  console.log(&#x27;Test file created. Starting copy...&#x27;);
+
+  // Stream-based copy — uses minimal memory
+  const readStream = fs.createReadStream(src);
+  const writeStream = fs.createWriteStream(dst);
+
+  readStream.pipe(writeStream);
+
+  writeStream.on(&#x27;finish&#x27;, () =&gt; {
+    const stats = fs.statSync(dst);
+    console.log(`Copy done! Size: ${(stats.size / 1024 / 1024).toFixed(2)} MB`);
+    // Cleanup
+    fs.unlinkSync(src);
+    fs.unlinkSync(dst);
+  });
+
+  readStream.on(&#x27;error&#x27;, (err) =&gt; console.error(&#x27;Read error:&#x27;, err));
+  writeStream.on(&#x27;error&#x27;, (err) =&gt; console.error(&#x27;Write error:&#x27;, err));
+});</code></pre>
+
+<h3>示例 2：自定义 Transform 流</h3>
+
+<pre><code class="language-js">// transform-stream.js
+// Custom Transform stream: line-by-line JSON parser
+
+const { Transform } = require(&#x27;stream&#x27;);
+
+class LineParser extends Transform {
+  constructor() {
+    super({ readableObjectMode: true }); // Output objects, not buffers
+    this._buffer = &#x27;&#x27;;
+  }
+
+  _transform(chunk, encoding, callback) {
+    this._buffer += chunk.toString();
+    const lines = this._buffer.split(&#x27;\n&#x27;);
+    // Keep the last incomplete line
+    this._buffer = lines.pop();
+
+    for (const line of lines) {
+      if (line.trim()) {
+        try {
+          this.push(JSON.parse(line));
+        } catch {
+          this.push({ raw: line, error: &#x27;Invalid JSON&#x27; });
+        }
+      }
+    }
+    callback();
+  }
+
+  _flush(callback) {
+    if (this._buffer.trim()) {
+      try {
+        this.push(JSON.parse(this._buffer));
+      } catch {
+        this.push({ raw: this._buffer, error: &#x27;Invalid JSON&#x27; });
+      }
+    }
+    callback();
+  }
+}
+
+// Usage: parse NDJSON (newline-delimited JSON)
+const { Readable } = require(&#x27;stream&#x27;);
+
+const input = [
+  &#x27;{&quot;name&quot;:&quot;Alice&quot;,&quot;age&quot;:30}\n&#x27;,
+  &#x27;{&quot;name&quot;:&quot;Bob&quot;,&quot;age&quot;:25}\n&#x27;,
+  &#x27;{&quot;name&quot;:&quot;Charlie&quot;,&#x27;,  // Split across chunks!
+  &#x27;&quot;age&quot;:35}\n&#x27;,
+];
+
+Readable.from(input)
+  .pipe(new LineParser())
+  .on(&#x27;data&#x27;, (obj) =&gt; console.log(&#x27;Parsed:&#x27;, obj));</code></pre>
+
+<h3>示例 3：HTTP 文件压缩服务器</h3>
+
+<pre><code class="language-js">// gzip-server.js
+// HTTP server that streams and compresses files on-the-fly
+
+const http = require(&#x27;http&#x27;);
+const fs = require(&#x27;fs&#x27;);
+const zlib = require(&#x27;zlib&#x27;);
+const path = require(&#x27;path&#x27;);
+
+const FILES_DIR = path.join(__dirname, &#x27;public&#x27;);
+
+const server = http.createServer((req, res) =&gt; {
+  const filePath = path.join(FILES_DIR, req.url);
+
+  if (!fs.existsSync(filePath)) {
+    res.writeHead(404);
+    res.end(&#x27;Not Found&#x27;);
+    return;
+  }
+
+  const stat = fs.statSync(filePath);
+  const readStream = fs.createReadStream(filePath);
+
+  // Check if client supports gzip
+  const acceptGzip = (req.headers[&#x27;accept-encoding&#x27;] || &#x27;&#x27;).includes(&#x27;gzip&#x27;);
+
+  res.writeHead(200, {
+    &#x27;Content-Type&#x27;: &#x27;text/plain; charset=utf-8&#x27;,
+    &#x27;Content-Length&#x27;: acceptGzip ? undefined : stat.size,
+    &#x27;Content-Encoding&#x27;: acceptGzip ? &#x27;gzip&#x27; : undefined,
+  });
+
+  if (acceptGzip) {
+    readStream.pipe(zlib.createGzip()).pipe(res);
+  } else {
+    readStream.pipe(res);
+  }
+
+  readStream.on(&#x27;error&#x27;, () =&gt; {
+    res.writeHead(500);
+    res.end(&#x27;Server Error&#x27;);
+  });
+});
+
+server.listen(3000, () =&gt; {
+  console.log(&#x27;Gzip server at http://localhost:3000&#x27;);
+  console.log(&#x27;Try: curl -H &quot;Accept-Encoding: gzip&quot; http://localhost:3000/test.txt&#x27;);
+});</code></pre>
+
+<hr>
+
+<h2>四、执行预览</h2>
+
+<p><strong>示例 1 运行结果：</strong></p>
+
+<pre><code>$ node file-copy-stream.js
+Creating test file...
+Test file created. Starting copy...
+Copy done! Size: 68.66 MB</code></pre>
+
+<p><strong>示例 2 运行结果：</strong></p>
+
+<pre><code>$ node transform-stream.js
+Parsed: { name: &#x27;Alice&#x27;, age: 30 }
+Parsed: { name: &#x27;Bob&#x27;, age: 25 }
+Parsed: { name: &#x27;Charlie&#x27;, age: 35 }</code></pre>
+
+<p><strong>示例 3 运行结果：</strong></p>
+
+<pre><code>$ node gzip-server.js
+Gzip server at http://localhost:3000
+
+# Another terminal:
+$ curl http://localhost:3000/test.txt
+Hello World! This is a test file for stream demo.
+
+$ curl -H &quot;Accept-Encoding: gzip&quot; http://localhost:3000/test.txt --compressed
+Hello World! This is a test file for stream demo.</code></pre>
+
+<hr>
+
+<h2>五、注意事项</h2>
+
+<table><thead><tr>
+<th>注意点</th>
+<th>说明</th>
+<th>建议</th>
+</tr></thead><tbody>
+<tr>
+<td><strong>背压（Backpressure）</strong></td>
+<td>写入速度 > 读取速度时，数据积压</td>
+<td><code>pipe()</code> 自动处理，手动用 <code>write()</code> 返回值判断</td>
+</tr>
+<tr>
+<td><strong>HighWaterMark</strong></td>
+<td>缓冲区大小，默认 16KB (Readable) / 16KB (Writable)</td>
+<td>大文件可适当调大</td>
+</tr>
+<tr>
+<td><strong>stream.pipeline</strong></td>
+<td>比 <code>.pipe()</code> 更安全，自动清理资源</td>
+<td>生产环境用 <code>pipeline()</code> 代替链式 <code>pipe()</code></td>
+</tr>
+<tr>
+<td><strong>Object Mode</strong></td>
+<td>流可以传输对象而非 Buffer</td>
+<td>构造时 <code>{ objectMode: true }</code></td>
+</tr>
+<tr>
+<td><strong>错误处理</strong></td>
+<td><code>pipe()</code> 不传播错误</td>
+<td>用 <code>pipeline()</code> 或手动监听每个流的 <code>error</code></td>
+</tr>
+<tr>
+<td><strong>内存占用</strong></td>
+<td>Stream 本身省内存，但不当使用也会泄漏</td>
+<td>避免在 <code>_transform</code> 中累积大量数据</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>六、避坑指南</h2>
+
+<h3>❌ 陷阱 1：pipe 不处理错误</h3>
+
+<pre><code class="language-js">// ❌ Wrong: pipe does NOT forward errors
+const fs = require(&#x27;fs&#x27;);
+fs.createReadStream(&#x27;input.txt&#x27;)
+  .pipe(fs.createWriteStream(&#x27;output.txt&#x27;));
+// If readStream errors, writeStream is NOT closed → resource leak</code></pre>
+
+<pre><code class="language-js">// ✅ Correct: Use pipeline (Node.js 10+)
+const { pipeline } = require(&#x27;stream&#x27;);
+pipeline(
+  fs.createReadStream(&#x27;input.txt&#x27;),
+  fs.createWriteStream(&#x27;output.txt&#x27;),
+  (err) =&gt; {
+    if (err) console.error(&#x27;Pipeline failed:&#x27;, err);
+    else console.log(&#x27;Pipeline succeeded&#x27;);
+  }
+);</code></pre>
+
+<h3>❌ 陷阱 2：不处理背压</h3>
+
+<pre><code class="language-js">// ❌ Wrong: Ignoring backpressure
+const ws = fs.createWriteStream(&#x27;output.txt&#x27;);
+for (let i = 0; i &lt; 1e8; i++) {
+  ws.write(`line ${i}\n`); // Memory keeps growing!
+}</code></pre>
+
+<pre><code class="language-js">// ✅ Correct: Respect backpressure
+const ws = fs.createWriteStream(&#x27;output.txt&#x27;);
+let i = 0;
+
+function write() {
+  let ok = true;
+  while (i &lt; 1e8 &amp;&amp; ok) {
+    ok = ws.write(`line ${i++}\n`);
+  }
+  if (i &lt; 1e8) {
+    ws.once(&#x27;drain&#x27;, write); // Wait for drain event
+  } else {
+    ws.end();
+  }
+}
+write();</code></pre>
+
+<h3>❌ 陷阱 3：忘记结束 Writable 流</h3>
+
+<pre><code class="language-js">// ❌ Wrong: Never calling end()
+const ws = fs.createWriteStream(&#x27;output.txt&#x27;);
+ws.write(&#x27;Hello&#x27;);
+ws.write(&#x27;World&#x27;);
+// File is incomplete! &#x27;finish&#x27; event never fires.</code></pre>
+
+<pre><code class="language-js">// ✅ Correct: Always call end()
+const ws = fs.createWriteStream(&#x27;output.txt&#x27;);
+ws.write(&#x27;Hello\n&#x27;);
+ws.write(&#x27;World\n&#x27;);
+ws.end(); // Flush and close
+ws.on(&#x27;finish&#x27;, () =&gt; console.log(&#x27;File written successfully&#x27;));</code></pre>
+
+<hr>
+
+<h2>七、练习题</h2>
+
+<h3>🟢 入门：读取文件并统计行数</h3>
+
+<p>使用 Stream 读取文件，统计行数。</p>
+
+<p><details></p>
+<p><summary>参考答案</summary></p>
+
+<pre><code class="language-js">const fs = require(&#x27;fs&#x27;);
+let lineCount = 0;
+
+fs.createReadStream(&#x27;bigfile.txt&#x27;)
+  .on(&#x27;data&#x27;, (chunk) =&gt; {
+    for (let i = 0; i &lt; chunk.length; i++) {
+      if (chunk[i] === 10) lineCount++; // newline char
+    }
+  })
+  .on(&#x27;end&#x27;, () =&gt; console.log(`Lines: ${lineCount}`));</code></pre>
+<p></details></p>
+
+<h3>🟡 进阶：实现字符串替换 Transform</h3>
+
+<p>创建一个 Transform 流，将所有出现的 <code>foo</code> 替换为 <code>bar</code>。</p>
+
+<p><details></p>
+<p><summary>参考答案</summary></p>
+
+<pre><code class="language-js">const { Transform } = require(&#x27;stream&#x27;);
+
+class ReplaceStream extends Transform {
+  constructor(from, to) {
+    super();
+    this.from = from;
+    this.to = to;
+    this.tail = &#x27;&#x27;;
+  }
+
+  _transform(chunk, encoding, callback) {
+    const text = this.tail + chunk.toString();
+    const result = text.replaceAll(this.from, this.to);
+    // Keep tail to handle split across chunks
+    const splitAt = text.length - this.from.length + 1;
+    this.tail = text.slice(Math.max(0, splitAt));
+    this.push(result.slice(0, result.length - this.tail.length));
+    callback();
+  }
+
+  _flush(callback) {
+    if (this.tail) this.push(this.tail.replaceAll(this.from, this.to));
+    callback();
+  }
+}
+
+// Test
+const { Readable } = require(&#x27;stream&#x27;);
+Readable.from([&#x27;hello foo w&#x27;, &#x27;orld foo&#x27;, &#x27; test&#x27;])
+  .pipe(new ReplaceStream(&#x27;foo&#x27;, &#x27;bar&#x27;))
+  .on(&#x27;data&#x27;, (c) =&gt; process.stdout.write(c.toString()));
+// Output: hello bar world bar test</code></pre>
+<p></details></p>
+
+<h3>🔴 挑战：实现速率限制的可读流</h3>
+
+<p>创建一个 Readable 流，按指定速率（字节/秒）输出数据。</p>
+
+<p><details></p>
+<p><summary>参考答案</summary></p>
+
+<pre><code class="language-js">const { Readable } = require(&#x27;stream&#x27;);
+
+class RateLimitedReadable extends Readable {
+  constructor(data, bytesPerSecond) {
+    super();
+    this.data = data;
+    this.pos = 0;
+    this.bytesPerSecond = bytesPerSecond;
+    this.interval = null;
+  }
+
+  _read() {
+    if (this.interval) return;
+    this.interval = setInterval(() =&gt; {
+      if (this.pos &gt;= this.data.length) {
+        this.push(null);
+        clearInterval(this.interval);
+        return;
+      }
+      const chunk = this.data.slice(this.pos, this.pos + this.bytesPerSecond);
+      this.pos += this.bytesPerSecond;
+      if (!this.push(chunk)) {
+        clearInterval(this.interval);
+        this.interval = null;
+      }
+    }, 1000);
+  }
+}
+
+// Usage: emit 100 bytes per second
+const data = Buffer.alloc(350, &#x27;A&#x27;);
+const limited = new RateLimitedReadable(data, 100);
+limited.on(&#x27;data&#x27;, (chunk) =&gt; {
+  console.log(`[${new Date().toLocaleTimeString()}] Got ${chunk.length} bytes`);
+});
+limited.on(&#x27;end&#x27;, () =&gt; console.log(&#x27;Done&#x27;));</code></pre>
+<p></details></p>
+
+<hr>
+
+<h2>八、知识点总结</h2>
+
+<pre><code>Stream
+├── 四种类型
+│   ├── Readable → 数据源
+│   ├── Writable → 数据目的地
+│   ├── Duplex → 可读可写
+│   └── Transform → 输入→变换→输出
+├── 核心机制
+│   ├── Buffer 缓冲区
+│   ├── HighWaterMark 水位线 (默认 16KB)
+│   ├── Backpressure 背压 (写不赢时反压)
+│   └── Pipe 管道连接
+├── 推荐做法
+│   ├── pipeline() 代替链式 pipe()
+│   ├── 处理背压
+│   ├── 始终处理 error
+│   └── 大文件必用 stream
+└── 实用场景
+    ├── 文件读写
+    ├── HTTP 传输
+    ├── 压缩 (zlib)
+    └── 加密 (crypto)</code></pre>
+
+<hr>
+
+<h2>九、举一反三</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>Stream 方案</th>
+<th>优势</th>
+</tr></thead><tbody>
+<tr>
+<td>大文件复制</td>
+<td><code>ReadStream.pipe(WriteStream)</code></td>
+<td>内存恒定</td>
+</tr>
+<tr>
+<td>日志分析</td>
+<td><code>ReadStream.pipe(Transform)</code></td>
+<td>实时处理</td>
+</tr>
+<tr>
+<td>HTTP 响应压缩</td>
+<td><code>ReadStream.pipe(zlib).pipe(res)</code></td>
+<td>边读边压缩</td>
+</tr>
+<tr>
+<td>文件加密</td>
+<td><code>ReadStream.pipe(crypto).pipe(WriteStream)</code></td>
+<td>流式加密</td>
+</tr>
+<tr>
+<td>数据 ETL</td>
+<td><code>Read→Transform→Transform→Write</code></td>
+<td>管道组合</td>
+</tr>
+<tr>
+<td>视频转码</td>
+<td><code>ffmpeg.stdin→stdout→WriteStream</code></td>
+<td>无需全部加载</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>十、参考资料</h2>
+
+<ul>
+<li><a href="https://nodejs.org/api/stream.html">Node.js 官方文档 - Stream</a></li>
+<li><a href="https://github.com/substack/stream-handbook">Stream Handbook</a></li>
+<li><a href="https://nodejs.org/en/learn/modules/stream-backpressure">Node.js Backpressure</a></li>
+<li><a href="https://nodesource.com/blog/understanding-streams-in-nodejs">Understanding Streams in Node.js</a></li>
+
+<hr>
+
+<h2>十一、代码演进</h2>
+
+<h3>v1：基础文件读取</h3>
+
+<pre><code class="language-js">// v1: Read file with stream - basics
+const fs = require(&#x27;fs&#x27;);
+
+const stream = fs.createReadStream(&#x27;data.txt&#x27;, { encoding: &#x27;utf8&#x27; });
+
+stream.on(&#x27;data&#x27;, (chunk) =&gt; {
+  console.log(`Received ${chunk.length} characters`);
+});
+stream.on(&#x27;end&#x27;, () =&gt; console.log(&#x27;File read complete&#x27;));
+stream.on(&#x27;error&#x27;, (err) =&gt; console.error(&#x27;Error:&#x27;, err.message));</code></pre>
+
+<h3>v2：管道链式处理</h3>
+
+<pre><code class="language-js">// v2: Chain streams with pipe
+const fs = require(&#x27;fs&#x27;);
+const zlib = require(&#x27;zlib&#x27;);
+const { pipeline } = require(&#x27;stream&#x27;);
+
+pipeline(
+  fs.createReadStream(&#x27;access.log&#x27;),
+  zlib.createGzip(),
+  fs.createWriteStream(&#x27;access.log.gz&#x27;),
+  (err) =&gt; {
+    if (err) console.error(&#x27;Failed:&#x27;, err);
+    else console.log(&#x27;Compressed successfully!&#x27;);
+  }
+);</code></pre>
+
+<h3>v3：生产级日志处理器</h3>
+
+<pre><code class="language-js">// v3: Production log processor with custom Transform streams
+const fs = require(&#x27;fs&#x27;);
+const zlib = require(&#x27;zlib&#x27;);
+const { Transform, pipeline, Readable } = require(&#x27;stream&#x27;);
+
+// Filter: only keep ERROR lines
+class ErrorFilter extends Transform {
+  _transform(chunk, enc, cb) {
+    const line = chunk.toString();
+    if (line.includes(&#x27;&quot;level&quot;:&quot;error&quot;&#x27;)) this.push(chunk);
+    cb();
+  }
+}
+
+// Enrich: add timestamp if missing
+class TimestampEnricher extends Transform {
+  _transform(chunk, enc, cb) {
+    try {
+      const obj = JSON.parse(chunk.toString());
+      if (!obj.timestamp) obj.timestamp = new Date().toISOString();
+      this.push(JSON.stringify(obj) + &#x27;\n&#x27;);
+    } catch { this.push(chunk); }
+    cb();
+  }
+}
+
+// Usage
+pipeline(
+  fs.createReadStream(&#x27;app.log&#x27;),
+  new ErrorFilter(),
+  new TimestampEnricher(),
+  zlib.createGzip(),
+  fs.createWriteStream(&#x27;errors.jsonl.gz&#x27;),
+  (err) =&gt; {
+    if (err) console.error(&#x27;Pipeline error:&#x27;, err);
+    else console.log(&#x27;Error log generated!&#x27;);
+  }
+);</code></pre>
+
+<p><strong>演进总结：</strong> v1 基础读取 → v2 管道组合 → v3 生产级多阶段处理。</p>
+
+<hr>
+
+<p><em>流是 Node.js 处理大数据的瑞士军刀，掌握它就掌握了高性能 I/O 的钥匙。</em> 🌊</p>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

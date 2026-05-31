@@ -1,0 +1,814 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>015 - JavaScript async/await 优雅异步编程完全指南</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/JavaScript/index.html">JavaScript</a>
+<span class="sep">›</span>
+<a href="/tech-blog/JavaScript/01-ES6+/index.html">JavaScript ES6+</a>
+</nav>
+<h1>015 - JavaScript async/await 优雅异步编程完全指南</h1>
+<div class="meta">
+<span>📂 JavaScript ES6+</span>
+<span>🏷️ JavaScript</span>
+</div>
+<article>
+
+
+<h2>难度标注</h2>
+
+<blockquote><p>🟡 <strong>中等难度</strong> — 需要先理解 Promise，async/await 是 Promise 的语法糖</p></blockquote>
+
+<h2>概念讲解</h2>
+
+<h3>什么是 async/await？</h3>
+
+<p><code>async/await</code> 是 ES2017 引入的语法糖，让 Promise 链式调用看起来像同步代码：</p>
+
+<pre><code class="language-javascript">// Promise chain
+function fetchUser(id) {
+  return getUser(id)
+    .then(user =&gt; getOrders(user.id))
+    .then(orders =&gt; orders[0])
+    .catch(err =&gt; handleError(err));
+}
+
+// async/await: reads like synchronous code
+async function fetchUser(id) {
+  try {
+    const user = await getUser(id);
+    const orders = await getOrders(user.id);
+    return orders[0];
+  } catch (err) {
+    handleError(err);
+  }
+}</code></pre>
+
+<h3>核心规则</h3>
+
+<ol>
+<li><strong><code>async</code> 函数始终返回 Promise</strong></li>
+</ul>
+<ol>
+<li><strong><code>await</code> 只能在 <code>async</code> 函数内使用</strong>（顶层 await 需 ES Module）</li>
+</ul>
+<ol>
+<li><strong><code>await</code> 暂停执行，直到 Promise resolve</strong></li>
+</ul>
+<ol>
+<li><strong><code>await</code> 的值是 Promise resolve 的值</strong></li>
+
+<pre><code class="language-javascript">async function example() {
+  // async function always returns a Promise
+  return 42; // equivalent to: return Promise.resolve(42)
+}
+
+const result = example();
+console.log(result); // Promise {&lt;fulfilled&gt;: 42}
+
+// To get the value:
+result.then(val =&gt; console.log(val)); // 42</code></pre>
+
+<h3>async/await 与事件循环</h3>
+
+<pre><code>async function flow() {
+  console.log(&#x27;1&#x27;);          // sync
+  await delay(0);
+  console.log(&#x27;2&#x27;);          // microtask (after await)
+  console.log(&#x27;3&#x27;);          // sync (continues after await)
+}
+console.log(&#x27;A&#x27;);
+flow();
+console.log(&#x27;B&#x27;);
+
+// Output: A, 1, B, 2, 3
+// Why: flow() starts sync, hits await, yields control
+//       B runs, then microtask queue processes 2, 3</code></pre>
+
+<h2>脑图</h2>
+
+<pre><code>              async/await
+                  │
+      ┌───────────┼───────────┐
+      │           │           │
+   基础语法    错误处理     并发模式
+      │           │           │
+  ┌───┴───┐  ┌───┴───┐  ┌───┴────┐
+  │async  │  │try/catch│  │串行    │
+  │await  │  │.catch()│  │并行    │
+  │返回值 │  │包装函数│  │并发限制 │
+  └───────┘  └───────┘  └────────┘</code></pre>
+
+<h2>完整 JS 代码</h2>
+
+<h3>基础用法</h3>
+
+<pre><code class="language-javascript">// ============ Basic async/await ============
+
+// Simulate async API
+const delay = ms =&gt; new Promise(r =&gt; setTimeout(r, ms));
+
+const fakeFetch = (url, data, ms = 500) =&gt;
+  delay(ms).then(() =&gt; ({ url, data }));
+
+// Sequential execution (one after another)
+async function loadDashboard() {
+  console.log(&#x27;Loading...&#x27;);
+  const user = await fakeFetch(&#x27;/api/user&#x27;, { name: &#x27;Alice&#x27; });
+  console.log(&#x27;User loaded:&#x27;, user.data.name);
+
+  const posts = await fakeFetch(&#x27;/api/posts&#x27;, [&#x27;Post 1&#x27;, &#x27;Post 2&#x27;]);
+  console.log(&#x27;Posts loaded:&#x27;, posts.data.length);
+
+  const stats = await fakeFetch(&#x27;/api/stats&#x27;, { views: 1000 });
+  console.log(&#x27;Stats loaded:&#x27;, stats.data.views);
+
+  return { user, posts, stats };
+}
+
+// Return value is always a Promise
+const result = loadDashboard();
+console.log(result); // Promise
+result.then(data =&gt; console.log(&#x27;All done!&#x27;, data));
+
+// Await with non-Promise (auto-wrapped)
+async function example() {
+  const val = await 42;        // Promise.resolve(42)
+  const arr = await [1, 2, 3]; // Promise.resolve([1,2,3])
+  console.log(val, arr);
+}</code></pre>
+
+<h3>错误处理</h3>
+
+<pre><code class="language-javascript">// ============ Error Handling ============
+
+// try/catch (recommended)
+async function safeFetch(url) {
+  try {
+    const response = await fetch(url);
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+    return await response.json();
+  } catch (err) {
+    console.error(`Fetch failed: ${err.message}`);
+    return null; // graceful fallback
+  }
+}
+
+// Multiple catches in sequence
+async function loadUserProfile(id) {
+  let user, posts;
+  try {
+    user = await fetchUser(id);
+  } catch (err) {
+    console.error(&#x27;User fetch failed:&#x27;, err);
+    user = { id, name: &#x27;Unknown&#x27; };
+  }
+  try {
+    posts = await fetchPosts(id);
+  } catch (err) {
+    console.error(&#x27;Posts fetch failed:&#x27;, err);
+    posts = [];
+  }
+  return { user, posts };
+}
+
+// Wrapper function pattern (avoid try/catch everywhere)
+async function wrap(promise) {
+  try {
+    const data = await promise;
+    return [data, null];
+  } catch (err) {
+    return [null, err];
+  }
+}
+
+// Usage: Go-style error handling
+async function main() {
+  const [user, userErr] = await wrap(fetchUser(1));
+  if (userErr) return handleError(userErr);
+
+  const [orders, orderErr] = await wrap(fetchOrders(user.id));
+  if (orderErr) return handleError(orderErr);
+
+  console.log(&#x27;Orders:&#x27;, orders);
+}</code></pre>
+
+<h3>并发模式</h3>
+
+<pre><code class="language-javascript">// ============ Concurrency Patterns ============
+
+// ❌ Sequential: 3 seconds total (waits for each)
+async function slow() {
+  const a = await delay(1000).then(() =&gt; &#x27;A&#x27;);
+  const b = await delay(1000).then(() =&gt; &#x27;B&#x27;);
+  const c = await delay(1000).then(() =&gt; &#x27;C&#x27;);
+  return [a, b, c]; // takes ~3 seconds
+}
+
+// ✅ Parallel: 1 second total (all at once)
+async function fast() {
+  const [a, b, c] = await Promise.all([
+    delay(1000).then(() =&gt; &#x27;A&#x27;),
+    delay(1000).then(() =&gt; &#x27;B&#x27;),
+    delay(1000).then(() =&gt; &#x27;C&#x27;)
+  ]);
+  return [a, b, c]; // takes ~1 second
+}
+
+// Parallel with individual error handling
+async function resilient() {
+  const results = await Promise.allSettled([
+    fetch(&#x27;/api/users&#x27;),
+    fetch(&#x27;/api/posts&#x27;),
+    fetch(&#x27;/api/comments&#x27;)
+  ]);
+  const [users, posts, comments] = results.map(r =&gt; {
+    if (r.status === &#x27;fulfilled&#x27;) return r.value;
+    console.warn(&#x27;Request failed:&#x27;, r.reason);
+    return null;
+  });
+  return { users, posts, comments };
+}
+
+// Concurrent pool with limit
+async function asyncPool(limit, items, fn) {
+  const results = [];
+  const executing = new Set();
+  for (const item of items) {
+    const p = fn(item).then(result =&gt; {
+      executing.delete(p);
+      return result;
+    });
+    executing.add(p);
+    results.push(p);
+    if (executing.size &gt;= limit) {
+      await Promise.race(executing);
+    }
+  }
+  return Promise.all(results);
+}
+
+// Usage: process 100 URLs, max 5 at a time
+async function batchProcess(urls) {
+  return asyncPool(5, urls, async (url) =&gt; {
+    const res = await fetch(url);
+    return res.json();
+  });
+}</code></pre>
+
+<h3>循环中的 async/await</h3>
+
+<pre><code class="language-javascript">// ============ Loops and Iteration ============
+
+// Sequential: for...of (one at a time)
+async function processSequentially(urls) {
+  const results = [];
+  for (const url of urls) {
+    const res = await fetch(url);
+    results.push(await res.json());
+  }
+  return results;
+}
+
+// Parallel: map + Promise.all (all at once)
+async function processInParallel(urls) {
+  return Promise.all(
+    urls.map(async url =&gt; {
+      const res = await fetch(url);
+      return res.json();
+    })
+  );
+}
+
+// ❌ forEach does NOT wait for async
+async function wrongForEach(urls) {
+  urls.forEach(async url =&gt; {
+    const res = await fetch(url); // NOT awaited by forEach!
+    console.log(await res.json()); // logs out of order
+  });
+  console.log(&#x27;Done!&#x27;); // prints BEFORE fetches complete!
+}
+
+// Filter with async
+async function asyncFilter(items, predicate) {
+  const results = await Promise.all(items.map(predicate));
+  return items.filter((_, i) =&gt; results[i]);
+}
+
+// Usage
+const activeUsers = await asyncFilter(users, async user =&gt; {
+  const status = await checkStatus(user.id);
+  return status.active;
+});</code></pre>
+
+<h3>高级模式</h3>
+
+<pre><code class="language-javascript">// ============ Advanced Patterns ============
+
+// Timeout wrapper
+function withTimeout(promise, ms) {
+  let timer;
+  const timeout = new Promise((_, reject) =&gt; {
+    timer = setTimeout(() =&gt; reject(new Error(&#x27;Timeout&#x27;)), ms);
+  });
+  return Promise.race([promise, timeout]).finally(() =&gt; clearTimeout(timer));
+}
+
+// Usage
+const data = await withTimeout(fetch(&#x27;/api/slow&#x27;), 5000);
+
+// Retry with exponential backoff
+async function retry(fn, { attempts = 3, delay = 1000, factor = 2 } = {}) {
+  for (let i = 0; i &lt; attempts; i++) {
+    try {
+      return await fn();
+    } catch (err) {
+      if (i === attempts - 1) throw err;
+      const waitMs = delay * Math.pow(factor, i);
+      console.log(`Attempt ${i + 1} failed, retrying in ${waitMs}ms...`);
+      await new Promise(r =&gt; setTimeout(r, waitMs));
+    }
+  }
+}
+
+// Usage
+const result = await retry(() =&gt; fetch(&#x27;/api/unstable&#x27;), { attempts: 5 });
+
+// Memoize async function
+function asyncMemoize(fn) {
+  const cache = new Map();
+  return async function (...args) {
+    const key = JSON.stringify(args);
+    if (cache.has(key)) return cache.get(key);
+    const result = await fn.apply(this, args);
+    cache.set(key, result);
+    return result;
+  };
+}
+
+// Top-level await (ES Module only)
+// const config = await loadConfig();
+// const db = await connectDB(config);</code></pre>
+
+<h2>执行预览</h2>
+
+<pre><code>// Basic
+async function greet() {
+  return &#x27;hello&#x27;;
+}
+greet() → Promise&lt;&#x27;hello&#x27;&gt;
+
+// Await pauses execution
+async function demo() {
+  console.log(&#x27;start&#x27;);
+  await delay(100);
+  console.log(&#x27;after 100ms&#x27;);
+}
+demo();
+console.log(&#x27;sync&#x27;);
+// Output: start → sync → after 100ms
+
+// Sequential vs Parallel
+sequential: await a, await b, await c  → 3s
+parallel: await Promise.all([a,b,c])   → 1s
+
+// Error handling
+try { await failingOp() } catch(e) { /* caught */ }
+
+// Go-style with wrap()
+const [data, err] = await wrap(fetchData())</code></pre>
+
+<h2>注意事项</h2>
+
+<table><thead><tr>
+<th>注意点</th>
+<th>说明</th>
+</tr></thead><tbody>
+<tr>
+<td><strong>async 函数返回 Promise</strong></td>
+<td>即使 return 一个普通值，也会被包装为 Promise</td>
+</tr>
+<tr>
+<td><strong>await 只在 async 内</strong></td>
+<td>顶层 await 需要 ES Module（<code>type="module"</code>）</td>
+</tr>
+<tr>
+<td><strong>错误会"冒泡"</strong></td>
+<td>未 catch 的错误变成 rejected Promise</td>
+</tr>
+<tr>
+<td><strong>forEach 不等 async</strong></td>
+<td><code>forEach</code> 不等待 async 回调，用 <code>for...of</code> 代替</td>
+</tr>
+<tr>
+<td><strong>循环中的并行</strong></td>
+<td><code>map</code> + <code>Promise.all</code> 实现并行处理</td>
+</tr>
+<tr>
+<td><strong>调试更方便</strong></td>
+<td>堆栈信息比 <code>.then</code> 链更清晰</td>
+</tr>
+</tbody></table>
+
+<table><thead><tr>
+<th>串行 vs 并行选择</th>
+<th>场景</th>
+</tr></thead><tbody>
+<tr>
+<td><strong>串行（await 循环）</strong></td>
+<td>有依赖关系：B 需要 A 的结果</td>
+</tr>
+<tr>
+<td><strong>并行（Promise.all）</strong></td>
+<td>无依赖：多个独立请求</td>
+</tr>
+<tr>
+<td><strong>限制并发（pool）</strong></td>
+<td>大量请求，需要控制并发数</td>
+</tr>
+</tbody></table>
+
+<h2>避坑指南</h2>
+
+<h3>❌ forEach 中用 await</h3>
+<pre><code class="language-javascript">// ❌ Wrong: forEach doesn&#x27;t await
+async function loadAll(ids) {
+  const results = [];
+  ids.forEach(async id =&gt; {
+    results.push(await fetch(id)); // NOT sequential, race conditions!
+  });
+  return results; // empty! forEach returned immediately
+}
+
+// ✅ Correct: use for...of for sequential
+async function loadAll(ids) {
+  const results = [];
+  for (const id of ids) {
+    results.push(await fetch(id));
+  }
+  return results;
+}
+
+// ✅ Or Promise.all for parallel
+async function loadAll(ids) {
+  return Promise.all(ids.map(id =&gt; fetch(id)));
+}</code></pre>
+
+<h3>❌ 不必要的串行</h3>
+<pre><code class="language-javascript">// ❌ Slow: sequential when independent
+async function loadPage() {
+  const user = await getUser();     // 500ms
+  const posts = await getPosts();   // 500ms
+  const tags = await getTags();     // 500ms
+  // Total: ~1500ms
+}
+
+// ✅ Fast: parallel for independent requests
+async function loadPage() {
+  const [user, posts, tags] = await Promise.all([
+    getUser(),
+    getPosts(),
+    getTags()
+  ]);
+  // Total: ~500ms
+}</code></pre>
+
+<h3>❌ 忘记 await</h3>
+<pre><code class="language-javascript">// ❌ Wrong: missing await, result is a Promise
+async function getData() {
+  const data = fetchAsync(); // missing await!
+  console.log(data); // Promise {&lt;pending&gt;} — not the data!
+}
+
+// ✅ Correct
+async function getData() {
+  const data = await fetchAsync();
+  console.log(data); // actual data
+}</code></pre>
+
+<h3>❌ try/catch 吞掉错误</h3>
+<pre><code class="language-javascript">// ❌ Wrong: silently swallowing errors
+async function loadUser(id) {
+  try {
+    return await fetchUser(id);
+  } catch (err) {
+    // Error lost! Nobody knows it failed.
+  }
+}
+
+// ✅ Correct: at least log it
+async function loadUser(id) {
+  try {
+    return await fetchUser(id);
+  } catch (err) {
+    console.error(&#x27;Failed to load user:&#x27;, err);
+    return null; // explicit fallback
+  }
+}</code></pre>
+
+<h2>练习题</h2>
+
+<h3>🟢 入门：基本 async/await</h3>
+
+<pre><code class="language-javascript">// 1. Convert Promise chain to async/await
+fetch(&#x27;/api/user&#x27;)
+  .then(r =&gt; r.json())
+  .then(user =&gt; fetch(`/api/posts?userId=${user.id}`))
+  .then(r =&gt; r.json())
+  .then(posts =&gt; console.log(posts))
+  .catch(err =&gt; console.error(err));
+
+// 2. Create a delay function and use it
+// wait(1000) → waits 1 second, then continues</code></pre>
+
+<h3>🟡 进阶：并发与错误处理</h3>
+
+<pre><code class="language-javascript">// 3. Load user, posts, comments in parallel
+// If any fails, use null as fallback (don&#x27;t let one break others)
+
+// 4. Implement Go-style error wrapper [data, err]
+// async function wrap(promise) → [data, null] or [null, error]</code></pre>
+
+<h3>🔴 挑战：高级模式</h3>
+
+<pre><code class="language-javascript">// 5. Implement a task queue that runs max N tasks concurrently
+// class TaskQueue { constructor(concurrency) {} enqueue(fn) {} }
+// Usage:
+// const queue = new TaskQueue(3);
+// queue.enqueue(() =&gt; fetch(url1));
+// queue.enqueue(() =&gt; fetch(url2));
+// ...
+
+// 6. Implement retry with exponential backoff
+// retry(fn, {maxRetries: 3, baseDelay: 1000})</code></pre>
+
+<p><details></p>
+<p><summary>📋 参考答案</summary></p>
+
+<pre><code class="language-javascript">// 1
+async function loadPosts() {
+  try {
+    const userRes = await fetch(&#x27;/api/user&#x27;);
+    const user = await userRes.json();
+    const postsRes = await fetch(`/api/posts?userId=${user.id}`);
+    const posts = await postsRes.json();
+    console.log(posts);
+  } catch (err) {
+    console.error(err);
+  }
+}
+
+// 2
+const wait = ms =&gt; new Promise(r =&gt; setTimeout(r, ms));
+async function demo() {
+  console.log(&#x27;waiting...&#x27;);
+  await wait(1000);
+  console.log(&#x27;done!&#x27;);
+}
+
+// 3
+async function loadAll() {
+  const results = await Promise.allSettled([
+    fetch(&#x27;/api/user&#x27;).then(r =&gt; r.json()),
+    fetch(&#x27;/api/posts&#x27;).then(r =&gt; r.json()),
+    fetch(&#x27;/api/comments&#x27;).then(r =&gt; r.json())
+  ]);
+  return results.map(r =&gt; r.status === &#x27;fulfilled&#x27; ? r.value : null);
+}
+
+// 4
+async function wrap(promise) {
+  try {
+    const data = await promise;
+    return [data, null];
+  } catch (err) {
+    return [null, err];
+  }
+}
+
+// 5
+class TaskQueue {
+  constructor(concurrency) {
+    this.concurrency = concurrency;
+    this.running = 0;
+    this.queue = [];
+  }
+  enqueue(fn) {
+    return new Promise((resolve, reject) =&gt; {
+      const run = async () =&gt; {
+        this.running++;
+        try {
+          resolve(await fn());
+        } catch (err) {
+          reject(err);
+        } finally {
+          this.running--;
+          this.next();
+        }
+      };
+      if (this.running &lt; this.concurrency) {
+        run();
+      } else {
+        this.queue.push(run);
+      }
+    });
+  }
+  next() {
+    if (this.queue.length &amp;&amp; this.running &lt; this.concurrency) {
+      this.queue.shift()();
+    }
+  }
+}
+
+// 6
+async function retry(fn, { maxRetries = 3, baseDelay = 1000 } = {}) {
+  for (let i = 0; i &lt;= maxRetries; i++) {
+    try {
+      return await fn();
+    } catch (err) {
+      if (i === maxRetries) throw err;
+      await new Promise(r =&gt; setTimeout(r, baseDelay * Math.pow(2, i)));
+    }
+  }
+}</code></pre>
+<p></details></p>
+
+<h2>知识点总结</h2>
+
+<pre><code>async/await
+├── 基础
+│   ├── async 函数 → 返回 Promise
+│   ├── await → 暂停直到 Promise resolve
+│   ├── await 只能在 async 内使用
+│   └── 顶层 await（ES Module）
+├── 错误处理
+│   ├── try/catch（推荐）
+│   ├── Go-style: [data, err] wrapper
+│   ├── catch 后可继续
+│   └── 未 catch → rejected Promise
+├── 并发模式
+│   ├── 串行：for...of + await
+│   ├── 并行：Promise.all
+│   ├── 容错：Promise.allSettled
+│   ├── 限制并发：asyncPool
+│   └── 任务队列：TaskQueue class
+├── 循环
+│   ├── for...of: 串行等待 ✅
+│   ├── map + Promise.all: 并行 ✅
+│   ├── forEach: 不等待 ❌
+│   └── async filter: map + filter
+└── 高级模式
+    ├── 超时: Promise.race
+    ├── 重试: exponential backoff
+    ├── 缓存: asyncMemoize
+    └── 优雅降级: try/catch + fallback</code></pre>
+
+<h2>举一反三</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>推荐模式</th>
+<th>示例</th>
+</tr></thead><tbody>
+<tr>
+<td>有依赖的请求</td>
+<td>串行 await</td>
+<td><code>const a = await f1(); const b = await f2(a.id)</code></td>
+</tr>
+<tr>
+<td>无依赖的请求</td>
+<td>并行 Promise.all</td>
+<td><code>await Promise.all([f1(), f2(), f3()])</code></td>
+</tr>
+<tr>
+<td>大量请求</td>
+<td>并发池</td>
+<td><code>asyncPool(5, urls, fetch)</code></td>
+</tr>
+<tr>
+<td>不稳定 API</td>
+<td>重试 + 退避</td>
+<td><code>retry(fn, {maxRetries:3})</code></td>
+</tr>
+<tr>
+<td>超时控制</td>
+<td>Promise.race</td>
+<td><code>withTimeout(fetch(url), 5000)</code></td>
+</tr>
+<tr>
+<td>错误不中断</td>
+<td>allSettled + fallback</td>
+<td><code>[null, null, data]</code></td>
+</tr>
+<tr>
+<td>简化 try/catch</td>
+<td>Go-style wrap</td>
+<td><code>[data, err] = await wrap(fn())</code></td>
+</tr>
+</tbody></table>
+
+<h2>参考资料</h2>
+
+<ul>
+<li><a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Statements/async_function">MDN: async function</a></li>
+<li><a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Operators/await">MDN: await</a></li>
+<li><a href="https://developer.mozilla.org/en-US/docs/Learn/JavaScript/Asynchronous/Async_await">Async/Await 详解</a></li>
+<li><a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Event_loop">JavaScript Event Loop</a></li>
+
+<h2>代码演进</h2>
+
+<h3>v1 — 回调地狱</h3>
+<pre><code class="language-javascript">getUser(id, (err, user) =&gt; {
+  if (err) return handleError(err);
+  getOrders(user.id, (err, orders) =&gt; {
+    if (err) return handleError(err);
+    render({ user, orders });
+  });
+});</code></pre>
+
+<h3>v2 — Promise 链</h3>
+<pre><code class="language-javascript">getUser(id)
+  .then(user =&gt; getOrders(user.id).then(orders =&gt; ({ user, orders })))
+  .then(render)
+  .catch(handleError);</code></pre>
+
+<h3>v3 — async/await</h3>
+<pre><code class="language-javascript">async function loadUserPage(id) {
+  try {
+    const user = await getUser(id);
+    const orders = await getOrders(user.id);
+    render({ user, orders });
+  } catch (err) {
+    handleError(err);
+  }
+}</code></pre>
+
+<h3>v4 — 并行优化 + 容错</h3>
+<pre><code class="language-javascript">async function loadUserPage(id) {
+  const [user, orders] = await Promise.all([
+    getUser(id).catch(() =&gt; null),
+    getOrders(id).catch(() =&gt; [])
+  ]);
+  render({ user, orders });
+}</code></pre>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

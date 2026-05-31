@@ -1,0 +1,509 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>011 - 组件Props与自定义事件</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Vue.js/index.html">Vue.js</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Vue.js/01-入门到实战/index.html">Vue.js入门到实战</a>
+</nav>
+<h1>011 - 组件Props与自定义事件</h1>
+<div class="meta">
+<span>📂 Vue.js入门到实战</span>
+<span>🏷️ Vue.js</span>
+</div>
+<article>
+
+
+<h1>049-组件Props与自定义事件</h1>
+
+<blockquote><p><strong>难度标注：</strong> 🟡 中级 | <strong>前置知识：</strong> Vue 3 基础、组合式 API</p></blockquote>
+
+<hr>
+
+<h2>一、概念讲解</h2>
+
+<p>组件通信是 Vue 应用的核心。Props 和 Emits 构成了父子组件通信的基石：<strong>Props 让数据从父组件流向子组件，Emits 让子组件通知父组件发生了事情。</strong></p>
+
+<h3>Props（属性）</h3>
+
+<p>Props 是父组件向子组件传递数据的方式。它遵循<strong>单向数据流</strong>原则——父组件可以修改 prop，子组件不能。</p>
+
+<pre><code class="language-javascript">// Child component defines props
+const props = defineProps({
+  title: String,        // Simple type declaration
+  count: {
+    type: Number,
+    default: 0,         // Default value
+    required: false     // Optional
+  },
+  items: {
+    type: Array,
+    default: () =&gt; []   // Object/Array defaults must be factory functions
+  }
+})</code></pre>
+
+<h3>Emits（自定义事件）</h3>
+
+<p>子组件通过 <code>emit</code> 向父组件发送事件，父组件通过 <code>@event-name</code> 监听。</p>
+
+<pre><code class="language-javascript">// Child component declares and emits events
+const emit = defineEmits([&#x27;update&#x27;, &#x27;delete&#x27;, &#x27;change&#x27;])
+
+// Emit with payload
+emit(&#x27;update&#x27;, { id: 1, name: &#x27;Vue&#x27; })</code></pre>
+
+<hr>
+
+<h2>二、脑图（ASCII）</h2>
+
+<pre><code>Props &amp; Emits
+├── Props（父→子）
+│   ├── 基础类型声明
+│   │   ├── String
+│   │   ├── Number
+│   │   ├── Boolean
+│   │   ├── Array
+│   │   └── Object
+│   ├── 高级配置
+│   │   ├── type（类型校验）
+│   │   ├── default（默认值）
+│   │   ├── required（必填）
+│   │   └── validator（自定义校验）
+│   └── 单向数据流
+│       ├── 父可改，子只读
+│       └── 需要修改→emit 通知父
+├── Emits（子→父）
+│   ├── defineEmits 声明
+│   ├── emit() 触发
+│   ├── 携带载荷（payload）
+│   └── v-model 本质
+│       ├── :modelValue + @update:modelValue
+│       └── 自定义 v-model 参数
+└── 最佳实践
+    ├── Props 验证必做
+    ├── Emits 显式声明
+    └── 避免 Props 变异</code></pre>
+
+<hr>
+
+<h2>三、完整代码示例</h2>
+
+<pre><code class="language-vue">&lt;!-- ParentComponent.vue --&gt;
+&lt;template&gt;
+  &lt;div class=&quot;parent&quot;&gt;
+    &lt;h2&gt;User Manager&lt;/h2&gt;
+    &lt;p&gt;Total users: {{ users.length }}&lt;/p&gt;
+
+    &lt;!-- Pass props and listen to emits --&gt;
+    &lt;UserCard
+      v-for=&quot;user in users&quot;
+      :key=&quot;user.id&quot;
+      :name=&quot;user.name&quot;
+      :email=&quot;user.email&quot;
+      :role=&quot;user.role&quot;
+      :is-active=&quot;user.active&quot;
+      @toggle-active=&quot;toggleUserActive(user.id)&quot;
+      @delete=&quot;deleteUser(user.id)&quot;
+    /&gt;
+
+    &lt;!-- v-model with custom component --&gt;
+    &lt;SearchInput v-model=&quot;searchQuery&quot; /&gt;
+    &lt;p&gt;Searching: {{ searchQuery }}&lt;/p&gt;
+  &lt;/div&gt;
+&lt;/template&gt;
+
+&lt;script setup&gt;
+import { ref } from &#x27;vue&#x27;
+import UserCard from &#x27;./UserCard.vue&#x27;
+import SearchInput from &#x27;./SearchInput.vue&#x27;
+
+const searchQuery = ref(&#x27;&#x27;)
+
+const users = ref([
+  { id: 1, name: &#x27;Alice&#x27;, email: &#x27;alice@vue.js&#x27;, role: &#x27;admin&#x27;, active: true },
+  { id: 2, name: &#x27;Bob&#x27;, email: &#x27;bob@vue.js&#x27;, role: &#x27;user&#x27;, active: false },
+  { id: 3, name: &#x27;Charlie&#x27;, email: &#x27;charlie@vue.js&#x27;, role: &#x27;user&#x27;, active: true }
+])
+
+function toggleUserActive(id) {
+  const user = users.value.find(u =&gt; u.id === id)
+  if (user) user.active = !user.active
+}
+
+function deleteUser(id) {
+  users.value = users.value.filter(u =&gt; u.id !== id)
+}
+&lt;/script&gt;</code></pre>
+
+<pre><code class="language-vue">&lt;!-- UserCard.vue --&gt;
+&lt;template&gt;
+  &lt;div class=&quot;user-card&quot; :class=&quot;{ inactive: !isActive }&quot;&gt;
+    &lt;h3&gt;{{ name }}&lt;/h3&gt;
+    &lt;p&gt;{{ email }} · {{ role }}&lt;/p&gt;
+    &lt;span&gt;Status: {{ isActive ? &#x27;Active&#x27; : &#x27;Inactive&#x27; }}&lt;/span&gt;
+    &lt;div class=&quot;actions&quot;&gt;
+      &lt;button @click=&quot;emit(&#x27;toggleActive&#x27;)&quot;&gt;
+        {{ isActive ? &#x27;Deactivate&#x27; : &#x27;Activate&#x27; }}
+      &lt;/button&gt;
+      &lt;button @click=&quot;handleDelete&quot;&gt;Delete&lt;/button&gt;
+    &lt;/div&gt;
+  &lt;/div&gt;
+&lt;/template&gt;
+
+&lt;script setup&gt;
+// Define props with validation
+const props = defineProps({
+  name: {
+    type: String,
+    required: true
+  },
+  email: {
+    type: String,
+    required: true
+  },
+  role: {
+    type: String,
+    default: &#x27;user&#x27;,
+    validator: (value) =&gt; [&#x27;admin&#x27;, &#x27;user&#x27;, &#x27;guest&#x27;].includes(value)
+  },
+  isActive: {
+    type: Boolean,
+    default: false
+  }
+})
+
+// Explicitly declare emitted events
+const emit = defineEmits([&#x27;toggleActive&#x27;, &#x27;delete&#x27;])
+
+function handleDelete() {
+  if (confirm(`Delete ${props.name}?`)) {
+    emit(&#x27;delete&#x27;)
+  }
+}
+&lt;/script&gt;
+
+&lt;style scoped&gt;
+.user-card {
+  border: 1px solid #ddd;
+  padding: 12px;
+  margin: 8px 0;
+  border-radius: 8px;
+}
+.inactive {
+  opacity: 0.5;
+  background: #f5f5f5;
+}
+&lt;/style&gt;</code></pre>
+
+<pre><code class="language-vue">&lt;!-- SearchInput.vue - Custom v-model component --&gt;
+&lt;template&gt;
+  &lt;input
+    :value=&quot;modelValue&quot;
+    @input=&quot;emit(&#x27;update:modelValue&#x27;, $event.target.value)&quot;
+    placeholder=&quot;Search users...&quot;
+  /&gt;
+&lt;/template&gt;
+
+&lt;script setup&gt;
+// v-model in Vue 3 uses modelValue + update:modelValue
+defineProps({
+  modelValue: {
+    type: String,
+    default: &#x27;&#x27;
+  }
+})
+
+const emit = defineEmits([&#x27;update:modelValue&#x27;])
+&lt;/script&gt;</code></pre>
+
+<hr>
+
+<h2>四、执行预览</h2>
+
+<pre><code>┌─────────────────────────────────────┐
+│  User Manager                       │
+│  Total users: 3                     │
+│                                     │
+│  ┌─────────────────────────────┐    │
+│  │ Alice                       │    │
+│  │ alice@vue.js · admin        │    │
+│  │ Status: Active              │    │
+│  │ [Deactivate] [Delete]       │    │
+│  └─────────────────────────────┘    │
+│                                     │
+│  ┌─────────────────────────────┐    │
+│  │ Bob          (grayed out)   │    │
+│  │ bob@vue.js · user           │    │
+│  │ Status: Inactive            │    │
+│  │ [Activate] [Delete]         │    │
+│  └─────────────────────────────┘    │
+│                                     │
+│  [Search users...         ]         │
+│  Searching: vue                     │
+└─────────────────────────────────────┘</code></pre>
+
+<hr>
+
+<h2>五、注意事项</h2>
+
+<table><thead><tr>
+<th>事项</th>
+<th>说明</th>
+<th>建议</th>
+</tr></thead><tbody>
+<tr>
+<td>单向数据流</td>
+<td>子组件不能直接修改 props</td>
+<td>需要修改时用 emit 通知父组件</td>
+</tr>
+<tr>
+<td>引用类型</td>
+<td>Object/Array 是引用传递</td>
+<td>子组件修改会影响父组件，务必避免</td>
+</tr>
+<tr>
+<td>默认值</td>
+<td>Object/Array 必须用工厂函数</td>
+<td><code>default: () => []</code> 而非 <code>default: []</code></td>
+</tr>
+<tr>
+<td>命名转换</td>
+<td>HTML 中 kebab-case，JS 中 camelCase</td>
+<td><code><UserCard :user-name="..."></code> → <code>userName</code></td>
+</tr>
+<tr>
+<td>Boolean 类型</td>
+<td><code>:disabled="false"</code> vs <code>disabled</code></td>
+<td>空 prop 默认为 <code>true</code></td>
+</tr>
+<tr>
+<td>emit 声明</td>
+<td>建议始终用 defineEmits 声明</td>
+<td>未声明的 emit 会产生警告</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>六、避坑指南</h2>
+
+<table><thead><tr>
+<th>❌ 错误做法</th>
+<th>✅ 正确做法</th>
+</tr></thead><tbody>
+<tr>
+<td><code>props.name = 'new name'</code> 直接修改 prop</td>
+<td><code>emit('update', newName)</code> 通知父组件</td>
+</tr>
+<tr>
+<td><code>default: []</code> 对象默认值简写</td>
+<td><code>default: () => []</code> 工厂函数返回</td>
+</tr>
+<tr>
+<td>不声明 emits，直接 emit</td>
+<td><code>defineEmits(['change'])</code> 显式声明</td>
+</tr>
+<tr>
+<td><code>this.$emit()</code> 在 setup 中使用</td>
+<td><code>const emit = defineEmits()</code> 组合式写法</td>
+</tr>
+<tr>
+<td>props 用 <code>v-model</code> 直接绑定</td>
+<td>通过 emit 实现 v-model 模式</td>
+</tr>
+<tr>
+<td>v-for 中把 index 当 key</td>
+<td>用唯一 id 作为 key</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>七、练习题</h2>
+
+<h3>🟢 基础</h3>
+
+<ol>
+<li>创建一个 <code>CounterDisplay</code> 组件，接收 <code>count</code> (Number) 和 <code>color</code> (String) 两个 props，显示计数和颜色。</li>
+
+<ol>
+<li>创建一个 <code>Button</code> 组件，通过 emit 发送 <code>click</code> 事件，并携带当前时间戳作为载荷。</li>
+
+<h3>🟡 进阶</h3>
+
+<ol>
+<li>实现一个支持 <code>v-model</code> 的 <code>TextInput</code> 组件，要求支持 <code>placeholder</code> prop 和 <code>focus</code> 事件。</li>
+
+<ol>
+<li>给 <code>UserCard</code> 添加 props 验证：<code>age</code> 必须在 0-150 之间，<code>email</code> 必须包含 <code>@</code>。</li>
+
+<h3>🔴 挑战</h3>
+
+<ol>
+<li>实现一个 <code>v-model:title</code> + <code>v-model:content</code> 的双 v-model 组件（Vue 3.4+ 的 <code>defineModel</code> 写法）。</li>
+
+<hr>
+
+<h2>八、知识点总结</h2>
+
+<pre><code>Props &amp; Emits
+├── defineProps()
+│   ├── 类型声明 (String, Number, Boolean...)
+│   ├── 默认值 (default)
+│   ├── 必填 (required)
+│   └── 自定义校验 (validator)
+├── defineEmits()
+│   ├── 数组语法 [&#x27;event1&#x27;, &#x27;event2&#x27;]
+│   └── 对象语法 (类型校验)
+├── v-model 原理
+│   ├── :modelValue + @update:modelValue
+│   ├── 自定义参数 v-model:title
+│   └── defineModel() (Vue 3.4+)
+└── TypeScript 增强
+    ├── defineProps&lt;T&gt;()
+    └── withDefaults()</code></pre>
+
+<hr>
+
+<h2>九、举一反三</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>Props</th>
+<th>Emits</th>
+</tr></thead><tbody>
+<tr>
+<td>表单组件</td>
+<td>value, placeholder, disabled</td>
+<td>input, change, blur</td>
+</tr>
+<tr>
+<td>列表组件</td>
+<td>items, loading, pageSize</td>
+<td>page-change, item-click</td>
+</tr>
+<tr>
+<td>模态框</td>
+<td>visible, title, width</td>
+<td>close, confirm, cancel</td>
+</tr>
+<tr>
+<td>标签页</td>
+<td>tabs, activeTab</td>
+<td>update:activeTab</td>
+</tr>
+<tr>
+<td>分页器</td>
+<td>total, pageSize, currentPage</td>
+<td>page-change</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>十、参考资料</h2>
+
+<ul>
+<li><a href="https://vuejs.org/guide/components/props.html">Vue 3 Props 官方文档</a></li>
+<li><a href="https://vuejs.org/guide/components/events.html">Vue 3 Component Events</a></li>
+<li><a href="https://vuejs.org/guide/components/v-model.html">Vue 3 v-model on Components</a></li>
+<li><a href="https://github.com/vuejs/rfcs/discussions/503">defineModel RFC</a></li>
+
+<hr>
+
+<h2>十一、代码演进</h2>
+
+<h3>v1 - 基础 Props 传递</h3>
+<pre><code class="language-vue">&lt;script setup&gt;
+const props = defineProps([&#x27;name&#x27;, &#x27;email&#x27;])
+// No validation, no defaults
+&lt;/script&gt;</code></pre>
+
+<h3>v2 - 完整 Props 验证 + Emits</h3>
+<pre><code class="language-vue">&lt;script setup&gt;
+const props = defineProps({
+  name: { type: String, required: true },
+  email: { type: String, required: true },
+  role: {
+    type: String,
+    default: &#x27;user&#x27;,
+    validator: (v) =&gt; [&#x27;admin&#x27;, &#x27;user&#x27;, &#x27;guest&#x27;].includes(v)
+  }
+})
+const emit = defineEmits([&#x27;toggleActive&#x27;, &#x27;delete&#x27;])
+&lt;/script&gt;</code></pre>
+
+<h3>v3 - TypeScript + defineModel（Vue 3.4+）</h3>
+<pre><code class="language-vue">&lt;script setup lang=&quot;ts&quot;&gt;
+interface Props {
+  name: string
+  email: string
+  role?: &#x27;admin&#x27; | &#x27;user&#x27; | &#x27;guest&#x27;
+}
+const props = withDefaults(defineProps&lt;Props&gt;(), {
+  role: &#x27;user&#x27;
+})
+
+// Vue 3.4+ defineModel
+const modelValue = defineModel&lt;string&gt;({ required: true })
+const title = defineModel&lt;string&gt;(&#x27;title&#x27;)
+&lt;/script&gt;</code></pre>
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

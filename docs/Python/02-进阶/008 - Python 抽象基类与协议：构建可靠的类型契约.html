@@ -1,0 +1,619 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>008 - Python 抽象基类与协议：构建可靠的类型契约</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Python/index.html">其他</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Python/02-进阶/index.html">Python进阶</a>
+</nav>
+<h1>008 - Python 抽象基类与协议：构建可靠的类型契约</h1>
+<div class="meta">
+<span>📂 Python进阶</span>
+<span>🏷️ 其他</span>
+</div>
+<article>
+
+
+<h1>Python 抽象基类与协议：构建可靠的类型契约</h1>
+
+<blockquote><p><strong>难度：⭐⭐⭐⭐（高级）</strong><br><strong>前置知识：</strong> 继承、多态、类型注解、鸭子类型</p></blockquote>
+
+<hr>
+
+<h2>一、概念讲解</h2>
+
+<p>Python 有两种方式定义接口契约：<strong>抽象基类（ABC）</strong> 和 <strong>协议（Protocol）</strong>。</p>
+
+<h3>抽象基类（ABC）</h3>
+
+<p><code>abc.ABC</code> + <code>@abstractmethod</code> 定义"必须实现"的方法。子类不实现就<strong>无法实例化</strong>。</p>
+
+<pre><code class="language-python">from abc import ABC, abstractmethod
+
+class Shape(ABC):
+    @abstractmethod
+    def area(self) -&gt; float: ...
+
+    @abstractmethod
+    def perimeter(self) -&gt; float: ...
+
+# Shape()  → TypeError: Can&#x27;t instantiate abstract class
+# class Circle(Shape): pass
+# Circle() → TypeError: area, perimeter not implemented</code></pre>
+
+<h3>协议（Protocol）— 结构化子类型</h3>
+
+<p>Python 3.8+ 引入 <code>typing.Protocol</code>，基于<strong>结构化类型</strong>（鸭子类型的类型检查版本）：</p>
+
+<pre><code class="language-python">from typing import Protocol
+
+class Drawable(Protocol):
+    def draw(self) -&gt; None: ...
+
+class MyWidget:  # No inheritance needed!
+    def draw(self) -&gt; None:
+        print(&quot;drawing&quot;)
+
+def render(d: Drawable) -&gt; None:
+    d.draw()  # Works with MyWidget!</code></pre>
+
+<h3>ABC vs Protocol 对比</h3>
+
+<table><thead><tr>
+<th>特性</th>
+<th>ABC</th>
+<th>Protocol</th>
+</tr></thead><tbody>
+<tr>
+<td>类型检查方式</td>
+<td>名义类型（需继承）</td>
+<td>结构类型（不需继承）</td>
+</tr>
+<tr>
+<td>运行时检查</td>
+<td><code>isinstance()</code> 支持</td>
+<td><code>isinstance()</code> 需 <code>@runtime_checkable</code></td>
+</tr>
+<tr>
+<td>强制实现</td>
+<td>不实现无法实例化</td>
+<td>纯类型提示，不强制</td>
+</tr>
+<tr>
+<td>Python 版本</td>
+<td>全版本</td>
+<td>3.8+</td>
+</tr>
+<tr>
+<td>适用场景</td>
+<td>框架/库定义接口</td>
+<td>函数参数类型约束</td>
+</tr>
+<tr>
+<td>耦合度</td>
+<td>较高（需显式继承）</td>
+<td>较低（只需实现方法）</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>二、脑图（ASCII）</h2>
+
+<pre><code>抽象基类与协议
+├── 抽象基类（ABC）
+│   ├── abc.ABC 基类
+│   ├── @abstractmethod
+│   ├── @abstractclassmethod / @abstractstaticmethod
+│   ├── @abstractproperty
+│   ├── 注册虚拟子类 .register()
+│   └── __subclasshook__() 自定义 isinstance 行为
+├── 协议（Protocol）
+│   ├── typing.Protocol（Python 3.8+）
+│   ├── 结构化子类型
+│   ├── @runtime_checkable
+│   ├── Protocol 继承
+│   └── 与 ABC 的互操作
+├── 核心区别
+│   ├── 名义类型 vs 结构类型
+│   ├── 显式继承 vs 隐式满足
+│   └── 运行时强制 vs 类型提示
+└── 选择策略
+    ├── 库的公共接口 → ABC
+    ├── 内部代码/函数签名 → Protocol
+    └── 两者结合 → 灵活运用</code></pre>
+
+<hr>
+
+<h2>三、完整代码示例</h2>
+
+<h3>v1：基础 ABC — 定义图形接口</h3>
+
+<pre><code class="language-python"># v1: Basic ABC for shapes
+from abc import ABC, abstractmethod
+import math
+
+
+class Shape(ABC):
+    &quot;&quot;&quot;Abstract base class for all shapes.&quot;&quot;&quot;
+
+    @abstractmethod
+    def area(self) -&gt; float:
+        &quot;&quot;&quot;Calculate the area.&quot;&quot;&quot;
+        ...
+
+    @abstractmethod
+    def perimeter(self) -&gt; float:
+        &quot;&quot;&quot;Calculate the perimeter.&quot;&quot;&quot;
+        ...
+
+    def describe(self) -&gt; str:
+        &quot;&quot;&quot;Concrete method shared by all shapes.&quot;&quot;&quot;
+        return f&quot;{self.__class__.__name__}: area={self.area():.2f}, perimeter={self.perimeter():.2f}&quot;
+
+
+class Circle(Shape):
+    def __init__(self, radius: float):
+        self.radius = radius
+
+    def area(self) -&gt; float:
+        return math.pi * self.radius ** 2
+
+    def perimeter(self) -&gt; float:
+        return 2 * math.pi * self.radius
+
+
+class Rectangle(Shape):
+    def __init__(self, width: float, height: float):
+        self.width = width
+        self.height = height
+
+    def area(self) -&gt; float:
+        return self.width * self.height
+
+    def perimeter(self) -&gt; float:
+        return 2 * (self.width + self.height)
+
+
+# Usage
+shapes = [Circle(5), Rectangle(3, 4)]
+for s in shapes:
+    print(s.describe())
+# Circle: area=78.54, perimeter=31.42
+# Rectangle: area=12.00, perimeter=14.00
+
+# isinstance works with ABC
+print(isinstance(shapes[0], Shape))  # True</code></pre>
+
+<h3>v2：Protocol + 运行时检查</h3>
+
+<pre><code class="language-python"># v2: Protocol-based design with runtime checks
+from typing import Protocol, runtime_checkable
+
+
+@runtime_checkable
+class Closeable(Protocol):
+    &quot;&quot;&quot;Anything with a close() method.&quot;&quot;&quot;
+
+    def close(self) -&gt; None: ...
+
+
+@runtime_checkable
+class Renderable(Protocol):
+    &quot;&quot;&quot;Anything with a render() method returning str.&quot;&quot;&quot;
+
+    def render(self) -&gt; str: ...
+
+
+class HtmlDocument:
+    def __init__(self, content: str):
+        self.content = content
+
+    def render(self) -&gt; str:
+        return f&quot;&lt;html&gt;&lt;body&gt;{self.content}&lt;/body&gt;&lt;/html&gt;&quot;
+
+    def close(self) -&gt; None:
+        print(&quot;Document closed&quot;)
+
+
+class PdfReport:
+    def __init__(self, data: dict):
+        self.data = data
+
+    def render(self) -&gt; str:
+        return f&quot;PDF Report: {len(self.data)} items&quot;
+
+
+def display(obj: Renderable) -&gt; None:
+    print(obj.render())
+
+
+def safe_close(obj: Closeable) -&gt; None:
+    obj.close()
+
+
+# Structural typing - no inheritance needed
+doc = HtmlDocument(&quot;Hello World&quot;)
+report = PdfReport({&quot;a&quot;: 1, &quot;b&quot;: 2})
+
+display(doc)  # &lt;html&gt;&lt;body&gt;Hello World&lt;/body&gt;&lt;/html&gt;
+display(report)  # PDF Report: 2 items
+
+# Runtime checks
+print(isinstance(doc, Renderable))  # True
+print(isinstance(doc, Closeable))  # True
+print(isinstance(report, Closeable))  # False</code></pre>
+
+<h3>v3：混合架构 — ABC + Protocol + 虚拟子类</h3>
+
+<pre><code class="language-python"># v3: Mixed architecture with ABC, Protocol, and virtual subclasses
+from abc import ABC, abstractmethod
+from typing import Protocol, runtime_checkable, Optional
+from dataclasses import dataclass
+
+
+# === Protocol Layer: Lightweight contracts ===
+
+@runtime_checkable
+class Serializable(Protocol):
+    def to_dict(self) -&gt; dict: ...
+
+
+@runtime_checkable
+class Validatable(Protocol):
+    def validate(self) -&gt; bool: ...
+
+
+# === ABC Layer: Framework enforcement ===
+
+class StorageBackend(ABC):
+    &quot;&quot;&quot;Abstract base for storage backends.&quot;&quot;&quot;
+
+    @abstractmethod
+    def save(self, key: str, data: dict) -&gt; bool: ...
+
+    @abstractmethod
+    def load(self, key: str) -&gt; Optional[dict]: ...
+
+    @abstractmethod
+    def delete(self, key: str) -&gt; bool: ...
+
+    # Template method pattern
+    def save_validated(self, key: str, obj: Validatable) -&gt; bool:
+        &quot;&quot;&quot;Template: validate before save.&quot;&quot;&quot;
+        if not obj.validate():
+            raise ValueError(f&quot;Validation failed for {key}&quot;)
+        data = obj.to_dict()
+        return self.save(key, data)
+
+
+class MemoryStorage(StorageBackend):
+    def __init__(self):
+        self._store: dict[str, dict] = {}
+
+    def save(self, key: str, data: dict) -&gt; bool:
+        self._store[key] = data
+        return True
+
+    def load(self, key: str) -&gt; Optional[dict]:
+        return self._store.get(key)
+
+    def delete(self, key: str) -&gt; bool:
+        return self._store.pop(key, None) is not None
+
+
+# === Domain Model ===
+
+@dataclass
+class User:
+    name: str
+    email: str
+    age: int
+
+    def validate(self) -&gt; bool:
+        return (
+            len(self.name) &gt;= 2
+            and &quot;@&quot; in self.email
+            and 0 &lt;= self.age &lt;= 150
+        )
+
+    def to_dict(self) -&gt; dict:
+        return {&quot;name&quot;: self.name, &quot;email&quot;: self.email, &quot;age&quot;: self.age}
+
+    @classmethod
+    def from_dict(cls, data: dict) -&gt; &quot;User&quot;:
+        return cls(**data)
+
+
+# === Usage ===
+
+storage = MemoryStorage()
+user = User(&quot;Alice&quot;, &quot;alice@example.com&quot;, 28)
+
+# Template method handles validation + serialization
+storage.save_validated(&quot;user:1&quot;, user)
+loaded = storage.load(&quot;user:1&quot;)
+print(loaded)
+# {&#x27;name&#x27;: &#x27;Alice&#x27;, &#x27;email&#x27;: &#x27;alice@example.com&#x27;, &#x27;age&#x27;: 28}
+
+# Protocol checks
+print(isinstance(user, Validatable))  # True
+print(isinstance(user, Serializable))  # True
+print(isinstance(storage, StorageBackend))  # True
+
+# Invalid user
+bad_user = User(&quot;&quot;, &quot;bad&quot;, 999)
+try:
+    storage.save_validated(&quot;user:2&quot;, bad_user)
+except ValueError as e:
+    print(f&quot;Rejected: {e}&quot;)
+# Rejected: Validation failed for user:2</code></pre>
+
+<hr>
+
+<h2>四、执行预览</h2>
+
+<pre><code>$ python abc_v1.py
+Circle: area=78.54, perimeter=31.42
+Rectangle: area=12.00, perimeter=14.00
+True
+
+$ python abc_v2.py
+&lt;html&gt;&lt;body&gt;Hello World&lt;/body&gt;&lt;/html&gt;
+PDF Report: 2 items
+True
+True
+False
+
+$ python abc_v3.py
+{&#x27;name&#x27;: &#x27;Alice&#x27;, &#x27;email&#x27;: &#x27;alice@example.com&#x27;, &#x27;age&#x27;: 28}
+True
+True
+True
+Rejected: Validation failed for user:2</code></pre>
+
+<hr>
+
+<h2>五、注意事项</h2>
+
+<table><thead><tr>
+<th>注意点</th>
+<th>说明</th>
+</tr></thead><tbody>
+<tr>
+<td><code>@abstractmethod</code> 必须在最内层</td>
+<td>与 <code>@classmethod</code> 等叠放时，<code>@abstractmethod</code> 放最内层</td>
+</tr>
+<tr>
+<td>ABC 子类必须实现全部抽象方法</td>
+<td>否则实例化报 <code>TypeError</code></td>
+</tr>
+<tr>
+<td>Protocol 不强制实现</td>
+<td>它是类型提示，运行时不检查（除非 <code>@runtime_checkable</code>）</td>
+</tr>
+<tr>
+<td><code>@runtime_checkable</code> 只检查方法存在</td>
+<td>不检查签名（参数、返回值）</td>
+</tr>
+<tr>
+<td><code>register()</code> 不检查实现</td>
+<td>虚拟子类只是让 <code>isinstance</code> 返回 <code>True</code></td>
+</tr>
+<tr>
+<td>Protocol 不能用作运行时约束</td>
+<td>需要强制约束用 ABC</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>六、避坑指南</h2>
+
+<table><thead><tr>
+<th>❌ 常见错误</th>
+<th>✅ 正确做法</th>
+</tr></thead><tbody>
+<tr>
+<td>ABC 中抽象方法有实现体</td>
+<td>抽象方法用 <code>...</code> 或 <code>raise NotImplementedError</code></td>
+</tr>
+<tr>
+<td>期望 Protocol 运行时强制检查</td>
+<td>需要强制用 ABC，Protocol 是类型提示工具</td>
+</tr>
+<tr>
+<td><code>@abstractmethod</code> 放在 <code>@classmethod</code> 外面</td>
+<td><code>@abstractmethod</code> 必须是最内层装饰器</td>
+</tr>
+<tr>
+<td>用 ABC 限制所有接口</td>
+<td>内部代码用 Protocol 更灵活</td>
+</tr>
+<tr>
+<td><code>isinstance(x, SomeProtocol)</code> 不加 <code>@runtime_checkable</code></td>
+<td>加装饰器或改用类型检查器（mypy）</td>
+</tr>
+<tr>
+<td>忘记 <code>super().__init__()</code></td>
+<td>ABC 的 <code>__init__</code> 也应被调用（如有）</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>七、练习题</h2>
+
+<h3>🟢 入门</h3>
+<ol>
+<li>定义一个 <code>Logger</code> ABC，要求实现 <code>info(msg)</code> 和 <code>error(msg)</code> 方法</li>
+</ul>
+<ol>
+<li>定义一个 <code>Named</code> Protocol，要求有 <code>name: str</code> 属性</li>
+
+<h3>🟡 进阶</h3>
+<ol>
+<li>用 <code>register()</code> 让一个第三方类虚拟继承你的 ABC</li>
+</ul>
+<ol>
+<li>实现一个 <code>__subclasshook__</code> 让任何有 <code>to_json()</code> 方法的类自动成为 <code>Jsonable</code> 的子类</li>
+
+<h3>🔴 挑战</h3>
+<ol>
+<li>设计一个插件系统：用 ABC 定义插件接口，用 Protocol 定义扩展点，支持动态加载</li>
+</ul>
+<ol>
+<li>用 Protocol + 泛型实现一个类型安全的仓储模式（Repository Pattern）</li>
+
+<hr>
+
+<h2>八、知识点总结（树状）</h2>
+
+<pre><code>抽象基类与协议
+├── ABC（abc 模块）
+│   ├── ABC 基类
+│   ├── @abstractmethod
+│   ├── .register() 虚拟子类
+│   └── __subclasshook__() 自定义子类判断
+├── Protocol（typing 模块）
+│   ├── 结构化类型
+│   ├── @runtime_checkable
+│   └── Protocol 继承
+├── 设计模式
+│   ├── 模板方法（ABC + 具体方法）
+│   ├── 接口隔离（多个小 Protocol）
+│   └── 依赖倒置（依赖 ABC/Protocol）
+└── 类型检查
+    ├── isinstance() 运行时
+    └── mypy 静态分析</code></pre>
+
+<hr>
+
+<h2>九、举一反三</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>推荐方案</th>
+<th>示例</th>
+</tr></thead><tbody>
+<tr>
+<td>框架公共接口</td>
+<td>ABC</td>
+<td>Django ORM Model、Flask View</td>
+</tr>
+<tr>
+<td>函数参数约束</td>
+<td>Protocol</td>
+<td><code>def process(s: Serializable)</code></td>
+</tr>
+<tr>
+<td>运行时类型判断</td>
+<td>ABC + <code>isinstance</code></td>
+<td>插件系统</td>
+</tr>
+<tr>
+<td>静态类型安全</td>
+<td>Protocol + mypy</td>
+<td>代码质量保障</td>
+</tr>
+<tr>
+<td>混合架构</td>
+<td>ABC 核心 + Protocol 扩展</td>
+<td>微服务接口</td>
+</tr>
+<tr>
+<td>向后兼容</td>
+<td><code>register()</code> 虚拟子类</td>
+<td>适配旧代码</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>十、参考资料</h2>
+
+<ul>
+<li><a href="https://docs.python.org/3/library/abc.html">Python 官方文档 — abc 模块</a></li>
+<li><a href="https://peps.python.org/pep-0544/">PEP 544 — Protocols</a></li>
+<li><a href="https://docs.python.org/3/library/typing.html#protocols">typing — Protocol 官方文档</a></li>
+<li>《流畅的 Python》第13章：接口、协议和 ABC</li>
+<li><a href="https://mypy.readthedocs.io/en/stable/protocols.html">Mypy Protocol 文档</a></li>
+
+<hr>
+
+<h2>十一、代码演进路线</h2>
+
+<pre><code>v1 Shape ABC（基础抽象）
+ ├── @abstractmethod 强制实现
+ └── 具体方法复用（模板方法雏形）
+      │
+v2 Protocol（结构化类型）
+ ├── 不需继承，鸭子类型 + 类型安全
+ └── @runtime_checkable 运行时支持
+      │
+v3 混合架构（实战级）
+ ├── ABC 框架层 + Protocol 扩展层
+ ├── 模板方法模式
+ └── dataclass + Protocol 组合</code></pre>
+
+<p><strong>核心心法：ABC 管的是"你必须是什么"，Protocol 管的是"你能做什么"。两者互补，选对工具是关键。</strong></p>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

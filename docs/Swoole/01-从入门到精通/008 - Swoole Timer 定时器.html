@@ -1,0 +1,687 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>008 - Swoole Timer 定时器</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Swoole/index.html">Swoole</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Swoole/01-从入门到精通/index.html">Swoole从入门到精通</a>
+</nav>
+<h1>008 - Swoole Timer 定时器</h1>
+<div class="meta">
+<span>📂 Swoole从入门到精通</span>
+<span>🏷️ Swoole</span>
+</div>
+<article>
+
+
+<h2>难度标注</h2>
+
+<blockquote><p><strong>难度等级：⭐⭐ 入门-中等</strong><br>前置知识：PHP基础、Swoole Server基础<br>预计学习时间：30-45分钟</p></blockquote>
+
+<h2>概念讲解</h2>
+
+<h3>什么是 Swoole Timer？</h3>
+
+<p>Swoole Timer 是基于 <strong>epoll / kevent</strong> 实现的高性能定时器，运行在 Swoole 的事件循环中。相比 PHP 原生的 <code>sleep()</code> 或 <code>pcntl_alarm()</code>，它不会阻塞整个进程。</p>
+
+<p><strong>核心特点：</strong></p>
+<ul>
+<li><strong>毫秒级精度</strong>：最小精度 1ms（实际取决于事件循环频率）</li>
+<li><strong>非阻塞</strong>：基于事件驱动，不占用 Worker 时间片</li>
+<li><strong>多类型</strong>：一次性定时器（after）和持续性定时器（tick）</li>
+<li><strong>协程兼容</strong>：可在协程环境中使用</li>
+
+<h3>PHP 定时方案对比</h3>
+
+<table><thead><tr>
+<th>方案</th>
+<th>精度</th>
+<th>阻塞</th>
+<th>适用场景</th>
+</tr></thead><tbody>
+<tr>
+<td><code>sleep()</code></td>
+<td>秒级</td>
+<td>✅ 阻塞</td>
+<td>简单CLI脚本</td>
+</tr>
+<tr>
+<td><code>usleep()</code></td>
+<td>微秒级</td>
+<td>✅ 阻塞</td>
+<td>简单延迟</td>
+</tr>
+<tr>
+<td><code>pcntl_alarm()</code></td>
+<td>秒级</td>
+<td>❌ 信号</td>
+<td>进程管理</td>
+</tr>
+<tr>
+<td><code>crontab</code></td>
+<td>分钟级</td>
+<td>❌</td>
+<td>系统级定时</td>
+</tr>
+<tr>
+<td><strong>Swoole Timer</strong></td>
+<td>毫秒级</td>
+<td>❌</td>
+<td>高性能异步定时</td>
+</tr>
+</tbody></table>
+
+<h3>两种定时器</h3>
+
+<pre><code>Swoole\Timer::after($ms, $callback)
+→ 一次性定时器，延迟 $ms 毫秒后执行一次
+
+Swoole\Timer::tick($ms, $callback)
+→ 持续性定时器，每 $ms 毫秒执行一次，直到手动清除</code></pre>
+
+<h2>脑图（ASCII）</h2>
+
+<pre><code>Swoole Timer
+├── 两种类型
+│   ├── after($ms, $callback) → 一次性延迟执行
+│   └── tick($ms, $callback)  → 周期性重复执行
+├── 管理方法
+│   ├── exists($id)           → 检查定时器是否存在
+│   ├── info($id)             → 获取定时器信息
+│   ├── clear($id)            → 清除指定定时器
+│   ├── clearAll()            → 清除当前进程所有定时器
+│   └── list()                → 列出所有定时器ID
+├── 使用场景
+│   ├── 心跳检测
+│   ├── 定时数据同步
+│   ├── 超时控制
+│   ├── 定时清理过期数据
+│   ├── 轮询外部服务
+│   └── 性能指标采集
+├── Server 事件中的定时器
+│   ├── onWorkerStart → 启动定时器
+│   └── onWorkerExit  → 清理定时器
+└── 注意事项
+    ├── 回调中不能有阻塞操作
+    ├── tick 返回 timer_id 用于清除
+    ├── Worker 重启后定时器会丢失
+    └── 精度受事件循环影响</code></pre>
+
+<h2>完整代码</h2>
+
+<h3>v1：基础定时器用法</h3>
+
+<pre><code class="language-php">&lt;?php
+// v1_basic_timer.php
+// Basic timer examples: after and tick
+
+use Swoole\Timer;
+
+// ─── One-shot timer: execute after 2000ms ─────────────────────
+$timerId1 = Timer::after(2000, function () {
+    echo &quot;[After] Executed once after 2 seconds at &quot; . date(&#x27;H:i:s&#x27;) . &quot;\n&quot;;
+});
+echo &quot;Created after timer: #{$timerId1}\n&quot;;
+
+// ─── Periodic timer: execute every 1000ms ─────────────────────
+$counter = 0;
+$timerId2 = Timer::tick(1000, function () use (&amp;$counter) {
+    $counter++;
+    echo &quot;[Tick] Counter={$counter} at &quot; . date(&#x27;H:i:s&#x27;) . &quot;\n&quot;;
+
+    // Auto-stop after 5 executions
+    if ($counter &gt;= 5) {
+        Timer::clear($GLOBALS[&#x27;tickId&#x27;]);
+        echo &quot;[Tick] Auto-stopped after 5 ticks\n&quot;;
+    }
+});
+$GLOBALS[&#x27;tickId&#x27;] = $timerId2;
+echo &quot;Created tick timer: #{$timerId2}\n&quot;;
+
+// ─── Nested timer: start a tick inside an after ────────────────
+Timer::after(5000, function () {
+    echo &quot;[Nested] Starting nested tick at &quot; . date(&#x27;H:i:s&#x27;) . &quot;\n&quot;;
+
+    $nested = Timer::tick(500, function () {
+        static $count = 0;
+        $count++;
+        echo &quot;  [Nested Tick] #{$count}\n&quot;;
+        if ($count &gt;= 3) {
+            Timer::clear($GLOBALS[&#x27;nestedId&#x27;]);
+            echo &quot;  [Nested Tick] Done\n&quot;;
+        }
+    });
+    $GLOBALS[&#x27;nestedId&#x27;] = $nested;
+});
+
+// ─── Check timer status ────────────────────────────────────────
+Timer::after(1500, function () use ($timerId2) {
+    echo &quot;[Check] Timer #{$timerId2} exists: &quot; . (Timer::exists($timerId2) ? &#x27;yes&#x27; : &#x27;no&#x27;) . &quot;\n&quot;;
+    $info = Timer::info($timerId2);
+    echo &quot;[Check] Timer info: &quot; . json_encode($info) . &quot;\n&quot;;
+});
+
+echo &quot;All timers created. Waiting...\n&quot;;</code></pre>
+
+<h3>v2：Server 中的定时器（心跳 + 定时任务）</h3>
+
+<pre><code class="language-php">&lt;?php
+// v2_server_timer.php
+// Using timers in Swoole Server for heartbeat and scheduled tasks
+
+use Swoole\Server;
+use Swoole\Table;
+use Swoole\Timer;
+
+// Connection tracking table
+$connTable = new Table(1024);
+$connTable-&gt;column(&#x27;fd&#x27;, Table::TYPE_INT);
+$connTable-&gt;column(&#x27;last_active&#x27;, Table::TYPE_INT);
+$connTable-&gt;column(&#x27;connect_time&#x27;, Table::TYPE_INT);
+$connTable-&gt;create();
+
+// Metrics storage
+$metrics = [
+    &#x27;total_connections&#x27; =&gt; 0,
+    &#x27;total_requests&#x27; =&gt; 0,
+    &#x27;start_time&#x27; =&gt; time(),
+];
+
+$server = new Server(&quot;0.0.0.0&quot;, 9501);
+$server-&gt;set([
+    &#x27;worker_num&#x27; =&gt; 2,
+    &#x27;heartbeat_check_interval&#x27; =&gt; 30,
+    &#x27;heartbeat_idle_time&#x27; =&gt; 60,
+]);
+
+// ─── WorkerStart: initialize timers per worker ────────────────
+$server-&gt;on(&#x27;workerStart&#x27;, function (Server $server, int $workerId) use ($connTable, &amp;$metrics) {
+    if ($workerId &gt;= $server-&gt;setting[&#x27;worker_num&#x27;]) {
+        return; // Skip task workers
+    }
+
+    // Timer 1: Connection heartbeat check (every 10s)
+    Timer::tick(10000, function () use ($server, $connTable) {
+        $now = time();
+        $timeout = 30;
+        $killed = 0;
+
+        foreach ($connTable as $fd =&gt; $conn) {
+            if ($now - $conn[&#x27;last_active&#x27;] &gt; $timeout) {
+                echo &quot;[Heartbeat] Killing inactive fd={$fd}\n&quot;;
+                $server-&gt;close($fd);
+                $connTable-&gt;del($fd);
+                $killed++;
+            }
+        }
+
+        if ($killed &gt; 0) {
+            echo &quot;[Heartbeat] Cleaned {$killed} inactive connections\n&quot;;
+        }
+    });
+
+    // Timer 2: Metrics report (every 30s)
+    Timer::tick(30000, function () use ($server, $connTable, &amp;$metrics) {
+        $activeConns = 0;
+        foreach ($connTable as $fd =&gt; $conn) {
+            $activeConns++;
+        }
+        $uptime = time() - $metrics[&#x27;start_time&#x27;];
+        echo &quot;[Metrics] uptime={$uptime}s, connections={$activeConns}, &quot; .
+             &quot;total_requests={$metrics[&#x27;total_requests&#x27;]}\n&quot;;
+    });
+
+    // Timer 3: Daily cleanup at 03:00
+    Timer::tick(60000, function () use ($connTable) {
+        $hour = (int) date(&#x27;H&#x27;);
+        $minute = (int) date(&#x27;i&#x27;);
+
+        if ($hour === 3 &amp;&amp; $minute === 0) {
+            echo &quot;[Cleanup] Running daily cleanup...\n&quot;;
+            $now = time();
+            $stale = 0;
+            foreach ($connTable as $fd =&gt; $conn) {
+                if ($now - $conn[&#x27;connect_time&#x27;] &gt; 86400) {
+                    $connTable-&gt;del($fd);
+                    $stale++;
+                }
+            }
+            echo &quot;[Cleanup] Removed {$stale} stale connections\n&quot;;
+        }
+    });
+
+    echo &quot;[Worker {$workerId}] Timers initialized\n&quot;;
+});
+
+$server-&gt;on(&#x27;connect&#x27;, function (Server $server, int $fd) use ($connTable, &amp;$metrics) {
+    $connTable-&gt;set($fd, [
+        &#x27;fd&#x27; =&gt; $fd,
+        &#x27;last_active&#x27; =&gt; time(),
+        &#x27;connect_time&#x27; =&gt; time(),
+    ]);
+    $metrics[&#x27;total_connections&#x27;]++;
+});
+
+$server-&gt;on(&#x27;receive&#x27;, function (Server $server, int $fd, int $fromId, string $data) use ($connTable, &amp;$metrics) {
+    if ($connTable-&gt;exists($fd)) {
+        $conn = $connTable-&gt;get($fd);
+        $connTable-&gt;set($fd, [
+            &#x27;fd&#x27; =&gt; $fd,
+            &#x27;last_active&#x27; =&gt; time(),
+            &#x27;connect_time&#x27; =&gt; $conn[&#x27;connect_time&#x27;],
+        ]);
+    }
+    $metrics[&#x27;total_requests&#x27;]++;
+
+    $req = json_decode($data, true);
+    $action = $req[&#x27;action&#x27;] ?? &#x27;echo&#x27;;
+
+    switch ($action) {
+        case &#x27;echo&#x27;:
+            $server-&gt;send($fd, $data . &quot;\n&quot;);
+            break;
+
+        case &#x27;delayed&#x27;:
+            $ms = $req[&#x27;delay_ms&#x27;] ?? 1000;
+            Timer::after($ms, function () use ($server, $fd, $data, $ms) {
+                if ($server-&gt;exist($fd)) {
+                    $server-&gt;send($fd, json_encode([
+                        &#x27;type&#x27; =&gt; &#x27;delayed_response&#x27;,
+                        &#x27;original&#x27; =&gt; $data,
+                        &#x27;delay&#x27; =&gt; $ms,
+                        &#x27;sent_at&#x27; =&gt; date(&#x27;Y-m-d H:i:s&#x27;),
+                    ]) . &quot;\n&quot;);
+                }
+            });
+            $server-&gt;send($fd, json_encode([
+                &#x27;type&#x27; =&gt; &#x27;accepted&#x27;,
+                &#x27;message&#x27; =&gt; &quot;Response scheduled in {$ms}ms&quot;,
+            ]) . &quot;\n&quot;);
+            break;
+
+        case &#x27;schedule&#x27;:
+            $interval = $req[&#x27;interval_ms&#x27;] ?? 5000;
+            $count = 0;
+            $maxCount = $req[&#x27;count&#x27;] ?? 5;
+
+            $timerId = Timer::tick($interval, function () use ($server, $fd, &amp;$count, $maxCount) {
+                $count++;
+                if ($server-&gt;exist($fd)) {
+                    $server-&gt;send($fd, json_encode([
+                        &#x27;type&#x27; =&gt; &#x27;scheduled&#x27;,
+                        &#x27;count&#x27; =&gt; $count,
+                        &#x27;time&#x27; =&gt; date(&#x27;H:i:s&#x27;),
+                    ]) . &quot;\n&quot;);
+                }
+                if ($count &gt;= $maxCount) {
+                    Timer::clear($GLOBALS[&#x27;schedule_timer&#x27;]);
+                }
+            });
+            $GLOBALS[&#x27;schedule_timer&#x27;] = $timerId;
+
+            $server-&gt;send($fd, json_encode([
+                &#x27;type&#x27; =&gt; &#x27;scheduled_start&#x27;,
+                &#x27;interval_ms&#x27; =&gt; $interval,
+                &#x27;count&#x27; =&gt; $maxCount,
+                &#x27;timer_id&#x27; =&gt; $timerId,
+            ]) . &quot;\n&quot;);
+            break;
+
+        default:
+            $server-&gt;send($fd, &quot;Unknown action\n&quot;);
+    }
+});
+
+$server-&gt;on(&#x27;close&#x27;, function (Server $server, int $fd) use ($connTable) {
+    $connTable-&gt;del($fd);
+});
+
+$server-&gt;start();</code></pre>
+
+<h3>v3：协程定时器 + Cron 表达式解析</h3>
+
+<pre><code class="language-php">&lt;?php
+// v3_cron_timer.php
+// Cron-like scheduler using Swoole Timer
+
+use Swoole\Timer;
+use Swoole\Coroutine;
+
+/**
+ * Simple cron expression parser
+ * Supports: *, */n, specific values, ranges, lists
+ */
+class CronParser
+{
+    public static function matches(string $expression, ?int $time = null): bool
+    {
+        $time = $time ?? time();
+        $parts = explode(&#x27; &#x27;, trim($expression));
+        if (count($parts) !== 5) return false;
+
+        return self::matchField($parts[0], (int) date(&#x27;i&#x27;, $time), 0, 59)
+            &amp;&amp; self::matchField($parts[1], (int) date(&#x27;H&#x27;, $time), 0, 23)
+            &amp;&amp; self::matchField($parts[2], (int) date(&#x27;d&#x27;, $time), 1, 31)
+            &amp;&amp; self::matchField($parts[3], (int) date(&#x27;m&#x27;, $time), 1, 12)
+            &amp;&amp; self::matchField($parts[4], (int) date(&#x27;w&#x27;, $time), 0, 6);
+    }
+
+    private static function matchField(string $field, int $value, int $min, int $max): bool
+    {
+        if ($field === &#x27;*&#x27;) return true;
+        if (preg_match(&#x27;/^\*\/(\d+)$/&#x27;, $field, $m)) return $value % (int) $m[1] === 0;
+        if (is_numeric($field)) return $value === (int) $field;
+        if (preg_match(&#x27;/^(\d+)-(\d+)$/&#x27;, $field, $m)) return $value &gt;= (int) $m[1] &amp;&amp; $value &lt;= (int) $m[2];
+        if (strpos($field, &#x27;,&#x27;) !== false) return in_array($value, array_map(&#x27;intval&#x27;, explode(&#x27;,&#x27;, $field)));
+        return false;
+    }
+}
+
+/**
+ * Cron Scheduler powered by Swoole Timer
+ */
+class CronScheduler
+{
+    private array $jobs = [];
+
+    public function addJob(string $name, string $expression, callable $callback): void
+    {
+        $this-&gt;jobs[$name] = compact(&#x27;expression&#x27;, &#x27;callback&#x27;) + [&#x27;last_run&#x27; =&gt; 0, &#x27;run_count&#x27; =&gt; 0];
+        echo &quot;[Cron] Registered: {$name} ({$expression})\n&quot;;
+    }
+
+    public function start(): void
+    {
+        // Check every second
+        Timer::tick(1000, function () {
+            $now = time();
+            if ((int) date(&#x27;s&#x27;, $now) !== 0) return; // Only at second 0
+
+            foreach ($this-&gt;jobs as $name =&gt; &amp;$job) {
+                if (CronParser::matches($job[&#x27;expression&#x27;], $now) &amp;&amp; $now - $job[&#x27;last_run&#x27;] &gt;= 60) {
+                    $job[&#x27;last_run&#x27;] = $now;
+                    $job[&#x27;run_count&#x27;]++;
+                    go(function () use ($name, $job) {
+                        $start = microtime(true);
+                        try {
+                            call_user_func($job[&#x27;callback&#x27;]);
+                            echo &quot;[Cron] {$name} done in &quot; . round(microtime(true) - $start, 3) . &quot;s\n&quot;;
+                        } catch (\Throwable $e) {
+                            echo &quot;[Cron] {$name} failed: {$e-&gt;getMessage()}\n&quot;;
+                        }
+                    });
+                }
+            }
+        });
+
+        // Status every 60s
+        Timer::tick(60000, function () {
+            echo &quot;[Cron Status] &quot; . count($this-&gt;jobs) . &quot; jobs\n&quot;;
+            foreach ($this-&gt;jobs as $name =&gt; $j) {
+                echo &quot;  {$name}: runs={$j[&#x27;run_count&#x27;]}\n&quot;;
+            }
+        });
+
+        echo &quot;[Cron] Scheduler started\n&quot;;
+    }
+}
+
+// ─── Example ──────────────────────────────────────────────────
+Co\run(function () {
+    $scheduler = new CronScheduler();
+
+    $scheduler-&gt;addJob(&#x27;health_check&#x27;, &#x27;*/5 * * * *&#x27;, function () {
+        echo &quot;[HealthCheck] Memory: &quot; . round(memory_get_usage(true)/1024/1024, 2) . &quot;MB\n&quot;;
+    });
+
+    $scheduler-&gt;addJob(&#x27;hourly_cleanup&#x27;, &#x27;0 * * * *&#x27;, function () {
+        echo &quot;[Cleanup] Hourly cleanup...\n&quot;;
+    });
+
+    $scheduler-&gt;addJob(&#x27;weekly_report&#x27;, &#x27;0 9 * * 1&#x27;, function () {
+        echo &quot;[Report] Weekly report...\n&quot;;
+    });
+
+    $scheduler-&gt;start();
+
+    // Stop after 120s for demo
+    Timer::after(120000, function () {
+        echo &quot;[Demo] Stopping...\n&quot;;
+    });
+});</code></pre>
+
+<h2>执行预览</h2>
+
+<pre><code>$ php v1_basic_timer.php
+Created after timer: #1
+Created tick timer: #2
+All timers created. Waiting...
+[Check] Timer #2 exists: yes
+[After] Executed once after 2 seconds at 22:30:02
+[Tick] Counter=1 at 22:30:01
+[Tick] Counter=2 at 22:30:02
+[Tick] Counter=3 at 22:30:03
+[Tick] Counter=4 at 22:30:04
+[Tick] Counter=5 at 22:30:05
+[Tick] Auto-stopped after 5 ticks</code></pre>
+
+<h2>注意事项</h2>
+
+<table><thead><tr>
+<th>注意点</th>
+<th>说明</th>
+</tr></thead><tbody>
+<tr>
+<td>回调不能阻塞</td>
+<td>Timer 回调在事件循环中执行，阻塞会影响所有定时器</td>
+</tr>
+<tr>
+<td>Worker 重启</td>
+<td>Worker 重启后定时器丢失，需在 onWorkerStart 中重建</td>
+</tr>
+<tr>
+<td>精度限制</td>
+<td>实际精度受事件循环影响，误差通常 1-10ms</td>
+</tr>
+<tr>
+<td>内存泄漏</td>
+<td>tick 定时器不 clear 会一直运行</td>
+</tr>
+<tr>
+<td>跨 Worker</td>
+<td>每个 Worker 有独立定时器，避免重复执行</td>
+</tr>
+<tr>
+<td>协程替代</td>
+<td>协程环境中可用 <code>Coroutine::sleep()</code> 替代 after</td>
+</tr>
+</tbody></table>
+
+<h2>避坑指南</h2>
+
+<h3>❌ 错误：在 Timer 回调中使用 sleep</h3>
+
+<pre><code class="language-php">Timer::tick(1000, function () {
+    sleep(5); // ❌ 阻塞整个事件循环
+});</code></pre>
+
+<h3>✅ 正确：用协程或 Task</h3>
+
+<pre><code class="language-php">Timer::tick(1000, function () {
+    go(function () {
+        Coroutine::sleep(5); // ✅ 协程 sleep 不阻塞
+    });
+});</code></pre>
+
+<h3>❌ 错误：忘记清理 tick 定时器</h3>
+
+<pre><code class="language-php">Timer::tick(5000, function () use ($server, $fd) {
+    $server-&gt;send($fd, &quot;ping&quot;); // ❌ fd 关闭后报错
+});</code></pre>
+
+<h3>✅ 正确：关联生命周期</h3>
+
+<pre><code class="language-php">$timers[$fd] = Timer::tick(5000, function () use ($server, $fd) {
+    if ($server-&gt;exist($fd)) $server-&gt;send($fd, &quot;ping&quot;); // ✅ 先检查
+});
+// onClose 中 Timer::clear($timers[$fd]);</code></pre>
+
+<h2>练习题</h2>
+
+<h3>🟢 入门级</h3>
+
+<ol>
+<li>用 <code>Timer::after</code> 实现一个 5 秒倒计时（每秒打印剩余时间）</li>
+</ul>
+<ol>
+<li>创建 tick 定时器，每 2 秒打印内存使用量，10 次后停止</li>
+
+<h3>🟡 进阶级</h3>
+
+<ol>
+<li>实现一个"限速器"：用 Timer 控制 API 调用频率为每秒最多 10 次</li>
+</ul>
+<ol>
+<li>给 v2 Server 添加"延迟任务队列"功能</li>
+
+<h3>🔴 挑战级</h3>
+
+<ol>
+<li>实现完整的 Cron 调度系统：支持标准 cron 表达式、任务持久化、超时自动终止</li>
+
+<h2>知识点总结</h2>
+
+<pre><code>Swoole Timer 知识体系
+├── 基础 API
+│   ├── Timer::after($ms, $callback) → timer_id
+│   ├── Timer::tick($ms, $callback)  → timer_id
+│   ├── Timer::clear($id)
+│   ├── Timer::clearAll()
+│   ├── Timer::exists($id)
+│   └── Timer::info($id)
+├── Server 集成
+│   ├── onWorkerStart 中初始化
+│   ├── heartbeat_check_interval
+│   └── 连接级定时器管理
+├── 进阶模式
+│   ├── Cron 表达式解析
+│   ├── 协程 + Timer
+│   └── 定时器链（after→after→after）
+└── vs 替代方案
+    ├── vs crontab → 更精细、进程内
+    ├── vs Coroutine::sleep → 适用于非协程环境
+    └── vs Task → 适合轻量周期任务</code></pre>
+
+<h2>举一反三</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>推荐方案</th>
+<th>示例</th>
+</tr></thead><tbody>
+<tr>
+<td>每 5 秒心跳</td>
+<td><code>Timer::tick(5000, ...)</code></td>
+<td>WebSocket 心跳</td>
+</tr>
+<tr>
+<td>延迟 3 秒执行</td>
+<td><code>Timer::after(3000, ...)</code></td>
+<td>延迟推送通知</td>
+</tr>
+<tr>
+<td>每天 3 点清理</td>
+<td>Cron 表达式 + Timer::tick</td>
+<td>日志清理</td>
+</tr>
+<tr>
+<td>请求超时 5 秒</td>
+<td><code>Timer::after(5000, ...)</code> + 清理</td>
+<td>HTTP 请求超时</td>
+</tr>
+<tr>
+<td>限流：100次/秒</td>
+<td>Token Bucket + Timer::tick</td>
+<td>API 网关限流</td>
+</tr>
+<tr>
+<td>重试：间隔递增</td>
+<td>after 递归调用</td>
+<td>失败重试 1s→2s→4s→8s</td>
+</tr>
+</tbody></table>
+
+<h2>参考资料</h2>
+
+<ul>
+<li><a href="https://wiki.swoole.com/#/timer">Swoole Timer 官方文档</a></li>
+<li><a href="https://wiki.swoole.com/#/server/setting?id=heartbeat_check_interval">Swoole Server heartbeat 配置</a></li>
+<li><a href="https://crontab.org/">Linux crontab 格式说明</a></li>
+
+<h2>代码演进总结</h2>
+
+<pre><code>v1 (基础) → 独立的 after/tick 用法演示
+  ↓ 添加 Server 集成、心跳检测、延迟响应
+v2 (Server) → 在 WorkerStart 中管理定时器，连接级别调度
+  ↓ 添加 Cron 表达式、协程执行、任务管理
+v3 (生产) → 完整 Cron 调度器，支持多种表达式格式</code></pre>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

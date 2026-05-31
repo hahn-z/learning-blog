@@ -1,0 +1,849 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>006 - NestJS 认证 JWT 实战：从注册登录到权限守卫</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Node.js/index.html">Node.js</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Node.js/02-实战/index.html">Node.js实战</a>
+</nav>
+<h1>006 - NestJS 认证 JWT 实战：从注册登录到权限守卫</h1>
+<div class="meta">
+<span>📂 Node.js实战</span>
+<span>🏷️ Node.js</span>
+</div>
+<article>
+
+
+<h2>🎯 难度标注</h2>
+
+<p><strong>难度等级：⭐⭐⭐⭐ 中高级</strong></p>
+
+<blockquote><p>前置要求：已完成 NestJS RESTful API 和 TypeORM 篇、了解 HTTP 认证基本概念、了解 JWT 原理。本文涉及安全敏感内容，请务必在生产环境使用经过审计的配置。</p></blockquote>
+
+<hr>
+
+<h2>📖 概念讲解</h2>
+
+<h3>什么是 JWT？</h3>
+
+<p>JSON Web Token (JWT) 是一种开放标准 (RFC 7519)，用于在各方之间安全地传输信息。JWT 由三部分组成：</p>
+
+<pre><code>Header.Payload.Signature
+eyJhbGciOiJIUzI1NiJ9.eyJ1c2VySWQiOjF9.xxxxx
+
+Header:    { &quot;alg&quot;: &quot;HS256&quot;, &quot;typ&quot;: &quot;JWT&quot; }
+Payload:   { &quot;userId&quot;: 1, &quot;username&quot;: &quot;admin&quot;, &quot;role&quot;: &quot;editor&quot; }
+Signature: HMACSHA256(base64(header) + &quot;.&quot; + base64(payload), secret)</code></pre>
+
+<h3>认证 vs 授权</h3>
+
+<table><thead><tr>
+<th>概念</th>
+<th>英文</th>
+<th>回答的问题</th>
+<th>实现方式</th>
+</tr></thead><tbody>
+<tr>
+<td><strong>认证</strong></td>
+<td>Authentication</td>
+<td>你是谁？</td>
+<td>JWT Token / Session</td>
+</tr>
+<tr>
+<td><strong>授权</strong></td>
+<td>Authorization</td>
+<td>你能做什么？</td>
+<td>Role / Permission Guard</td>
+</tr>
+</tbody></table>
+
+<h3>NestJS 认证架构</h3>
+
+<pre><code>请求流程：
+Client → [Login] → AuthController → AuthService → JWT Token
+Client → [API Request + Token] → JwtAuthGuard → Controller → Service
+Client → [Admin API + Token] → RolesGuard → JwtAuthGuard → Controller</code></pre>
+
+<hr>
+
+<h2>🧠 知识脑图</h2>
+
+<pre><code>NestJS JWT 认证
+├── 用户管理
+│   ├── User Entity
+│   ├── 注册 (Register)
+│   ├── 密码加密 (bcrypt)
+│   └── 用户信息序列化
+├── JWT 签发
+│   ├── @nestjs/jwt
+│   ├── sign() 签发 Token
+│   ├── Payload 设计
+│   └── Token 过期策略
+├── JWT 验证
+│   ├── JwtModule 配置
+│   ├── @AuthGuard(&#x27;jwt&#x27;)
+│   └── JwtStrategy (Passport)
+├── 守卫系统
+│   ├── Guard 生命周期
+│   ├── JwtAuthGuard
+│   └── RolesGuard (角色)
+├── 装饰器
+│   ├── @Public() 公开路由
+│   ├── @Roles() 角色要求
+│   └── @CurrentUser() 当前用户
+└── 安全实践
+    ├── 密码哈希 (bcrypt)
+    ├── Token 刷新
+    ├── 速率限制
+    └── HTTP-only Cookie</code></pre>
+
+<hr>
+
+<h2>💻 完整代码实现</h2>
+
+<h3>安装依赖</h3>
+
+<pre><code class="language-bash">npm install @nestjs/jwt @nestjs/passport passport passport-jwt
+npm install bcrypt class-validator
+npm install @types/passport-jwt @types/bcrypt -D</code></pre>
+
+<h3>v1：注册登录 + JWT 签发</h3>
+
+<pre><code class="language-typescript">// src/auth/entities/user.entity.ts
+import {
+  Entity, PrimaryGeneratedColumn, Column,
+  CreateDateColumn, UpdateDateColumn,
+  BeforeInsert, BeforeUpdate,
+} from &#x27;typeorm&#x27;;
+import * as bcrypt from &#x27;bcrypt&#x27;;
+
+@Entity(&#x27;users&#x27;)
+export class User {
+  @PrimaryGeneratedColumn()
+  id: number;
+
+  @Column({ unique: true })
+  email: string;
+
+  @Column({ unique: true })
+  username: string;
+
+  @Column({ select: false }) // Exclude password from default queries
+  password: string;
+
+  @Column({ default: &#x27;user&#x27; })
+  role: string; // &#x27;user&#x27; | &#x27;editor&#x27; | &#x27;admin&#x27;
+
+  @Column({ default: true })
+  isActive: boolean;
+
+  @CreateDateColumn({ name: &#x27;created_at&#x27; })
+  createdAt: Date;
+
+  @UpdateDateColumn({ name: &#x27;updated_at&#x27; })
+  updatedAt: Date;
+
+  // Hash password before insert/update
+  @BeforeInsert()
+  @BeforeUpdate()
+  async hashPassword(): Promise&lt;void&gt; {
+    if (this.password &amp;&amp; !this.password.startsWith(&#x27;$2b$&#x27;)) {
+      this.password = await bcrypt.hash(this.password, 10);
+    }
+  }
+
+  // Validate plain password against hash
+  async validatePassword(plainPassword: string): Promise&lt;boolean&gt; {
+    return bcrypt.compare(plainPassword, this.password);
+  }
+}</code></pre>
+
+<pre><code class="language-typescript">// src/auth/dto/register.dto.ts
+import { IsEmail, IsString, MinLength, IsIn } from &#x27;class-validator&#x27;;
+
+export class RegisterDto {
+  @IsEmail()
+  email: string;
+
+  @IsString()
+  @MinLength(3)
+  username: string;
+
+  @IsString()
+  @MinLength(6)
+  password: string;
+}
+
+// src/auth/dto/login.dto.ts
+export class LoginDto {
+  @IsString()
+  emailOrUsername: string;
+
+  @IsString()
+  password: string;
+}</code></pre>
+
+<pre><code class="language-typescript">// src/auth/auth.service.ts
+import {
+  Injectable, UnauthorizedException, ConflictException,
+} from &#x27;@nestjs/common&#x27;;
+import { JwtService } from &#x27;@nestjs/jwt&#x27;;
+import { InjectRepository } from &#x27;@nestjs/typeorm&#x27;;
+import { Repository } from &#x27;typeorm&#x27;;
+import { User } from &#x27;./entities/user.entity&#x27;;
+import { RegisterDto } from &#x27;./dto/register.dto&#x27;;
+import { LoginDto } from &#x27;./dto/login.dto&#x27;;
+
+@Injectable()
+export class AuthService {
+  constructor(
+    @InjectRepository(User)
+    private readonly userRepo: Repository&lt;User&gt;,
+    private readonly jwtService: JwtService,
+  ) {}
+
+  async register(dto: RegisterDto): Promise&lt;{ user: Partial&lt;User&gt;; token: string }&gt; {
+    // Check for existing user
+    const exists = await this.userRepo.findOne({
+      where: [{ email: dto.email }, { username: dto.username }],
+    });
+    if (exists) {
+      throw new ConflictException(&#x27;Email or username already exists&#x27;);
+    }
+
+    const user = this.userRepo.create(dto);
+    await this.userRepo.save(user);
+
+    const token = this.generateToken(user);
+    // Return user without password
+    const { password, ...result } = user;
+    return { user: result, token };
+  }
+
+  async login(dto: LoginDto): Promise&lt;{ user: Partial&lt;User&gt;; token: string }&gt; {
+    // Find user with password (select: false requires explicit selection)
+    const user = await this.userRepo
+      .createQueryBuilder(&#x27;user&#x27;)
+      .where(&#x27;user.email = :email OR user.username = :username&#x27;, {
+        email: dto.emailOrUsername,
+        username: dto.emailOrUsername,
+      })
+      .addSelect(&#x27;user.password&#x27;) // Include password for validation
+      .getOne();
+
+    if (!user || !(await user.validatePassword(dto.password))) {
+      throw new UnauthorizedException(&#x27;Invalid credentials&#x27;);
+    }
+
+    if (!user.isActive) {
+      throw new UnauthorizedException(&#x27;Account is deactivated&#x27;);
+    }
+
+    const token = this.generateToken(user);
+    const { password, ...result } = user;
+    return { user: result, token };
+  }
+
+  private generateToken(user: User): string {
+    const payload = {
+      sub: user.id,
+      email: user.email,
+      role: user.role,
+    };
+    return this.jwtService.sign(payload);
+  }
+
+  // Validate user by JWT payload (used by JwtStrategy)
+  async validateUser(id: number): Promise&lt;Partial&lt;User&gt;&gt; {
+    const user = await this.userRepo.findOne({ where: { id } });
+    if (!user || !user.isActive) return null;
+    const { password, ...result } = user;
+    return result;
+  }
+}</code></pre>
+
+<pre><code class="language-typescript">// src/auth/auth.controller.ts
+import { Controller, Post, Body } from &#x27;@nestjs/common&#x27;;
+import { AuthService } from &#x27;./auth.service&#x27;;
+import { RegisterDto } from &#x27;./dto/register.dto&#x27;;
+import { LoginDto } from &#x27;./dto/login.dto&#x27;;
+
+@Controller(&#x27;auth&#x27;)
+export class AuthController {
+  constructor(private readonly authService: AuthService) {}
+
+  @Post(&#x27;register&#x27;)
+  async register(@Body() dto: RegisterDto) {
+    return this.authService.register(dto);
+  }
+
+  @Post(&#x27;login&#x27;)
+  async login(@Body() dto: LoginDto) {
+    return this.authService.login(dto);
+  }
+}</code></pre>
+
+<pre><code class="language-typescript">// src/auth/auth.module.ts
+import { Module } from &#x27;@nestjs/common&#x27;;
+import { JwtModule } from &#x27;@nestjs/jwt&#x27;;
+import { TypeOrmModule } from &#x27;@nestjs/typeorm&#x27;;
+import { ConfigModule, ConfigService } from &#x27;@nestjs/config&#x27;;
+import { AuthController } from &#x27;./auth.controller&#x27;;
+import { AuthService } from &#x27;./auth.service&#x27;;
+import { User } from &#x27;./entities/user.entity&#x27;;
+import { JwtStrategy } from &#x27;./strategies/jwt.strategy&#x27;;
+
+@Module({
+  imports: [
+    TypeOrmModule.forFeature([User]),
+    JwtModule.registerAsync({
+      inject: [ConfigService],
+      useFactory: (config: ConfigService) =&gt; ({
+        secret: config.get&lt;string&gt;(&#x27;JWT_SECRET&#x27;, &#x27;dev-secret-change-me&#x27;),
+        signOptions: { expiresIn: &#x27;24h&#x27; },
+      }),
+    }),
+  ],
+  controllers: [AuthController],
+  providers: [AuthService, JwtStrategy],
+  exports: [AuthService, JwtModule],
+})
+export class AuthModule {}</code></pre>
+
+<h3>v2：JWT Strategy + Guards + 装饰器</h3>
+
+<pre><code class="language-typescript">// src/auth/strategies/jwt.strategy.ts
+import { Injectable, UnauthorizedException } from &#x27;@nestjs/common&#x27;;
+import { PassportStrategy } from &#x27;@nestjs/passport&#x27;;
+import { ExtractJwt, Strategy } from &#x27;passport-jwt&#x27;;
+import { ConfigService } from &#x27;@nestjs/config&#x27;;
+import { AuthService } from &#x27;../auth.service&#x27;;
+
+@Injectable()
+export class JwtStrategy extends PassportStrategy(Strategy) {
+  constructor(
+    config: ConfigService,
+    private readonly authService: AuthService,
+  ) {
+    super({
+      jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
+      ignoreExpiration: false,
+      secretOrKey: config.get&lt;string&gt;(&#x27;JWT_SECRET&#x27;, &#x27;dev-secret-change-me&#x27;),
+    });
+  }
+
+  // Called automatically after token verification
+  async validate(payload: { sub: number; email: string; role: string }) {
+    const user = await this.authService.validateUser(payload.sub);
+    if (!user) {
+      throw new UnauthorizedException();
+    }
+    return user; // Attaches to req.user
+  }
+}</code></pre>
+
+<pre><code class="language-typescript">// src/auth/guards/jwt-auth.guard.ts
+import { Injectable } from &#x27;@nestjs/common&#x27;;
+import { AuthGuard } from &#x27;@nestjs/passport&#x27;;
+
+@Injectable()
+export class JwtAuthGuard extends AuthGuard(&#x27;jwt&#x27;) {}</code></pre>
+
+<pre><code class="language-typescript">// src/auth/guards/roles.guard.ts
+import {
+  Injectable, CanActivate, ExecutionContext,
+} from &#x27;@nestjs/common&#x27;;
+import { Reflector } from &#x27;@nestjs/core&#x27;;
+
+@Injectable()
+export class RolesGuard implements CanActivate {
+  constructor(private reflector: Reflector) {}
+
+  canActivate(context: ExecutionContext): boolean {
+    // Get required roles from decorator
+    const requiredRoles = this.reflector.get&lt;string[]&gt;(
+      &#x27;roles&#x27;,
+      context.getHandler(),
+    );
+
+    // No roles required = public access
+    if (!requiredRoles) return true;
+
+    const { user } = context.switchToHttp().getRequest();
+    return requiredRoles.includes(user?.role);
+  }
+}</code></pre>
+
+<pre><code class="language-typescript">// src/auth/decorators/public.decorator.ts
+import { SetMetadata } from &#x27;@nestjs/common&#x27;;
+
+export const IS_PUBLIC_KEY = &#x27;isPublic&#x27;;
+export const Public = () =&gt; SetMetadata(IS_PUBLIC_KEY, true);</code></pre>
+
+<pre><code class="language-typescript">// src/auth/decorators/roles.decorator.ts
+import { SetMetadata } from &#x27;@nestjs/common&#x27;;
+
+export const ROLES_KEY = &#x27;roles&#x27;;
+export const Roles = (...roles: string[]) =&gt; SetMetadata(ROLES_KEY, roles);</code></pre>
+
+<pre><code class="language-typescript">// src/auth/decorators/current-user.decorator.ts
+import { createParamDecorator, ExecutionContext } from &#x27;@nestjs/common&#x27;;
+
+export const CurrentUser = createParamDecorator(
+  (data: string | undefined, ctx: ExecutionContext) =&gt; {
+    const request = ctx.switchToHttp().getRequest();
+    const user = request.user;
+    // If data is provided, return specific field
+    return data ? user?.[data] : user;
+  },
+);</code></pre>
+
+<h3>v3：全局守卫 + 完整使用示例</h3>
+
+<pre><code class="language-typescript">// src/auth/guards/jwt-auth.guard.ts (updated with public route support)
+import { Injectable, ExecutionContext } from &#x27;@nestjs/common&#x27;;
+import { AuthGuard } from &#x27;@nestjs/passport&#x27;;
+import { Reflector } from &#x27;@nestjs/core&#x27;;
+import { IS_PUBLIC_KEY } from &#x27;../decorators/public.decorator&#x27;;
+
+@Injectable()
+export class JwtAuthGuard extends AuthGuard(&#x27;jwt&#x27;) {
+  constructor(private reflector: Reflector) {
+    super();
+  }
+
+  canActivate(context: ExecutionContext) {
+    // Skip auth for public routes
+    const isPublic = this.reflector.get&lt;boolean&gt;(
+      IS_PUBLIC_KEY,
+      context.getHandler(),
+    );
+    if (isPublic) return true;
+
+    return super.canActivate(context);
+  }
+}</code></pre>
+
+<pre><code class="language-typescript">// src/app.module.ts (register guards globally)
+import { Module } from &#x27;@nestjs/common&#x27;;
+import { APP_GUARD } from &#x27;@nestjs/core&#x27;;
+import { JwtAuthGuard } from &#x27;./auth/guards/jwt-auth.guard&#x27;;
+import { RolesGuard } from &#x27;./auth/guards/roles.guard&#x27;;
+
+@Module({
+  // ...
+  providers: [
+    // Global guards - applied to ALL routes
+    { provide: APP_GUARD, useClass: JwtAuthGuard },
+    { provide: APP_GUARD, useClass: RolesGuard },
+  ],
+})
+export class AppModule {}</code></pre>
+
+<pre><code class="language-typescript">// src/posts/posts.controller.ts (using auth decorators)
+import {
+  Controller, Get, Post, Put, Delete,
+  Body, Param, UseGuards,
+} from &#x27;@nestjs/common&#x27;;
+import { PostsService } from &#x27;./posts.service&#x27;;
+import { CreatePostDto } from &#x27;./dto/create-post.dto&#x27;;
+import { Public } from &#x27;../auth/decorators/public.decorator&#x27;;
+import { Roles } from &#x27;../auth/decorators/roles.decorator&#x27;;
+import { CurrentUser } from &#x27;../auth/decorators/current-user.decorator&#x27;;
+
+@Controller(&#x27;posts&#x27;)
+export class PostsController {
+  constructor(private readonly postsService: PostsService) {}
+
+  // Public - no auth needed
+  @Public()
+  @Get()
+  findAll() {
+    return this.postsService.findAll();
+  }
+
+  // Public - no auth needed
+  @Public()
+  @Get(&#x27;:id&#x27;)
+  findOne(@Param(&#x27;id&#x27;) id: number) {
+    return this.postsService.findOne(id);
+  }
+
+  // Any authenticated user
+  @Post()
+  create(
+    @Body() dto: CreatePostDto,
+    @CurrentUser() user: any,
+  ) {
+    return this.postsService.create(dto, user.id);
+  }
+
+  // Only editors and admins
+  @Roles(&#x27;editor&#x27;, &#x27;admin&#x27;)
+  @Put(&#x27;:id&#x27;)
+  update(@Param(&#x27;id&#x27;) id: number, @Body() dto: CreatePostDto) {
+    return this.postsService.update(id, dto);
+  }
+
+  // Only admins
+  @Roles(&#x27;admin&#x27;)
+  @Delete(&#x27;:id&#x27;)
+  remove(@Param(&#x27;id&#x27;) id: number) {
+    return this.postsService.remove(id);
+  }
+}</code></pre>
+
+<hr>
+
+<h2>🔍 执行预览</h2>
+
+<pre><code class="language-bash"># Register a new user
+$ curl -X POST http://localhost:3000/auth/register \
+  -H &quot;Content-Type: application/json&quot; \
+  -d &#x27;{&quot;email&quot;:&quot;admin@blog.com&quot;,&quot;username&quot;:&quot;admin&quot;,&quot;password&quot;:&quot;secret123&quot;}&#x27;
+
+# Response:
+{
+  &quot;success&quot;: true,
+  &quot;data&quot;: {
+    &quot;user&quot;: {
+      &quot;id&quot;: 1,
+      &quot;email&quot;: &quot;admin@blog.com&quot;,
+      &quot;username&quot;: &quot;admin&quot;,
+      &quot;role&quot;: &quot;user&quot;,
+      &quot;isActive&quot;: true
+    },
+    &quot;token&quot;: &quot;eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...&quot;
+  }
+}
+
+# Login
+$ curl -X POST http://localhost:3000/auth/login \
+  -H &quot;Content-Type: application/json&quot; \
+  -d &#x27;{&quot;emailOrUsername&quot;:&quot;admin&quot;,&quot;password&quot;:&quot;secret123&quot;}&#x27;
+
+# Access protected route (no token)
+$ curl http://localhost:3000/posts
+# Response: 401 Unauthorized
+
+# Access protected route (with token)
+$ curl http://localhost:3000/posts \
+  -H &quot;Authorization: Bearer eyJhbGciOiJIUzI1NiJ9...&quot;
+
+# Response: 200 OK with posts data
+
+# Access admin-only route (with regular user)
+$ curl -X DELETE http://localhost:3000/posts/1 \
+  -H &quot;Authorization: Bearer &lt;user-token&gt;&quot;
+# Response: 403 Forbidden
+
+# Access admin-only route (with admin token)
+$ curl -X DELETE http://localhost:3000/posts/1 \
+  -H &quot;Authorization: Bearer &lt;admin-token&gt;&quot;
+# Response: 200 OK</code></pre>
+
+<hr>
+
+<h2>⚠️ 注意事项</h2>
+
+<table><thead><tr>
+<th>事项</th>
+<th>说明</th>
+<th>建议</th>
+</tr></thead><tbody>
+<tr>
+<td>JWT Secret</td>
+<td>签名密钥</td>
+<td>使用强随机字符串，存环境变量</td>
+</tr>
+<tr>
+<td>Token 过期</td>
+<td>过期时间设置</td>
+<td>建议 24h，敏感操作可缩短</td>
+</tr>
+<tr>
+<td>密码哈希</td>
+<td>bcrypt salt rounds</td>
+<td>建议 10-12，太大会影响性能</td>
+</tr>
+<tr>
+<td>select: false</td>
+<td>密码字段不默认返回</td>
+<td>查询时需 <code>addSelect</code> 才能获取</td>
+</tr>
+<tr>
+<td>全局守卫顺序</td>
+<td>APP_GUARD 注册顺序</td>
+<td>先 JwtAuthGuard，后 RolesGuard</td>
+</tr>
+<tr>
+<td>CORS</td>
+<td>跨域配置</td>
+<td>生产环境限制 Origin</td>
+</tr>
+<tr>
+<td>HTTPS</td>
+<td>传输安全</td>
+<td>生产必须 HTTPS，否则 Token 可被截获</td>
+</tr>
+<tr>
+<td>Token 存储</td>
+<td>客户端存储位置</td>
+<td>推荐 HttpOnly Cookie > localStorage</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>🚫 避坑指南</h2>
+
+<h3>❌ 明文存储密码</h3>
+<pre><code class="language-typescript">// BAD: Never store plain text passwords!
+@Column()
+password: string; // Stored as &quot;mypassword123&quot; in DB</code></pre>
+
+<h3>✅ 使用 bcrypt 哈希</h3>
+<pre><code class="language-typescript">// GOOD: Hash with bcrypt
+@BeforeInsert()
+async hashPassword() {
+  this.password = await bcrypt.hash(this.password, 10);
+}</code></pre>
+
+<h3>❌ 在 JWT Payload 存敏感信息</h3>
+<pre><code class="language-typescript">// BAD: Token can be decoded by anyone (not encrypted)
+const payload = { sub: user.id, password: user.password };</code></pre>
+
+<h3>✅ 只存必要的非敏感数据</h3>
+<pre><code class="language-typescript">// GOOD: Minimal, non-sensitive payload
+const payload = { sub: user.id, email: user.email, role: user.role };</code></pre>
+
+<h3>❌ 不处理 Token 过期</h3>
+<pre><code class="language-typescript">// BAD: No expiry means token is valid forever
+this.jwtService.sign(payload, { /* no expiresIn */ });</code></pre>
+
+<h3>✅ 设置合理过期时间</h3>
+<pre><code class="language-typescript">// GOOD: Set expiration
+this.jwtService.sign(payload, { expiresIn: &#x27;24h&#x27; });</code></pre>
+
+<h3>❌ 前端用 localStorage 存 Token</h3>
+<pre><code class="language-typescript">// BAD: Vulnerable to XSS attacks
+localStorage.setItem(&#x27;token&#x27;, token);</code></pre>
+
+<h3>✅ 使用 HttpOnly Cookie</h3>
+<pre><code class="language-typescript">// GOOD: Set as HttpOnly cookie
+@Post(&#x27;login&#x27;)
+async login(@Body() dto: LoginDto, @Res() res: Response) {
+  const { token } = await this.authService.login(dto);
+  res.cookie(&#x27;token&#x27;, token, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === &#x27;production&#x27;,
+    sameSite: &#x27;strict&#x27;,
+    maxAge: 24 * 60 * 60 * 1000, // 24h
+  });
+  return res.json({ success: true });
+}</code></pre>
+
+<hr>
+
+<h2>🏋️ 练习题</h2>
+
+<h3>🟢 基础题</h3>
+
+<ol>
+<li><strong>添加修改密码接口</strong>：实现 <code>PUT /auth/change-password</code>，需要验证旧密码，哈希新密码后更新。</li>
+
+<ol>
+<li><strong>用户 Profile 接口</strong>：实现 <code>GET /auth/profile</code>，使用 <code>@CurrentUser()</code> 装饰器获取当前用户信息。</li>
+
+<h3>🟡 进阶题</h3>
+
+<ol>
+<li><strong>Token 刷新机制</strong>：实现双 Token 机制（Access Token 15min + Refresh Token 7d），<code>POST /auth/refresh</code> 接口用 Refresh Token 换取新的 Access Token。</li>
+
+<ol>
+<li><strong>登录日志</strong>：记录每次登录的时间、IP、设备信息，实现 <code>GET /auth/login-history</code> 查看登录历史。</li>
+
+<h3>🔴 挑战题</h3>
+
+<ol>
+<li><strong>OAuth2 社交登录</strong>：集成 GitHub/Google OAuth2 登录，实现 <code>GET /auth/github</code> 和 <code>GET /auth/github/callback</code>，用 Passport 的 GitHub Strategy。</li>
+
+<hr>
+
+<h2>📝 知识点总结</h2>
+
+<pre><code>NestJS JWT 认证
+├── 用户管理
+│   ├── User Entity (select: false)
+│   ├── bcrypt 密码哈希
+│   ├── @BeforeInsert / @BeforeUpdate
+│   └── validatePassword()
+├── JWT 核心流
+│   ├── @nestjs/jwt JwtService
+│   ├── sign() 签发 Token
+│   ├── Payload 设计 (sub, email, role)
+│   └── expiresIn 过期策略
+├── Passport 集成
+│   ├── JwtStrategy extends PassportStrategy
+│   ├── validate() → req.user
+│   └── ExtractJwt.fromAuthHeaderAsBearerToken()
+├── 守卫系统
+│   ├── JwtAuthGuard (全局认证)
+│   ├── RolesGuard (角色授权)
+│   ├── APP_GUARD 全局注册
+│   └── @Public() 公开路由
+├── 自定义装饰器
+│   ├── @Public() - 跳过认证
+│   ├── @Roles() - 角色要求
+│   └── @CurrentUser() - 获取当前用户
+└── 安全实践
+    ├── 密码哈希 (bcrypt, salt 10-12)
+    ├── HttpOnly Cookie
+    ├── HTTPS 传输
+    └── Token 过期策略</code></pre>
+
+<hr>
+
+<h2>🔄 举一反三</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>JWT + Guard 方案</th>
+<th>Session 方案</th>
+</tr></thead><tbody>
+<tr>
+<td>无状态认证</td>
+<td>✅ 天然支持</td>
+<td>❌ 需要服务端存储</td>
+</tr>
+<tr>
+<td>分布式部署</td>
+<td>✅ Token 自包含</td>
+<td>需要 Redis 共享 Session</td>
+</tr>
+<tr>
+<td>撤销认证</td>
+<td>较难（需黑名单）</td>
+<td>✅ 直接删 Session</td>
+</tr>
+<tr>
+<td>跨域认证</td>
+<td>✅ Token 可跨域</td>
+<td>Cookie 跨域复杂</td>
+</tr>
+<tr>
+<td>安全性</td>
+<td>防 CSRF，需防 XSS</td>
+<td>防 XSS，需防 CSRF</td>
+</tr>
+<tr>
+<td>Token 大小</td>
+<td>较大（自包含数据）</td>
+<td>较小（仅 Session ID）</td>
+</tr>
+<tr>
+<td>适用场景</td>
+<td>API、微服务、移动端</td>
+<td>传统 Web 应用</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>📚 参考资料</h2>
+
+<ul>
+<li><a href="https://docs.nestjs.com/security/authentication">NestJS Authentication 官方文档</a></li>
+<li><a href="https://docs.nestjs.com/security/authorization">NestJS Authorization 官方文档</a></li>
+<li><a href="https://jwt.io/">JWT.io - JWT 解码器</a></li>
+<li><a href="http://www.passportjs.org/">Passport.js 官方文档</a></li>
+<li><a href="https://cheatsheetseries.owasp.org/cheatsheets/Authentication_Cheat_Sheet.html">OWASP Authentication Cheat Sheet</a></li>
+
+<hr>
+
+<h2>🛤️ 代码演进路线</h2>
+
+<h3>v1 → 基础认证（本文已覆盖）</h3>
+<ul>
+<li>User 实体 + bcrypt 密码哈希</li>
+<li>注册/登录接口</li>
+<li>JWT Token 签发</li>
+<li>AuthService 核心</li>
+
+<h3>v2 → 守卫系统（本文已覆盖）</h3>
+<ul>
+<li>JwtStrategy (Passport)</li>
+<li>JwtAuthGuard + RolesGuard</li>
+<li>自定义装饰器 (@Public, @Roles, @CurrentUser)</li>
+<li>全局守卫注册</li>
+
+<h3>v3 → 生产安全（后续展开）</h3>
+<ul>
+<li>HttpOnly Cookie Token</li>
+<li>Token 刷新机制 (双 Token)</li>
+<li>OAuth2 社交登录</li>
+<li>速率限制 (防暴力破解)</li>
+<li>账号锁定策略</li>
+<li>审计日志</li>
+
+<blockquote><p><strong>上一篇</strong>：<a href="/posts/025-nestjs-typeorm">NestJS TypeORM → 数据库持久化</a></p></blockquote>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

@@ -1,0 +1,664 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>012-异常处理</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Python/index.html">Python</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Python/01-入门/index.html">Python入门</a>
+</nav>
+<h1>012-异常处理</h1>
+<div class="meta">
+<span>📂 Python入门</span>
+<span>🏷️ Python</span>
+</div>
+<article>
+
+
+<h1>012 - 异常处理</h1>
+
+<blockquote><p><strong>难度：</strong> ⭐⭐⭐（中级）<br><strong>预计阅读时间：</strong> 22 分钟<br><strong>前置知识：</strong> 函数、类基础、文件操作</p></blockquote>
+
+<hr>
+
+<h2>一、概念讲解</h2>
+
+<h3>什么是异常（Exception）？</h3>
+
+<p>异常就是程序运行时发生的<strong>错误事件</strong>。Python 用异常对象来表示这些错误，你可以<strong>捕获</strong>并<strong>处理</strong>它们，而不是让程序崩溃。</p>
+
+<pre><code class="language-python"># Without exception handling -&gt; program crashes
+result = 10 / 0  # ZeroDivisionError: division by zero
+
+# With exception handling -&gt; graceful recovery
+try:
+    result = 10 / 0
+except ZeroDivisionError:
+    print(&quot;Cannot divide by zero!&quot;)
+    result = float(&#x27;inf&#x27;)</code></pre>
+
+<h3>异常处理的价值</h3>
+
+<table><thead><tr>
+<th>没有 try/except</th>
+<th>有 try/except</th>
+</tr></thead><tbody>
+<tr>
+<td>程序崩溃退出</td>
+<td>优雅降级，继续运行</td>
+</tr>
+<tr>
+<td>用户看到一堆报错</td>
+<td>用户看到友好提示</td>
+</tr>
+<tr>
+<td>数据可能丢失</td>
+<td>可以安全回滚</td>
+</tr>
+<tr>
+<td>日志难以追踪</td>
+<td>可以记录详细错误信息</td>
+</tr>
+</tbody></table>
+
+<h3>Python 异常层级</h3>
+
+<pre><code>BaseException
+├── SystemExit          # sys.exit()
+├── KeyboardInterrupt   # Ctrl+C
+├── GeneratorExit       # generator.close()
+└── Exception           # &lt;- 你应该捕获的层级
+    ├── ValueError      # 值不正确
+    ├── TypeError       # 类型不匹配
+    ├── KeyError        # 字典键不存在
+    ├── IndexError      # 索引越界
+    ├── FileNotFoundError  # 文件不存在
+    ├── ZeroDivisionError  # 除以零
+    ├── AttributeError     # 属性不存在
+    ├── ImportError        # 导入失败
+    ├── RuntimeError       # 运行时错误
+    └── ... (100+ built-in exceptions)</code></pre>
+
+<hr>
+
+<h2>二、脑图（ASCII）</h2>
+
+<pre><code>                     异常处理
+                        │
+        ┌───────────────┼───────────────┐
+        │               │               │
+     try语法          自定义异常       最佳实践
+        │               │               │
+   ┌────┼────┐     ┌────┼────┐     ┌────┼────┐
+   │    │    │     │    │    │     │    │    │
+ try  except finally 继承  raise  不吞异常 精确捕获
+        │    │     Exception     记录日志  最小范围
+      else  finally            自定义类  防御性编程</code></pre>
+
+<hr>
+
+<h2>三、完整代码示例</h2>
+
+<h3>3.1 try/except 基础</h3>
+
+<pre><code class="language-python"># === Basic exception handling ===
+
+# Catch a specific exception
+try:
+    number = int(&quot;hello&quot;)  # ValueError
+except ValueError as e:
+    print(f&quot;Invalid number: {e}&quot;)
+
+# Catch multiple exceptions
+try:
+    result = 10 / 0
+except (ZeroDivisionError, TypeError) as e:
+    print(f&quot;Calculation error: {e}&quot;)
+
+# try/except/else/finally
+try:
+    result = 10 / 2
+except ZeroDivisionError:
+    print(&quot;Division by zero!&quot;)
+else:
+    print(f&quot;Result: {result}&quot;)  # Runs only if no exception
+finally:
+    print(&quot;Cleanup done&quot;)        # Always runs
+# Output:
+# Result: 5.0
+# Cleanup done</code></pre>
+
+<h3>3.2 常见内置异常处理</h3>
+
+<pre><code class="language-python"># === Common built-in exceptions ===
+
+# ValueError: wrong value
+try:
+    age = int(&quot;twenty&quot;)
+except ValueError:
+    print(&quot;Please enter a valid number&quot;)
+
+# TypeError: wrong type
+try:
+    result = &quot;hello&quot; + 42
+except TypeError:
+    print(&quot;Cannot add string and number&quot;)
+
+# KeyError: missing dict key
+data = {&quot;name&quot;: &quot;Alice&quot;}
+try:
+    age = data[&quot;age&quot;]
+except KeyError:
+    print(&quot;Key &#x27;age&#x27; not found&quot;)
+
+# IndexError: out of range
+numbers = [1, 2, 3]
+try:
+    print(numbers[10])
+except IndexError:
+    print(&quot;Index out of range&quot;)
+
+# FileNotFoundError
+try:
+    with open(&quot;nonexistent.txt&quot;) as f:
+        content = f.read()
+except FileNotFoundError:
+    print(&quot;File not found&quot;)</code></pre>
+
+<h3>3.3 raise 与自定义异常</h3>
+
+<pre><code class="language-python"># === Raise exceptions and custom exceptions ===
+
+# Raise built-in exception
+def set_age(age):
+    if age &lt; 0:
+        raise ValueError(&quot;Age cannot be negative&quot;)
+    if age &gt; 150:
+        raise ValueError(&quot;Age seems unrealistic&quot;)
+    return age
+
+# Custom exception class
+class InsufficientFundsError(Exception):
+    &quot;&quot;&quot;Raised when account has insufficient funds.&quot;&quot;&quot;
+
+    def __init__(self, balance, amount):
+        self.balance = balance
+        self.amount = amount
+        super().__init__(
+            f&quot;Cannot withdraw ${amount:.2f}: &quot;
+            f&quot;balance is ${balance:.2f}&quot;
+        )
+
+# Use custom exception
+class BankAccount:
+    def __init__(self, balance=0):
+        self.balance = balance
+
+    def deposit(self, amount):
+        if amount &lt;= 0:
+            raise ValueError(&quot;Deposit amount must be positive&quot;)
+        self.balance += amount
+        return self.balance
+
+    def withdraw(self, amount):
+        if amount &lt;= 0:
+            raise ValueError(&quot;Withdrawal amount must be positive&quot;)
+        if amount &gt; self.balance:
+            raise InsufficientFundsError(self.balance, amount)
+        self.balance -= amount
+        return self.balance
+
+# Test the bank account
+account = BankAccount(100)
+try:
+    account.withdraw(150)  # More than balance
+except InsufficientFundsError as e:
+    print(e)  # Cannot withdraw $150.00: balance is $100.00</code></pre>
+
+<h3>3.4 异常链与上下文</h3>
+
+<pre><code class="language-python"># === Exception chaining ===
+import json
+
+class ConfigError(Exception):
+    pass
+
+# raise from: explicit chaining
+def load_config(filepath):
+    try:
+        with open(filepath) as f:
+            return json.load(f)
+    except FileNotFoundError as e:
+        raise ConfigError(f&quot;Config file missing: {filepath}&quot;) from e
+
+# Example: wrap low-level error with domain error
+try:
+    config = load_config(&quot;missing.json&quot;)
+except ConfigError as e:
+    print(f&quot;Config error: {e}&quot;)
+    print(f&quot;Caused by: {e.__cause__}&quot;)</code></pre>
+
+<h3>3.5 实战：健壮的数据处理管道</h3>
+
+<pre><code class="language-python"># === Robust data processing pipeline ===
+
+import json
+from datetime import datetime
+
+class DataProcessingError(Exception):
+    &quot;&quot;&quot;Base error for data processing.&quot;&quot;&quot;
+    pass
+
+def process_user_record(record, line_num):
+    &quot;&quot;&quot;Process a single user record with validation.&quot;&quot;&quot;
+    errors = []
+
+    # Validate required fields
+    if &quot;name&quot; not in record:
+        errors.append(&quot;missing &#x27;name&#x27;&quot;)
+
+    if &quot;email&quot; not in record:
+        errors.append(&quot;missing &#x27;email&#x27;&quot;)
+
+    if &quot;age&quot; in record:
+        try:
+            record[&quot;age&quot;] = int(record[&quot;age&quot;])
+            if record[&quot;age&quot;] &lt; 0 or record[&quot;age&quot;] &gt; 150:
+                errors.append(f&quot;invalid age: {record[&#x27;age&#x27;]}&quot;)
+        except ValueError:
+            errors.append(f&quot;age is not a number: {record[&#x27;age&#x27;]}&quot;)
+
+    if errors:
+        raise DataProcessingError(
+            f&quot;Line {line_num}: {&#x27;, &#x27;.join(errors)}&quot;
+        )
+
+    return record
+
+def process_data_file(filepath):
+    &quot;&quot;&quot;Process a JSON lines file with error handling.&quot;&quot;&quot;
+    results = {&quot;success&quot;: [], &quot;errors&quot;: []}
+
+    try:
+        with open(filepath, &quot;r&quot;, encoding=&quot;utf-8&quot;) as f:
+            for line_num, line in enumerate(f, 1):
+                line = line.strip()
+                if not line:
+                    continue
+
+                try:
+                    record = json.loads(line)
+                    processed = process_user_record(record, line_num)
+                    results[&quot;success&quot;].append(processed)
+                except json.JSONDecodeError as e:
+                    results[&quot;errors&quot;].append(
+                        f&quot;Line {line_num}: Invalid JSON - {e}&quot;
+                    )
+                except DataProcessingError as e:
+                    results[&quot;errors&quot;].append(str(e))
+
+    except FileNotFoundError:
+        print(f&quot;Error: File &#x27;{filepath}&#x27; not found&quot;)
+        return None
+
+    print(f&quot;Processed: {len(results[&#x27;success&#x27;])} successful, &quot;
+          f&quot;{len(results[&#x27;errors&#x27;])} errors&quot;)
+    return results</code></pre>
+
+<hr>
+
+<h2>四、执行预览</h2>
+
+<pre><code>$ python bank_demo.py
+Cannot withdraw $150.00: balance is $100.00
+Balance after deposit: $200.00
+Balance after withdrawal: $50.00
+
+$ python data_processor.py
+Processed: 8 successful, 3 errors
+Errors:
+  Line 3: missing &#x27;email&#x27;
+  Line 7: Invalid JSON - Expecting property name
+  Line 12: invalid age: -5</code></pre>
+
+<hr>
+
+<h2>五、注意事项</h2>
+
+<table><thead><tr>
+<th>事项</th>
+<th>说明</th>
+<th>建议</th>
+</tr></thead><tbody>
+<tr>
+<td>裸 except</td>
+<td><code>except:</code> 捕获一切，包括 <code>KeyboardInterrupt</code></td>
+<td>禁止使用，至少 <code>except Exception</code></td>
+</tr>
+<tr>
+<td>吞异常</td>
+<td><code>except: pass</code> 静默忽略所有错误</td>
+<td>至少记录日志</td>
+</tr>
+<tr>
+<td>过宽捕获</td>
+<td><code>except Exception</code> 捕获范围太大</td>
+<td>尽量捕获具体异常类型</td>
+</tr>
+<tr>
+<td>finally 中的异常</td>
+<td>可能覆盖 try 中的原始异常</td>
+<td>finally 中避免 raise</td>
+</tr>
+<tr>
+<td>性能影响</td>
+<td>异常处理比条件判断慢</td>
+<td>用条件判断做预期检查</td>
+</tr>
+<tr>
+<td>异常 vs 返回值</td>
+<td>异常用于异常情况，返回值用于正常流程</td>
+<td>不要用异常控制正常逻辑</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>六、避坑指南</h2>
+
+<h3>❌ 坑1：裸 except 吞掉所有错误</h3>
+
+<pre><code class="language-python"># ❌ Catches EVERYTHING, including KeyboardInterrupt
+try:
+    do_something()
+except:
+    pass  # Silently swallows all errors!
+
+# ✅ Catch specific exceptions
+try:
+    do_something()
+except ValueError as e:
+    print(f&quot;Value error: {e}&quot;)
+except FileNotFoundError as e:
+    print(f&quot;File error: {e}&quot;)</code></pre>
+
+<h3>❌ 坑2：用异常控制正常流程</h3>
+
+<pre><code class="language-python"># ❌ Using exception for normal control flow
+try:
+    value = data[&quot;key&quot;]
+except KeyError:
+    value = &quot;default&quot;
+
+# ✅ Use dict.get() for expected cases
+value = data.get(&quot;key&quot;, &quot;default&quot;)</code></pre>
+
+<h3>❌ 坑3：finally 中的 return 覆盖异常</h3>
+
+<pre><code class="language-python"># ❌ finally&#x27;s return hides the exception
+def bad_func():
+    try:
+        raise ValueError(&quot;Important error!&quot;)
+    finally:
+        return 42  # Exception is silently lost!
+
+# ✅ Don&#x27;t return in finally
+def good_func():
+    try:
+        raise ValueError(&quot;Important error!&quot;)
+    finally:
+        cleanup()  # Just cleanup, no return</code></pre>
+
+<hr>
+
+<h2>七、练习题</h2>
+
+<h3>🟢 入门题</h3>
+
+<ol>
+<li>编写一个安全的除法函数 <code>safe_divide(a, b)</code>，处理 <code>ZeroDivisionError</code> 和 <code>TypeError</code>，返回结果或 <code>None</code>。</li>
+
+<ol>
+<li>编写一个函数，安全地将用户输入转换为整数，如果转换失败返回默认值 0。</li>
+
+<h3>🟡 进阶题</h3>
+
+<ol>
+<li>实现一个 <code>SafeDict</code> 类，继承 <code>dict</code>，重写 <code>__getitem__</code> 方法，当 key 不存在时返回 <code>None</code> 而不是抛出 <code>KeyError</code>。</li>
+
+<ol>
+<li>编写一个配置文件加载器，处理以下异常：文件不存在（使用默认配置）、JSON 格式错误（报错退出）、字段缺失（使用字段默认值）。</li>
+
+<h3>🔴 挑战题</h3>
+
+<ol>
+<li>实现一个带重试机制的函数装饰器 <code>retry(max_retries=3, delay=1, exceptions=(Exception,))</code>，捕获指定异常后自动重试，重试间隔递增。</li>
+
+<hr>
+
+<h2>八、知识点总结</h2>
+
+<pre><code>异常处理
+├── 基础语法
+│   ├── try / except / else / finally
+│   ├── raise 手动抛出
+│   └── 异常链 (raise ... from ...)
+├── 内置异常
+│   ├── ValueError / TypeError
+│   ├── KeyError / IndexError
+│   ├── FileNotFoundError
+│   └── 自定义异常（继承 Exception）
+├── 最佳实践
+│   ├── 捕获具体异常，不用裸 except
+│   ├── 不吞异常（至少 log）
+│   ├── finally 用于资源清理
+│   └── 异常用于异常情况，不控制流程
+└── 进阶技巧
+    ├── 异常链与上下文
+    ├── __cause__ vs __context__
+    └── traceback 模块</code></pre>
+
+<hr>
+
+<h2>九、举一反三</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>异常类型</th>
+<th>处理策略</th>
+</tr></thead><tbody>
+<tr>
+<td>用户输入验证</td>
+<td><code>ValueError</code></td>
+<td>友好提示 + 重新输入</td>
+</tr>
+<tr>
+<td>网络请求失败</td>
+<td><code>ConnectionError</code>, <code>Timeout</code></td>
+<td>重试 + 降级</td>
+</tr>
+<tr>
+<td>文件操作</td>
+<td><code>FileNotFoundError</code>, <code>PermissionError</code></td>
+<td>检查存在 + 创建默认</td>
+</tr>
+<tr>
+<td>数据库操作</td>
+<td><code>IntegrityError</code></td>
+<td>回滚事务 + 记录日志</td>
+</tr>
+<tr>
+<td>API 调用</td>
+<td>自定义 <code>APIError</code></td>
+<td>统一错误码 + 错误消息</td>
+</tr>
+<tr>
+<td>配置缺失</td>
+<td>自定义 <code>ConfigError</code></td>
+<td>使用默认值 + 警告日志</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>十、参考资料</h2>
+
+<ul>
+<li><a href="https://docs.python.org/3/tutorial/errors.html">Python 官方文档 - Errors and Exceptions</a></li>
+<li><a href="https://docs.python.org/3/library/exceptions.html">Python 官方文档 - Built-in Exceptions</a></li>
+<li><a href="https://realpython.com/python-exceptions/">Real Python - Python Exceptions</a></li>
+<li><a href="https://peps.python.org/pep-3134/">PEP 3134 - Exception Chaining</a></li>
+
+<hr>
+
+<h2>十一、代码演进</h2>
+
+<h3>v1：最基本的 try/except</h3>
+
+<pre><code class="language-python"># Minimal error handling
+try:
+    result = 10 / 0
+except:
+    print(&quot;Something went wrong&quot;)</code></pre>
+
+<h3>v2：精确捕获 + 清理</h3>
+
+<pre><code class="language-python"># Specific exception handling with cleanup
+try:
+    f = open(&quot;data.txt&quot;, &quot;r&quot;)
+    content = f.read()
+    result = int(content) / 0
+except ZeroDivisionError:
+    print(&quot;Cannot divide by zero&quot;)
+except FileNotFoundError:
+    print(&quot;File not found&quot;)
+finally:
+    f.close()</code></pre>
+
+<h3>v3：企业级错误处理框架</h3>
+
+<pre><code class="language-python"># Production-grade error handling framework
+import logging
+import time
+from functools import wraps
+from typing import TypeVar, Callable, Any, Tuple, Type
+
+T = TypeVar(&quot;T&quot;)
+logger = logging.getLogger(__name__)
+
+def retry(
+    max_retries: int = 3,
+    delay: float = 1.0,
+    backoff: float = 2.0,
+    exceptions: Tuple[Type[Exception], ...] = (Exception,),
+):
+    &quot;&quot;&quot;Retry decorator with exponential backoff.&quot;&quot;&quot;
+    def decorator(func: Callable[..., T]) -&gt; Callable[..., T]:
+        @wraps(func)
+        def wrapper(*args, **kwargs) -&gt; T:
+            retries = 0
+            current_delay = delay
+            while True:
+                try:
+                    return func(*args, **kwargs)
+                except exceptions as e:
+                    retries += 1
+                    if retries &gt; max_retries:
+                        logger.error(
+                            f&quot;{func.__name__} failed after &quot;
+                            f&quot;{max_retries} retries: {e}&quot;
+                        )
+                        raise
+                    logger.warning(
+                        f&quot;{func.__name__} retry {retries}/{max_retries}: {e}&quot;
+                    )
+                    time.sleep(current_delay)
+                    current_delay *= backoff
+        return wrapper
+    return decorator
+
+class AppError(Exception):
+    &quot;&quot;&quot;Base application error with error code.&quot;&quot;&quot;
+    def __init__(self, message: str, code: str = &quot;UNKNOWN&quot;):
+        self.message = message
+        self.code = code
+        super().__init__(message)
+
+class ValidationError(AppError):
+    def __init__(self, message: str):
+        super().__init__(message, code=&quot;VALIDATION_ERROR&quot;)
+
+class NotFoundError(AppError):
+    def __init__(self, resource: str, identifier: Any):
+        super().__init__(
+            f&quot;{resource} &#x27;{identifier}&#x27; not found&quot;,
+            code=&quot;NOT_FOUND&quot;,
+        )
+
+# Usage:
+# @retry(max_retries=3, exceptions=(ConnectionError,))
+# def fetch_data(url):
+#     ...</code></pre>
+
+<hr>
+
+<blockquote><p><strong>下一篇：</strong> <a href="/posts/013-oop">013 - 面向对象编程</a><br><strong>上一篇：</strong> <a href="/posts/011-file-io">011 - 文件读写操作</a></p></blockquote>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

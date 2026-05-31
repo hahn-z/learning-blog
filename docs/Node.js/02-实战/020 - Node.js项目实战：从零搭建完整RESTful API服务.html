@@ -1,0 +1,1025 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>020 - Node.js项目实战：从零搭建完整RESTful API服务</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Node.js/index.html">Node.js</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Node.js/02-实战/index.html">Node.js实战</a>
+</nav>
+<h1>020 - Node.js项目实战：从零搭建完整RESTful API服务</h1>
+<div class="meta">
+<span>📂 Node.js实战</span>
+<span>🏷️ Node.js</span>
+</div>
+<article>
+
+
+<h1>Node.js项目实战：从零搭建完整RESTful API服务</h1>
+
+<blockquote><p><strong>难度：</strong> ⭐⭐⭐ 中高级 | <strong>预计阅读：</strong> 20分钟<br><br><strong>前置知识：</strong> Express、PostgreSQL、JWT、Docker基础</p></blockquote>
+
+<hr>
+
+<h2>1. 概念讲解</h2>
+
+<p>这是前面所有知识的综合应用。我们搭建一个完整的博客API服务，包含：用户系统、文章CRUD、评论系统、标签分类。</p>
+
+<p><strong>项目技术栈：</strong></p>
+
+<table><thead><tr>
+<th>层级</th>
+<th>技术选型</th>
+<th>理由</th>
+</tr></thead><tbody>
+<tr>
+<td>Web框架</td>
+<td>Express 4</td>
+<td>成熟稳定，生态丰富</td>
+</tr>
+<tr>
+<td>数据库</td>
+<td>PostgreSQL</td>
+<td>关系型，JSON支持好</td>
+</tr>
+<tr>
+<td>ORM</td>
+<td>原生SQL(pg)</td>
+<td>性能透明，学习成本低</td>
+</tr>
+<tr>
+<td>认证</td>
+<td>JWT + bcrypt</td>
+<td>无状态，易扩展</td>
+</tr>
+<tr>
+<td>验证</td>
+<td>express-validator</td>
+<td>Express原生集成</td>
+</tr>
+<tr>
+<td>日志</td>
+<td>winston</td>
+<td>生产级日志库</td>
+</tr>
+<tr>
+<td>测试</td>
+<td>jest + supertest</td>
+<td>Node.js标配</td>
+</tr>
+<tr>
+<td>部署</td>
+<td>Docker + PM2</td>
+<td>容器化 + 进程管理</td>
+</tr>
+</tbody></table>
+
+<p><strong>项目结构：</strong></p>
+
+<pre><code>blog-api/
+├── src/
+│   ├── config/
+│   │   └── database.js
+│   ├── middleware/
+│   │   ├── auth.js
+│   │   ├── errorHandler.js
+│   │   └── validate.js
+│   ├── routes/
+│   │   ├── auth.js
+│   │   ├── posts.js
+│   │   ├── comments.js
+│   │   └── tags.js
+│   ├── services/
+│   │   ├── auth.service.js
+│   │   ├── post.service.js
+│   │   └── comment.service.js
+│   ├── utils/
+│   │   └── logger.js
+│   └── app.js
+├── tests/
+│   ├── auth.test.js
+│   └── posts.test.js
+├── migrations/
+│   └── 001_init.sql
+├── Dockerfile
+├── docker-compose.yml
+├── ecosystem.config.js
+├── package.json
+└── .env.example</code></pre>
+
+<hr>
+
+<h2>2. 脑图</h2>
+
+<pre><code>Blog API 项目
+├── 用户系统
+│   ├── 注册 / 登录
+│   ├── JWT认证
+│   ├── 个人信息
+│   └── 密码修改
+├── 文章系统
+│   ├── CRUD操作
+│   ├── 分页查询
+│   ├── 草稿/发布
+│   └── 全文搜索
+├── 评论系统
+│   ├── 发表评论
+│   ├── 评论列表
+│   └── 删除评论
+├── 标签系统
+│   ├── 创建标签
+│   ├── 文章打标签
+│   └── 按标签查询
+├── 基础设施
+│   ├── 错误处理
+│   ├── 日志系统
+│   ├── 请求验证
+│   └── 分页封装
+└── 部署
+    ├── Dockerfile
+    ├── docker-compose
+    └── PM2配置</code></pre>
+
+<hr>
+
+<h2>3. 完整代码</h2>
+
+<h3>3.1 数据库初始化</h3>
+
+<pre><code class="language-sql">-- migrations/001_init.sql - Database schema
+CREATE TABLE IF NOT EXISTS users (
+  id SERIAL PRIMARY KEY,
+  email VARCHAR(255) UNIQUE NOT NULL,
+  password_hash VARCHAR(255) NOT NULL,
+  name VARCHAR(100) NOT NULL,
+  avatar_url TEXT,
+  created_at TIMESTAMP DEFAULT NOW(),
+  updated_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS posts (
+  id SERIAL PRIMARY KEY,
+  user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+  title VARCHAR(255) NOT NULL,
+  slug VARCHAR(255) UNIQUE NOT NULL,
+  content TEXT NOT NULL,
+  excerpt TEXT,
+  status VARCHAR(20) DEFAULT &#x27;draft&#x27; CHECK (status IN (&#x27;draft&#x27;, &#x27;published&#x27;)),
+  created_at TIMESTAMP DEFAULT NOW(),
+  updated_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS tags (
+  id SERIAL PRIMARY KEY,
+  name VARCHAR(50) UNIQUE NOT NULL,
+  slug VARCHAR(50) UNIQUE NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS post_tags (
+  post_id INTEGER REFERENCES posts(id) ON DELETE CASCADE,
+  tag_id INTEGER REFERENCES tags(id) ON DELETE CASCADE,
+  PRIMARY KEY (post_id, tag_id)
+);
+
+CREATE TABLE IF NOT EXISTS comments (
+  id SERIAL PRIMARY KEY,
+  post_id INTEGER REFERENCES posts(id) ON DELETE CASCADE,
+  user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+  content TEXT NOT NULL,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+
+-- Indexes for performance
+CREATE INDEX idx_posts_user_id ON posts(user_id);
+CREATE INDEX idx_posts_status ON posts(status);
+CREATE INDEX idx_posts_slug ON posts(slug);
+CREATE INDEX idx_comments_post_id ON comments(post_id);</code></pre>
+
+<h3>3.2 应用入口</h3>
+
+<pre><code class="language-javascript">// src/app.js - Application entry point
+const express = require(&#x27;express&#x27;);
+const cors = require(&#x27;cors&#x27;);
+const helmet = require(&#x27;helmet&#x27;);
+const compression = require(&#x27;compression&#x27;);
+const rateLimit = require(&#x27;express-rate-limit&#x27;);
+const { pool, testConnection } = require(&#x27;./config/database&#x27;);
+const { errorHandler } = require(&#x27;./middleware/errorHandler&#x27;);
+const logger = require(&#x27;./utils/logger&#x27;);
+const authRoutes = require(&#x27;./routes/auth&#x27;);
+const postRoutes = require(&#x27;./routes/posts&#x27;);
+const commentRoutes = require(&#x27;./routes/comments&#x27;);
+const tagRoutes = require(&#x27;./routes/tags&#x27;);
+
+const app = express();
+
+// Security &amp; performance middleware
+app.use(helmet());
+app.use(cors({ origin: process.env.CORS_ORIGIN?.split(&#x27;,&#x27;) || &#x27;*&#x27; }));
+app.use(compression());
+app.use(express.json({ limit: &#x27;1mb&#x27; }));
+app.use(rateLimit({ windowMs: 15 * 60 * 1000, max: 200 }));
+
+// Request logging
+app.use((req, res, next) =&gt; {
+  logger.info(`${req.method} ${req.url}`, { ip: req.ip });
+  next();
+});
+
+// Routes
+app.use(&#x27;/api/auth&#x27;, authRoutes);
+app.use(&#x27;/api/posts&#x27;, postRoutes);
+app.use(&#x27;/api/posts/:postId/comments&#x27;, commentRoutes);
+app.use(&#x27;/api/tags&#x27;, tagRoutes);
+
+// Health check
+app.get(&#x27;/health&#x27;, async (req, res) =&gt; {
+  const dbOk = await testConnection();
+  res.json({
+    status: dbOk ? &#x27;ok&#x27; : &#x27;degraded&#x27;,
+    uptime: process.uptime(),
+    timestamp: new Date().toISOString()
+  });
+});
+
+// Error handler (must be last)
+app.use(errorHandler);
+
+module.exports = app;
+
+// Start server if called directly
+if (require.main === module) {
+  const PORT = process.env.PORT || 3000;
+  app.listen(PORT, () =&gt; logger.info(`Server running on port ${PORT}`));
+}</code></pre>
+
+<h3>3.3 数据库配置</h3>
+
+<pre><code class="language-javascript">// src/config/database.js
+const { Pool } = require(&#x27;pg&#x27;);
+
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  max: 20,
+  idleTimeoutMillis: 30000,
+  connectionTimeoutMillis: 5000
+});
+
+pool.on(&#x27;error&#x27;, (err) =&gt; {
+  console.error(&#x27;Unexpected database error:&#x27;, err.message);
+});
+
+async function testConnection() {
+  try {
+    const result = await pool.query(&#x27;SELECT 1&#x27;);
+    return result.rowCount === 1;
+  } catch {
+    return false;
+  }
+}
+
+// Helper for transactions
+async function transaction(callback) {
+  const client = await pool.connect();
+  try {
+    await client.query(&#x27;BEGIN&#x27;);
+    const result = await callback(client);
+    await client.query(&#x27;COMMIT&#x27;);
+    return result;
+  } catch (err) {
+    await client.query(&#x27;ROLLBACK&#x27;);
+    throw err;
+  } finally {
+    client.release();
+  }
+}
+
+module.exports = { pool, testConnection, transaction };</code></pre>
+
+<h3>3.4 中间件</h3>
+
+<pre><code class="language-javascript">// src/middleware/auth.js
+const jwt = require(&#x27;jsonwebtoken&#x27;);
+
+function authenticate(req, res, next) {
+  const token = req.headers.authorization?.split(&#x27; &#x27;)[1];
+  if (!token) return res.status(401).json({ error: &#x27;Authentication required&#x27; });
+  
+  try {
+    req.user = jwt.verify(token, process.env.JWT_SECRET);
+    next();
+  } catch {
+    res.status(401).json({ error: &#x27;Invalid or expired token&#x27; });
+  }
+}
+
+module.exports = { authenticate };</code></pre>
+
+<pre><code class="language-javascript">// src/middleware/errorHandler.js
+const logger = require(&#x27;../utils/logger&#x27;);
+
+function errorHandler(err, req, res, _next) {
+  logger.error(err.message, { stack: err.stack, url: req.url });
+  
+  const status = err.statusCode || 500;
+  const message = process.env.NODE_ENV === &#x27;production&#x27; &amp;&amp; status === 500
+    ? &#x27;Internal server error&#x27;
+    : err.message;
+  
+  res.status(status).json({ error: message });
+}
+
+class AppError extends Error {
+  constructor(message, statusCode = 400) {
+    super(message);
+    this.statusCode = statusCode;
+  }
+}
+
+module.exports = { errorHandler, AppError };</code></pre>
+
+<h3>3.5 Post路由和服务</h3>
+
+<pre><code class="language-javascript">// src/services/post.service.js
+const { pool, transaction } = require(&#x27;../config/database&#x27;);
+const { AppError } = require(&#x27;../middleware/errorHandler&#x27;);
+
+async function createPost(userId, { title, content, excerpt, tags, status = &#x27;draft&#x27; }) {
+  const slug = title.toLowerCase().replace(/[^a-z0-9\u4e00-\u9fa5]+/g, &#x27;-&#x27;).replace(/^-|-$/g, &#x27;&#x27;);
+  
+  return transaction(async (client) =&gt; {
+    const result = await client.query(
+      `INSERT INTO posts (user_id, title, slug, content, excerpt, status)
+       VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
+      [userId, title, slug, content, excerpt || content.substring(0, 200), status]
+    );
+    
+    const post = result.rows[0];
+    
+    // Handle tags
+    if (tags?.length) {
+      for (const tagName of tags) {
+        const tagSlug = tagName.toLowerCase().replace(/[^a-z0-9]+/g, &#x27;-&#x27;);
+        // Upsert tag
+        const tagResult = await client.query(
+          `INSERT INTO tags (name, slug) VALUES ($1, $2) ON CONFLICT (slug) DO UPDATE SET name = $1 RETURNING id`,
+          [tagName, tagSlug]
+        );
+        await client.query(
+          &#x27;INSERT INTO post_tags (post_id, tag_id) VALUES ($1, $2) ON CONFLICT DO NOTHING&#x27;,
+          [post.id, tagResult.rows[0].id]
+        );
+      }
+    }
+    
+    return post;
+  });
+}
+
+async function getPosts({ page = 1, limit = 20, status, tag }) {
+  const offset = (page - 1) * limit;
+  const conditions = [];
+  const params = [];
+  let paramIdx = 1;
+  
+  if (status) {
+    conditions.push(`p.status = $${paramIdx++}`);
+    params.push(status);
+  }
+  if (tag) {
+    conditions.push(`EXISTS (SELECT 1 FROM post_tags pt JOIN tags t ON pt.tag_id = t.id WHERE pt.post_id = p.id AND t.slug = $${paramIdx++})`);
+    params.push(tag);
+  }
+  
+  const where = conditions.length ? &#x27;WHERE &#x27; + conditions.join(&#x27; AND &#x27;) : &#x27;&#x27;;
+  
+  const countResult = await pool.query(`SELECT COUNT(*) FROM posts p ${where}`, params);
+  const total = parseInt(countResult.rows[0].count);
+  
+  params.push(limit, offset);
+  const result = await pool.query(
+    `SELECT p.*, u.name as author_name,
+     (SELECT COALESCE(json_agg(json_build_object(&#x27;name&#x27;, t.name, &#x27;slug&#x27;, t.slug)), &#x27;[]&#x27;)
+      FROM post_tags pt JOIN tags t ON pt.tag_id = t.id WHERE pt.post_id = p.id) as tags
+     FROM posts p JOIN users u ON p.user_id = u.id
+     ${where} ORDER BY p.created_at DESC LIMIT $${paramIdx++} OFFSET $${paramIdx}`,
+    params
+  );
+  
+  return {
+    posts: result.rows,
+    pagination: { page, limit, total, pages: Math.ceil(total / limit) }
+  };
+}
+
+async function getPostBySlug(slug) {
+  const result = await pool.query(
+    `SELECT p.*, u.name as author_name,
+     (SELECT COALESCE(json_agg(json_build_object(&#x27;name&#x27;, t.name, &#x27;slug&#x27;, t.slug)), &#x27;[]&#x27;)
+      FROM post_tags pt JOIN tags t ON pt.tag_id = t.id WHERE pt.post_id = p.id) as tags
+     FROM posts p JOIN users u ON p.user_id = u.id WHERE p.slug = $1`,
+    [slug]
+  );
+  if (!result.rows[0]) throw new AppError(&#x27;Post not found&#x27;, 404);
+  return result.rows[0];
+}
+
+async function updatePost(postId, userId, data) {
+  const result = await pool.query(
+    `UPDATE posts SET title = COALESCE($1, title), content = COALESCE($2, content),
+     excerpt = COALESCE($3, excerpt), status = COALESCE($4, status), updated_at = NOW()
+     WHERE id = $5 AND user_id = $6 RETURNING *`,
+    [data.title, data.content, data.excerpt, data.status, postId, userId]
+  );
+  if (!result.rows[0]) throw new AppError(&#x27;Post not found or not authorized&#x27;, 404);
+  return result.rows[0];
+}
+
+async function deletePost(postId, userId) {
+  const result = await pool.query(
+    &#x27;DELETE FROM posts WHERE id = $1 AND user_id = $2 RETURNING id&#x27;,
+    [postId, userId]
+  );
+  if (!result.rows[0]) throw new AppError(&#x27;Post not found or not authorized&#x27;, 404);
+}
+
+module.exports = { createPost, getPosts, getPostBySlug, updatePost, deletePost };</code></pre>
+
+<pre><code class="language-javascript">// src/routes/posts.js
+const router = require(&#x27;express&#x27;).Router();
+const { body, query, param } = require(&#x27;express-validator&#x27;);
+const { authenticate } = require(&#x27;../middleware/auth&#x27;);
+const { validate } = require(&#x27;../middleware/validate&#x27;);
+const postService = require(&#x27;../services/post.service&#x27;);
+
+// Public: list published posts
+router.get(&#x27;/&#x27;,
+  query(&#x27;page&#x27;).optional().isInt({ min: 1 }),
+  query(&#x27;limit&#x27;).optional().isInt({ min: 1, max: 100 }),
+  validate,
+  async (req, res, next) =&gt; {
+    try {
+      const result = await postService.getPosts({
+        page: req.query.page || 1,
+        limit: req.query.limit || 20,
+        status: &#x27;published&#x27;,
+        tag: req.query.tag
+      });
+      res.json(result);
+    } catch (err) { next(err); }
+  }
+);
+
+// Public: get single post
+router.get(&#x27;/:slug&#x27;, async (req, res, next) =&gt; {
+  try {
+    const post = await postService.getPostBySlug(req.params.slug);
+    res.json(post);
+  } catch (err) { next(err); }
+});
+
+// Auth required: create post
+router.post(&#x27;/&#x27;,
+  authenticate,
+  body(&#x27;title&#x27;).trim().isLength({ min: 1, max: 255 }),
+  body(&#x27;content&#x27;).trim().isLength({ min: 1 }),
+  validate,
+  async (req, res, next) =&gt; {
+    try {
+      const post = await postService.createPost(req.user.userId, req.body);
+      res.status(201).json(post);
+    } catch (err) { next(err); }
+  }
+);
+
+// Auth required: update post
+router.put(&#x27;/:id&#x27;,
+  authenticate,
+  param(&#x27;id&#x27;).isInt(),
+  validate,
+  async (req, res, next) =&gt; {
+    try {
+      const post = await postService.updatePost(req.params.id, req.user.userId, req.body);
+      res.json(post);
+    } catch (err) { next(err); }
+  }
+);
+
+// Auth required: delete post
+router.delete(&#x27;/:id&#x27;,
+  authenticate,
+  param(&#x27;id&#x27;).isInt(),
+  validate,
+  async (req, res, next) =&gt; {
+    try {
+      await postService.deletePost(req.params.id, req.user.userId);
+      res.status(204).end();
+    } catch (err) { next(err); }
+  }
+);
+
+module.exports = router;</code></pre>
+
+<h3>3.6 验证中间件 + 日志</h3>
+
+<pre><code class="language-javascript">// src/middleware/validate.js
+const { validationResult } = require(&#x27;express-validator&#x27;);
+const { AppError } = require(&#x27;./errorHandler&#x27;);
+
+function validate(req, res, next) {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    throw new AppError(errors.array().map(e =&gt; e.msg).join(&#x27;, &#x27;), 400);
+  }
+  next();
+}
+
+module.exports = { validate };</code></pre>
+
+<pre><code class="language-javascript">// src/utils/logger.js
+const winston = require(&#x27;winston&#x27;);
+
+const logger = winston.createLogger({
+  level: process.env.LOG_LEVEL || &#x27;info&#x27;,
+  format: winston.format.combine(
+    winston.format.timestamp(),
+    winston.format.errors({ stack: true }),
+    winston.format.json()
+  ),
+  transports: [
+    new winston.transports.Console({
+      format: process.env.NODE_ENV === &#x27;development&#x27;
+        ? winston.format.combine(winston.format.colorize(), winston.format.simple())
+        : winston.format.json()
+    })
+  ]
+});
+
+module.exports = logger;</code></pre>
+
+<h3>3.7 测试</h3>
+
+<pre><code class="language-javascript">// tests/posts.test.js
+const request = require(&#x27;supertest&#x27;);
+const app = require(&#x27;../src/app&#x27;);
+const { pool } = require(&#x27;../src/config/database&#x27;);
+
+let token;
+let postId;
+
+beforeAll(async () =&gt; {
+  // Create test user and get token
+  const res = await request(app)
+    .post(&#x27;/api/auth/register&#x27;)
+    .send({ email: `test${Date.now()}@example.com`, password: &#x27;test1234&#x27;, name: &#x27;Tester&#x27; });
+  token = res.body.token;
+});
+
+afterAll(async () =&gt; {
+  await pool.end();
+});
+
+describe(&#x27;Posts API&#x27;, () =&gt; {
+  test(&#x27;POST /api/posts - create a post&#x27;, async () =&gt; {
+    const res = await request(app)
+      .post(&#x27;/api/posts&#x27;)
+      .set(&#x27;Authorization&#x27;, `Bearer ${token}`)
+      .send({
+        title: &#x27;Test Post&#x27;,
+        content: &#x27;This is test content for the blog post.&#x27;,
+        tags: [&#x27;nodejs&#x27;, &#x27;testing&#x27;],
+        status: &#x27;published&#x27;
+      });
+    
+    expect(res.status).toBe(201);
+    expect(res.body.title).toBe(&#x27;Test Post&#x27;);
+    expect(res.body.slug).toBe(&#x27;test-post&#x27;);
+    postId = res.body.id;
+  });
+
+  test(&#x27;GET /api/posts - list posts&#x27;, async () =&gt; {
+    const res = await request(app).get(&#x27;/api/posts&#x27;);
+    expect(res.status).toBe(200);
+    expect(res.body.posts).toBeInstanceOf(Array);
+    expect(res.body.pagination).toBeDefined();
+  });
+
+  test(&#x27;GET /api/posts/:slug - get single post&#x27;, async () =&gt; {
+    const res = await request(app).get(&#x27;/api/posts/test-post&#x27;);
+    expect(res.status).toBe(200);
+    expect(res.body.title).toBe(&#x27;Test Post&#x27;);
+  });
+
+  test(&#x27;PUT /api/posts/:id - update post&#x27;, async () =&gt; {
+    const res = await request(app)
+      .put(`/api/posts/${postId}`)
+      .set(&#x27;Authorization&#x27;, `Bearer ${token}`)
+      .send({ title: &#x27;Updated Post&#x27; });
+    expect(res.status).toBe(200);
+    expect(res.body.title).toBe(&#x27;Updated Post&#x27;);
+  });
+
+  test(&#x27;DELETE /api/posts/:id - delete post&#x27;, async () =&gt; {
+    const res = await request(app)
+      .delete(`/api/posts/${postId}`)
+      .set(&#x27;Authorization&#x27;, `Bearer ${token}`);
+    expect(res.status).toBe(204);
+  });
+});</code></pre>
+
+<h3>3.8 Dockerfile + docker-compose</h3>
+
+<pre><code class="language-dockerfile"># Dockerfile
+FROM node:20-alpine AS builder
+WORKDIR /app
+COPY package*.json ./
+RUN npm ci --only=production
+
+FROM node:20-alpine
+WORKDIR /app
+COPY --from=builder /app/node_modules ./node_modules
+COPY . .
+EXPOSE 3000
+CMD [&quot;node&quot;, &quot;src/app.js&quot;]</code></pre>
+
+<pre><code class="language-yaml"># docker-compose.yml
+version: &#x27;3.8&#x27;
+services:
+  api:
+    build: .
+    ports:
+      - &quot;3000:3000&quot;
+    environment:
+      - DATABASE_URL=postgresql://postgres:postgres@db:5432/blog
+      - JWT_SECRET=${JWT_SECRET:-change-me-in-production}
+      - NODE_ENV=development
+    depends_on:
+      db:
+        condition: service_healthy
+
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: blog
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - db-data:/var/lib/postgresql/data
+      - ./migrations:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: [&quot;CMD-SHELL&quot;, &quot;pg_isready -U postgres&quot;]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  db-data:</code></pre>
+
+<h3>3.9 代码演进</h3>
+
+<p><strong>v1 — 最小可用（单文件）：</strong></p>
+<pre><code class="language-javascript">// server.js - Everything in one file
+const express = require(&#x27;express&#x27;);
+const app = express();
+app.use(express.json());
+let posts = [];
+app.get(&#x27;/posts&#x27;, (req, res) =&gt; res.json(posts));
+app.post(&#x27;/posts&#x27;, (req, res) =&gt; { posts.push(req.body); res.status(201).json(req.body); });
+app.listen(3000);</code></pre>
+
+<p><strong>v2 — 分层架构（MVC）：</strong></p>
+<pre><code class="language-javascript">// Split into routes + services + middleware
+// Add validation, error handling, JWT auth
+// See project structure above</code></pre>
+
+<p><strong>v3 — 生产就绪（完整工程化）：</strong></p>
+<pre><code class="language-javascript">// Add: PostgreSQL, Docker, tests, logging, pagination, transactions
+// See complete code above</code></pre>
+
+<hr>
+
+<h2>4. 执行预览</h2>
+
+<pre><code class="language-bash"># Start the stack
+$ docker compose up -d
+
+# Run migrations (auto via docker-entrypoint-initdb.d)
+
+# Register
+$ curl -X POST http://localhost:3000/api/auth/register \
+  -H &quot;Content-Type: application/json&quot; \
+  -d &#x27;{&quot;email&quot;:&quot;admin@blog.com&quot;,&quot;password&quot;:&quot;secure123&quot;,&quot;name&quot;:&quot;Admin&quot;}&#x27;
+{&quot;id&quot;:1,&quot;email&quot;:&quot;admin@blog.com&quot;,&quot;name&quot;:&quot;Admin&quot;,&quot;token&quot;:&quot;eyJ...&quot;}
+
+# Create a post
+$ curl -X POST http://localhost:3000/api/posts \
+  -H &quot;Authorization: Bearer eyJ...&quot; \
+  -H &quot;Content-Type: application/json&quot; \
+  -d &#x27;{&quot;title&quot;:&quot;Hello World&quot;,&quot;content&quot;:&quot;My first post!&quot;,&quot;tags&quot;:[&quot;intro&quot;,&quot;nodejs&quot;],&quot;status&quot;:&quot;published&quot;}&#x27;
+{&quot;id&quot;:1,&quot;title&quot;:&quot;Hello World&quot;,&quot;slug&quot;:&quot;hello-world&quot;,&quot;status&quot;:&quot;published&quot;,...}
+
+# List posts
+$ curl http://localhost:3000/api/posts
+{&quot;posts&quot;:[{&quot;id&quot;:1,&quot;title&quot;:&quot;Hello World&quot;,&quot;slug&quot;:&quot;hello-world&quot;,&quot;tags&quot;:[{&quot;name&quot;:&quot;intro&quot;,...}]}],
+ &quot;pagination&quot;:{&quot;page&quot;:1,&quot;limit&quot;:20,&quot;total&quot;:1,&quot;pages&quot;:1}}
+
+# Health check
+$ curl http://localhost:3000/health
+{&quot;status&quot;:&quot;ok&quot;,&quot;uptime&quot;:45.2,&quot;timestamp&quot;:&quot;2024-01-15T10:30:00.000Z&quot;}
+
+# Run tests
+$ npm test
+PASS  tests/posts.test.js
+  Posts API
+    ✓ POST /api/posts - create a post (45ms)
+    ✓ GET /api/posts - list posts (12ms)
+    ✓ GET /api/posts/:slug - get single post (8ms)
+    ✓ PUT /api/posts/:id - update post (15ms)
+    ✓ DELETE /api/posts/:id - delete post (10ms)</code></pre>
+
+<hr>
+
+<h2>5. 注意事项</h2>
+
+<table><thead><tr>
+<th>关注点</th>
+<th>实现方式</th>
+<th>优先级</th>
+</tr></thead><tbody>
+<tr>
+<td>输入验证</td>
+<td>express-validator每个路由</td>
+<td>🔴 必须</td>
+</tr>
+<tr>
+<td>错误处理</td>
+<td>统一errorHandler中间件</td>
+<td>🔴 必须</td>
+</tr>
+<tr>
+<td>认证授权</td>
+<td>JWT + authenticate中间件</td>
+<td>🔴 必须</td>
+</tr>
+<tr>
+<td>SQL安全</td>
+<td>参数化查询（永不拼接）</td>
+<td>🔴 必须</td>
+</tr>
+<tr>
+<td>分页</td>
+<td>统一分页参数 + 响应格式</td>
+<td>🟡 推荐</td>
+</tr>
+<tr>
+<td>日志</td>
+<td>winston + 结构化日志</td>
+<td>🟡 推荐</td>
+</tr>
+<tr>
+<td>测试</td>
+<td>jest + supertest</td>
+<td>🟡 推荐</td>
+</tr>
+<tr>
+<td>Docker</td>
+<td>多阶段构建 + healthcheck</td>
+<td>🟡 推荐</td>
+</tr>
+<tr>
+<td>CI/CD</td>
+<td>GitHub Actions</td>
+<td>🟢 加分</td>
+</tr>
+<tr>
+<td>API文档</td>
+<td>Swagger/OpenAPI</td>
+<td>🟢 加分</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>6. 避坑指南</h2>
+
+<table><thead><tr>
+<th>❌ 常见错误</th>
+<th>✅ 正确做法</th>
+</tr></thead><tbody>
+<tr>
+<td>所有代码写在一个文件</td>
+<td>按职责分层：routes/services/middleware</td>
+</tr>
+<tr>
+<td>不写测试</td>
+<td>至少覆盖核心CRUD + 认证</td>
+</tr>
+<tr>
+<td>console.log当日志</td>
+<td>用winston，结构化输出</td>
+</tr>
+<tr>
+<td>没有统一错误处理</td>
+<td>errorHandler中间件兜底</td>
+</tr>
+<tr>
+<td>直接用环境变量不验证</td>
+<td>启动时检查必要的环境变量</td>
+</tr>
+<tr>
+<td>Dockerfile用latest标签</td>
+<td>指定具体Node版本</td>
+</tr>
+<tr>
+<td>不做分页</td>
+<td>列表接口必须分页</td>
+</tr>
+<tr>
+<td>忘记数据库索引</td>
+<td>根据查询模式建索引</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>7. 练习题</h2>
+
+<h3>🟢 基础题</h3>
+<ol>
+<li>搭建项目骨架，实现User注册/登录功能</li>
+</ul>
+<ol>
+<li>实现Post的CRUD，使用参数化SQL查询</li>
+</ul>
+<ol>
+<li>给API添加分页查询（page + limit + total）</li>
+
+<h3>🟡 进阶题</h3>
+<ol>
+<li>实现评论系统：发表评论、评论列表、删除评论</li>
+</ul>
+<ol>
+<li>添加JWT认证中间件，保护写操作</li>
+</ul>
+<ol>
+<li>编写完整的CRUD测试用例</li>
+
+<h3>🔴 挑战题</h3>
+<ol>
+<li>实现全文搜索（PostgreSQL tsvector + tsquery）</li>
+</ul>
+<ol>
+<li>添加Redis缓存层，对热门文章做缓存，设定合理的失效策略</li>
+
+<hr>
+
+<h2>8. 知识点总结</h2>
+
+<pre><code>Blog API 项目
+├── 架构
+│   ├── 分层设计 (routes/services/middleware)
+│   ├── 错误处理链
+│   ├── 认证中间件
+│   └── 请求验证
+├── 数据库
+│   ├── Schema设计
+│   ├── 参数化查询
+│   ├── 事务管理
+│   ├── 索引优化
+│   └── 分页查询
+├── 工程化
+│   ├── 结构化日志
+│   ├── 单元测试
+│   ├── Docker容器化
+│   ├── 环境变量管理
+│   └── PM2进程管理
+└── API设计
+    ├── RESTful规范
+    ├── 统一响应格式
+    ├── HTTP状态码
+    └── 版本管理</code></pre>
+
+<hr>
+
+<h2>9. 举一反三</h2>
+
+<table><thead><tr>
+<th>项目类型</th>
+<th>核心差异</th>
+<th>关键技术</th>
+</tr></thead><tbody>
+<tr>
+<td>电商API</td>
+<td>商品/SKU/订单/支付</td>
+<td>事务 + 状态机 + 支付网关</td>
+</tr>
+<tr>
+<td>社交API</td>
+<td>关注/动态/消息</td>
+<td>Feed流 + WebSocket + Redis</td>
+</tr>
+<tr>
+<td>CMS系统</td>
+<td>内容/媒体/权限</td>
+<td>RBAC + 文件存储 + 版本控制</td>
+</tr>
+<tr>
+<td>SaaS平台</td>
+<td>多租户/计费/用量</td>
+<td>租户隔离 + Stripe + 配额</td>
+</tr>
+<tr>
+<td>IoT后端</td>
+<td>设备/数据/告警</td>
+<td>MQTT + 时序数据库 + 规则引擎</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>10. 参考资料</h2>
+
+<ul>
+<li><a href="https://expressjs.com/en/advanced/best-practice-performance.html">Express.js最佳实践</a></li>
+<li><a href="https://node-postgres.com/">PostgreSQL Node.js教程</a></li>
+<li><a href="https://jestjs.io/">jest测试框架</a></li>
+<li><a href="https://nodejs.org/en/docs/guides/nodejs-docker-webapp">Docker Node.js最佳实践</a></li>
+<li><a href="https://restfulapi.net/">RESTful API设计指南</a></li>
+
+<hr>
+
+<h2>11. 代码演进路线</h2>
+
+<pre><code>v1 (MVP)                v2 (分层)               v3 (生产就绪)
+┌──────────────┐       ┌──────────────┐        ┌──────────────────┐
+│ 单文件       │  →    │ routes/      │   →    │ routes/          │
+│ 内存数组     │       │ services/    │        │ services/        │
+│ 无认证       │       │ middleware/  │        │ middleware/      │
+│ 无验证       │       │ PostgreSQL   │        │ PostgreSQL + Redis│
+│ 无错误处理   │       │ JWT认证      │        │ JWT + refresh    │
+│ 无测试       │       │ 基础测试     │        │ 完整测试覆盖      │
+│              │       │              │        │ Docker + PM2     │
+└──────────────┘       └──────────────┘        └──────────────────┘</code></pre>
+
+<hr>
+
+<blockquote><p>💡 <strong>一句话总结：</strong> 一个完整的Node.js项目 = 分层架构 + PostgreSQL参数化查询 + JWT认证 + 统一错误处理 + 结构化日志 + Docker部署 + 自动化测试。把这七件事做到位，项目就能上生产。</p></blockquote>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

@@ -1,0 +1,682 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>006 - Python字典(Dictionary)详解：键值对的艺术</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Python/index.html">Python</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Python/01-入门/index.html">Python入门</a>
+</nav>
+<h1>006 - Python字典(Dictionary)详解：键值对的艺术</h1>
+<div class="meta">
+<span>📂 Python入门</span>
+<span>🏷️ Python</span>
+</div>
+<article>
+
+
+<h1>🟢 Python字典(Dictionary)详解</h1>
+
+<blockquote><p><strong>难度：</strong> ⭐⭐ 入门级 | <strong>阅读时间：</strong> 15分钟 | <strong>前置知识：</strong> 列表、元组、基本数据类型</p></blockquote>
+
+<h2>一、概念讲解</h2>
+
+<p>字典(Dictionary)是Python中最重要的数据结构之一，它是<strong>键值对(key-value)</strong> 的无序集合，通过键快速查找值。</p>
+
+<p><strong>核心特征：</strong></p>
+<ul>
+<li><strong>键值对</strong>：每个元素由唯一的键和对应的值组成</li>
+<li><strong>可变</strong>：可以增删改键值对</li>
+<li><strong>键唯一</strong>：同一个键只能出现一次</li>
+<li><strong>键必须可哈希</strong>：字符串、数字、元组可以；列表、字典不行</li>
+<li><strong>查找极快</strong>：O(1) 时间复杂度</li>
+
+<pre><code class="language-python"># A person described by a dict
+person = {
+    &quot;name&quot;: &quot;Alice&quot;,
+    &quot;age&quot;: 30,
+    &quot;skills&quot;: [&quot;Python&quot;, &quot;SQL&quot;],
+}</code></pre>
+
+<h2>二、知识脑图</h2>
+
+<pre><code>Dictionary (字典)
+├── 创建
+│   ├── 字面量: {&quot;a&quot;: 1, &quot;b&quot;: 2}
+│   ├── dict(): dict(a=1, b=2)
+│   ├── fromkeys(): dict.fromkeys([&quot;a&quot;,&quot;b&quot;], 0)
+│   ├── 推导式: {k: v for k, v in pairs}
+│   └── zip: dict(zip(keys, vals))
+├── 访问
+│   ├── d[key] — KeyError if missing
+│   ├── d.get(key, default)
+│   ├── d.setdefault(key, default)
+│   └── 遍历: keys(), values(), items()
+├── 修改
+│   ├── d[key] = value
+│   ├── update(other_dict)
+│   ├── pop(key), popitem()
+│   └── del d[key], clear()
+├── 高级
+│   ├── 嵌套字典
+│   ├── defaultdict
+│   ├── OrderedDict (Python 3.7+默认有序)
+│   ├── ChainMap
+│   └── Counter
+└── 序列化
+    ├── json.dumps() / json.loads()
+    └── 与API交互的标准格式</code></pre>
+
+<h2>三、完整代码示例</h2>
+
+<pre><code class="language-python"># ============================================
+# Python Dictionary Complete Guide
+# ============================================
+
+# --- 1. Creating dictionaries ---
+# Literal
+student = {&quot;name&quot;: &quot;Alice&quot;, &quot;age&quot;: 20, &quot;major&quot;: &quot;CS&quot;}
+
+# From keyword arguments
+config = dict(host=&quot;localhost&quot;, port=8080, debug=True)
+
+# From list of tuples
+pairs = [(&quot;a&quot;, 1), (&quot;b&quot;, 2), (&quot;c&quot;, 3)]
+d = dict(pairs)
+
+# From zip
+keys = [&quot;name&quot;, &quot;age&quot;, &quot;city&quot;]
+values = [&quot;Bob&quot;, 25, &quot;Beijing&quot;]
+person = dict(zip(keys, values))
+
+# fromkeys with default value
+counter = dict.fromkeys([&quot;apple&quot;, &quot;banana&quot;, &quot;cherry&quot;], 0)
+
+print(&quot;student:&quot;, student)
+print(&quot;config:&quot;, config)
+print(&quot;counter:&quot;, counter)
+
+# --- 2. Accessing values ---
+scores = {&quot;math&quot;: 95, &quot;english&quot;: 88, &quot;science&quot;: 92}
+
+# Direct access (raises KeyError if missing)
+print(&quot;Math:&quot;, scores[&quot;math&quot;])
+
+# Safe access with get()
+print(&quot;History:&quot;, scores.get(&quot;history&quot;))           # None
+print(&quot;History:&quot;, scores.get(&quot;history&quot;, &quot;N/A&quot;))    # N/A
+
+# setdefault: get or set if missing
+scores.setdefault(&quot;art&quot;, 85)
+print(&quot;Art (setdefault):&quot;, scores[&quot;art&quot;])
+
+# --- 3. Modifying dictionaries ---
+user = {&quot;name&quot;: &quot;Charlie&quot;, &quot;email&quot;: &quot;c@example.com&quot;}
+
+# Add / update
+user[&quot;age&quot;] = 28
+user[&quot;email&quot;] = &quot;new@example.com&quot;
+print(&quot;After add/update:&quot;, user)
+
+# Update with another dict
+user.update({&quot;role&quot;: &quot;admin&quot;, &quot;active&quot;: True})
+print(&quot;After update:&quot;, user)
+
+# Remove
+removed = user.pop(&quot;active&quot;)
+print(f&quot;Popped &#x27;{removed}&#x27;:&quot;, user)
+
+last = user.popitem()  # Removes last inserted (Python 3.7+)
+print(f&quot;Popped last {last}:&quot;, user)
+
+# --- 4. Iterating ---
+grades = {&quot;Alice&quot;: 92, &quot;Bob&quot;: 85, &quot;Carol&quot;: 88, &quot;Dave&quot;: 95}
+
+# Iterate keys
+print(&quot;--- Keys ---&quot;)
+for name in grades:
+    print(f&quot;  {name}&quot;)
+
+# Iterate key-value pairs
+print(&quot;--- Items ---&quot;)
+for name, score in grades.items():
+    print(f&quot;  {name}: {score}&quot;)
+
+# Iterate values
+print(f&quot;Average: {sum(grades.values()) / len(grades):.1f}&quot;)
+
+# Check membership
+print(&quot;Alice in grades?&quot;, &quot;Alice&quot; in grades)
+
+# --- 5. Dictionary comprehension ---
+# Square mapping
+squares = {x: x**2 for x in range(1, 6)}
+print(&quot;Squares:&quot;, squares)
+
+# Filter
+high_scores = {k: v for k, v in grades.items() if v &gt;= 90}
+print(&quot;High scores:&quot;, high_scores)
+
+# Transform
+letter_grades = {
+    name: (&quot;A&quot; if s &gt;= 90 else &quot;B&quot; if s &gt;= 80 else &quot;C&quot;)
+    for name, s in grades.items()
+}
+print(&quot;Letter grades:&quot;, letter_grades)
+
+# Swap keys and values
+inverted = {v: k for k, v in grades.items()}
+print(&quot;Inverted:&quot;, inverted)
+
+# --- 6. Nested dictionaries ---
+company = {
+    &quot;engineering&quot;: {
+        &quot;frontend&quot;: [&quot;Alice&quot;, &quot;Bob&quot;],
+        &quot;backend&quot;: [&quot;Charlie&quot;, &quot;Dave&quot;],
+    },
+    &quot;design&quot;: {
+        &quot;ui&quot;: [&quot;Eve&quot;],
+        &quot;ux&quot;: [&quot;Frank&quot;],
+    },
+}
+
+# Access nested
+print(&quot;Backend team:&quot;, company[&quot;engineering&quot;][&quot;backend&quot;])
+
+# Safe nested access
+def safe_get(d, *keys, default=None):
+    &quot;&quot;&quot;Safely traverse nested dicts.&quot;&quot;&quot;
+    result = d
+    for key in keys:
+        if isinstance(result, dict) and key in result:
+            result = result[key]
+        else:
+            return default
+    return result
+
+print(&quot;Deep access:&quot;, safe_get(company, &quot;engineering&quot;, &quot;frontend&quot;))
+print(&quot;Missing path:&quot;, safe_get(company, &quot;hr&quot;, &quot;recruiting&quot;, default=&quot;N/A&quot;))
+
+# --- 7. Special dict types ---
+from collections import defaultdict, Counter, OrderedDict
+import json
+
+# defaultdict — auto-create missing keys
+word_count = defaultdict(int)
+for word in &quot;the cat sat on the mat the cat ate&quot;.split():
+    word_count[word] += 1
+print(&quot;Word count:&quot;, dict(word_count))
+
+# Group items by key
+groups = defaultdict(list)
+students = [(&quot;A&quot;, &quot;Alice&quot;), (&quot;B&quot;, &quot;Bob&quot;), (&quot;A&quot;, &quot;Amy&quot;), (&quot;B&quot;, &quot;Bill&quot;)]
+for grade, name in students:
+    groups[grade].append(name)
+print(&quot;Groups:&quot;, dict(groups))
+
+# Counter
+text = &quot;abracadabra&quot;
+char_freq = Counter(text)
+print(&quot;Char freq:&quot;, char_freq)
+print(&quot;Top 3:&quot;, char_freq.most_common(3))
+
+# --- 8. JSON serialization ---
+data = {&quot;name&quot;: &quot;Alice&quot;, &quot;scores&quot;: [92, 88, 95], &quot;active&quot;: True}
+
+# Dict to JSON string
+json_str = json.dumps(data, indent=2)
+print(&quot;JSON:\n&quot;, json_str)
+
+# JSON string to dict
+parsed = json.loads(json_str)
+print(&quot;Parsed:&quot;, parsed[&quot;name&quot;])
+
+# --- 9. Merge dicts (Python 3.9+) ---
+defaults = {&quot;theme&quot;: &quot;dark&quot;, &quot;lang&quot;: &quot;en&quot;, &quot;font&quot;: 14}
+user_prefs = {&quot;lang&quot;: &quot;zh&quot;, &quot;font&quot;: 16}
+
+# Python 3.9+ merge operator
+merged = defaults | user_prefs
+print(&quot;Merged:&quot;, merged)
+
+# Python 3.5+ unpacking
+merged2 = {**defaults, **user_prefs}
+print(&quot;Merged (unpack):&quot;, merged2)</code></pre>
+
+<h3>执行预览</h3>
+
+<pre><code>student: {&#x27;name&#x27;: &#x27;Alice&#x27;, &#x27;age&#x27;: 20, &#x27;major&#x27;: &#x27;CS&#x27;}
+config: {&#x27;host&#x27;: &#x27;localhost&#x27;, &#x27;port&#x27;: 8080, &#x27;debug&#x27;: True}
+counter: {&#x27;apple&#x27;: 0, &#x27;banana&#x27;: 0, &#x27;cherry&#x27;: 0}
+Math: 95
+History: N/A
+Art (setdefault): 85
+After add/update: {&#x27;name&#x27;: &#x27;Charlie&#x27;, &#x27;email&#x27;: &#x27;new@example.com&#x27;, &#x27;age&#x27;: 28}
+After update: {&#x27;name&#x27;: &#x27;Charlie&#x27;, &#x27;email&#x27;: &#x27;new@example.com&#x27;, &#x27;age&#x27;: 28, &#x27;role&#x27;: &#x27;admin&#x27;, &#x27;active&#x27;: True}
+--- Items ---
+  Alice: 92
+  Bob: 85
+  Carol: 88
+  Dave: 95
+Average: 90.0
+Squares: {1: 1, 2: 4, 3: 9, 4: 16, 5: 25}
+High scores: {&#x27;Alice&#x27;: 92, &#x27;Dave&#x27;: 95}
+Word count: {&#x27;the&#x27;: 3, &#x27;cat&#x27;: 2, &#x27;sat&#x27;: 1, &#x27;on&#x27;: 1, &#x27;mat&#x27;: 1, &#x27;ate&#x27;: 1}
+Top 3: [(&#x27;a&#x27;, 5), (&#x27;b&#x27;, 2), (&#x27;r&#x27;, 2)]
+Merged: {&#x27;theme&#x27;: &#x27;dark&#x27;, &#x27;lang&#x27;: &#x27;zh&#x27;, &#x27;font&#x27;: 16}</code></pre>
+
+<h2>四、注意事项</h2>
+
+<table><thead><tr>
+<th>注意点</th>
+<th>说明</th>
+<th>示例</th>
+</tr></thead><tbody>
+<tr>
+<td>键不存在</td>
+<td>直接 <code>d[key]</code> 会报 KeyError</td>
+<td>用 <code>d.get(key, default)</code></td>
+</tr>
+<tr>
+<td>键必须可哈希</td>
+<td>列表、字典不能做键</td>
+<td><code>d = {[1]: 2}</code> → TypeError</td>
+</tr>
+<tr>
+<td>遍历时修改</td>
+<td>遍历时不能增删键</td>
+<td>先收集 <code>list(d.keys())</code> 再改</td>
+</tr>
+<tr>
+<td>浅拷贝</td>
+<td><code>.copy()</code> 只复制一层</td>
+<td>嵌套字典仍共享引用</td>
+</tr>
+<tr>
+<td>布尔键陷阱</td>
+<td><code>True</code> 和 <code>1</code> 是同一个键</td>
+<td><code>{True: "a", 1: "b"}</code> 只保留一个</td>
+</tr>
+<tr>
+<td>排序</td>
+<td>字典本身无序（3.7+保持插入序）</td>
+<td>需要 <code>sorted(d.items())</code></td>
+</tr>
+</tbody></table>
+
+<h2>五、避坑指南</h2>
+
+<h3>❌ 直接访问可能不存在的键</h3>
+<pre><code class="language-python"># ❌ Crashes if key missing
+d = {&quot;name&quot;: &quot;Alice&quot;}
+print(d[&quot;age&quot;])  # KeyError: &#x27;age&#x27;</code></pre>
+
+<h3>✅ 正确写法</h3>
+<pre><code class="language-python"># ✅ Use get() with default
+print(d.get(&quot;age&quot;, &quot;unknown&quot;))  # unknown</code></pre>
+
+<h3>❌ 遍历时修改字典</h3>
+<pre><code class="language-python"># ❌ RuntimeError: dictionary changed size during iteration
+d = {&quot;a&quot;: 1, &quot;b&quot;: 2, &quot;c&quot;: 3}
+for key in d:
+    if d[key] &lt; 2:
+        del d[key]</code></pre>
+
+<h3>✅ 正确写法</h3>
+<pre><code class="language-python"># ✅ Collect keys first, or use dict comprehension
+d = {&quot;a&quot;: 1, &quot;b&quot;: 2, &quot;c&quot;: 3}
+d = {k: v for k, v in d.items() if v &gt;= 2}
+print(d)  # {&#x27;b&#x27;: 2, &#x27;c&#x27;: 3}</code></pre>
+
+<h3>❌ 用可变对象做键</h3>
+<pre><code class="language-python"># ❌ Lists are unhashable
+d = {[1, 2]: &quot;value&quot;}  # TypeError</code></pre>
+
+<h3>✅ 正确写法</h3>
+<pre><code class="language-python"># ✅ Use tuple as key
+d = {(1, 2): &quot;value&quot;}  # OK</code></pre>
+
+<h3>❌ 深层嵌套直接访问</h3>
+<pre><code class="language-python"># ❌ Cascading KeyError risk
+data = {&quot;user&quot;: {&quot;profile&quot;: {&quot;name&quot;: &quot;Alice&quot;}}}
+data[&quot;user&quot;][&quot;settings&quot;][&quot;theme&quot;]  # KeyError</code></pre>
+
+<h3>✅ 正确写法</h3>
+<pre><code class="language-python"># ✅ Use chained get()
+data.get(&quot;user&quot;, {}).get(&quot;settings&quot;, {}).get(&quot;theme&quot;, &quot;dark&quot;)</code></pre>
+
+<h2>六、练习题</h2>
+
+<h3>🟢 入门题</h3>
+<ol>
+<li>创建一个字典存储你的3个好友信息（姓名、年龄、城市），遍历打印</li>
+</ul>
+<ol>
+<li>合并两个字典：<code>{"a": 1, "b": 2}</code> 和 <code>{"b": 3, "c": 4}</code>，重复键取后者</li>
+
+<h3>🟡 进阶题</h3>
+<ol>
+<li>用字典实现一个简易电话簿：支持添加、查找、删除、列出所有联系人</li>
+</ul>
+<ol>
+<li>统计一段英文中每个单词出现的频率，按频率降序排列</li>
+
+<h3>🔴 挑战题</h3>
+<ol>
+<li>实现一个嵌套字典的深度合并函数：<code>deep_merge(d1, d2)</code>，字典类型的值递归合并</li>
+</ul>
+<ol>
+<li>用字典实现一个LRU缓存（最近最少使用），支持 <code>get</code> 和 <code>put</code>，容量限制</li>
+
+<p><strong>参考答案：</strong></p>
+
+<pre><code class="language-python"># 🟢 Q1
+friends = {
+    &quot;alice&quot;: {&quot;age&quot;: 25, &quot;city&quot;: &quot;Beijing&quot;},
+    &quot;bob&quot;: {&quot;age&quot;: 28, &quot;city&quot;: &quot;Shanghai&quot;},
+    &quot;carol&quot;: {&quot;age&quot;: 23, &quot;city&quot;: &quot;Shenzhen&quot;},
+}
+for name, info in friends.items():
+    print(f&quot;{name}: {info[&#x27;age&#x27;]}yo, {info[&#x27;city&#x27;]}&quot;)
+
+# 🟢 Q2
+d1, d2 = {&quot;a&quot;: 1, &quot;b&quot;: 2}, {&quot;b&quot;: 3, &quot;c&quot;: 4}
+merged = {**d1, **d2}  # or d1 | d2
+print(merged)  # {&#x27;a&#x27;: 1, &#x27;b&#x27;: 3, &#x27;c&#x27;: 4}
+
+# 🟡 Q3
+class PhoneBook:
+    def __init__(self):
+        self.contacts = {}
+    
+    def add(self, name, phone):
+        self.contacts[name] = phone
+    
+    def find(self, name):
+        return self.contacts.get(name, &quot;Not found&quot;)
+    
+    def remove(self, name):
+        self.contacts.pop(name, None)
+    
+    def list_all(self):
+        return self.contacts.copy()
+
+# 🟡 Q4
+def word_freq(text):
+    from collections import Counter
+    words = text.lower().split()
+    return Counter(words).most_common()
+
+# 🔴 Q5
+def deep_merge(base, override):
+    result = base.copy()
+    for key, val in override.items():
+        if key in result and isinstance(result[key], dict) and isinstance(val, dict):
+            result[key] = deep_merge(result[key], val)
+        else:
+            result[key] = val
+    return result
+
+# 🔴 Q6
+from collections import OrderedDict
+class LRUCache:
+    def __init__(self, capacity):
+        self.cache = OrderedDict()
+        self.capacity = capacity
+    
+    def get(self, key):
+        if key in self.cache:
+            self.cache.move_to_end(key)
+            return self.cache[key]
+        return -1
+    
+    def put(self, key, value):
+        if key in self.cache:
+            self.cache.move_to_end(key)
+        self.cache[key] = value
+        if len(self.cache) &gt; self.capacity:
+            self.cache.popitem(last=False)
+
+cache = LRUCache(2)
+cache.put(&quot;a&quot;, 1)
+cache.put(&quot;b&quot;, 2)
+print(cache.get(&quot;a&quot;))  # 1
+cache.put(&quot;c&quot;, 3)      # Evicts &quot;b&quot;
+print(cache.get(&quot;b&quot;))  # -1</code></pre>
+
+<h2>七、知识点总结</h2>
+
+<pre><code>Dictionary 知识树
+├── 基础
+│   ├── 创建: {}, dict(), fromkeys(), zip()
+│   ├── 访问: d[k], get(), setdefault()
+│   ├── 修改: 赋值, update(), pop(), del
+│   └── 遍历: keys(), values(), items()
+├── 高级
+│   ├── 推导式: {k: v for ...}
+│   ├── 嵌套: 多层字典
+│   ├── 合并: | 运算符, {**d1, **d2}
+│   └── 解包: **dict
+├── collections
+│   ├── defaultdict: 自动初始化缺失键
+│   ├── Counter: 计数器
+│   └── OrderedDict: 有序字典
+├── 序列化
+│   ├── json.dumps(): dict → JSON
+│   └── json.loads(): JSON → dict
+└── 注意事项
+    ├── 键必须可哈希
+    ├── 遍历时不能修改
+    ├── 浅拷贝陷阱
+    └── get() 比直接访问安全</code></pre>
+
+<h2>八、举一反三</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>数据结构</th>
+<th>原因</th>
+</tr></thead><tbody>
+<tr>
+<td>配置管理</td>
+<td>dict</td>
+<td>键值对，灵活嵌套</td>
+</tr>
+<tr>
+<td>API响应</td>
+<td>dict</td>
+<td>JSON天然映射</td>
+</tr>
+<tr>
+<td>计数统计</td>
+<td>Counter/defaultdict</td>
+<td>自动处理缺失键</td>
+</tr>
+<tr>
+<td>缓存</td>
+<td>dict</td>
+<td>O(1)查找，键值对应</td>
+</tr>
+<tr>
+<td>分组</td>
+<td>defaultdict(list)</td>
+<td>按键归拢数据</td>
+</tr>
+<tr>
+<td>权限映射</td>
+<td>dict</td>
+<td>角色→权限列表</td>
+</tr>
+<tr>
+<td>数据库记录</td>
+<td>dict</td>
+<td>字段名→值的映射</td>
+</tr>
+<tr>
+<td>国际化</td>
+<td>dict</td>
+<td>语言代码→翻译文本</td>
+</tr>
+</tbody></table>
+
+<h2>九、参考资料</h2>
+
+<ul>
+<li><a href="https://docs.python.org/3/tutorial/datastructures.html#dictionaries">Python官方文档 - Dictionaries</a></li>
+<li><a href="https://realpython.com/python-dicts/">Real Python - Dictionaries</a></li>
+<li><a href="https://docs.python.org/3/library/collections.html">Python collections模块</a></li>
+
+<h2>十、代码演进</h2>
+
+<h3>v1 — 基础：简单字典操作</h3>
+<pre><code class="language-python"># v1: Basic dict operations
+user = {&quot;name&quot;: &quot;Alice&quot;, &quot;age&quot;: 30}
+user[&quot;email&quot;] = &quot;alice@example.com&quot;
+print(user.get(&quot;phone&quot;, &quot;N/A&quot;))
+for key, value in user.items():
+    print(f&quot;{key}: {value}&quot;)</code></pre>
+
+<h3>v2 — 进阶：配置管理器</h3>
+<pre><code class="language-python"># v2: Config manager with nested dicts
+class ConfigManager:
+    def __init__(self, defaults=None):
+        self._config = defaults or {}
+    
+    def get(self, key_path, default=None):
+        keys = key_path.split(&quot;.&quot;)
+        result = self._config
+        for key in keys:
+            if isinstance(result, dict) and key in result:
+                result = result[key]
+            else:
+                return default
+        return result
+    
+    def set(self, key_path, value):
+        keys = key_path.split(&quot;.&quot;)
+        config = self._config
+        for key in keys[:-1]:
+            config = config.setdefault(key, {})
+        config[keys[-1]] = value
+    
+    def update(self, data):
+        self._config.update(data)
+
+cfg = ConfigManager({&quot;db&quot;: {&quot;host&quot;: &quot;localhost&quot;, &quot;port&quot;: 5432}})
+cfg.set(&quot;db.port&quot;, 3306)
+cfg.set(&quot;app.debug&quot;, True)
+print(cfg.get(&quot;db.host&quot;))       # localhost
+print(cfg.get(&quot;app.debug&quot;))     # True
+print(cfg.get(&quot;cache.ttl&quot;, 300))  # 300</code></pre>
+
+<h3>v3 — 高级：带持久化的数据仓库</h3>
+<pre><code class="language-python"># v3: Persistent data store with JSON
+import json
+import os
+from datetime import datetime
+
+class DataStore:
+    &quot;&quot;&quot;Lightweight key-value store with JSON persistence.&quot;&quot;&quot;
+    
+    def __init__(self, filepath=&quot;data.json&quot;):
+        self._filepath = filepath
+        self._data = self._load()
+    
+    def _load(self):
+        if os.path.exists(self._filepath):
+            with open(self._filepath) as f:
+                return json.load(f)
+        return {}
+    
+    def _save(self):
+        with open(self._filepath, &quot;w&quot;) as f:
+            json.dump(self._data, f, indent=2, ensure_ascii=False)
+    
+    def get(self, key, default=None):
+        return self._data.get(key, default)
+    
+    def set(self, key, value):
+        self._data[key] = {
+            &quot;value&quot;: value,
+            &quot;updated_at&quot;: datetime.now().isoformat(),
+        }
+        self._save()
+    
+    def delete(self, key):
+        if key in self._data:
+            del self._data[key]
+            self._save()
+            return True
+        return False
+    
+    def search(self, prefix):
+        return {k: v for k, v in self._data.items() if k.startswith(prefix)}
+    
+    def list_all(self):
+        return dict(self._data)
+
+store = DataStore(&quot;/tmp/my_store.json&quot;)
+store.set(&quot;user:1&quot;, {&quot;name&quot;: &quot;Alice&quot;, &quot;role&quot;: &quot;admin&quot;})
+store.set(&quot;user:2&quot;, {&quot;name&quot;: &quot;Bob&quot;, &quot;role&quot;: &quot;user&quot;})
+store.set(&quot;config:theme&quot;, &quot;dark&quot;)
+print(&quot;User 1:&quot;, store.get(&quot;user:1&quot;))
+print(&quot;Users:&quot;, store.search(&quot;user:&quot;))</code></pre>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

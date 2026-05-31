@@ -1,0 +1,571 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>011 - JavaScript 数组高阶方法：map / filter / reduce 完全指南</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/JavaScript/index.html">JavaScript</a>
+<span class="sep">›</span>
+<a href="/tech-blog/JavaScript/01-ES6+/index.html">JavaScript ES6+</a>
+</nav>
+<h1>011 - JavaScript 数组高阶方法：map / filter / reduce 完全指南</h1>
+<div class="meta">
+<span>📂 JavaScript ES6+</span>
+<span>🏷️ JavaScript</span>
+</div>
+<article>
+
+
+<h2>难度标注</h2>
+
+<blockquote><p>🟡 <strong>中等难度</strong> — 需要理解回调函数、函数式编程思想</p></blockquote>
+
+<h2>概念讲解</h2>
+
+<h3>什么是高阶方法？</h3>
+
+<p>高阶方法是指<strong>接收函数作为参数</strong>的方法。JavaScript 数组提供了三个核心高阶方法：</p>
+
+<ul>
+<li><strong><code>map()</code></strong> — 映射：把数组中每个元素"变换"成新值，返回新数组</li>
+<li><strong><code>filter()</code></strong> — 过滤：根据条件筛选元素，返回满足条件的新数组</li>
+<li><strong><code>reduce()</code></strong> — 归约：把数组"压缩"成一个值（可以是数字、对象、数组等）</li>
+
+<p>三者的共同特点：</p>
+<ol>
+<li><strong>不修改原数组</strong>（纯函数思想）</li>
+</ul>
+<ol>
+<li><strong>返回新结果</strong></li>
+</ul>
+<ol>
+<li><strong>接收回调函数作为参数</strong></li>
+
+<h3>为什么不用 for 循环？</h3>
+
+<pre><code class="language-javascript">// for loop: 命令式 — 告诉计算机&quot;怎么做&quot;
+const doubled = [];
+for (let i = 0; i &lt; arr.length; i++) {
+  doubled.push(arr[i] * 2);
+}
+
+// map: 声明式 — 告诉计算机&quot;做什么&quot;
+const doubled = arr.map(x =&gt; x * 2);</code></pre>
+
+<p>高阶方法的优势：<strong>代码更短、意图更清晰、更易组合</strong>。</p>
+
+<h2>脑图</h2>
+
+<pre><code>                数组高阶方法
+                    │
+        ┌───────────┼───────────┐
+        │           │           │
+      map()      filter()    reduce()
+        │           │           │
+   ┌────┴────┐  ┌──┴──┐   ┌────┴────┐
+   │ 变换元素 │  │筛选  │   │ 累积计算 │
+   │ 一对一   │  │子集  │   │ 多对一   │
+   │ 返回数组 │  │数组  │   │ 返回单值 │
+   └─────────┘  └─────┘   └─────────┘
+        │           │           │
+   回调参数:     回调参数:     回调参数:
+   (item,       (item,       (acc, item,
+    idx, arr)    idx, arr)    idx, arr)</code></pre>
+
+<h2>完整 JS 代码</h2>
+
+<h3>map() — 映射变换</h3>
+
+<pre><code class="language-javascript">// ============ map(): Transform each element ============
+
+const numbers = [1, 2, 3, 4, 5];
+
+// Double each number
+const doubled = numbers.map(n =&gt; n * 2);
+console.log(doubled); // [2, 4, 6, 8, 10]
+
+// Extract a property from objects
+const users = [
+  { name: &#x27;Alice&#x27;, age: 25 },
+  { name: &#x27;Bob&#x27;, age: 30 },
+  { name: &#x27;Charlie&#x27;, age: 35 }
+];
+const names = users.map(user =&gt; user.name);
+console.log(names); // [&#x27;Alice&#x27;, &#x27;Bob&#x27;, &#x27;Charlie&#x27;]
+
+// Using index parameter
+const indexed = [&#x27;a&#x27;, &#x27;b&#x27;, &#x27;c&#x27;].map((item, idx) =&gt; `${idx}: ${item}`);
+console.log(indexed); // [&#x27;0: a&#x27;, &#x27;1: b&#x27;, &#x27;2: c&#x27;]
+
+// Convert data format
+const celsius = [0, 10, 20, 30];
+const fahrenheit = celsius.map(c =&gt; ({
+  celsius: c,
+  fahrenheit: c * 9 / 5 + 32
+}));
+console.log(fahrenheit);
+// [{celsius:0, fahrenheit:32}, {celsius:10, fahrenheit:50}, ...]</code></pre>
+
+<h3>filter() — 条件过滤</h3>
+
+<pre><code class="language-javascript">// ============ filter(): Keep elements that pass a test ============
+
+const numbers = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+
+// Filter even numbers
+const evens = numbers.filter(n =&gt; n % 2 === 0);
+console.log(evens); // [2, 4, 6, 8, 10]
+
+// Filter objects by property
+const products = [
+  { name: &#x27;Laptop&#x27;, price: 999, inStock: true },
+  { name: &#x27;Phone&#x27;, price: 699, inStock: false },
+  { name: &#x27;Tablet&#x27;, price: 499, inStock: true },
+  { name: &#x27;Watch&#x27;, price: 299, inStock: true }
+];
+
+const available = products
+  .filter(p =&gt; p.inStock)
+  .filter(p =&gt; p.price &lt; 500);
+console.log(available); // [{name:&#x27;Tablet&#x27;,...}, {name:&#x27;Watch&#x27;,...}]
+
+// Remove falsy values
+const mixed = [0, 1, &#x27;&#x27;, &#x27;hello&#x27;, null, undefined, false, true];
+const truthy = mixed.filter(Boolean);
+console.log(truthy); // [1, &#x27;hello&#x27;, true]</code></pre>
+
+<h3>reduce() — 归约累积</h3>
+
+<pre><code class="language-javascript">// ============ reduce(): Accumulate into a single value ============
+
+const numbers = [1, 2, 3, 4, 5];
+
+// Sum all numbers
+const sum = numbers.reduce((acc, n) =&gt; acc + n, 0);
+console.log(sum); // 15
+
+// Find max value
+const max = numbers.reduce((a, b) =&gt; a &gt; b ? a : b);
+console.log(max); // 5
+
+// Count occurrences
+const fruits = [&#x27;apple&#x27;, &#x27;banana&#x27;, &#x27;apple&#x27;, &#x27;cherry&#x27;, &#x27;banana&#x27;, &#x27;apple&#x27;];
+const count = fruits.reduce((acc, fruit) =&gt; {
+  acc[fruit] = (acc[fruit] || 0) + 1;
+  return acc;
+}, {});
+console.log(count); // {apple: 3, banana: 2, cherry: 1}
+
+// Group by property
+const people = [
+  { name: &#x27;Alice&#x27;, dept: &#x27;Engineering&#x27; },
+  { name: &#x27;Bob&#x27;, dept: &#x27;Marketing&#x27; },
+  { name: &#x27;Charlie&#x27;, dept: &#x27;Engineering&#x27; }
+];
+const grouped = people.reduce((acc, person) =&gt; {
+  const key = person.dept;
+  if (!acc[key]) acc[key] = [];
+  acc[key].push(person);
+  return acc;
+}, {});
+console.log(grouped);
+// {Engineering: [{...}, {...}], Marketing: [{...}]}
+
+// Flatten nested arrays
+const nested = [[1, 2], [3, 4], [5, 6]];
+const flat = nested.reduce((acc, arr) =&gt; acc.concat(arr), []);
+console.log(flat); // [1, 2, 3, 4, 5, 6]
+
+// Pipe: chain transformations with reduce
+const pipe = (...fns) =&gt; (x) =&gt; fns.reduce((v, f) =&gt; f(v), x);
+const process = pipe(
+  x =&gt; x + 1,
+  x =&gt; x * 2,
+  x =&gt; `Result: ${x}`
+);
+console.log(process(3)); // &#x27;Result: 8&#x27;</code></pre>
+
+<h3>三者组合实战</h3>
+
+<pre><code class="language-javascript">// ============ Real-world: Combined usage ============
+
+const orders = [
+  { product: &#x27;Laptop&#x27;, price: 999, quantity: 1, status: &#x27;completed&#x27; },
+  { product: &#x27;Mouse&#x27;, price: 29, quantity: 2, status: &#x27;completed&#x27; },
+  { product: &#x27;Keyboard&#x27;, price: 79, quantity: 1, status: &#x27;pending&#x27; },
+  { product: &#x27;Monitor&#x27;, price: 499, quantity: 1, status: &#x27;completed&#x27; },
+  { product: &#x27;Cable&#x27;, price: 15, quantity: 3, status: &#x27;cancelled&#x27; }
+];
+
+// Total revenue from completed orders
+const totalRevenue = orders
+  .filter(order =&gt; order.status === &#x27;completed&#x27;)
+  .map(order =&gt; order.price * order.quantity)
+  .reduce((sum, total) =&gt; sum + total, 0);
+
+console.log(totalRevenue); // 1556
+
+// Summary report
+const summary = orders
+  .filter(o =&gt; o.status === &#x27;completed&#x27;)
+  .map(o =&gt; ({ product: o.product, total: o.price * o.quantity }))
+  .reduce((report, item) =&gt; {
+    report.items.push(item);
+    report.grandTotal += item.total;
+    return report;
+  }, { items: [], grandTotal: 0 });
+
+console.log(summary);
+// {items: [{product:&#x27;Laptop&#x27;,total:999}, ...], grandTotal: 1556}</code></pre>
+
+<h2>执行预览</h2>
+
+<pre><code>// map
+[1,2,3].map(x =&gt; x * 2)        → [2, 4, 6]
+users.map(u =&gt; u.name)          → [&#x27;Alice&#x27;, &#x27;Bob&#x27;]
+
+// filter
+[1,2,3,4,5].filter(n =&gt; n &gt; 3) → [4, 5]
+mixed.filter(Boolean)           → [1, &#x27;hello&#x27;, true]
+
+// reduce
+[1,2,3,4,5].reduce((a,b) =&gt; a+b, 0)       → 15
+[&#x27;a&#x27;,&#x27;b&#x27;,&#x27;a&#x27;].reduce((acc,s) =&gt; {...}, {}) → {a:2, b:1}
+
+// Chained
+orders → filter → map → reduce → 1556</code></pre>
+
+<h2>注意事项</h2>
+
+<table><thead><tr>
+<th>方法</th>
+<th>回调参数</th>
+<th>返回值</th>
+<th>是否修改原数组</th>
+<th>常见用途</th>
+</tr></thead><tbody>
+<tr>
+<td><code>map()</code></td>
+<td><code>(item, idx, arr)</code></td>
+<td>新数组（长度不变）</td>
+<td>❌ 否</td>
+<td>数据转换、格式化</td>
+</tr>
+<tr>
+<td><code>filter()</code></td>
+<td><code>(item, idx, arr)</code></td>
+<td>新数组（长度可能变）</td>
+<td>❌ 否</td>
+<td>条件筛选、去重</td>
+</tr>
+<tr>
+<td><code>reduce()</code></td>
+<td><code>(acc, item, idx, arr)</code></td>
+<td>累积值（任意类型）</td>
+<td>❌ 否</td>
+<td>求和、分组、管道</td>
+</tr>
+</tbody></table>
+
+<table><thead><tr>
+<th>注意点</th>
+<th>说明</th>
+</tr></thead><tbody>
+<tr>
+<td><strong>不要忘记 return</strong></td>
+<td>箭头函数单表达式自动返回，但 <code>{}</code> 块体必须手动 return</td>
+</tr>
+<tr>
+<td><strong>初始值很重要</strong></td>
+<td><code>reduce()</code> 不传初始值时，第一个元素作为初始值，空数组会报错</td>
+</tr>
+<tr>
+<td><strong>链式调用性能</strong></td>
+<td>每次调用都创建新数组，超大数据集考虑用 <code>reduce</code> 一次遍历</td>
+</tr>
+<tr>
+<td><strong>稀疏数组</strong></td>
+<td><code>map/filter</code> 会跳过空位（<code>[1,,3]</code>），但 <code>forEach</code> 不跳过</td>
+</tr>
+</tbody></table>
+
+<h2>避坑指南</h2>
+
+<h3>❌ 忘记 return</h3>
+<pre><code class="language-javascript">// ❌ Wrong: block body without return
+const result = [1, 2, 3].map(n =&gt; {
+  n * 2;
+});
+console.log(result); // [undefined, undefined, undefined]
+
+// ✅ Correct: use return or remove braces
+const result = [1, 2, 3].map(n =&gt; n * 2);
+// or
+const result = [1, 2, 3].map(n =&gt; {
+  return n * 2;
+});</code></pre>
+
+<h3>❌ 用 map 代替 forEach</h3>
+<pre><code class="language-javascript">// ❌ Wrong: map without using return value
+users.map(user =&gt; console.log(user.name));
+
+// ✅ Correct: use forEach for side effects
+users.forEach(user =&gt; console.log(user.name));</code></pre>
+
+<h3>❌ reduce 空数组无初始值</h3>
+<pre><code class="language-javascript">// ❌ Wrong: empty array without initial value
+[].reduce((a, b) =&gt; a + b); // TypeError: Reduce of empty array with no initial value
+
+// ✅ Correct: always provide initial value
+[].reduce((a, b) =&gt; a + b, 0); // 0</code></pre>
+
+<h3>❌ 在 map/filter 里修改原数组</h3>
+<pre><code class="language-javascript">// ❌ Wrong: mutating original array
+const items = [{ val: 1 }, { val: 2 }];
+items.map(item =&gt; { item.val *= 2; return item; }); // also mutates original!
+
+// ✅ Correct: create new objects
+items.map(item =&gt; ({ ...item, val: item.val * 2 }));</code></pre>
+
+<h2>练习题</h2>
+
+<h3>🟢 入门：数组基本操作</h3>
+
+<pre><code class="language-javascript">// 1. Given [10, 20, 30, 40, 50], create array of values &gt; 25
+// Expected: [30, 40, 50]
+
+// 2. Given [&#x27;hello&#x27;, &#x27;world&#x27;], create array of uppercase versions
+// Expected: [&#x27;HELLO&#x27;, &#x27;WORLD&#x27;]
+
+// 3. Given [1, 2, 3, 4], calculate product (multiply all)
+// Expected: 24</code></pre>
+
+<h3>🟡 进阶：组合运用</h3>
+
+<pre><code class="language-javascript">// 4. From students array, find average score of passing students (&gt;= 60)
+const students = [
+  { name: &#x27;Alice&#x27;, score: 85 },
+  { name: &#x27;Bob&#x27;, score: 42 },
+  { name: &#x27;Charlie&#x27;, score: 73 },
+  { name: &#x27;Diana&#x27;, score: 91 },
+  { name: &#x27;Eve&#x27;, score: 38 }
+];
+// Expected: 83 (average of 85, 73, 91)
+
+// 5. Implement array.flat() using reduce
+// flatten([[1,2],[3,[4,5]]]) → [1,2,3,[4,5]] (one level)</code></pre>
+
+<h3>🔴 挑战：高级应用</h3>
+
+<pre><code class="language-javascript">// 6. Implement pipe() that composes functions left-to-right
+// pipe(x =&gt; x+1, x =&gt; x*2, x =&gt; x**2)(3) → 64
+
+// 7. Use reduce to implement custom map and filter
+const myMap = (arr, fn) =&gt; arr.reduce((acc, item, i) =&gt; { /* ... */ }, []);
+const myFilter = (arr, fn) =&gt; arr.reduce((acc, item, i) =&gt; { /* ... */ }, []);</code></pre>
+
+<p><details></p>
+<p><summary>📋 参考答案</summary></p>
+
+<pre><code class="language-javascript">// 1
+const result = [10, 20, 30, 40, 50].filter(n =&gt; n &gt; 25);
+
+// 2
+const upper = [&#x27;hello&#x27;, &#x27;world&#x27;].map(s =&gt; s.toUpperCase());
+
+// 3
+const product = [1, 2, 3, 4].reduce((a, b) =&gt; a * b, 1);
+
+// 4
+const avg = students
+  .filter(s =&gt; s.score &gt;= 60)
+  .map(s =&gt; s.score)
+  .reduce((sum, score, _, arr) =&gt; sum + score / arr.length, 0);
+
+// 5
+const flatten = arr =&gt; arr.reduce((a, b) =&gt; a.concat(b), []);
+
+// 6
+const pipe = (...fns) =&gt; x =&gt; fns.reduce((v, f) =&gt; f(v), x);
+
+// 7
+const myMap = (arr, fn) =&gt; arr.reduce((acc, item, i) =&gt; {
+  acc.push(fn(item, i));
+  return acc;
+}, []);
+const myFilter = (arr, fn) =&gt; arr.reduce((acc, item, i) =&gt; {
+  if (fn(item, i)) acc.push(item);
+  return acc;
+}, []);</code></pre>
+<p></details></p>
+
+<h2>知识点总结</h2>
+
+<pre><code>数组高阶方法
+├── map()
+│   ├── 一对一映射
+│   ├── 返回等长新数组
+│   └── 常用：数据转换、提取属性
+├── filter()
+│   ├── 条件筛选
+│   ├── 返回子集新数组
+│   └── 常用：条件过滤、Boolean去假值
+├── reduce()
+│   ├── 多对一归约
+│   ├── 返回任意类型
+│   ├── 必须提供初始值
+│   └── 高级：分组、管道、实现其他方法
+├── 链式调用
+│   ├── filter → map → reduce 模式
+│   └── 注意每步创建新数组的性能开销
+└── 对比 for 循环
+    ├── 优势：声明式、可组合、不修改原数组
+    └── 劣势：无法 break/continue</code></pre>
+
+<h2>举一反三</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>方法组合</th>
+<th>代码示例</th>
+</tr></thead><tbody>
+<tr>
+<td>统计合格人数</td>
+<td>filter → length</td>
+<td><code>scores.filter(s => s >= 60).length</code></td>
+</tr>
+<tr>
+<td>提取 ID 列表</td>
+<td>map</td>
+<td><code>users.map(u => u.id)</code></td>
+</tr>
+<tr>
+<td>求购物车总价</td>
+<td>map → reduce</td>
+<td><code>cart.map(i => i.price * i.qty).reduce(sum)</code></td>
+</tr>
+<tr>
+<td>去重</td>
+<td>filter + indexOf</td>
+<td><code>arr.filter((v, i) => arr.indexOf(v) === i)</code></td>
+</tr>
+<tr>
+<td>数组转对象</td>
+<td>reduce</td>
+<td><code>arr.reduce((a, v) => (a[v.id] = v, a), {})</code></td>
+</tr>
+<tr>
+<td>管道组合</td>
+<td>reduce</td>
+<td><code>fns.reduce((v, f) => f(v), input)</code></td>
+</tr>
+<tr>
+<td>按条件分组</td>
+<td>reduce</td>
+<td><code>reduce((a, v) => (a[v.key] ??= [], a[v.key].push(v), a), {})</code></td>
+</tr>
+</tbody></table>
+
+<h2>参考资料</h2>
+
+<ul>
+<li><a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/map">MDN: Array.prototype.map()</a></li>
+<li><a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/filter">MDN: Array.prototype.filter()</a></li>
+<li><a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/reduce">MDN: Array.prototype.reduce()</a></li>
+<li><a href="https://github.com/MostlyAdequate/mostly-adequate-guide">JavaScript 函数式编程指南</a></li>
+
+<h2>代码演进</h2>
+
+<h3>v1 — 命令式 for 循环</h3>
+<pre><code class="language-javascript">// Imperative: manual loop, mutable state
+const result = [];
+for (let i = 0; i &lt; orders.length; i++) {
+  if (orders[i].status === &#x27;completed&#x27;) {
+    result.push(orders[i].price * orders[i].quantity);
+  }
+}
+let total = 0;
+for (let i = 0; i &lt; result.length; i++) {
+  total += result[i];
+}</code></pre>
+
+<h3>v2 — 高阶方法链式调用</h3>
+<pre><code class="language-javascript">// Declarative: method chain
+const total = orders
+  .filter(o =&gt; o.status === &#x27;completed&#x27;)
+  .map(o =&gt; o.price * o.quantity)
+  .reduce((sum, val) =&gt; sum + val, 0);</code></pre>
+
+<h3>v3 — 抽象管道 + 可复用函数</h3>
+<pre><code class="language-javascript">// Functional: reusable pipeline
+const pipe = (...fns) =&gt; x =&gt; fns.reduce((v, f) =&gt; f(v), x);
+
+const completed = o =&gt; o.status === &#x27;completed&#x27;;
+const lineTotal = o =&gt; o.price * o.quantity;
+const sum = (a, b) =&gt; a + b;
+
+const calcRevenue = pipe(
+  arr =&gt; arr.filter(completed),
+  arr =&gt; arr.map(lineTotal),
+  arr =&gt; arr.reduce(sum, 0)
+);
+
+const total = calcRevenue(orders);</code></pre>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

@@ -1,0 +1,601 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>005 - FastAPI进阶：依赖注入与中间件实战</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Python/index.html">Python</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Python/03-实战/index.html">Python实战</a>
+</nav>
+<h1>005 - FastAPI进阶：依赖注入与中间件实战</h1>
+<div class="meta">
+<span>📂 Python实战</span>
+<span>🏷️ Python</span>
+</div>
+<article>
+
+
+<h1>FastAPI进阶：依赖注入与中间件实战</h1>
+
+<blockquote><p><strong>难度标注：</strong> ⭐⭐⭐⭐☆（中高级）<br><strong>前置知识：</strong> FastAPI基础、Python装饰器、异步编程概念<br><strong>预计阅读时间：</strong> 30分钟</p></blockquote>
+
+<hr>
+
+<h2>一、概念讲解</h2>
+
+<h3>依赖注入（Dependency Injection）</h3>
+
+<p>依赖注入是一种设计模式，核心思想是：<strong>组件不自己创建依赖，而是从外部接收依赖</strong>。FastAPI 把这个概念深度集成到了框架中。</p>
+
+<pre><code>传统方式：路由函数自己创建数据库连接、验证token、获取配置
+依赖注入：框架帮你做完这些，路由函数只关心业务逻辑</code></pre>
+
+<p><strong>FastAPI 依赖注入的三种形式：</strong></p>
+<ol>
+<li><strong>函数依赖</strong>：普通 Python 函数，返回需要的值</li>
+</ul>
+<ol>
+<li><strong>类依赖</strong>：用类作为依赖，支持 <code>__call__</code></li>
+</ul>
+<ol>
+<li><strong>子依赖</strong>：依赖可以依赖其他依赖，形成依赖链</li>
+
+<h3>中间件（Middleware）</h3>
+
+<p>中间件是一个函数，在每个请求处理前后执行代码。可以理解为"请求流水线上的检查站"。</p>
+
+<pre><code>请求 -&gt; 中间件A -&gt; 中间件B -&gt; 路由处理 -&gt; 中间件B -&gt; 中间件A -&gt; 响应</code></pre>
+
+<p><strong>常见用途：</strong> CORS处理、请求日志、认证检查、性能监控、请求ID追踪。</p>
+
+<hr>
+
+<h2>二、知识脑图</h2>
+
+<pre><code>FastAPI进阶
+├── 依赖注入
+│   ├── Depends() 机制
+│   ├── 函数依赖
+│   ├── 类依赖
+│   ├── 子依赖链
+│   ├── 全局依赖
+│   └── yield依赖（资源管理）
+├── 中间件
+│   ├── @app.middleware(&quot;request&quot;)
+│   ├── 内置中间件
+│   │   ├── CORSMiddleware
+│   │   ├── TrustedHostMiddleware
+│   │   └── GZipMiddleware
+│   ├── 自定义中间件
+│   └── 中间件执行顺序
+├── 认证与安全
+│   ├── OAuth2PasswordBearer
+│   ├── JWT Token
+│   └── API Key认证
+└── 实战模式
+    ├── 数据库连接管理
+    ├── 请求日志追踪
+    └── 统一错误处理</code></pre>
+
+<hr>
+
+<h2>三、代码演进</h2>
+
+<h3>v1：基础依赖注入</h3>
+
+<pre><code class="language-python"># v1_dep_injection.py - Basic dependency injection
+from fastapi import FastAPI, Depends
+from typing import Optional
+
+app = FastAPI()
+
+def pagination_params(skip: int = 0, limit: int = 10):
+    return {&quot;skip&quot;: skip, &quot;limit&quot;: limit}
+
+@app.get(&quot;/items&quot;)
+def list_items(pagination: dict = Depends(pagination_params)):
+    return {&quot;pagination&quot;: pagination, &quot;items&quot;: []}
+
+@app.get(&quot;/users&quot;)
+def list_users(pagination: dict = Depends(pagination_params)):
+    return {&quot;pagination&quot;: pagination, &quot;users&quot;: []}
+
+# Class-based dependency
+class Pagination:
+    def __init__(self, skip: int = 0, limit: int = 10):
+        self.skip = max(0, skip)
+        self.limit = min(100, max(1, limit))
+
+@app.get(&quot;/products&quot;)
+def list_products(page: Pagination = Depends(Pagination)):
+    return {&quot;skip&quot;: page.skip, &quot;limit&quot;: page.limit}</code></pre>
+
+<p>v1 要点：</p>
+<ul>
+<li><strong>函数依赖</strong>：<code>pagination_params</code> 返回字典，多个路由复用</li>
+<li><strong>类依赖</strong>：<code>Pagination</code> 类可以做更复杂的验证逻辑</li>
+<li><strong>Depends()</strong>：告诉 FastAPI "请先执行这个函数，把结果传给我"</li>
+
+<h3>v2：认证 + 中间件</h3>
+
+<pre><code class="language-python"># v2_auth_middleware.py - Authentication and middleware
+import time
+import secrets
+from fastapi import FastAPI, Depends, HTTPException, Request, status
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.security import APIKeyHeader
+from typing import Optional
+
+app = FastAPI(title=&quot;Secure API&quot;, version=&quot;2.0&quot;)
+
+# CORS middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[&quot;http://localhost:3000&quot;],
+    allow_credentials=True,
+    allow_methods=[&quot;*&quot;],
+    allow_headers=[&quot;*&quot;],
+)
+
+# Custom logging middleware
+@app.middleware(&quot;http&quot;)
+async def logging_middleware(request: Request, call_next):
+    start = time.time()
+    request_id = secrets.token_hex(8)
+    request.state.request_id = request_id
+    response = await call_next(request)
+    duration = time.time() - start
+    response.headers[&quot;X-Request-ID&quot;] = request_id
+    response.headers[&quot;X-Process-Time&quot;] = f&quot;{duration:.3f}s&quot;
+    print(f&quot;[{request_id}] {request.method} {request.url.path} - {response.status_code}&quot;)
+    return response
+
+# Auth dependencies with chaining
+API_KEYS = {&quot;admin-key-123&quot;: &quot;admin&quot;, &quot;user-key-456&quot;: &quot;user&quot;}
+api_key_header = APIKeyHeader(name=&quot;X-API-Key&quot;)
+
+async def get_current_user(api_key: str = Depends(api_key_header)):
+    if api_key not in API_KEYS:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=&quot;Invalid API key&quot;)
+    return {&quot;username&quot;: API_KEYS[api_key], &quot;api_key&quot;: api_key}
+
+async def require_admin(user: dict = Depends(get_current_user)):
+    # Chain: require_admin depends on get_current_user
+    if user[&quot;username&quot;] != &quot;admin&quot;:
+        raise HTTPException(status_code=403, detail=&quot;Admin access required&quot;)
+    return user
+
+@app.get(&quot;/public&quot;)
+def public_endpoint():
+    return {&quot;message&quot;: &quot;This is public&quot;}
+
+@app.get(&quot;/protected&quot;)
+def protected_endpoint(user: dict = Depends(get_current_user)):
+    return {&quot;message&quot;: f&quot;Hello, {user[&#x27;username&#x27;]}!&quot;}
+
+@app.get(&quot;/admin&quot;)
+def admin_endpoint(admin: dict = Depends(require_admin)):
+    # Dependency chain: require_admin -&gt; get_current_user -&gt; api_key_header
+    return {&quot;message&quot;: &quot;Welcome, admin!&quot;, &quot;data&quot;: &quot;sensitive&quot;}</code></pre>
+
+<p>v2 新增：</p>
+<ul>
+<li><strong>CORS中间件</strong>：处理跨域请求，前后端分离必备</li>
+<li><strong>自定义中间件</strong>：请求追踪ID + 计时，注入到响应头</li>
+<li><strong>依赖链</strong>：<code>require_admin</code> 依赖 <code>get_current_user</code>，自动链式调用</li>
+
+<h3>v3：完整生产级方案</h3>
+
+<pre><code class="language-python"># v3_production.py - Production-grade DI + Middleware
+import time
+import logging
+from contextlib import asynccontextmanager
+from datetime import datetime, timedelta
+from typing import Optional
+import jwt
+from fastapi import FastAPI, Depends, HTTPException, Request, status
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.security import OAuth2PasswordBearer
+from pydantic import BaseModel
+
+SECRET_KEY = &quot;your-secret-key-change-in-production&quot;
+ALGORITHM = &quot;HS256&quot;
+ACCESS_TOKEN_EXPIRE_MINUTES = 30
+
+logger = logging.getLogger(&quot;api&quot;)
+logging.basicConfig(level=logging.INFO)
+
+fake_users_db = {
+    &quot;alice&quot;: {&quot;username&quot;: &quot;alice&quot;, &quot;hashed_password&quot;: &quot;fakehash&quot;, &quot;role&quot;: &quot;admin&quot;},
+    &quot;bob&quot;: {&quot;username&quot;: &quot;bob&quot;, &quot;hashed_password&quot;: &quot;fakehash&quot;, &quot;role&quot;: &quot;user&quot;},
+}
+
+class Token(BaseModel):
+    access_token: str
+    token_type: str
+
+class User(BaseModel):
+    username: str
+    role: str
+
+# Lifespan: replaces on_event startup/shutdown
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    logger.info(&quot;Starting up...&quot;)
+    yield
+    logger.info(&quot;Shutting down...&quot;)
+
+app = FastAPI(title=&quot;Production API&quot;, version=&quot;3.0&quot;, lifespan=lifespan)
+app.add_middleware(CORSMiddleware, allow_origins=[&quot;*&quot;], allow_methods=[&quot;*&quot;], allow_headers=[&quot;*&quot;])
+
+@app.middleware(&quot;http&quot;)
+async def request_tracing(request: Request, call_next):
+    request_id = request.headers.get(&quot;X-Request-ID&quot;, f&quot;auto-{time.time():.0f}&quot;)
+    start = time.time()
+    response = await call_next(request)
+    ms = (time.time() - start) * 1000
+    response.headers[&quot;X-Request-ID&quot;] = request_id
+    response.headers[&quot;X-Duration-Ms&quot;] = f&quot;{ms:.1f}&quot;
+    logger.info(f&quot;[{request_id}] {request.method} {request.url.path} -&gt; {response.status_code} ({ms:.1f}ms)&quot;)
+    return response
+
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl=&quot;token&quot;)
+
+def create_token(data: dict) -&gt; str:
+    payload = {**data, &quot;exp&quot;: datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)}
+    return jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
+
+def decode_token(token: str) -&gt; dict:
+    try:
+        return jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail=&quot;Token expired&quot;)
+    except jwt.InvalidTokenError:
+        raise HTTPException(status_code=401, detail=&quot;Invalid token&quot;)
+
+async def get_current_user(token: str = Depends(oauth2_scheme)) -&gt; User:
+    payload = decode_token(token)
+    username = payload.get(&quot;sub&quot;)
+    if username not in fake_users_db:
+        raise HTTPException(status_code=401, detail=&quot;User not found&quot;)
+    ud = fake_users_db[username]
+    return User(username=ud[&quot;username&quot;], role=ud[&quot;role&quot;])
+
+async def require_role(*roles: str):
+    # Dependency factory: returns a dependency that checks roles
+    async def checker(user: User = Depends(get_current_user)):
+        if user.role not in roles:
+            raise HTTPException(status_code=403, detail=f&quot;Requires role: {roles}&quot;)
+        return user
+    return checker
+
+@app.post(&quot;/token&quot;, response_model=Token)
+def login(username: str, password: str):
+    user = fake_users_db.get(username)
+    if not user:
+        raise HTTPException(status_code=401, detail=&quot;Invalid credentials&quot;)
+    token = create_token({&quot;sub&quot;: username, &quot;role&quot;: user[&quot;role&quot;]})
+    return Token(access_token=token, token_type=&quot;bearer&quot;)
+
+@app.get(&quot;/me&quot;, response_model=User)
+def read_current_user(user: User = Depends(get_current_user)):
+    return user
+
+@app.get(&quot;/admin/dashboard&quot;)
+async def admin_dashboard(user: User = Depends(require_role(&quot;admin&quot;))):
+    return {&quot;message&quot;: f&quot;Admin dashboard for {user.username}&quot;, &quot;stats&quot;: {&quot;users&quot;: 42}}</code></pre>
+
+<p>v3 新增：</p>
+<ul>
+<li><strong>JWT认证</strong>：完整的token创建/验证流程</li>
+<li><strong>lifespan</strong>：替代旧版 <code>on_event</code>，用 <code>asynccontextmanager</code> 管理应用生命周期</li>
+<li><strong>依赖工厂</strong>：<code>require_role("admin")</code> 动态创建带参数的依赖</li>
+
+<hr>
+
+<h2>四、执行预览</h2>
+
+<pre><code class="language-bash">$ uvicorn v3_production:app --reload
+INFO: Starting up...
+
+# 获取Token
+$ curl -X POST http://localhost:8000/token -d &quot;username=alice&amp;password=secret&quot;
+{&quot;access_token&quot;:&quot;eyJ...&quot;,&quot;token_type&quot;:&quot;bearer&quot;}
+
+# 访问受保护端点
+$ curl http://localhost:8000/me -H &quot;Authorization: Bearer eyJ...&quot;
+{&quot;username&quot;:&quot;alice&quot;,&quot;role&quot;:&quot;admin&quot;}
+
+# 普通用户访问admin -&gt; 403
+$ curl http://localhost:8000/admin/dashboard -H &quot;Authorization: Bearer &lt;bob_token&gt;&quot;
+{&quot;detail&quot;:&quot;Requires role: (&#x27;admin&#x27;,)&quot;}
+
+# 管理员访问 -&gt; 200
+$ curl http://localhost:8000/admin/dashboard -H &quot;Authorization: Bearer &lt;alice_token&gt;&quot;
+{&quot;message&quot;:&quot;Admin dashboard for alice&quot;,&quot;stats&quot;:{&quot;users&quot;:42}}</code></pre>
+
+<hr>
+
+<h2>五、注意事项</h2>
+
+<table><thead><tr>
+<th>事项</th>
+<th>说明</th>
+<th>建议</th>
+</tr></thead><tbody>
+<tr>
+<td>依赖缓存</td>
+<td>同一请求内相同依赖只执行一次</td>
+<td>FastAPI自动缓存</td>
+</tr>
+<tr>
+<td>中间件顺序</td>
+<td>按添加顺序的逆序执行响应</td>
+<td>先添加的最先处理请求</td>
+</tr>
+<tr>
+<td>yield依赖</td>
+<td>用于资源管理</td>
+<td>确保finally块释放资源</td>
+</tr>
+<tr>
+<td>异步兼容</td>
+<td>依赖可以是sync或async</td>
+<td>FastAPI自动处理</td>
+</tr>
+<tr>
+<td>全局依赖</td>
+<td>可添加到整个app或router</td>
+<td>用于全局认证</td>
+</tr>
+<tr>
+<td>lifespan</td>
+<td>替代旧版on_event装饰器</td>
+<td>推荐使用asynccontextmanager</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>六、避坑指南</h2>
+
+<h3>❌ 中间件中直接返回响应绕过后续处理</h3>
+<pre><code class="language-python">@app.middleware(&quot;http&quot;)
+async def bad_middleware(request, call_next):
+    if not request.headers.get(&quot;Authorization&quot;):
+        return JSONResponse({&quot;error&quot;: &quot;Unauthorized&quot;}, status_code=401)  # ❌
+    return await call_next(request)</code></pre>
+<h3>✅ 用依赖注入处理认证</h3>
+<pre><code class="language-python">async def verify_token(token: str = Depends(oauth2_scheme)):
+    ...
+
+@app.get(&quot;/protected&quot;)
+def endpoint(user = Depends(verify_token)):  # ✅ 精确控制
+    ...</code></pre>
+
+<h3>❌ 忘记关闭数据库连接</h3>
+<pre><code class="language-python">def get_db():
+    db = Database()
+    return db  # ❌ 连接永远不会关闭</code></pre>
+<h3>✅ 使用yield依赖管理资源</h3>
+<pre><code class="language-python">async def get_db():
+    db = Database()
+    try:
+        yield db  # ✅ 请求完成后自动执行finally
+    finally:
+        await db.close()</code></pre>
+
+<h3>❌ 依赖工厂返回非async函数</h3>
+<pre><code class="language-python">def require_role(role: str):
+    def checker(user = Depends(get_current_user)):  # ❌ 非async
+        ...
+    return checker</code></pre>
+<h3>✅ 正确的依赖工厂</h3>
+<pre><code class="language-python">async def require_role(*roles: str):
+    async def checker(user: User = Depends(get_current_user)):  # ✅
+        if user.role not in roles:
+            raise HTTPException(status_code=403)
+        return user
+    return checker</code></pre>
+
+<hr>
+
+<h2>七、练习题</h2>
+
+<h3>🟢 入门题</h3>
+<ol>
+<li>创建依赖函数 <code>get_db_version()</code> 返回模拟数据库版本，在路由中使用</li>
+</ul>
+<ol>
+<li>添加计时中间件，在响应头返回请求处理时间</li>
+
+<h3>🟡 进阶题</h3>
+<ol>
+<li>实现RBAC：创建 <code>require_role()</code> 依赖工厂，支持多角色检查</li>
+</ul>
+<ol>
+<li>实现请求限流中间件：同一IP每分钟最多60个请求，超限返回429</li>
+
+<h3>🔴 挑战题</h3>
+<ol>
+<li>实现完整JWT认证系统：注册、登录、token刷新、黑名单，用yield依赖管理数据库</li>
+
+<hr>
+
+<h2>八、知识点总结</h2>
+
+<pre><code>FastAPI进阶知识树
+├── 依赖注入
+│   ├── Depends() 核心机制
+│   ├── 函数/类/生成器依赖
+│   ├── 子依赖链（自动解析）
+│   ├── 全局依赖 (app=FastAPI(dependencies=[]))
+│   └── yield依赖（资源生命周期）
+├── 中间件
+│   ├── @app.middleware(&quot;http&quot;)
+│   ├── CORS（跨域）
+│   ├── 自定义（日志/追踪/限流）
+│   └── 执行顺序（洋葱模型）
+├── 认证模式
+│   ├── API Key (Header/Query)
+│   ├── OAuth2 + JWT
+│   └── 角色工厂
+└── 生产实践
+    ├── lifespan（启动/关闭）
+    ├── 结构化日志
+    └── 请求追踪ID</code></pre>
+
+<hr>
+
+<h2>九、举一反三</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>方案</th>
+<th>关键模式</th>
+</tr></thead><tbody>
+<tr>
+<td>数据库会话管理</td>
+<td>yield依赖</td>
+<td>get_db() + try/yield/finally</td>
+</tr>
+<tr>
+<td>多租户隔离</td>
+<td>依赖注入</td>
+<td>get_tenant() 从Header提取</td>
+</tr>
+<tr>
+<td>缓存层</td>
+<td>中间件</td>
+<td>检查缓存命中则短路返回</td>
+</tr>
+<tr>
+<td>请求日志</td>
+<td>中间件</td>
+<td>统一记录请求/响应</td>
+</tr>
+<tr>
+<td>限流</td>
+<td>中间件+Redis</td>
+<td>滑动窗口计数</td>
+</tr>
+<tr>
+<td>配置管理</td>
+<td>全局依赖</td>
+<td>get_settings() 单例模式</td>
+</tr>
+<tr>
+<td>API版本控制</td>
+<td>路由+依赖</td>
+<td>/v1/ /v2/ + 不同依赖</td>
+</tr>
+<tr>
+<td>错误处理</td>
+<td>exception_handler</td>
+<td>全局异常转换</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>十、参考资料</h2>
+
+<ol>
+<li><strong>FastAPI依赖注入</strong>：https://fastapi.tiangolo.com/tutorial/dependencies/</li>
+</ul>
+<ol>
+<li><strong>FastAPI中间件</strong>：https://fastapi.tiangolo.com/tutorial/middleware/</li>
+</ul>
+<ol>
+<li><strong>FastAPI安全</strong>：https://fastapi.tiangolo.com/tutorial/security/</li>
+</ul>
+<ol>
+<li><strong>PyJWT文档</strong>：https://pyjwt.readthedocs.io/</li>
+</ul>
+<ol>
+<li><strong>Python DI模式</strong>：https://python-dependency-injector.ets-labs.org/</li>
+
+<hr>
+
+<h2>十一、代码演进总结</h2>
+
+<table><thead><tr>
+<th>版本</th>
+<th>重点</th>
+<th>新增能力</th>
+</tr></thead><tbody>
+<tr>
+<td>v1</td>
+<td>依赖注入基础</td>
+<td>函数依赖、类依赖、Depends()</td>
+</tr>
+<tr>
+<td>v2</td>
+<td>认证+中间件</td>
+<td>API Key认证、CORS、日志中间件、角色依赖链</td>
+</tr>
+<tr>
+<td>v3</td>
+<td>生产级方案</td>
+<td>JWT认证、lifespan、请求追踪、依赖工厂</td>
+</tr>
+</tbody></table>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

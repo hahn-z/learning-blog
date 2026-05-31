@@ -1,0 +1,874 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>005 - Swoole实战教程005：HTTP服务器</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Swoole/index.html">Swoole</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Swoole/01-从入门到精通/index.html">Swoole从入门到精通</a>
+</nav>
+<h1>005 - Swoole实战教程005：HTTP服务器</h1>
+<div class="meta">
+<span>📂 Swoole从入门到精通</span>
+<span>🏷️ Swoole</span>
+</div>
+<article>
+
+
+<h1>Swoole实战教程005：HTTP服务器</h1>
+
+<blockquote><p><strong>难度标注：</strong> 🟡 中级 | 预计学习时间：50分钟</p></blockquote>
+
+<h2>一、概念讲解</h2>
+
+<h3>Swoole HTTP Server vs PHP-FPM</h3>
+
+<table><thead><tr>
+<th>对比维度</th>
+<th>Nginx + PHP-FPM</th>
+<th>Swoole HTTP Server</th>
+</tr></thead><tbody>
+<tr>
+<td>启动</td>
+<td>每请求加载框架</td>
+<td>框架常驻内存</td>
+</tr>
+<tr>
+<td>性能</td>
+<td>~1000 QPS</td>
+<td>~5000-50000 QPS</td>
+</tr>
+<tr>
+<td>内存</td>
+<td>每请求独立</td>
+<td>Worker共享常驻</td>
+</tr>
+<tr>
+<td>热更新</td>
+<td>自动</td>
+<td>需reload</td>
+</tr>
+<tr>
+<td>生态</td>
+<td>成熟（Composer全兼容）</td>
+<td>部分库不兼容</td>
+</tr>
+<tr>
+<td>部署</td>
+<td>Nginx + FPM配置</td>
+<td>单进程启动</td>
+</tr>
+</tbody></table>
+
+<h3>Swoole HTTP Server核心对象</h3>
+
+<pre><code>Swoole\Http\Server (extends Swoole\Server)
+├── Swoole\Http\Request
+│   ├── $request-&gt;get      (GET参数)
+│   ├── $request-&gt;post     (POST参数)
+│   ├── $request-&gt;header   (请求头)
+│   ├── $request-&gt;server   (服务器变量)
+│   ├── $request-&gt;cookie   (Cookie)
+│   ├── $request-&gt;files    (上传文件)
+│   ├── $request-&gt;rawContent() (原始Body)
+│   └── $request-&gt;getData()    (完整原始请求)
+└── Swoole\Http\Response
+    ├── $response-&gt;header()    (设置响应头)
+    ├── $response-&gt;cookie()    (设置Cookie)
+    ├── $response-&gt;status()    (设置状态码)
+    ├── $response-&gt;write()     (分段写入)
+    ├── $response-&gt;end()       (发送并结束)
+    ├── $response-&gt;sendfile()  (发送文件)
+    ├── $response-&gt;redirect()  (重定向)
+    └── $response-&gt;detach()    (分离响应对象)</code></pre>
+
+<h3>架构设计思路</h3>
+
+<p>在没有框架的情况下，我们需要自己实现：</p>
+
+<ol>
+<li><strong>路由（Router）</strong>：URL → 处理函数映射</li>
+</ul>
+<ol>
+<li><strong>中间件（Middleware）</strong>：请求前/后的统一处理</li>
+</ul>
+<ol>
+<li><strong>控制器（Controller）</strong>：业务逻辑组织</li>
+</ul>
+<ol>
+<li><strong>异常处理（ErrorHandler）</strong>：统一的错误响应</li>
+
+<h2>二、脑图</h2>
+
+<pre><code>HTTP服务器
+├── 基础
+│   ├── Swoole\Http\Server
+│   ├── Request对象
+│   ├── Response对象
+│   └── onRequest事件
+├── 路由设计
+│   ├── 简单数组映射
+│   ├── 正则匹配
+│   └── RESTful风格
+├── 中间件
+│   ├── 认证中间件
+│   ├── CORS中间件
+│   ├── 日志中间件
+│   └── 限流中间件
+├── 实用功能
+│   ├── JSON API
+│   ├── 文件上传
+│   ├── 静态文件
+│   └── Cookie/Session
+└── 性能优化
+    ├── keepalive
+    ├── gzip压缩
+    ├── sendfile
+    └── 压测对比</code></pre>
+
+<h2>三、完整代码</h2>
+
+<h3>生产级HTTP服务器（含路由+中间件）</h3>
+
+<pre><code class="language-php">&lt;?php
+// http_server.php - Production HTTP server with routing and middleware
+
+// ============================================================
+// Router: Simple regex-based router
+// ============================================================
+class Router
+{
+    private array $routes = [];
+    private array $middleware = [];
+
+    // Register a route: method, pattern, handler
+    public function addRoute(string $method, string $pattern, callable $handler): void
+    {
+        $this-&gt;routes[] = [
+            &#x27;method&#x27;  =&gt; strtoupper($method),
+            &#x27;pattern&#x27; =&gt; $pattern,
+            &#x27;regex&#x27;   =&gt; $this-&gt;compilePattern($pattern),
+            &#x27;handler&#x27; =&gt; $handler,
+        ];
+    }
+
+    // Add global middleware
+    public function middleware(callable $mw): void
+    {
+        $this-&gt;middleware[] = $mw;
+    }
+
+    // Compile route pattern to regex
+    private function compilePattern(string $pattern): string
+    {
+        // Convert {param} to named capture group
+        $regex = preg_replace(&#x27;/\{([a-zA-Z_]+)\}/&#x27;, &#x27;(?P&lt;$1&gt;[^/]+)&#x27;, $pattern);
+        return &#x27;#^&#x27; . $regex . &#x27;$#&#x27;;
+    }
+
+    // Dispatch request to matching route
+    public function dispatch(string $method, string $uri): ?array
+    {
+        foreach ($this-&gt;routes as $route) {
+            if ($route[&#x27;method&#x27;] !== strtoupper($method)) {
+                continue;
+            }
+            if (preg_match($route[&#x27;regex&#x27;], $uri, $matches)) {
+                // Extract named captures
+                $params = array_filter($matches, &#x27;is_string&#x27;, ARRAY_FILTER_USE_KEY);
+                return [
+                    &#x27;handler&#x27;     =&gt; $route[&#x27;handler&#x27;],
+                    &#x27;params&#x27;      =&gt; $params,
+                    &#x27;middleware&#x27;  =&gt; $this-&gt;middleware,
+                ];
+            }
+        }
+        return null;
+    }
+}
+
+// ============================================================
+// Application: Main HTTP application
+// ============================================================
+class App
+{
+    private Router $router;
+    private Swoole\Http\Server $server;
+    private array $config;
+
+    public function __construct(array $config = [])
+    {
+        $this-&gt;config = array_merge([
+            &#x27;host&#x27;       =&gt; &#x27;0.0.0.0&#x27;,
+            &#x27;port&#x27;       =&gt; 9501,
+            &#x27;worker_num&#x27; =&gt; 4,
+            &#x27;document_root&#x27; =&gt; &#x27;&#x27;,
+        ], $config);
+
+        $this-&gt;router = new Router();
+        $this-&gt;server = new Swoole\Http\Server(
+            $this-&gt;config[&#x27;host&#x27;],
+            $this-&gt;config[&#x27;port&#x27;]
+        );
+
+        $settings = [
+            &#x27;worker_num&#x27; =&gt; $this-&gt;config[&#x27;worker_num&#x27;],
+            &#x27;log_file&#x27;   =&gt; &#x27;/tmp/http_server.log&#x27;,
+            &#x27;http_compression&#x27;      =&gt; true,
+            &#x27;http_compression_level&#x27; =&gt; 3,
+            &#x27;heartbeat_idle_time&#x27;   =&gt; 30,
+            &#x27;heartbeat_check_interval&#x27; =&gt; 15,
+        ];
+
+        // Enable static file serving if document_root is set
+        if ($this-&gt;config[&#x27;document_root&#x27;]) {
+            $settings[&#x27;document_root&#x27;] = $this-&gt;config[&#x27;document_root&#x27;];
+            $settings[&#x27;enable_static_handler&#x27;] = true;
+        }
+
+        $this-&gt;server-&gt;set($settings);
+    }
+
+    public function getRouter(): Router
+    {
+        return $this-&gt;router;
+    }
+
+    public function get(string $path, callable $handler): void
+    {
+        $this-&gt;router-&gt;addRoute(&#x27;GET&#x27;, $path, $handler);
+    }
+
+    public function post(string $path, callable $handler): void
+    {
+        $this-&gt;router-&gt;addRoute(&#x27;POST&#x27;, $path, $handler);
+    }
+
+    public function middleware(callable $mw): void
+    {
+        $this-&gt;router-&gt;middleware($mw);
+    }
+
+    public function start(): void
+    {
+        $router = $this-&gt;router;
+
+        $this-&gt;server-&gt;on(&#x27;request&#x27;, function (
+            Swoole\Http\Request $request,
+            Swoole\Http\Response $response
+        ) use ($router) {
+            $this-&gt;handleRequest($request, $response, $router);
+        });
+
+        $this-&gt;server-&gt;on(&#x27;workerStart&#x27;, function ($server, $workerId) {
+            echo &quot;[Worker#{$workerId}] HTTP server ready\n&quot;;
+        });
+
+        $this-&gt;server-&gt;start();
+    }
+
+    private function handleRequest(
+        Swoole\Http\Request $req,
+        Swoole\Http\Response $res,
+        Router $router
+    ): void {
+        $uri    = $req-&gt;server[&#x27;request_uri&#x27;] ?? &#x27;/&#x27;;
+        $method = $req-&gt;server[&#x27;request_method&#x27;] ?? &#x27;GET&#x27;;
+
+        // Set default CORS headers
+        $res-&gt;header(&#x27;Access-Control-Allow-Origin&#x27;, &#x27;*&#x27;);
+        $res-&gt;header(&#x27;Access-Control-Allow-Methods&#x27;, &#x27;GET, POST, PUT, DELETE, OPTIONS&#x27;);
+        $res-&gt;header(&#x27;Access-Control-Allow-Headers&#x27;, &#x27;Content-Type, Authorization&#x27;);
+
+        // Handle preflight
+        if ($method === &#x27;OPTIONS&#x27;) {
+            $res-&gt;status(204);
+            $res-&gt;end();
+            return;
+        }
+
+        // Dispatch route
+        $match = $router-&gt;dispatch($method, $uri);
+
+        if (!$match) {
+            $this-&gt;jsonResponse($res, [&#x27;error&#x27; =&gt; &#x27;Not Found&#x27;, &#x27;path&#x27; =&gt; $uri], 404);
+            return;
+        }
+
+        // Run middleware chain
+        $handler = $match[&#x27;handler&#x27;];
+        $params  = $match[&#x27;params&#x27;];
+
+        foreach ($match[&#x27;middleware&#x27;] as $mw) {
+            $result = $mw($req, $res);
+            if ($result === false) {
+                return; // Middleware rejected the request
+            }
+        }
+
+        // Execute handler
+        try {
+            $handler($req, $res, $params);
+        } catch (Throwable $e) {
+            $this-&gt;jsonResponse($res, [
+                &#x27;error&#x27;   =&gt; &#x27;Internal Server Error&#x27;,
+                &#x27;message&#x27; =&gt; $e-&gt;getMessage(),
+                &#x27;file&#x27;    =&gt; $e-&gt;getFile() . &#x27;:&#x27; . $e-&gt;getLine(),
+            ], 500);
+        }
+    }
+
+    private function jsonResponse(
+        Swoole\Http\Response $res,
+        array $data,
+        int $status = 200
+    ): void {
+        $res-&gt;header(&#x27;Content-Type&#x27;, &#x27;application/json; charset=utf-8&#x27;);
+        $res-&gt;status($status);
+        $res-&gt;end(json_encode($data, JSON_UNESCAPED_UNICODE));
+    }
+}
+
+// ============================================================
+// Define routes and start server
+// ============================================================
+
+$app = new App([
+    &#x27;worker_num&#x27; =&gt; 4,
+    &#x27;document_root&#x27; =&gt; __DIR__ . &#x27;/public&#x27;,
+]);
+
+// Global middleware: request logging
+$app-&gt;middleware(function ($req, $res) {
+    $uri    = $req-&gt;server[&#x27;request_uri&#x27;];
+    $method = $req-&gt;server[&#x27;request_method&#x27;];
+    $time   = date(&#x27;Y-m-d H:i:s&#x27;);
+    echo &quot;[{$time}] {$method} {$uri}\n&quot;;
+    return true; // Continue to next middleware/handler
+});
+
+// Global middleware: API key check for /api/* routes
+$app-&gt;middleware(function ($req, $res) {
+    $uri = $req-&gt;server[&#x27;request_uri&#x27;] ?? &#x27;/&#x27;;
+    if (str_starts_with($uri, &#x27;/api/&#x27;)) {
+        $key = $req-&gt;header[&#x27;x-api-key&#x27;] ?? $req-&gt;get[&#x27;api_key&#x27;] ?? &#x27;&#x27;;
+        if ($key !== &#x27;my-secret-key&#x27;) {
+            $res-&gt;status(401);
+            $res-&gt;header(&#x27;Content-Type&#x27;, &#x27;application/json&#x27;);
+            $res-&gt;end(json_encode([&#x27;error&#x27; =&gt; &#x27;Unauthorized: Invalid API key&#x27;]));
+            return false;
+        }
+    }
+    return true;
+});
+
+// --- Routes ---
+
+// Home
+$app-&gt;get(&#x27;/&#x27;, function ($req, $res) {
+    $res-&gt;header(&#x27;Content-Type&#x27;, &#x27;text/html; charset=utf-8&#x27;);
+    $res-&gt;end(&#x27;&lt;h1&gt;Swoole HTTP Server&lt;/h1&gt;&lt;p&gt;Server is running!&lt;/p&gt;&#x27;);
+});
+
+// JSON API: system info
+$app-&gt;get(&#x27;/api/info&#x27;, function ($req, $res) {
+    $res-&gt;header(&#x27;Content-Type&#x27;, &#x27;application/json&#x27;);
+    $res-&gt;end(json_encode([
+        &#x27;swoole_version&#x27; =&gt; swoole_version(),
+        &#x27;php_version&#x27;    =&gt; PHP_VERSION,
+        &#x27;workers&#x27;        =&gt; SWOOLE_CPU_NUM,
+        &#x27;timestamp&#x27;      =&gt; time(),
+        &#x27;memory&#x27;         =&gt; round(memory_get_usage(true) / 1024 / 1024, 2) . &#x27;MB&#x27;,
+    ]));
+});
+
+// JSON API: user profile with path parameter
+$app-&gt;get(&#x27;/api/user/{id}&#x27;, function ($req, $res, $params) {
+    $userId = $params[&#x27;id&#x27;];
+    $res-&gt;header(&#x27;Content-Type&#x27;, &#x27;application/json&#x27;);
+    $res-&gt;end(json_encode([
+        &#x27;id&#x27;   =&gt; $userId,
+        &#x27;name&#x27; =&gt; &quot;User {$userId}&quot;,
+        &#x27;email&#x27; =&gt; &quot;user{$userId}@example.com&quot;,
+    ]));
+});
+
+// POST: create resource
+$app-&gt;post(&#x27;/api/echo&#x27;, function ($req, $res) {
+    $body = json_decode($req-&gt;rawContent(), true) ?? $req-&gt;post ?? [];
+    $res-&gt;header(&#x27;Content-Type&#x27;, &#x27;application/json&#x27;);
+    $res-&gt;end(json_encode([
+        &#x27;echo&#x27;      =&gt; $body,
+        &#x27;timestamp&#x27; =&gt; time(),
+        &#x27;headers&#x27;   =&gt; array_map(function($v) { return is_array($v) ? $v : (string)$v; }, $req-&gt;header),
+    ], JSON_UNESCAPED_UNICODE));
+});
+
+// File upload handler
+$app-&gt;post(&#x27;/api/upload&#x27;, function ($req, $res) {
+    $files = $req-&gt;files ?? [];
+    if (empty($files)) {
+        $res-&gt;status(400);
+        $res-&gt;header(&#x27;Content-Type&#x27;, &#x27;application/json&#x27;);
+        $res-&gt;end(json_encode([&#x27;error&#x27; =&gt; &#x27;No files uploaded&#x27;]));
+        return;
+    }
+
+    $results = [];
+    foreach ($files as $key =&gt; $file) {
+        $tmpName  = $file[&#x27;tmp_name&#x27;];
+        $origName = $file[&#x27;name&#x27;];
+        $size     = $file[&#x27;size&#x27;];
+        $ext      = pathinfo($origName, PATHINFO_EXTENSION);
+
+        // Save to uploads directory
+        $saveDir = __DIR__ . &#x27;/uploads&#x27;;
+        if (!is_dir($saveDir)) mkdir($saveDir, 0755, true);
+        $savePath = $saveDir . &#x27;/&#x27; . uniqid() . &#x27;.&#x27; . $ext;
+
+        move_uploaded_file($tmpName, $savePath);
+        $results[] = [
+            &#x27;name&#x27; =&gt; $origName,
+            &#x27;size&#x27; =&gt; $size,
+            &#x27;path&#x27; =&gt; basename($savePath),
+        ];
+    }
+
+    $res-&gt;header(&#x27;Content-Type&#x27;, &#x27;application/json&#x27;);
+    $res-&gt;end(json_encode([&#x27;uploaded&#x27; =&gt; $results]));
+});
+
+// SSE (Server-Sent Events) demo
+$app-&gt;get(&#x27;/api/sse&#x27;, function ($req, $res) {
+    $res-&gt;header(&#x27;Content-Type&#x27;, &#x27;text/event-stream&#x27;);
+    $res-&gt;header(&#x27;Cache-Control&#x27;, &#x27;no-cache&#x27;);
+    $res-&gt;header(&#x27;Connection&#x27;, &#x27;keep-alive&#x27;);
+
+    // Send 5 events with 1 second interval
+    for ($i = 1; $i &lt;= 5; $i++) {
+        $data = json_encode([&#x27;count&#x27; =&gt; $i, &#x27;ts&#x27; =&gt; time()]);
+        $res-&gt;write(&quot;event: message\ndata: {$data}\n\n&quot;);
+        Swoole\Coroutine\System::sleep(1);
+    }
+    $res-&gt;end();
+});
+
+echo &quot;HTTP Server starting on http://0.0.0.0:9501\n&quot;;
+$app-&gt;start();</code></pre>
+
+<h3>压测脚本</h3>
+
+<pre><code class="language-php">&lt;?php
+// benchmark.php - Simple HTTP benchmark with Swoole coroutines
+
+Swoole\Coroutine\run(function () {
+    $concurrency = 100;
+    $total       = 10000;
+    $perWorker   = intval($total / $concurrency);
+    $url         = &#x27;http://127.0.0.1:9501/api/info&#x27;;
+
+    echo &quot;Benchmark: {$total} requests, {$concurrency} concurrency\n&quot;;
+    echo &quot;Target: {$url}\n\n&quot;;
+
+    $start = microtime(true);
+    $errors = 0;
+
+    $wg = new Swoole\Coroutine\WaitGroup();
+
+    for ($i = 0; $i &lt; $concurrency; $i++) {
+        $wg-&gt;add();
+        Swoole\Coroutine::create(function () use ($wg, $perWorker, $url, &amp;$errors) {
+            $client = new Swoole\Coroutine\Http\Client(&#x27;127.0.0.1&#x27;, 9501);
+
+            for ($j = 0; $j &lt; $perWorker; $j++) {
+                $client-&gt;get(&#x27;/api/info&#x27;);
+                if ($client-&gt;statusCode !== 200) {
+                    $errors++;
+                }
+                $client-&gt;body; // Consume body
+            }
+
+            $client-&gt;close();
+            $wg-&gt;done();
+        });
+    }
+
+    $wg-&gt;wait();
+    $elapsed = microtime(true) - $start;
+
+    $qps = round($total / $elapsed);
+    echo &quot;Results:\n&quot;;
+    echo &quot;  Total:      {$total} requests\n&quot;;
+    echo &quot;  Errors:     {$errors}\n&quot;;
+    echo &quot;  Time:       &quot; . round($elapsed, 2) . &quot;s\n&quot;;
+    echo &quot;  QPS:        {$qps}\n&quot;;
+    echo &quot;  Avg Latency: &quot; . round($elapsed / $total * 1000, 2) . &quot;ms\n&quot;;
+});</code></pre>
+
+<h2>四、执行预览</h2>
+
+<p><strong>启动服务器：</strong></p>
+<pre><code class="language-bash">$ php http_server.php
+HTTP Server starting on http://0.0.0.0:9501
+[Worker#0] HTTP server ready
+[Worker#1] HTTP server ready</code></pre>
+
+<p><strong>测试API：</strong></p>
+<pre><code class="language-bash"># Home page
+$ curl http://127.0.0.1:9501/
+&lt;h1&gt;Swoole HTTP Server&lt;/h1&gt;&lt;p&gt;Server is running!&lt;/p&gt;
+
+# JSON API
+$ curl http://127.0.0.1:9501/api/info -H &#x27;X-Api-Key: my-secret-key&#x27;
+{&quot;swoole_version&quot;:&quot;5.1.1&quot;,&quot;php_version&quot;:&quot;8.3.0&quot;,&quot;workers&quot;:4,&quot;timestamp&quot;:1745856000,&quot;memory&quot;:&quot;2.5MB&quot;}
+
+# Path parameter
+$ curl http://127.0.0.1:9501/api/user/42 -H &#x27;X-Api-Key: my-secret-key&#x27;
+{&quot;id&quot;:&quot;42&quot;,&quot;name&quot;:&quot;User 42&quot;,&quot;email&quot;:&quot;user42@example.com&quot;}
+
+# POST JSON
+$ curl -X POST http://127.0.0.1:9501/api/echo \
+    -H &#x27;X-Api-Key: my-secret-key&#x27; \
+    -H &#x27;Content-Type: application/json&#x27; \
+    -d &#x27;{&quot;msg&quot;:&quot;hello swoole&quot;}&#x27;
+{&quot;echo&quot;:{&quot;msg&quot;:&quot;hello swoole&quot;},&quot;timestamp&quot;:1745856000,&quot;headers&quot;:{...}}
+
+# Auth failure
+$ curl http://127.0.0.1:9501/api/info
+{&quot;error&quot;:&quot;Unauthorized: Invalid API key&quot;}</code></pre>
+
+<p><strong>压测结果：</strong></p>
+<pre><code class="language-bash">$ php benchmark.php
+Benchmark: 10000 requests, 100 concurrency
+Target: http://127.0.0.1:9501/api/info
+
+Results:
+  Total:      10000 requests
+  Errors:     0
+  Time:       0.85s
+  QPS:        11764
+  Avg Latency: 0.08ms</code></pre>
+
+<h2>五、注意事项</h2>
+
+<table><thead><tr>
+<th>事项</th>
+<th>说明</th>
+<th>建议</th>
+</tr></thead><tbody>
+<tr>
+<td>内存泄漏</td>
+<td>全局变量/静态变量不会自动清理</td>
+<td>onRequest结束时手动清理</td>
+</tr>
+<tr>
+<td>连接池</td>
+<td>MySQL/Redis连接在WorkerStart中创建</td>
+<td>不要在onRequest中创建</td>
+</tr>
+<tr>
+<td>大Body</td>
+<td>默认POST最大2MB</td>
+<td>通过package_max_length调整</td>
+</tr>
+<tr>
+<td>静态文件</td>
+<td>enable_static_handler=true</td>
+<td>生产环境建议Nginx做前置</td>
+</tr>
+<tr>
+<td>HTTPS</td>
+<td>需要配置ssl_cert_file</td>
+<td>或用Nginx做TLS终止</td>
+</tr>
+<tr>
+<td>框架兼容</td>
+<td>Laravel/ThinkPHP可运行但需适配</td>
+<td>使用Swoole专用桥接包</td>
+</tr>
+</tbody></table>
+
+<h2>六、避坑指南</h2>
+
+<h3>❌ 坑1：在onRequest中使用全局/静态变量累积数据</h3>
+<pre><code class="language-php">&lt;?php
+// ❌ Wrong: Static array grows forever, never cleaned
+class Cache {
+    static array $data = [];
+}
+$server-&gt;on(&#x27;request&#x27;, function ($req, $res) {
+    Cache::$data[uniqid()] = $req-&gt;post; // Memory leak!
+    $res-&gt;end(&#x27;ok&#x27;);
+});</code></pre>
+
+<pre><code class="language-php">&lt;?php
+// ✅ Correct: Use Swoole Table with size limit, or clean up
+$table = new Swoole\Table(1024);
+$table-&gt;column(&#x27;data&#x27;, Swoole\Table::TYPE_STRING, 1024);
+$table-&gt;create();
+
+$server-&gt;on(&#x27;request&#x27;, function ($req, $res) use ($table) {
+    $key = uniqid();
+    $table-&gt;set($key, [&#x27;data&#x27; =&gt; json_encode($req-&gt;post)]);
+    $res-&gt;end(&#x27;ok&#x27;);
+});</code></pre>
+
+<h3>❌ 坑2：忘记调用end()</h3>
+<pre><code class="language-php">&lt;?php
+// ❌ Wrong: Response never sent to client
+$server-&gt;on(&#x27;request&#x27;, function ($req, $res) {
+    // Processing...
+    $data = doSomething();
+    // Forgot $res-&gt;end($data)! Client hangs until timeout
+});</code></pre>
+
+<pre><code class="language-php">&lt;?php
+// ✅ Correct: Always call end(), even on error
+$server-&gt;on(&#x27;request&#x27;, function ($req, $res) {
+    try {
+        $data = doSomething();
+        $res-&gt;end($data);
+    } catch (Throwable $e) {
+        $res-&gt;status(500);
+        $res-&gt;end(json_encode([&#x27;error&#x27; =&gt; $e-&gt;getMessage()]));
+    }
+});</code></pre>
+
+<h3>❌ 坑3：在onRequest中创建数据库连接</h3>
+<pre><code class="language-php">&lt;?php
+// ❌ Wrong: New connection per request = connection pool exhaustion
+$server-&gt;on(&#x27;request&#x27;, function ($req, $res) {
+    $pdo = new PDO(&#x27;mysql:host=127.0.0.1&#x27;, &#x27;root&#x27;, &#x27;&#x27;);
+    // ... use pdo ...
+    $res-&gt;end(&#x27;ok&#x27;);
+});</code></pre>
+
+<pre><code class="language-php">&lt;?php
+// ✅ Correct: Create in workerStart, reuse across requests
+$server-&gt;on(&#x27;workerStart&#x27;, function ($server, $workerId) {
+    $server-&gt;pdo = new PDO(&#x27;mysql:host=127.0.0.1&#x27;, &#x27;root&#x27;, &#x27;&#x27;);
+});
+$server-&gt;on(&#x27;request&#x27;, function ($req, $res) use ($server) {
+    $stmt = $server-&gt;pdo-&gt;query(&#x27;SELECT 1&#x27;);
+    $res-&gt;end(json_encode($stmt-&gt;fetchAll()));
+});</code></pre>
+
+<h2>七、练习题</h2>
+
+<h3>🟢 基础题</h3>
+<ol>
+<li>创建一个HTTP服务器，提供<code>/api/time</code>接口返回当前时间戳（JSON格式）</li>
+</ul>
+<ol>
+<li>添加<code>/api/greet/{name}</code>路由，返回<code>{"message": "Hello, {name}!"}</code></li>
+
+<h3>🟡 进阶题</h3>
+<ol>
+<li>实现一个Rate Limiter中间件：每个IP每分钟最多60次请求，超过返回429</li>
+</ul>
+<ol>
+<li>实现一个简单的RESTful CRUD API：内存中用数组存储数据，支持GET/POST/PUT/DELETE</li>
+
+<h3>🔴 挑战题</h3>
+<ol>
+<li>实现一个完整的迷你框架：支持路由分组、中间件栈、依赖注入容器、统一错误处理</li>
+
+<p><details></p>
+<p><summary>参考答案（基础题1）</summary></p>
+
+<pre><code class="language-php">&lt;?php
+$server = new Swoole\Http\Server(&#x27;0.0.0.0&#x27;, 9501);
+$server-&gt;on(&#x27;request&#x27;, function ($req, $res) {
+    if ($req-&gt;server[&#x27;request_uri&#x27;] === &#x27;/api/time&#x27;) {
+        $res-&gt;header(&#x27;Content-Type&#x27;, &#x27;application/json&#x27;);
+        $res-&gt;end(json_encode([&#x27;timestamp&#x27; =&gt; time(), &#x27;datetime&#x27; =&gt; date(&#x27;Y-m-d H:i:s&#x27;)]));
+    } else {
+        $res-&gt;status(404);
+        $res-&gt;end(&#x27;Not Found&#x27;);
+    }
+});
+$server-&gt;start();</code></pre>
+<p></details></p>
+
+<h2>八、知识点总结</h2>
+
+<pre><code>HTTP服务器知识树
+├── 核心API
+│   ├── Http\Server extends Server
+│   ├── Request (get/post/header/files/rawContent)
+│   └── Response (status/header/cookie/end/write/sendfile)
+├── 路由设计
+│   ├── 数组映射
+│   ├── 正则匹配 ★
+│   └── RESTful约定
+├── 中间件
+│   ├── 认证 (API Key/JWT)
+│   ├── CORS
+│   ├── 日志
+│   └── 限流
+├── 实用功能
+│   ├── JSON API
+│   ├── 文件上传
+│   ├── SSE推送
+│   └── 静态文件
+└── 性能
+    ├── http_compression (gzip)
+    ├── keepalive
+    ├── sendfile
+    └── 压测 (ab/wrk/coroutine)</code></pre>
+
+<h2>九、举一反三</h2>
+
+<table><thead><tr>
+<th>功能</th>
+<th>实现方式</th>
+<th>关键API</th>
+</tr></thead><tbody>
+<tr>
+<td>RESTful API</td>
+<td>路由+JSON</td>
+<td>Request/Response</td>
+</tr>
+<tr>
+<td>文件下载</td>
+<td>sendfile()</td>
+<td>Response::sendfile()</td>
+</tr>
+<tr>
+<td>SSE推送</td>
+<td>write() + event-stream格式</td>
+<td>Response::write()</td>
+</tr>
+<tr>
+<td>文件上传</td>
+<td>$request->files</td>
+<td>move_uploaded_file()</td>
+</tr>
+<tr>
+<td>Cookie认证</td>
+<td>cookie()/header()</td>
+<td>Request::$cookie</td>
+</tr>
+<tr>
+<td>Gzip压缩</td>
+<td>http_compression=true</td>
+<td>Server::set()</td>
+</tr>
+<tr>
+<td>HTTPS</td>
+<td>ssl_cert_file配置</td>
+<td>Server::set()</td>
+</tr>
+<tr>
+<td>反向代理</td>
+<td>Nginx前置</td>
+<td>proxy_pass 9501</td>
+</tr>
+</tbody></table>
+
+<h2>十、参考资料</h2>
+
+<ul>
+<li><a href="https://wiki.swoole.com/#/http_server">Swoole HTTP Server文档</a></li>
+<li><a href="https://wiki.swoole.com/#/http/request">Swoole Http\Request文档</a></li>
+<li><a href="https://wiki.swoole.com/#/http/response">Swoole Http\Response文档</a></li>
+<li><a href="https://laravel.com/docs/10.x/octane">Swoole与Laravel集成</a></li>
+<li><a href="https://github.com/wg/wrk">wrk HTTP压测工具</a></li>
+
+<h2>十一、代码演进</h2>
+
+<h3>v1：最简HTTP服务器</h3>
+<pre><code class="language-php">&lt;?php
+// v1: Minimal HTTP server
+$server = new Swoole\Http\Server(&#x27;0.0.0.0&#x27;, 9501);
+$server-&gt;on(&#x27;request&#x27;, function ($req, $res) {
+    $res-&gt;end(&#x27;&lt;h1&gt;Hello Swoole!&lt;/h1&gt;&#x27;);
+});
+$server-&gt;start();</code></pre>
+
+<h3>v2：带简单路由的HTTP服务器</h3>
+<pre><code class="language-php">&lt;?php
+// v2: HTTP server with basic routing
+$server = new Swoole\Http\Server(&#x27;0.0.0.0&#x27;, 9501);
+
+$routes = [
+    &#x27;/&#x27;     =&gt; fn($r) =&gt; &#x27;&lt;h1&gt;Home&lt;/h1&gt;&#x27;,
+    &#x27;/api&#x27;  =&gt; fn($r) =&gt; json_encode([&#x27;status&#x27; =&gt; &#x27;ok&#x27;]),
+];
+
+$server-&gt;on(&#x27;request&#x27;, function ($req, $res) use ($routes) {
+    $uri = $req-&gt;server[&#x27;request_uri&#x27;];
+    if (isset($routes[$uri])) {
+        $res-&gt;end($routes[$uri]($req));
+    } else {
+        $res-&gt;status(404);
+        $res-&gt;end(&#x27;Not Found&#x27;);
+    }
+});
+$server-&gt;start();</code></pre>
+
+<h3>v3：完整HTTP服务器（路由+中间件+错误处理+文件上传+SSE）</h3>
+<p>见上方「生产级HTTP服务器」完整代码。</p>
+
+<hr>
+
+<p><strong>恭喜！</strong> 完成了Swoole基础5篇教程。下一篇将进入更高级的话题，如WebSocket、协程、进程管理等。</p>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

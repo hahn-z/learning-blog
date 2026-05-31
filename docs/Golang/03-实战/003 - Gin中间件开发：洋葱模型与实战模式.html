@@ -1,0 +1,492 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>003 - Gin中间件开发：洋葱模型与实战模式</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Golang/index.html">Golang</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Golang/03-实战/index.html">Golang实战</a>
+</nav>
+<h1>003 - Gin中间件开发：洋葱模型与实战模式</h1>
+<div class="meta">
+<span>📂 Golang实战</span>
+<span>🏷️ Golang</span>
+</div>
+<article>
+
+
+<h2>难度标注</h2>
+
+<blockquote><p>🟡 中级 | 需要理解 Gin 基础、HTTP 中间件模式、闭包概念</p></blockquote>
+
+<h2>概念讲解</h2>
+
+<p>中间件（Middleware）是 Web 框架中的<strong>洋葱模型</strong>：请求从外层进入，逐层穿过中间件到达处理函数，响应再逐层返回。</p>
+
+<p><strong>Gin 中间件本质：</strong> 一个返回 <code>gin.HandlerFunc</code> 的函数，通过 <code>c.Next()</code> 将控制权交给下一个中间件或最终 handler。</p>
+
+<p><strong>执行顺序：</strong></p>
+<pre><code>请求 → Middleware1(前) → Middleware2(前) → Handler → Middleware2(后) → Middleware1(后) → 响应</code></pre>
+
+<p><strong>中间件分类：</strong></p>
+<ul>
+<li><strong>全局中间件</strong>：所有路由生效（如日志、Recovery）</li>
+<li><strong>路由组中间件</strong>：特定路由组生效（如认证）</li>
+<li><strong>单路由中间件</strong>：仅某个路由生效</li>
+
+<p><strong>核心 API：</strong></p>
+<ul>
+<li><code>c.Next()</code> — 调用下一个 handler</li>
+<li><code>c.Abort()</code> — 终止链式调用</li>
+<li><code>c.Set()</code> / <code>c.Get()</code> — 在中间件间传递数据</li>
+
+<h2>脑图</h2>
+
+<pre><code>Gin 中间件开发
+├── 执行模型
+│   ├── 洋葱模型 (c.Next 前后)
+│   ├── c.Abort() 终止链
+│   └── c.Set/Get 传递数据
+├── 中间件类型
+│   ├── 全局 r.Use(mw)
+│   ├── 路由组 group.Use(mw)
+│   └── 单路由 r.GET(path, mw, handler)
+├── 常见中间件
+│   ├── 日志 (Logger)
+│   ├── 错误恢复 (Recovery)
+│   ├── 认证 (Auth)
+│   ├── CORS 跨域
+│   ├── 限流 (Rate Limit)
+│   └── 请求 ID (RequestID)
+└── 高级模式
+    ├── 中间件传参 (闭包)
+    ├── 中间件跳过
+    └── 异步处理</code></pre>
+
+<h2>完整 Go 代码</h2>
+
+<pre><code class="language-go">package main
+
+import (
+	&quot;log&quot;
+	&quot;net/http&quot;
+	&quot;sync&quot;
+	&quot;time&quot;
+
+	&quot;github.com/gin-gonic/gin&quot;
+)
+
+func main() {
+	r := gin.New() // No default middleware
+
+	// ============================================
+	// 1. Global middleware
+	// ============================================
+	r.Use(RequestID())
+	r.Use(gin.Logger())
+	r.Use(gin.Recovery())
+	r.Use(CORS())
+
+	// ============================================
+	// 2. Rate limiter middleware (closure pattern)
+	// ============================================
+	rateLimit := RateLimit(100, time.Minute) // 100 req/min
+
+	// ============================================
+	// 3. Public routes
+	// ============================================
+	r.GET(&quot;/ping&quot;, func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{
+			&quot;message&quot;:    &quot;pong&quot;,
+			&quot;request_id&quot;: c.GetString(&quot;request_id&quot;),
+		})
+	})
+
+	// ============================================
+	// 4. Protected routes with middleware
+	// ============================================
+	api := r.Group(&quot;/api&quot;)
+	api.Use(rateLimit)
+	{
+		// Public API
+		api.POST(&quot;/login&quot;, func(c *gin.Context) {
+			c.JSON(http.StatusOK, gin.H{&quot;token&quot;: &quot;fake-jwt-token&quot;})
+		})
+
+		// Protected API - requires auth
+		protected := api.Group(&quot;&quot;)
+		protected.Use(AuthRequired())
+		{
+			protected.GET(&quot;/profile&quot;, func(c *gin.Context) {
+				user := c.GetString(&quot;user&quot;)
+				c.JSON(http.StatusOK, gin.H{&quot;user&quot;: user})
+			})
+
+			protected.GET(&quot;/admin&quot;, AdminOnly(), func(c *gin.Context) {
+				c.JSON(http.StatusOK, gin.H{&quot;message&quot;: &quot;welcome admin&quot;})
+			})
+		}
+	}
+
+	r.Run(&quot;:8080&quot;)
+}
+
+// ============================================
+// Middleware implementations
+// ============================================
+
+// RequestID adds a unique request ID to each request.
+func RequestID() gin.HandlerFunc {
+	var counter uint64
+	var mu sync.Mutex
+	return func(c *gin.Context) {
+		mu.Lock()
+		counter++
+		id := counter
+		mu.Unlock()
+		c.Set(&quot;request_id&quot;, fmt.Sprintf(&quot;req-%d&quot;, id))
+		c.Header(&quot;X-Request-ID&quot;, fmt.Sprintf(&quot;req-%d&quot;, id))
+		c.Next()
+	}
+}
+
+// CORS adds Cross-Origin Resource Sharing headers.
+func CORS() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		c.Header(&quot;Access-Control-Allow-Origin&quot;, &quot;*&quot;)
+		c.Header(&quot;Access-Control-Allow-Methods&quot;, &quot;GET,POST,PUT,DELETE,OPTIONS&quot;)
+		c.Header(&quot;Access-Control-Allow-Headers&quot;, &quot;Content-Type,Authorization&quot;)
+
+		if c.Request.Method == http.MethodOptions {
+			c.AbortWithStatus(http.StatusNoContent)
+			return
+		}
+		c.Next()
+	}
+}
+
+// RateLimit creates a rate limiting middleware using a token bucket approach.
+// maxRequests: maximum requests allowed in the time window.
+// window: the time window duration.
+func RateLimit(maxRequests int, window time.Duration) gin.HandlerFunc {
+	type visitor struct {
+		count   int
+		expires time.Time
+	}
+	var (
+		mu       sync.Mutex
+		visitors = make(map[string]*visitor)
+	)
+
+	// Cleanup expired entries periodically
+	go func() {
+		for {
+			time.Sleep(window)
+			mu.Lock()
+			for ip, v := range visitors {
+				if time.Now().After(v.expires) {
+					delete(visitors, ip)
+				}
+			}
+			mu.Unlock()
+		}
+	}()
+
+	return func(c *gin.Context) {
+		ip := c.ClientIP()
+		mu.Lock()
+		v, exists := visitors[ip]
+		if !exists || time.Now().After(v.expires) {
+			visitors[ip] = &amp;visitor{
+				count:   1,
+				expires: time.Now().Add(window),
+			}
+			mu.Unlock()
+			c.Next()
+			return
+		}
+		v.count++
+		if v.count &gt; maxRequests {
+			mu.Unlock()
+			c.AbortWithStatusJSON(http.StatusTooManyRequests, gin.H{
+				&quot;error&quot;: &quot;rate limit exceeded&quot;,
+			})
+			return
+		}
+		mu.Unlock()
+		c.Next()
+	}
+}
+
+// AuthRequired checks for a valid Authorization header.
+func AuthRequired() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		token := c.GetHeader(&quot;Authorization&quot;)
+		if token == &quot;&quot; {
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
+				&quot;error&quot;: &quot;missing authorization header&quot;,
+			})
+			return
+		}
+		if token != &quot;Bearer fake-jwt-token&quot; {
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
+				&quot;error&quot;: &quot;invalid token&quot;,
+			})
+			return
+		}
+		c.Set(&quot;user&quot;, &quot;demo_user&quot;)
+		c.Next()
+	}
+}
+
+// AdminOnly checks if the authenticated user is an admin.
+func AdminOnly() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		user := c.GetString(&quot;user&quot;)
+		if user != &quot;admin&quot; {
+			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{
+				&quot;error&quot;: &quot;admin access required&quot;,
+			})
+			return
+		}
+		c.Next()
+	}
+}</code></pre>
+
+<blockquote><p>⚠️ 注意：上面代码需要 <code>import "fmt"</code> 才能编译。实际项目中请确保 import 完整。</p></blockquote>
+
+<h2>执行预览</h2>
+
+<pre><code class="language-bash">$ go run main.go
+
+# 普通 GET 请求
+$ curl localhost:8080/ping
+{&quot;message&quot;:&quot;pong&quot;,&quot;request_id&quot;:&quot;req-1&quot;}
+
+# CORS 预检请求
+$ curl -X OPTIONS -i localhost:8080/api/profile
+HTTP/1.1 204 No Content
+Access-Control-Allow-Origin: *
+
+# 未认证访问
+$ curl localhost:8080/api/profile
+{&quot;error&quot;:&quot;missing authorization header&quot;}
+
+# 认证成功
+$ curl -H &quot;Authorization: Bearer fake-jwt-token&quot; localhost:8080/api/profile
+{&quot;user&quot;:&quot;demo_user&quot;}
+
+# 限流测试（需要大量请求触发）
+$ for i in $(seq 1 110); do curl -s localhost:8080/api/login | head -1; done
+# 前 100 次正常，之后返回 {&quot;error&quot;:&quot;rate limit exceeded&quot;}</code></pre>
+
+<h2>注意事项</h2>
+
+<table><thead><tr>
+<th>项目</th>
+<th>说明</th>
+</tr></thead><tbody>
+<tr>
+<td><code>gin.New()</code> vs <code>gin.Default()</code></td>
+<td><code>New()</code> 不含任何中间件，<code>Default()</code> 自动加 Logger + Recovery</td>
+</tr>
+<tr>
+<td><code>c.Next()</code></td>
+<td>阻塞等待后续 handler 执行完，后面的代码是"后置逻辑"</td>
+</tr>
+<tr>
+<td><code>c.Abort()</code></td>
+<td>阻止后续 handler 执行，但当前函数会继续执行完毕</td>
+</tr>
+<tr>
+<td>goroutine 安全</td>
+<td><code>gin.Context</code> 不能直接传入 goroutine，用 <code>c.Copy()</code></td>
+</tr>
+<tr>
+<td>中间件顺序</td>
+<td><code>r.Use()</code> 的调用顺序即为执行顺序</td>
+</tr>
+</tbody></table>
+
+<h2>避坑指南</h2>
+
+<ul>
+<li>❌ 在中间件中 <code>c.Next()</code> 之前就返回响应</li>
+<li>✅ 先 <code>c.Next()</code> 或 <code>c.Abort()</code>，确保链式逻辑完整</li>
+
+<ul>
+<li>❌ 用全局变量存请求相关数据</li>
+<li>✅ 使用 <code>c.Set()</code> / <code>c.Get()</code> 在 Context 中传递</li>
+
+<ul>
+<li>❌ 限流中间件用 sync.Map 但不清理过期数据</li>
+<li>✅ 定期清理过期条目，或使用 <code>golang.org/x/time/rate</code></li>
+
+<ul>
+<li>❌ 在 goroutine 中直接使用 <code>c *gin.Context</code></li>
+<li>✅ 使用 <code>cCopy := c.Copy()</code> 传递副本</li>
+
+<h2>练习题</h2>
+
+<p>🟢 <strong>基础：</strong> 编写一个中间件，记录每个请求的耗时（毫秒），输出到日志。</p>
+
+<p>🟡 <strong>进阶：</strong> 实现一个可配置的 IP 黑名单中间件，支持从文件加载黑名单，热重载。</p>
+
+<p>🔴 <strong>挑战：</strong> 实现一个基于 Redis 的分布式限流中间件，支持滑动窗口算法，适用于多实例部署。</p>
+
+<h2>知识点总结</h2>
+
+<pre><code>中间件知识树
+├── 核心概念
+│   ├── gin.HandlerFunc 类型 → func(*Context)
+│   ├── c.Next() → 调用下一个 handler
+│   ├── c.Abort() → 终止链
+│   └── c.AbortWithStatus(code)
+├── 数据传递
+│   ├── c.Set(key, value)
+│   ├── c.Get(key) → (value, bool)
+│   ├── c.GetString(key)
+│   └── c.MustGet(key) → panic if missing
+├── 应用位置
+│   ├── 全局 r.Use(mw)
+│   ├── 路由组 group.Use(mw)
+│   └── 单路由 r.GET(path, mw1, mw2, handler)
+├── 高级模式
+│   ├── 闭包传参 func(secret string) gin.HandlerFunc
+│   ├── 条件跳过 func() bool 判断
+│   └── c.Copy() 用于 goroutine
+└── 内置中间件
+    ├── gin.Logger()
+    ├── gin.Recovery()
+    └── gin.LoggerWithFormatter()</code></pre>
+
+<h2>举一反三</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>中间件</th>
+<th>关键点</th>
+</tr></thead><tbody>
+<tr>
+<td>请求追踪</td>
+<td>RequestID</td>
+<td>每个请求生成唯一 ID，写入 Header</td>
+</tr>
+<tr>
+<td>性能监控</td>
+<td>请求耗时</td>
+<td><code>c.Next()</code> 前后记录时间差</td>
+</tr>
+<tr>
+<td>安全防护</td>
+<td>CORS</td>
+<td>处理 OPTIONS 预检请求</td>
+</tr>
+<tr>
+<td>流量控制</td>
+<td>Rate Limit</td>
+<td>令牌桶或滑动窗口算法</td>
+</tr>
+<tr>
+<td>认证授权</td>
+<td>JWT 校验</td>
+<td>解析 Token，设置用户信息</td>
+</tr>
+<tr>
+<td>灰度发布</td>
+<td>Feature Flag</td>
+<td>根据用户属性路由到不同版本</td>
+</tr>
+</tbody></table>
+
+<h2>参考资料</h2>
+
+<ul>
+<li><a href="https://gin-gonic.com/docs/examples/custom-middleware/">Gin 自定义中间件</a></li>
+<li><a href="https://pkg.go.dev/golang.org/x/time/rate">Go 并发限流 golang.org/x/time/rate</a></li>
+<li><a href="https://developer.mozilla.org/en-US/docs/Web/HTTP/CORS">CORS 详解 (MDN)</a></li>
+<li><a href="https://gin-gonic.com/docs/examples/custom-middleware/">洋葱模型示意图</a></li>
+
+<h2>代码演进</h2>
+
+<p><strong>v1 — 最简单的中间件：</strong></p>
+<pre><code class="language-go">func Logger() gin.HandlerFunc {
+    return func(c *gin.Context) {
+        t := time.Now()
+        c.Next()
+        log.Printf(&quot;%s %s %v&quot;, c.Request.Method, c.Request.URL.Path, time.Since(t))
+    }
+}</code></pre>
+
+<p><strong>v2 — 带参数的中间件（闭包模式）：</strong></p>
+<pre><code class="language-go">func RateLimit(max int, window time.Duration) gin.HandlerFunc {
+    // ... 如上方完整实现
+    return func(c *gin.Context) { /* ... */ }
+}</code></pre>
+
+<p><strong>v3 — 生产级中间件套件（如上方代码）：</strong></p>
+<ul>
+<li>RequestID 生成</li>
+<li>CORS 处理</li>
+<li>限流控制</li>
+<li>认证 + 角色校验</li>
+<li>优雅的 <code>AbortWithStatusJSON</code> 错误响应</li>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

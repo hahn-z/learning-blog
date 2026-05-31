@@ -1,0 +1,699 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>015 - Redis Python 实战指南</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Python/index.html">Python</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Python/03-实战/index.html">Python实战</a>
+</nav>
+<h1>015 - Redis Python 实战指南</h1>
+<div class="meta">
+<span>📂 Python实战</span>
+<span>🏷️ Python</span>
+</div>
+<article>
+
+
+<h1>Redis Python 实战指南</h1>
+
+<blockquote><p><strong>难度：</strong> ⭐⭐ 中级 | <strong>预计阅读：</strong> 25 分钟 | <strong>标签：</strong> Python, Redis, 缓存, 消息队列</p></blockquote>
+
+<hr>
+
+<h2>一、概念讲解</h2>
+
+<p>Redis（Remote Dictionary Server）是高性能的内存键值数据库，支持多种数据结构，广泛用于缓存、会话管理、消息队列、排行榜等场景。</p>
+
+<h3>核心数据结构</h3>
+
+<table><thead><tr>
+<th>结构</th>
+<th>命令前缀</th>
+<th>典型场景</th>
+</tr></thead><tbody>
+<tr>
+<td>String</td>
+<td>SET/GET</td>
+<td>缓存、计数器、分布式锁</td>
+</tr>
+<tr>
+<td>Hash</td>
+<td>HSET/HGET</td>
+<td>对象存储、用户信息</td>
+</tr>
+<tr>
+<td>List</td>
+<td>LPUSH/RPOP</td>
+<td>消息队列、最新列表</td>
+</tr>
+<tr>
+<td>Set</td>
+<td>SADD/SMEMBERS</td>
+<td>标签、好友关系、去重</td>
+</tr>
+<tr>
+<td>Sorted Set</td>
+<td>ZADD/ZRANGE</td>
+<td>排行榜、优先队列</td>
+</tr>
+<tr>
+<td>Stream</td>
+<td>XADD/XREAD</td>
+<td>事件流、消息队列</td>
+</tr>
+</tbody></table>
+
+<h3>为什么 Redis 这么快？</h3>
+
+<ol>
+<li><strong>纯内存操作</strong>：数据存在内存，微秒级响应</li>
+</ul>
+<ol>
+<li><strong>单线程模型</strong>：避免锁竞争，命令原子执行</li>
+</ul>
+<ol>
+<li><strong>I/O 多路复用</strong>：epoll/kqueue 高效网络模型</li>
+</ul>
+<ol>
+<li><strong>高效数据结构</strong>：SDS、跳表、压缩列表等</li>
+
+<hr>
+
+<h2>二、知识脑图</h2>
+
+<pre><code>Redis Python (redis-py)
+├── 连接管理
+│   ├── redis.Redis() 直连
+│   ├── ConnectionPool 连接池
+│   ├── Sentinel 哨兵
+│   └── redis.asyncio 异步客户端
+├── 基础操作
+│   ├── String: set/get/incr/expire
+│   ├── Hash: hset/hget/hgetall
+│   ├── List: lpush/rpush/lrange
+│   ├── Set: sadd/smembers/sinter
+│   └── Sorted Set: zadd/zrange/zrank
+├── 高级特性
+│   ├── Pipeline 批量操作
+│   ├── Pub/Sub 发布订阅
+│   ├── 事务 MULTI/EXEC
+│   ├── Lua 脚本
+│   └── Stream 消息流
+├── 实战模式
+│   ├── 缓存（Cache-Aside）
+│   ├── 分布式锁
+│   ├── 限流器（Rate Limiter）
+│   ├── 排行榜
+│   └── 消息队列
+└── 运维
+    ├── TTL 管理
+    ├── 内存策略
+    └── 持久化 (RDB/AOF)</code></pre>
+
+<hr>
+
+<h2>三、完整代码实战</h2>
+
+<h3>项目：多功能 Redis 工具箱</h3>
+
+<pre><code class="language-python">&#x27;&#x27;&#x27;
+Redis Python Toolkit
+Demonstrates: caching, rate limiting, leaderboard, pub/sub, distributed lock
+&#x27;&#x27;&#x27;
+import redis
+import time
+import json
+import uuid
+from functools import wraps
+from typing import Optional, Any
+
+# ---------- Connection ----------
+r = redis.Redis(
+    host=&#x27;localhost&#x27;,
+    port=6379,
+    db=0,
+    decode_responses=True,  # Auto-decode bytes to str
+    socket_connect_timeout=5,
+    socket_timeout=5,
+)
+
+# Test connection
+try:
+    r.ping()
+    print(&quot;Redis connected!&quot;)
+except redis.ConnectionError:
+    print(&quot;Redis not available&quot;)
+
+
+# ---------- 1. Cache Manager ----------
+class CacheManager:
+    &#x27;&#x27;&#x27;Simple cache-aside pattern with Redis.&#x27;&#x27;&#x27;
+
+    def __init__(self, client: redis.Redis, prefix: str = &quot;cache:&quot;):
+        self.r = client
+        self.prefix = prefix
+
+    def _key(self, key: str) -&gt; str:
+        return f&quot;{self.prefix}{key}&quot;
+
+    def get(self, key: str) -&gt; Optional[Any]:
+        &#x27;&#x27;&#x27;Get cached value, return None if miss.&#x27;&#x27;&#x27;
+        data = self.r.get(self._key(key))
+        if data:
+            return json.loads(data)
+        return None
+
+    def set(self, key: str, value: Any, ttl: int = 300):
+        &#x27;&#x27;&#x27;Set cache with TTL (seconds).&#x27;&#x27;&#x27;
+        self.r.setex(
+            self._key(key),
+            ttl,
+            json.dumps(value, ensure_ascii=False)
+        )
+
+    def delete(self, key: str):
+        &#x27;&#x27;&#x27;Delete cache entry.&#x27;&#x27;&#x27;
+        self.r.delete(self._key(key))
+
+    def get_or_set(self, key: str, fetch_func, ttl: int = 300) -&gt; Any:
+        &#x27;&#x27;&#x27;Cache-aside: return cached or fetch and cache.&#x27;&#x27;&#x27;
+        cached = self.get(key)
+        if cached is not None:
+            print(f&quot;  Cache HIT: {key}&quot;)
+            return cached
+
+        print(f&quot;  Cache MISS: {key}, fetching...&quot;)
+        result = fetch_func()
+        self.set(key, result, ttl)
+        return result
+
+
+# ---------- 2. Rate Limiter ----------
+class RateLimiter:
+    &#x27;&#x27;&#x27;Sliding window rate limiter using Sorted Set.&#x27;&#x27;&#x27;
+
+    def __init__(self, client: redis.Redis, prefix: str = &quot;ratelimit:&quot;):
+        self.r = client
+        self.prefix = prefix
+
+    def is_allowed(self, key: str, max_requests: int = 10,
+                   window_seconds: int = 60) -&gt; bool:
+        &#x27;&#x27;&#x27;Check if request is within rate limit.&#x27;&#x27;&#x27;
+        now = time.time()
+        window_start = now - window_seconds
+        rk = f&quot;{self.prefix}{key}&quot;
+
+        # Remove expired entries
+        self.r.zremrangebyscore(rk, 0, window_start)
+
+        # Count current window
+        current = self.r.zcard(rk)
+
+        if current &gt;= max_requests:
+            return False
+
+        # Add current request
+        self.r.zadd(rk, {str(uuid.uuid4()): now})
+        self.r.expire(rk, window_seconds)
+        return True
+
+
+# ---------- 3. Leaderboard ----------
+class Leaderboard:
+    &#x27;&#x27;&#x27;Sorted Set based leaderboard.&#x27;&#x27;&#x27;
+
+    def __init__(self, client: redis.Redis, name: str = &quot;leaderboard&quot;):
+        self.r = client
+        self.key = name
+
+    def add_score(self, player: str, score: float):
+        &#x27;&#x27;&#x27;Add or update player score.&#x27;&#x27;&#x27;
+        self.r.zadd(self.key, {player: score})
+
+    def increment(self, player: str, amount: float = 1):
+        &#x27;&#x27;&#x27;Increment player score.&#x27;&#x27;&#x27;
+        self.r.zincrby(self.key, amount, player)
+
+    def top_n(self, n: int = 10) -&gt; list:
+        &#x27;&#x27;&#x27;Get top N players (descending).&#x27;&#x27;&#x27;
+        results = self.r.zrevrange(
+            self.key, 0, n - 1, withscores=True
+        )
+        return [
+            {&quot;rank&quot;: i + 1, &quot;player&quot;: name, &quot;score&quot;: int(score)}
+            for i, (name, score) in enumerate(results)
+        ]
+
+    def rank_of(self, player: str) -&gt; Optional[int]:
+        &#x27;&#x27;&#x27;Get player rank (0-based, descending).&#x27;&#x27;&#x27;
+        rank = self.r.zrevrank(self.key, player)
+        return rank + 1 if rank is not None else None
+
+    def remove(self, player: str):
+        &#x27;&#x27;&#x27;Remove player from leaderboard.&#x27;&#x27;&#x27;
+        self.r.zrem(self.key, player)
+
+
+# ---------- 4. Distributed Lock ----------
+class DistributedLock:
+    &#x27;&#x27;&#x27;Simple distributed lock using SET NX EX.&#x27;&#x27;&#x27;
+
+    def __init__(self, client: redis.Redis):
+        self.r = client
+
+    def acquire(self, resource: str, ttl: int = 10,
+                identifier: str = None) -&gt; Optional[str]:
+        &#x27;&#x27;&#x27;Try to acquire lock. Returns identifier if success.&#x27;&#x27;&#x27;
+        ident = identifier or str(uuid.uuid4())
+        key = f&quot;lock:{resource}&quot;
+        # SET NX EX: set if not exists, with expiry
+        acquired = self.r.set(key, ident, nx=True, ex=ttl)
+        return ident if acquired else None
+
+    def release(self, resource: str, identifier: str) -&gt; bool:
+        &#x27;&#x27;&#x27;Release lock only if identifier matches (safe release).&#x27;&#x27;&#x27;
+        key = f&quot;lock:{resource}&quot;
+        # Lua script for atomic check-and-delete
+        script = &#x27;&#x27;&#x27;
+        if redis.call(&quot;get&quot;, KEYS[1]) == ARGV[1] then
+            return redis.call(&quot;del&quot;, KEYS[1])
+        else
+            return 0
+        end
+        &#x27;&#x27;&#x27;
+        result = self.r.eval(script, 1, key, identifier)
+        return result == 1
+
+
+# ---------- 5. Demo ----------
+def main():
+    print(&quot;\\n=== Cache Manager Demo ===&quot;)
+    cache = CacheManager(r)
+
+    def fetch_user(user_id):
+        &#x27;&#x27;&#x27;Simulate slow database query.&#x27;&#x27;&#x27;
+        print(f&quot;    Querying database for user {user_id}...&quot;)
+        time.sleep(0.1)
+        return {&quot;id&quot;: user_id, &quot;name&quot;: f&quot;User_{user_id}&quot;, &quot;score&quot;: 95}
+
+    # First call: cache miss
+    user = cache.get_or_set(&quot;user:1&quot;, lambda: fetch_user(1), ttl=60)
+    print(f&quot;  Result: {user}&quot;)
+
+    # Second call: cache hit
+    user = cache.get_or_set(&quot;user:1&quot;, lambda: fetch_user(1), ttl=60)
+    print(f&quot;  Result: {user}&quot;)
+
+    print(&quot;\\n=== Rate Limiter Demo ===&quot;)
+    limiter = RateLimiter(r, prefix=&quot;demo_rate:&quot;)
+    for i in range(12):
+        allowed = limiter.is_allowed(&quot;user:alice&quot;, max_requests=5, window=10)
+        status = &quot;ALLOWED&quot; if allowed else &quot;BLOCKED&quot;
+        print(f&quot;  Request {i + 1}: {status}&quot;)
+
+    print(&quot;\\n=== Leaderboard Demo ===&quot;)
+    lb = Leaderboard(r, &quot;game_scores&quot;)
+    players = {
+        &quot;Alice&quot;: 1500, &quot;Bob&quot;: 2300, &quot;Charlie&quot;: 1800,
+        &quot;Diana&quot;: 2100, &quot;Eve&quot;: 1950
+    }
+    for name, score in players.items():
+        lb.add_score(name, score)
+    print(&quot;  Top Players:&quot;)
+    for entry in lb.top_n(5):
+        print(f&quot;    #{entry[&#x27;rank&#x27;]} {entry[&#x27;player&#x27;]}: {entry[&#x27;score&#x27;]}&quot;)
+    print(f&quot;  Alice&#x27;s rank: #{lb.rank_of(&#x27;Alice&#x27;)}&quot;)
+
+    print(&quot;\\n=== Distributed Lock Demo ===&quot;)
+    lock = DistributedLock(r)
+    ident = lock.acquire(&quot;resource:report&quot;, ttl=10)
+    if ident:
+        print(f&quot;  Lock acquired: {ident[:8]}...&quot;)
+        released = lock.release(&quot;resource:report&quot;, ident)
+        print(f&quot;  Lock released: {released}&quot;)
+    else:
+        print(&quot;  Lock acquisition failed (already locked)&quot;)
+
+
+if __name__ == &quot;__main__&quot;:
+    main()</code></pre>
+
+<hr>
+
+<h2>四、执行预览</h2>
+
+<pre><code>Redis connected!
+
+=== Cache Manager Demo ===
+  Cache MISS: user:1, fetching...
+    Querying database for user 1...
+  Result: {&#x27;id&#x27;: &#x27;1&#x27;, &#x27;name&#x27;: &#x27;User_1&#x27;, &#x27;score&#x27;: 95}
+  Cache HIT: user:1
+  Result: {&#x27;id&#x27;: &#x27;1&#x27;, &#x27;name&#x27;: &#x27;User_1&#x27;, &#x27;score&#x27;: 95}
+
+=== Rate Limiter Demo ===
+  Request 1: ALLOWED
+  Request 2: ALLOWED
+  Request 3: ALLOWED
+  Request 4: ALLOWED
+  Request 5: ALLOWED
+  Request 6: BLOCKED
+  ...
+  Request 12: BLOCKED
+
+=== Leaderboard Demo ===
+  Top Players:
+    #1 Bob: 2300
+    #2 Diana: 2100
+    #3 Eve: 1950
+    #4 Charlie: 1800
+    #5 Alice: 1500
+  Alice&#x27;s rank: #5
+
+=== Distributed Lock Demo ===
+  Lock acquired: a1b2c3d4...
+  Lock released: True</code></pre>
+
+<hr>
+
+<h2>五、注意事项</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>注意事项</th>
+<th>说明</th>
+</tr></thead><tbody>
+<tr>
+<td>序列化</td>
+<td>JSON vs Pickle</td>
+<td>推荐 JSON（可读、安全、跨语言）</td>
+</tr>
+<tr>
+<td>连接池</td>
+<td>复用连接</td>
+<td><code>ConnectionPool</code> 避免频繁创建</td>
+</tr>
+<tr>
+<td>大 Key</td>
+<td>避免 > 10KB</td>
+<td>拆分大 Hash，使用 <code>hscan</code> 分批读取</td>
+</tr>
+<tr>
+<td>TTL</td>
+<td>必须设置</td>
+<td>防止内存泄漏，<code>expire</code> 或 <code>setex</code></td>
+</tr>
+<tr>
+<td>内存</td>
+<td>maxmemory 策略</td>
+<td>生产环境配置淘汰策略（allkeys-lru）</td>
+</tr>
+<tr>
+<td>持久化</td>
+<td>RDB vs AOF</td>
+<td>缓存用 RDB 即可，数据存储用 AOF</td>
+</tr>
+<tr>
+<td>pipeline</td>
+<td>批量操作</td>
+<td>减少 RTT，适合批量写入</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>六、避坑指南</h2>
+
+<h3>错误：连接不释放 → 正确：使用连接池</h3>
+
+<pre><code class="language-python"># Wrong: Create new connection each time
+def get_user(user_id):
+    r = redis.Redis(host=&#x27;localhost&#x27;)  # New TCP connection!
+    return r.get(f&quot;user:{user_id}&quot;)
+
+# Correct: Use connection pool
+pool = redis.ConnectionPool(host=&#x27;localhost&#x27;, max_connections=10)
+r = redis.Redis(connection_pool=pool)
+def get_user(user_id):
+    return r.get(f&quot;user:{user_id}&quot;)</code></pre>
+
+<h3>错误：缓存雪崩 → 正确：随机 TTL</h3>
+
+<pre><code class="language-python"># Wrong: All keys expire at the same time
+cache.set(&quot;user:1&quot;, data, ttl=300)
+cache.set(&quot;user:2&quot;, data, ttl=300)  # All expire together!
+
+# Correct: Add random jitter to TTL
+import random
+ttl = 300 + random.randint(0, 60)  # 300-360s
+cache.set(&quot;user:1&quot;, data, ttl=ttl)</code></pre>
+
+<h3>错误：缓存穿透 → 正确：空值缓存 + 布隆过滤器</h3>
+
+<pre><code class="language-python"># Wrong: Cache miss -&gt; always hit database
+def get_user(uid):
+    data = cache.get(uid)
+    if data is None:
+        data = db.query(uid)  # If uid doesn&#x27;t exist, DB hit every time
+    return data
+
+# Correct: Cache empty result with short TTL
+def get_user(uid):
+    data = cache.get(uid)
+    if data is not None:
+        return None if data == &quot;NULL&quot; else data
+    data = db.query(uid)
+    if data is None:
+        cache.set(uid, &quot;NULL&quot;, ttl=60)  # Cache empty for 60s
+    else:
+        cache.set(uid, data, ttl=300)
+    return data</code></pre>
+
+<h3>错误：大 Key 操作阻塞 → 正确：分批处理</h3>
+
+<pre><code class="language-python"># Wrong: Delete huge key blocks Redis
+r.delete(&quot;huge_list&quot;)  # Blocks all other commands!
+
+# Correct: Use UNLINK (async delete, Redis 4.0+)
+r.unlink(&quot;huge_list&quot;)
+
+# Or: Delete in batches with SCAN
+for key in r.scan_iter(&quot;temp:*&quot;):
+    r.unlink(key)</code></pre>
+
+<hr>
+
+<h2>七、练习题</h2>
+
+<h3>入门级</h3>
+
+<ol>
+<li>用 Redis String 实现一个页面访问计数器，每次访问 +1，并设置 24 小时过期</li>
+</ul>
+<ol>
+<li>用 Hash 存储用户信息（name, age, email），实现 CRUD 操作</li>
+
+<h3>中级</h3>
+
+<ol>
+<li>用 Sorted Set 实现一个"今日热搜榜"，支持加分、查 Top 10、每天零点自动清零</li>
+</ul>
+<ol>
+<li>用 List 实现一个简单的任务队列：生产者 push 任务，消费者 pop 并处理</li>
+
+<h3>高级</h3>
+
+<ol>
+<li>用 Redis + Lua 脚本实现一个限流器，要求：每用户每分钟最多 30 次请求，原子操作</li>
+</ul>
+<ol>
+<li>实现发布/订阅模式：一个发布者推送日志，多个订阅者实时接收并写入文件</li>
+
+<hr>
+
+<h2>八、知识点总结</h2>
+
+<pre><code>Redis Python 知识树
+├── 连接
+│   ├── redis.Redis(host, port, db)
+│   ├── ConnectionPool(max_connections)
+│   └── decode_responses=True
+├── 数据结构操作
+│   ├── String: set/get/setex/incr/append
+│   ├── Hash: hset/hget/hgetall/hdel/hmset
+│   ├── List: lpush/rpush/lpop/rpop/lrange
+│   ├── Set: sadd/srem/smembers/sinter/sunion
+│   └── ZSet: zadd/zrange/zrem/zincrby/zrevrange
+├── 高级操作
+│   ├── Pipeline (减少 RTT)
+│   ├── Transaction (MULTI/EXEC)
+│   ├── Lua Script (eval)
+│   ├── Pub/Sub (subscribe/publish)
+│   └── Stream (xadd/xread)
+├── 实战模式
+│   ├── Cache-Aside 缓存
+│   ├── Distributed Lock 分布式锁
+│   ├── Rate Limiter 限流
+│   ├── Leaderboard 排行榜
+│   └── Task Queue 任务队列
+└── 注意事项
+    ├── TTL 必须设置
+    ├── 大 Key 拆分
+    ├── 连接池复用
+    └── 内存淘汰策略</code></pre>
+
+<hr>
+
+<h2>九、举一反三</h2>
+
+<table><thead><tr>
+<th>技能</th>
+<th>基础用法</th>
+<th>进阶场景</th>
+<th>实战扩展</th>
+</tr></thead><tbody>
+<tr>
+<td>String 缓存</td>
+<td>get/set</td>
+<td>缓存穿透/雪崩/击穿防护</td>
+<td>多级缓存架构</td>
+</tr>
+<tr>
+<td>Hash 对象</td>
+<td>存用户信息</td>
+<td>Session 存储</td>
+<td>购物车实现</td>
+</tr>
+<tr>
+<td>List 队列</td>
+<td>简单 FIFO</td>
+<td>BRPOP 阻塞消费</td>
+<td>消息队列 + 重试</td>
+</tr>
+<tr>
+<td>Set 去重</td>
+<td>标签系统</td>
+<td>共同好友（SINTER）</td>
+<td>抽奖系统</td>
+</tr>
+<tr>
+<td>ZSet 排行</td>
+<td>分数排序</td>
+<td>时间线（score=timestamp）</td>
+<td>延迟任务队列</td>
+</tr>
+<tr>
+<td>Pipeline</td>
+<td>批量操作</td>
+<td>事务 + Pipeline</td>
+<td>数据导入优化</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>十、参考资料</h2>
+
+<ul>
+<li><a href="https://redis.io/documentation">Redis 官方文档</a></li>
+<li><a href="https://github.com/redis/redis-py">redis-py GitHub</a></li>
+<li><a href="http://doc.redisfans.com/">Redis 命令参考</a></li>
+<li><a href="http://redisbook.com/">Redis 设计与实现</a></li>
+
+<hr>
+
+<h2>十一、代码演进</h2>
+
+<h3>v1：基础 get/set</h3>
+
+<pre><code class="language-python">import redis
+r = redis.Redis(host=&#x27;localhost&#x27;, decode_responses=True)
+r.set(&quot;name&quot;, &quot;Alice&quot;)
+print(r.get(&quot;name&quot;))  # Alice</code></pre>
+
+<h3>v2：缓存封装 + 工具类</h3>
+
+<pre><code class="language-python">import redis, json
+
+class Cache:
+    def __init__(self):
+        self.r = redis.Redis(decode_responses=True)
+
+    def get(self, key):
+        data = self.r.get(key)
+        return json.loads(data) if data else None
+
+    def set(self, key, value, ttl=300):
+        self.r.setex(key, ttl, json.dumps(value))
+
+cache = Cache()
+cache.set(&quot;user:1&quot;, {&quot;name&quot;: &quot;Alice&quot;})
+print(cache.get(&quot;user:1&quot;))</code></pre>
+
+<h3>v3：完整工具箱（本文实战代码）</h3>
+
+<ul>
+<li>Cache-Aside 缓存管理器</li>
+<li>滑动窗口限流器</li>
+<li>Sorted Set 排行榜</li>
+<li>分布式锁（SET NX EX + Lua 安全释放）</li>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

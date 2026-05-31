@@ -1,0 +1,537 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>014 - Docker容器化部署</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Golang/index.html">Golang</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Golang/03-实战/index.html">Golang实战</a>
+</nav>
+<h1>014 - Docker容器化部署</h1>
+<div class="meta">
+<span>📂 Golang实战</span>
+<span>🏷️ Golang</span>
+</div>
+<article>
+
+
+<h1>069: Docker容器化部署</h1>
+
+<blockquote><p><strong>难度：⭐⭐⭐⭐ 高级</strong> | Docker 是现代应用部署的标准方式，本文覆盖 Go 应用的 Dockerfile 最佳实践、镜像优化和 Compose 编排。<br><br><strong>前置知识：</strong> Go 编译基础、Linux 基本命令、网络基础<br><br><strong>学习目标：</strong> 掌握多阶段构建、镜像体积优化、docker-compose 多服务编排和环境配置注入。</p></blockquote>
+
+<h2>概念讲解</h2>
+
+<p>Docker 容器化将应用及其依赖打包为可移植的镜像。对于 Go 应用，关键优势：</p>
+
+<ul>
+<li><strong>编译型语言天然适合容器化：</strong> Go 编译产物是单个静态二进制，不需要运行时环境，镜像可以极小。</li>
+<li><strong>多阶段构建（Multi-stage Build）：</strong> 构建阶段用完整 Go 镜像编译，运行阶段只用精简镜像（alpine/scratch/distroless），最终镜像不包含编译工具。</li>
+<li><strong>Docker Compose 编排：</strong> 定义多服务（应用+数据库+缓存），一键启动完整开发/测试环境。</li>
+<li><strong>环境变量注入：</strong> 容器不存储配置，通过环境变量或配置文件挂载注入，12-Factor App 核心原则。</li>
+
+<h3>基础镜像对比</h3>
+
+<table><thead><tr>
+<th>基础镜像</th>
+<th>大小</th>
+<th>有Shell</th>
+<th>CA证书</th>
+<th>适用场景</th>
+</tr></thead><tbody>
+<tr>
+<td>golang:1.22</td>
+<td>~1.2GB</td>
+<td>✅</td>
+<td>✅</td>
+<td>仅构建阶段</td>
+</tr>
+<tr>
+<td>alpine:3.19</td>
+<td>~7MB</td>
+<td>✅</td>
+<td>✅</td>
+<td>需要调试的生产环境</td>
+</tr>
+<tr>
+<td>distroless</td>
+<td>~2MB</td>
+<td>❌</td>
+<td>✅</td>
+<td>安全性要求高</td>
+</tr>
+<tr>
+<td>scratch</td>
+<td>0MB</td>
+<td>❌</td>
+<td>❌</td>
+<td>极致体积（需手动加CA）</td>
+</tr>
+</tbody></table>
+
+<h2>脑图</h2>
+
+<pre><code>Docker容器化
+├── Dockerfile
+│   ├── 多阶段构建
+│   ├── 镜像体积优化
+│   └── 安全最佳实践
+├── 基础镜像
+│   ├── alpine (有shell)
+│   ├── distroless (无shell)
+│   └── scratch (空镜像)
+├── Docker Compose
+│   ├── 多服务编排
+│   ├── 健康检查
+│   ├── 依赖管理
+│   └── 数据持久化
+├── 配置管理
+│   ├── 环境变量注入
+│   └── .dockerignore
+└── 日志与监控
+    ├── stdout/stderr 输出
+    ├── JSON 日志驱动
+    └── 健康检查 (HEALTHCHECK)</code></pre>
+
+<h2>代码演进</h2>
+
+<h3>v1：基础多阶段 Dockerfile</h3>
+
+<pre><code class="language-dockerfile"># Dockerfile - Multi-stage build for Go application
+# === Build Stage ===
+FROM golang:1.22-alpine AS builder
+
+# Set Go proxy for faster dependency download (China mirror)
+ENV GOPROXY=https://goproxy.cn,direct
+
+# Copy dependency files first for Docker layer caching
+WORKDIR /app
+COPY go.mod go.sum ./
+RUN go mod download
+
+# Copy source and compile
+COPY . .
+# Static compile: no libc dependency, strip debug info
+RUN CGO_ENABLED=0 GOOS=linux go build -ldflags=&quot;-s -w&quot; -o /app/server ./cmd/server
+
+# === Runtime Stage ===
+FROM alpine:3.19
+
+# Install CA certs (HTTPS requests) and timezone data
+RUN apk --no-cache add ca-certificates tzdata \
+    &amp;&amp; cp /usr/share/zoneinfo/Asia/Shanghai /etc/localtime
+
+WORKDIR /app
+COPY --from=builder /app/server .
+COPY --from=builder /app/configs ./configs
+
+# Run as non-root user for security
+RUN adduser -D appuser
+USER appuser
+
+EXPOSE 8080
+
+# Health check for container orchestration
+HEALTHCHECK --interval=30s --timeout=3s --retries=3 \
+    CMD wget -qO- http://localhost:8080/health || exit 1
+
+ENTRYPOINT [&quot;./server&quot;]</code></pre>
+
+<p><strong>关键参数说明：</strong></p>
+<ul>
+<li><code>CGO_ENABLED=0</code>：静态编译，镜像不需要 glibc</li>
+<li><code>-ldflags="-s -w"</code>：去掉符号表和调试信息，减小 20-30% 体积</li>
+<li>先 COPY go.mod/go.sum 再 COPY 源码：依赖不变时跳过 <code>go mod download</code></li>
+
+<h3>v2：极致优化 + docker-compose</h3>
+
+<pre><code class="language-dockerfile"># distroless version - minimal but secure
+FROM gcr.io/distroless/static-debian12 AS runtime
+COPY --from=builder /app/server /
+EXPOSE 8080
+CMD [&quot;/server&quot;]</code></pre>
+
+<pre><code class="language-dockerfile"># scratch version - absolute minimum
+FROM scratch
+COPY --from=builder /app/server /server
+# Must manually copy CA certs for HTTPS
+COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
+EXPOSE 8080
+ENTRYPOINT [&quot;/server&quot;]</code></pre>
+
+<p><strong>docker-compose 多服务编排：</strong></p>
+
+<pre><code class="language-yaml"># docker-compose.yml
+version: &quot;3.8&quot;
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - &quot;8080:8080&quot;
+    environment:
+      - DB_HOST=postgres
+      - DB_USER=blog
+      - DB_PASSWORD=blogpass
+      - DB_NAME=blog
+      - REDIS_ADDR=redis:6379
+      - GIN_MODE=release
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    healthcheck:
+      test: [&quot;CMD&quot;, &quot;wget&quot;, &quot;-qO-&quot;, &quot;http://localhost:8080/health&quot;]
+      interval: 15s
+      timeout: 3s
+      retries: 3
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: &quot;10m&quot;
+        max-file: &quot;3&quot;
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: blog
+      POSTGRES_PASSWORD: blogpass
+      POSTGRES_DB: blog
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: [&quot;CMD-SHELL&quot;, &quot;pg_isready -U blog&quot;]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    command: redis-server --maxmemory 128mb --maxmemory-policy allkeys-lru
+    volumes:
+      - redisdata:/data
+
+  nginx:
+    image: nginx:alpine
+    ports:
+      - &quot;80:80&quot;
+      - &quot;443:443&quot;
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - app
+
+volumes:
+  pgdata:
+  redisdata:</code></pre>
+
+<h3>v3：配置管理 + 结构化日志</h3>
+
+<pre><code class="language-go">// config/config.go - Environment-based configuration
+package config
+
+import &quot;os&quot;
+
+type Config struct {
+    DBHost     string
+    DBUser     string
+    DBPassword string
+    DBName     string
+    Port       string
+}
+
+// Load reads config from environment variables with fallbacks
+func Load() *Config {
+    return &amp;Config{
+        DBHost:     getEnv(&quot;DB_HOST&quot;, &quot;localhost&quot;),
+        DBUser:     getEnv(&quot;DB_USER&quot;, &quot;blog&quot;),
+        DBPassword: getEnv(&quot;DB_PASSWORD&quot;, &quot;&quot;),
+        DBName:     getEnv(&quot;DB_NAME&quot;, &quot;blog&quot;),
+        Port:       getEnv(&quot;PORT&quot;, &quot;8080&quot;),
+    }
+}
+
+func getEnv(key, fallback string) string {
+    if v := os.Getenv(key); v != &quot;&quot; {
+        return v
+    }
+    return fallback
+}</code></pre>
+
+<pre><code class="language-go">// Structured JSON logging to stdout for container log collection
+package main
+
+import (
+    &quot;log/slog&quot;
+    &quot;os&quot;
+)
+
+func main() {
+    // JSON format for ELK/Loki collection
+    logger := slog.New(slog.NewJSONHandler(os.Stdout, &amp;slog.HandlerOptions{
+        Level: slog.LevelInfo,
+    }))
+    slog.SetDefault(logger)
+
+    slog.Info(&quot;server started&quot;, &quot;port&quot;, 8080, &quot;env&quot;, &quot;production&quot;)
+}</code></pre>
+
+<p><strong>.dockerignore：</strong></p>
+
+<pre><code>.git
+.gitignore
+*.md
+vendor/
+tmp/
+*.test
+.env</code></pre>
+
+<h2>执行预览</h2>
+
+<pre><code># Build and run
+$ docker build -t blog-api .
+[+] Building 45.2s
+ =&gt; [builder 1/5] FROM golang:1.22-alpine
+ =&gt; [builder 3/5] COPY go.mod go.sum
+ =&gt; [builder 4/5] RUN go mod download
+ =&gt; [builder 5/5] RUN CGO_ENABLED=0 go build ...
+ =&gt; [runtime 1/3] COPY --from=builder /app/server
+
+$ docker images blog-api
+REPOSITORY  TAG       SIZE
+blog-api    latest    12MB     # alpine runtime
+blog-api    scratch   6.2MB    # scratch runtime
+
+# Compose up
+$ docker-compose up -d
+[+] Running 4/4
+ ✔ Container blog-postgres-1  Started
+ ✔ Container blog-redis-1     Started
+ ✔ Container blog-app-1       Started
+ ✔ Container blog-nginx-1     Started
+
+# Check health
+$ docker ps
+blog-app-1   Up 30s (healthy)   0.0.0.0:8080-&gt;8080/tcp
+blog-postgres  Up 30s (healthy) 5432/tcp</code></pre>
+
+<h2>注意事项</h2>
+
+<table><thead><tr>
+<th>项目</th>
+<th>说明</th>
+<th>严重度</th>
+</tr></thead><tbody>
+<tr>
+<td>不要存敏感信息到镜像</td>
+<td>密码密钥用环境变量或 Docker Secrets</td>
+<td>🔴 严重</td>
+</tr>
+<tr>
+<td>利用构建缓存</td>
+<td>先 COPY go.mod/go.sum 再 COPY 源码</td>
+<td>⚠️ 重要</td>
+</tr>
+<tr>
+<td>.dockerignore 必不可少</td>
+<td>排除 .git、vendor、*.md 等</td>
+<td>💡 提示</td>
+</tr>
+<tr>
+<td>固定镜像版本</td>
+<td>用 alpine:3.19 而非 alpine:latest</td>
+<td>⚠️ 重要</td>
+</tr>
+<tr>
+<td>非 root 运行</td>
+<td>创建 appuser，不用 root 跑应用</td>
+<td>⚠️ 重要</td>
+</tr>
+<tr>
+<td>日志输出到 stdout</td>
+<td>容器化应用不要写日志文件</td>
+<td>💡 提示</td>
+</tr>
+</tbody></table>
+
+<h2>避坑指南</h2>
+
+<table><thead><tr>
+<th>❌ 错误做法</th>
+<th>✅ 正确做法</th>
+</tr></thead><tbody>
+<tr>
+<td>用 <code>golang:latest</code> 做运行镜像</td>
+<td>多阶段构建，运行用 alpine/scratch</td>
+</tr>
+<tr>
+<td>把 <code>.env</code> 文件 COPY 进镜像</td>
+<td>用 <code>env_file</code> 或 <code>environment</code> 注入</td>
+</tr>
+<tr>
+<td>不设 HEALTHCHECK</td>
+<td>编排工具无法判断容器健康状态</td>
+</tr>
+<tr>
+<td><code>COPY . .</code> 在 <code>go mod download</code> 之前</td>
+<td>先复制依赖文件利用缓存</td>
+</tr>
+<tr>
+<td>用 <code>latest</code> 标签部署生产</td>
+<td>用语义版本号 <code>v1.2.3</code></td>
+</tr>
+<tr>
+<td>日志写文件挂载 volume</td>
+<td>输出到 stdout，用 Docker 日志驱动收集</td>
+</tr>
+</tbody></table>
+
+<h2>练习题</h2>
+
+<p><strong>🟢 入门：编写多阶段 Dockerfile</strong></p>
+<p>为一个使用 SQLite 的 Go Web 应用编写 Dockerfile，要求最终镜像小于 20MB，含 HEALTHCHECK。</p>
+
+<p><strong>🟡 进阶：docker-compose 三服务编排</strong></p>
+<p>Go 应用 + MySQL + Redis。MySQL 有健康检查，应用等待 MySQL 就绪后启动，数据持久化到 volume。</p>
+
+<p><strong>🔴 挑战：镜像体积极致优化</strong></p>
+<p>对比 golang:alpine、distroless、scratch 三种基础镜像的构建产物。为每种编写 Dockerfile，分析优缺点和适用场景，最终用 scratch 构建 < 10MB 的镜像。</p>
+
+<h2>知识点总结</h2>
+
+<pre><code>Docker容器化
+├── Dockerfile
+│   ├── FROM ... AS builder (多阶段)
+│   ├── CGO_ENABLED=0 (静态编译)
+│   ├── -ldflags=&quot;-s -w&quot; (去调试)
+│   └── COPY --from=builder
+├── 基础镜像选择
+│   ├── alpine: 有shell可调试
+│   ├── distroless: 安全无shell
+│   └── scratch: 极致小
+├── Docker Compose
+│   ├── services 定义
+│   ├── depends_on + healthcheck
+│   ├── volumes 持久化
+│   └── logging 配置
+├── 配置
+│   ├── 环境变量注入
+│   ├── .dockerignore
+│   └── 非 root 用户
+└── 最佳实践
+    ├── HEALTHCHECK
+    ├── stdout 日志
+    └── 固定版本标签</code></pre>
+
+<h2>举一反三</h2>
+
+<table><thead><tr>
+<th>本文学到</th>
+<th>可迁移到</th>
+<th>应用场景</th>
+</tr></thead><tbody>
+<tr>
+<td>多阶段构建</td>
+<td>Rust、C++、Java</td>
+<td>任何编译型语言容器化</td>
+</tr>
+<tr>
+<td>健康检查</td>
+<td>K8s liveness/readiness</td>
+<td>容器编排故障检测</td>
+</tr>
+<tr>
+<td>环境变量注入</td>
+<td>12-Factor App</td>
+<td>任何云原生应用</td>
+</tr>
+<tr>
+<td>docker-compose</td>
+<td>K8s Helm</td>
+<td>本地开发环境搭建</td>
+</tr>
+<tr>
+<td>镜像体积优化</td>
+<td>Wasm、静态站点</td>
+<td>边缘计算、CI/CD 速度</td>
+</tr>
+<tr>
+<td>日志 JSON 格式</td>
+<td>Fluentd/Loki</td>
+<td>集中式日志收集</td>
+</tr>
+</tbody></table>
+
+<h2>参考资料</h2>
+
+<ul>
+<li><a href="https://docs.docker.com/develop/develop-images/dockerfile_best-practices/">Docker 官方最佳实践</a></li>
+<li><a href="https://docs.docker.com/build/building/multi-stage/">Docker 多阶段构建</a></li>
+<li><a href="https://github.com/GoogleContainerTools/distroless">distroless 项目</a></li>
+<li><a href="https://12factor.net/">12-Factor App</a></li>
+
+<hr>
+
+<p>_多阶段构建 + 精简镜像 + Compose 编排，Go 容器化三部曲。_ 🐳</p>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

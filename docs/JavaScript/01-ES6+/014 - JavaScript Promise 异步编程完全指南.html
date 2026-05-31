@@ -1,0 +1,666 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>014 - JavaScript Promise 异步编程完全指南</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/JavaScript/index.html">JavaScript</a>
+<span class="sep">›</span>
+<a href="/tech-blog/JavaScript/01-ES6+/index.html">JavaScript ES6+</a>
+</nav>
+<h1>014 - JavaScript Promise 异步编程完全指南</h1>
+<div class="meta">
+<span>📂 JavaScript ES6+</span>
+<span>🏷️ JavaScript</span>
+</div>
+<article>
+
+
+<h2>难度标注</h2>
+
+<blockquote><p>🟡 <strong>中等难度</strong> — 需要理解事件循环、异步执行模型</p></blockquote>
+
+<h2>概念讲解</h2>
+
+<h3>什么是 Promise？</h3>
+
+<p>Promise 是一个代表异步操作最终完成（或失败）的对象。它有三种状态：</p>
+
+<pre><code>Pending（进行中） ──→ Fulfilled（已完成）✅
+                  ╰─→ Rejected（已拒绝）❌</code></pre>
+
+<p><strong>状态转换规则：</strong></p>
+<ul>
+<li>只能从 Pending → Fulfilled 或 Pending → Rejected</li>
+<li>状态一旦改变，不可逆（不可变属性）</li>
+<li>没有"取消"状态</li>
+
+<h3>为什么需要 Promise？</h3>
+
+<pre><code class="language-javascript">// Callback Hell (Pyramid of Doom)
+getUser(id, (err, user) =&gt; {
+  if (err) return handleError(err);
+  getOrders(user.id, (err, orders) =&gt; {
+    if (err) return handleError(err);
+    getOrderDetails(orders[0].id, (err, details) =&gt; {
+      if (err) return handleError(err);
+      console.log(details);
+    });
+  });
+});
+
+// Promise Chain (Flat and readable)
+getUser(id)
+  .then(user =&gt; getOrders(user.id))
+  .then(orders =&gt; getOrderDetails(orders[0].id))
+  .then(details =&gt; console.log(details))
+  .catch(err =&gt; handleError(err));</code></pre>
+
+<h2>脑图</h2>
+
+<pre><code>              Promise
+                │
+    ┌───────────┼───────────┐
+    │           │           │
+  创建        链式调用     静态方法
+    │           │           │
+ ┌──┴──┐   ┌───┴───┐   ┌───┴────┐
+ │new   │   │.then()│   │all()   │
+ │resolve│   │.catch()│  │race()  │
+ │reject│   │.finally│  │allSettled│
+ └──────┘   └───────┘   │any()   │
+                          └────────┘</code></pre>
+
+<h2>完整 JS 代码</h2>
+
+<h3>创建 Promise</h3>
+
+<pre><code class="language-javascript">// ============ Creating Promises ============
+
+// Basic creation
+const promise = new Promise((resolve, reject) =&gt; {
+  const success = true;
+  if (success) {
+    resolve(&#x27;Operation succeeded!&#x27;);
+  } else {
+    reject(new Error(&#x27;Operation failed!&#x27;));
+  }
+});
+
+// Wrapping callback-based API
+function fetchUser(id) {
+  return new Promise((resolve, reject) =&gt; {
+    // Simulate async API call
+    setTimeout(() =&gt; {
+      if (id &gt; 0) {
+        resolve({ id, name: `User${id}` });
+      } else {
+        reject(new Error(&#x27;Invalid user ID&#x27;));
+      }
+    }, 1000);
+  });
+}
+
+// Promise.resolve / Promise.reject shortcuts
+const resolved = Promise.resolve(42);        // immediately resolved
+const rejected = Promise.reject(&#x27;Error!&#x27;);    // immediately rejected
+
+// Promisifying Node.js callback style
+const fs = require(&#x27;fs&#x27;);
+function readFilePromise(path) {
+  return new Promise((resolve, reject) =&gt; {
+    fs.readFile(path, &#x27;utf-8&#x27;, (err, data) =&gt; {
+      if (err) reject(err);
+      else resolve(data);
+    });
+  });
+}</code></pre>
+
+<h3>链式调用</h3>
+
+<pre><code class="language-javascript">// ============ Promise Chaining ============
+
+// Each .then() returns a new Promise
+fetchUser(1)
+  .then(user =&gt; {
+    console.log(user); // {id:1, name:&#x27;User1&#x27;}
+    return fetchOrders(user.id); // return another Promise
+  })
+  .then(orders =&gt; {
+    console.log(orders);
+    return orders[0];
+  })
+  .then(order =&gt; fetchOrderDetails(order.id))
+  .then(details =&gt; {
+    console.log(&#x27;Details:&#x27;, details);
+  })
+  .catch(err =&gt; {
+    // Catches ANY error in the chain above
+    console.error(&#x27;Error:&#x27;, err.message);
+  })
+  .finally(() =&gt; {
+    // Always runs, regardless of success/failure
+    console.log(&#x27;Cleanup done&#x27;);
+  });
+
+// Transforming values in .then()
+Promise.resolve(5)
+  .then(x =&gt; x * 2)      // 10
+  .then(x =&gt; x + 1)      // 11
+  .then(x =&gt; `Result: ${x}`) // &#x27;Result: 11&#x27;
+  .then(console.log);
+
+// Returning non-Promise values
+Promise.resolve(1)
+  .then(x =&gt; x + 1)           // wraps 2 in Promise.resolve(2)
+  .then(x =&gt; ({ value: x }))  // wraps object
+  .then(obj =&gt; console.log(obj.value)); // 2</code></pre>
+
+<h3>错误处理</h3>
+
+<pre><code class="language-javascript">// ============ Error Handling ============
+
+// .catch() catches errors from any .then() above it
+Promise.resolve(&#x27;start&#x27;)
+  .then(() =&gt; { throw new Error(&#x27;Boom!&#x27;); })
+  .then(() =&gt; console.log(&#x27;skipped&#x27;))   // skipped!
+  .catch(err =&gt; console.error(err.message)) // &#x27;Boom!&#x27;
+  .then(() =&gt; console.log(&#x27;recovered&#x27;));    // &#x27;recovered&#x27; — catch returns resolved Promise
+
+// Error in catch handler
+Promise.resolve()
+  .then(() =&gt; { throw new Error(&#x27;first&#x27;); })
+  .catch(() =&gt; { throw new Error(&#x27;second&#x27;); })
+  .catch(err =&gt; console.log(err.message)); // &#x27;second&#x27;
+
+// try/catch inside .then()
+Promise.resolve({ a: 1 })
+  .then(data =&gt; {
+    try {
+      JSON.parse(&#x27;invalid json&#x27;);
+    } catch (e) {
+      return { error: e.message }; // recover gracefully
+    }
+  })
+  .then(result =&gt; console.log(result)); // {error: &#x27;Unexpected token...&#x27;}</code></pre>
+
+<h3>静态方法（并发控制）</h3>
+
+<pre><code class="language-javascript">// ============ Promise Static Methods ============
+
+// Promise.all(): Wait for ALL to resolve (fail-fast)
+const p1 = fetch(&#x27;/api/users&#x27;);
+const p2 = fetch(&#x27;/api/posts&#x27;);
+const p3 = fetch(&#x27;/api/comments&#x27;);
+
+Promise.all([p1, p2, p3])
+  .then(([users, posts, comments]) =&gt; {
+    console.log(&#x27;All loaded!&#x27;, users, posts, comments);
+  })
+  .catch(err =&gt; {
+    // If ANY fails, all fail
+    console.error(&#x27;One failed:&#x27;, err);
+  });
+
+// Promise.allSettled(): Wait for ALL, regardless of outcome
+Promise.allSettled([
+  Promise.resolve(&#x27;ok&#x27;),
+  Promise.reject(&#x27;fail&#x27;),
+  Promise.resolve(&#x27;also ok&#x27;)
+]).then(results =&gt; {
+  results.forEach(r =&gt; {
+    if (r.status === &#x27;fulfilled&#x27;) {
+      console.log(&#x27;✅&#x27;, r.value);
+    } else {
+      console.log(&#x27;❌&#x27;, r.reason);
+    }
+  });
+  // ✅ ok, ❌ fail, ✅ also ok
+});
+
+// Promise.race(): First to settle wins
+Promise.race([
+  fetch(&#x27;/api/fast&#x27;),
+  new Promise((_, reject) =&gt; setTimeout(() =&gt; reject(&#x27;timeout&#x27;), 5000))
+])
+  .then(res =&gt; console.log(&#x27;Fast response&#x27;))
+  .catch(err =&gt; console.log(&#x27;Timeout or error&#x27;));
+
+// Promise.any(): First SUCCESSFUL result (ignores rejects)
+Promise.any([
+  Promise.reject(&#x27;server1 down&#x27;),
+  Promise.resolve(&#x27;server2 OK&#x27;),
+  Promise.resolve(&#x27;server3 OK&#x27;)
+])
+  .then(first =&gt; console.log(first)) // &#x27;server2 OK&#x27;
+  .catch(err =&gt; {
+    // Only fails if ALL promises reject
+    console.log(&#x27;All failed:&#x27;, err.errors);
+  });</code></pre>
+
+<h3>实战：带重试和超时</h3>
+
+<pre><code class="language-javascript">// ============ Practical Patterns ============
+
+// Retry pattern
+function fetchWithRetry(url, retries = 3, delay = 1000) {
+  return new Promise((resolve, reject) =&gt; {
+    function attempt(n) {
+      fetch(url)
+        .then(resolve)
+        .catch(err =&gt; {
+          if (n &lt;= 0) {
+            reject(err);
+          } else {
+            console.log(`Retry ${retries - n + 1}/${retries}...`);
+            setTimeout(() =&gt; attempt(n - 1), delay);
+          }
+        });
+    }
+    attempt(retries);
+  });
+}
+
+// Timeout wrapper
+function withTimeout(promise, ms) {
+  const timeout = new Promise((_, reject) =&gt;
+    setTimeout(() =&gt; reject(new Error(`Timeout after ${ms}ms`)), ms)
+  );
+  return Promise.race([promise, timeout]);
+}
+
+// Sequential execution
+async function sequential(urls) {
+  const results = [];
+  for (const url of urls) {
+    results.push(await fetch(url).then(r =&gt; r.json()));
+  }
+  return results;
+}
+
+// Concurrent with limit
+async function concurrentLimit(tasks, limit) {
+  const results = [];
+  const executing = new Set();
+  for (const task of tasks) {
+    const p = task().then(r =&gt; { executing.delete(p); return r; });
+    executing.add(p);
+    results.push(p);
+    if (executing.size &gt;= limit) {
+      await Promise.race(executing);
+    }
+  }
+  return Promise.all(results);
+}</code></pre>
+
+<h2>执行预览</h2>
+
+<pre><code>// Promise states
+new Promise(resolve =&gt; resolve(42))
+  → Pending → Fulfilled(42)
+
+new Promise((_, reject) =&gt; reject(&#x27;err&#x27;))
+  → Pending → Rejected(&#x27;err&#x27;)
+
+// Chaining
+Promise.resolve(1)
+  .then(x =&gt; x + 1)    // 2
+  .then(x =&gt; x * 3)    // 6
+  .then(console.log)   // 6
+
+// Promise.all
+all([resolve(1), resolve(2), resolve(3)])
+  → [1, 2, 3]
+
+// Promise.allSettled
+allSettled([resolve(1), reject(&#x27;e&#x27;), resolve(3)])
+  → [{status:&#x27;fulfilled&#x27;,value:1},
+     {status:&#x27;rejected&#x27;,reason:&#x27;e&#x27;},
+     {status:&#x27;fulfilled&#x27;,value:3}]</code></pre>
+
+<h2>注意事项</h2>
+
+<table><thead><tr>
+<th>方法</th>
+<th>行为</th>
+<th>失败处理</th>
+<th>返回值</th>
+</tr></thead><tbody>
+<tr>
+<td><code>Promise.all()</code></td>
+<td>全部成功才成功</td>
+<td>一个失败则全部失败</td>
+<td>值数组</td>
+</tr>
+<tr>
+<td><code>Promise.allSettled()</code></td>
+<td>等待全部完成</td>
+<td>永远不失败</td>
+<td>结果对象数组</td>
+</tr>
+<tr>
+<td><code>Promise.race()</code></td>
+<td>第一个完成的</td>
+<td>第一个失败就失败</td>
+<td>第一个值</td>
+</tr>
+<tr>
+<td><code>Promise.any()</code></td>
+<td>第一个成功的</td>
+<td>全部失败才失败</td>
+<td>第一个成功值</td>
+</tr>
+</tbody></table>
+
+<table><thead><tr>
+<th>注意点</th>
+<th>说明</th>
+</tr></thead><tbody>
+<tr>
+<td><strong>executor 同步执行</strong></td>
+<td><code>new Promise(fn)</code> 中 fn 是同步执行的</td>
+</tr>
+<tr>
+<td><strong>.then() 微任务</strong></td>
+<td><code>.then</code> 回调放入微任务队列，异步执行</td>
+</tr>
+<tr>
+<td><strong>值穿透</strong></td>
+<td><code>.then()</code> 不传函数时，值会穿透到下一个</td>
+</tr>
+<tr>
+<td><strong>catch 位置</strong></td>
+<td>总是在链末尾放 <code>.catch()</code></td>
+</tr>
+</tbody></table>
+
+<h2>避坑指南</h2>
+
+<h3>❌ 忘记 return Promise</h3>
+<pre><code class="language-javascript">// ❌ Wrong: forgot to return inner Promise
+function getUser(id) {
+  fetch(`/api/users/${id}`)
+    .then(r =&gt; r.json());
+  // Returns undefined, not the Promise!
+}
+
+// ✅ Correct: return the Promise chain
+function getUser(id) {
+  return fetch(`/api/users/${id}`)
+    .then(r =&gt; r.json());
+}</code></pre>
+
+<h3>❌ 在 Promise 构造函数中 throw</h3>
+<pre><code class="language-javascript">// ❌ Wrong: throw inside executor (works but bad practice)
+new Promise(() =&gt; {
+  throw new Error(&#x27;fail&#x27;); // caught implicitly
+});
+
+// ✅ Correct: use reject explicitly
+new Promise((resolve, reject) =&gt; {
+  reject(new Error(&#x27;fail&#x27;));
+});</code></pre>
+
+<h3>❌ Promise.all 一个失败丢失其他结果</h3>
+<pre><code class="language-javascript">// ❌ Risk: one failure loses all results
+Promise.all([p1, p2, p3]).catch(err =&gt; {
+  // p2 and p3 results are lost!
+});
+
+// ✅ Correct: use allSettled if you need all results
+Promise.allSettled([p1, p2, p3]).then(results =&gt; {
+  // All results available, check .status
+});</code></pre>
+
+<h3>❌ 嵌套 Promise（Promise 回调地狱）</h3>
+<pre><code class="language-javascript">// ❌ Wrong: nesting Promises
+fetchUser(id).then(user =&gt; {
+  fetchOrders(user.id).then(orders =&gt; {
+    fetchDetails(orders[0].id).then(details =&gt; {
+      // callback hell all over again!
+    });
+  });
+});
+
+// ✅ Correct: flat chain
+fetchUser(id)
+  .then(user =&gt; fetchOrders(user.id))
+  .then(orders =&gt; fetchDetails(orders[0].id))
+  .then(details =&gt; { /* clean! */ });</code></pre>
+
+<h2>练习题</h2>
+
+<h3>🟢 入门：基本 Promise</h3>
+
+<pre><code class="language-javascript">// 1. Wrap setTimeout in a Promise: delay(ms) returns Promise
+// delay(1000).then(() =&gt; console.log(&#x27;1 second later&#x27;))
+
+// 2. Chain: add(1,2) → multiply(result, 3) → subtract(result, 1)
+// Each returns a Promise, expected result: 8</code></pre>
+
+<h3>🟡 进阶：并发控制</h3>
+
+<pre><code class="language-javascript">// 3. Load 3 APIs in parallel, render when all done
+// fetch(&#x27;/users&#x27;), fetch(&#x27;/posts&#x27;), fetch(&#x27;/comments&#x27;)
+// → Promise.all
+
+// 4. Implement a simple retry(3 times, 1s interval)
+// retryFn(fetchData, 3, 1000)</code></pre>
+
+<h3>🔴 挑战：并发池</h3>
+
+<pre><code class="language-javascript">// 5. Implement asyncPool(limit, tasks)
+// Run at most `limit` tasks concurrently
+// asyncPool(2, [t1,t2,t3,t4,t5]) → max 2 running at a time</code></pre>
+
+<p><details></p>
+<p><summary>📋 参考答案</summary></p>
+
+<pre><code class="language-javascript">// 1
+const delay = ms =&gt; new Promise(resolve =&gt; setTimeout(resolve, ms));
+
+// 2
+const add = (a, b) =&gt; Promise.resolve(a + b);
+const multiply = (a, b) =&gt; Promise.resolve(a * b);
+const subtract = (a, b) =&gt; Promise.resolve(a - b);
+add(1, 2)
+  .then(r =&gt; multiply(r, 3))
+  .then(r =&gt; subtract(r, 1))
+  .then(console.log); // 8
+
+// 3
+Promise.all([
+  fetch(&#x27;/users&#x27;).then(r =&gt; r.json()),
+  fetch(&#x27;/posts&#x27;).then(r =&gt; r.json()),
+  fetch(&#x27;/comments&#x27;).then(r =&gt; r.json())
+]).then(([users, posts, comments]) =&gt; render(users, posts, comments));
+
+// 4
+function retryFn(fn, retries, delayMs) {
+  return fn().catch(err =&gt; {
+    if (retries &lt;= 0) throw err;
+    return new Promise(r =&gt; setTimeout(r, delayMs))
+      .then(() =&gt; retryFn(fn, retries - 1, delayMs));
+  });
+}
+
+// 5
+async function asyncPool(limit, tasks) {
+  const results = [];
+  const executing = new Set();
+  for (const task of tasks) {
+    const p = task().then(r =&gt; { executing.delete(p); return r; });
+    executing.add(p);
+    results.push(p);
+    if (executing.size &gt;= limit) await Promise.race(executing);
+  }
+  return Promise.all(results);
+}</code></pre>
+<p></details></p>
+
+<h2>知识点总结</h2>
+
+<pre><code>Promise
+├── 基础
+│   ├── 三种状态: pending → fulfilled/rejected
+│   ├── new Promise((resolve, reject) =&gt; {})
+│   └── 状态不可逆
+├── 链式调用
+│   ├── .then(onFulfilled, onRejected)
+│   ├── .catch(onRejected)
+│   ├── .finally(onSettled)
+│   └── 每个 .then 返回新 Promise
+├── 静态方法
+│   ├── all() — 全部成功
+│   ├── allSettled() — 全部完成
+│   ├── race() — 最快的
+│   ├── any() — 第一个成功
+│   ├── resolve() — 快捷创建
+│   └── reject() — 快捷创建
+├── 错误处理
+│   ├── .catch() 捕获链中任何错误
+│   ├── catch 后可继续 .then()
+│   └── 未捕获 → UnhandledPromiseRejection
+└── 实战模式
+    ├── 重试模式
+    ├── 超时包装
+    ├── 并发限制池
+    └── 顺序执行</code></pre>
+
+<h2>举一反三</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>方案</th>
+<th>方法</th>
+</tr></thead><tbody>
+<tr>
+<td>并行请求</td>
+<td>Promise.all</td>
+<td><code>Promise.all([p1, p2, p3])</code></td>
+</tr>
+<tr>
+<td>超时控制</td>
+<td>Promise.race</td>
+<td><code>Promise.race([request, timeout(ms)])</code></td>
+</tr>
+<tr>
+<td>重试机制</td>
+<td>递归 + catch</td>
+<td><code>fn().catch(() => retry(fn, n-1))</code></td>
+</tr>
+<tr>
+<td>批量不丢结果</td>
+<td>Promise.allSettled</td>
+<td><code>allSettled(tasks).then(check)</code></td>
+</tr>
+<tr>
+<td>缓存 Promise</td>
+<td>存储引用</td>
+<td><code>const cached = fetch(url); cached.then(...)</code></td>
+</tr>
+<tr>
+<td>链式数据流</td>
+<td>return + .then</td>
+<td><code>fetch().then(parse).then(transform)</code></td>
+</tr>
+</tbody></table>
+
+<h2>参考资料</h2>
+
+<ul>
+<li><a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Promise">MDN: Promise</a></li>
+<li><a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Using_promises">MDN: Using Promises</a></li>
+<li><a href="https://github.com/petkaantonov/bluebird/wiki/Promise-anti-patterns">Promise Anti-patterns</a></li>
+<li><a href="https://developer.mozilla.org/en-US/docs/Learn/JavaScript/Asynchronous">JavaScript 异步编程</a></li>
+
+<h2>代码演进</h2>
+
+<h3>v1 — 回调地狱</h3>
+<pre><code class="language-javascript">getUser(id, (err, user) =&gt; {
+  if (err) return handleError(err);
+  getOrders(user.id, (err, orders) =&gt; {
+    if (err) return handleError(err);
+    getOrderDetails(orders[0].id, (err, details) =&gt; {
+      if (err) return handleError(err);
+      render(details);
+    });
+  });
+});</code></pre>
+
+<h3>v2 — Promise 链式调用</h3>
+<pre><code class="language-javascript">getUser(id)
+  .then(user =&gt; getOrders(user.id))
+  .then(orders =&gt; getOrderDetails(orders[0].id))
+  .then(render)
+  .catch(handleError);</code></pre>
+
+<h3>v3 — async/await（下篇详解）</h3>
+<pre><code class="language-javascript">async function loadDetails(id) {
+  try {
+    const user = await getUser(id);
+    const orders = await getOrders(user.id);
+    const details = await getOrderDetails(orders[0].id);
+    render(details);
+  } catch (err) {
+    handleError(err);
+  }
+}</code></pre>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

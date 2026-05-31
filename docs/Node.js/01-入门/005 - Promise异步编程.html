@@ -1,0 +1,464 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>005 - Promise异步编程</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Node.js/index.html">Node.js</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Node.js/01-入门/index.html">Node.js入门</a>
+</nav>
+<h1>005 - Promise异步编程</h1>
+<div class="meta">
+<span>📂 Node.js入门</span>
+<span>🏷️ Node.js</span>
+</div>
+<article>
+
+
+<h1>Promise 异步编程</h1>
+
+<blockquote><p><strong>难度：</strong> ⭐⭐⭐（中级）<br><strong>阅读时间：</strong> 约 18 分钟<br><strong>前置知识：</strong> 回调函数、异步基础</p></blockquote>
+
+<hr>
+
+<h2>一、概念讲解</h2>
+
+<p><strong>Promise</strong> 是异步操作的容器，代表一个"未来的值"。它有三种状态：</p>
+
+<ul>
+<li><strong>Pending（进行中）</strong>：初始状态</li>
+<li><strong>Fulfilled（已完成）</strong>：操作成功，值为 <code>resolve</code> 的参数</li>
+<li><strong>Rejected（已拒绝）</strong>：操作失败，原因为 <code>reject</code> 的参数</li>
+
+<p><strong>核心思想：</strong> 把回调从参数形式变成了返回值形式，支持链式调用（<code>.then().catch()</code>），解决回调地狱。</p>
+
+<p><strong>生活类比：</strong> Promise 就像一张取餐小票——你拿到小票时餐还没好（Pending），餐好了会通知你（Fulfilled），厨房着火了也会通知你（Rejected）。</p>
+
+<hr>
+
+<h2>二、知识脑图</h2>
+
+<pre><code>Promise 异步编程
+├── Promise 基础
+│   ├── 三种状态（Pending/Fulfilled/Rejected）
+│   ├── 状态转换（不可逆）
+│   └── resolve / reject
+├── 核心方法
+│   ├── .then(onFulfilled, onRejected)
+│   ├── .catch(onRejected)
+│   ├── .finally(onSettled)
+│   └── 链式调用机制
+├── 静态方法
+│   ├── Promise.all（全部成功才成功）
+│   ├── Promise.allSettled（等全部完成）
+│   ├── Promise.race（取最快的一个）
+│   ├── Promise.any（取第一个成功的）
+│   └── Promise.resolve / Promise.reject
+├── 错误处理
+│   ├── catch 捕获链中任意错误
+│   ├── 错误冒泡机制
+│   └── unhandledRejection 事件
+└── 实践模式
+    ├── promisify 回调转 Promise
+    ├── 串行 vs 并行
+    └── Promise 池/限流</code></pre>
+
+<hr>
+
+<h2>三、完整代码示例</h2>
+
+<h3>3.1 创建与使用 Promise</h3>
+
+<pre><code class="language-javascript">// promise-basics.js
+
+// Create a Promise
+function readFilePromise(filePath) {
+  return new Promise((resolve, reject) =&gt; {
+    const fs = require(&#x27;fs&#x27;);
+    fs.readFile(filePath, &#x27;utf-8&#x27;, (err, data) =&gt; {
+      if (err) reject(err);       // Reject on error
+      else resolve(data);          // Resolve with data
+    });
+  });
+}
+
+// Consume the Promise
+readFilePromise(__filename)
+  .then(data =&gt; {
+    console.log(`Read ${data.length} chars`);
+    return data.toUpperCase();     // Chain: return value for next .then
+  })
+  .then(upper =&gt; {
+    console.log(`Upper: ${upper.substring(0, 50)}...`);
+  })
+  .catch(err =&gt; {
+    console.error(&#x27;Error:&#x27;, err.message);
+  })
+  .finally(() =&gt; {
+    console.log(&#x27;Cleanup: always runs&#x27;);
+  });</code></pre>
+
+<h3>3.2 并行与串行</h3>
+
+<pre><code class="language-javascript">// parallel-serial.js
+const fs = require(&#x27;fs&#x27;).promises; // Node 10+ built-in promise APIs
+
+// Parallel: read all files at once
+async function readFilesParallel(files) {
+  const promises = files.map(f =&gt; fs.readFile(f, &#x27;utf-8&#x27;));
+  const results = await Promise.all(promises);
+  return results;
+}
+
+// Serial: read one by one
+async function readFilesSerial(files) {
+  const results = [];
+  for (const f of files) {
+    results.push(await fs.readFile(f, &#x27;utf-8&#x27;));
+  }
+  return results;
+}
+
+// Promise.all demo
+Promise.all([
+  fs.readFile(&#x27;file1.txt&#x27;, &#x27;utf-8&#x27;).catch(() =&gt; &#x27;fallback-1&#x27;),
+  fs.readFile(&#x27;file2.txt&#x27;, &#x27;utf-8&#x27;).catch(() =&gt; &#x27;fallback-2&#x27;),
+])
+  .then(results =&gt; console.log(&#x27;All done:&#x27;, results))
+  .catch(err =&gt; console.error(&#x27;One failed:&#x27;, err.message));</code></pre>
+
+<h3>3.3 Promise 静态方法对比</h3>
+
+<pre><code class="language-javascript">// static-methods.js
+
+// Promise.all - all must succeed
+Promise.all([
+  Promise.resolve(1),
+  Promise.resolve(2),
+  Promise.resolve(3),
+]).then(arr =&gt; console.log(&#x27;all:&#x27;, arr)); // [1, 2, 3]
+
+// Promise.allSettled - wait for all, regardless of outcome
+Promise.allSettled([
+  Promise.resolve(&#x27;ok&#x27;),
+  Promise.reject(&#x27;fail&#x27;),
+  Promise.resolve(&#x27;also ok&#x27;),
+]).then(arr =&gt; console.log(&#x27;allSettled:&#x27;, arr));
+// [{status:&#x27;fulfilled&#x27;,value:&#x27;ok&#x27;}, {status:&#x27;rejected&#x27;,reason:&#x27;fail&#x27;}, ...]
+
+// Promise.race - first to settle wins
+Promise.race([
+  new Promise(r =&gt; setTimeout(() =&gt; r(&#x27;slow&#x27;), 200)),
+  new Promise(r =&gt; setTimeout(() =&gt; r(&#x27;fast&#x27;), 50)),
+]).then(val =&gt; console.log(&#x27;race:&#x27;, val)); // &#x27;fast&#x27;
+
+// Promise.any - first to succeed
+Promise.any([
+  Promise.reject(&#x27;err1&#x27;),
+  Promise.resolve(&#x27;ok&#x27;),
+  Promise.resolve(&#x27;also ok&#x27;),
+]).then(val =&gt; console.log(&#x27;any:&#x27;, val)); // &#x27;ok&#x27;</code></pre>
+
+<hr>
+
+<h2>四、执行预览</h2>
+
+<pre><code>$ node promise-basics.js
+Read 512 chars
+Upper: CONST FS = REQUIRE(&#x27;FS&#x27;);...
+Cleanup: always runs
+
+$ node static-methods.js
+all: [ 1, 2, 3 ]
+allSettled: [
+  { status: &#x27;fulfilled&#x27;, value: &#x27;ok&#x27; },
+  { status: &#x27;rejected&#x27;, reason: &#x27;fail&#x27; },
+  { status: &#x27;fulfilled&#x27;, value: &#x27;also ok&#x27; }
+]
+race: fast
+any: ok</code></pre>
+
+<hr>
+
+<h2>五、注意事项</h2>
+
+<table><thead><tr>
+<th>要点</th>
+<th>说明</th>
+</tr></thead><tbody>
+<tr>
+<td>状态不可逆</td>
+<td>从 Pending 变为 Fulfilled/Rejected 后不可再变</td>
+</tr>
+<tr>
+<td>then 返回新 Promise</td>
+<td>每个 <code>.then()</code> 返回新的 Promise，不是原来的</td>
+</tr>
+<tr>
+<td>值穿透</td>
+<td><code>.then()</code> 不传参数时值会穿透到下一个</td>
+</tr>
+<tr>
+<td>reject vs throw</td>
+<td>在 <code>.then()</code> 中 throw 等同于 reject</td>
+</tr>
+<tr>
+<td>未处理的 rejection</td>
+<td>会触发 <code>process.on('unhandledRejection')</code></td>
+</tr>
+<tr>
+<td>Promise.all 快速失败</td>
+<td>一个 reject 则整体 reject，其余结果丢弃</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>六、避坑指南</h2>
+
+<h3>❌ 坑 1：忘记 return Promise</h3>
+
+<pre><code class="language-javascript">// ❌ Bad - forgot return, parallel becomes accidental serial
+function loadUser() {
+  fetch(&#x27;/api/user&#x27;).then(r =&gt; r.json()); // forgot return!
+}
+loadUser().then(user =&gt; console.log(user)); // undefined
+
+// ✅ Good
+function loadUser() {
+  return fetch(&#x27;/api/user&#x27;).then(r =&gt; r.json());
+}</code></pre>
+
+<h3>❌ 坑 2：Promise 构造反模式</h3>
+
+<pre><code class="language-javascript">// ❌ Bad - wrapping an existing Promise
+function getData() {
+  return new Promise((resolve, reject) =&gt; {
+    fetch(&#x27;/api/data&#x27;)
+      .then(r =&gt; resolve(r.json()))
+      .catch(err =&gt; reject(err));
+  });
+}
+
+// ✅ Good - just return the chain
+function getData() {
+  return fetch(&#x27;/api/data&#x27;).then(r =&gt; r.json());
+}</code></pre>
+
+<h3>❌ 坑 3：循环中收集结果</h3>
+
+<pre><code class="language-javascript">// ❌ Bad - push promises but expect values
+const results = [];
+files.forEach(f =&gt; {
+  results.push(fs.readFile(f, &#x27;utf-8&#x27;)); // push Promise, not data!
+});
+
+// ✅ Good
+const results = await Promise.all(
+  files.map(f =&gt; fs.readFile(f, &#x27;utf-8&#x27;))
+);</code></pre>
+
+<hr>
+
+<h2>七、练习题</h2>
+
+<h3>🟢 初级：封装回调为 Promise</h3>
+
+<p>将 <code>setTimeout</code> 封装为 <code>delay(ms)</code> 函数，返回 Promise，ms 毫秒后 resolve。</p>
+
+<pre><code class="language-javascript">function delay(ms) {
+  // Your code here
+}
+delay(1000).then(() =&gt; console.log(&#x27;1 second passed&#x27;));</code></pre>
+
+<p><details></p>
+<p><summary>参考答案</summary></p>
+
+<pre><code class="language-javascript">function delay(ms) {
+  return new Promise(resolve =&gt; setTimeout(resolve, ms));
+}</code></pre>
+<p></details></p>
+
+<h3>🟡 中级：超时机制</h3>
+
+<p>实现 <code>withTimeout(promise, ms)</code>，如果 promise 在 ms 内未完成则 reject "Timeout"。</p>
+
+<h3>🔴 高级：限流并发</h3>
+
+<p>实现 <code>promisePool(tasks, limit)</code>，tasks 是返回 Promise 的函数数组，最多同时执行 limit 个。</p>
+
+<hr>
+
+<h2>八、知识点总结</h2>
+
+<pre><code>Promise 异步编程
+├── 创建 Promise
+│   ├── new Promise((resolve, reject) =&gt; {})
+│   ├── Promise.resolve(value)
+│   └── Promise.reject(reason)
+├── 消费 Promise
+│   ├── .then() → 链式处理成功
+│   ├── .catch() → 统一捕获错误
+│   └── .finally() → 清理逻辑
+├── 组合方法
+│   ├── Promise.all → 全部成功
+│   ├── Promise.allSettled → 全部完成
+│   ├── Promise.race → 最快的一个
+│   └── Promise.any → 第一个成功
+├── 关键机制
+│   ├── 微任务队列（Microtask Queue）
+│   ├── then 回调异步执行
+│   └── 错误冒泡
+└── Node.js 集成
+    ├── fs.promises
+    ├── util.promisify
+    └── → async/await（下一章）</code></pre>
+
+<hr>
+
+<h2>九、举一反三</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>Promise 用法</th>
+<th>关键方法</th>
+</tr></thead><tbody>
+<tr>
+<td>多文件读取</td>
+<td><code>Promise.all(files.map(...))</code></td>
+<td>并行加速</td>
+</tr>
+<tr>
+<td>带超时的请求</td>
+<td><code>Promise.race([fetch, delay])</code></td>
+<td>超时控制</td>
+</tr>
+<tr>
+<td>重试机制</td>
+<td>递归 <code>.catch(() => retry())</code></td>
+<td>指数退避</td>
+</tr>
+<tr>
+<td>串行执行</td>
+<td><code>array.reduce((p, item) => p.then(...))</code></td>
+<td>顺序控制</td>
+</tr>
+<tr>
+<td>缓存层</td>
+<td>返回已有 Promise 避免重复请求</td>
+<td>缓存 Promise</td>
+</tr>
+<tr>
+<td>批处理</td>
+<td><code>Promise.allSettled</code> 容错</td>
+<td>部分失败可接受</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>十、参考资料</h2>
+
+<ul>
+<li><a href="https://developer.mozilla.org/zh-CN/docs/Web/JavaScript/Reference/Global_Objects/Promise">MDN - Promise</a></li>
+<li><a href="https://nodejs.org/api/fs.html#fs_promises_api">Node.js fs.promises</a></li>
+<li><a href="https://promisesaplus.com/">Promise 规范 - Promises/A+</a></li>
+
+<hr>
+
+<h2>十一、代码演进</h2>
+
+<h3>v1：回调地狱（复习）</h3>
+
+<pre><code class="language-javascript">fs.readFile(&#x27;a.txt&#x27;, &#x27;utf-8&#x27;, (err, a) =&gt; {
+  if (err) return handleError(err);
+  fs.readFile(&#x27;b.txt&#x27;, &#x27;utf-8&#x27;, (err, b) =&gt; {
+    if (err) return handleError(err);
+    console.log(a + b);
+  });
+});</code></pre>
+
+<h3>v2：Promise 链式调用</h3>
+
+<pre><code class="language-javascript">const fsp = require(&#x27;fs&#x27;).promises;
+fsp.readFile(&#x27;a.txt&#x27;, &#x27;utf-8&#x27;)
+  .then(a =&gt; fsp.readFile(&#x27;b.txt&#x27;, &#x27;utf-8&#x27;).then(b =&gt; a + b))
+  .then(result =&gt; console.log(result))
+  .catch(err =&gt; console.error(err));</code></pre>
+
+<h3>v3：async/await（预告）</h3>
+
+<pre><code class="language-javascript">const fsp = require(&#x27;fs&#x27;).promises;
+async function main() {
+  try {
+    const a = await fsp.readFile(&#x27;a.txt&#x27;, &#x27;utf-8&#x27;);
+    const b = await fsp.readFile(&#x27;b.txt&#x27;, &#x27;utf-8&#x27;);
+    console.log(a + b);
+  } catch (err) {
+    console.error(err);
+  }
+}
+main();</code></pre>
+
+<hr>
+
+<blockquote><p><strong>上一章：</strong> <a href="/posts/004-async-callbacks">异步编程：回调函数</a> | <strong>下一章：</strong> <a href="/posts/006-async-await">async/await</a></p></blockquote>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

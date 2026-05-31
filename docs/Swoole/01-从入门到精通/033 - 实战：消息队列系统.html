@@ -1,0 +1,790 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>033 - 实战：消息队列系统</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Swoole/index.html">Swoole</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Swoole/01-从入门到精通/index.html">Swoole从入门到精通</a>
+</nav>
+<h1>033 - 实战：消息队列系统</h1>
+<div class="meta">
+<span>📂 Swoole从入门到精通</span>
+<span>🏷️ Swoole</span>
+</div>
+<article>
+
+
+<h2>难度标注</h2>
+
+<blockquote><p><strong>难度：★★★★☆（中高级）</strong><br>前置知识：PHP 基础、Swoole 多进程、Redis 基础、消息队列概念</p></blockquote>
+
+<h2>概念讲解</h2>
+
+<p>消息队列（Message Queue）是分布式系统中解耦和异步处理的核心组件。生产者把消息投递到队列，消费者按自己的节奏取出处理，实现解耦、削峰、异步。</p>
+
+<p><strong>为什么需要消息队列？</strong></p>
+
+<table><thead><tr>
+<th>场景</th>
+<th>没有队列</th>
+<th>有队列</th>
+</tr></thead><tbody>
+<tr>
+<td>用户注册发邮件</td>
+<td>注册接口要等邮件发完才返回，慢！</td>
+<td>注册即返回，邮件异步发</td>
+</tr>
+<tr>
+<td>秒杀抢购</td>
+<td>数据库直接扛，容易挂</td>
+<td>请求先进队列，慢慢消费</td>
+</tr>
+<tr>
+<td>日志收集</td>
+<td>每条日志写文件，I/O 阻塞</td>
+<td>批量攒一批再写</td>
+</tr>
+</tbody></table>
+
+<p><strong>消息队列模型：</strong></p>
+
+<pre><code>Producer → [Queue/Topic] → Consumer
+
+常见模式：
+1. 点对点（PTP）：一条消息只被一个消费者处理
+2. 发布/订阅（Pub/Sub）：一条消息被所有订阅者处理
+3. 延迟队列：消息在指定时间后才可消费</code></pre>
+
+<p><strong>本文实现：</strong></p>
+<ul>
+<li>基于 Swoole Table + 进程间通信实现轻量级消息队列</li>
+<li>支持：投递、消费、确认（ACK）、延迟消息、死信队列</li>
+
+<h2>脑图</h2>
+
+<pre><code>消息队列系统
+├── 消息模型
+│   ├── 消息结构（id, body, status, retry）
+│   ├── 队列（FIFO）
+│   └── 优先级队列
+├── 核心功能
+│   ├── produce() - 投递消息
+│   ├── consume() - 消费消息
+│   ├── ack() - 确认处理
+│   ├── nack() - 处理失败重试
+│   └── delay() - 延迟投递
+├── 可靠性
+│   ├── 消息持久化
+│   ├── ACK 机制
+│   ├── 重试策略
+│   └── 死信队列
+├── 进程模型
+│   ├── Master 进程
+│   ├── Producer Worker
+│   ├── Consumer Worker(s)
+│   └── Manager 进程
+└── 监控
+    ├── 队列深度
+    ├── 消费速率
+    └── 死信数量</code></pre>
+
+<h2>完整代码</h2>
+
+<h3>消息队列核心（QueueServer.php）</h3>
+
+<pre><code class="language-php">&lt;?php
+// QueueServer.php - Swoole-based Message Queue Server
+
+class Message
+{
+    public string $id;
+    public string $body;
+    public int $createdAt;
+    public int $deliverAt;  // 0 = immediate
+    public int $retryCount  = 0;
+    public int $maxRetries  = 3;
+    public string $status   = &#x27;pending&#x27;; // pending, processing, done, dead
+
+    public function __construct(string $body, int $delayMs = 0)
+    {
+        $this-&gt;id        = uniqid(&#x27;msg_&#x27;, true);
+        $this-&gt;body      = $body;
+        $this-&gt;createdAt = time();
+        $this-&gt;deliverAt = $delayMs &gt; 0 ? (int)(microtime(true) * 1000) + $delayMs : 0;
+    }
+
+    public function toArray(): array
+    {
+        return [
+            &#x27;id&#x27;         =&gt; $this-&gt;id,
+            &#x27;body&#x27;       =&gt; $this-&gt;body,
+            &#x27;created_at&#x27; =&gt; $this-&gt;createdAt,
+            &#x27;deliver_at&#x27; =&gt; $this-&gt;deliverAt,
+            &#x27;retry&#x27;      =&gt; $this-&gt;retryCount,
+            &#x27;max_retry&#x27;  =&gt; $this-&gt;maxRetries,
+            &#x27;status&#x27;     =&gt; $this-&gt;status,
+        ];
+    }
+}
+
+class QueueManager
+{
+    private array $queues    = [];  // topic =&gt; [Message, ...]
+    private array $deadLetters = []; // failed messages
+    private array $processing = []; // msgId =&gt; Message (in-flight)
+
+    /**
+     * Push a message to a topic queue
+     */
+    public function produce(string $topic, string $body, int $delayMs = 0): string
+    {
+        $msg = new Message($body, $delayMs);
+        if (!isset($this-&gt;queues[$topic])) {
+            $this-&gt;queues[$topic] = [];
+        }
+        $this-&gt;queues[$topic][] = $msg;
+        return $msg-&gt;id;
+    }
+
+    /**
+     * Consume one message from a topic (blocking if empty)
+     */
+    public function consume(string $topic, int $timeoutMs = 3000): ?Message
+    {
+        if (!isset($this-&gt;queues[$topic]) || empty($this-&gt;queues[$topic])) {
+            return null;
+        }
+
+        $now = (int)(microtime(true) * 1000);
+
+        foreach ($this-&gt;queues[$topic] as $i =&gt; $msg) {
+            // Check delay
+            if ($msg-&gt;deliverAt &gt; 0 &amp;&amp; $now &lt; $msg-&gt;deliverAt) {
+                continue; // Not ready yet
+            }
+
+            // Take message out of queue
+            unset($this-&gt;queues[$topic][$i]);
+            $this-&gt;queues[$topic] = array_values($this-&gt;queues[$topic]);
+
+            $msg-&gt;status = &#x27;processing&#x27;;
+            $this-&gt;processing[$msg-&gt;id] = $msg;
+
+            return $msg;
+        }
+
+        return null;
+    }
+
+    /**
+     * Acknowledge successful processing
+     */
+    public function ack(string $msgId): bool
+    {
+        if (isset($this-&gt;processing[$msgId])) {
+            unset($this-&gt;processing[$msgId]);
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * Negative acknowledge - requeue or dead-letter
+     */
+    public function nack(string $msgId): bool
+    {
+        if (!isset($this-&gt;processing[$msgId])) {
+            return false;
+        }
+
+        $msg = $this-&gt;processing[$msgId];
+        unset($this-&gt;processing[$msgId]);
+
+        $msg-&gt;retryCount++;
+        if ($msg-&gt;retryCount &gt;= $msg-&gt;maxRetries) {
+            // Move to dead letter queue
+            $msg-&gt;status = &#x27;dead&#x27;;
+            $this-&gt;deadLetters[] = $msg;
+            echo &quot;[DeadLetter] {$msg-&gt;id} after {$msg-&gt;retryCount} retries\n&quot;;
+            return false;
+        }
+
+        // Requeue for retry
+        $msg-&gt;status = &#x27;pending&#x27;;
+        $topic = $this-&gt;findTopicByMessage($msg);
+        if ($topic) {
+            $this-&gt;queues[$topic][] = $msg;
+        }
+
+        return true;
+    }
+
+    /**
+     * Get queue stats
+     */
+    public function stats(): array
+    {
+        $stats = [
+            &#x27;queues&#x27;      =&gt; [],
+            &#x27;processing&#x27;  =&gt; count($this-&gt;processing),
+            &#x27;dead_letters&#x27; =&gt; count($this-&gt;deadLetters),
+        ];
+
+        foreach ($this-&gt;queues as $topic =&gt; $messages) {
+            $stats[&#x27;queues&#x27;][$topic] = count($messages);
+        }
+
+        return $stats;
+    }
+
+    private function findTopicByMessage(Message $target): ?string
+    {
+        // Simple linear search (use a reverse index in production)
+        foreach ($this-&gt;queues as $topic =&gt; &amp;$messages) {
+            foreach ($messages as $msg) {
+                if ($msg-&gt;id === $target-&gt;id) {
+                    return $topic;
+                }
+            }
+        }
+        return null;
+    }
+}</code></pre>
+
+<h3>队列服务器（mq_server.php）</h3>
+
+<pre><code class="language-php">&lt;?php
+// mq_server.php - Message Queue TCP Server
+
+$queueManager = new QueueManager();
+
+$server = new Swoole\Server(&quot;0.0.0.0&quot;, 9503);
+
+$server-&gt;on(&#x27;receive&#x27;, function ($server, $fd, $reactorId, $data) use ($queueManager) {
+    $request = json_decode(trim($data), true);
+    if (!$request || !isset($request[&#x27;action&#x27;])) {
+        $server-&gt;send($fd, json_encode([&#x27;error&#x27; =&gt; &#x27;Invalid request&#x27;]));
+        return;
+    }
+
+    $response = match ($request[&#x27;action&#x27;]) {
+        &#x27;produce&#x27; =&gt; handleProduce($queueManager, $request),
+        &#x27;consume&#x27; =&gt; handleConsume($queueManager, $request),
+        &#x27;ack&#x27;     =&gt; handleAck($queueManager, $request),
+        &#x27;nack&#x27;    =&gt; handleNack($queueManager, $request),
+        &#x27;stats&#x27;   =&gt; [&#x27;action&#x27; =&gt; &#x27;stats&#x27;, &#x27;data&#x27; =&gt; $queueManager-&gt;stats()],
+        default   =&gt; [&#x27;error&#x27; =&gt; &quot;Unknown action: {$request[&#x27;action&#x27;]}&quot;],
+    };
+
+    $server-&gt;send($fd, json_encode($response) . &quot;\n&quot;);
+});
+
+function handleProduce(QueueManager $qm, array $request): array
+{
+    $topic = $request[&#x27;topic&#x27;] ?? &#x27;default&#x27;;
+    $body  = $request[&#x27;body&#x27;] ?? &#x27;&#x27;;
+    $delay = $request[&#x27;delay_ms&#x27;] ?? 0;
+
+    $msgId = $qm-&gt;produce($topic, $body, $delay);
+
+    echo &quot;[Produce] topic={$topic} msgId={$msgId}&quot; . ($delay ? &quot; delay={$delay}ms&quot; : &quot;&quot;) . &quot;\n&quot;;
+
+    return [
+        &#x27;action&#x27; =&gt; &#x27;produce&#x27;,
+        &#x27;msg_id&#x27; =&gt; $msgId,
+        &#x27;topic&#x27;  =&gt; $topic,
+    ];
+}
+
+function handleConsume(QueueManager $qm, array $request): array
+{
+    $topic = $request[&#x27;topic&#x27;] ?? &#x27;default&#x27;;
+
+    $msg = $qm-&gt;consume($topic);
+
+    if (!$msg) {
+        return [&#x27;action&#x27; =&gt; &#x27;consume&#x27;, &#x27;status&#x27; =&gt; &#x27;empty&#x27;];
+    }
+
+    echo &quot;[Consume] topic={$topic} msgId={$msg-&gt;id}\n&quot;;
+
+    return [
+        &#x27;action&#x27; =&gt; &#x27;consume&#x27;,
+        &#x27;msg&#x27;    =&gt; $msg-&gt;toArray(),
+    ];
+}
+
+function handleAck(QueueManager $qm, array $request): array
+{
+    $msgId = $request[&#x27;msg_id&#x27;] ?? &#x27;&#x27;;
+    $ok = $qm-&gt;ack($msgId);
+    return [&#x27;action&#x27; =&gt; &#x27;ack&#x27;, &#x27;msg_id&#x27; =&gt; $msgId, &#x27;ok&#x27; =&gt; $ok];
+}
+
+function handleNack(QueueManager $qm, array $request): array
+{
+    $msgId = $request[&#x27;msg_id&#x27;] ?? &#x27;&#x27;;
+    $ok = $qm-&gt;nack($msgId);
+    return [&#x27;action&#x27; =&gt; &#x27;nack&#x27;, &#x27;msg_id&#x27; =&gt; $msgId, &#x27;requeued&#x27; =&gt; $ok];
+}
+
+$server-&gt;set([
+    &#x27;worker_num&#x27;    =&gt; 1, // Single worker for queue consistency
+    &#x27;dispatch_mode&#x27; =&gt; 2, // Fixed fd to same worker
+]);
+
+echo &quot;MQ Server started on tcp://0.0.0.0:9503\n&quot;;
+$server-&gt;start();</code></pre>
+
+<h3>消费者 Worker（mq_worker.php）</h3>
+
+<pre><code class="language-php">&lt;?php
+// mq_worker.php - Consumer Worker Process
+
+Swoole\Runtime::enableCoroutine();
+
+class QueueConsumer
+{
+    private Swoole\Coroutine\Client $client;
+    private string $topic;
+    private int $pollInterval;
+
+    public function __construct(string $topic = &#x27;default&#x27;, int $pollIntervalMs = 100)
+    {
+        $this-&gt;topic       = $topic;
+        $this-&gt;pollInterval = $pollIntervalMs;
+    }
+
+    private function connect(): Swoole\Coroutine\Client
+    {
+        $client = new Swoole\Coroutine\Client(SWOOLE_SOCK_TCP);
+        $client-&gt;connect(&#x27;127.0.0.1&#x27;, 9503, 2.0);
+        return $client;
+    }
+
+    private function sendCommand(array $command): array
+    {
+        $client = $this-&gt;connect();
+        $client-&gt;send(json_encode($command) . &quot;\n&quot;);
+        $resp = $client-&gt;recv();
+        $client-&gt;close();
+        return json_decode(trim($resp), true) ?: [];
+    }
+
+    /**
+     * Start consuming messages
+     */
+    public function run(callable $handler): void
+    {
+        echo &quot;[Consumer] Started, topic={$this-&gt;topic}\n&quot;;
+
+        while (true) {
+            $resp = $this-&gt;sendCommand([
+                &#x27;action&#x27; =&gt; &#x27;consume&#x27;,
+                &#x27;topic&#x27;  =&gt; $this-&gt;topic,
+            ]);
+
+            if (($resp[&#x27;status&#x27;] ?? &#x27;&#x27;) === &#x27;empty&#x27;) {
+                Swoole\Coroutine\System::sleep($this-&gt;pollInterval / 1000);
+                continue;
+            }
+
+            $msg = $resp[&#x27;msg&#x27;] ?? null;
+            if (!$msg) {
+                continue;
+            }
+
+            try {
+                // Call user handler
+                $result = $handler($msg[&#x27;body&#x27;], $msg);
+
+                // ACK on success
+                $this-&gt;sendCommand([&#x27;action&#x27; =&gt; &#x27;ack&#x27;, &#x27;msg_id&#x27; =&gt; $msg[&#x27;id&#x27;]]);
+                echo &quot;[ACK] {$msg[&#x27;id&#x27;]}\n&quot;;
+
+            } catch (Throwable $e) {
+                // NACK on failure
+                $this-&gt;sendCommand([&#x27;action&#x27; =&gt; &#x27;nack&#x27;, &#x27;msg_id&#x27; =&gt; $msg[&#x27;id&#x27;]]);
+                echo &quot;[NACK] {$msg[&#x27;id&#x27;]}: {$e-&gt;getMessage()}\n&quot;;
+            }
+        }
+    }
+}
+
+// --- Run consumer ---
+Swoole\Coroutine\run(function () {
+    $consumer = new QueueConsumer(&#x27;orders&#x27;, 100);
+
+    $consumer-&gt;run(function ($body, $msg) {
+        echo &quot;[Process] {$body}\n&quot;;
+
+        // Simulate processing
+        $data = json_decode($body, true);
+        if (isset($data[&#x27;fail&#x27;]) &amp;&amp; $data[&#x27;fail&#x27;]) {
+            throw new RuntimeException(&quot;Simulated failure&quot;);
+        }
+
+        // Simulate work
+        Swoole\Coroutine\System::sleep(0.1);
+        echo &quot;[Done] Processed order: &quot; . ($data[&#x27;order_id&#x27;] ?? &#x27;unknown&#x27;) . &quot;\n&quot;;
+    });
+});</code></pre>
+
+<h3>生产者测试脚本（mq_producer.php）</h3>
+
+<pre><code class="language-php">&lt;?php
+// mq_producer.php - Test Producer
+
+Swoole\Runtime::enableCoroutine();
+
+Swoole\Coroutine\run(function () {
+    $client = new Swoole\Coroutine\Client(SWOOLE_SOCK_TCP);
+    $client-&gt;connect(&#x27;127.0.0.1&#x27;, 9503, 2.0);
+
+    // Produce regular messages
+    for ($i = 1; $i &lt;= 5; $i++) {
+        $body = json_encode([&#x27;order_id&#x27; =&gt; &quot;ORD-{$i}&quot;, &#x27;amount&#x27; =&gt; rand(10, 999)]);
+        $client-&gt;send(json_encode([
+            &#x27;action&#x27; =&gt; &#x27;produce&#x27;,
+            &#x27;topic&#x27;  =&gt; &#x27;orders&#x27;,
+            &#x27;body&#x27;   =&gt; $body,
+        ]) . &quot;\n&quot;);
+        $resp = $client-&gt;recv();
+        echo &quot;Sent: {$resp}\n&quot;;
+        Swoole\Coroutine\System::sleep(0.1);
+    }
+
+    // Produce a delayed message (5 seconds)
+    $client-&gt;send(json_encode([
+        &#x27;action&#x27;   =&gt; &#x27;produce&#x27;,
+        &#x27;topic&#x27;    =&gt; &#x27;orders&#x27;,
+        &#x27;body&#x27;     =&gt; json_encode([&#x27;order_id&#x27; =&gt; &#x27;DELAYED-1&#x27;, &#x27;note&#x27; =&gt; &#x27;This was delayed&#x27;]),
+        &#x27;delay_ms&#x27; =&gt; 5000,
+    ]) . &quot;\n&quot;);
+    $resp = $client-&gt;recv();
+    echo &quot;Delayed: {$resp}\n&quot;;
+
+    // Produce a message that will fail (for dead letter test)
+    $client-&gt;send(json_encode([
+        &#x27;action&#x27; =&gt; &#x27;produce&#x27;,
+        &#x27;topic&#x27;  =&gt; &#x27;orders&#x27;,
+        &#x27;body&#x27;   =&gt; json_encode([&#x27;order_id&#x27; =&gt; &#x27;FAIL-1&#x27;, &#x27;fail&#x27; =&gt; true]),
+    ]) . &quot;\n&quot;);
+    $resp = $client-&gt;recv();
+    echo &quot;Fail-test: {$resp}\n&quot;;
+
+    // Get stats
+    $client-&gt;send(json_encode([&#x27;action&#x27; =&gt; &#x27;stats&#x27;]) . &quot;\n&quot;);
+    $resp = $client-&gt;recv();
+    echo &quot;Stats: {$resp}\n&quot;;
+
+    $client-&gt;close();
+});</code></pre>
+
+<h2>执行预览</h2>
+
+<pre><code class="language-bash"># Terminal 1: Start MQ Server
+$ php mq_server.php
+MQ Server started on tcp://0.0.0.0:9503
+
+# Terminal 2: Start Consumer
+$ php mq_worker.php
+[Consumer] Started, topic=orders
+
+# Terminal 3: Produce messages
+$ php mq_producer.php
+Sent: {&quot;action&quot;:&quot;produce&quot;,&quot;msg_id&quot;:&quot;msg_6632...&quot;,&quot;topic&quot;:&quot;orders&quot;}
+Sent: {&quot;action&quot;:&quot;produce&quot;,&quot;msg_id&quot;:&quot;msg_6632...&quot;,&quot;topic&quot;:&quot;orders&quot;}
+... (5 messages)
+Delayed: {&quot;action&quot;:&quot;produce&quot;,&quot;msg_id&quot;:&quot;msg_6632...&quot;,&quot;topic&quot;:&quot;orders&quot;}
+Fail-test: {&quot;action&quot;:&quot;produce&quot;,&quot;msg_id&quot;:&quot;msg_6632...&quot;,&quot;topic&quot;:&quot;orders&quot;}
+Stats: {&quot;action&quot;:&quot;stats&quot;,&quot;data&quot;:{&quot;queues&quot;:{&quot;orders&quot;:0},&quot;processing&quot;:0,&quot;dead_letters&quot;:0}}
+
+# Server log:
+[Produce] topic=orders msgId=msg_6632a1...
+[Produce] topic=orders msgId=msg_6632a2...
+[Consume] topic=orders msgId=msg_6632a1...
+[ACK] msg_6632a1...
+
+# Consumer log:
+[Process] {&quot;order_id&quot;:&quot;ORD-1&quot;,&quot;amount&quot;:256}
+[Done] Processed order: ORD-1
+[Process] {&quot;order_id&quot;:&quot;ORD-2&quot;,&quot;amount&quot;:891}
+[Done] Processed order: ORD-2
+[NACK] msg_...: Simulated failure
+[DeadLetter] msg_... after 3 retries</code></pre>
+
+<h2>注意事项</h2>
+
+<table><thead><tr>
+<th>项目</th>
+<th>说明</th>
+</tr></thead><tbody>
+<tr>
+<td>单 Worker</td>
+<td>队列服务器用单 Worker 保证消息顺序和状态一致</td>
+</tr>
+<tr>
+<td>ACK 超时</td>
+<td>消费者取走消息后若不 ACK，消息会"丢失"；生产环境需加超时回退机制</td>
+</tr>
+<tr>
+<td>持久化</td>
+<td>本文用内存存储，重启丢消息；生产用 Redis 或磁盘持久化</td>
+</tr>
+<tr>
+<td>消费幂等</td>
+<td>消费者可能收到重复消息，业务逻辑需幂等</td>
+</tr>
+<tr>
+<td>延迟精度</td>
+<td>延迟队列基于轮询检查，精度取决于 poll 间隔</td>
+</tr>
+<tr>
+<td>并发消费</td>
+<td>多消费者时需锁机制保证消息不被重复消费</td>
+</tr>
+</tbody></table>
+
+<h2>避坑指南</h2>
+
+<table><thead><tr>
+<th>❌ 常见错误</th>
+<th>✅ 正确做法</th>
+</tr></thead><tbody>
+<tr>
+<td>消费成功不 ACK</td>
+<td>必须在处理完成后 ACK，否则消息可能丢失</td>
+</tr>
+<tr>
+<td>消费者不 catch 异常</td>
+<td>处理失败要 NACK，让消息重试或进死信队列</td>
+</tr>
+<tr>
+<td>无限重试</td>
+<td>设置 maxRetries，超过进死信队列</td>
+</tr>
+<tr>
+<td>队列无上限</td>
+<td>设置队列最大深度，防止内存溢出</td>
+</tr>
+<tr>
+<td>单点故障</td>
+<td>队列服务要做 HA（主备或集群）</td>
+</tr>
+<tr>
+<td>同步消费阻塞</td>
+<td>用 Swoole 协程实现异步非阻塞消费</td>
+</tr>
+</tbody></table>
+
+<h2>练习题</h2>
+
+<h3>🟢 基础题</h3>
+<ol>
+<li>添加消息优先级：高优先级消息先被消费</li>
+</ul>
+<ol>
+<li>实现批量消费：一次取出 N 条消息</li>
+
+<h3>🟡 进阶题</h3>
+<ol>
+<li>用 Redis（List + Sorted Set）替代内存存储，实现持久化队列</li>
+</ul>
+<ol>
+<li>实现发布/订阅模式：一个 topic 可以有多个消费者组，每组独立消费</li>
+
+<h3>🔴 挑战题</h3>
+<ol>
+<li>实现消息回溯：可以重新消费某个时间点之后的消息</li>
+</ul>
+<ol>
+<li>实现分布式队列：多台队列服务器通过一致性哈希分片</li>
+
+<h2>知识点总结</h2>
+
+<pre><code>消息队列知识树
+├── 消息模型
+│   ├── 点对点（PTP）
+│   ├── 发布/订阅（Pub/Sub）
+│   └── 延迟队列
+├── 核心机制
+│   ├── 投递（Produce）
+│   ├── 消费（Consume）
+│   ├── 确认（ACK）
+│   ├── 重试（Retry）
+│   └── 死信（Dead Letter）
+├── 可靠性
+│   ├── 消息持久化
+│   ├── 消费幂等
+│   ├── 至少一次投递
+│   └── 顺序保证
+├── Swoole 应用
+│   ├── TCP Server
+│   ├── Coroutine Client
+│   ├── Process 管理
+│   └── Table 共享内存
+└── 生产优化
+    ├── 多消费者并发
+    ├── 批量消费
+    └── 背压控制</code></pre>
+
+<h2>举一反三</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>技术方案</th>
+<th>核心改动</th>
+</tr></thead><tbody>
+<tr>
+<td>订单处理</td>
+<td>队列 + 重试 + 死信</td>
+<td>消费者调订单服务，失败进死信人工处理</td>
+</tr>
+<tr>
+<td>日志收集</td>
+<td>多生产者 + 批量消费者</td>
+<td>消费者攒 N 条或 M 秒后批量写</td>
+</tr>
+<tr>
+<td>邮件发送</td>
+<td>延迟队列 + 限速</td>
+<td>delay_ms 实现定时发送，令牌桶限速</td>
+</tr>
+<tr>
+<td>数据同步</td>
+<td>发布/订阅 + 多消费者组</td>
+<td>同一条变更推给搜索、缓存、统计多个消费者</td>
+</tr>
+</tbody></table>
+
+<h2>参考资料</h2>
+
+<ul>
+<li><a href="https://wiki.swoole.com/#/process">Swoole Process 文档</a></li>
+<li><a href="https://wiki.swoole.com/#/memory/table">Swoole Table 文档</a></li>
+<li><a href="https://redis.io/commands/lpush">Redis List 实现消息队列</a></li>
+<li><a href="https://www.infoq.cn/article/the-road-to-the-lightning-network">消息队列设计精要</a></li>
+
+<h2>代码演进</h2>
+
+<h3>v1 - 最简队列：数组 + while</h3>
+
+<pre><code class="language-php">$queue = [];
+
+// Producer
+$queue[] = json_encode([&#x27;task&#x27; =&gt; &#x27;send_email&#x27;, &#x27;to&#x27; =&gt; &#x27;user@example.com&#x27;]);
+
+// Consumer
+while ($msg = array_shift($queue)) {
+    $data = json_decode($msg, true);
+    echo &quot;Processing: {$data[&#x27;task&#x27;]}\n&quot;;
+}</code></pre>
+
+<h3>v2 - 网络化队列（本文主体）</h3>
+
+<ul>
+<li>TCP Server + JSON 协议</li>
+<li>QueueManager 封装队列逻辑</li>
+<li>ACK/NACK 机制</li>
+<li>延迟投递</li>
+<li>死信队列</li>
+<li>消费者 Worker 独立进程</li>
+
+<h3>v3 - 生产级（Redis + 多消费者 + 持久化）</h3>
+
+<pre><code class="language-php">// Redis-based persistent queue
+class RedisQueue
+{
+    private Redis $redis;
+
+    public function produce(string $topic, string $body, int $delayMs = 0): string
+    {
+        $msgId = uniqid(&#x27;msg_&#x27;, true);
+        $msg = json_encode([&#x27;id&#x27; =&gt; $msgId, &#x27;body&#x27; =&gt; $body, &#x27;created&#x27; =&gt; time()]);
+
+        if ($delayMs &gt; 0) {
+            $deliverAt = time() + (int)($delayMs / 1000);
+            $this-&gt;redis-&gt;zAdd(&quot;delayed:{$topic}&quot;, $deliverAt, $msg);
+        } else {
+            $this-&gt;redis-&gt;rPush(&quot;queue:{$topic}&quot;, $msg);
+        }
+
+        return $msgId;
+    }
+
+    public function consume(string $topic, int $timeout = 3): ?array
+    {
+        // Check delayed messages first
+        $now = time();
+        $ready = $this-&gt;redis-&gt;zRangeByScore(&quot;delayed:{$topic}&quot;, 0, $now);
+        foreach ($ready as $msg) {
+            $this-&gt;redis-&gt;zRem(&quot;delayed:{$topic}&quot;, $msg);
+            $this-&gt;redis-&gt;rPush(&quot;queue:{$topic}&quot;, $msg);
+        }
+
+        // Blocking pop
+        $result = $this-&gt;redis-&gt;blPop([&quot;queue:{$topic}&quot;], $timeout);
+        return $result ? json_decode($result[1], true) : null;
+    }
+}</code></pre>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

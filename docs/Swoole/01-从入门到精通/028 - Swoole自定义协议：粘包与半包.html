@@ -1,0 +1,562 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>028 - Swoole自定义协议：粘包与半包</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Swoole/index.html">Swoole</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Swoole/01-从入门到精通/index.html">Swoole从入门到精通</a>
+</nav>
+<h1>028 - Swoole自定义协议：粘包与半包</h1>
+<div class="meta">
+<span>📂 Swoole从入门到精通</span>
+<span>🏷️ Swoole</span>
+</div>
+<article>
+
+
+<h1>Swoole自定义协议：粘包与半包</h1>
+
+<blockquote><p>难度：⭐⭐⭐⭐（中高级）</p></blockquote>
+
+<h2>一、概念讲解</h2>
+
+<h3>什么是粘包和半包？</h3>
+
+<p>TCP 是<strong>面向字节流</strong>的协议，不保留消息边界。这意味着：</p>
+
+<ul>
+<li><strong>粘包（Sticky Packet）</strong>：发送方连续发送的多条消息，接收方一次 <code>recv</code> 读到多条拼接在一起的数据</li>
+<li><strong>半包（Half Packet）</strong>：一条较长的消息，接收方需要多次 <code>recv</code> 才能读完整</li>
+
+<pre><code>发送方：  [MsgA] [MsgB] [MsgC]
+                ↓ TCP 字节流
+接收方可能收到：
+  情况1：[MsgA] [MsgB] [MsgC]     ← 正常（理想情况）
+  情况2：[MsgA|MsgB] [MsgC]       ← 粘包
+  情况3：[MsgA前半] [A后半|MsgB]   ← 半包+粘包</code></pre>
+
+<h3>解决方案</h3>
+
+<table><thead><tr>
+<th>方案</th>
+<th>原理</th>
+<th>适用场景</th>
+</tr></thead><tbody>
+<tr>
+<td>固定包头</td>
+<td>前N字节存包体长度</td>
+<td>最通用，推荐</td>
+</tr>
+<tr>
+<td>EOF分隔符</td>
+<td>用特殊字符标记消息结尾</td>
+<td>文本协议（如Redis）</td>
+</tr>
+<tr>
+<td>固定长度</td>
+<td>每条消息定长</td>
+<td>简单但浪费带宽</td>
+</tr>
+<tr>
+<td>长度+类型头</td>
+<td>包头含长度和消息类型</td>
+<td>最完整的协议设计</td>
+</tr>
+</tbody></table>
+
+<h2>二、脑图</h2>
+
+<pre><code>TCP 粘包/半包
+├── 问题根源
+│   ├── TCP 字节流无边界
+│   ├── Nagle 算法合并小包
+│   └── 接收缓冲区大小不定
+├── 解决方案
+│   ├── 固定包头（Length-Check）
+│   │   ├── open_length_check = true
+│   │   ├── package_length_type
+│   │   ├── package_length_offset
+│   │   └── package_body_offset
+│   ├── EOF 分隔符
+│   │   ├── open_eof_check = true
+│   │   └── package_eof
+│   └── 固定包长
+│       └── open_length_check + 固定 body
+├── 协议设计
+│   ├── Header (4B length + 2B type + 2B flags)
+│   ├── Body (JSON/Binary payload)
+│   └── 校验 (CRC32/Checksum)
+└── 调试技巧
+    ├── tcpdump 抓包分析
+    ├── Swoole 日志
+    └── hexdump 查看原始数据</code></pre>
+
+<h2>三、代码演进</h2>
+
+<h3>v1：Swoole 内置 Length-Check 分包</h3>
+
+<pre><code class="language-php">&lt;?php
+// v1: Using Swoole built-in length-check protocol
+// Protocol: [4-byte length(N)][body]
+
+$server = new Swoole\Server(&quot;0.0.0.0&quot;, 9501, SWOOLE_PROCESS);
+
+$server-&gt;set([
+    &quot;worker_num&quot; =&gt; 4,
+    &quot;open_length_check&quot; =&gt; true,       // Enable length-check
+    &quot;package_length_type&quot; =&gt; &quot;N&quot;,      // 4-byte big-endian unsigned int
+    &quot;package_length_offset&quot; =&gt; 0,      // Length field at position 0
+    &quot;package_body_offset&quot; =&gt; 4,        // Body starts at position 4
+    &quot;package_max_length&quot; =&gt; 1024 * 1024 // Max 1MB per package
+]);
+
+$server-&gt;on(&quot;receive&quot;, function ($server, $fd, $reactorId, $data) {
+    // $data is already a complete packet (body only, header stripped)
+    echo &quot;[Recv] fd={$fd} len=&quot; . strlen($data) . &quot; data={$data}\n&quot;;
+    
+    // Echo back with length header
+    $response = &quot;PONG: &quot; . $data;
+    $header = pack(&quot;N&quot;, strlen($response));
+    $server-&gt;send($fd, $header . $response);
+});
+
+$server-&gt;on(&quot;connect&quot;, function ($server, $fd) {
+    echo &quot;[Connect] fd={$fd}\n&quot;;
+});
+
+$server-&gt;on(&quot;close&quot;, function ($server, $fd) {
+    echo &quot;[Close] fd={$fd}\n&quot;;
+});
+
+echo &quot;Length-Check Server started on :9501\n&quot;;
+$server-&gt;start();</code></pre>
+
+<p><strong>对应客户端：</strong></p>
+
+<pre><code class="language-php">&lt;?php
+// v1 client: Send with length header
+$client = new Swoole\Client(SWOOLE_SOCK_TCP);
+$client-&gt;set([
+    &quot;open_length_check&quot; =&gt; true,
+    &quot;package_length_type&quot; =&gt; &quot;N&quot;,
+    &quot;package_length_offset&quot; =&gt; 0,
+    &quot;package_body_offset&quot; =&gt; 4,
+    &quot;package_max_length&quot; =&gt; 1024 * 1024
+]);
+
+if (!$client-&gt;connect(&quot;127.0.0.1&quot;, 9501, 2.0)) {
+    die(&quot;Connect failed\n&quot;);
+}
+
+// Send message with length header
+function sendMsg($client, $msg) {
+    $header = pack(&quot;N&quot;, strlen($msg));
+    $client-&gt;send($header . $msg);
+}
+
+sendMsg($client, &quot;Hello Swoole&quot;);
+sendMsg($client, &quot;Second message&quot;);
+sendMsg($client, &quot;Third message — testing sticky packet!&quot;);
+
+// Receive
+for ($i = 0; $i &lt; 3; $i++) {
+    $data = $client-&gt;recv();
+    if ($data) {
+        echo &quot;[Client] Received: {$data}\n&quot;;
+    }
+}
+
+$client-&gt;close();</code></pre>
+
+<h3>v2：自定义二进制协议（Header + Body）</h3>
+
+<pre><code class="language-php">&lt;?php
+// v2: Custom binary protocol
+// Protocol: [4B length][2B type][2B flags][body]
+// Total header: 8 bytes
+
+define(&quot;HEADER_SIZE&quot;, 8);
+define(&quot;MSG_TYPE_PING&quot;, 1001);
+define(&quot;MSG_TYPE_DATA&quot;, 2001);
+define(&quot;MSG_TYPE_AUTH&quot;, 3001);
+
+$server = new Swoole\Server(&quot;0.0.0.0&quot;, 9501);
+
+// We handle packet splitting manually
+$server-&gt;set([
+    &quot;open_length_check&quot; =&gt; true,
+    &quot;package_length_type&quot; =&gt; &quot;N&quot;,
+    &quot;package_length_offset&quot; =&gt; 0,
+    &quot;package_body_offset&quot; =&gt; HEADER_SIZE,
+    &quot;package_max_length&quot; =&gt; 2 * 1024 * 1024
+]);
+
+function decodePacket(string $data): array {
+    $header = substr($data, 0, HEADER_SIZE);
+    $body = substr($data, HEADER_SIZE);
+    $unpack = unpack(&quot;Nlength/ntype/nflags&quot;, $header);
+    $unpack[&quot;body&quot;] = $body;
+    return $unpack;
+}
+
+function encodePacket(int $type, int $flags, string $body): string {
+    $length = HEADER_SIZE + strlen($body);
+    return pack(&quot;Nnn&quot;, $length, $type, $flags) . $body;
+}
+
+$server-&gt;on(&quot;receive&quot;, function ($server, $fd, $reactorId, $data) {
+    $packet = decodePacket($data);
+    
+    echo sprintf(&quot;[Recv] type=%d flags=%d len=%d body=%s\n&quot;,
+        $packet[&quot;type&quot;], $packet[&quot;flags&quot;], $packet[&quot;length&quot;], $packet[&quot;body&quot;]);
+    
+    switch ($packet[&quot;type&quot;]) {
+        case MSG_TYPE_PING:
+            $resp = encodePacket(MSG_TYPE_PING, 0, &quot;PONG&quot;);
+            $server-&gt;send($fd, $resp);
+            break;
+            
+        case MSG_TYPE_AUTH:
+            $payload = json_decode($packet[&quot;body&quot;], true);
+            if (($payload[&quot;token&quot;] ?? &quot;&quot;) === &quot;secret123&quot;) {
+                $resp = encodePacket(MSG_TYPE_AUTH, 1, json_encode([&quot;status&quot; =&gt; &quot;ok&quot;]));
+            } else {
+                $resp = encodePacket(MSG_TYPE_AUTH, 0, json_encode([&quot;status&quot; =&gt; &quot;denied&quot;]));
+            }
+            $server-&gt;send($fd, $resp);
+            break;
+            
+        case MSG_TYPE_DATA:
+            // Process data and echo back
+            $resp = encodePacket(MSG_TYPE_DATA, $packet[&quot;flags&quot;],
+                json_encode([&quot;echo&quot; =&gt; $packet[&quot;body&quot;], &quot;ts&quot; =&gt; time()]));
+            $server-&gt;send($fd, $resp);
+            break;
+    }
+});
+
+echo &quot;Custom Protocol Server on :9501\n&quot;;
+$server-&gt;start();</code></pre>
+
+<h3>v3：生产级协议（含校验、心跳、加解密）</h3>
+
+<pre><code class="language-php">&lt;?php
+// v3: Production protocol with CRC32 checksum + heartbeat
+// Protocol: [4B length][2B type][2B flags][4B crc32][body]
+
+define(&quot;HEADER_V3&quot;, 12);
+define(&quot;TYPE_HEARTBEAT&quot;, 0);
+define(&quot;TYPE_REQUEST&quot;, 1);
+define(&quot;TYPE_RESPONSE&quot;, 2);
+define(&quot;TYPE_PUSH&quot;, 3);
+
+$server = new Swoole\Server(&quot;0.0.0.0&quot;, 9501, SWOOLE_PROCESS);
+
+$server-&gt;set([
+    &quot;worker_num&quot; =&gt; 4,
+    &quot;open_length_check&quot; =&gt; true,
+    &quot;package_length_type&quot; =&gt; &quot;N&quot;,
+    &quot;package_length_offset&quot; =&gt; 0,
+    &quot;package_body_offset&quot; =&gt; HEADER_V3,
+    &quot;package_max_length&quot; =&gt; 8 * 1024 * 1024,
+    &quot;heartbeat_check_interval&quot; =&gt; 30,
+    &quot;heartbeat_idle_time&quot; =&gt; 120
+]);
+
+function packV3(int $type, int $flags, string $body): string {
+    $crc = crc32($body);
+    $length = HEADER_V3 + strlen($body);
+    return pack(&quot;NnnN&quot;, $length, $type, $flags, $crc) . $body;
+}
+
+function unpackV3(string $data): ?array {
+    if (strlen($data) &lt; HEADER_V3) return null;
+    $hdr = unpack(&quot;Nlength/ntype/nflags/Ncrc&quot;, substr($data, 0, HEADER_V3));
+    $body = substr($data, HEADER_V3);
+    
+    // CRC verification
+    if (crc32($body) !== $hdr[&quot;crc&quot;]) {
+        echo &quot;[WARN] CRC mismatch! Expected {$hdr[&#x27;crc&#x27;]}, got &quot; . crc32($body) . &quot;\n&quot;;
+        return null;
+    }
+    
+    $hdr[&quot;body&quot;] = $body;
+    return $hdr;
+}
+
+$server-&gt;on(&quot;receive&quot;, function ($server, $fd, $reactorId, $data) {
+    $pkt = unpackV3($data);
+    if (!$pkt) {
+        echo &quot;[ERROR] Invalid packet from fd={$fd}\n&quot;;
+        $server-&gt;close($fd);
+        return;
+    }
+    
+    switch ($pkt[&quot;type&quot;]) {
+        case TYPE_HEARTBEAT:
+            // Heartbeat response
+            $server-&gt;send($fd, packV3(TYPE_HEARTBEAT, 0, &quot;OK&quot;));
+            break;
+            
+        case TYPE_REQUEST:
+            $req = json_decode($pkt[&quot;body&quot;], true);
+            $resp = json_encode([
+                &quot;id&quot; =&gt; $req[&quot;id&quot;] ?? 0,
+                &quot;result&quot; =&gt; strtoupper($req[&quot;data&quot;] ?? &quot;&quot;),
+                &quot;server_ts&quot; =&gt; microtime(true)
+            ]);
+            $server-&gt;send($fd, packV3(TYPE_RESPONSE, 0, $resp));
+            break;
+            
+        case TYPE_PUSH:
+            echo &quot;[Push] fd={$fd}: {$pkt[&#x27;body&#x27;]}\n&quot;;
+            break;
+    }
+});
+
+$server-&gt;on(&quot;connect&quot;, function ($s, $fd) {
+    echo &quot;[+] fd={$fd} connected\n&quot;;
+});
+
+$server-&gt;on(&quot;close&quot;, function ($s, $fd) {
+    echo &quot;[-] fd={$fd} closed\n&quot;;
+});
+
+echo &quot;=== Protocol V3 Server :9501 ===\n&quot;;
+$server-&gt;start();</code></pre>
+
+<h2>四、执行预览</h2>
+
+<pre><code># Terminal 1 - Server
+$ php v3-protocol.php
+=== Protocol V3 Server :9501 ===
+[+] fd=1 connected
+[Recv] type=1 flags=0 body={&quot;id&quot;:1,&quot;data&quot;:&quot;hello&quot;}
+
+# Terminal 2 - Client
+$ php v3-client.php
+Send: {&quot;id&quot;:1,&quot;data&quot;:&quot;hello&quot;}
+Recv: {&quot;id&quot;:1,&quot;result&quot;:&quot;HELLO&quot;,&quot;server_ts&quot;:1745853600.1234}
+Heartbeat: OK</code></pre>
+
+<h2>五、注意事项</h2>
+
+<table><thead><tr>
+<th>项目</th>
+<th>说明</th>
+</tr></thead><tbody>
+<tr>
+<td>字节序</td>
+<td><code>pack("N")</code> 是大端序（网络字节序），<code>pack("V")</code> 是小端序</td>
+</tr>
+<tr>
+<td>length 含义</td>
+<td><code>package_length_offset</code> 处的值是<strong>整包长度</strong>（含header）还是 body 长度，取决于 <code>package_body_offset</code> 配置</td>
+</tr>
+<tr>
+<td>零拷贝</td>
+<td>Swoole 底层已做分包处理，<code>onReceive</code> 拿到的是完整包</td>
+</tr>
+<tr>
+<td>客户端配置</td>
+<td>客户端也需要设置相同的分包参数才能正确解析</td>
+</tr>
+<tr>
+<td>package_max_length</td>
+<td>设置过小会丢弃大包，过大会浪费内存</td>
+</tr>
+</tbody></table>
+
+<h2>六、避坑指南</h2>
+
+<table><thead><tr>
+<th>❌ 错误做法</th>
+<th>✅ 正确做法</th>
+</tr></thead><tbody>
+<tr>
+<td>手动在 onReceive 中拼接 buffer 分包</td>
+<td>用 Swoole 内置的 <code>open_length_check</code></td>
+</tr>
+<tr>
+<td><code>pack("N", strlen($body))</code> 不含 header 长度</td>
+<td>长度字段包含 header + body 总长</td>
+</tr>
+<tr>
+<td>客户端不设分包参数</td>
+<td>客户端也要 <code>set()</code> 相同的分包配置</td>
+</tr>
+<tr>
+<td>忽略 CRC 校验</td>
+<td>生产环境务必加校验，防止数据损坏</td>
+</tr>
+<tr>
+<td>用 <code>package_length_type => "C"</code> (1字节)</td>
+<td>1字节最大255，大部分场景不够，用 <code>N</code>(4字节)</td>
+</tr>
+</tbody></table>
+
+<h2>七、练习题</h2>
+
+<h3>🟢 基础题</h3>
+<ol>
+<li>用 Swoole 内置 <code>open_length_check</code> 实现 Echo Server，客户端发送字符串，服务端原样返回。</li>
+</ul>
+<ol>
+<li>修改 v1 示例，把包头从 4 字节改为 2 字节（<code>n</code>），测试最大包长限制。</li>
+
+<h3>🟡 进阶题</h3>
+<ol>
+<li>实现一个简单的文件传输协议：Header 包含文件名和文件大小，Body 是文件内容。</li>
+</ul>
+<ol>
+<li>在 v2 基础上添加消息序号（sequence），实现请求-响应匹配。</li>
+
+<h3>🔴 挑战题</h3>
+<ol>
+<li>实现一个支持压缩的自定义协议：Header 标记是否压缩，Body 用 <code>zlib</code> 压缩/解压，传输 JSON 数据。</li>
+
+<h2>八、知识点总结</h2>
+
+<pre><code>粘包/半包知识树
+├── 根因
+│   └── TCP 字节流无边界
+├── Swoole 分包配置
+│   ├── open_length_check + package_length_type
+│   ├── open_eof_check + package_eof
+│   └── open_http_protocol (HTTP自带)
+├── pack/unpack 格式
+│   ├── N = 4B unsigned big-endian
+│   ├── n = 2B unsigned big-endian
+│   ├── V = 4B unsigned little-endian
+│   └── C = 1B unsigned char
+├── 协议设计要素
+│   ├── 魔数 (Magic Number)
+│   ├── 版本号
+│   ├── 消息类型
+│   ├── 序列号
+│   ├── 长度
+│   └── 校验和
+└── 调试工具
+    ├── tcpdump -i lo -nn -X port 9501
+    ├── hexdump -C
+    └── Swoole\Event::defer()</code></pre>
+
+<h2>九、举一反三</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>协议设计</th>
+</tr></thead><tbody>
+<tr>
+<td>RPC 框架</td>
+<td>Header(len+type+seq) + Body(serialize) + Tail(crc)</td>
+</tr>
+<tr>
+<td>IM 聊天</td>
+<td>Header(len+cmd+from+to) + Body(proto/json)</td>
+</tr>
+<tr>
+<td>文件传输</td>
+<td>Header(len+filename+offset) + Body(chunk)</td>
+</tr>
+<tr>
+<td>游戏协议</td>
+<td>Header(len+cmd+seq) + Body(protobuf)</td>
+</tr>
+<tr>
+<td>IoT 设备</td>
+<td>Header(len+devId+type) + Body(binary)</td>
+</tr>
+</tbody></table>
+
+<h2>十、参考资料</h2>
+
+<ul>
+<li><a href="https://wiki.swoole.com/#/learn?id=tcp-sticky-package">Swoole TCP 粘包问题</a></li>
+<li><a href="https://wiki.swoole.com/#/server/setting">Swoole Server::set 配置</a></li>
+<li><a href="https://www.php.net/manual/en/function.pack.php">PHP pack() 函数</a></li>
+<li><a href="https://tools.ietf.org/html/rfc793">TCP/IP 协议详解</a></li>
+
+<h2>十一、代码演进总结</h2>
+
+<table><thead><tr>
+<th>版本</th>
+<th>特点</th>
+<th>适用场景</th>
+</tr></thead><tbody>
+<tr>
+<td>v1</td>
+<td>内置 length-check，纯长度分包</td>
+<td>简单请求响应</td>
+</tr>
+<tr>
+<td>v2</td>
+<td>自定义 Header(长度+类型+标志)</td>
+<td>多消息类型系统</td>
+</tr>
+<tr>
+<td>v3</td>
+<td>生产级，含 CRC 校验+心跳+错误处理</td>
+<td>生产环境</td>
+</tr>
+</tbody></table>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

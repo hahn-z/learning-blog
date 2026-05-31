@@ -1,0 +1,556 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>038 - Vue 3 项目部署</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Vue.js/index.html">Vue.js</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Vue.js/01-入门到实战/index.html">Vue.js入门到实战</a>
+</nav>
+<h1>038 - Vue 3 项目部署</h1>
+<div class="meta">
+<span>📂 Vue.js入门到实战</span>
+<span>🏷️ Vue.js</span>
+</div>
+<article>
+
+
+
+<h2>难度标注</h2>
+<blockquote><p><strong>难度：🟡 中级</strong> | <strong>前置知识：Vue 3、命令行基础、Linux 基础</strong> | <strong>预计学习时间：50 分钟</strong></p></blockquote>
+
+<h2>概念讲解</h2>
+
+<h3>Vue 3 部署架构</h3>
+
+<p>Vue SPA 应用的部署本质上是：<strong>将构建产物（HTML/CSS/JS）放到 Web 服务器上</strong>。</p>
+
+<pre><code>开发环境 → npm run build → dist/ (静态文件) → Web 服务器 (Nginx/CDN)</code></pre>
+
+<h3>部署方案对比</h3>
+
+<table><thead><tr>
+<th>方案</th>
+<th>优点</th>
+<th>缺点</th>
+<th>适用场景</th>
+</tr></thead><tbody>
+<tr>
+<td>Nginx 直接部署</td>
+<td>简单、性能好</td>
+<td>手动操作</td>
+<td>小型项目</td>
+</tr>
+<tr>
+<td>Docker</td>
+<td>标准化、可复制</td>
+<td>需要 Docker 知识</td>
+<td>团队协作</td>
+</tr>
+<tr>
+<td>Vercel / Netlify</td>
+<td>零配置、自动部署</td>
+<td>定制性有限</td>
+<td>个人/小项目</td>
+</tr>
+<tr>
+<td>OSS + CDN</td>
+<td>全球加速</td>
+<td>配置复杂</td>
+<td>高流量项目</td>
+</tr>
+<tr>
+<td>Kubernetes</td>
+<td>弹性伸缩</td>
+<td>复杂度高</td>
+<td>大型企业</td>
+</tr>
+</tbody></table>
+
+<h2>脑图</h2>
+
+<pre><code>Vue 3 部署
+├── 构建优化
+│   ├── 代码分割 (dynamic import)
+│   ├── Tree Shaking
+│   ├── 压缩 (Terser)
+│   ├── Gzip/Brotli
+│   └── 资源哈希
+├── Web 服务器
+│   ├── Nginx 配置
+│   ├── SPA 路由回退
+│   ├── HTTPS / SSL
+│   └── 缓存策略
+├── 容器化
+│   ├── Dockerfile (多阶段构建)
+│   ├── Docker Compose
+│   └── 镜像优化
+├── CI/CD
+│   ├── GitHub Actions
+│   ├── 自动构建 + 部署
+│   └── 环境变量注入
+└── 监控
+    ├── 错误上报 (Sentry)
+    ├── 性能监控
+    └── 日志收集</code></pre>
+
+<h2>完整代码</h2>
+
+<h3>Vite 构建配置</h3>
+
+<pre><code class="language-ts">// vite.config.ts
+import { defineConfig, loadEnv } from &#x27;vite&#x27;
+import vue from &#x27;@vitejs/plugin-vue&#x27;
+import { resolve } from &#x27;path&#x27;
+
+export default defineConfig(({ mode }) =&gt; {
+  const env = loadEnv(mode, process.cwd())
+
+  return {
+    plugins: [vue()],
+    resolve: {
+      alias: { &#x27;@&#x27;: resolve(__dirname, &#x27;src&#x27;) }
+    },
+    build: {
+      // Output directory
+      outDir: &#x27;dist&#x27;,
+      // Enable source map for production debugging
+      sourcemap: false,
+      // Chunk size warning limit
+      chunkSizeWarningLimit: 1000,
+      // Rollup options for manual chunk splitting
+      rollupOptions: {
+        output: {
+          // Manual chunks to avoid large bundles
+          manualChunks: {
+            &#x27;vue-vendor&#x27;: [&#x27;vue&#x27;, &#x27;vue-router&#x27;, &#x27;pinia&#x27;],
+            &#x27;element-plus&#x27;: [&#x27;element-plus&#x27;],
+            &#x27;echarts&#x27;: [&#x27;echarts&#x27;],
+            &#x27;utils&#x27;: [&#x27;axios&#x27;, &#x27;lodash-es&#x27;]
+          },
+          // Asset file naming with content hash
+          chunkFileNames: &#x27;js/[name]-[hash].js&#x27;,
+          entryFileNames: &#x27;js/[name]-[hash].js&#x27;,
+          assetFileNames: &#x27;[ext]/[name]-[hash].[ext]&#x27;
+        }
+      },
+      // Minification
+      minify: &#x27;terser&#x27;,
+      terserOptions: {
+        compress: {
+          drop_console: true,  // Remove console.log
+          drop_debugger: true
+        }
+      }
+    },
+    // Proxy for development API
+    server: {
+      proxy: {
+        &#x27;/api&#x27;: {
+          target: env.VITE_API_BASE_URL,
+          changeOrigin: true
+        }
+      }
+    }
+  }
+})</code></pre>
+
+<h3>环境变量管理</h3>
+
+<pre><code class="language-bash"># .env (all environments)
+VITE_APP_TITLE=My App
+
+# .env.development
+VITE_API_BASE_URL=http://localhost:8080
+VITE_WS_URL=ws://localhost:8080/ws
+
+# .env.staging
+VITE_API_BASE_URL=https://staging-api.example.com
+VITE_WS_URL=wss://staging-api.example.com/ws
+
+# .env.production
+VITE_API_BASE_URL=https://api.example.com
+VITE_WS_URL=wss://api.example.com/ws</code></pre>
+
+<h3>Nginx 配置</h3>
+
+<pre><code class="language-nginx"># /etc/nginx/conf.d/vue-app.conf
+server {
+    listen 80;
+    server_name example.com;
+    # Redirect HTTP to HTTPS
+    return 301 https://$server_name$request_uri;
+}
+
+server {
+    listen 443 ssl http2;
+    server_name example.com;
+
+    # SSL certificates
+    ssl_certificate /etc/letsencrypt/live/example.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/example.com/privkey.pem;
+
+    # Static files root
+    root /var/www/vue-app/dist;
+    index index.html;
+
+    # Gzip compression
+    gzip on;
+    gzip_types text/plain text/css application/json application/javascript text/xml;
+    gzip_min_length 1000;
+
+    # SPA fallback: all routes → index.html
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+
+    # Static assets: aggressive caching (hashed filenames)
+    location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg|woff2?)$ {
+        expires 1y;
+        add_header Cache-Control &quot;public, immutable&quot;;
+        try_files $uri =404;
+    }
+
+    # API proxy
+    location /api/ {
+        proxy_pass http://127.0.0.1:8080;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    # WebSocket proxy
+    location /ws {
+        proxy_pass http://127.0.0.1:8080;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection &quot;upgrade&quot;;
+    }
+
+    # Security headers
+    add_header X-Frame-Options &quot;SAMEORIGIN&quot; always;
+    add_header X-Content-Type-Options &quot;nosniff&quot; always;
+    add_header X-XSS-Protection &quot;1; mode=block&quot; always;
+
+    # Disable caching for index.html (always get latest)
+    location = /index.html {
+        add_header Cache-Control &quot;no-cache, no-store, must-revalidate&quot;;
+        try_files $uri =404;
+    }
+}</code></pre>
+
+<h3>Docker 多阶段构建</h3>
+
+<pre><code class="language-dockerfile"># Dockerfile
+
+# Stage 1: Build
+FROM node:20-alpine AS builder
+WORKDIR /app
+COPY package*.json ./
+RUN npm ci
+COPY . .
+ARG VITE_API_BASE_URL
+ENV VITE_API_BASE_URL=$VITE_API_BASE_URL
+RUN npm run build
+
+# Stage 2: Serve (Nginx)
+FROM nginx:alpine
+# Copy custom nginx config
+COPY nginx.conf /etc/nginx/conf.d/default.conf
+# Copy built assets from builder stage
+COPY --from=builder /app/dist /usr/share/nginx/html
+EXPOSE 80
+CMD [&quot;nginx&quot;, &quot;-g&quot;, &quot;daemon off;&quot;]</code></pre>
+
+<pre><code class="language-yaml"># docker-compose.yml
+version: &#x27;3.8&#x27;
+services:
+  vue-app:
+    build:
+      context: .
+      args:
+        VITE_API_BASE_URL: https://api.example.com
+    ports:
+      - &quot;80:80&quot;
+      - &quot;443:443&quot;
+    volumes:
+      - ./ssl:/etc/nginx/ssl:ro
+    restart: unless-stopped</code></pre>
+
+<h3>GitHub Actions CI/CD</h3>
+
+<pre><code class="language-yaml"># .github/workflows/deploy.yml
+name: Deploy Vue App
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run test
+      - run: npm run build
+        env:
+          VITE_API_BASE_URL: ${{ secrets.API_BASE_URL }}
+
+      - name: Deploy to server
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          source: &quot;dist/*&quot;
+          target: &quot;/var/www/vue-app/dist&quot;
+
+      - name: Reload Nginx
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: sudo systemctl reload nginx</code></pre>
+
+<h2>执行预览</h2>
+
+<pre><code class="language-bash"># Local build
+$ npm run build
+vite v5.4.0 building for production...
+✓ 89 modules transformed.
+dist/index.html                   0.46 kB │ gzip: 0.30 kB
+dist/js/vue-vendor-a1b2c3.js     142.30 kB │ gzip: 45.67 kB
+dist/js/element-plus-d4e5f6.js   234.50 kB │ gzip: 78.90 kB
+dist/js/index-g7h8i9.js           56.20 kB │ gzip: 18.34 kB
+dist/css/index-j0k1l2.css          12.30 kB │ gzip: 3.45 kB
+✓ built in 3.2s
+
+# Docker build and run
+$ docker build -t vue-app .
+$ docker run -p 80:80 vue-app
+
+# Visit https://example.com → loads SPA</code></pre>
+
+<h2>注意事项</h2>
+
+<table><thead><tr>
+<th>事项</th>
+<th>说明</th>
+<th>建议</th>
+</tr></thead><tbody>
+<tr>
+<td>SPA 路由</td>
+<td>刷新 404</td>
+<td>Nginx <code>try_files $uri /index.html</code></td>
+</tr>
+<tr>
+<td>缓存策略</td>
+<td>index.html 不缓存，JS/CSS 长缓存</td>
+<td>哈希文件名 + 1年缓存</td>
+</tr>
+<tr>
+<td>环境变量</td>
+<td>VITE_ 前缀才暴露</td>
+<td>不要放敏感信息在 VITE_ 变量</td>
+</tr>
+<tr>
+<td>HTTPS</td>
+<td>生产必须</td>
+<td>Let's Encrypt 免费证书</td>
+</tr>
+<tr>
+<td>Gzip</td>
+<td>减小传输体积</td>
+<td>Nginx 开启 gzip 或预生成 .gz</td>
+</tr>
+<tr>
+<td>Source Map</td>
+<td>生产环境关闭</td>
+<td>防止源码泄露</td>
+</tr>
+</tbody></table>
+
+<h2>避坑指南</h2>
+
+<ul>
+<li>❌ 部署后刷新页面 404 → ✅ Nginx 配置 SPA fallback</li>
+<li>❌ 更新后用户看到旧版本 → ✅ index.html 不缓存 + 文件名哈希</li>
+<li>❌ API 请求跨域报错 → ✅ Nginx 代理 <code>/api/</code> 或后端配 CORS</li>
+<li>❌ 构建产物太大 → ✅ 手动分包 + Tree Shaking + 按需引入</li>
+<li>❌ 敏感信息放 VITE_ 变量 → ✅ 只放公开配置，密钥放后端</li>
+<li>❌ 不做 Gzip 压缩 → ✅ Nginx 开启 gzip 或 vite-plugin-compression</li>
+
+<h2>练习题</h2>
+
+<h3>🟢 基础</h3>
+<ol>
+<li>配置 Vite 构建参数，实现代码分割和压缩</li>
+</ul>
+<ol>
+<li>编写 Nginx 配置文件，支持 SPA 路由和静态资源缓存</li>
+
+<h3>🟡 进阶</h3>
+<ol>
+<li>编写 Dockerfile 多阶段构建，镜像大小 < 50MB</li>
+</ul>
+<ol>
+<li>配置 GitHub Actions，push 到 main 自动部署</li>
+
+<h3>🔴 挑战</h3>
+<ol>
+<li>实现蓝绿部署：两个版本交替上线，零停机</li>
+</ul>
+<ol>
+<li>配置 CDN 加速：静态资源上传 OSS + CDN 域名</li>
+
+<h2>知识点总结</h2>
+
+<pre><code>部署知识树
+├── 构建
+│   ├── vite build
+│   ├── 代码分割
+│   ├── Tree Shaking
+│   └── 压缩优化
+├── 服务器
+│   ├── Nginx 配置
+│   ├── SPA Fallback
+│   ├── 缓存策略
+│   ├── HTTPS/SSL
+│   └── Gzip 压缩
+├── 容器化
+│   ├── Dockerfile
+│   ├── 多阶段构建
+│   └── Docker Compose
+├── CI/CD
+│   ├── GitHub Actions
+│   ├── 自动构建
+│   └── 自动部署
+└── 监控
+    ├── 错误上报
+    └── 性能监控</code></pre>
+
+<h2>举一反三</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>方案</th>
+<th>关键配置</th>
+</tr></thead><tbody>
+<tr>
+<td>VPS 部署</td>
+<td>Nginx + PM2</td>
+<td>try_files + proxy_pass</td>
+</tr>
+<tr>
+<td>Docker 部署</td>
+<td>多阶段构建</td>
+<td>nginx:alpine 镜像</td>
+</tr>
+<tr>
+<td>云平台</td>
+<td>Vercel/Netlify</td>
+<td>零配置，Git push 即部署</td>
+</tr>
+<tr>
+<td>OSS + CDN</td>
+<td>静态资源上云</td>
+<td>哈希文件名 + 长缓存</td>
+</tr>
+<tr>
+<td>多环境</td>
+<td>.env.staging/.env.production</td>
+<td>VITE_ 变量 + CI 注入</td>
+</tr>
+</tbody></table>
+
+<h2>参考资料</h2>
+
+<ul>
+<li><a href="https://vitejs.dev/guide/build.html">Vite 构建优化</a></li>
+<li><a href="https://nginx.org/en/docs/">Nginx 官方文档</a></li>
+<li><a href="https://docs.github.com/en/actions">GitHub Actions 文档</a></li>
+
+<h2>代码演进</h2>
+
+<h3>v1 — 手动部署</h3>
+<pre><code class="language-bash">npm run build
+scp -r dist/* user@server:/var/www/html/
+ssh user@server &quot;sudo systemctl reload nginx&quot;</code></pre>
+
+<h3>v2 — Docker 部署</h3>
+<pre><code class="language-bash">docker build -t vue-app .
+docker run -d -p 80:80 vue-app</code></pre>
+
+<h3>v3 — CI/CD 自动化</h3>
+<pre><code class="language-yaml"># Push to main → auto build + test + deploy
+# Docker multi-stage build for minimal image
+# Nginx with optimized caching + Gzip + HTTPS</code></pre>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

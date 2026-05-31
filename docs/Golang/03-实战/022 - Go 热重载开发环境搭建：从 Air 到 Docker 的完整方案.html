@@ -1,0 +1,659 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>022 - Go 热重载开发环境搭建：从 Air 到 Docker 的完整方案</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Golang/index.html">Golang</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Golang/03-实战/index.html">Golang实战</a>
+</nav>
+<h1>022 - Go 热重载开发环境搭建：从 Air 到 Docker 的完整方案</h1>
+<div class="meta">
+<span>📂 Golang实战</span>
+<span>🏷️ Golang</span>
+</div>
+<article>
+
+
+<h1>Go 热重载开发环境搭建</h1>
+
+<blockquote><p><strong>难度标注</strong>：⭐⭐（初级-中级）<br><strong>预计阅读时间</strong>：15 分钟<br><strong>适用版本</strong>：Go 1.21+</p></blockquote>
+
+<h2>一、概念讲解</h2>
+
+<p>什么是热重载（Hot Reload）？简单来说，当你修改了 Go 源代码后，<strong>不需要手动停止、重新编译、重新运行</strong>，开发工具会自动检测文件变化，重新构建并启动程序。</p>
+
+<p>在 Node.js 生态里有 <code>nodemon</code>，Python 里有 <code>uvicorn --reload</code>，而 Go 生态里最主流的热重载工具是 <strong>Air</strong>。</p>
+
+<h3>为什么需要热重载？</h3>
+
+<table><thead><tr>
+<th>对比项</th>
+<th>手动重启</th>
+<th>热重载</th>
+</tr></thead><tbody>
+<tr>
+<td>修改代码后操作</td>
+<td>Ctrl+C → go run → 等待</td>
+<td>保存文件即可</td>
+</tr>
+<tr>
+<td>开发效率</td>
+<td>低，频繁中断</td>
+<td>高，专注编码</td>
+</tr>
+<tr>
+<td>适合场景</td>
+<td>偶尔调试</td>
+<td>日常开发</td>
+</tr>
+</tbody></table>
+
+<h3>主流工具对比</h3>
+
+<table><thead><tr>
+<th>工具</th>
+<th>Star</th>
+<th>特点</th>
+<th>推荐度</th>
+</tr></thead><tbody>
+<tr>
+<td><strong>Air</strong> (cosmtrek/air)</td>
+<td>18k+</td>
+<td>最流行，配置简单，功能齐全</td>
+<td>⭐⭐⭐⭐⭐</td>
+</tr>
+<tr>
+<td><strong>Realize</strong></td>
+<td>4k+</td>
+<td>功能多但维护不及时</td>
+<td>⭐⭐⭐</td>
+</tr>
+<tr>
+<td><strong>CompileDaemon</strong></td>
+<td>2k+</td>
+<td>轻量，仅做重编译</td>
+<td>⭐⭐⭐</td>
+</tr>
+<tr>
+<td><strong>Fresh</strong></td>
+<td>1k+</td>
+<td>极简，但功能有限</td>
+<td>⭐⭐</td>
+</tr>
+</tbody></table>
+
+<p><strong>结论：直接用 Air，别纠结。</strong></p>
+
+<h2>二、脑图（ASCII）</h2>
+
+<pre><code>Go 热重载开发环境
+├── 核心概念
+│   ├── 文件监听 (fsnotify)
+│   ├── 自动编译 (go build)
+│   ├── 进程管理 (start/stop)
+│   └── 日志输出 (实时查看)
+├── 工具选择
+│   ├── Air ★推荐
+│   ├── Realize
+│   ├── CompileDaemon
+│   └── Fresh
+├── Air 配置
+│   ├── .air.toml
+│   │   ├── build section
+│   │   │   ├── cmd (构建命令)
+│   │   │   ├── bin (输出路径)
+│   │   │   ├── exclude_dir
+│   │   │   └── delay (防抖)
+│   │   └── tmp section
+│   └── 命令行参数
+├── 进阶用法
+│   ├── Docker 集成
+│   ├── 多项目配置
+│   └── 自定义构建标签
+└── 最佳实践
+    ├── .gitignore 配置
+    ├── 团队统一配置
+    └── 与调试器配合</code></pre>
+
+<h2>三、完整实战代码</h2>
+
+<h3>3.1 安装 Air</h3>
+
+<pre><code class="language-bash"># 方式一：go install（推荐）
+go install github.com/cosmtrek/air@latest
+
+# 方式二：curl
+curl -sSfL https://raw.githubusercontent.com/cosmtrek/air/master/install.sh | sh -s -- -b $(go env GOPATH)/bin
+
+# 验证安装
+air -v</code></pre>
+
+<h3>3.2 初始化项目</h3>
+
+<pre><code class="language-bash">mkdir hotreload-demo &amp;&amp; cd hotreload-demo
+go mod init hotreload-demo
+
+# 初始化 Air 配置（生成 .air.toml）
+air init</code></pre>
+
+<h3>3.3 示例 Web 服务（main.go）</h3>
+
+<pre><code class="language-go">package main
+
+import (
+	&quot;fmt&quot;
+	&quot;log&quot;
+	&quot;net/http&quot;
+	&quot;time&quot;
+)
+
+// User represents a simple user model
+type User struct {
+	ID   int    `json:&quot;id&quot;`
+	Name string `json:&quot;name&quot;`
+}
+
+// counter tracks request count for demo
+var counter int
+
+func main() {
+	// Setup HTTP routes
+	http.HandleFunc(&quot;/&quot;, homeHandler)
+	http.HandleFunc(&quot;/api/users&quot;, usersHandler)
+	http.HandleFunc(&quot;/health&quot;, healthHandler)
+
+	addr := &quot;:8080&quot;
+	fmt.Printf(&quot;🚀 Server started at http://localhost%s\n&quot;, addr)
+	fmt.Printf(&quot;📅 Started at: %s\n&quot;, time.Now().Format(&quot;2006-01-02 15:04:05&quot;))
+	log.Fatal(http.ListenAndServe(addr, nil))
+}
+
+// homeHandler returns a welcome message
+func homeHandler(w http.ResponseWriter, r *http.Request) {
+	counter++
+	fmt.Fprintf(w, &quot;🔥 Hot Reload Demo - Request #%d\n&quot;, counter)
+	fmt.Fprintf(w, &quot;💡 Try modifying this file and save!\n&quot;)
+}
+
+// usersHandler returns a mock user list
+func usersHandler(w http.ResponseWriter, r *http.Request) {
+	users := []User{
+		{ID: 1, Name: &quot;Alice&quot;},
+		{ID: 2, Name: &quot;Bob&quot;},
+		{ID: 3, Name: &quot;Charlie&quot;},
+	}
+	w.Header().Set(&quot;Content-Type&quot;, &quot;application/json&quot;)
+	fmt.Fprintf(w, `{&quot;users&quot;: [{&quot;id&quot;:1,&quot;name&quot;:&quot;Alice&quot;},{&quot;id&quot;:2,&quot;name&quot;:&quot;Bob&quot;},{&quot;id&quot;:3,&quot;name&quot;:&quot;Charlie&quot;}]}`)
+}
+
+// healthHandler returns server health status
+func healthHandler(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set(&quot;Content-Type&quot;, &quot;application/json&quot;)
+	fmt.Fprintf(w, `{&quot;status&quot;:&quot;ok&quot;,&quot;uptime&quot;:&quot;running&quot;}`)
+}</code></pre>
+
+<h3>3.4 .air.toml 配置详解</h3>
+
+<pre><code class="language-toml"># .air.toml - Air configuration file
+# Documentation: https://github.com/cosmtrek/air
+
+root = &quot;.&quot;
+testdata_dir = &quot;testdata&quot;
+tmp_dir = &quot;tmp&quot;
+
+[build]
+  # Command to build the binary
+  cmd = &quot;go build -o ./tmp/main .&quot;
+  
+  # Binary name
+  bin = &quot;tmp/main&quot;
+  
+  # Customize binary run command
+  full_bin = &quot;APP_ENV=dev ./tmp/main&quot;
+  
+  # Watch these filename extensions
+  include_ext = [&quot;go&quot;, &quot;tpl&quot;, &quot;tmpl&quot;, &quot;html&quot;]
+  
+  # Ignore these filename extensions or directories
+  exclude_dir = [&quot;assets&quot;, &quot;tmp&quot;, &quot;vendor&quot;, &quot;testdata&quot;, &quot;node_modules&quot;]
+  
+  # Watch these directories if specified
+  include_dir = []
+  
+  # Exclude files
+  exclude_file = []
+  
+  # Exclude specific regular expressions
+  exclude_regex = [&quot;_test\\.go$&quot;]
+  
+  # Exclude unchanged files
+  exclude_unchanged = true
+  
+  # Follow symlinks
+  follow_symlink = true
+  
+  # This log file places in your tmp_dir
+  log = &quot;build-errors.log&quot;
+  
+  # Poll interval for file changes (ms)
+  poll = false
+  poll_interval = 0
+  
+  # It&#x27;s not necessary to trigger build each time file changes
+  delay = 1000
+  
+  # Stop running old binary when build errors occur
+  stop_on_error = true
+  
+  # Send Interrupt signal before killing process
+  send_interrupt = false
+  
+  # Delay after sending Interrupt signal
+  kill_delay = 500
+
+[log]
+  # Show log time
+  time = true
+  
+  # Only show main log
+  main_only = false
+
+[misc]
+  # Delete tmp directory on exit
+  clean_on_exit = true
+
+[color]
+  # Customize each part&#x27;s color
+  main = &quot;magenta&quot;
+  watcher = &quot;cyan&quot;
+  build = &quot;yellow&quot;
+  runner = &quot;green&quot;</code></pre>
+
+<h3>3.5 进阶：Docker 集成热重载</h3>
+
+<pre><code class="language-dockerfile"># Dockerfile.dev - Development with hot reload
+FROM golang:1.21-alpine
+
+# Install air
+RUN go install github.com/cosmtrek/air@latest
+
+WORKDIR /app
+
+# Copy go mod files first for better caching
+COPY go.mod go.sum ./
+RUN go mod download
+
+# Copy source code
+COPY . .
+
+# Run with air for hot reload
+CMD [&quot;air&quot;, &quot;-c&quot;, &quot;.air.toml&quot;]</code></pre>
+
+<pre><code class="language-yaml"># docker-compose.dev.yml
+version: &#x27;3.8&#x27;
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    ports:
+      - &quot;8080:8080&quot;
+    volumes:
+      - .:/app           # Mount source for hot reload
+      - go-modules:/go   # Persist go modules
+    environment:
+      - APP_ENV=development
+
+volumes:
+  go-modules:</code></pre>
+
+<h3>3.6 进阶：带 Graceful Shutdown 的版本</h3>
+
+<pre><code class="language-go">package main
+
+import (
+	&quot;context&quot;
+	&quot;fmt&quot;
+	&quot;log&quot;
+	&quot;net/http&quot;
+	&quot;os&quot;
+	&quot;os/signal&quot;
+	&quot;syscall&quot;
+	&quot;time&quot;
+)
+
+func main() {
+	mux := http.NewServeMux()
+	mux.HandleFunc(&quot;/&quot;, func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprintf(w, &quot;🔄 Graceful Shutdown Demo - %s\n&quot;, time.Now().Format(&quot;15:04:05&quot;))
+	})
+
+	srv := &amp;http.Server{
+		Addr:         &quot;:8080&quot;,
+		Handler:      mux,
+		ReadTimeout:  5 * time.Second,
+		WriteTimeout: 10 * time.Second,
+	}
+
+	// Start server in goroutine
+	go func() {
+		fmt.Println(&quot;🚀 Server starting on :8080&quot;)
+		if err := srv.ListenAndServe(); err != http.ErrServerClosed {
+			log.Fatalf(&quot;Server error: %v&quot;, err)
+		}
+	}()
+
+	// Wait for interrupt signal (Ctrl+C or Air restart)
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+	&lt;-quit
+	fmt.Println(&quot;🛑 Shutting down gracefully...&quot;)
+
+	// Give outstanding requests 5 seconds to complete
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	if err := srv.Shutdown(ctx); err != nil {
+		log.Printf(&quot;Server forced to shutdown: %v&quot;, err)
+	}
+	fmt.Println(&quot;✅ Server stopped&quot;)
+}</code></pre>
+
+<h2>四、执行预览</h2>
+
+<pre><code class="language-bash">$ air
+
+  __    _   ___
+ / /\  | | | |_)  / /\
+ / /--\ |_| |_| \ / /--\  v1.52.0
+
+watching .
+watching go.mod
+watching main.go
+building...
+running...
+
+🚀 Server started at http://localhost:8080
+📅 Started at: 2024-01-15 10:30:45
+
+# --- 修改 main.go 后自动触发 ---
+main.go has changed
+building...
+running...
+
+🚀 Server started at http://localhost:8080
+📅 Started at: 2024-01-15 10:31:02</code></pre>
+
+<pre><code class="language-bash">$ curl localhost:8080
+🔥 Hot Reload Demo - Request #1
+💡 Try modifying this file and save!</code></pre>
+
+<h2>五、注意事项</h2>
+
+<table><thead><tr>
+<th>注意点</th>
+<th>说明</th>
+</tr></thead><tbody>
+<tr>
+<td>tmp 目录</td>
+<td>Air 会创建 <code>tmp/</code> 存放编译产物，加入 <code>.gitignore</code></td>
+</tr>
+<tr>
+<td>排除测试文件</td>
+<td><code>exclude_regex = ["_test\\.go$"]</code> 避免测试文件触发重载</td>
+</tr>
+<tr>
+<td>延迟设置</td>
+<td><code>delay = 1000</code> 防抖，避免保存瞬间多次触发</td>
+</tr>
+<tr>
+<td>端口占用</td>
+<td>如果旧进程没退出，会报端口占用，配置 <code>kill_delay</code></td>
+</tr>
+<tr>
+<td>二进制大小</td>
+<td>开发模式下二进制较大，不影响生产</td>
+</tr>
+<tr>
+<td>vendor 目录</td>
+<td>使用 vendor 模式时要排除 <code>vendor</code> 目录的监听</td>
+</tr>
+<tr>
+<td>Docker 挂载</td>
+<td>Linux 下 inotify 监听可能有延迟，可启用 <code>poll = true</code></td>
+</tr>
+</tbody></table>
+
+<h2>六、避坑指南</h2>
+
+<table><thead><tr>
+<th>❌ 常见错误</th>
+<th>✅ 正确做法</th>
+</tr></thead><tbody>
+<tr>
+<td><code>air: command not found</code></td>
+<td>确认 <code>$GOPATH/bin</code> 在 PATH 中：<code>export PATH=$PATH:$(go env GOPATH)/bin</code></td>
+</tr>
+<tr>
+<td>端口占用 <code>bind: address already in use</code></td>
+<td>配置 <code>kill_delay = 500</code> 或 <code>send_interrupt = true</code></td>
+</tr>
+<tr>
+<td>修改文件后没有触发重载</td>
+<td>检查 <code>include_ext</code> 是否包含你修改的文件类型</td>
+</tr>
+<tr>
+<td>重载太慢（>3秒）</td>
+<td>使用 <code>go build</code> 代替 <code>go run</code>，检查 <code>exclude_dir</code> 排除不需要的目录</td>
+</tr>
+<tr>
+<td>Docker 中热重载不生效</td>
+<td>使用 <code>poll = true</code> 或调整 <code>CHOKIDAR_USEPOLLING</code></td>
+</tr>
+<tr>
+<td>二进制文件被提交到 Git</td>
+<td>将 <code>tmp/</code> 加入 <code>.gitignore</code></td>
+</tr>
+<tr>
+<td>修改 <code>.env</code> 不触发重载</td>
+<td>将 <code>env</code> 加入 <code>include_ext</code> 或使用 <code>include_file</code></td>
+</tr>
+<tr>
+<td>生成文件触发死循环</td>
+<td>将生成目录加入 <code>exclude_dir</code>，如 <code>exclude_dir = ["docs", "generated"]</code></td>
+</tr>
+</tbody></table>
+
+<h2>七、练习题</h2>
+
+<h3>🟢 初级</h3>
+<ol>
+<li>安装 Air 并初始化一个 <code>hello world</code> 项目，修改代码观察自动重载效果</li>
+</ul>
+<ol>
+<li>修改 <code>.air.toml</code> 中的端口号，验证配置生效</li>
+
+<h3>🟡 中级</h3>
+<ol>
+<li>搭建一个 Gin 框架的热重载开发环境，添加 3 个 API 端点</li>
+</ul>
+<ol>
+<li>配置 Docker 开发环境，实现容器内热重载</li>
+
+<h3>🔴 高级</h3>
+<ol>
+<li>编写 Makefile 集成 Air，支持 <code>make dev</code>/<code>make build</code>/<code>make test</code> 三个命令</li>
+</ul>
+<ol>
+<li>实现多模块项目的选择性热重载（只重载变更的模块）</li>
+
+<h2>八、知识点总结</h2>
+
+<pre><code>Go 热重载知识树
+├── Air 工具
+│   ├── 安装 (go install)
+│   ├── 配置 (.air.toml)
+│   │   ├── [build] 构建
+│   │   ├── [log] 日志
+│   │   ├── [misc] 杂项
+│   │   └── [color] 颜色
+│   └── 运行 (air / air -c)
+├── 核心原理
+│   ├── fsnotify 文件监听
+│   ├── go build 编译
+│   └── 进程管理 (kill + start)
+├── 集成场景
+│   ├── 本地开发
+│   ├── Docker 开发
+│   └── Docker Compose
+└── 最佳实践
+    ├── .gitignore 配置
+    ├── exclude_dir 优化
+    └── delay 防抖设置</code></pre>
+
+<h2>九、举一反三</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>工具/方案</th>
+<th>关键配置</th>
+</tr></thead><tbody>
+<tr>
+<td>Gin 框架热重载</td>
+<td>Air + Gin</td>
+<td>同样用 <code>.air.toml</code>，无需特殊配置</td>
+</tr>
+<tr>
+<td>Echo 框架热重载</td>
+<td>Air + Echo</td>
+<td>同上</td>
+</tr>
+<tr>
+<td>gRPC 服务热重载</td>
+<td>Air + protoc</td>
+<td><code>include_ext</code> 加入 <code>.proto</code>，<code>cmd</code> 加入 protoc 生成步骤</td>
+</tr>
+<tr>
+<td>CLI 工具开发热重载</td>
+<td>Air</td>
+<td><code>cmd = "go build -o ./tmp/cli ."</code></td>
+</tr>
+<tr>
+<td>前后端同时热重载</td>
+<td>Air + Vite</td>
+<td>后端 Air 监听 Go，前端 Vite dev server，通过 proxy 联调</td>
+</tr>
+<tr>
+<td>模板文件热重载</td>
+<td>Air + html/template</td>
+<td><code>include_ext</code> 加入 <code>["html", "tmpl", "tpl"]</code></td>
+</tr>
+</tbody></table>
+
+<h2>十、参考资料</h2>
+
+<ul>
+<li><a href="https://github.com/cosmtrek/air">Air GitHub 仓库</a></li>
+<li><a href="https://go.dev/doc/modules/gomod-ref">Go 官方文档 - go.mod</a></li>
+<li><a href="https://github.com/fsnotify/fsnotify">fsnotify 文件监听库</a></li>
+<li><a href="https://github.com/cosmtrek/air#docker-support">Docker + Air 最佳实践</a></li>
+
+<h2>十一、代码演进</h2>
+
+<h3>v1：最简配置（快速上手）</h3>
+
+<pre><code class="language-bash"># 安装 Air 并运行，零配置
+go install github.com/cosmtrek/air@latest
+cd your-project
+air</code></pre>
+
+<p>直接 <code>air</code> 运行，使用默认配置即可工作。</p>
+
+<h3>v2：自定义 .air.toml（推荐）</h3>
+
+<p>添加 <code>.air.toml</code> 配置文件，自定义构建命令、监听目录、排除规则。</p>
+
+<pre><code class="language-toml">[build]
+  cmd = &quot;go build -o ./tmp/main .&quot;
+  bin = &quot;tmp/main&quot;
+  exclude_dir = [&quot;tmp&quot;, &quot;vendor&quot;, &quot;node_modules&quot;]
+  delay = 1000</code></pre>
+
+<h3>v3：Docker + Graceful Shutdown（生产级开发环境）</h3>
+
+<ul>
+<li>使用 Dockerfile.dev 集成 Air</li>
+<li>添加 Graceful Shutdown 处理 SIGTERM 信号</li>
+<li>docker-compose.yml 挂载源码实现容器内热重载</li>
+<li>Makefile 统一管理开发命令</li>
+
+<pre><code class="language-makefile">.PHONY: dev build test
+
+dev:
+	docker-compose -f docker-compose.dev.yml up --build
+
+build:
+	go build -o bin/app .
+
+test:
+	go test -v ./...</code></pre>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

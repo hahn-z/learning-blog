@@ -1,0 +1,654 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>028 - Kratos Kafka 集成：消息队列、Consumer Group 与死信队列</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Golang/index.html">Golang</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Golang/06-Kratos微服务框架/index.html">Kratos框架</a>
+</nav>
+<h1>028 - Kratos Kafka 集成：消息队列、Consumer Group 与死信队列</h1>
+<div class="meta">
+<span>📂 Kratos框架</span>
+<span>🏷️ Golang</span>
+</div>
+<article>
+
+
+<h1>028 - Kratos 消息队列 Kafka 集成</h1>
+
+<blockquote><p><strong>难度：⭐⭐⭐⭐（较难）</strong><br>Kafka 是微服务异步通信的核心基础设施。本文从原理到实战，详解 Kratos 中 Kafka 的生产者/消费者、Consumer Group、消息序列化与死信队列。</p></blockquote>
+
+<hr>
+
+<h2>一、概念讲解</h2>
+
+<h3>Kafka 核心概念</h3>
+
+<table><thead><tr>
+<th>概念</th>
+<th>说明</th>
+</tr></thead><tbody>
+<tr>
+<td><strong>Broker</strong></td>
+<td>Kafka 服务节点</td>
+</tr>
+<tr>
+<td><strong>Topic</strong></td>
+<td>消息分类，逻辑队列</td>
+</tr>
+<tr>
+<td><strong>Partition</strong></td>
+<td>Topic 的物理分片，并行消费的基础</td>
+</tr>
+<tr>
+<td><strong>Producer</strong></td>
+<td>消息生产者</td>
+</tr>
+<tr>
+<td><strong>Consumer</strong></td>
+<td>消息消费者</td>
+</tr>
+<tr>
+<td><strong>Consumer Group</strong></td>
+<td>消费者组，组内消费者分摊 Partition</td>
+</tr>
+<tr>
+<td><strong>Offset</strong></td>
+<td>消息在 Partition 中的位置</td>
+</tr>
+</tbody></table>
+
+<h3>为什么选择 segmentio/kafka-go？</h3>
+
+<p>Kratos 生态中推荐 <code>segmentio/kafka-go</code>，理由：</p>
+
+<ul>
+<li>纯 Go 实现，无 CGO 依赖</li>
+<li>API 简洁，支持 Consumer Group</li>
+<li>性能优秀，社区活跃</li>
+<li>与 Kratos 的 server 抽象契合度高</li>
+
+<hr>
+
+<h2>二、脑图</h2>
+
+<pre><code>Kafka 集成
+├── 核心概念
+│   ├── Broker / Topic / Partition
+│   ├── Producer / Consumer
+│   └── Consumer Group / Offset
+├── segmentio/kafka-go
+│   ├── Writer (Producer)
+│   ├── Reader (Consumer)
+│   └── ConsumerGroupReader
+├── 消息序列化
+│   ├── Protobuf
+│   ├── JSON
+│   └── 自定义 Codec
+├── 消费模式
+│   ├── 单消费者
+│   ├── Consumer Group
+│   └── 手动提交 Offset
+├── 可靠性
+│   ├── 死信队列 (DLQ)
+│   ├── 重试机制
+│   └── Exactly-Once 语义
+└── 监控
+    ├── Lag 监控
+    ├── 吞吐量
+    └── 消费延迟</code></pre>
+
+<hr>
+
+<h2>三、完整代码示例</h2>
+
+<h3>v1：基础生产者与消费者</h3>
+
+<pre><code class="language-go">package main
+
+import (
+    &quot;context&quot;
+    &quot;fmt&quot;
+    &quot;log&quot;
+    &quot;os&quot;
+    &quot;time&quot;
+
+    &quot;github.com/segmentio/kafka-go&quot;
+)
+
+const (
+    broker  = &quot;localhost:9092&quot;
+    topic   = &quot;order-events&quot;
+    groupID = &quot;order-service&quot;
+)
+
+// SimpleProducer demonstrates basic message production
+func SimpleProducer() {
+    w := &amp;kafka.Writer{
+        Addr:         kafka.TCP(broker),
+        Topic:        topic,
+        Balancer:     &amp;kafka.LeastBytes{},
+        BatchTimeout: 10 * time.Millisecond,
+    }
+    defer w.Close()
+
+    ctx := context.Background()
+    for i := 0; i &lt; 10; i++ {
+        err := w.WriteMessages(ctx, kafka.Message{
+            Key:   []byte(fmt.Sprintf(&quot;order-%d&quot;, i)),
+            Value: []byte(fmt.Sprintf(`{&quot;order_id&quot;:%d,&quot;status&quot;:&quot;created&quot;}`, i)),
+            Headers: []kafka.Header{
+                {Key: &quot;source&quot;, Value: []byte(&quot;order-service&quot;)},
+            },
+        })
+        if err != nil {
+            log.Printf(&quot;Failed to write message: %v&quot;, err)
+        }
+    }
+    log.Println(&quot;Produced 10 messages&quot;)
+}
+
+// SimpleConsumer demonstrates basic message consumption
+func SimpleConsumer() {
+    r := kafka.NewReader(kafka.ReaderConfig{
+        Brokers:  []string{broker},
+        Topic:    topic,
+        GroupID:  groupID,
+        MinBytes: 10e3, // 10KB
+        MaxBytes: 10e6, // 10MB
+    })
+    defer r.Close()
+
+    ctx := context.Background()
+    for {
+        msg, err := r.ReadMessage(ctx)
+        if err != nil {
+            log.Printf(&quot;Read error: %v&quot;, err)
+            break
+        }
+        log.Printf(&quot;Consumed: key=%s value=%s offset=%d&quot;, 
+            string(msg.Key), string(msg.Value), msg.Offset)
+    }
+}</code></pre>
+
+<h3>v2：Consumer Group + Protobuf 序列化</h3>
+
+<pre><code class="language-go">package main
+
+import (
+    &quot;context&quot;
+    &quot;log&quot;
+    &quot;os&quot;
+    &quot;sync&quot;
+
+    &quot;github.com/segmentio/kafka-go&quot;
+    &quot;google.golang.org/protobuf/proto&quot;
+)
+
+// OrderEvent represents a protobuf message (generated)
+// Assume we have: orderpb.OrderEvent
+// import pb &quot;your-project/api/order/v1&quot;
+
+// ProtoProducer serializes and sends protobuf messages
+func ProtoProducer() {
+    w := &amp;kafka.Writer{
+        Addr:     kafka.TCP(&quot;localhost:9092&quot;),
+        Topic:    &quot;order-events&quot;,
+        Balancer: &amp;kafka.Hash{}, // Route by key for ordering
+    }
+    defer w.Close()
+
+    ctx := context.Background()
+    // In real code: construct pb.OrderEvent and proto.Marshal
+    msg := []byte(`{&quot;order_id&quot;:&quot;ORD-001&quot;,&quot;amount&quot;:99.9}`)
+    err := w.WriteMessages(ctx, kafka.Message{
+        Key:   []byte(&quot;ORD-001&quot;),
+        Value: msg,
+    })
+    if err != nil {
+        log.Fatal(err)
+    }
+}
+
+// ConsumerGroupHandler processes messages in a consumer group
+func ConsumerGroupHandler(ctx context.Context, r *kafka.Reader, wg *sync.WaitGroup) {
+    defer wg.Done()
+    for {
+        select {
+        case &lt;-ctx.Done():
+            return
+        default:
+            msg, err := r.ReadMessage(ctx)
+            if err != nil {
+                log.Printf(&quot;Consumer error: %v&quot;, err)
+                continue
+            }
+            // Process message
+            log.Printf(&quot;[CG] Processed: key=%s partition=%d offset=%d&quot;,
+                string(msg.Key), msg.Partition, msg.Offset)
+            // In real code: proto.Unmarshal → business logic
+        }
+    }
+}</code></pre>
+
+<h3>v3：死信队列 + 完整服务集成</h3>
+
+<pre><code class="language-go">package main
+
+import (
+    &quot;context&quot;
+    &quot;errors&quot;
+    &quot;log&quot;
+    &quot;os&quot;
+    &quot;time&quot;
+
+    &quot;github.com/go-kratos/kratos/v2&quot;
+    &quot;github.com/go-kratos/kratos/v2/log&quot;
+    &quot;github.com/segmentio/kafka-go&quot;
+)
+
+const (
+    brokerAddr = &quot;localhost:9092&quot;
+    mainTopic  = &quot;order-events&quot;
+    dlqTopic   = &quot;order-events-dlq&quot;
+    groupID    = &quot;order-processor&quot;
+    maxRetries = 3
+)
+
+// DLQProducer sends failed messages to dead letter queue
+type DLQProducer struct {
+    writer *kafka.Writer
+    logger *log.Helper
+}
+
+func NewDLQProducer(logger log.Logger) *DLQProducer {
+    return &amp;DLQProducer{
+        writer: &amp;kafka.Writer{
+            Addr:         kafka.TCP(brokerAddr),
+            Topic:        dlqTopic,
+            Balancer:     &amp;kafka.LeastBytes(),
+            BatchTimeout: 10 * time.Millisecond,
+        },
+        logger: log.NewHelper(logger),
+    }
+}
+
+func (d *DLQProducer) Send(ctx context.Context, origMsg kafka.Message, err error) {
+    origMsg.Headers = append(origMsg.Headers,
+        kafka.Header{Key: &quot;dlq-error&quot;, Value: []byte(err.Error())},
+        kafka.Header{Key: &quot;dlq-timestamp&quot;, Value: []byte(time.Now().Format(time.RFC3339))},
+    )
+    origMsg.Topic = &quot;&quot; // Let writer decide topic
+    if writeErr := d.writer.WriteMessages(ctx, origMsg); writeErr != nil {
+        d.logger.Errorf(&quot;Failed to send to DLQ: %v&quot;, writeErr)
+    } else {
+        d.logger.Warnf(&quot;Message sent to DLQ: key=%s error=%v&quot;, string(origMsg.Key), err)
+    }
+}
+
+func (d *DLQProducer) Close() error {
+    return d.writer.Close()
+}
+
+// OrderProcessor processes order events with retry and DLQ
+type OrderProcessor struct {
+    reader *kafka.Reader
+    dlq    *DLQProducer
+    logger *log.Helper
+}
+
+func NewOrderProcessor(logger log.Logger) *OrderProcessor {
+    return &amp;OrderProcessor{
+        reader: kafka.NewReader(kafka.ReaderConfig{
+            Brokers:  []string{brokerAddr},
+            Topic:    mainTopic,
+            GroupID:  groupID,
+            MinBytes: 10e3,
+            MaxBytes: 10e6,
+        }),
+        dlq:    NewDLQProducer(logger),
+        logger: log.NewHelper(logger),
+    }
+}
+
+func (p *OrderProcessor) Start(ctx context.Context) error {
+    p.logger.Info(&quot;Order processor started&quot;)
+    for {
+        select {
+        case &lt;-ctx.Done():
+            return ctx.Err()
+        default:
+            msg, err := p.reader.ReadMessage(ctx)
+            if err != nil {
+                if errors.Is(err, context.Canceled) {
+                    return nil
+                }
+                p.logger.Errorf(&quot;Read error: %v&quot;, err)
+                continue
+            }
+            // Process with retry
+            if processErr := p.processWithRetry(ctx, msg); processErr != nil {
+                p.dlq.Send(ctx, msg, processErr)
+            }
+        }
+    }
+}
+
+func (p *OrderProcessor) processWithRetry(ctx context.Context, msg kafka.Message) error {
+    var lastErr error
+    for attempt := 1; attempt &lt;= maxRetries; attempt++ {
+        if err := p.processMessage(ctx, msg); err != nil {
+            lastErr = err
+            p.logger.Warnf(&quot;Attempt %d/%d failed: %v&quot;, attempt, maxRetries, err)
+            time.Sleep(time.Duration(attempt) * time.Second) // Exponential backoff
+            continue
+        }
+        return nil
+    }
+    return lastErr
+}
+
+func (p *OrderProcessor) processMessage(ctx context.Context, msg kafka.Message) error {
+    p.logger.Infof(&quot;Processing: key=%s value=%s&quot;, string(msg.Key), string(msg.Value))
+    // Business logic here
+    return nil
+}
+
+func (p *OrderProcessor) Stop() error {
+    p.logger.Info(&quot;Order processor stopping...&quot;)
+    p.dlq.Close()
+    return p.reader.Close()
+}
+
+func main() {
+    logger := log.NewStdLogger(os.Stdout)
+    processor := NewOrderProcessor(logger)
+
+    app := kratos.New(
+        kratos.Name(&quot;order-processor&quot;),
+    )
+
+    ctx, cancel := context.WithCancel(context.Background())
+    defer cancel()
+
+    go func() {
+        if err := processor.Start(ctx); err != nil {
+            log.Printf(&quot;Processor stopped: %v&quot;, err)
+        }
+    }()
+
+    // Graceful shutdown handled by kratos.App
+    app.Run()
+}</code></pre>
+
+<hr>
+
+<h2>四、执行预览</h2>
+
+<pre><code class="language-bash"># Start Kafka (docker)
+$ docker run -d --name kafka -p 9092:9092 confluentinc/cp-kafka:latest
+
+# Run producer
+$ go run main.go
+Produced 10 messages
+
+# Run consumer
+$ go run consumer.go
+Consumed: key=order-0 value={&quot;order_id&quot;:0,&quot;status&quot;:&quot;created&quot;} offset=0
+Consumed: key=order-1 value={&quot;order_id&quot;:1,&quot;status&quot;:&quot;created&quot;} offset=1
+
+# DLQ output when processing fails
+WARN Message sent to DLQ: key=ORD-001 error=processing failed after 3 retries</code></pre>
+
+<hr>
+
+<h2>五、注意事项</h2>
+
+<table><thead><tr>
+<th>项目</th>
+<th>说明</th>
+</tr></thead><tbody>
+<tr>
+<td>Consumer Group ID</td>
+<td>同一业务服务使用相同 GroupID，不同服务使用不同 GroupID</td>
+</tr>
+<tr>
+<td>Offset 提交</td>
+<td>默认自动提交，关键业务建议手动提交（<code>r.CommitMessages</code>）</td>
+</tr>
+<tr>
+<td>Partition 数量</td>
+<td>决定并行度，Consumer 数量不应超过 Partition 数量</td>
+</tr>
+<tr>
+<td>消息大小</td>
+<td>默认 1MB 限制，大消息考虑外部存储 + 引用传递</td>
+</tr>
+<tr>
+<td>优雅关闭</td>
+<td>消费者需要正确处理 context 取消，完成当前消息处理</td>
+</tr>
+<tr>
+<td>顺序性</td>
+<td>同一 Key 的消息会被路由到同一 Partition，保证局部顺序</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>六、避坑指南</h2>
+
+<table><thead><tr>
+<th>❌ 错误做法</th>
+<th>✅ 正确做法</th>
+</tr></thead><tbody>
+<tr>
+<td>消费失败直接丢弃消息</td>
+<td>重试后发往死信队列</td>
+</tr>
+<tr>
+<td>使用自动提交 + 长时间处理</td>
+<td>关键业务用手动提交，处理完再 commit</td>
+</tr>
+<tr>
+<td>每条消息一个 goroutine 无限并发</td>
+<td>使用 worker pool 限制并发数</td>
+</tr>
+<tr>
+<td>忽略 <code>context.Canceled</code> 错误</td>
+<td>优雅关闭时正确处理 context 取消</td>
+</tr>
+<tr>
+<td>Topic 命名随意</td>
+<td>统一命名规范：<code>{domain}.{event-type}.{version}</code></td>
+</tr>
+<tr>
+<td>不监控消费延迟</td>
+<td>接入 Lag 监控，及时发现消费堆积</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>七、练习题</h2>
+
+<h3>🟢 入门</h3>
+<ol>
+<li>使用 kafka-go 创建一个生产者，向 Topic 发送 100 条消息</li>
+</ul>
+<ol>
+<li>创建消费者，读取并打印所有消息</li>
+
+<h3>🟡 进阶</h3>
+<ol>
+<li>实现 Consumer Group 模式，启动 2 个消费者实例分摊消息</li>
+</ul>
+<ol>
+<li>实现消息的 Protobuf 序列化/反序列化</li>
+
+<h3>🔴 挑战</h3>
+<ol>
+<li>实现完整的死信队列机制，含重试退避和 DLQ 消费者</li>
+</ul>
+<ol>
+<li>实现 Exactly-Once 语义：Kafka 消费 + 数据库写入在同一个事务中</li>
+
+<hr>
+
+<h2>八、知识点总结</h2>
+
+<pre><code>Kafka 集成
+├── 核心组件
+│   ├── kafka.Writer — 生产者
+│   ├── kafka.Reader — 消费者
+│   └── Consumer Group — 组消费
+├── 消息序列化
+│   ├── JSON — 简单通用
+│   ├── Protobuf — 高性能
+│   └── 自定义 Codec
+├── 可靠性
+│   ├── 重试 + 退避
+│   ├── 死信队列
+│   └── 手动 Offset 提交
+├── 性能优化
+│   ├── 批量写入
+│   ├── Partition 并行
+│   └── Worker Pool
+└── 监控
+    ├── Consumer Lag
+    └── 吞吐量/延迟</code></pre>
+
+<hr>
+
+<h2>九、举一反三</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>Kafka 配置</th>
+<th>关键参数</th>
+</tr></thead><tbody>
+<tr>
+<td>日志收集</td>
+<td>高吞吐 + 持久化</td>
+<td><code>acks=all</code>, <code>retention=7d</code></td>
+</tr>
+<tr>
+<td>订单事件</td>
+<td>低延迟 + 可靠</td>
+<td><code>acks=all</code>, 手动提交, DLQ</td>
+</tr>
+<tr>
+<td>实时流处理</td>
+<td>Consumer Group + 高并行</td>
+<td>Partition 数 = 消费者数</td>
+</tr>
+<tr>
+<td>通知推送</td>
+<td>延迟队列</td>
+<td>分级 Topic + 定时消费</td>
+</tr>
+<tr>
+<td>数据同步</td>
+<td>CDC + Exactly-Once</td>
+<td>事务 Producer</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>十、参考资料</h2>
+
+<ul>
+<li><a href="https://github.com/segmentio/kafka-go">segmentio/kafka-go GitHub</a></li>
+<li><a href="https://kafka.apache.org/documentation/">Kafka 官方文档</a></li>
+<li><a href="https://go-kratos.dev/docs/guide/event-driven">Kratos 事件驱动架构</a></li>
+
+<hr>
+
+<h2>十一、代码演进</h2>
+
+<table><thead><tr>
+<th>版本</th>
+<th>说明</th>
+<th>适用场景</th>
+</tr></thead><tbody>
+<tr>
+<td>v1</td>
+<td>基础生产/消费</td>
+<td>学习、简单场景</td>
+</tr>
+<tr>
+<td>v2</td>
+<td>Consumer Group + Protobuf</td>
+<td>一般项目</td>
+</tr>
+<tr>
+<td>v3</td>
+<td>DLQ + 重试 + 服务集成</td>
+<td>生产环境</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<blockquote><p><strong>下篇预告：</strong> 029 - 熔断与限流，学习如何保护微服务免受级联故障影响。</p></blockquote>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

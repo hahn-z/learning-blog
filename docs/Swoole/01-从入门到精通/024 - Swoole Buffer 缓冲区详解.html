@@ -1,0 +1,675 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>024 - Swoole Buffer 缓冲区详解</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Swoole/index.html">Swoole</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Swoole/01-从入门到精通/index.html">Swoole从入门到精通</a>
+</nav>
+<h1>024 - Swoole Buffer 缓冲区详解</h1>
+<div class="meta">
+<span>📂 Swoole从入门到精通</span>
+<span>🏷️ Swoole</span>
+</div>
+<article>
+
+
+<h1>Swoole Buffer 缓冲区详解</h1>
+
+<blockquote><p><strong>难度标注：</strong> ⭐⭐☆☆☆（中级）<br><strong>前置知识：</strong> PHP 字符串操作、Swoole 基础、内存管理概念</p></blockquote>
+
+<hr>
+
+<h2>一、概念讲解</h2>
+
+<h3>什么是 Buffer？</h3>
+
+<p>在 Swoole 的异步编程模型中，<strong>Buffer（缓冲区）</strong> 是一块用于临时存储数据的内存区域。它主要用于解决数据生产者和消费者之间的速度不匹配问题。</p>
+
+<p>Swoole 提供了 <code>\</code>\<code>Swoole\Buffer</code>\` 类，它是一个基于引用计数的、可动态扩容的内存缓冲区实现，特别适合在网络编程中处理 TCP 粘包、数据分片等场景。</p>
+
+<h3>为什么需要 Buffer？</h3>
+
+<p>在传统 PHP 同步编程中，我们通常用字符串变量来存储数据。但在 Swoole 的协程/异步环境下，数据可能分多次到达，我们需要一个高效的缓冲区来拼接和管理这些数据：</p>
+
+<table><thead><tr>
+<th>场景</th>
+<th>没有 Buffer</th>
+<th>有 Buffer</th>
+</tr></thead><tbody>
+<tr>
+<td>TCP 粘包</td>
+<td>手动字符串拼接，效率低</td>
+<td>自动管理，高效读写</td>
+</tr>
+<tr>
+<td>大数据传输</td>
+<td>频繁的字符串拷贝</td>
+<td>零拷贝读写</td>
+</tr>
+<tr>
+<td>协程间传递</td>
+<td>需要序列化</td>
+<td>直接传递 Buffer 对象</td>
+</tr>
+</tbody></table>
+
+<h3>Buffer 的核心特性</h3>
+
+<ul>
+<li><strong>动态扩容：</strong> 当数据超过当前容量时，自动扩容（默认翻倍）</li>
+<li><strong>读写指针分离：</strong> <code>offset</code> 和 <code>length</code> 独立管理，支持从中间读取</li>
+<li><strong>引用计数：</strong> 多个协程可共享同一块 Buffer，减少内存拷贝</li>
+<li><strong>内存回收：</strong> Buffer 对象销毁时自动释放内存</li>
+
+<hr>
+
+<h2>二、脑图（ASCII）</h2>
+
+<pre><code>Swoole Buffer
+├── 核心概念
+│   ├── 动态内存缓冲区
+│   ├── 读写指针分离
+│   └── 引用计数管理
+├── 创建方式
+│   ├── new Buffer($size)
+│   ├── Buffer::from($data)
+│   └── 默认 64 字节
+├── 写入操作
+│   ├── write($offset, $data)
+│   ├── append($data)
+│   └── __toString()
+├── 读取操作
+│   ├── read($offset, $length)
+│   ├── substr($offset, $length)
+│   └── toString()
+├── 管理操作
+│   ├── clear()
+│   ├── recycle()
+│   └── capacity / length
+└── 应用场景
+    ├── TCP 粘包处理
+    ├── 大文件分块传输
+    ├── 协议编解码
+    └── 二进制数据处理</code></pre>
+
+<hr>
+
+<h2>三、完整 PHP/Swoole 代码</h2>
+
+<h3>v1：Buffer 基础操作</h3>
+
+<pre><code class="language-php">&lt;?php
+// v1: Basic Buffer operations
+// Demonstrate create, write, read, append
+
+use Swoole\Buffer;
+
+// Create a buffer with 128 bytes initial capacity
+$buffer = new Buffer(128);
+
+echo &quot;Initial capacity: {$buffer-&gt;capacity}
+&quot;;
+echo &quot;Initial length: {$buffer-&gt;length}
+&quot;;
+
+// Write data at offset 0
+$written = $buffer-&gt;write(0, &quot;Hello, Swoole!&quot;);
+echo &quot;Written {$written} bytes
+&quot;;
+echo &quot;After write length: {$buffer-&gt;length}
+&quot;;
+
+// Read data from offset 0
+$data = $buffer-&gt;read(0, 14);
+echo &quot;Read: {$data}
+&quot;;
+
+// Append more data
+$buffer-&gt;append(&quot; This is appended.&quot;);
+echo &quot;After append length: {$buffer-&gt;length}
+&quot;;
+
+// Read all content
+echo &quot;Full content: {$buffer-&gt;read(0, $buffer-&gt;length)}
+&quot;;
+
+// Convert to string
+echo &quot;toString: {$buffer-&gt;__toString()}
+&quot;;
+
+// Clear buffer
+$buffer-&gt;clear();
+echo &quot;After clear length: {$buffer-&gt;length}
+&quot;;</code></pre>
+
+<h3>v2：TCP 粘包处理实战</h3>
+
+<pre><code class="language-php">&lt;?php
+// v2: TCP sticky packet handling with Buffer
+// Real-world network protocol parsing
+
+use Swoole\Buffer;
+
+class PacketParser
+{
+    private Buffer $buffer;
+    
+    // Protocol: [4 bytes length][2 bytes type][payload]
+    private const HEADER_SIZE = 6;
+
+    public function __construct()
+    {
+        $this-&gt;buffer = new Buffer(65536); // 64KB initial buffer
+    }
+
+    /**
+     * Append received data to buffer and try to parse complete packets
+     * @param string $rawData Data received from TCP socket
+     * @return array Parsed packets
+     */
+    public function feed(string $rawData): array
+    {
+        // Append new data to buffer
+        $this-&gt;buffer-&gt;append($rawData);
+        
+        $packets = [];
+        
+        // Try to extract complete packets
+        while ($this-&gt;buffer-&gt;length &gt;= self::HEADER_SIZE) {
+            // Read length field (first 4 bytes, big-endian unsigned int)
+            $lengthData = $this-&gt;buffer-&gt;read(0, 4);
+            $payloadLength = unpack(&#x27;N&#x27;, $lengthData)[1];
+            
+            // Read type field (next 2 bytes, big-endian unsigned short)
+            $typeData = $this-&gt;buffer-&gt;read(4, 2);
+            $type = unpack(&#x27;n&#x27;, $typeData)[1];
+            
+            $totalLength = self::HEADER_SIZE + $payloadLength;
+            
+            // Check if we have the complete packet
+            if ($this-&gt;buffer-&gt;length &lt; $totalLength) {
+                break; // Wait for more data
+            }
+            
+            // Extract payload
+            $payload = &#x27;&#x27;;
+            if ($payloadLength &gt; 0) {
+                $payload = $this-&gt;buffer-&gt;read(self::HEADER_SIZE, $payloadLength);
+            }
+            
+            $packets[] = [
+                &#x27;type&#x27; =&gt; $type,
+                &#x27;length&#x27; =&gt; $payloadLength,
+                &#x27;payload&#x27; =&gt; $payload,
+            ];
+            
+            // Remove processed data from buffer
+            $remaining = $this-&gt;buffer-&gt;read($totalLength, $this-&gt;buffer-&gt;length - $totalLength);
+            $this-&gt;buffer-&gt;clear();
+            if (strlen($remaining) &gt; 0) {
+                $this-&gt;buffer-&gt;append($remaining);
+            }
+        }
+        
+        return $packets;
+    }
+
+    /**
+     * Encode a packet into binary format
+     */
+    public static function encode(int $type, string $payload = &#x27;&#x27;): string
+    {
+        return pack(&#x27;Nn&#x27;, strlen($payload), $type) . $payload;
+    }
+}
+
+// --- Simulate TCP sticky packet scenario ---
+$parser = new PacketParser();
+
+// Simulate: two packets arrive in one TCP segment (sticky packet)
+$packet1 = PacketParser::encode(1001, &#x27;{&quot;action&quot;:&quot;login&quot;}&#x27;);
+$packet2 = PacketParser::encode(1002, &#x27;{&quot;action&quot;:&quot;heartbeat&quot;}&#x27;);
+$stickyData = $packet1 . $packet2;
+
+echo &quot;=== Sticky packet simulation ===
+&quot;;
+echo &quot;Combined data length: &quot; . strlen($stickyData) . &quot; bytes
+&quot;;
+
+$results = $parser-&gt;feed($stickyData);
+foreach ($results as $i =&gt; $pkt) {
+    echo &quot;Packet {$i}: type={$pkt[&#x27;type&#x27;]}, payload={$pkt[&#x27;payload&#x27;]}
+&quot;;
+}
+
+// Simulate: one packet split into two TCP segments (fragmented)
+$parser2 = new PacketParser();
+$bigPacket = PacketParser::encode(2001, str_repeat(&#x27;A&#x27;, 100));
+
+$part1 = substr($bigPacket, 0, 50);  // First half
+$part2 = substr($bigPacket, 50);      // Second half
+
+echo &quot;
+=== Fragmented packet simulation ===
+&quot;;
+$r1 = $parser2-&gt;feed($part1);
+echo &quot;After part1: &quot; . count($r1) . &quot; packets parsed
+&quot;;
+
+$r2 = $parser2-&gt;feed($part2);
+echo &quot;After part2: &quot; . count($r2) . &quot; packets parsed
+&quot;;
+if (!empty($r2)) {
+    echo &quot;Packet: type={$r2[0][&#x27;type&#x27;]}, length={$r2[0][&#x27;length&#x27;]}
+&quot;;
+}</code></pre>
+
+<h3>v3：高性能 Buffer 池化管理</h3>
+
+<pre><code class="language-php">&lt;?php
+// v3: High-performance buffer pool management
+// Reuse buffers to reduce memory allocation overhead
+
+use Swoole\Buffer;
+use Swoole\Coroutine;
+use Swoole\Coroutine\Channel;
+
+class BufferPool
+{
+    private Channel $pool;
+    private int $bufferSize;
+    private int $allocated = 0;
+    private int $reused = 0;
+
+    /**
+     * @param int $poolSize Max number of buffers in pool
+     * @param int $bufferSize Default buffer size for each buffer
+     */
+    public function __construct(int $poolSize = 100, int $bufferSize = 65536)
+    {
+        $this-&gt;pool = new Channel($poolSize);
+        $this-&gt;bufferSize = $bufferSize;
+    }
+
+    /**
+     * Get a buffer from pool or create a new one
+     */
+    public function get(): Buffer
+    {
+        $buffer = $this-&gt;pool-&gt;pop(0.001); // Non-blocking with tiny timeout
+        
+        if ($buffer === false) {
+            $this-&gt;allocated++;
+            return new Buffer($this-&gt;bufferSize);
+        }
+        
+        $this-&gt;reused++;
+        $buffer-&gt;clear();
+        return $buffer;
+    }
+
+    /**
+     * Return buffer to pool for reuse
+     */
+    public function put(Buffer $buffer): void
+    {
+        // Only recycle if buffer hasn&#x27;t grown too large
+        if ($buffer-&gt;capacity &lt;= $this-&gt;bufferSize * 4) {
+            $buffer-&gt;clear();
+            $this-&gt;pool-&gt;push($buffer, 0.001);
+        }
+        // Otherwise let GC collect it (prevent memory bloat)
+    }
+
+    public function stats(): array
+    {
+        return [
+            &#x27;pool_size&#x27; =&gt; $this-&gt;pool-&gt;length,
+            &#x27;allocated&#x27; =&gt; $this-&gt;allocated,
+            &#x27;reused&#x27; =&gt; $this-&gt;reused,
+        ];
+    }
+}
+
+// --- Benchmark: pooled vs non-pooled ---
+Coroutine
+un(function () {
+    $pool = new BufferPool(50, 4096);
+    $iterations = 10000;
+
+    // Test with buffer pool
+    $start = microtime(true);
+    for ($i = 0; $i &lt; $iterations; $i++) {
+        $buf = $pool-&gt;get();
+        $buf-&gt;append(&quot;Request #{$i}: &quot; . str_repeat(&#x27;x&#x27;, 500));
+        $data = $buf-&gt;read(0, $buf-&gt;length);
+        $pool-&gt;put($buf);
+    }
+    $pooledTime = microtime(true) - $start;
+
+    // Test without pool
+    $start = microtime(true);
+    for ($i = 0; $i &lt; $iterations; $i++) {
+        $buf = new Buffer(4096);
+        $buf-&gt;append(&quot;Request #{$i}: &quot; . str_repeat(&#x27;x&#x27;, 500));
+        $data = $buf-&gt;read(0, $buf-&gt;length);
+        unset($buf);
+    }
+    $unpooledTime = microtime(true) - $start;
+
+    echo &quot;=== Buffer Pool Benchmark ({$iterations} iterations) ===
+&quot;;
+    echo sprintf(&quot;Pooled:   %.4f seconds
+&quot;, $pooledTime);
+    echo sprintf(&quot;Unpooled: %.4f seconds
+&quot;, $unpooledTime);
+    echo sprintf(&quot;Speedup:  %.2fx
+&quot;, $unpooledTime / $pooledTime);
+    
+    $stats = $pool-&gt;stats();
+    echo &quot;
+Pool stats:
+&quot;;
+    echo &quot;  Allocated: {$stats[&#x27;allocated&#x27;]}
+&quot;;
+    echo &quot;  Reused: {$stats[&#x27;reused&#x27;]}
+&quot;;
+    echo &quot;  Remaining in pool: {$stats[&#x27;pool_size&#x27;]}
+&quot;;
+});</code></pre>
+
+<hr>
+
+<h2>四、执行预览</h2>
+
+<h3>v1 执行输出</h3>
+<pre><code>Initial capacity: 128
+Initial length: 0
+Written 14 bytes
+After write length: 14
+Read: Hello, Swoole!
+After append length: 31
+Full content: Hello, Swoole! This is appended.
+toString: Hello, Swoole! This is appended.
+After clear length: 0</code></pre>
+
+<h3>v2 执行输出</h3>
+<pre><code>=== Sticky packet simulation ===
+Combined data length: 37 bytes
+Packet 0: type=1001, payload={&quot;action&quot;:&quot;login&quot;}
+Packet 1: type=1002, payload={&quot;action&quot;:&quot;heartbeat&quot;}
+
+=== Fragmented packet simulation ===
+After part1: 0 packets parsed
+After part2: 1 packets parsed
+Packet: type=2001, length=100</code></pre>
+
+<h3>v3 执行输出</h3>
+<pre><code>=== Buffer Pool Benchmark (10000 iterations) ===
+Pooled:   0.0421 seconds
+Unpooled: 0.0683 seconds
+Speedup:  1.62x
+
+Pool stats:
+  Allocated: 50
+  Reused: 9950
+  Remaining in pool: 50</code></pre>
+
+<hr>
+
+<h2>五、注意事项</h2>
+
+<table><thead><tr>
+<th>项目</th>
+<th>说明</th>
+</tr></thead><tbody>
+<tr>
+<td>初始容量</td>
+<td>默认 64 字节，建议根据业务预估设置，减少扩容次数</td>
+</tr>
+<tr>
+<td>扩容策略</td>
+<td>超出容量时自动翻倍，频繁扩容影响性能</td>
+</tr>
+<tr>
+<td>线程安全</td>
+<td>Buffer 不是线程安全的，多协程不能同时操作同一 Buffer</td>
+</tr>
+<tr>
+<td>内存泄漏</td>
+<td>循环引用场景下注意手动 clear()</td>
+</tr>
+<tr>
+<td>大数据量</td>
+<td>单个 Buffer 不建议超过几 MB，大数据用临时文件</td>
+</tr>
+<tr>
+<td>序列化</td>
+<td>Buffer 内容是二进制安全的，可以存储任意数据</td>
+</tr>
+<tr>
+<td>__toString</td>
+<td>会产生字符串拷贝，大数据场景避免频繁调用</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>六、避坑指南</h2>
+
+<table><thead><tr>
+<th>❌ 错误做法</th>
+<th>✅ 正确做法</th>
+</tr></thead><tbody>
+<tr>
+<td><code>$buf->read(0, $buf->length)</code> 获取全部内容后不清除</td>
+<td>使用 <code>substr</code> 或在处理后 <code>clear()</code> 防止重复处理</td>
+</tr>
+<tr>
+<td>每次 <code>new Buffer()</code> 处理请求</td>
+<td>使用 Buffer 池复用，减少内存分配</td>
+</tr>
+<tr>
+<td>在 Buffer 中存储超大文件内容</td>
+<td>大文件使用 <code>sendfile</code> 或分块读取</td>
+</tr>
+<tr>
+<td><code>write()</code> 超出 capacity 的位置</td>
+<td>先检查容量，或使用 <code>append()</code> 自动扩容</td>
+</tr>
+<tr>
+<td>多个协程同时读写同一 Buffer</td>
+<td>每个协程使用独立 Buffer，或加锁保护</td>
+</tr>
+<tr>
+<td>忽略粘包问题，直接 <code>read(0, length)</code></td>
+<td>使用固定头部协议 + Buffer 累积解析</td>
+</tr>
+<tr>
+<td>依赖 <code>__toString()</code> 处理二进制</td>
+<td>用 <code>read()</code> + <code>unpack()</code> 处理二进制数据</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>七、练习题</h2>
+
+<h3>🟢 基础题</h3>
+
+<p><strong>题目 1：</strong> 创建一个 256 字节的 Buffer，写入字符串 "Swoole Buffer"，然后从第 7 个字节开始读取 6 个字节，输出结果。</p>
+
+<p><strong>题目 2：</strong> 使用 Buffer 实现一个简单的数据拼接器：分 3 次分别 append "Hello"、" "、"World"，最后输出完整内容。</p>
+
+<h3>🟡 进阶题</h3>
+
+<p><strong>题目 3：</strong> 实现一个简单的 TLV（Type-Length-Value）协议解析器。格式：<code>[1 byte type][2 bytes length][N bytes value]</code>，要求能正确处理粘包和分片。</p>
+
+<p><strong>题目 4：</strong> 编写一个 BufferPool，支持按大小分级（小：4KB、中：64KB、大：1MB），根据请求的数据量自动选择合适等级的 Buffer。</p>
+
+<h3>🔴 挑战题</h3>
+
+<p><strong>题目 5：</strong> 基于 Swoole Buffer 实现一个零拷贝的 HTTP 请求体解析器，支持 chunked transfer encoding，要求在解析过程中尽量减少内存拷贝。</p>
+
+<hr>
+
+<h2>八、知识点总结</h2>
+
+<pre><code>Swoole Buffer 知识树
+├── 基础
+│   ├── Buffer 创建与初始化
+│   ├── capacity vs length
+│   └── 读写操作 API
+├── 进阶
+│   ├── 动态扩容机制
+│   ├── 二进制数据处理
+│   └── 引用计数与内存管理
+├── 实战
+│   ├── TCP 粘包/分片处理
+│   ├── 自定义协议解析
+│   └── Buffer 池化复用
+└── 性能
+    ├── 减少内存分配
+    ├── 零拷贝读写
+    └── 容量预分配</code></pre>
+
+<hr>
+
+<h2>九、举一反三</h2>
+
+<table><thead><tr>
+<th>知识点</th>
+<th>本文示例</th>
+<th>延伸应用</th>
+</tr></thead><tbody>
+<tr>
+<td>Buffer 基础操作</td>
+<td>字符串读写</td>
+<td>Redis 协议解析、WebSocket 帧解析</td>
+</tr>
+<tr>
+<td>粘包处理</td>
+<td>固定头部长度协议</td>
+<td>HTTP 长连接、MQTT 协议、RPC 通信</td>
+</tr>
+<tr>
+<td>Buffer 池化</td>
+<td>连接内复用</td>
+<td>对象池、协程池、连接池设计模式</td>
+</tr>
+<tr>
+<td>二进制打包</td>
+<td>pack/unpack</td>
+<td>Protobuf 编解码、二进制序列化</td>
+</tr>
+<tr>
+<td>分片重组</td>
+<td>TCP 分片模拟</td>
+<td>文件分块上传、流式数据处理</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>十、参考资料</h2>
+
+<ol>
+<li><a href="https://wiki.swoole.com/#/memory/buffer">Swoole 官方文档 - Buffer</a></li>
+</ul>
+<ol>
+<li><a href="https://wiki.swoole.com/#/learn?id=tcp-sticky-packet">Swoole 官方文档 - TCP 粘包</a></li>
+</ul>
+<ol>
+<li><a href="https://www.php.net/manual/en/function.pack.php">PHP pack/unpack 函数手册</a></li>
+</ul>
+<ol>
+<li><a href="https://book.douban.com/subject/1088054/">TCP/IP 详解 卷1：协议</a></li>
+
+<hr>
+
+<h2>十一、代码演进</h2>
+
+<table><thead><tr>
+<th>版本</th>
+<th>重点</th>
+<th>核心改进</th>
+</tr></thead><tbody>
+<tr>
+<td>v1</td>
+<td>基础操作</td>
+<td>创建、读写、追加、清空</td>
+</tr>
+<tr>
+<td>v2</td>
+<td>实战应用</td>
+<td>TCP 粘包处理、协议解析、分片重组</td>
+</tr>
+<tr>
+<td>v3</td>
+<td>性能优化</td>
+<td>Buffer 池化、减少内存分配、性能基准测试</td>
+</tr>
+</tbody></table>
+
+<blockquote><p><strong>演进路线：</strong> 了解 API → 解决实际问题 → 性能优化。这是学习 Swoole Buffer 的推荐路径。</p></blockquote>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

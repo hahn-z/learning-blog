@@ -1,0 +1,597 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>025 - 服务熔断原理与 Hyperf 熔断器实现</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Hyperf/index.html">Hyperf</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Hyperf/01-微服务实战/index.html">Hyperf微服务实战</a>
+</nav>
+<h1>025 - 服务熔断原理与 Hyperf 熔断器实现</h1>
+<div class="meta">
+<span>📂 Hyperf微服务实战</span>
+<span>🏷️ Hyperf</span>
+</div>
+<article>
+
+
+<h1>服务熔断原理与 Hyperf 熔断器实现</h1>
+
+<h2>难度标注</h2>
+
+<p>⭐⭐⭐⭐（中高级）</p>
+
+<p><strong>前置知识：</strong> 微服务调用基础、Hyperf 3.x、注解与 AOP</p>
+
+<p><strong>预估用时：</strong> 50-60 分钟</p>
+
+<hr>
+
+<h2>概念讲解</h2>
+
+<p><strong>服务熔断（Circuit Breaker）</strong> 是一种保护机制，当下游服务的错误率或响应时间超过阈值时，自动"断开"调用链路，快速失败而非持续等待，避免故障级联扩散到整个系统。经过一段"冷却"后，熔断器会试探性地放行少量请求（半开状态），判断下游是否恢复。</p>
+
+<p><strong>现实类比：</strong> 家里的保险丝（断路器）。当电流过大时，保险丝自动熔断，保护电器不被烧毁。等你排查完故障、换好保险丝，电力恢复正常。如果刚修好还不确定，你可能先插一个小电器试试（半开），确认没问题再全部通电。</p>
+
+<p><strong>技术场景：</strong> 用户服务调用订单服务查询用户订单。如果订单服务突然挂了，没有熔断的话，用户服务的每个请求都会等到超时（比如 30 秒），大量线程阻塞，最终用户服务也被拖垮。有了熔断器，前几次失败后直接快速返回错误或兜底数据，不再浪费资源等待。</p>
+
+<hr>
+
+<h2>实时脑图</h2>
+
+<pre><code>                    Request → GetUserOrders
+                           │
+                           ▼
+                  ┌─────────────────┐
+                  │  Circuit Breaker │
+                  │  State Machine   │
+                  └────────┬────────┘
+                           │
+              ┌────────────┼────────────┐
+              │            │            │
+        ┌─────▼────┐ ┌────▼─────┐ ┌────▼─────┐
+        │  CLOSED  │ │   OPEN   │ │ HALF-OPEN│
+        │ Normal   │ │  Reject  │ │  Probe   │
+        │ Flow     │ │  Fast    │ │  Limited │
+        │ Through  │ │  Fail    │ │  Test    │
+        └─────┬────┘ └────┬─────┘ └────┬─────┘
+              │            │            │
+         Failure &gt;    Sleep Window   Probe OK
+         Threshold    Expired       → CLOSED
+              │            │
+              └─────► OPEN ◄── Probe Fail
+                          (Reset Timer)</code></pre>
+
+<hr>
+
+<h2>完整代码</h2>
+
+<h3>1. 安装熔断器组件</h3>
+
+<pre><code class="language-bash"># ✅ Install Hyperf circuit breaker component
+composer require hyperf/circuit-breaker</code></pre>
+
+<h3>2. 熔断器配置</h3>
+
+<pre><code class="language-php">&lt;?php
+// config/autoload/circuit_breaker.php
+
+declare(strict_types=1);
+
+return [
+    &#x27;default&#x27; =&gt; [
+        &#x27;driver&#x27; =&gt; \Hyperf\CircuitBreaker\Handler\TimeoutHandler::class,
+        
+        // ✅ Success threshold to close the circuit
+        &#x27;success_threshold&#x27; =&gt; 5,
+        
+        // 🔴 Failure threshold to open the circuit
+        &#x27;failure_threshold&#x27; =&gt; 3,
+        
+        // ✅ How long to stay open before trying half-open (seconds)
+        &#x27;recovery_time&#x27; =&gt; 30,
+    
+        // 🟡 Custom breaker for specific services
+        &#x27;breakers&#x27; =&gt; [
+            &#x27;order-service&#x27; =&gt; [
+                &#x27;failure_threshold&#x27; =&gt; 5,
+                &#x27;success_threshold&#x27; =&gt; 3,
+                &#x27;recovery_time&#x27; =&gt; 60,
+            ],
+        ],
+    ],
+];</code></pre>
+
+<h3>3. 用户服务中使用熔断器</h3>
+
+<pre><code class="language-php">&lt;?php
+// app/Service/OrderClientService.php
+
+declare(strict_types=1);
+
+namespace App\Service;
+
+use Hyperf\CircuitBreaker\Annotation\CircuitBreaker;
+use Hyperf\Di\Annotation\Inject;
+use App\Exception\ServiceUnavailableException;
+
+class OrderClientService
+{
+    #[Inject]
+    private \Hyperf\Guzzle\ClientFactory $clientFactory;
+
+    /**
+     * ✅ @CircuitBreaker annotation with fallback
+     * - name: unique breaker identifier
+     * - failCounter: failures before opening
+     * - successCounter: successes before closing
+     * - duration: open state duration in seconds
+     * - fallback: method to call when circuit is open
+     */
+    #[CircuitBreaker(
+        name: &#x27;order-service&#x27;,
+        failCounter: 3,
+        successCounter: 2,
+        duration: 30,
+        fallback: &#x27;getUserOrdersFallback&#x27;
+    )]
+    public function getUserOrders(int $userId): array
+    {
+        $client = $this-&gt;clientFactory-&gt;create([
+            &#x27;base_uri&#x27; =&gt; &#x27;http://order-service:9502&#x27;,
+            &#x27;timeout&#x27; =&gt; 5.0,
+        ]);
+
+        // ✅ Normal call to order service
+        $response = $client-&gt;get(&quot;/api/orders/user/{$userId}&quot;);
+        
+        return json_decode($response-&gt;getBody()-&gt;getContents(), true);
+    }
+
+    /**
+     * ✅ Fallback method - must have same parameters + optional Throwable
+     * Called when circuit is OPEN or when the primary method throws
+     */
+    public function getUserOrdersFallback(int $userId, ?\Throwable $exception = null): array
+    {
+        // 🟢 Log the fallback event for monitoring
+        logger()-&gt;warning(&#x27;Circuit breaker fallback triggered&#x27;, [
+            &#x27;service&#x27; =&gt; &#x27;order-service&#x27;,
+            &#x27;user_id&#x27; =&gt; $userId,
+            &#x27;error&#x27; =&gt; $exception?-&gt;getMessage(),
+        ]);
+
+        // ✅ Return cached/degraded data
+        return [
+            &#x27;user_id&#x27; =&gt; $userId,
+            &#x27;orders&#x27; =&gt; [],
+            &#x27;message&#x27; =&gt; &#x27;Order service temporarily unavailable&#x27;,
+            &#x27;fallback&#x27; =&gt; true,
+        ];
+    }
+}</code></pre>
+
+<h3>4. 手动熔断器管理（高级用法）</h3>
+
+<pre><code class="language-php">&lt;?php
+// app/Service/CircuitBreakerManager.php
+
+declare(strict_types=1);
+
+namespace App\Service;
+
+use Hyperf\CircuitBreaker\CircuitBreaker;
+use Hyperf\CircuitBreaker\CircuitBreakerFactory;
+use Hyperf\Di\Annotation\Inject;
+
+class CircuitBreakerManager
+{
+    #[Inject]
+    private CircuitBreakerFactory $factory;
+
+    /**
+     * ✅ Get current state of a circuit breaker
+     */
+    public function getState(string $name): array
+    {
+        $breaker = $this-&gt;factory-&gt;get($name);
+        
+        if ($breaker === null) {
+            return [&#x27;name&#x27; =&gt; $name, &#x27;state&#x27; =&gt; &#x27;unknown&#x27;];
+        }
+
+        return [
+            &#x27;name&#x27; =&gt; $name,
+            &#x27;state&#x27; =&gt; $breaker-&gt;getState(),       // closed / open / half_open
+            &#x27;fail_counter&#x27; =&gt; $breaker-&gt;getFailCounter(),
+            &#x27;success_counter&#x27; =&gt; $breaker-&gt;getSuccessCounter(),
+            &#x27;last_failure_time&#x27; =&gt; $breaker-&gt;getLastFailureTime(),
+        ];
+    }
+
+    /**
+     * ✅ Manually reset a circuit breaker (admin operation)
+     */
+    public function reset(string $name): bool
+    {
+        $breaker = $this-&gt;factory-&gt;get($name);
+        if ($breaker === null) {
+            return false;
+        }
+
+        // ✅ Force close the circuit
+        $breaker-&gt;close();
+        logger()-&gt;info(&quot;Circuit breaker manually reset: {$name}&quot;);
+        return true;
+    }
+
+    /**
+     * ✅ Get all circuit breaker states for dashboard
+     */
+    public function getAllStates(): array
+    {
+        $states = [];
+        // In production, track breaker names in config
+        foreach ([&#x27;order-service&#x27;, &#x27;auth-service&#x27;, &#x27;notification-service&#x27;] as $name) {
+            $states[$name] = $this-&gt;getState($name);
+        }
+        return $states;
+    }
+}</code></pre>
+
+<h3>5. 熔断器状态监控接口</h3>
+
+<pre><code class="language-php">&lt;?php
+// app/Controller/CircuitBreakerController.php
+
+declare(strict_types=1);
+
+namespace App\Controller;
+
+use App\Service\CircuitBreakerManager;
+use Hyperf\Di\Annotation\Inject;
+use Hyperf\HttpServer\Annotation\Controller;
+use Hyperf\HttpServer\Annotation\GetMapping;
+use Hyperf\HttpServer\Annotation\PostMapping;
+
+#[Controller(prefix: &#x27;/api/circuit-breakers&#x27;)]
+class CircuitBreakerController
+{
+    #[Inject]
+    private CircuitBreakerManager $manager;
+
+    // ✅ List all circuit breaker states
+    #[GetMapping(path: &#x27;&#x27;)]
+    public function list(): array
+    {
+        return [
+            &#x27;breakers&#x27; =&gt; $this-&gt;manager-&gt;getAllStates(),
+        ];
+    }
+
+    // ✅ Manually reset a circuit breaker
+    #[PostMapping(path: &#x27;/{name}/reset&#x27;)]
+    public function reset(string $name): array
+    {
+        $result = $this-&gt;manager-&gt;reset($name);
+        return [
+            &#x27;success&#x27; =&gt; $result,
+            &#x27;message&#x27; =&gt; $result ? &quot;Circuit breaker {$name} reset&quot; : &quot;Breaker not found&quot;,
+        ];
+    }
+}</code></pre>
+
+<hr>
+
+<h2>执行预览</h2>
+
+<pre><code class="language-bash"># Normal request - circuit CLOSED
+$ curl http://localhost:9501/api/users/1/orders
+{&quot;user_id&quot;:1,&quot;orders&quot;:[{&quot;id&quot;:101,&quot;amount&quot;:99.9}],&quot;fallback&quot;:false}
+
+# Simulate order-service down → failures accumulate → circuit OPENS
+# After 3 failures:
+$ curl http://localhost:9501/api/users/1/orders
+{&quot;user_id&quot;:1,&quot;orders&quot;:[],&quot;message&quot;:&quot;Order service temporarily unavailable&quot;,&quot;fallback&quot;:true}
+
+# Check circuit breaker state
+$ curl http://localhost:9501/api/circuit-breakers
+{
+  &quot;breakers&quot;: {
+    &quot;order-service&quot;: {
+      &quot;name&quot;: &quot;order-service&quot;,
+      &quot;state&quot;: &quot;open&quot;,
+      &quot;fail_counter&quot;: 3,
+      &quot;success_counter&quot;: 0
+    }
+  }
+}
+
+# After 30s recovery_time → HALF-OPEN → probe request
+# If probe succeeds → CLOSED (normal)
+# If probe fails → stays OPEN
+
+# Manual reset
+$ curl -X POST http://localhost:9501/api/circuit-breakers/order-service/reset
+{&quot;success&quot;:true,&quot;message&quot;:&quot;Circuit breaker order-service reset&quot;}</code></pre>
+
+<hr>
+
+<h2>注意事项</h2>
+
+<table><thead><tr>
+<th>约束</th>
+<th>说明</th>
+<th>违反后果</th>
+</tr></thead><tbody>
+<tr>
+<td>fallback 方法签名必须匹配</td>
+<td>参数与原方法一致，可额外加 Throwable</td>
+<td>运行时反射调用失败</td>
+</tr>
+<tr>
+<td>recovery_time 要合理</td>
+<td>太短频繁试探，太长恢复慢</td>
+<td>系统抖动或恢复不及时</td>
+</tr>
+<tr>
+<td>failure_threshold 不宜太小</td>
+<td>偶发错误不应触发熔断</td>
+<td>正常波动就熔断，误杀</td>
+</tr>
+<tr>
+<td>熔断器 name 要唯一</td>
+<td>不同服务/方法用不同 name</td>
+<td>状态互相覆盖</td>
+</tr>
+<tr>
+<td>记录 fallback 事件</td>
+<td>监控熔断触发频率</td>
+<td>不知道服务异常，错过告警</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>避坑指南</h2>
+
+<table><thead><tr>
+<th>典型错误</th>
+<th>现象</th>
+<th>正确做法</th>
+</tr></thead><tbody>
+<tr>
+<td>fallback 返回异常</td>
+<td>熔断后仍然报错</td>
+<td>fallback 应返回安全的兜底数据</td>
+</tr>
+<tr>
+<td>熔断器没有 name 区分</td>
+<td>所有方法共享一个状态</td>
+<td>每个外部调用用独立 name</td>
+</tr>
+<tr>
+<td>没有超时配置</td>
+<td>请求一直等，熔断器不触发</td>
+<td>设置合理的 timeout</td>
+</tr>
+<tr>
+<td>recovery_time 设为 0</td>
+<td>永远不尝试恢复</td>
+<td>至少设 10-30 秒</td>
+</tr>
+<tr>
+<td>只熔断不注意日志</td>
+<td>不知道何时触发熔断</td>
+<td>fallback 中记录日志和指标</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>练习题</h2>
+
+<h3>🟢 基础题</h3>
+
+<ol>
+<li><strong>为认证服务添加熔断器</strong>：在 <code>AuthService::validateToken</code> 方法上添加 <code>@CircuitBreaker</code> 注解，失败 5 次后熔断，30 秒后恢复。</li>
+
+<ol>
+<li><strong>测试熔断器状态</strong>：手动触发失败请求，通过监控接口观察熔断器从 CLOSED → OPEN → HALF-OPEN → CLOSED 的状态变化。</li>
+
+<h3>🟡 进阶题</h3>
+
+<ol>
+<li><strong>分级熔断策略</strong>：对核心接口（如登录）设置宽松阈值（10 次失败），对非核心接口（如推荐）设置严格阈值（3 次失败），设计配置方案。</li>
+
+<h3>🔴 开放题</h3>
+
+<ol>
+<li><strong>设计熔断器指标面板</strong>：收集熔断器的状态变化、触发次数、恢复时间，设计一个 Prometheus 指标导出方案。</li>
+
+<hr>
+
+<h2>知识点总结</h2>
+
+<pre><code>服务熔断
+├── 核心概念
+│   ├── 三态模型（Closed / Open / Half-Open）
+│   ├── 失败计数器
+│   ├── 成功计数器
+│   └── 恢复时间窗口
+├── Hyperf 实现
+│   ├── hyperf/circuit-breaker 组件
+│   ├── @CircuitBreaker 注解
+│   ├── Fallback 方法
+│   ├── CircuitBreakerFactory
+│   └── 手动状态管理
+├── 配置项
+│   ├── failure_threshold
+│   ├── success_threshold
+│   ├── recovery_time
+│   └── timeout
+└── 监控与运维
+    ├── 状态查询接口
+    ├── 手动重置
+    └── 日志与指标</code></pre>
+
+<hr>
+
+<h2>举一反三</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>变种说明</th>
+<th>关键差异</th>
+</tr></thead><tbody>
+<tr>
+<td>HTTP 熔断 → gRPC 熔断</td>
+<td>不同协议的熔断实现</td>
+<td>gRPC 需要处理 Status Code</td>
+</tr>
+<tr>
+<td>单实例熔断 → 分布式熔断</td>
+<td>多实例共享熔断状态</td>
+<td>需要 Redis 存储共享状态</td>
+</tr>
+<tr>
+<td>方法级熔断 → 服务级熔断</td>
+<td>粒度不同</td>
+<td>服务级需网关或中间件支持</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>参考资料</h2>
+
+<table><thead><tr>
+<th>资料</th>
+<th>链接</th>
+<th>权威等级</th>
+</tr></thead><tbody>
+<tr>
+<td>Martin Fowler - CircuitBreaker</td>
+<td>https://martinfowler.com/bliki/CircuitBreaker.html</td>
+<td>⭐⭐⭐⭐⭐</td>
+</tr>
+<tr>
+<td>Hyperf 熔断器文档</td>
+<td>https://hyperf.wiki/3.0/#/zh-cn/circuit-breaker</td>
+<td>⭐⭐⭐⭐</td>
+</tr>
+<tr>
+<td>Netflix Hystrix</td>
+<td>https://github.com/Netflix/Hystrix/wiki</td>
+<td>⭐⭐⭐⭐</td>
+</tr>
+<tr>
+<td>Resilience4j</td>
+<td>https://resilience4j.readme.io/</td>
+<td>⭐⭐⭐⭐</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>代码演进</h2>
+
+<h3>v1 ❌ 无熔断，直接调用</h3>
+
+<pre><code class="language-php">public function getUserOrders(int $userId): array
+{
+    // ❌ No protection, hangs forever if order-service is down
+    $response = $this-&gt;client-&gt;get(&quot;/api/orders/user/{$userId}&quot;);
+    return json_decode($response-&gt;getBody()-&gt;getContents(), true);
+}</code></pre>
+
+<h3>v2 ✅ 注解式熔断 + Fallback</h3>
+
+<pre><code class="language-php">#[CircuitBreaker(
+    name: &#x27;order-service&#x27;,
+    failCounter: 3,
+    duration: 30,
+    fallback: &#x27;getUserOrdersFallback&#x27;
+)]
+public function getUserOrders(int $userId): array
+{
+    $response = $this-&gt;client-&gt;get(&quot;/api/orders/user/{$userId}&quot;);
+    return json_decode($response-&gt;getBody()-&gt;getContents(), true);
+}
+
+public function getUserOrdersFallback(int $userId, ?\Throwable $e = null): array
+{
+    return [&#x27;user_id&#x27; =&gt; $userId, &#x27;orders&#x27; =&gt; [], &#x27;fallback&#x27; =&gt; true];
+}</code></pre>
+
+<h3>v3 🟢 手动管理 + 监控面板 + 动态配置</h3>
+
+<pre><code class="language-php">// Dynamic config from Redis/config center
+#[CircuitBreaker(
+    name: &#x27;order-service&#x27;,
+    failCounter: env(&#x27;CB_ORDER_FAIL_THRESHOLD&#x27;, 3),
+    duration: env(&#x27;CB_ORDER_RECOVERY&#x27;, 30),
+    fallback: &#x27;getUserOrdersFallback&#x27;
+)]
+// + CircuitBreakerManager for monitoring
+// + Prometheus metrics export
+// + Admin API for manual reset</code></pre>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

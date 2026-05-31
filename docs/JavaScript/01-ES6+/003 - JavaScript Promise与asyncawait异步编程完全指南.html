@@ -1,0 +1,519 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>003 - JavaScript Promise与async/await异步编程完全指南</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/JavaScript/index.html">JavaScript</a>
+<span class="sep">›</span>
+<a href="/tech-blog/JavaScript/01-ES6+/index.html">JavaScript ES6+</a>
+</nav>
+<h1>003 - JavaScript Promise与async/await异步编程完全指南</h1>
+<div class="meta">
+<span>📂 JavaScript ES6+</span>
+<span>🏷️ JavaScript</span>
+</div>
+<article>
+
+
+
+<h1>JavaScript Promise与async/await异步编程完全指南</h1>
+
+<blockquote><p><strong>难度标注：</strong> 🔴 高级 | <strong>前置知识：</strong> 函数、闭包、基本异步概念<br><strong>阅读时间：</strong> 约22分钟 | <strong>代码量：</strong> 约180行</p></blockquote>
+
+<hr>
+
+<h2>一、概念讲解</h2>
+
+<p>JavaScript是<strong>单线程</strong>语言，通过<strong>事件循环（Event Loop）</strong>实现异步。异步编程经历了三个阶段：<strong>回调 → Promise → async/await</strong>。</p>
+
+<h3>1.1 Promise三态</h3>
+
+<ul>
+<li><strong>Pending（等待中）</strong> → <strong>Fulfilled（已完成）</strong> / <strong>Rejected（已拒绝）</strong></li>
+<li>状态一旦变更不可逆</li>
+
+<h3>1.2 async/await</h3>
+
+<p><code>async</code>函数返回Promise，<code>await</code>暂停执行直到Promise settle。是Promise的<strong>语法糖</strong>，让异步代码看起来像同步。</p>
+
+<h3>1.3 事件循环</h3>
+
+<p>微任务（Promise.then）优先于宏任务（setTimeout），同一轮循环中微任务队列全部清空后才处理下一个宏任务。</p>
+
+<hr>
+
+<h2>二、脑图</h2>
+
+<pre><code>                  异步编程
+                 /    |    \
+            回调  Promise  async/await
+             |      |          |
+          回调地狱  三态转换   语法糖
+                  / | \       |
+              then catch finally  try/catch
+                |                    |
+            链式调用           错误处理
+                \               /
+                 并发控制
+              /    |    \
+         all  race  allSettled  any</code></pre>
+
+<hr>
+
+<h2>三、完整代码示例</h2>
+
+<pre><code class="language-javascript">// ============================================
+// 1. Promise basics
+// ============================================
+const resolveAfter = (ms, value) =&gt; new Promise(resolve =&gt; {
+  setTimeout(() =&gt; resolve(value), ms);
+});
+
+const rejectAfter = (ms, reason) =&gt; new Promise((_, reject) =&gt; {
+  setTimeout(() =&gt; reject(new Error(reason)), ms);
+});
+
+// Promise chain
+resolveAfter(100, 1)
+  .then(val =&gt; {
+    console.log(`Step 1: ${val}`);
+    return val + 1;
+  })
+  .then(val =&gt; {
+    console.log(`Step 2: ${val}`);
+    return val * 2;
+  })
+  .then(val =&gt; console.log(`Step 3: ${val}`))
+  .catch(err =&gt; console.error(&quot;Caught:&quot;, err.message))
+  .finally(() =&gt; console.log(&quot;Chain complete&quot;));
+
+// ============================================
+// 2. async/await
+// ============================================
+async function fetchUserData(userId) {
+  try {
+    // Simulate API calls
+    const user = await resolveAfter(50, { id: userId, name: &quot;Alice&quot; });
+    console.log(`User: ${user.name}`);
+
+    const posts = await resolveAfter(30, [
+      { id: 1, title: &quot;Hello&quot; },
+      { id: 2, title: &quot;World&quot; },
+    ]);
+    console.log(`Posts: ${posts.length}`);
+
+    return { user, posts };
+  } catch (error) {
+    console.error(&quot;Fetch failed:&quot;, error.message);
+    throw error;
+  }
+}
+
+// ============================================
+// 3. Concurrency patterns
+// ============================================
+async function concurrencyDemo() {
+  // Promise.all — all must succeed
+  const results = await Promise.all([
+    resolveAfter(50, &quot;A&quot;),
+    resolveAfter(30, &quot;B&quot;),
+    resolveAfter(40, &quot;C&quot;),
+  ]);
+  console.log(&quot;all:&quot;, results); // [&quot;A&quot;, &quot;B&quot;, &quot;C&quot;] after ~50ms
+
+  // Promise.allSettled — wait for all, regardless of outcome
+  const settled = await Promise.allSettled([
+    resolveAfter(20, &quot;success&quot;),
+    rejectAfter(30, &quot;failed&quot;),
+  ]);
+  console.log(&quot;allSettled:&quot;, settled.map(r =&gt; r.status));
+
+  // Promise.race — first to settle wins
+  const winner = await Promise.race([
+    resolveAfter(10, &quot;fast&quot;),
+    resolveAfter(50, &quot;slow&quot;),
+  ]);
+  console.log(&quot;race:&quot;, winner); // &quot;fast&quot;
+
+  // Promise.any — first to fulfill
+  const firstOk = await Promise.any([
+    rejectAfter(10, &quot;bad&quot;),
+    resolveAfter(20, &quot;good&quot;),
+    resolveAfter(30, &quot;also good&quot;),
+  ]);
+  console.log(&quot;any:&quot;, firstOk); // &quot;good&quot;
+}
+
+// ============================================
+// 4. Error handling patterns
+// ============================================
+// Retry with exponential backoff
+async function fetchWithRetry(fn, retries = 3, delay = 100) {
+  for (let i = 0; i &lt; retries; i++) {
+    try {
+      return await fn();
+    } catch (err) {
+      console.log(`Attempt ${i + 1} failed: ${err.message}`);
+      if (i === retries - 1) throw err;
+      await resolveAfter(delay * (2 ** i), undefined);
+    }
+  }
+}
+
+// Sequential vs parallel
+async function sequential() {
+  const start = Date.now();
+  await resolveAfter(50, 1);
+  await resolveAfter(50, 2);
+  console.log(`Sequential: ${Date.now() - start}ms`); // ~100ms
+}
+
+async function parallel() {
+  const start = Date.now();
+  await Promise.all([resolveAfter(50, 1), resolveAfter(50, 2)]);
+  console.log(`Parallel: ${Date.now() - start}ms`); // ~50ms
+}
+
+// ============================================
+// 5. Run demos
+// ============================================
+(async () =&gt; {
+  console.log(&quot;=== Chain ===&quot;);
+  await resolveAfter(150, null); // wait for chain demo
+
+  console.log(&quot;\n=== async/await ===&quot;);
+  await fetchUserData(1);
+
+  console.log(&quot;\n=== Concurrency ===&quot;);
+  await concurrencyDemo();
+
+  console.log(&quot;\n=== Retry ===&quot;);
+  let attempt = 0;
+  await fetchWithRetry(async () =&gt; {
+    attempt++;
+    if (attempt &lt; 3) throw new Error(&quot;not yet&quot;);
+    return &quot;success!&quot;;
+  });
+  console.log(&quot;Retry result: success after 3 attempts&quot;);
+
+  console.log(&quot;\n=== Sequential vs Parallel ===&quot;);
+  await sequential();
+  await parallel();
+})();</code></pre>
+
+<hr>
+
+<h2>四、执行预览</h2>
+
+<pre><code>=== Chain ===
+Step 1: 1
+Step 2: 2
+Step 3: 4
+Chain complete
+
+=== async/await ===
+User: Alice
+Posts: 2
+
+=== Concurrency ===
+all: [ &#x27;A&#x27;, &#x27;B&#x27;, &#x27;C&#x27; ]
+allSettled: [ &#x27;fulfilled&#x27;, &#x27;rejected&#x27; ]
+race: fast
+any: good
+
+=== Retry ===
+Attempt 1 failed: not yet
+Attempt 2 failed: not yet
+Retry result: success after 3 attempts
+
+=== Sequential vs Parallel ===
+Sequential: ~100ms
+Parallel: ~50ms</code></pre>
+
+<hr>
+
+<h2>五、注意事项</h2>
+
+<table><thead><tr>
+<th>特性</th>
+<th>Promise</th>
+<th>async/await</th>
+<th>说明</th>
+</tr></thead><tbody>
+<tr>
+<td>返回值</td>
+<td><code>.then()</code>链</td>
+<td>直接<code>await</code></td>
+<td>await更直观</td>
+</tr>
+<tr>
+<td>错误处理</td>
+<td><code>.catch()</code></td>
+<td><code>try/catch</code></td>
+<td>风格不同，效果一样</td>
+</tr>
+<tr>
+<td>调试</td>
+<td>较难断点</td>
+<td>可断点</td>
+<td>await本质是同步写法</td>
+</tr>
+<tr>
+<td>并发</td>
+<td><code>Promise.all()</code></td>
+<td>同</td>
+<td>async函数内仍需Promise.all</td>
+</tr>
+<tr>
+<td>顶层await</td>
+<td>❌（ES2022模块）</td>
+<td>✅（模块中）</td>
+<td>普通脚本需IIFE</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>六、避坑指南</h2>
+
+<h3>❌ 串行执行可并行的请求</h3>
+<pre><code class="language-javascript">const a = await fetchA(); // 100ms
+const b = await fetchB(); // 100ms
+// Total: ~200ms (wasted!)</code></pre>
+<h3>✅ Promise.all并行</h3>
+<pre><code class="language-javascript">const [a, b] = await Promise.all([fetchA(), fetchB()]);
+// Total: ~100ms</code></pre>
+
+<h3>❌ 忘记catch导致未处理拒绝</h3>
+<pre><code class="language-javascript">async function loadData() {
+  const data = await fetch(url); // may throw
+  return data.json();
+}
+loadData(); // unhandled rejection if fetch fails!</code></pre>
+<h3>✅ 始终处理错误</h3>
+<pre><code class="language-javascript">loadData().catch(console.error);
+// or
+async function safeLoadData() {
+  try {
+    const data = await fetch(url);
+    return await data.json();
+  } catch (err) {
+    console.error(&quot;Failed:&quot;, err);
+    return null;
+  }
+}</code></pre>
+
+<hr>
+
+<h2>七、练习题</h2>
+
+<h3>🟢 基础</h3>
+<ol>
+<li>将以下回调改写为Promise版本：</li>
+<pre><code class="language-javascript">function delay(ms, callback) {
+  setTimeout(() =&gt; callback(&quot;done&quot;), ms);
+}</code></pre>
+
+<h3>🟡 进阶</h3>
+<ol>
+<li>实现<code>promiseMap(arr, fn, concurrency)</code>，限制并发数为concurrency地执行异步任务。</li>
+
+<h3>🔴 挑战</h3>
+<ol>
+<li>实现<code>AbortController</code>的简化版：一个<code>cancellableDelay(ms)</code>函数，返回Promise和cancel方法，cancel后Promise reject。</li>
+
+<hr>
+
+<h2>八、知识点总结</h2>
+
+<pre><code>异步编程体系
+├── 事件循环
+│   ├── 调用栈 (Call Stack)
+│   ├── 微任务队列 (Promise.then/MutationObserver)
+│   └── 宏任务队列 (setTimeout/setInterval/I/O)
+├── Promise
+│   ├── 三态：pending → fulfilled/rejected
+│   ├── .then()/.catch()/.finally()
+│   ├── 链式调用
+│   └── 静态方法：all/race/allSettled/any
+├── async/await
+│   ├── async函数返回Promise
+│   ├── await暂停直到Promise settle
+│   ├── try/catch错误处理
+│   └── 顶层await (ES2022)
+└── 并发控制
+    ├── Promise.all (全部成功)
+    ├── Promise.allSettled (全部完成)
+    ├── Promise.race (最快一个)
+    └── Promise.any (最快成功的)</code></pre>
+
+<hr>
+
+<h2>九、举一反三</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>推荐</th>
+<th>原因</th>
+</tr></thead><tbody>
+<tr>
+<td>多API并行</td>
+<td><code>Promise.all</code></td>
+<td>最快完成</td>
+</tr>
+<tr>
+<td>超时控制</td>
+<td><code>Promise.race</code></td>
+<td>超时则拒绝</td>
+</tr>
+<tr>
+<td>最佳尝试</td>
+<td><code>Promise.any</code></td>
+<td>CDN多源</td>
+</tr>
+<tr>
+<td>批量操作</td>
+<td><code>Promise.allSettled</code></td>
+<td>不因单个失败放弃</td>
+</tr>
+<tr>
+<td>重试逻辑</td>
+<td>async循环 + await</td>
+<td>清晰易读</td>
+</tr>
+<tr>
+<td>限流</td>
+<td>信号量/队列模式</td>
+<td>控制并发数</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>十、参考资料</h2>
+
+<ul>
+<li><a href="https://developer.mozilla.org/zh-CN/docs/Web/JavaScript/Reference/Global_Objects/Promise">MDN: Promise</a></li>
+<li><a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Statements/async_function">MDN: async function</a></li>
+<li><a href="https://developer.mozilla.org/zh-CN/docs/Web/JavaScript/Event_loop">JavaScript事件循环详解</a></li>
+
+<hr>
+
+<h2>十一、代码演进</h2>
+
+<h3>v1: 回调地狱</h3>
+<pre><code class="language-javascript">getUser(id, (user) =&gt; {
+  getPosts(user.id, (posts) =&gt; {
+    getComments(posts[0].id, (comments) =&gt; {
+      console.log(comments); // pyramid of doom
+    });
+  });
+});</code></pre>
+
+<h3>v2: Promise链</h3>
+<pre><code class="language-javascript">getUser(id)
+  .then(user =&gt; getPosts(user.id))
+  .then(posts =&gt; getComments(posts[0].id))
+  .then(comments =&gt; console.log(comments))
+  .catch(err =&gt; console.error(err));</code></pre>
+
+<h3>v3: async/await</h3>
+<pre><code class="language-javascript">async function loadData(id) {
+  try {
+    const user = await getUser(id);
+    const posts = await getPosts(user.id);
+    const comments = await getComments(posts[0].id);
+    return comments;
+  } catch (err) {
+    console.error(err);
+  }
+}</code></pre>
+
+<hr>
+
+<h2>十二、总结</h2>
+
+<table><thead><tr>
+<th>核心要点</th>
+<th>说明</th>
+</tr></thead><tbody>
+<tr>
+<td><strong>Promise三态</strong></td>
+<td>pending → fulfilled/rejected，不可逆</td>
+</tr>
+<tr>
+<td><strong>微任务优先</strong></td>
+<td>Promise.then先于setTimeout执行</td>
+</tr>
+<tr>
+<td><strong>async/await</strong></td>
+<td>Promise语法糖，同步写异步</td>
+</tr>
+<tr>
+<td><strong>并行用all</strong></td>
+<td>不要把可并行的请求串行化</td>
+</tr>
+<tr>
+<td><strong>错误必处理</strong></td>
+<td>.catch()或try/catch，二选一</td>
+</tr>
+</tbody></table>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

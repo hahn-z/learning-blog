@@ -1,0 +1,631 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>032 - Vue 3与后端API集成</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Vue.js/index.html">Vue.js</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Vue.js/01-入门到实战/index.html">Vue.js入门到实战</a>
+</nav>
+<h1>032 - Vue 3与后端API集成</h1>
+<div class="meta">
+<span>📂 Vue.js入门到实战</span>
+<span>🏷️ Vue.js</span>
+</div>
+<article>
+
+
+
+<h2>难度标注</h2>
+<blockquote><p><strong>难度：🟡 中高级</strong> | <strong>前置知识：Vue 3、Composition API、HTTP 基础</strong> | <strong>预计学习时间：50 分钟</strong></p></blockquote>
+
+<h2>概念讲解</h2>
+
+<h3>Vue 与后端 API 通信架构</h3>
+
+<p>前端应用与后端通信是全栈开发的核心环节。Vue 3 的 API 集成通常包含以下层次：</p>
+
+<ol>
+<li><strong>HTTP 客户端层</strong>：Axios 或 Fetch 封装</li>
+</ul>
+<ol>
+<li><strong>API 模块层</strong>：按业务划分的接口函数</li>
+</ul>
+<ol>
+<li><strong>Composable 层</strong>：封装请求状态（loading、error、data）</li>
+</ul>
+<ol>
+<li><strong>组件层</strong>：调用 Composable 获取数据</li>
+
+<h3>核心概念对比</h3>
+
+<table><thead><tr>
+<th>方案</th>
+<th>优点</th>
+<th>缺点</th>
+<th>适用场景</th>
+</tr></thead><tbody>
+<tr>
+<td>Axios</td>
+<td>拦截器强大、取消请求、自动JSON</td>
+<td>额外依赖</td>
+<td>大多数项目</td>
+</tr>
+<tr>
+<td>Fetch</td>
+<td>原生、无依赖</td>
+<td>无拦截器、错误处理繁琐</td>
+<td>简单场景</td>
+</tr>
+<tr>
+<td>Vue Query / SWR</td>
+<td>缓存、重试、自动刷新</td>
+<td>学习曲线</td>
+<td>数据密集型应用</td>
+</tr>
+</tbody></table>
+
+<h2>脑图</h2>
+
+<pre><code>API 集成
+├── HTTP 客户端
+│   ├── Axios 封装
+│   ├── Fetch 封装
+│   └── 拦截器
+│       ├── Request (token注入)
+│       └── Response (错误处理)
+├── API 模块化
+│   ├── 按业务拆分
+│   ├── TypeScript 类型
+│   └── RESTful 规范
+├── 状态管理
+│   ├── Loading 状态
+│   ├── Error 处理
+│   └── 数据缓存
+├── 高级特性
+│   ├── 请求取消
+│   ├── 请求重试
+│   ├── 并发请求
+│   └── 文件上传
+└── Composable 封装
+    ├── useFetch()
+    ├── usePagination()
+    └── useFormSubmit()</code></pre>
+
+<h2>完整代码</h2>
+
+<h3>Axios 封装</h3>
+
+<pre><code class="language-ts">// src/utils/http.ts
+import axios, { type AxiosRequestConfig, type AxiosResponse } from &#x27;axios&#x27;
+import { useAuthStore } from &#x27;@/stores/auth&#x27;
+
+// Create axios instance with base config
+const http = axios.create({
+  baseURL: import.meta.env.VITE_API_BASE_URL || &#x27;/api&#x27;,
+  timeout: 15000,
+  headers: { &#x27;Content-Type&#x27;: &#x27;application/json&#x27; }
+})
+
+// Request interceptor: inject auth token
+http.interceptors.request.use(
+  (config) =&gt; {
+    const auth = useAuthStore()
+    if (auth.token) {
+      config.headers.Authorization = `Bearer ${auth.token}`
+    }
+    return config
+  },
+  (error) =&gt; Promise.reject(error)
+)
+
+// Response interceptor: unified error handling
+http.interceptors.response.use(
+  (response: AxiosResponse) =&gt; response.data,
+  (error) =&gt; {
+    if (error.response?.status === 401) {
+      const auth = useAuthStore()
+      auth.logout()
+      window.location.href = &#x27;/login&#x27;
+    }
+    return Promise.reject(error)
+  }
+)
+
+// Typed request helpers
+export function get&lt;T&gt;(url: string, params?: object): Promise&lt;T&gt; {
+  return http.get(url, { params })
+}
+
+export function post&lt;T&gt;(url: string, data?: object): Promise&lt;T&gt; {
+  return http.post(url, data)
+}
+
+export function put&lt;T&gt;(url: string, data?: object): Promise&lt;T&gt; {
+  return http.put(url, data)
+}
+
+export function del&lt;T&gt;(url: string): Promise&lt;T&gt; {
+  return http.delete(url)
+}
+
+export default http</code></pre>
+
+<h3>API 模块</h3>
+
+<pre><code class="language-ts">// src/api/user.ts
+import { get, post, put, del } from &#x27;@/utils/http&#x27;
+
+// Type definitions
+export interface User {
+  id: number
+  name: string
+  email: string
+  avatar: string
+  role: &#x27;admin&#x27; | &#x27;user&#x27;
+  createdAt: string
+}
+
+export interface UserListParams {
+  page: number
+  pageSize: number
+  keyword?: string
+  role?: string
+}
+
+export interface PaginatedResponse&lt;T&gt; {
+  list: T[]
+  total: number
+  page: number
+  pageSize: number
+}
+
+// API functions
+export const userApi = {
+  getList: (params: UserListParams) =&gt;
+    get&lt;PaginatedResponse&lt;User&gt;&gt;(&#x27;/users&#x27;, params),
+
+  getById: (id: number) =&gt;
+    get&lt;User&gt;(`/users/${id}`),
+
+  create: (data: Partial&lt;User&gt;) =&gt;
+    post&lt;User&gt;(&#x27;/users&#x27;, data),
+
+  update: (id: number, data: Partial&lt;User&gt;) =&gt;
+    put&lt;User&gt;(`/users/${id}`, data),
+
+  delete: (id: number) =&gt;
+    del&lt;void&gt;(`/users/${id}`)
+}</code></pre>
+
+<h3>通用 Composable</h3>
+
+<pre><code class="language-ts">// src/composables/useRequest.ts
+import { ref, type Ref } from &#x27;vue&#x27;
+import { ElMessage } from &#x27;element-plus&#x27;
+
+interface UseRequestOptions&lt;T&gt; {
+  immediate?: boolean
+  initialData?: T
+  onSuccess?: (data: T) =&gt; void
+  onError?: (error: Error) =&gt; void
+}
+
+export function useRequest&lt;T&gt;(
+  requestFn: () =&gt; Promise&lt;T&gt;,
+  options: UseRequestOptions&lt;T&gt; = {}
+) {
+  const { immediate = false, initialData, onSuccess, onError } = options
+
+  const data: Ref&lt;T | undefined&gt; = ref(initialData)
+  const loading = ref(false)
+  const error: Ref&lt;Error | null&gt; = ref(null)
+
+  async function execute() {
+    loading.value = true
+    error.value = null
+    try {
+      data.value = await requestFn()
+      onSuccess?.(data.value)
+    } catch (err: any) {
+      error.value = err
+      onError?.(err)
+      ElMessage.error(err.response?.data?.message || &#x27;Request failed&#x27;)
+    } finally {
+      loading.value = false
+    }
+  }
+
+  if (immediate) execute()
+
+  return { data, loading, error, execute, refresh: execute }
+}</code></pre>
+
+<h3>分页 Composable</h3>
+
+<pre><code class="language-ts">// src/composables/usePagination.ts
+import { ref, computed } from &#x27;vue&#x27;
+import { useRequest } from &#x27;./useRequest&#x27;
+
+interface PaginationParams {
+  page: number
+  pageSize: number
+  [key: string]: any
+}
+
+export function usePagination&lt;T&gt;(
+  fetchFn: (params: PaginationParams) =&gt; Promise&lt;{ list: T[]; total: number }&gt;,
+  defaultPageSize = 10
+) {
+  const page = ref(1)
+  const pageSize = ref(defaultPageSize)
+  const total = ref(0)
+  const filters = ref&lt;Record&lt;string, any&gt;&gt;({})
+
+  // Computed params combining pagination and filters
+  const params = computed(() =&gt; ({
+    page: page.value,
+    pageSize: pageSize.value,
+    ...filters.value
+  }))
+
+  const { data, loading, execute } = useRequest(() =&gt;
+    fetchFn(params.value).then((res) =&gt; {
+      total.value = res.total
+      return res.list
+    })
+  )
+
+  function changePage(p: number) {
+    page.value = p
+    execute()
+  }
+
+  function changeSize(size: number) {
+    pageSize.value = size
+    page.value = 1
+    execute()
+  }
+
+  function setFilters(newFilters: Record&lt;string, any&gt;) {
+    filters.value = newFilters
+    page.value = 1
+    execute()
+  }
+
+  return {
+    data, loading, total, page, pageSize,
+    changePage, changeSize, setFilters, refresh: execute
+  }
+}</code></pre>
+
+<h3>组件中使用</h3>
+
+<pre><code class="language-vue">&lt;!-- src/views/UserList.vue --&gt;
+&lt;template&gt;
+  &lt;div class=&quot;user-list&quot;&gt;
+    &lt;div class=&quot;toolbar&quot;&gt;
+      &lt;el-input
+        v-model=&quot;keyword&quot;
+        placeholder=&quot;Search users...&quot;
+        @keyup.enter=&quot;handleSearch&quot;
+        style=&quot;width: 300px&quot;
+      /&gt;
+      &lt;el-button type=&quot;primary&quot; @click=&quot;showCreateDialog = true&quot;&gt;
+        Add User
+      &lt;/el-button&gt;
+    &lt;/div&gt;
+
+    &lt;el-table :data=&quot;data&quot; v-loading=&quot;loading&quot; stripe&gt;
+      &lt;el-table-column prop=&quot;name&quot; label=&quot;Name&quot; /&gt;
+      &lt;el-table-column prop=&quot;email&quot; label=&quot;Email&quot; /&gt;
+      &lt;el-table-column prop=&quot;role&quot; label=&quot;Role&quot;&gt;
+        &lt;template #default=&quot;{ row }&quot;&gt;
+          &lt;el-tag :type=&quot;row.role === &#x27;admin&#x27; ? &#x27;danger&#x27; : &#x27;info&#x27;&quot;&gt;
+            {{ row.role }}
+          &lt;/el-tag&gt;
+        &lt;/template&gt;
+      &lt;/el-table-column&gt;
+      &lt;el-table-column label=&quot;Actions&quot; width=&quot;200&quot;&gt;
+        &lt;template #default=&quot;{ row }&quot;&gt;
+          &lt;el-button size=&quot;small&quot; @click=&quot;handleEdit(row)&quot;&gt;Edit&lt;/el-button&gt;
+          &lt;el-button size=&quot;small&quot; type=&quot;danger&quot; @click=&quot;handleDelete(row.id)&quot;&gt;
+            Delete
+          &lt;/el-button&gt;
+        &lt;/template&gt;
+      &lt;/el-table-column&gt;
+    &lt;/el-table&gt;
+
+    &lt;el-pagination
+      v-model:current-page=&quot;page&quot;
+      v-model:page-size=&quot;pageSize&quot;
+      :total=&quot;total&quot;
+      @current-change=&quot;changePage&quot;
+      @size-change=&quot;changeSize&quot;
+    /&gt;
+  &lt;/div&gt;
+&lt;/template&gt;
+
+&lt;script setup lang=&quot;ts&quot;&gt;
+import { ref } from &#x27;vue&#x27;
+import { usePagination } from &#x27;@/composables/usePagination&#x27;
+import { userApi } from &#x27;@/api/user&#x27;
+import { ElMessageBox } from &#x27;element-plus&#x27;
+
+const keyword = ref(&#x27;&#x27;)
+
+const {
+  data, loading, total, page, pageSize,
+  changePage, changeSize, setFilters, refresh
+} = usePagination(userApi.getList)
+
+function handleSearch() {
+  setFilters({ keyword: keyword.value })
+}
+
+async function handleDelete(id: number) {
+  await ElMessageBox.confirm(&#x27;Confirm delete this user?&#x27;, &#x27;Warning&#x27;)
+  await userApi.delete(id)
+  refresh()
+}
+
+function handleEdit(user: any) {
+  // Open edit dialog
+}
+&lt;/script&gt;</code></pre>
+
+<h2>执行预览</h2>
+
+<pre><code>页面加载 → GET /api/users?page=1&amp;pageSize=10
+         → Response: { list: [...10 users], total: 42 }
+         → 表格渲染 10 条数据 + 分页器显示 total=42
+
+搜索 &quot;alice&quot; → GET /api/users?page=1&amp;pageSize=10&amp;keyword=alice
+             → Response: { list: [...3 users], total: 3 }
+             → 表格更新为 3 条
+
+翻页到第2页 → GET /api/users?page=2&amp;pageSize=10
+            → Response: { list: [...10 users], total: 42 }
+
+删除用户 → DELETE /api/users/5 → 200 OK → 自动 refresh</code></pre>
+
+<h2>注意事项</h2>
+
+<table><thead><tr>
+<th>事项</th>
+<th>说明</th>
+<th>建议</th>
+</tr></thead><tbody>
+<tr>
+<td>Token 过期</td>
+<td>401 自动跳转登录</td>
+<td>拦截器统一处理</td>
+</tr>
+<tr>
+<td>并发请求</td>
+<td>多组件同时请求</td>
+<td><code>Promise.all()</code> + loading 状态</td>
+</tr>
+<tr>
+<td>请求取消</td>
+<td>路由切换时</td>
+<td><code>AbortController</code> 取消未完成请求</td>
+</tr>
+<tr>
+<td>数据缓存</td>
+<td>重复请求浪费</td>
+<td>短期缓存或 Vue Query</td>
+</tr>
+<tr>
+<td>CSRF</td>
+<td>跨站请求伪造</td>
+<td>Axios 自动携带 xsrf token</td>
+</tr>
+<tr>
+<td>文件上传</td>
+<td>Content-Type 不同</td>
+<td><code>FormData</code> + <code>multipart/form-data</code></td>
+</tr>
+<tr>
+<td>超时设置</td>
+<td>默认可能太短</td>
+<td>根据接口响应时间调整</td>
+</tr>
+</tbody></table>
+
+<h2>避坑指南</h2>
+
+<ul>
+<li>❌ 每个组件都 <code>import axios</code> 直接调用 → ✅ 封装统一的 <code>http</code> 模块</li>
+<li>❌ 在 <code>onMounted</code> 里直接写请求逻辑 → ✅ 封装 <code>useRequest</code> composable</li>
+<li>❌ <code>loading</code> 和 <code>error</code> 状态手动管理 → ✅ composable 统一管理</li>
+<li>❌ 分页参数散落在各处 → ✅ <code>usePagination</code> 集中管理</li>
+<li>❌ 忽略错误提示 → ✅ 拦截器统一 Toast</li>
+<li>❌ 路由切换不取消请求 → ✅ <code>onUnmounted</code> 取消 <code>AbortController</code></li>
+
+<h2>练习题</h2>
+
+<h3>🟢 基础</h3>
+<ol>
+<li>封装一个 Axios 实例，添加请求和响应拦截器</li>
+</ul>
+<ol>
+<li>编写一个 <code>useRequest</code> composable，支持 loading/error 状态</li>
+
+<h3>🟡 进阶</h3>
+<ol>
+<li>实现 <code>usePagination</code>，支持翻页、改页大小、筛选条件变化时重置到第1页</li>
+</ul>
+<ol>
+<li>实现请求取消：路由切换时自动取消未完成的 API 请求</li>
+
+<h3>🔴 挑战</h3>
+<ol>
+<li>实现请求重试机制：网络错误自动重试 3 次，指数退避</li>
+</ul>
+<ol>
+<li>封装文件上传 composable：支持进度条、多文件、拖拽上传</li>
+
+<h2>知识点总结</h2>
+
+<pre><code>API 集成知识树
+├── HTTP 客户端
+│   ├── Axios 实例化
+│   ├── 请求拦截器 (token注入)
+│   ├── 响应拦截器 (错误处理)
+│   └── 类型化封装
+├── API 模块化
+│   ├── 按业务拆分文件
+│   ├── 接口类型定义
+│   └── RESTful 风格
+├── Composable
+│   ├── useRequest (基础)
+│   ├── usePagination (分页)
+│   └── useFormSubmit (表单)
+├── 高级
+│   ├── AbortController 取消
+│   ├── 并发请求 Promise.all
+│   └── 文件上传 FormData
+└── 错误处理
+    ├── 统一拦截
+    ├── 业务错误码
+    └── 网络错误重试</code></pre>
+
+<h2>举一反三</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>方案</th>
+<th>关键代码</th>
+</tr></thead><tbody>
+<tr>
+<td>列表页</td>
+<td><code>usePagination</code></td>
+<td>page + pageSize + filters</td>
+</tr>
+<tr>
+<td>详情页</td>
+<td><code>useRequest</code> + immediate</td>
+<td>route.params.id 请求</td>
+</tr>
+<tr>
+<td>表单提交</td>
+<td><code>useRequest</code> + async</td>
+<td>提交后 refresh 列表</td>
+</tr>
+<tr>
+<td>搜索</td>
+<td><code>setFilters</code> + debounce</td>
+<td>防抖 300ms 后请求</td>
+</tr>
+<tr>
+<td>无限滚动</td>
+<td><code>useInfiniteScroll</code></td>
+<td>Intersection Observer + 追加数据</td>
+</tr>
+<tr>
+<td>骨架屏</td>
+<td><code>loading</code> 控制</td>
+<td>v-loading 或 Skeleton 组件</td>
+</tr>
+<tr>
+<td>乐观更新</td>
+<td>先更新 UI 再请求</td>
+<td>失败时回滚</td>
+</tr>
+</tbody></table>
+
+<h2>参考资料</h2>
+
+<ul>
+<li><a href="https://axios-http.com/">Axios 官方文档</a></li>
+<li><a href="https://vuejs.org/guide/scaling-up/testing.html">Vue 3 数据获取指南</a></li>
+<li><a href="https://tanstack.com/query/">Vue Query (TanStack Query)</a></li>
+
+<h2>代码演进</h2>
+
+<h3>v1 — 直接在组件中调用</h3>
+<pre><code class="language-ts">// Raw axios call in component
+onMounted(async () =&gt; {
+  loading.value = true
+  try {
+    const { data } = await axios.get(&#x27;/api/users&#x27;)
+    users.value = data
+  } catch (err) {
+    error.value = err
+  } finally {
+    loading.value = false
+  }
+})</code></pre>
+
+<h3>v2 — Composable 封装</h3>
+<pre><code class="language-ts">// Reusable composable
+const { data, loading, execute } = useRequest(() =&gt; userApi.getList(params))</code></pre>
+
+<h3>v3 — 生产级方案</h3>
+<pre><code class="language-ts">// Pagination + filters + auto-cancel + cache
+const { data, loading, total, changePage, setFilters } = usePagination(
+  userApi.getList,
+  { defaultPageSize: 20 }
+)
+// Auto-cancel on unmount via AbortController
+// Cache with stale-while-revalidate pattern</code></pre>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

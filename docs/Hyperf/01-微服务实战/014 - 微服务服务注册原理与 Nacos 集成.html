@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>014 - 微服务服务注册原理与 Nacos 集成</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Hyperf/index.html">Hyperf</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Hyperf/01-微服务实战/index.html">Hyperf微服务实战</a>
+</nav>
+<h1>014 - 微服务服务注册原理与 Nacos 集成</h1>
+<div class="meta">
+<span>📂 Hyperf微服务实战</span>
+<span>🏷️ Hyperf</span>
+</div>
+<article>
+
+
+<h1>014 - 微服务服务注册原理与 Nacos 集成</h1>
+
+<blockquote><p><strong>难度：</strong> ⭐⭐⭐ | <strong>前置知识：</strong> Hyperf 框架、Nacos 基础（011）| <strong>预估用时：</strong> 50 分钟</p></blockquote>
+
+<h2>概念讲解</h2>
+
+<p><strong>一句话定义：</strong> 服务注册是指微服务实例启动时，将自己的网络地址（IP + Port）和元数据注册到注册中心，使其他服务能够发现并调用它。</p>
+
+<p><strong>现实类比：</strong> 就像外卖平台上的餐厅——每家餐厅开业时向平台登记地址、菜单和营业时间（注册），顾客打开 App 就能找到附近所有营业中的餐厅（发现）。餐厅关门了会从列表消失（摘除）。</p>
+
+<p><strong>技术场景：</strong> 用户服务部署了 3 个实例（10.0.1.11:9501、10.0.1.12:9501、10.0.1.13:9501），每个实例启动时向 Nacos 注册。订单服务需要调用用户服务时，从 Nacos 获取所有可用实例列表，选择一个发起请求。实例宕机后 Nacos 自动将其摘除。</p>
+
+<h2>实时脑图</h2>
+
+<pre><code>┌──────────────────────────────────────────────────────────────┐
+│                      Nacos Registry                          │
+│                                                              │
+│  user-service (DEFAULT_GROUP)                                │
+│  ├── 10.0.1.11:9501  healthy ✓  weight=1  metadata={v:2.0}  │
+│  ├── 10.0.1.12:9501  healthy ✓  weight=1  metadata={v:2.0}  │
+│  └── 10.0.1.13:9501  healthy ✓  weight=1  metadata={v:1.0}  │
+└──────────┬──────────────────┬──────────────────┬─────────────┘
+           │ register         │ register         │ register
+           │ heartbeat        │ heartbeat        │ heartbeat
+           ▼                  ▼                  ▼
+     ┌───────────┐      ┌───────────┐      ┌───────────┐
+     │ user-svc  │      │ user-svc  │      │ user-svc  │
+     │ instance1 │      │ instance2 │      │ instance3 │
+     └───────────┘      └───────────┘      └───────────┘
+           ▲                  ▲                  ▲
+           │                  │                  │
+           └────── subscribe / discover ─────────┘
+                              │
+                        ┌─────┴─────┐
+                        │ order-svc  │
+                        │ (consumer) │
+                        └───────────┘</code></pre>
+
+<h2>完整代码</h2>
+
+<h3>安装依赖</h3>
+
+<pre><code class="language-bash">composer require hyperf/service-governance-nacos</code></pre>
+
+<h3>config/autoload/services.php</h3>
+
+<pre><code class="language-php">&lt;?php
+// ✅ Service registration configuration for Nacos
+
+declare(strict_types=1);
+
+return [
+    &#x27;enable&#x27; =&gt; [
+        &#x27;discovery&#x27; =&gt; true,
+        &#x27;register&#x27; =&gt; true,
+    ],
+    &#x27;consumers&#x27; =&gt; [],
+    &#x27;providers&#x27; =&gt; [],
+    &#x27;drivers&#x27; =&gt; [
+        &#x27;nacos&#x27; =&gt; [
+            &#x27;host&#x27; =&gt; env(&#x27;NACOS_HOST&#x27;, &#x27;127.0.0.1&#x27;),
+            &#x27;port&#x27; =&gt; (int) env(&#x27;NACOS_PORT&#x27;, 8848),
+            &#x27;username&#x27; =&gt; env(&#x27;NACOS_USERNAME&#x27;, &#x27;nacos&#x27;),
+            &#x27;password&#x27; =&gt; env(&#x27;NACOS_PASSWORD&#x27;, &#x27;nacos&#x27;),
+            &#x27;guzzle&#x27; =&gt; [
+                &#x27;config&#x27; =&gt; [
+                    &#x27;headers&#x27; =&gt; [
+                        &#x27;charset&#x27; =&gt; &#x27;UTF-8&#x27;,
+                    ],
+                ],
+            ],
+            &#x27;group_name&#x27; =&gt; env(&#x27;NACOS_SERVICE_GROUP&#x27;, &#x27;DEFAULT_GROUP&#x27;),
+            &#x27;namespace_id&#x27; =&gt; env(&#x27;NACOS_NAMESPACE&#x27;, &#x27;&#x27;),
+            &#x27;heartbeat&#x27; =&gt; 5000, // 🟡 heartbeat interval in ms
+        ],
+    ],
+];</code></pre>
+
+<h3>服务注册元数据 — 注册到 Nacos 的服务信息</h3>
+
+<pre><code class="language-php">&lt;?php
+// config/autoload/server.php — add service metadata
+
+declare(strict_types=1);
+
+use Hyperf\Server\Event;
+
+return [
+    &#x27;type&#x27; =&gt; Hyperf\Server\CoroutineServer::class,
+    &#x27;servers&#x27; =&gt; [
+        [
+            &#x27;name&#x27; =&gt; &#x27;http&#x27;,
+            &#x27;type&#x27; =&gt; Server::SERVER_HTTP,
+            &#x27;host&#x27; =&gt; &#x27;0.0.0.0&#x27;,
+            &#x27;port&#x27; =&gt; (int) env(&#x27;SERVER_PORT&#x27;, 9501),
+            &#x27;sock_type&#x27; =&gt; SWOOLE_SOCK_TCP,
+            &#x27;callbacks&#x27; =&gt; [
+                Event::ON_REQUEST =&gt; [Hyperf\HttpServer\Server::class, &#x27;onRequest&#x27;],
+            ],
+        ],
+    ],
+];</code></pre>
+
+<h3>用户服务 HTTP 接口 — UserController.php</h3>
+
+<pre><code class="language-php">&lt;?php
+
+declare(strict_types=1);
+
+namespace App\Controller;
+
+use App\Service\UserService;
+use Hyperf\Di\Annotation\Inject;
+use Hyperf\HttpServer\Annotation\Controller;
+use Hyperf\HttpServer\Annotation\GetMapping;
+
+#[Controller(prefix: &#x27;/api/users&#x27;)]
+class UserController
+{
+    #[Inject]
+    private UserService $userService;
+
+    #[GetMapping(path: &#x27;/{id}&#x27;)
+    public function getUser(int $id): array
+    {
+        $user = $this-&gt;userService-&gt;findById($id);
+
+        if ($user === null) {
+            return [&#x27;code&#x27; =&gt; 404, &#x27;message&#x27; =&gt; &#x27;User not found&#x27;];
+        }
+
+        // 🟢 Include service metadata for tracing
+        return [
+            &#x27;code&#x27; =&gt; 0,
+            &#x27;data&#x27; =&gt; $user,
+            &#x27;meta&#x27; =&gt; [
+                &#x27;service&#x27; =&gt; &#x27;user-service&#x27;,
+                &#x27;instance&#x27; =&gt; env(&#x27;APP_INSTANCE_ID&#x27;, &#x27;unknown&#x27;),
+                &#x27;version&#x27; =&gt; env(&#x27;APP_VERSION&#x27;, &#x27;1.0.0&#x27;),
+            ],
+        ];
+    }
+
+    #[GetMapping(path: &#x27;/health&#x27;)
+    public function health(): array
+    {
+        return [
+            &#x27;status&#x27; =&gt; &#x27;UP&#x27;,
+            &#x27;timestamp&#x27; =&gt; time(),
+        ];
+    }
+}</code></pre>
+
+<h3>自定义注册监听器 — ServiceRegisterListener.php</h3>
+
+<pre><code class="language-php">&lt;?php
+
+declare(strict_types=1);
+
+namespace App\Listener;
+
+use Hyperf\Event\Annotation\Listener;
+use Hyperf\Event\Contract\ListenerInterface;
+use Hyperf\Framework\Event\AfterServerStart;
+use Psr\Log\LoggerInterface;
+
+#[Listener]
+class ServiceRegisterListener implements ListenerInterface
+{
+    public function __construct(
+        private LoggerInterface $logger
+    ) {}
+
+    public function listen(): array
+    {
+        return [AfterServerStart::class];
+    }
+
+    public function process(object $event): void
+    {
+        $serviceName = env(&#x27;APP_NAME&#x27;, &#x27;user-service&#x27;);
+        $port = env(&#x27;SERVER_PORT&#x27;, 9501);
+        $instanceId = env(&#x27;APP_INSTANCE_ID&#x27;, gethostbyname(gethostname()));
+
+        $this-&gt;logger-&gt;info(&#x27;Service registered&#x27;, [
+            &#x27;service&#x27; =&gt; $serviceName,
+            &#x27;instance&#x27; =&gt; $instanceId,
+            &#x27;port&#x27; =&gt; $port,
+            &#x27;version&#x27; =&gt; env(&#x27;APP_VERSION&#x27;, &#x27;1.0.0&#x27;),
+            &#x27;nacos_namespace&#x27; =&gt; env(&#x27;NACOS_NAMESPACE&#x27;, &#x27;public&#x27;),
+        ]);
+    }
+}</code></pre>
+
+<h3>验证注册 — check-registration.php</h3>
+
+<pre><code class="language-php">&lt;?php
+// ✅ Verify service registration in Nacos
+
+declare(strict_types=1);
+
+$baseUrl = &#x27;http://127.0.0.1:8848/nacos/v1&#x27;;
+
+// Login
+$loginCtx = stream_context_create([
+    &#x27;http&#x27; =&gt; [
+        &#x27;method&#x27; =&gt; &#x27;POST&#x27;,
+        &#x27;header&#x27; =&gt; &#x27;Content-Type: application/x-www-form-urlencoded&#x27;,
+        &#x27;content&#x27; =&gt; http_build_query([&#x27;username&#x27; =&gt; &#x27;nacos&#x27;, &#x27;password&#x27; =&gt; &#x27;nacos&#x27;]),
+    ],
+]);
+$token = json_decode(file_get_contents(&quot;{$baseUrl}/auth/login&quot;, false, $loginCtx), true)[&#x27;accessToken&#x27;] ?? &#x27;&#x27;;
+
+// Query service instances
+$url = &quot;{$baseUrl}/ns/instance/list?serviceName=user-service&amp;accessToken={$token}&quot;;
+$response = json_decode(file_get_contents($url), true);
+
+echo &quot;📋 Service: user-service\n&quot;;
+echo &quot;   Instances: &quot; . count($response[&#x27;hosts&#x27;] ?? []) . &quot;\n\n&quot;;
+
+foreach ($response[&#x27;hosts&#x27;] ?? [] as $host) {
+    $status = $host[&#x27;healthy&#x27;] ? &#x27;✅&#x27; : &#x27;❌&#x27;;
+    echo &quot;   {$status} {$host[&#x27;ip&#x27;]}:{$host[&#x27;port&#x27;]}\n&quot;;
+    echo &quot;      weight: {$host[&#x27;weight&#x27;]}\n&quot;;
+    echo &quot;      healthy: &quot; . ($host[&#x27;healthy&#x27;] ? &#x27;true&#x27; : &#x27;false&#x27;) . &quot;\n&quot;;
+    echo &quot;      metadata: &quot; . json_encode($host[&#x27;metadata&#x27;] ?? []) . &quot;\n\n&quot;;
+}</code></pre>
+
+<h2>执行预览</h2>
+
+<pre><code class="language-bash"># 启动用户服务实例 1
+$ APP_INSTANCE_ID=10.0.1.11 SERVER_PORT=9501 php bin/hyperf.php start
+[INFO] Service registered: user-service @ 10.0.1.11:9501
+
+# 启动用户服务实例 2
+$ APP_INSTANCE_ID=10.0.1.12 SERVER_PORT=9501 php bin/hyperf.php start
+[INFO] Service registered: user-service @ 10.0.1.12:9501
+
+# 查询注册信息
+$ php check-registration.php
+📋 Service: user-service
+   Instances: 2
+
+   ✅ 10.0.1.11:9501
+      weight: 1
+      healthy: true
+   ✅ 10.0.1.12:9501
+      weight: 1
+      healthy: true</code></pre>
+
+<h2>注意事项</h2>
+
+<table><thead><tr>
+<th>约束</th>
+<th>说明</th>
+<th>违反后果</th>
+</tr></thead><tbody>
+<tr>
+<td>🔴 注册 IP 正确性</td>
+<td>多网卡环境需指定注册 IP</td>
+<td>注册了内网/回环 IP，其他服务无法调用</td>
+</tr>
+<tr>
+<td>🟡 心跳间隔</td>
+<td>默认 5 秒，不要设太大</td>
+<td>心跳超时导致实例被摘除</td>
+</tr>
+<tr>
+<td>🟢 服务名规范</td>
+<td>统一用小写 + 短横线命名</td>
+<td>命名不一致导致找不到服务</td>
+</tr>
+<tr>
+<td>🔴 优雅停机</td>
+<td>停止时必须主动注销</td>
+<td>实例已停但仍被其他服务调用</td>
+</tr>
+<tr>
+<td>🟡 元数据管理</td>
+<td>版本号等元数据要准确</td>
+<td>灰度/路由策略基于错误元数据运行</td>
+</tr>
+</tbody></table>
+
+<h2>避坑指南</h2>
+
+<table><thead><tr>
+<th>错误</th>
+<th>现象</th>
+<th>正确做法</th>
+</tr></thead><tbody>
+<tr>
+<td>注册 127.0.0.1</td>
+<td>其他机器无法调用</td>
+<td>配置正确的宿主机 IP</td>
+</tr>
+<tr>
+<td>未开启服务注册</td>
+<td>消费者发现不了服务</td>
+<td><code>services.enable.register = true</code></td>
+</tr>
+<tr>
+<td>心跳丢失</td>
+<td>实例频繁上下线</td>
+<td>检查网络和 Nacos 压力</td>
+</tr>
+<tr>
+<td>端口冲突</td>
+<td>多实例注册失败</td>
+<td>每个实例使用不同端口</td>
+</tr>
+<tr>
+<td>group 不匹配</td>
+<td>同名服务不同 group 互相看不到</td>
+<td>统一 group 命名规范</td>
+</tr>
+</tbody></table>
+
+<h2>练习题</h2>
+
+<h3>🟢 基础</h3>
+<ol>
+<li>启动两个用户服务实例（不同端口），验证 Nacos 控制台显示两个实例。</li>
+</ul>
+<ol>
+<li>停止其中一个实例，观察 Nacos 是否自动将其标记为不健康。</li>
+
+<h3>🟡 进阶</h3>
+<ol>
+<li>实现自定义注册 IP 解析策略：优先使用 Docker 网络 IP，fallback 到宿主机 IP。</li>
+
+<h3>🔴 开放</h3>
+<ol>
+<li>设计一个方案：当 Nacos 不可用时，服务使用本地缓存的服务列表继续运行（注册中心降级）。</li>
+
+<h2>知识点总结</h2>
+
+<pre><code>服务注册
+├── 核心概念
+│   ├── 服务名 (ServiceName)
+│   ├── 实例 (Instance: IP + Port)
+│   ├── 元数据 (Metadata)
+│   ├── 权重 (Weight)
+│   └── 健康状态 (Healthy)
+├── 注册流程
+│   ├── 启动 → 向 Nacos 注册
+│   ├── 运行 → 定时心跳
+│   └── 停止 → 主动注销
+├── Hyperf 集成
+│   ├── hyperf/service-governance-nacos
+│   ├── config/autoload/services.php
+│   └── 自动注册 + 心跳
+└── 关键配置
+    ├── 注册 IP
+    ├── 心跳间隔
+    └── 命名空间</code></pre>
+
+<h2>举一反三</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>适配方式</th>
+<th>关键差异</th>
+</tr></thead><tbody>
+<tr>
+<td>Consul 注册</td>
+<td>使用 hyperf/service-governance-consul</td>
+<td>Consul 用 Agent 代理注册</td>
+</tr>
+<tr>
+<td>Kubernetes 原生</td>
+<td>Pod 注册为 Service + Nacos 补充</td>
+<td>K8s 自带服务发现</td>
+</tr>
+<tr>
+<td>多网卡环境</td>
+<td>指定 <code>ip_type</code> 或手动设置注册 IP</td>
+<td>自动获取可能选错网卡</td>
+</tr>
+</tbody></table>
+
+<h2>参考资料</h2>
+
+<ul>
+<li>⭐⭐⭐ <a href="https://hyperf.wiki/3.1/#/zh-cn/service-governance">Hyperf 服务注册文档</a></li>
+<li>⭐⭐⭐ <a href="https://nacos.io/zh-cn/docs/what-is-nacos.html">Nacos 服务发现原理</a></li>
+<li>⭐⭐ <a href="https://github.com/hyperf/service-governance-nacos">Hyperf Nacos 集成源码</a></li>
+
+<h2>代码演进</h2>
+
+<h3>v1 ❌ 手动注册（无框架集成）</h3>
+
+<pre><code class="language-php">// ❌ Manual registration — no heartbeat, no auto-deregister
+$ch = curl_init();
+curl_setopt($ch, CURLOPT_URL, &#x27;http://nacos:8848/nacos/v1/ns/instance&#x27;);
+curl_setopt($ch, CURLOPT_POST, true);
+curl_setopt($ch, CURLOPT_POSTFIELDS, http_build_query([
+    &#x27;serviceName&#x27; =&gt; &#x27;user-service&#x27;,
+    &#x27;ip&#x27; =&gt; &#x27;127.0.0.1&#x27;,
+    &#x27;port&#x27; =&gt; 9501,
+]));
+curl_exec($ch);</code></pre>
+
+<h3>v2 ✅ Hyperf 自动注册</h3>
+
+<pre><code class="language-php">// ✅ Framework auto-registration with heartbeat
+// config/autoload/services.php
+return [
+    &#x27;enable&#x27; =&gt; [&#x27;register&#x27; =&gt; true],
+    &#x27;drivers&#x27; =&gt; [
+        &#x27;nacos&#x27; =&gt; [
+            &#x27;host&#x27; =&gt; env(&#x27;NACOS_HOST&#x27;),
+            &#x27;heartbeat&#x27; =&gt; 5000,
+        ],
+    ],
+];</code></pre>
+
+<h3>v3 🟢 注册 + 元数据 + 监听</h3>
+
+<pre><code class="language-php">// 🟢 Full registration with metadata and event listener
+#[Listener]
+class ServiceRegisterListener implements ListenerInterface
+{
+    public function process(object $event): void
+    {
+        $this-&gt;logger-&gt;info(&#x27;Service registered&#x27;, [
+            &#x27;service&#x27; =&gt; &#x27;user-service&#x27;,
+            &#x27;version&#x27; =&gt; env(&#x27;APP_VERSION&#x27;),
+            &#x27;instance&#x27; =&gt; gethostbyname(gethostname()),
+        ]);
+    }
+}</code></pre>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

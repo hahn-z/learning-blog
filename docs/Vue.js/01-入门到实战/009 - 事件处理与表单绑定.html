@@ -1,0 +1,532 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>009 - 事件处理与表单绑定</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Vue.js/index.html">Vue.js</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Vue.js/01-入门到实战/index.html">Vue.js入门到实战</a>
+</nav>
+<h1>009 - 事件处理与表单绑定</h1>
+<div class="meta">
+<span>📂 Vue.js入门到实战</span>
+<span>🏷️ Vue.js</span>
+</div>
+<article>
+
+
+<h1>事件处理与表单绑定</h1>
+
+<blockquote><p>📊 <strong>难度：初级</strong> | 🏷️ Vue.js 3.x | ⏱️ 阅读约 15 分钟</p></blockquote>
+
+<hr>
+
+<h2>📖 概念讲解</h2>
+
+<p>事件处理和表单绑定是用户交互的核心。Vue提供了优雅的方式来监听DOM事件和处理表单输入。</p>
+
+<p><strong>事件处理：</strong></p>
+
+<p>Vue使用<code>v-on</code>指令（缩写<code>@</code>）监听DOM事件，可以在模板中直接写内联语句，也可以绑定一个方法。</p>
+
+<pre><code class="language-html">&lt;!-- 内联语句 --&gt;
+&lt;button @click=&quot;count++&quot;&gt;{{ count }}&lt;/button&gt;
+&lt;!-- 绑定方法 --&gt;
+&lt;button @click=&quot;handleClick&quot;&gt;Click&lt;/button&gt;
+&lt;!-- 调用方法并传参 --&gt;
+&lt;button @click=&quot;greet(&#x27;Hello&#x27;)&quot;&gt;Greet&lt;/button&gt;
+&lt;!-- 访问原生事件对象 --&gt;
+&lt;button @click=&quot;handleClick($event)&quot;&gt;Click&lt;/button&gt;</code></pre>
+
+<p><strong>事件修饰符链：</strong></p>
+
+<p>修饰符可以链式使用，按顺序执行：</p>
+<pre><code class="language-html">&lt;a @click.stop.prevent=&quot;handler&quot;&gt;Link&lt;/a&gt;</code></pre>
+
+<p>常用修饰符：</p>
+<ul>
+<li><code>.stop</code> - 阻止事件冒泡</li>
+<li><code>.prevent</code> - 阻止默认行为</li>
+<li><code>.capture</code> - 使用捕获模式</li>
+<li><code>.self</code> - 仅在event.target是自身时触发</li>
+<li><code>.once</code> - 只触发一次</li>
+<li><code>.passive</code> - 提升滚动性能</li>
+
+<p><strong>按键修饰符：</strong></p>
+<pre><code class="language-html">&lt;input @keyup.enter=&quot;submit&quot; /&gt;
+&lt;input @keyup.esc=&quot;cancel&quot; /&gt;
+&lt;!-- 支持组合键 --&gt;
+&lt;input @keyup.ctrl.enter=&quot;submit&quot; /&gt;</code></pre>
+
+<p><strong>表单绑定 v-model：</strong></p>
+
+<p>v-model根据表单元素类型自动选择正确的方式更新数据：</p>
+<ul>
+<li><code><input type="text"></code> → value + input事件</li>
+<li><code><textarea></code> → value + input事件</li>
+<li><code><input type="checkbox"></code> → checked + change事件</li>
+<li><code><input type="radio"></code> → value + change事件</li>
+<li><code><select></code> → value + change事件</li>
+
+
+<h2>🧠 知识脑图</h2>
+
+<pre><code>事件处理与表单绑定
+├── 事件处理
+│   ├── v-on / @
+│   ├── 内联语句 vs 方法
+│   ├── $event访问原生事件
+│   └── 多事件 @click=&quot;fn1(); fn2()&quot;
+├── 事件修饰符
+│   ├── .stop → 阻止冒泡
+│   ├── .prevent → 阻止默认
+│   ├── .capture → 捕获模式
+│   ├── .self → 仅自身
+│   ├── .once → 一次性
+│   └── .passive → 滚动优化
+├── 按键修饰符
+│   ├── .enter .esc .tab
+│   ├── .ctrl .alt .shift .meta
+│   └── 组合: .ctrl.enter
+├── 表单绑定
+│   ├── text/textarea → v-model
+│   ├── checkbox → 单选/多选
+│   ├── radio → 单选组
+│   ├── select → 单选/多选
+│   └── 修饰符 .trim .number .lazy
+└── 自定义组件v-model
+    ├── modelValue + update:modelValue
+    └── 具名v-model</code></pre>
+
+<h2>💻 完整代码</h2>
+
+<pre><code class="language-vue">&lt;!-- EventFormDemo.vue --&gt;
+&lt;template&gt;
+  &lt;div class=&quot;demo&quot;&gt;
+    &lt;!-- 1. Event handling --&gt;
+    &lt;h2&gt;1. Event Handling&lt;/h2&gt;
+    &lt;button @click=&quot;count++&quot;&gt;Inline: {{ count }}&lt;/button&gt;
+    &lt;button @click=&quot;increment(5)&quot;&gt;Method: +{{ step }}&lt;/button&gt;
+    &lt;button @click=&quot;logEvent($event)&quot;&gt;Log Event&lt;/button&gt;
+    &lt;button @click=&quot;count = 0; clickHistory = []&quot;&gt;Reset&lt;/button&gt;
+    &lt;p&gt;Click history: {{ clickHistory.join(&#x27;, &#x27;) || &#x27;none&#x27; }}&lt;/p&gt;
+
+    &lt;!-- Event modifiers --&gt;
+    &lt;h2&gt;2. Event Modifiers&lt;/h2&gt;
+    &lt;div @click=&quot;log(&#x27;outer&#x27;)&quot; class=&quot;box outer&quot;&gt;
+      Outer (click me)
+      &lt;div @click.stop=&quot;log(&#x27;inner&#x27;)&quot; class=&quot;box inner&quot;&gt;
+        Inner (.stop prevents bubble)
+      &lt;/div&gt;
+    &lt;/div&gt;
+    &lt;a href=&quot;https://vuejs.org&quot; @click.prevent=&quot;log(&#x27;prevented&#x27;)&quot;&gt;
+      Link with .prevent
+    &lt;/a&gt;
+    &lt;button @click.once=&quot;log(&#x27;once&#x27;)&quot;&gt;Fire once only&lt;/button&gt;
+
+    &lt;!-- Key modifiers --&gt;
+    &lt;h2&gt;3. Key Modifiers&lt;/h2&gt;
+    &lt;input @keyup.enter=&quot;log(&#x27;Enter pressed&#x27;)&quot;
+      @keyup.esc=&quot;log(&#x27;Esc pressed&#x27;)&quot;
+      @keyup.ctrl.enter=&quot;log(&#x27;Ctrl+Enter&#x27;)&quot;
+      placeholder=&quot;Try Enter / Esc / Ctrl+Enter&quot; /&gt;
+
+    &lt;!-- 2. Form binding --&gt;
+    &lt;h2&gt;4. Form Controls&lt;/h2&gt;
+    &lt;form @submit.prevent=&quot;submitForm&quot;&gt;
+      &lt;!-- Text input --&gt;
+      &lt;label&gt;Name: &lt;input v-model.trim=&quot;form.name&quot; /&gt;&lt;/label&gt;
+      &lt;!-- Number input --&gt;
+      &lt;label&gt;Age: &lt;input v-model.number=&quot;form.age&quot; type=&quot;number&quot; /&gt;&lt;/label&gt;
+      &lt;!-- Textarea --&gt;
+      &lt;label&gt;Bio: &lt;textarea v-model=&quot;form.bio&quot;&gt;&lt;/textarea&gt;&lt;/label&gt;
+
+      &lt;!-- Checkboxes - single --&gt;
+      &lt;label&gt;&lt;input type=&quot;checkbox&quot; v-model=&quot;form.agree&quot; /&gt; Agree to terms&lt;/label&gt;
+
+      &lt;!-- Checkboxes - multiple --&gt;
+      &lt;p&gt;Skills:&lt;/p&gt;
+      &lt;label v-for=&quot;skill in skillOptions&quot; :key=&quot;skill&quot;&gt;
+        &lt;input type=&quot;checkbox&quot; :value=&quot;skill&quot; v-model=&quot;form.skills&quot; /&gt;
+        {{ skill }}
+      &lt;/label&gt;
+
+      &lt;!-- Radio buttons --&gt;
+      &lt;p&gt;Gender:&lt;/p&gt;
+      &lt;label v-for=&quot;g in genders&quot; :key=&quot;g.value&quot;&gt;
+        &lt;input type=&quot;radio&quot; :value=&quot;g.value&quot; v-model=&quot;form.gender&quot; /&gt;
+        {{ g.label }}
+      &lt;/label&gt;
+
+      &lt;!-- Select --&gt;
+      &lt;label&gt;City:
+        &lt;select v-model=&quot;form.city&quot;&gt;
+          &lt;option disabled value=&quot;&quot;&gt;Select city&lt;/option&gt;
+          &lt;option v-for=&quot;c in cities&quot; :key=&quot;c&quot; :value=&quot;c&quot;&gt;{{ c }}&lt;/option&gt;
+        &lt;/select&gt;
+      &lt;/label&gt;
+
+      &lt;!-- Multi-select --&gt;
+      &lt;label&gt;Hobbies:
+        &lt;select v-model=&quot;form.hobbies&quot; multiple&gt;
+          &lt;option v-for=&quot;h in hobbyOptions&quot; :key=&quot;h&quot; :value=&quot;h&quot;&gt;{{ h }}&lt;/option&gt;
+        &lt;/select&gt;
+      &lt;/label&gt;
+
+      &lt;!-- Lazy input --&gt;
+      &lt;label&gt;Lazy input: &lt;input v-model.lazy=&quot;form.lazyValue&quot; /&gt;&lt;/label&gt;
+      &lt;p&gt;Lazy value updates on blur/enter: {{ form.lazyValue }}&lt;/p&gt;
+
+      &lt;button type=&quot;submit&quot;&gt;Submit Form&lt;/button&gt;
+    &lt;/form&gt;
+
+    &lt;!-- Form data preview --&gt;
+    &lt;h2&gt;5. Form Data Preview&lt;/h2&gt;
+    &lt;pre&gt;{{ JSON.stringify(form, null, 2) }}&lt;/pre&gt;
+  &lt;/div&gt;
+&lt;/template&gt;
+
+&lt;script setup&gt;
+import { ref, reactive } from &#x27;vue&#x27;
+
+// Event handling
+const count = ref(0)
+const step = 5
+const clickHistory = ref([])
+
+function increment(n) {
+  count.value += n
+  clickHistory.value.push(`+${n}`)
+}
+
+function logEvent(event) {
+  clickHistory.value.push(`${event.type}@${event.target.tagName}`)
+}
+
+function log(msg) {
+  clickHistory.value.push(msg)
+}
+
+// Form data
+const form = reactive({
+  name: &#x27;&#x27;,
+  age: null,
+  bio: &#x27;&#x27;,
+  agree: false,
+  skills: [],
+  gender: &#x27;&#x27;,
+  city: &#x27;&#x27;,
+  hobbies: [],
+  lazyValue: &#x27;&#x27;
+})
+
+const skillOptions = [&#x27;Vue&#x27;, &#x27;React&#x27;, &#x27;Angular&#x27;, &#x27;Node.js&#x27;]
+const genders = [
+  { value: &#x27;male&#x27;, label: &#x27;Male&#x27; },
+  { value: &#x27;female&#x27;, label: &#x27;Female&#x27; }
+]
+const cities = [&#x27;Beijing&#x27;, &#x27;Shanghai&#x27;, &#x27;Shenzhen&#x27;, &#x27;Hangzhou&#x27;]
+const hobbyOptions = [&#x27;Coding&#x27;, &#x27;Gaming&#x27;, &#x27;Reading&#x27;, &#x27;Travel&#x27;]
+
+function submitForm() {
+  console.log(&#x27;Form submitted:&#x27;, JSON.stringify(form, null, 2))
+  alert(&#x27;Form submitted! Check console for data.&#x27;)
+}
+&lt;/script&gt;
+
+&lt;style scoped&gt;
+.box { padding: 1rem; margin: 0.5rem 0; border: 2px solid #42b883; cursor: pointer; }
+.outer { background: #e8f5e9; }
+.inner { background: #c8e6c9; }
+label { display: block; margin: 0.3rem 0; }
+input, textarea, select { margin: 0.3rem 0; padding: 0.3rem; }
+pre { background: #f5f5f5; padding: 1rem; overflow: auto; }
+&lt;/style&gt;</code></pre>
+
+<h2>👀 执行预览</h2>
+
+<p><strong>页面渲染效果：</strong></p>
+
+<pre><code>1. Event Handling
+[Inline: 0] [Method: +5] [Log Event] [Reset]
+Click history: none
+
+2. Event Modifiers
+┌─ Outer (click me) ──────────────────┐
+│ ┌─ Inner (.stop prevents bubble) ─┐ │
+│ └─────────────────────────────────┘ │
+└─────────────────────────────────────┘
+Link with .prevent  [Fire once only]
+
+4. Form Controls
+Name: [Alice_____]
+Age: [25]
+Bio: [Frontend developer___]
+☑ Agree to terms
+Skills: ☑Vue ☑React ☐Angular ☐Node.js
+Gender: ◉Male ○Female
+City: [Shanghai ▼]
+Hobbies: [Coding, Reading (multi-select)]
+Lazy value updates on blur/enter: typed value
+[Submit Form]</code></pre>
+
+<h2>⚠️ 注意事项</h2>
+
+<table><thead><tr>
+<th>注意点</th>
+<th>说明</th>
+<th>建议</th>
+</tr></thead><tbody>
+<tr>
+<td>v-model.trim</td>
+<td>自动去除首尾空格</td>
+<td>用户名等字段推荐使用</td>
+</tr>
+<tr>
+<td>v-model.number</td>
+<td>输入值自动转数字</td>
+<td>type="number"输入框配合使用</td>
+</tr>
+<tr>
+<td>v-model.lazy</td>
+<td>change事件而非input事件</td>
+<td>减少更新频率，适合实时搜索</td>
+</tr>
+<tr>
+<td>checkbox多选</td>
+<td>绑定数组，value属性指定值</td>
+<td>单选绑boolean，多选绑数组</td>
+</tr>
+<tr>
+<td>select多选</td>
+<td>需要multiple属性</td>
+<td>按住Ctrl/Cmd多选</td>
+</tr>
+<tr>
+<td>修饰符顺序</td>
+<td>按从左到右顺序执行</td>
+<td>.stop .prevent 顺序有影响</td>
+</tr>
+</tbody></table>
+
+<h2>🚫 避坑指南</h2>
+
+<h3>1. 忘记$event导致报错</h3>
+<p>❌ <strong>错误：</strong> <code>@click="handler"</code> 但handler需要event对象</p>
+<p>✅ <strong>正确：</strong> <code>@click="handler($event)"</code> 或 <code>@click="(e) => handler(e)"</code></p>
+
+<h3>2. checkbox v-model绑定错误</h3>
+<p>❌ <strong>错误：</strong> 多个checkbox绑定同一个字符串ref</p>
+<p>✅ <strong>正确：</strong> 多选绑定数组，单选绑定boolean</p>
+
+<h3>3. select默认选中不生效</h3>
+<p>❌ <strong>错误：</strong> <code><option value="">选择</option></code> 但v-model初始值不是""</p>
+<p>✅ <strong>正确：</strong> 确保v-model初始值与某个option的value匹配</p>
+
+<h3>4. 事件修饰符滥用</h3>
+<p>❌ <strong>错误：</strong> 所有事件都加.stop.prevent</p>
+<p>✅ <strong>正确：</strong> 按需使用，理解每个修饰符的含义</p>
+
+<h3>5. 表单提交不阻止默认行为</h3>
+<p>❌ <strong>错误：</strong> <code><form></code> 没有<code>@submit.prevent</code>，提交后页面刷新</p>
+<p>✅ <strong>正确：</strong> <code><form @submit.prevent="handleSubmit"></code></p>
+
+<h2>🧪 练习题</h2>
+
+<h3>🟢 基础题</h3>
+<ol>
+<li>创建一个按钮，点击后在控制台打印鼠标坐标（使用$event）。</li>
+</ul>
+<ol>
+<li>创建一个注册表单，包含用户名、密码、确认密码，用v-model绑定并实时显示。</li>
+
+<h3>🟡 进阶题</h3>
+<ol>
+<li>实现一个标签输入器：输入文字按Enter后添加为标签，点击标签可删除。</li>
+</ul>
+<ol>
+<li>实现一个自定义的v-model组件：一个颜色选择器，显示颜色名称和色块。</li>
+
+<h3>🔴 挑战题</h3>
+<ol>
+<li>实现一个完整的多步表单（至少3步），支持上一步/下一步，最后一步显示汇总信息并提交。</li>
+
+<h2>📝 知识点总结</h2>
+
+<pre><code>事件处理与表单绑定
+├── 事件处理
+│   ├── @click → 绑定事件
+│   ├── $event → 原生事件对象
+│   └── 内联 vs 方法绑定
+├── 事件修饰符
+│   ├── .stop → 阻止冒泡
+│   ├── .prevent → 阻止默认
+│   ├── .once → 一次
+│   ├── .capture → 捕获
+│   └── .passive → 性能
+├── 按键修饰符
+│   ├── .enter .esc .tab
+│   └── .ctrl .alt .shift
+├── v-model表单绑定
+│   ├── text/textarea → 字符串
+│   ├── checkbox → boolean/array
+│   ├── radio → 字符串
+│   ├── select → 字符串/array
+│   └── .trim .number .lazy
+└── 自定义v-model
+    ├── defineProps + defineEmits
+    └── modelValue约定</code></pre>
+
+
+<h2>🔄 举一反三</h2>
+
+<table><thead><tr>
+<th>概念</th>
+<th>生活类比</th>
+<th>说明</th>
+</tr></thead><tbody>
+<tr>
+<td>v-on</td>
+<td>对讲机</td>
+<td>"听到枪声就跑" → 事件触发执行</td>
+</tr>
+<tr>
+<td>.stop</td>
+<td>隔音墙</td>
+<td>声音不再向上传递（阻止冒泡）</td>
+</tr>
+<tr>
+<td>.prevent</td>
+<td>拦截</td>
+<td>阻止链接跳转等默认行为</td>
+</tr>
+<tr>
+<td>v-model</td>
+<td>对话</td>
+<td>双方都能说能听（双向绑定）</td>
+</tr>
+<tr>
+<td>.trim</td>
+<td>剪刀</td>
+<td>自动剪掉首尾多余空格</td>
+</tr>
+<tr>
+<td>.number</td>
+<td>翻译器</td>
+<td>字符串自动翻译为数字</td>
+</tr>
+<tr>
+<td>.lazy</td>
+<td>缓冲</td>
+<td>不急着发，等说完再传</td>
+</tr>
+</tbody></table>
+
+<h2>📚 参考资料</h2>
+
+<ol>
+<li><a href="https://vuejs.org/guide/essentials/event-handling.html">Vue 3 Event Handling</a></li>
+</ul>
+<ol>
+<li><a href="https://vuejs.org/guide/essentials/forms.html">Vue 3 Form Input Bindings</a></li>
+</ul>
+<ol>
+<li><a href="https://developer.mozilla.org/en-US/docs/Web/Events">MDN: Event Reference</a></li>
+</ul>
+<ol>
+<li><a href="https://vuejs.org/guide/components/v-model.html">Vue 3 v-model on Components</a></li>
+
+<h2>🚀 代码演进</h2>
+
+<h3>v1 - 基础事件和表单</h3>
+
+<pre><code class="language-vue">&lt;template&gt;
+  &lt;button v-on:click=&quot;count++&quot;&gt;{{ count }}&lt;/button&gt;
+  &lt;input v-model=&quot;name&quot; /&gt;
+  &lt;p&gt;{{ name }}&lt;/p&gt;
+&lt;/template&gt;</code></pre>
+
+<h3>v2 - 缩写和修饰符</h3>
+
+<pre><code class="language-vue">&lt;template&gt;
+  &lt;button @click=&quot;count++&quot;&gt;{{ count }}&lt;/button&gt;
+  &lt;form @submit.prevent=&quot;submit&quot;&gt;
+    &lt;input v-model.trim=&quot;name&quot; /&gt;
+    &lt;input v-model.number=&quot;age&quot; type=&quot;number&quot; /&gt;
+    &lt;button type=&quot;submit&quot;&gt;OK&lt;/button&gt;
+  &lt;/form&gt;
+&lt;/template&gt;</code></pre>
+
+<h3>v3 - 完整表单验证+事件处理</h3>
+
+<pre><code class="language-vue">&lt;template&gt;
+  &lt;form @submit.prevent=&quot;submit&quot;&gt;
+    &lt;input v-model.trim=&quot;form.name&quot; @blur=&quot;validate(&#x27;name&#x27;)&quot; /&gt;
+    &lt;span v-if=&quot;errors.name&quot;&gt;{{ errors.name }}&lt;/span&gt;
+    &lt;input v-model.number=&quot;form.age&quot; type=&quot;number&quot; /&gt;
+    &lt;label v-for=&quot;s in skills&quot;&gt;&lt;input type=&quot;checkbox&quot; :value=&quot;s&quot; v-model=&quot;form.skills&quot; /&gt;{{ s }}&lt;/label&gt;
+    &lt;button :disabled=&quot;!isValid&quot; type=&quot;submit&quot;&gt;Submit&lt;/button&gt;
+  &lt;/form&gt;
+&lt;/template&gt;
+&lt;script setup&gt;
+import { ref, reactive, computed } from &#x27;vue&#x27;
+// Full validation logic
+&lt;/script&gt;</code></pre>
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

@@ -1,0 +1,541 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>007 - Context上下文控制</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Golang/index.html">Golang</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Golang/02-进阶/index.html">Golang进阶</a>
+</nav>
+<h1>007 - Context上下文控制</h1>
+<div class="meta">
+<span>📂 Golang进阶</span>
+<span>🏷️ Golang</span>
+</div>
+<article>
+
+
+<h1>037 - Context 上下文控制</h1>
+
+<blockquote><p>难度：⭐⭐⭐⭐（进阶）<br><br>本文深入讲解 Go 语言 <code>context</code> 包的设计哲学、核心 API、取消传播机制以及生产级最佳实践。</p></blockquote>
+
+<hr>
+
+<h2>一、概念讲解</h2>
+
+<p><code>context.Context</code> 是 Go 1.7 引入的标准接口，用于在 API 边界和 goroutine 之间传递<strong>截止时间（deadline）</strong>、<strong>取消信号（cancel）</strong>和<strong>请求级值（value）</strong>。</p>
+
+<h3>为什么需要 Context？</h3>
+
+<p>在并发场景中，一个 HTTP 请求可能触发数十个 goroutine（数据库查询、RPC 调用、缓存读取……）。如果用户关闭了连接或请求超时，所有下游 goroutine 都应该被及时取消，以释放资源。没有 context，你只能用共享变量 + mutex 手动通知——既丑陋又容易出错。</p>
+
+<h3>Context 接口定义</h3>
+
+<pre><code class="language-go">type Context interface {
+    Deadline() (deadline time.Time, ok bool)
+    Done() &lt;-chan struct{}
+    Err() error
+    Value(key any) any
+}</code></pre>
+
+<table><thead><tr>
+<th>方法</th>
+<th>作用</th>
+</tr></thead><tbody>
+<tr>
+<td><code>Deadline()</code></td>
+<td>返回截止时间，如果没有设置则 <code>ok=false</code></td>
+</tr>
+<tr>
+<td><code>Done()</code></td>
+<td>返回一个 channel，关闭时表示 context 被取消或超时</td>
+</tr>
+<tr>
+<td><code>Err()</code></td>
+<td>返回取消原因（<code>Canceled</code> 或 <code>DeadlineExceeded</code>）</td>
+</tr>
+<tr>
+<td><code>Value(key)</code></td>
+<td>返回绑定到该 key 的值</td>
+</tr>
+</tbody></table>
+
+<h3>根 Context：Background 与 TODO</h3>
+
+<pre><code class="language-go">ctx := context.Background()  // 顶层 context，用于 main、初始化、测试
+ctx := context.TODO()        // 暂时不确定用哪个 context，后续重构</code></pre>
+
+<p><strong>规则：</strong> <code>Background()</code> 是所有 context 树的根。<code>TODO()</code> 是代码审查的标记——看到它就该重构。</p>
+
+<hr>
+
+<h2>二、脑图（ASCII）</h2>
+
+<pre><code>context 包
+├── 根 Context
+│   ├── Background() — 主流程起点
+│   └── TODO()       — 临时占位
+├── 派生 Context（Derive）
+│   ├── WithCancel(parent)       — 手动取消
+│   ├── WithTimeout(parent, dur) — 超时自动取消
+│   ├── WithDeadline(parent, t)  — 截止时间取消
+│   └── WithValue(parent, k, v)  — 传递请求级值
+├── 取消传播
+│   ├── parent 取消 → children 全部取消
+│   └── child 取消 → parent 不受影响
+└── 使用模式
+    ├── select + ctx.Done()
+    ├── context 作为第一个参数
+    └── defer cancel() 防泄漏</code></pre>
+
+<hr>
+
+<h2>三、完整 Go 代码</h2>
+
+<h3>v1：基础 WithCancel</h3>
+
+<pre><code class="language-go">package main
+
+import (
+    &quot;context&quot;
+    &quot;fmt&quot;
+    &quot;time&quot;
+)
+
+// simulateWork simulates a long-running task that respects context cancellation.
+func simulateWork(ctx context.Context, id int) {
+    for i := 0; ; i++ {
+        select {
+        case &lt;-ctx.Done():
+            fmt.Printf(&quot;Worker %d: canceled (%v)\n&quot;, id, ctx.Err())
+            return
+        default:
+            fmt.Printf(&quot;Worker %d: working step %d\n&quot;, id, i)
+            time.Sleep(500 * time.Millisecond)
+        }
+    }
+}
+
+func main() {
+    // Create a cancellable context derived from Background
+    ctx, cancel := context.WithCancel(context.Background())
+
+    // Start 3 workers
+    for i := 1; i &lt;= 3; i++ {
+        go simulateWork(ctx, i)
+    }
+
+    // Cancel after 2 seconds
+    time.Sleep(2 * time.Second)
+    cancel()
+
+    // Give workers time to print cancellation message
+    time.Sleep(100 * time.Millisecond)
+    fmt.Println(&quot;Main: all workers stopped&quot;)
+}</code></pre>
+
+<p><strong>执行预览：</strong></p>
+
+<pre><code>Worker 1: working step 0
+Worker 2: working step 0
+Worker 3: working step 0
+Worker 1: working step 1
+Worker 2: working step 1
+...
+Worker 1: canceled (context canceled)
+Worker 2: canceled (context canceled)
+Worker 3: canceled (context canceled)
+Main: all workers stopped</code></pre>
+
+<h3>v2：WithTimeout + WithValue + select 模式</h3>
+
+<pre><code class="language-go">package main
+
+import (
+    &quot;context&quot;
+    &quot;fmt&quot;
+    &quot;time&quot;
+)
+
+// requestIDKey is a custom type for context keys to avoid collision.
+type requestIDKey string
+
+// fetchUserData simulates an API call with timeout.
+func fetchUserData(ctx context.Context) (string, error) {
+    // Extract request ID from context for logging
+    reqID, _ := ctx.Value(requestIDKey(&quot;reqID&quot;)).(string)
+    fmt.Printf(&quot;[%s] fetchUserData: started\n&quot;, reqID)
+
+    // Simulate slow work
+    select {
+    case &lt;-time.After(3 * time.Second):
+        return &quot;user data loaded&quot;, nil
+    case &lt;-ctx.Done():
+        return &quot;&quot;, fmt.Errorf(&quot;[%s] fetchUserData: %w&quot;, reqID, ctx.Err())
+    }
+}
+
+// processOrder orchestrates multiple calls, each with its own timeout.
+func processOrder(ctx context.Context) error {
+    reqID, _ := ctx.Value(requestIDKey(&quot;reqID&quot;)).(string)
+
+    // Child context with shorter timeout for the DB call
+    dbCtx, dbCancel := context.WithTimeout(ctx, 1*time.Second)
+    defer dbCancel()
+
+    result, err := fetchUserData(dbCtx)
+    if err != nil {
+        return fmt.Errorf(&quot;[%s] processOrder failed: %w&quot;, reqID, err)
+    }
+    fmt.Printf(&quot;[%s] Result: %s\n&quot;, reqID, result)
+    return nil
+}
+
+func main() {
+    // Parent context with request-scoped value + overall timeout
+    ctx := context.WithValue(context.Background(), requestIDKey(&quot;reqID&quot;), &quot;ORD-2024-001&quot;)
+    ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+    defer cancel()
+
+    if err := processOrder(ctx); err != nil {
+        fmt.Println(&quot;Error:&quot;, err)
+    }
+}</code></pre>
+
+<p><strong>执行预览：</strong></p>
+
+<pre><code>[ORD-2024-001] fetchUserData: started
+[ORD-2024-001] processOrder failed: [ORD-2024-001] fetchUserData: context deadline exceeded
+Error: [ORD-2024-001] processOrder failed: [ORD-2024-001] fetchUserData: context deadline exceeded</code></pre>
+
+<h3>v3：WithDeadline + 传播树 + 最佳实践</h3>
+
+<pre><code class="language-go">package main
+
+import (
+    &quot;context&quot;
+    &quot;fmt&quot;
+    &quot;time&quot;
+)
+
+// deepCall demonstrates cancellation propagation through nested contexts.
+func deepCall(ctx context.Context, depth int) {
+    if depth == 0 {
+        // Leaf node: wait for cancellation
+        &lt;-ctx.Done()
+        fmt.Printf(&quot;  Leaf: canceled at depth 0, reason=%v\n&quot;, ctx.Err())
+        return
+    }
+
+    // Each level derives its own child context
+    childCtx, cancel := context.WithCancel(ctx)
+    defer cancel()
+
+    go deepCall(childCtx, depth-1)
+
+    &lt;-ctx.Done()
+    fmt.Printf(&quot;  Level %d: canceled, reason=%v\n&quot;, depth, ctx.Err())
+}
+
+// gracefulShutdown demonstrates deadline-based shutdown with cleanup.
+func gracefulShutdown(ctx context.Context) {
+    deadline, ok := ctx.Deadline()
+    if ok {
+        fmt.Printf(&quot;Shutdown deadline: %v (in %v)\n&quot;, deadline, time.Until(deadline))
+    }
+
+    // Simulate cleanup phases
+    phases := []string{&quot;close DB&quot;, &quot;flush cache&quot;, &quot;stop workers&quot;}
+    for _, phase := range phases {
+        select {
+        case &lt;-time.After(400 * time.Millisecond):
+            fmt.Printf(&quot;  ✓ %s done\n&quot;, phase)
+        case &lt;-ctx.Done():
+            fmt.Printf(&quot;  ✗ %s aborted: %v\n&quot;, phase, ctx.Err())
+            return
+        }
+    }
+    fmt.Println(&quot;Graceful shutdown completed&quot;)
+}
+
+func main() {
+    fmt.Println(&quot;=== Cancellation Propagation Tree ===&quot;)
+    {
+        ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+        defer cancel()
+        go deepCall(ctx, 3)
+        time.Sleep(3 * time.Second) // Wait for timeout
+    }
+
+    fmt.Println(&quot;\n=== Graceful Shutdown with Deadline ===&quot;)
+    {
+        deadline := time.Now().Add(1 * time.Second)
+        ctx, cancel := context.WithDeadline(context.Background(), deadline)
+        defer cancel()
+        gracefulShutdown(ctx)
+    }
+}</code></pre>
+
+<p><strong>执行预览：</strong></p>
+
+<pre><code>=== Cancellation Propagation Tree ===
+  Leaf: canceled at depth 0, reason=context deadline exceeded
+  Level 1: canceled, reason=context deadline exceeded
+  Level 2: canceled, reason=context deadline exceeded
+  Level 3: canceled, reason=context deadline exceeded
+
+=== Graceful Shutdown with Deadline ===
+Shutdown deadline: 2024-... (in 999.xxxms)
+  ✓ close DB done
+  ✗ flush cache aborted: context deadline exceeded</code></pre>
+
+<hr>
+
+<h2>四、注意事项</h2>
+
+<table><thead><tr>
+<th>项目</th>
+<th>说明</th>
+</tr></thead><tbody>
+<tr>
+<td>cancel 必须调用</td>
+<td>即使 context 已超时，<code>cancel()</code> 也必须调用以释放内部资源。用 <code>defer cancel()</code></td>
+</tr>
+<tr>
+<td>不要传递 nil</td>
+<td>如果没有 context，用 <code>context.Background()</code>，永远不要传 <code>nil</code></td>
+</tr>
+<tr>
+<td>context 参数位置</td>
+<td><code>func DoSomething(ctx context.Context, arg string)</code> — 永远第一个参数</td>
+</tr>
+<tr>
+<td>WithValue 要克制</td>
+<td>只用于请求级跨边界数据（request ID、trace ID），不要当全局变量用</td>
+</tr>
+<tr>
+<td>不要存储业务数据</td>
+<td>context value 不是 dependency injection 容器</td>
+</tr>
+<tr>
+<td>goroutine 泄漏</td>
+<td>不处理 <code>ctx.Done()</code> 的 goroutine 会永远挂起</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>五、避坑指南</h2>
+
+<table><thead><tr>
+<th>❌ 错误做法</th>
+<th>✅ 正确做法</th>
+</tr></thead><tbody>
+<tr>
+<td><code>ctx = context.WithValue(ctx, "id", 123)</code> 用字符串做 key</td>
+<td><code>type myKey string</code> 自定义类型做 key，避免碰撞</td>
+</tr>
+<tr>
+<td><code>cancel()</code> 放在 if 分支里</td>
+<td><code>defer cancel()</code> 放在创建后立即调用</td>
+</tr>
+<tr>
+<td>在 struct 里存 context</td>
+<td>context 作为函数参数传递，不要存到 struct 字段</td>
+</tr>
+<tr>
+<td>只创建不取消（<code>WithCancel</code> 后不调 <code>cancel</code>）</td>
+<td>始终 <code>defer cancel()</code>，即使有 timeout</td>
+</tr>
+<tr>
+<td>用 WithValue 传数据库连接</td>
+<td>用显式参数传递依赖</td>
+</tr>
+<tr>
+<td><code>select</code> 里不处理 <code>ctx.Done()</code></td>
+<td>每个耗时操作都要 select + <code>ctx.Done()</code></td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>六、练习题</h2>
+
+<h3>🟢 入门：超时取消</h3>
+<p>写一个函数，用 <code>WithTimeout</code> 设置 1 秒超时，内部模拟 3 秒操作。打印超时错误。</p>
+
+<h3>🟡 中级：请求链路追踪</h3>
+<p>用 <code>WithValue</code> 注入 trace ID，经过 3 层函数调用，每层打印 trace ID。注意 key 类型安全。</p>
+
+<h3>🔴 高级：HTTP 服务器优雅关闭</h3>
+<p>实现一个 HTTP server，监听 <code>SIGINT</code> 信号后用 <code>context.WithTimeout</code> 给 5 秒优雅关闭窗口，超时则强制退出。</p>
+
+<hr>
+
+<h2>七、知识点总结（树状）</h2>
+
+<pre><code>Context
+├── 核心接口
+│   ├── Deadline() → 截止时间
+│   ├── Done()     → 取消 channel
+│   ├── Err()      → 取消原因
+│   └── Value()    → 请求级值
+├── 派生方式
+│   ├── WithCancel    → 手动取消
+│   ├── WithTimeout   → 相对超时
+│   ├── WithDeadline  → 绝对截止
+│   └── WithValue     → 值传递
+├── 传播规则
+│   ├── 父取消 → 所有子取消
+│   └── 子取消 → 父不受影响
+└── 最佳实践
+    ├── 第一个参数
+    ├── defer cancel()
+    ├── 自定义 key 类型
+    └── 不存 struct</code></pre>
+
+<hr>
+
+<h2>八、举一反三</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>派生方式</th>
+<th>典型用法</th>
+</tr></thead><tbody>
+<tr>
+<td>HTTP 请求处理</td>
+<td><code>WithTimeout(req.Context(), 10s)</code></td>
+<td>防止单请求卡住</td>
+</tr>
+<tr>
+<td>gRPC 调用</td>
+<td><code>WithDeadline</code></td>
+<td>遵循上游截止时间</td>
+</tr>
+<tr>
+<td>数据库查询</td>
+<td><code>WithTimeout(ctx, 5s)</code></td>
+<td>慢查询保护</td>
+</tr>
+<tr>
+<td>后台任务</td>
+<td><code>WithCancel(ctx)</code></td>
+<td>手动取消批处理</td>
+</tr>
+<tr>
+<td>链路追踪</td>
+<td><code>WithValue(ctx, traceKey, id)</code></td>
+<td>OpenTelemetry trace ID</td>
+</tr>
+<tr>
+<td>定时任务</td>
+<td><code>context.Background()</code></td>
+<td>不受请求取消影响</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>九、参考资料</h2>
+
+<ol>
+<li><a href="https://pkg.go.dev/context">Go 官方 context 包文档</a></li>
+</ul>
+<ol>
+<li><a href="https://go.dev/blog/context">Go Blog: Context</a></li>
+</ul>
+<ol>
+<li><a href="https://go.dev/blog/io2013-talk-concurrency">Go Concurrency Patterns: Context</a></li>
+</ul>
+<ol>
+<li>《Go 程序设计语言》— Alan Donovan, Brian Kernighan</li>
+
+<hr>
+
+<h2>十、代码演进</h2>
+
+<table><thead><tr>
+<th>版本</th>
+<th>特点</th>
+<th>适用场景</th>
+</tr></thead><tbody>
+<tr>
+<td>v1</td>
+<td>WithCancel 基础取消</td>
+<td>学习取消机制</td>
+</tr>
+<tr>
+<td>v2</td>
+<td>WithTimeout + WithValue + select</td>
+<td>HTTP 请求处理</td>
+</tr>
+<tr>
+<td>v3</td>
+<td>WithDeadline + 传播树 + 优雅关闭</td>
+<td>生产级服务</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<p>_Context 不是可选的，是 Go 并发的基石。_ 🚀</p>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

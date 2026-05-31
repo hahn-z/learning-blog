@@ -1,0 +1,636 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>008 - 并发模式(Pipeline/FanInOut)</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Golang/index.html">Golang</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Golang/02-进阶/index.html">Golang进阶</a>
+</nav>
+<h1>008 - 并发模式(Pipeline/FanInOut)</h1>
+<div class="meta">
+<span>📂 Golang进阶</span>
+<span>🏷️ Golang</span>
+</div>
+<article>
+
+
+<h1>038 - 并发模式（Pipeline / Fan-In-Out）</h1>
+
+<blockquote><p>难度：⭐⭐⭐⭐（进阶）<br><br>本文系统讲解 Go 语言经典并发模式：Pipeline、Fan-Out/Fan-In、Worker Pool、Semaphore 以及 errgroup 并发错误收集。</p></blockquote>
+
+<hr>
+
+<h2>一、概念讲解</h2>
+
+<p>Go 的 goroutine + channel 天然适合构建并发数据流。以下是几种核心模式：</p>
+
+<h3>Pipeline（管道模式）</h3>
+<p>数据像流水线一样经过多个阶段（stage），每个阶段是一个 goroutine，阶段之间通过 channel 连接。上一个阶段的输出是下一个阶段的输入。</p>
+
+<h3>Fan-Out / Fan-In（扇出扇入）</h3>
+<ul>
+<li><strong>Fan-Out</strong>：一个 channel 的数据分发给多个 goroutine 并行处理</li>
+<li><strong>Fan-In</strong>：多个 goroutine 的结果合并到一个 channel</li>
+
+<h3>Worker Pool（工作池）</h3>
+<p>固定数量的 goroutine 从任务 channel 中取任务执行，控制并发度。</p>
+
+<h3>Semaphore（信号量）</h3>
+<p>用带缓冲的 channel 控制最大并发数。</p>
+
+<h3>errgroup</h3>
+<p><code>golang.org/x/sync/errgroup</code> 包：并发执行多个任务，任何一个失败则取消所有任务。</p>
+
+<hr>
+
+<h2>二、脑图（ASCII）</h2>
+
+<pre><code>并发模式
+├── Pipeline
+│   ├── stage = func(in &lt;-chan T) &lt;-chan T
+│   ├── 串联：gen → square → print
+│   └── 可随时加 context 取消
+├── Fan-Out / Fan-In
+│   ├── Fan-Out: 1 ch → N workers
+│   ├── Fan-In:  N channels → 1 ch (select/reflect)
+│   └── 适用：CPU 密集 + 可分割任务
+├── Worker Pool
+│   ├── 固定 N 个 goroutine
+│   ├── task chan → worker → result chan
+│   └── 控制资源消耗
+├── Semaphore
+│   ├── buffered chan (capacity = maxConcurrency)
+│   ├── acquire = ch &lt;- struct{}{}
+│   └── release = &lt;-ch
+└── errgroup
+    ├── Group.Go(func() error)
+    ├── Group.Wait() error
+    └── WithContext → 自动取消</code></pre>
+
+<hr>
+
+<h2>三、完整 Go 代码</h2>
+
+<h3>v1：Pipeline 模式</h3>
+
+<pre><code class="language-go">package main
+
+import &quot;fmt&quot;
+
+// generate emits numbers to a channel.
+func generate(nums ...int) &lt;-chan int {
+    out := make(chan int)
+    go func() {
+        for _, n := range nums {
+            out &lt;- n
+        }
+        close(out)
+    }()
+    return out
+}
+
+// square reads from input channel, squares each value, outputs to new channel.
+func square(in &lt;-chan int) &lt;-chan int {
+    out := make(chan int)
+    go func() {
+        for n := range in {
+            out &lt;- n * n
+        }
+        close(out)
+    }()
+    return out
+}
+
+// double reads from input channel, doubles each value.
+func double(in &lt;-chan int) &lt;-chan int {
+    out := make(chan int)
+    go func() {
+        for n := range in {
+            out &lt;- n * 2
+        }
+        close(out)
+    }()
+    return out
+}
+
+func main() {
+    // Pipeline: generate → square → double → print
+    ch := generate(1, 2, 3, 4, 5)
+    ch = square(ch)
+    ch = double(ch)
+
+    for result := range ch {
+        fmt.Println(result) // (n*n)*2
+    }
+}</code></pre>
+
+<p><strong>执行预览：</strong></p>
+
+<pre><code>2
+8
+18
+32
+50</code></pre>
+
+<h3>v2：Fan-Out/Fan-In + Worker Pool + Semaphore</h3>
+
+<pre><code class="language-go">package main
+
+import (
+    &quot;fmt&quot;
+    &quot;sync&quot;
+    &quot;time&quot;
+)
+
+// fanOut distributes work from one channel to N workers.
+func fanOut(in &lt;-chan int, workers int) []&lt;-chan int {
+    channels := make([]&lt;-chan int, workers)
+    for i := 0; i &lt; workers; i++ {
+        channels[i] = worker(i, in)
+    }
+    return channels
+}
+
+// worker processes items from input channel.
+func worker(id int, in &lt;-chan int) &lt;-chan int {
+    out := make(chan int)
+    go func() {
+        for n := range in {
+            // Simulate work
+            time.Sleep(100 * time.Millisecond)
+            result := n * n
+            fmt.Printf(&quot;  Worker %d: %d → %d\n&quot;, id, n, result)
+            out &lt;- result
+        }
+        close(out)
+    }()
+    return out
+}
+
+// fanIn merges multiple channels into one.
+func fanIn(channels ...&lt;-chan int) &lt;-chan int {
+    merged := make(chan int)
+    var wg sync.WaitGroup
+
+    for _, ch := range channels {
+        wg.Add(1)
+        go func(c &lt;-chan int) {
+            defer wg.Done()
+            for v := range c {
+                merged &lt;- v
+            }
+        }(ch)
+    }
+
+    // Close merged channel once all input channels are drained
+    go func() {
+        wg.Wait()
+        close(merged)
+    }()
+
+    return merged
+}
+
+// semaphore controls max concurrency using a buffered channel.
+func semaphoreDemo(tasks int, maxConcurrent int) {
+    sem := make(chan struct{}, maxConcurrent)
+    var wg sync.WaitGroup
+
+    for i := 0; i &lt; tasks; i++ {
+        wg.Add(1)
+        go func(id int) {
+            defer wg.Done()
+            sem &lt;- struct{}{}        // acquire
+            defer func() { &lt;-sem }() // release
+
+            fmt.Printf(&quot;  Task %d started\n&quot;, id)
+            time.Sleep(200 * time.Millisecond)
+            fmt.Printf(&quot;  Task %d done\n&quot;, id)
+        }(i)
+    }
+    wg.Wait()
+}
+
+func main() {
+    fmt.Println(&quot;=== Fan-Out / Fan-In ===&quot;)
+    in := generate(1, 2, 3, 4, 5, 6, 7, 8)
+    channels := fanOut(in, 3)
+    merged := fanIn(channels...)
+    for v := range merged {
+        fmt.Printf(&quot;Result: %d\n&quot;, v)
+    }
+
+    fmt.Println(&quot;\n=== Semaphore (max 3 concurrent) ===&quot;)
+    semaphoreDemo(10, 3)
+}
+
+func generate(nums ...int) &lt;-chan int {
+    out := make(chan int)
+    go func() {
+        for _, n := range nums {
+            out &lt;- n
+        }
+        close(out)
+    }()
+    return out
+}</code></pre>
+
+<p><strong>执行预览：</strong></p>
+
+<pre><code>=== Fan-Out / Fan-In ===
+  Worker 0: 1 → 1
+  Worker 1: 2 → 4
+  Worker 2: 3 → 9
+Result: 1
+Result: 4
+...
+
+=== Semaphore (max 3 concurrent) ===
+  Task 0 started
+  Task 1 started
+  Task 2 started
+  Task 0 done
+  Task 3 started
+  ...</code></pre>
+
+<h3>v3：errgroup + 爬虫实战</h3>
+
+<pre><code class="language-go">package main
+
+import (
+    &quot;context&quot;
+    &quot;fmt&quot;
+    &quot;net/http&quot;
+    &quot;sync&quot;
+    &quot;time&quot;
+
+    &quot;golang.org/x/sync/errgroup&quot;
+)
+
+// fetchURL fetches a URL and returns its status code.
+func fetchURL(ctx context.Context, url string) (int, error) {
+    req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+    if err != nil {
+        return 0, fmt.Errorf(&quot;creating request for %s: %w&quot;, url, err)
+    }
+    resp, err := http.DefaultClient.Do(req)
+    if err != nil {
+        return 0, fmt.Errorf(&quot;fetching %s: %w&quot;, url, err)
+    }
+    defer resp.Body.Close()
+    return resp.StatusCode, nil
+}
+
+// batchFetch fetches multiple URLs concurrently with errgroup.
+// If any fetch fails, all others are canceled via context.
+func batchFetch(urls []string) (map[string]int, error) {
+    g, ctx := errgroup.WithContext(context.Background())
+    mu := sync.Mutex{}
+    results := make(map[string]int)
+
+    for _, url := range urls {
+        url := url // capture loop variable
+        g.Go(func() error {
+            code, err := fetchURL(ctx, url)
+            if err != nil {
+                return err
+            }
+            mu.Lock()
+            results[url] = code
+            mu.Unlock()
+            return nil
+        })
+    }
+
+    if err := g.Wait(); err != nil {
+        return nil, fmt.Errorf(&quot;batch fetch failed: %w&quot;, err)
+    }
+    return results, nil
+}
+
+// workerPool processes tasks with a fixed number of workers.
+func workerPool(tasks []string, maxWorkers int, fn func(string) (string, error)) {
+    taskCh := make(chan string, len(tasks))
+    resultCh := make(chan string, len(tasks))
+
+    // Start workers
+    var wg sync.WaitGroup
+    for i := 0; i &lt; maxWorkers; i++ {
+        wg.Add(1)
+        go func(id int) {
+            defer wg.Done()
+            for task := range taskCh {
+                result, err := fn(task)
+                if err != nil {
+                    result = fmt.Sprintf(&quot;ERROR: %v&quot;, err)
+                }
+                resultCh &lt;- fmt.Sprintf(&quot;[W%d] %s → %s&quot;, id, task, result)
+            }
+        }(i)
+    }
+
+    // Feed tasks
+    for _, t := range tasks {
+        taskCh &lt;- t
+    }
+    close(taskCh)
+
+    // Wait and close results
+    go func() {
+        wg.Wait()
+        close(resultCh)
+    }()
+
+    // Collect results
+    for r := range resultCh {
+        fmt.Println(r)
+    }
+}
+
+func main() {
+    fmt.Println(&quot;=== errgroup Batch Fetch ===&quot;)
+    urls := []string{
+        &quot;https://httpbin.org/status/200&quot;,
+        &quot;https://httpbin.org/status/404&quot;,
+        &quot;https://httpbin.org/delay/1&quot;,
+    }
+    results, err := batchFetch(urls)
+    if err != nil {
+        fmt.Println(&quot;Error:&quot;, err)
+    } else {
+        for url, code := range results {
+            fmt.Printf(&quot;  %s → %d\n&quot;, url, code)
+        }
+    }
+
+    fmt.Println(&quot;\n=== Worker Pool ===&quot;)
+    tasks := []string{&quot;task-A&quot;, &quot;task-B&quot;, &quot;task-C&quot;, &quot;task-D&quot;, &quot;task-E&quot;}
+    process := func(t string) (string, error) {
+        time.Sleep(100 * time.Millisecond)
+        return t + &quot;-done&quot;, nil
+    }
+    workerPool(tasks, 3, process)
+}</code></pre>
+
+<p><strong>执行预览：</strong></p>
+
+<pre><code>=== errgroup Batch Fetch ===
+  https://httpbin.org/status/200 → 200
+  https://httpbin.org/status/404 → 404
+  https://httpbin.org/delay/1 → 200
+
+=== Worker Pool ===
+[W0] task-A → task-A-done
+[W1] task-B → task-B-done
+[W2] task-C → task-C-done
+...</code></pre>
+
+<hr>
+
+<h2>四、注意事项</h2>
+
+<table><thead><tr>
+<th>项目</th>
+<th>说明</th>
+</tr></thead><tbody>
+<tr>
+<td>channel 方向</td>
+<td>用 <code><-chan</code> 和 <code>chan<-</code> 标记方向，增强可读性</td>
+</tr>
+<tr>
+<td>关闭时机</td>
+<td>只有发送方关闭 channel，接收方永远不关</td>
+</tr>
+<tr>
+<td>goroutine 泄漏</td>
+<td>如果 consumer 不消费，producer goroutine 会永远阻塞</td>
+</tr>
+<tr>
+<td>errgroup 上下文</td>
+<td><code>WithContext</code> 返回的 ctx 会在任一 goroutine 返回错误时被取消</td>
+</tr>
+<tr>
+<td>Worker 数量</td>
+<td>Worker Pool 大小 = GOMAXPROCS × 某个系数（CPU 密集）或按 I/O 并发需求（I/O 密集）</td>
+</tr>
+<tr>
+<td>缓冲区大小</td>
+<td>适当缓冲 channel 可减少 goroutine 切换开销</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>五、避坑指南</h2>
+
+<table><thead><tr>
+<th>❌ 错误做法</th>
+<th>✅ 正确做法</th>
+</tr></thead><tbody>
+<tr>
+<td>在 Fan-Out 中复用同一个 channel 给多个消费者</td>
+<td>每个 worker 有自己的 channel，或用同一 channel 但多个消费者竞争读取</td>
+</tr>
+<tr>
+<td>忘记 <code>close(out)</code> 导致下游 <code>range</code> 死锁</td>
+<td>发送完毕立即 <code>close(out)</code></td>
+</tr>
+<tr>
+<td><code>g.Go</code> 里直接用循环变量 <code>url</code></td>
+<td><code>url := url</code> 捕获副本</td>
+</tr>
+<tr>
+<td>Semaphore 用 <code>WaitGroup</code> 加到 buffer 之外</td>
+<td><code>sem <- struct{}{}</code> 在 goroutine 内部，释放用 <code>defer</code></td>
+</tr>
+<tr>
+<td>Worker Pool 无超时保护</td>
+<td>加 <code>context.WithTimeout</code> 或 <code>time.After</code></td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>六、练习题</h2>
+
+<h3>🟢 入门：Pipeline 过滤器</h3>
+<p>构建 Pipeline：<code>generate → filter(偶数) → square → print</code>。</p>
+
+<h3>🟡 中级：Fan-In 多路合并</h3>
+<p>创建 3 个 channel 各发 5 个数，用 Fan-In 合并，输出所有 15 个数（顺序不重要）。</p>
+
+<h3>🔴 高级：并发爬虫 + 限速</h3>
+<p>用 Worker Pool + errgroup 实现：爬取 20 个 URL，最多 5 个并发，每个域名每秒最多 2 个请求（用 time.Ticker 限速）。</p>
+
+<hr>
+
+<h2>七、知识点总结（树状）</h2>
+
+<pre><code>并发模式
+├── Pipeline
+│   ├── 每个阶段 = goroutine + channel
+│   ├── 串联 compose
+│   └── 可取消 (context)
+├── Fan-Out / Fan-In
+│   ├── Fan-Out: 1 → N (并行分发)
+│   ├── Fan-In: N → 1 (合并结果)
+│   └── select 多路复用
+├── Worker Pool
+│   ├── task channel
+│   ├── result channel
+│   └── 固定 goroutine 数
+├── Semaphore
+│   ├── buffered channel
+│   ├── acquire/release
+│   └── 控制最大并发
+└── errgroup
+    ├── 并发执行
+    ├── 首个错误取消全部
+    └── WithContext</code></pre>
+
+<hr>
+
+<h2>八、举一反三</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>模式</th>
+<th>说明</th>
+</tr></thead><tbody>
+<tr>
+<td>日志处理流水线</td>
+<td>Pipeline</td>
+<td>读取 → 解析 → 过滤 → 聚合 → 输出</td>
+</tr>
+<tr>
+<td>图片处理</td>
+<td>Fan-Out/Fan-In</td>
+<td>缩略图、水印、格式转换并行</td>
+</tr>
+<tr>
+<td>API 批量请求</td>
+<td>Worker Pool</td>
+<td>控制并发，避免被限流</td>
+</tr>
+<tr>
+<td>文件下载</td>
+<td>Semaphore</td>
+<td>限制同时下载 N 个文件</td>
+</tr>
+<tr>
+<td>微服务聚合调用</td>
+<td>errgroup</td>
+<td>并行调多个服务，任一失败则返回</td>
+</tr>
+<tr>
+<td>数据导入</td>
+<td>Pipeline + Worker Pool</td>
+<td>读取 → 校验 → 批量写入</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>九、参考资料</h2>
+
+<ol>
+<li><a href="https://go.dev/blog/pipelines">Go Concurrency Patterns: Pipelines and cancellation</a></li>
+</ul>
+<ol>
+<li><a href="https://go.dev/blog/io2013-talk-concurrency">Advanced Go Concurrency</a></li>
+</ul>
+<ol>
+<li><a href="https://pkg.go.dev/golang.org/x/sync/errgroup">errgroup 包文档</a></li>
+</ul>
+<ol>
+<li>《Concurrency in Go》— Katherine Cox-Buday</li>
+
+<hr>
+
+<h2>十、代码演进</h2>
+
+<table><thead><tr>
+<th>版本</th>
+<th>特点</th>
+<th>适用场景</th>
+</tr></thead><tbody>
+<tr>
+<td>v1</td>
+<td>Pipeline 基础</td>
+<td>数据流处理</td>
+</tr>
+<tr>
+<td>v2</td>
+<td>Fan-Out/In + Semaphore</td>
+<td>CPU 密集并行</td>
+</tr>
+<tr>
+<td>v3</td>
+<td>errgroup + Worker Pool</td>
+<td>生产级爬虫/批量处理</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<p>_并发模式不是银弹，选对模式比写对代码更重要。_ ⚡</p>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

@@ -1,0 +1,851 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>013 - Gin RBAC 权限控制</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Golang/index.html">Golang</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Golang/05-Gin框架/index.html">Gin框架</a>
+</nav>
+<h1>013 - Gin RBAC 权限控制</h1>
+<div class="meta">
+<span>📂 Gin框架</span>
+<span>🏷️ Golang</span>
+</div>
+<article>
+
+
+<h1>013 - Gin RBAC 权限控制 ⭐⭐⭐⭐</h1>
+
+<h2>难度标注</h2>
+
+<table><thead><tr>
+<th>维度</th>
+<th>等级</th>
+<th>说明</th>
+</tr></thead><tbody>
+<tr>
+<td>理解难度</td>
+<td>⭐⭐⭐⭐</td>
+<td>RBAC 模型设计、角色继承需要仔细思考</td>
+</tr>
+<tr>
+<td>实现难度</td>
+<td>⭐⭐⭐</td>
+<td>中间件 + 缓存 + 数据库，环节较多</td>
+</tr>
+<tr>
+<td>生产就绪</td>
+<td>⭐⭐⭐⭐</td>
+<td>权限缓存一致性是难点</td>
+</tr>
+</tbody></table>
+
+<h2>概念讲解</h2>
+
+<h3>什么是 RBAC？</h3>
+
+<p>RBAC（Role-Based Access Control，基于角色的访问控制）是最广泛使用的权限模型。核心思想：<strong>用户 → 角色 → 权限</strong>，用户不直接关联权限，而是通过角色间接获得权限。</p>
+
+<h3>RBAC 模型层级</h3>
+
+<pre><code>RBAC0 (基础)
+  用户 → 角色 → 权限
+
+RBAC1 (角色继承)
+  角色可以继承其他角色的权限
+  admin 继承 editor 继承 viewer
+
+RBAC2 (约束)
+  互斥角色、基数约束
+  例如：不能同时拥有 &quot;出纳&quot; 和 &quot;审计&quot; 角色
+
+RBAC3 = RBAC1 + RBAC2</code></pre>
+
+<p>本文实现 <strong>RBAC1</strong>（含角色继承），适合大多数 Web 应用。</p>
+
+<h3>数据库设计</h3>
+
+<pre><code>┌──────┐     ┌──────────────┐     ┌──────────┐
+│ users │────&gt;│ user_roles   │&lt;────│  roles   │
+└──────┘     └──────────────┘     └──────────┘
+                      │                  │
+                      │           ┌──────────────┐
+                      │           │ role_perms   │
+                      │           └──────────────┘
+                      │                  │
+                      │           ┌──────────────┐
+                      └──────────&gt;│ permissions  │
+                                  └──────────────┘
+
+另：role_inheritance (parent_id → child_id)</code></pre>
+
+<h3>权限标识规范</h3>
+
+<p>推荐格式：<code>资源:操作</code></p>
+
+<pre><code>article:create   文章创建
+article:read     文章读取
+article:update   文章更新
+article:delete   文章删除
+user:manage      用户管理
+system:config    系统配置</code></pre>
+
+<h2>脑图</h2>
+
+<pre><code>RBAC 权限控制
+├── 模型设计
+│   ├── User (用户)
+│   ├── Role (角色)
+│   ├── Permission (权限)
+│   ├── UserRole (用户-角色关联)
+│   ├── RolePermission (角色-权限关联)
+│   └── RoleInheritance (角色继承)
+├── 数据库
+│   ├── 5 张表 + 关联表
+│   ├── 唯一约束防重复
+│   └── 索引优化查询
+├── 权限中间件
+│   ├── JWT 认证 → 提取用户
+│   ├── 查询用户角色
+│   ├── 收集所有权限 (含继承)
+│   ├── 匹配所需权限
+│   └── Pass / Abort
+├── 权限缓存
+│   ├── Redis 缓存用户权限
+│   ├── 角色变更时清除缓存
+│   └── TTL 自动过期
+├── 角色继承
+│   ├── 递归查询父角色
+│   ├── 权限合并
+│   └── 避免循环继承
+└── API 设计
+    ├── GET  /api/roles          角色列表
+    ├── POST /api/roles          创建角色
+    ├── POST /api/roles/:id/perms 绑定权限
+    └── GET  /api/users/:id/perms 查询权限</code></pre>
+
+<h2>完整 Go 代码</h2>
+
+<h3>项目结构</h3>
+
+<pre><code>gin-rbac-demo/
+├── main.go
+├── models/
+│   └── rbac.go
+├── middleware/
+│   └── rbac.go
+├── handlers/
+│   └── rbac.go
+├── services/
+│   └── rbac.go
+└── database/
+    └── database.go</code></pre>
+
+<h3>models/rbac.go</h3>
+
+<pre><code class="language-go">package models
+
+import &quot;time&quot;
+
+// User represents a system user
+type User struct {
+    ID        uint      `gorm:&quot;primaryKey&quot; json:&quot;id&quot;`
+    Username  string    `gorm:&quot;uniqueIndex;size:50&quot; json:&quot;username&quot;`
+    Password  string    `gorm:&quot;size:255&quot; json:&quot;-&quot;`
+    Status    int       `gorm:&quot;default:1&quot; json:&quot;status&quot;`
+    CreatedAt time.Time `json:&quot;created_at&quot;`
+    Roles     []Role    `gorm:&quot;many2many:user_roles&quot; json:&quot;roles&quot;`
+}
+
+// Role represents a user role
+type Role struct {
+    ID          uint   `gorm:&quot;primaryKey&quot; json:&quot;id&quot;`
+    Name        string `gorm:&quot;uniqueIndex;size:50&quot; json:&quot;name&quot;`
+    Description string `gorm:&quot;size:200&quot; json:&quot;description&quot;`
+    ParentID    *uint  `gorm:&quot;index&quot; json:&quot;parent_id&quot;` // For role inheritance
+    Permissions []Permission `gorm:&quot;many2many:role_permissions&quot; json:&quot;permissions&quot;`
+    CreatedAt   time.Time    `json:&quot;created_at&quot;`
+}
+
+// Permission represents an access permission
+type Permission struct {
+    ID       uint   `gorm:&quot;primaryKey&quot; json:&quot;id&quot;`
+    Resource string `gorm:&quot;size:50;not null&quot; json:&quot;resource&quot;` // e.g., &quot;article&quot;
+    Action   string `gorm:&quot;size:50;not null&quot; json:&quot;action&quot;`   // e.g., &quot;create&quot;
+    Desc     string `gorm:&quot;size:200&quot; json:&quot;desc&quot;`
+}
+
+// Key returns the permission identifier &quot;resource:action&quot;
+func (p Permission) Key() string {
+    return p.Resource + &quot;:&quot; + p.Action
+}
+
+// UserRole is the join table for users and roles
+type UserRole struct {
+    UserID uint `gorm:&quot;primaryKey&quot;`
+    RoleID uint `gorm:&quot;primaryKey&quot;`
+}
+
+// RolePermission is the join table for roles and permissions
+type RolePermission struct {
+    RoleID       uint `gorm:&quot;primaryKey&quot;`
+    PermissionID uint `gorm:&quot;primaryKey&quot;`
+}</code></pre>
+
+<h3>services/rbac.go</h3>
+
+<pre><code class="language-go">package services
+
+import (
+    &quot;fmt&quot;
+    &quot;sync&quot;
+
+    &quot;gin-rbac-demo/database&quot;
+    &quot;gin-rbac-demo/models&quot;
+
+    &quot;gorm.io/gorm&quot;
+)
+
+// RBACService handles role and permission operations
+type RBACService struct {
+    cache sync.Map // Simple in-memory cache; use Redis in production
+}
+
+var RBAC = &amp;RBACService{}
+
+// GetUserPermissions retrieves all permissions for a user (including inherited)
+func (s *RBACService) GetUserPermissions(userID uint) (map[string]bool, error) {
+    // Check cache first
+    cacheKey := fmt.Sprintf(&quot;perms:%d&quot;, userID)
+    if cached, ok := s.cache.Load(cacheKey); ok {
+        return cached.(map[string]bool), nil
+    }
+
+    // Find user&#x27;s roles
+    var user models.User
+    if err := database.DB.Preload(&quot;Roles&quot;).First(&amp;user, userID).Error; err != nil {
+        return nil, err
+    }
+
+    perms := make(map[string]bool)
+    for _, role := range user.Roles {
+        s.collectRolePermissions(role.ID, perms)
+    }
+
+    // Cache result
+    s.cache.Store(cacheKey, perms)
+    return perms, nil
+}
+
+// collectRolePermissions recursively collects permissions including inherited roles
+func (s *RBACService) collectRolePermissions(roleID uint, perms map[string]bool) {
+    var role models.Role
+    if err := database.DB.Preload(&quot;Permissions&quot;).First(&amp;role, roleID).Error; err != nil {
+        return
+    }
+
+    // Add this role&#x27;s permissions
+    for _, p := range role.Permissions {
+        perms[p.Key()] = true
+    }
+
+    // Recursively collect from parent role
+    if role.ParentID != nil {
+        s.collectRolePermissions(*role.ParentID, perms)
+    }
+}
+
+// HasPermission checks if a user has a specific permission
+func (s *RBACService) HasPermission(userID uint, resource, action string) bool {
+    perms, err := s.GetUserPermissions(userID)
+    if err != nil {
+        return false
+    }
+    key := resource + &quot;:&quot; + action
+    return perms[key]
+}
+
+// AssignRole assigns a role to a user
+func (s *RBACService) AssignRole(userID, roleID uint) error {
+    return database.DB.Exec(
+        &quot;INSERT INTO user_roles (user_id, role_id) VALUES (?, ?) ON CONFLICT DO NOTHING&quot;,
+        userID, roleID,
+    ).Error
+}
+
+// AssignPermission assigns a permission to a role
+func (s *RBACService) AssignPermission(roleID, permID uint) error {
+    return database.DB.Exec(
+        &quot;INSERT INTO role_permissions (role_id, permission_id) VALUES (?, ?) ON CONFLICT DO NOTHING&quot;,
+        roleID, permID,
+    ).Error
+}
+
+// ClearUserCache removes cached permissions for a user
+func (s *RBACService) ClearUserCache(userID uint) {
+    s.cache.Delete(fmt.Sprintf(&quot;perms:%d&quot;, userID))
+}
+
+// InitDefaultData seeds default roles and permissions
+func (s *RBACService) InitDefaultData(db *gorm.DB) {
+    // Create permissions
+    perms := []models.Permission{
+        {Resource: &quot;article&quot;, Action: &quot;create&quot;, Desc: &quot;Create articles&quot;},
+        {Resource: &quot;article&quot;, Action: &quot;read&quot;, Desc: &quot;Read articles&quot;},
+        {Resource: &quot;article&quot;, Action: &quot;update&quot;, Desc: &quot;Update articles&quot;},
+        {Resource: &quot;article&quot;, Action: &quot;delete&quot;, Desc: &quot;Delete articles&quot;},
+        {Resource: &quot;user&quot;, Action: &quot;manage&quot;, Desc: &quot;Manage users&quot;},
+        {Resource: &quot;system&quot;, Action: &quot;config&quot;, Desc: &quot;System configuration&quot;},
+    }
+    for i := range perms {
+        db.FirstOrCreate(&amp;perms[i], models.Permission{Resource: perms[i].Resource, Action: perms[i].Action})
+    }
+
+    // Create roles with inheritance: viewer -&gt; editor -&gt; admin
+    viewer := models.Role{Name: &quot;viewer&quot;, Description: &quot;Read-only access&quot;}
+    db.FirstOrCreate(&amp;viewer, models.Role{Name: &quot;viewer&quot;})
+
+    editor := models.Role{Name: &quot;editor&quot;, Description: &quot;Content editor&quot;, ParentID: &amp;viewer.ID}
+    db.FirstOrCreate(&amp;editor, models.Role{Name: &quot;editor&quot;})
+
+    admin := models.Role{Name: &quot;admin&quot;, Description: &quot;Full access&quot;, ParentID: &amp;editor.ID}
+    db.FirstOrCreate(&amp;admin, models.Role{Name: &quot;admin&quot;})
+
+    // Assign permissions
+    // Viewer: article:read
+    s.AssignPermission(viewer.ID, perms[1].ID)
+    // Editor: article:create, article:update (inherits article:read from viewer)
+    s.AssignPermission(editor.ID, perms[0].ID)
+    s.AssignPermission(editor.ID, perms[2].ID)
+    // Admin: all remaining (inherits editor&#x27;s perms)
+    s.AssignPermission(admin.ID, perms[3].ID)
+    s.AssignPermission(admin.ID, perms[4].ID)
+    s.AssignPermission(admin.ID, perms[5].ID)
+}</code></pre>
+
+<h3>middleware/rbac.go</h3>
+
+<pre><code class="language-go">package middleware
+
+import (
+    &quot;net/http&quot;
+    &quot;strings&quot;
+
+    &quot;gin-rbac-demo/services&quot;
+    &quot;gin-rbac-demo/utils&quot;
+
+    &quot;github.com/gin-gonic/gin&quot;
+)
+
+// AuthRequired validates JWT token
+func AuthRequired() gin.HandlerFunc {
+    return func(c *gin.Context) {
+        authHeader := c.GetHeader(&quot;Authorization&quot;)
+        if authHeader == &quot;&quot; {
+            c.JSON(http.StatusUnauthorized, gin.H{&quot;error&quot;: &quot;Authorization required&quot;})
+            c.Abort()
+            return
+        }
+        parts := strings.SplitN(authHeader, &quot; &quot;, 2)
+        if len(parts) != 2 || parts[0] != &quot;Bearer&quot; {
+            c.JSON(http.StatusUnauthorized, gin.H{&quot;error&quot;: &quot;Invalid authorization format&quot;})
+            c.Abort()
+            return
+        }
+        claims, err := utils.ParseToken(parts[1])
+        if err != nil {
+            c.JSON(http.StatusUnauthorized, gin.H{&quot;error&quot;: &quot;Invalid token&quot;})
+            c.Abort()
+            return
+        }
+        c.Set(&quot;userID&quot;, claims.UserID)
+        c.Set(&quot;role&quot;, claims.Role)
+        c.Next()
+    }
+}
+
+// RequirePermission creates middleware that checks for a specific permission
+func RequirePermission(resource, action string) gin.HandlerFunc {
+    return func(c *gin.Context) {
+        userID := c.GetUint(&quot;userID&quot;)
+        if userID == 0 {
+            c.JSON(http.StatusUnauthorized, gin.H{&quot;error&quot;: &quot;Not authenticated&quot;})
+            c.Abort()
+            return
+        }
+
+        if !services.RBAC.HasPermission(userID, resource, action) {
+            c.JSON(http.StatusForbidden, gin.H{
+                &quot;error&quot;: fmt.Sprintf(&quot;Permission denied: %s:%s&quot;, resource, action),
+            })
+            c.Abort()
+            return
+        }
+        c.Next()
+    }
+}</code></pre>
+
+<h3>handlers/rbac.go</h3>
+
+<pre><code class="language-go">package handlers
+
+import (
+    &quot;net/http&quot;
+
+    &quot;gin-rbac-demo/database&quot;
+    &quot;gin-rbac-demo/models&quot;
+    &quot;gin-rbac-demo/services&quot;
+
+    &quot;github.com/gin-gonic/gin&quot;
+)
+
+// ListRoles returns all roles
+// GET /api/roles
+func ListRoles(c *gin.Context) {
+    var roles []models.Role
+    database.DB.Preload(&quot;Permissions&quot;).Find(&amp;roles)
+    c.JSON(http.StatusOK, gin.H{&quot;data&quot;: roles})
+}
+
+// CreateRole creates a new role
+// POST /api/roles
+func CreateRole(c *gin.Context) {
+    var req struct {
+        Name        string `json:&quot;name&quot; binding:&quot;required&quot;`
+        Description string `json:&quot;description&quot;`
+        ParentID    *uint  `json:&quot;parent_id&quot;`
+    }
+    if err := c.ShouldBindJSON(&amp;req); err != nil {
+        c.JSON(http.StatusBadRequest, gin.H{&quot;error&quot;: err.Error()})
+        return
+    }
+
+    role := models.Role{
+        Name:        req.Name,
+        Description: req.Description,
+        ParentID:    req.ParentID,
+    }
+    if err := database.DB.Create(&amp;role).Error; err != nil {
+        c.JSON(http.StatusInternalServerError, gin.H{&quot;error&quot;: &quot;Failed to create role&quot;})
+        return
+    }
+    c.JSON(http.StatusCreated, gin.H{&quot;data&quot;: role})
+}
+
+// ListPermissions returns all permissions
+// GET /api/permissions
+func ListPermissions(c *gin.Context) {
+    var perms []models.Permission
+    database.DB.Find(&amp;perms)
+    c.JSON(http.StatusOK, gin.H{&quot;data&quot;: perms})
+}
+
+// AssignRoleToUser assigns a role to a user
+// POST /api/users/:id/roles
+func AssignRoleToUser(c *gin.Context) {
+    var req struct {
+        RoleID uint `json:&quot;role_id&quot; binding:&quot;required&quot;`
+    }
+    if err := c.ShouldBindJSON(&amp;req); err != nil {
+        c.JSON(http.StatusBadRequest, gin.H{&quot;error&quot;: err.Error()})
+        return
+    }
+
+    userID := c.Param(&quot;id&quot;)
+    var user models.User
+    if err := database.DB.First(&amp;user, userID).Error; err != nil {
+        c.JSON(http.StatusNotFound, gin.H{&quot;error&quot;: &quot;User not found&quot;})
+        return
+    }
+
+    if err := services.RBAC.AssignRole(user.ID, req.RoleID); err != nil {
+        c.JSON(http.StatusInternalServerError, gin.H{&quot;error&quot;: &quot;Failed to assign role&quot;})
+        return
+    }
+
+    // Clear permission cache for this user
+    services.RBAC.ClearUserCache(user.ID)
+    c.JSON(http.StatusOK, gin.H{&quot;message&quot;: &quot;Role assigned&quot;})
+}
+
+// GetUserPermissions returns all permissions for a user
+// GET /api/users/:id/permissions
+func GetUserPermissions(c *gin.Context) {
+    var user models.User
+    if err := database.DB.First(&amp;user, c.Param(&quot;id&quot;)).Error; err != nil {
+        c.JSON(http.StatusNotFound, gin.H{&quot;error&quot;: &quot;User not found&quot;})
+        return
+    }
+
+    perms, err := services.RBAC.GetUserPermissions(user.ID)
+    if err != nil {
+        c.JSON(http.StatusInternalServerError, gin.H{&quot;error&quot;: &quot;Failed to get permissions&quot;})
+        return
+    }
+
+    // Convert map keys to slice
+    var permList []string
+    for k := range perms {
+        permList = append(permList, k)
+    }
+    c.JSON(http.StatusOK, gin.H{&quot;data&quot;: permList})
+}
+
+// CreateArticle is a protected endpoint requiring article:create
+// POST /api/articles
+func CreateArticle(c *gin.Context) {
+    c.JSON(http.StatusCreated, gin.H{&quot;message&quot;: &quot;Article created&quot;})
+}
+
+// DeleteArticle requires article:delete permission
+// DELETE /api/articles/:id
+func DeleteArticle(c *gin.Context) {
+    c.JSON(http.StatusOK, gin.H{&quot;message&quot;: &quot;Article deleted&quot;})
+}</code></pre>
+
+<h3>main.go</h3>
+
+<pre><code class="language-go">package main
+
+import (
+    &quot;gin-rbac-demo/database&quot;
+    &quot;gin-rbac-demo/handlers&quot;
+    &quot;gin-rbac-demo/middleware&quot;
+    &quot;gin-rbac-demo/services&quot;
+
+    &quot;github.com/gin-gonic/gin&quot;
+    _ &quot;github.com/mattn/go-sqlite3&quot;
+)
+
+func main() {
+    db := database.Init(&quot;rbac.db&quot;)
+    services.RBAC.InitDefaultData(db)
+
+    r := gin.Default()
+
+    // Protected routes with RBAC
+    api := r.Group(&quot;/api&quot;)
+    api.Use(middleware.AuthRequired())
+    {
+        // Role management (admin only)
+        api.GET(&quot;/roles&quot;, middleware.RequirePermission(&quot;system&quot;, &quot;config&quot;), handlers.ListRoles)
+        api.POST(&quot;/roles&quot;, middleware.RequirePermission(&quot;system&quot;, &quot;config&quot;), handlers.CreateRole)
+        api.GET(&quot;/permissions&quot;, middleware.RequirePermission(&quot;system&quot;, &quot;config&quot;), handlers.ListPermissions)
+
+        // User role assignment
+        api.POST(&quot;/users/:id/roles&quot;, middleware.RequirePermission(&quot;user&quot;, &quot;manage&quot;), handlers.AssignRoleToUser)
+        api.GET(&quot;/users/:id/permissions&quot;, middleware.RequirePermission(&quot;user&quot;, &quot;manage&quot;), handlers.GetUserPermissions)
+
+        // Article CRUD with permission checks
+        articles := api.Group(&quot;/articles&quot;)
+        {
+            articles.POST(&quot;&quot;, middleware.RequirePermission(&quot;article&quot;, &quot;create&quot;), handlers.CreateArticle)
+            articles.DELETE(&quot;/:id&quot;, middleware.RequirePermission(&quot;article&quot;, &quot;delete&quot;), handlers.DeleteArticle)
+        }
+    }
+
+    r.Run(&quot;:8080&quot;)
+}</code></pre>
+
+<h2>执行预览</h2>
+
+<pre><code class="language-bash"># 查看所有角色
+curl http://localhost:8080/api/roles -H &quot;Authorization: Bearer &lt;admin-token&gt;&quot;
+# {&quot;data&quot;:[{&quot;id&quot;:1,&quot;name&quot;:&quot;viewer&quot;,&quot;description&quot;:&quot;Read-only access&quot;,&quot;permissions&quot;:[...]}, ...]}
+
+# 创建新角色
+curl -X POST http://localhost:8080/api/roles \
+  -H &quot;Authorization: Bearer &lt;admin-token&gt;&quot; \
+  -d &#x27;{&quot;name&quot;:&quot;moderator&quot;,&quot;description&quot;:&quot;Content moderator&quot;,&quot;parent_id&quot;:2}&#x27;
+# {&quot;data&quot;:{&quot;id&quot;:4,&quot;name&quot;:&quot;moderator&quot;,...}}
+
+# 给用户分配角色
+curl -X POST http://localhost:8080/api/users/1/roles \
+  -H &quot;Authorization: Bearer &lt;admin-token&gt;&quot; \
+  -d &#x27;{&quot;role_id&quot;:3}&#x27;
+# {&quot;message&quot;:&quot;Role assigned&quot;}
+
+# 查看用户权限（含继承）
+curl http://localhost:8080/api/users/1/permissions \
+  -H &quot;Authorization: Bearer &lt;admin-token&gt;&quot;
+# {&quot;data&quot;:[&quot;article:create&quot;,&quot;article:read&quot;,&quot;article:update&quot;,&quot;article:delete&quot;,&quot;user:manage&quot;,&quot;system:config&quot;]}
+
+# 权限不足（viewer 角色无法创建文章）
+curl -X POST http://localhost:8080/api/articles \
+  -H &quot;Authorization: Bearer &lt;viewer-token&gt;&quot;
+# {&quot;error&quot;:&quot;Permission denied: article:create&quot;}</code></pre>
+
+<h2>注意事项</h2>
+
+<table><thead><tr>
+<th>事项</th>
+<th>说明</th>
+<th>严重度</th>
+</tr></thead><tbody>
+<tr>
+<td>权限缓存一致性</td>
+<td>角色权限变更后必须清缓存</td>
+<td>🔴 严重</td>
+</tr>
+<tr>
+<td>循环继承检测</td>
+<td>parent_id 链不能形成环</td>
+<td>🔴 严重</td>
+</tr>
+<tr>
+<td>超级管理员</td>
+<td>建议有绕过权限检查的超级角色</td>
+<td>🟡 重要</td>
+</tr>
+<tr>
+<td>权限粒度</td>
+<td>太细维护成本高，太粗不够灵活</td>
+<td>🟡 重要</td>
+</tr>
+<tr>
+<td>并发安全</td>
+<td>sync.Map 适合读多写少，高并发用 Redis</td>
+<td>🟡 重要</td>
+</tr>
+<tr>
+<td>删除级联</td>
+<td>删除角色需清理关联表</td>
+<td>🟢 建议</td>
+</tr>
+</tbody></table>
+
+<h2>避坑指南</h2>
+
+<h3>❌ 用户直接关联权限</h3>
+<pre><code class="language-go">// BAD: Direct user-permission mapping, hard to manage
+type User struct {
+    Permissions []Permission `gorm:&quot;many2many:user_permissions&quot;`
+}</code></pre>
+<p>✅ <strong>正确做法：</strong> 通过角色间接关联，用户 → 角色 → 权限。</p>
+
+<h3>❌ 不处理角色继承</h3>
+<pre><code class="language-go">// BAD: Only check direct role&#x27;s permissions
+func getPerms(roleID uint) []Permission {
+    db.Where(&quot;role_id = ?&quot;, roleID).Find(&amp;perms)
+    // Missing parent role&#x27;s permissions!
+}</code></pre>
+<p>✅ <strong>正确做法：</strong> 递归收集父角色权限。</p>
+
+<h3>❌ 缓存永不过期</h3>
+<pre><code class="language-go">// BAD: Cache forever, stale after role change
+var permCache = map[uint][]string{}</code></pre>
+<p>✅ <strong>正确做法：</strong> 设置 TTL + 主动失效（角色变更时清除）。</p>
+
+<h3>❌ 不检查循环继承</h3>
+<pre><code class="language-go">// BAD: parent_id can create a cycle
+// Role A parent = B, Role B parent = A → infinite loop</code></pre>
+<p>✅ <strong>正确做法：</strong> 设置角色时验证 parent 链不形成环。</p>
+
+<h2>练习题</h2>
+
+<h3>🟢 基础题</h3>
+
+<ol>
+<li><strong>基础 RBAC：</strong> 实现 User → Role → Permission 三表模型，支持简单的权限检查中间件。</li>
+
+<ol>
+<li><strong>权限查询 API：</strong> 实现 <code>GET /api/me/permissions</code> 返回当前用户所有权限列表。</li>
+
+<h3>🟡 进阶题</h3>
+
+<ol>
+<li><strong>权限缓存 + Redis：</strong> 用 Redis 替换 sync.Map 缓存，实现 TTL 过期和主动失效。</li>
+
+<ol>
+<li><strong>角色继承可视化：</strong> 实现 API 返回角色继承树，支持可视化展示。</li>
+
+<h3>🔴 挑战题</h3>
+
+<ol>
+<li><strong>ABAC 扩展：</strong> 在 RBAC 基础上加入属性控制，例如"只能编辑自己创建的文章"（基于 owner 属性判断）。</li>
+
+<h2>知识点总结</h2>
+
+<pre><code>RBAC 权限控制
+├── 模型设计
+│   ├── User ↔ Role (多对多)
+│   ├── Role ↔ Permission (多对多)
+│   ├── Role Inheritance (parent_id)
+│   └── 权限标识: resource:action
+├── 数据库
+│   ├── users, roles, permissions
+│   ├── user_roles, role_permissions
+│   └── 唯一约束 + 索引
+├── 中间件
+│   ├── AuthRequired → JWT 解析
+│   ├── RequirePermission(resource, action)
+│   └── 查缓存 → 查DB → 递归继承 → Pass/Abort
+├── 权限缓存
+│   ├── sync.Map / Redis
+│   ├── 缓存 key: perms:{userID}
+│   ├── TTL 自动过期
+│   └── 主动失效: 角色变更时
+├── 角色继承
+│   ├── parent_id 自引用
+│   ├── 递归收集权限
+│   └── 循环检测
+└── 最佳实践
+    ├── 超级管理员绕过
+    ├── 权限粒度适中
+    └── 变更日志审计</code></pre>
+
+<h2>举一反三</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>方案</th>
+<th>关键点</th>
+</tr></thead><tbody>
+<tr>
+<td>SaaS 多租户</td>
+<td>每个租户独立角色体系</td>
+<td>tenant_id 隔离</td>
+</tr>
+<tr>
+<td>动态菜单</td>
+<td>前端根据权限渲染菜单</td>
+<td>permission → menu mapping</td>
+</tr>
+<tr>
+<td>数据权限</td>
+<td>同角色不同数据范围</td>
+<td>organization scope</td>
+</tr>
+<tr>
+<td>临时权限</td>
+<td>限时授权，过期自动回收</td>
+<td>TTL + 定时清理</td>
+</tr>
+<tr>
+<td>审计日志</td>
+<td>记录每次权限变更</td>
+<td>谁 → 什么时候 → 改了什么</td>
+</tr>
+</tbody></table>
+
+<h2>参考资料</h2>
+
+<ul>
+<li><a href="https://csrc.nist.gov/projects/role-based-access-control">NIST RBAC Model</a></li>
+<li><a href="https://gorm.io/docs/many_to_many.html">GORM Many2Many 文档</a></li>
+<li><a href="https://pkg.go.dev/sync#Map">Go sync.Map</a></li>
+<li><a href="https://www.okta.com/identity-101/role-based-access-control-vs-attribute-based-access-control/">RBAC vs ABAC 对比</a></li>
+<li><a href="https://github.com/casbin/casbin">Casbin - Go 权限库</a></li>
+
+<h2>代码演进</h2>
+
+<h3>v1 - 硬编码角色判断</h3>
+
+<pre><code class="language-go">// v1: Hardcoded role check in handlers
+func CreateArticle(c *gin.Context) {
+    role := c.GetString(&quot;role&quot;)
+    if role != &quot;admin&quot; &amp;&amp; role != &quot;editor&quot; {
+        c.JSON(403, gin.H{&quot;error&quot;: &quot;forbidden&quot;})
+        return
+    }
+    // ... create article
+}</code></pre>
+
+<h3>v2 - 数据库驱动的 RBAC</h3>
+
+<pre><code class="language-go">// v2: Database-driven roles and permissions
+func RequirePermission(resource, action string) gin.HandlerFunc {
+    return func(c *gin.Context) {
+        userID := c.GetUint(&quot;userID&quot;)
+        perms := getPermissionsFromDB(userID) // Query DB
+        if !perms[resource+&quot;:&quot;+action] {
+            c.AbortWithStatusJSON(403, gin.H{&quot;error&quot;: &quot;Permission denied&quot;})
+            return
+        }
+        c.Next()
+    }
+}</code></pre>
+
+<h3>v3 - 缓存 + 继承 + 超级管理员</h3>
+
+<pre><code class="language-go">// v3: Full production RBAC with cache, inheritance, superadmin
+func (s *RBACService) RequirePermission(resource, action string) gin.HandlerFunc {
+    return func(c *gin.Context) {
+        userID := c.GetUint(&quot;userID&quot;)
+        
+        // Superadmin bypass
+        if s.isSuperAdmin(userID) {
+            c.Next(); return
+        }
+        
+        // Check cache → DB with inheritance
+        perms, _ := s.GetUserPermissions(userID)
+        if !perms[resource+&quot;:&quot;+action] {
+            c.AbortWithStatusJSON(403, gin.H{&quot;error&quot;: &quot;Permission denied&quot;})
+            return
+        }
+        c.Next()
+    }
+}</code></pre>
+
+<p><strong>演进总结：</strong> v1 硬编码快速起步 → v2 数据库驱动灵活管理 → v3 生产级（缓存、继承、超级管理员）。</p>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

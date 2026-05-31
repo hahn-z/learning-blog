@@ -1,0 +1,655 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>003 - Swoole实战教程003：TCP服务器</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Swoole/index.html">Swoole</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Swoole/01-从入门到精通/index.html">Swoole从入门到精通</a>
+</nav>
+<h1>003 - Swoole实战教程003：TCP服务器</h1>
+<div class="meta">
+<span>📂 Swoole从入门到精通</span>
+<span>🏷️ Swoole</span>
+</div>
+<article>
+
+
+<h1>Swoole实战教程003：TCP服务器</h1>
+
+<blockquote><p><strong>难度标注：</strong> 🟡 中级 | 预计学习时间：50分钟</p></blockquote>
+
+<h2>一、概念讲解</h2>
+
+<h3>TCP协议基础</h3>
+
+<p>TCP是面向连接的、可靠的、基于字节流的传输层协议。在Swoole中开发TCP服务器，需要理解几个关键问题：</p>
+
+<p><strong>1. 粘包问题</strong></p>
+
+<p>TCP是字节流协议，不保证消息边界。发送方连续发送的两条消息可能被接收方一次性读出：</p>
+
+<pre><code>发送：[Hello][World]
+接收：[HelloWorld]  ← 粘包！</code></pre>
+
+<p><strong>解决方案：</strong></p>
+<ul>
+<li>固定长度包（Fixed Length）</li>
+<li>分隔符（Delimiter）</li>
+<li>长度头（Length Header）← 最常用</li>
+
+<p><strong>2. 长度头协议设计</strong></p>
+
+<pre><code>+--------+--------+----------------+
+| Header | Length |      Body      |
+| 4 bytes| 4 bytes|  N bytes       |
++--------+--------+----------------+
+
+Header:  固定的魔数 (0xSW01)
+Length:  Body的字节长度 (网络字节序)
+Body:    实际数据 (JSON/二进制)</code></pre>
+
+<p><strong>3. 心跳机制</strong></p>
+
+<p>防止僵尸连接，定期检测客户端是否存活：</p>
+<ul>
+<li>服务端心跳：定时检查，超时关闭</li>
+<li>客户端心跳：定时发送心跳包</li>
+<li>双向心跳：两端都发</li>
+
+<h3>Swoole内置协议处理</h3>
+
+<p>Swoole提供了<code>open_length_check</code>、<code>open_eof_check</code>等配置项，内置解决粘包：</p>
+
+<table><thead><tr>
+<th>配置项</th>
+<th>说明</th>
+<th>适用场景</th>
+</tr></thead><tbody>
+<tr>
+<td>open_length_check</td>
+<td>长度头协议</td>
+<td>自定义二进制协议</td>
+</tr>
+<tr>
+<td>open_eof_check</td>
+<td>EOF分隔符</td>
+<td>简单文本协议</td>
+</tr>
+<tr>
+<td>package_length_type</td>
+<td>长度字段类型</td>
+<td>配合open_length_check</td>
+</tr>
+<tr>
+<td>package_body_offset</td>
+<td>Body偏移量</td>
+<td>有Header的情况</td>
+</tr>
+</tbody></table>
+
+<h2>二、脑图</h2>
+
+<pre><code>TCP服务器
+├── 粘包处理
+│   ├── 固定长度
+│   ├── 分隔符 (EOF)
+│   └── 长度头 (Length Header) ★
+├── 协议设计
+│   ├── Header + Length + Body
+│   ├── JSON编码
+│   └── 二进制编码
+├── 心跳机制
+│   ├── 服务端心跳
+│   ├── 客户端心跳
+│   └── 配置项
+├── 连接管理
+│   ├── 连接认证
+│   ├── 连接池
+│   └── 广播/组播
+└── 高级特性
+    ├── SSL/TLS加密
+    ├── 多端口监听
+    └── 优雅重启</code></pre>
+
+<h2>三、完整代码</h2>
+
+<h3>生产级TCP服务器（长度头协议）</h3>
+
+<pre><code class="language-php">&lt;?php
+// tcp_server.php - Production-grade TCP server with length-header protocol
+
+// Protocol constants
+define(&#x27;PACK_HEADER&#x27;, pack(&#x27;N&#x27;, 0x53570100)); // Magic bytes &quot;SW\x01\x00&quot;
+define(&#x27;HEADER_SIZE&#x27;, 4 + 4); // magic(4) + length(4) = 8 bytes
+
+class TcpServer
+{
+    private Swoole\Server $server;
+    private Swoole\Table $connections;
+
+    public function __construct()
+    {
+        $this-&gt;connections = new Swoole\Table(1024);
+        $this-&gt;connections-&gt;column(&#x27;fd&#x27;, Swoole\Table::TYPE_INT);
+        $this-&gt;connections-&gt;column(&#x27;connect_time&#x27;, Swoole\Table::TYPE_INT);
+        $this-&gt;connections-&gt;column(&#x27;auth&#x27;, Swoole\Table::TYPE_INT);
+        $this-&gt;connections-&gt;column(&#x27;name&#x27;, Swoole\Table::TYPE_STRING, 32);
+        $this-&gt;connections-&gt;create();
+
+        $this-&gt;server = new Swoole\Server(&#x27;0.0.0.0&#x27;, 9501, SWOOLE_PROCESS);
+        $this-&gt;configure();
+        $this-&gt;registerEvents();
+    }
+
+    private function configure(): void
+    {
+        // Length-check protocol for automatic packet framing
+        $this-&gt;server-&gt;set([
+            &#x27;worker_num&#x27; =&gt; 4,
+            &#x27;open_length_check&#x27;     =&gt; true,
+            &#x27;package_max_length&#x27;    =&gt; 2 * 1024 * 1024, // 2MB max
+            &#x27;package_length_type&#x27;   =&gt; &#x27;N&#x27;,              // 4-byte big-endian
+            &#x27;package_length_offset&#x27; =&gt; 4,                // Length field at offset 4
+            &#x27;package_body_offset&#x27;   =&gt; 8,                // Body starts at offset 8
+            &#x27;heartbeat_check_interval&#x27; =&gt; 30,
+            &#x27;heartbeat_idle_time&#x27;     =&gt; 60,
+            &#x27;log_file&#x27; =&gt; &#x27;/tmp/tcp_server.log&#x27;,
+        ]);
+    }
+
+    private function registerEvents(): void
+    {
+        $this-&gt;server-&gt;on(&#x27;workerStart&#x27;, [$this, &#x27;onWorkerStart&#x27;]);
+        $this-&gt;server-&gt;on(&#x27;connect&#x27;, [$this, &#x27;onConnect&#x27;]);
+        $this-&gt;server-&gt;on(&#x27;receive&#x27;, [$this, &#x27;onReceive&#x27;]);
+        $this-&gt;server-&gt;on(&#x27;close&#x27;, [$this, &#x27;onClose&#x27;]);
+    }
+
+    public function onWorkerStart(Swoole\Server $server, int $workerId): void
+    {
+        // Initialize per-worker resources
+        echo &quot;[Worker#{$workerId}] Ready\n&quot;;
+    }
+
+    public function onConnect(Swoole\Server $server, int $fd): void
+    {
+        $this-&gt;connections-&gt;set((string)$fd, [
+            &#x27;fd&#x27; =&gt; $fd,
+            &#x27;connect_time&#x27; =&gt; time(),
+            &#x27;auth&#x27; =&gt; 0,
+            &#x27;name&#x27; =&gt; &#x27;&#x27;,
+        ]);
+        echo &quot;[Connect] fd={$fd}, total=&quot; . $this-&gt;connections-&gt;count() . &quot;\n&quot;;
+
+        // Request authentication
+        $this-&gt;send($fd, [&#x27;type&#x27; =&gt; &#x27;auth_required&#x27;, &#x27;msg&#x27; =&gt; &#x27;Please authenticate&#x27;]);
+    }
+
+    public function onReceive(Swoole\Server $server, int $fd, int $rid, string $data): void
+    {
+        // Swoole has already parsed the packet (open_length_check)
+        // $data contains only the body (after package_body_offset)
+        $payload = json_decode($data, true);
+
+        if (!$payload || !isset($payload[&#x27;type&#x27;])) {
+            $this-&gt;send($fd, [&#x27;type&#x27; =&gt; &#x27;error&#x27;, &#x27;msg&#x27; =&gt; &#x27;Invalid payload&#x27;]);
+            return;
+        }
+
+        // Check authentication for non-auth commands
+        $connInfo = $this-&gt;connections-&gt;get((string)$fd);
+        if (!$connInfo[&#x27;auth&#x27;] &amp;&amp; $payload[&#x27;type&#x27;] !== &#x27;auth&#x27;) {
+            $this-&gt;send($fd, [&#x27;type&#x27; =&gt; &#x27;error&#x27;, &#x27;msg&#x27; =&gt; &#x27;Not authenticated&#x27;]);
+            return;
+        }
+
+        // Route command
+        switch ($payload[&#x27;type&#x27;]) {
+            case &#x27;auth&#x27;:
+                $this-&gt;handleAuth($fd, $payload);
+                break;
+            case &#x27;ping&#x27;:
+                $this-&gt;send($fd, [&#x27;type&#x27; =&gt; &#x27;pong&#x27;, &#x27;ts&#x27; =&gt; time()]);
+                break;
+            case &#x27;broadcast&#x27;:
+                $this-&gt;handleBroadcast($fd, $connInfo, $payload);
+                break;
+            case &#x27;list&#x27;:
+                $this-&gt;handleList($fd);
+                break;
+            default:
+                $this-&gt;send($fd, [&#x27;type&#x27; =&gt; &#x27;echo&#x27;, &#x27;data&#x27; =&gt; $payload]);
+        }
+    }
+
+    public function onClose(Swoole\Server $server, int $fd): void
+    {
+        $info = $this-&gt;connections-&gt;get((string)$fd);
+        $name = $info ? $info[&#x27;name&#x27;] : &#x27;unknown&#x27;;
+        $this-&gt;connections-&gt;del((string)$fd);
+        echo &quot;[Close] fd={$fd} name={$name}\n&quot;;
+    }
+
+    private function handleAuth(int $fd, array $payload): void
+    {
+        $name = $payload[&#x27;name&#x27;] ?? &#x27;&#x27;;
+        $token = $payload[&#x27;token&#x27;] ?? &#x27;&#x27;;
+
+        // Simple token check
+        if ($token !== &#x27;secret123&#x27;) {
+            $this-&gt;send($fd, [&#x27;type&#x27; =&gt; &#x27;auth_fail&#x27;, &#x27;msg&#x27; =&gt; &#x27;Invalid token&#x27;]);
+            return;
+        }
+
+        $this-&gt;connections-&gt;set((string)$fd, [&#x27;auth&#x27; =&gt; 1, &#x27;name&#x27; =&gt; $name]);
+        $this-&gt;send($fd, [&#x27;type&#x27; =&gt; &#x27;auth_ok&#x27;, &#x27;name&#x27; =&gt; $name]);
+        echo &quot;[Auth] fd={$fd} name={$name} authenticated\n&quot;;
+    }
+
+    private function handleBroadcast(int $fd, array $sender, array $payload): void
+    {
+        $msg = $payload[&#x27;msg&#x27;] ?? &#x27;&#x27;;
+        $count = 0;
+
+        foreach ($this-&gt;connections as $row) {
+            if ($row[&#x27;fd&#x27;] !== $fd &amp;&amp; $row[&#x27;auth&#x27;] &amp;&amp; $this-&gt;server-&gt;exists($row[&#x27;fd&#x27;])) {
+                $this-&gt;send($row[&#x27;fd&#x27;], [
+                    &#x27;type&#x27; =&gt; &#x27;broadcast&#x27;,
+                    &#x27;from&#x27; =&gt; $sender[&#x27;name&#x27;],
+                    &#x27;msg&#x27;  =&gt; $msg,
+                    &#x27;ts&#x27;   =&gt; time(),
+                ]);
+                $count++;
+            }
+        }
+        $this-&gt;send($fd, [&#x27;type&#x27; =&gt; &#x27;broadcast_sent&#x27;, &#x27;count&#x27; =&gt; $count]);
+    }
+
+    private function handleList(int $fd): void
+    {
+        $list = [];
+        foreach ($this-&gt;connections as $row) {
+            if ($row[&#x27;auth&#x27;]) {
+                $list[] = [&#x27;fd&#x27; =&gt; $row[&#x27;fd&#x27;], &#x27;name&#x27; =&gt; $row[&#x27;name&#x27;]];
+            }
+        }
+        $this-&gt;send($fd, [&#x27;type&#x27; =&gt; &#x27;list&#x27;, &#x27;clients&#x27; =&gt; $list]);
+    }
+
+    /**
+     * Encode and send a packet with length-header protocol
+     */
+    private function send(int $fd, array $data): void
+    {
+        $body = json_encode($data, JSON_UNESCAPED_UNICODE);
+        $packet = PACK_HEADER . pack(&#x27;N&#x27;, strlen($body)) . $body;
+        $this-&gt;server-&gt;send($fd, $packet);
+    }
+
+    public function start(): void
+    {
+        $this-&gt;server-&gt;start();
+    }
+}
+
+$server = new TcpServer();
+$server-&gt;start();</code></pre>
+
+<h3>协程TCP Client</h3>
+
+<pre><code class="language-php">&lt;?php
+// tcp_client.php - Coroutine TCP client with length-header protocol
+
+define(&#x27;PACK_HEADER&#x27;, pack(&#x27;N&#x27;, 0x53570100));
+
+function sendPacket(Swoole\Coroutine\Client $client, array $data): void
+{
+    $body = json_encode($data, JSON_UNESCAPED_UNICODE);
+    $packet = PACK_HEADER . pack(&#x27;N&#x27;, strlen($body)) . $body;
+    $client-&gt;send($packet);
+}
+
+function recvPacket(Swoole\Coroutine\Client $client): ?array
+{
+    // Read header (8 bytes)
+    $header = $client-&gt;recv(8);
+    if (!$header || strlen($header) &lt; 8) return null;
+
+    // Parse body length (offset 4, 4 bytes)
+    $bodyLen = unpack(&#x27;N&#x27;, substr($header, 4, 4))[1];
+
+    // Read body
+    $body = &#x27;&#x27;;
+    while (strlen($body) &lt; $bodyLen) {
+        $chunk = $client-&gt;recv($bodyLen - strlen($body));
+        if (!$chunk) return null;
+        $body .= $chunk;
+    }
+
+    return json_decode($body, true);
+}
+
+Swoole\Coroutine\run(function () {
+    $client = new Swoole\Coroutine\Client(SWOOLE_SOCK_TCP);
+
+    if (!$client-&gt;connect(&#x27;127.0.0.1&#x27;, 9501, 5)) {
+        die(&quot;Connect failed: {$client-&gt;errMsg}\n&quot;);
+    }
+
+    // Receive auth_required
+    $resp = recvPacket($client);
+    echo &quot;← &quot; . json_encode($resp, JSON_UNESCAPED_UNICODE) . &quot;\n&quot;;
+
+    // Send auth
+    sendPacket($client, [&#x27;type&#x27; =&gt; &#x27;auth&#x27;, &#x27;name&#x27; =&gt; &#x27;Client1&#x27;, &#x27;token&#x27; =&gt; &#x27;secret123&#x27;]);
+    $resp = recvPacket($client);
+    echo &quot;← &quot; . json_encode($resp, JSON_UNESCAPED_UNICODE) . &quot;\n&quot;;
+
+    // Send ping
+    sendPacket($client, [&#x27;type&#x27; =&gt; &#x27;ping&#x27;]);
+    $resp = recvPacket($client);
+    echo &quot;← &quot; . json_encode($resp, JSON_UNESCAPED_UNICODE) . &quot;\n&quot;;
+
+    // List clients
+    sendPacket($client, [&#x27;type&#x27; =&gt; &#x27;list&#x27;]);
+    $resp = recvPacket($client);
+    echo &quot;← &quot; . json_encode($resp, JSON_UNESCAPED_UNICODE) . &quot;\n&quot;;
+
+    // Close
+    $client-&gt;close();
+});</code></pre>
+
+<h2>四、执行预览</h2>
+
+<p><strong>服务器端：</strong></p>
+<pre><code>$ php tcp_server.php
+[Worker#0] Ready
+[Worker#1] Ready
+[Connect] fd=1, total=1
+[Auth] fd=1 name=Client1 authenticated
+[Close] fd=1 name=Client1</code></pre>
+
+<p><strong>客户端：</strong></p>
+<pre><code>$ php tcp_client.php
+← {&quot;type&quot;:&quot;auth_required&quot;,&quot;msg&quot;:&quot;Please authenticate&quot;}
+← {&quot;type&quot;:&quot;auth_ok&quot;,&quot;name&quot;:&quot;Client1&quot;}
+← {&quot;type&quot;:&quot;pong&quot;,&quot;ts&quot;:1745856000}
+← {&quot;type&quot;:&quot;list&quot;,&quot;clients&quot;:[{&quot;fd&quot;:1,&quot;name&quot;:&quot;Client1&quot;}]}</code></pre>
+
+<h2>五、注意事项</h2>
+
+<table><thead><tr>
+<th>事项</th>
+<th>说明</th>
+<th>建议</th>
+</tr></thead><tbody>
+<tr>
+<td>粘包</td>
+<td>TCP字节流无消息边界</td>
+<td>必须使用协议解析</td>
+</tr>
+<tr>
+<td>大包</td>
+<td>package_max_length默认2MB</td>
+<td>根据业务调整</td>
+</tr>
+<tr>
+<td>心跳</td>
+<td>客户端需定时发ping</td>
+<td>建议间隔30秒以内</td>
+</tr>
+<tr>
+<td>fd复用</td>
+<td>连接关闭后fd可能被新连接使用</td>
+<td>不要用fd做长期标识</td>
+</tr>
+<tr>
+<td>协议一致性</td>
+<td>Client和Server必须用同一协议</td>
+<td>封装协议类复用</td>
+</tr>
+<tr>
+<td>Table内存</td>
+<td>预分配固定大小</td>
+<td>按最大连接数设置</td>
+</tr>
+</tbody></table>
+
+<h2>六、避坑指南</h2>
+
+<h3>❌ 坑1：不处理粘包直接recv</h3>
+<pre><code class="language-php">&lt;?php
+// ❌ Wrong: Raw TCP recv may merge or split packets
+$client-&gt;send(&#x27;hello&#x27;);
+$client-&gt;send(&#x27;world&#x27;);
+$data = $client-&gt;recv(); // May get &quot;helloworld&quot;</code></pre>
+
+<pre><code class="language-php">&lt;?php
+// ✅ Correct: Use length-header protocol
+$body = json_encode([&#x27;msg&#x27; =&gt; &#x27;hello&#x27;]);
+$packet = pack(&#x27;N&#x27;, strlen($body)) . $body;
+$client-&gt;send($packet);</code></pre>
+
+<h3>❌ 坑2：package_body_offset设置错误</h3>
+<pre><code class="language-php">&lt;?php
+// ❌ Wrong: offset mismatch with actual header format
+$server-&gt;set([
+    &#x27;open_length_check&#x27; =&gt; true,
+    &#x27;package_length_offset&#x27; =&gt; 0,  // Wrong if header has magic bytes
+    &#x27;package_body_offset&#x27;   =&gt; 4,  // Should be header + length = 8
+]);</code></pre>
+
+<pre><code class="language-php">&lt;?php
+// ✅ Correct: Match the actual packet structure
+// Packet: [magic:4][length:4][body:N]
+$server-&gt;set([
+    &#x27;open_length_check&#x27;     =&gt; true,
+    &#x27;package_length_type&#x27;   =&gt; &#x27;N&#x27;,
+    &#x27;package_length_offset&#x27; =&gt; 4,   // Length field at byte 4
+    &#x27;package_body_offset&#x27;   =&gt; 8,   // Body starts at byte 8
+]);</code></pre>
+
+<h3>❌ 坑3：广播时遍历连接列表发送，部分fd已失效</h3>
+<pre><code class="language-php">&lt;?php
+// ❌ Wrong: fd may have been closed between check and send
+foreach ($connections as $fd) {
+    $server-&gt;send($fd, $data); // Warning if fd closed
+}</code></pre>
+
+<pre><code class="language-php">&lt;?php
+// ✅ Correct: Check existence before sending
+foreach ($connections as $row) {
+    if ($server-&gt;exists($row[&#x27;fd&#x27;])) {
+        $server-&gt;send($row[&#x27;fd&#x27;], $data);
+    }
+}</code></pre>
+
+<h2>七、练习题</h2>
+
+<h3>🟢 基础题</h3>
+<ol>
+<li>使用EOF分隔符协议（<code>open_eof_check</code>）实现一个简单的TCP Echo服务器</li>
+</ul>
+<ol>
+<li>编写一个TCP Client，连接后每5秒发送一次心跳包</li>
+
+<h3>🟡 进阶题</h3>
+<ol>
+<li>实现一个简单的IM聊天室：客户端可以发送消息给所有在线用户</li>
+</ul>
+<ol>
+<li>为TCP服务器添加TLS加密支持</li>
+
+<h3>🔴 挑战题</h3>
+<ol>
+<li>实现一个完整的RPC框架：支持服务注册、发现、调用，使用长度头协议序列化</li>
+
+<p><details></p>
+<p><summary>参考答案（基础题1）</summary></p>
+
+<pre><code class="language-php">&lt;?php
+$server = new Swoole\Server(&#x27;0.0.0.0&#x27;, 9501);
+$server-&gt;set([
+    &#x27;open_eof_check&#x27; =&gt; true,
+    &#x27;package_eof&#x27;    =&gt; &quot;\r\n&quot;,
+]);
+$server-&gt;on(&#x27;receive&#x27;, function ($server, $fd, $rid, $data) {
+    $server-&gt;send($fd, &quot;Echo: &quot; . trim($data) . &quot;\r\n&quot;);
+});
+$server-&gt;start();</code></pre>
+<p></details></p>
+
+<h2>八、知识点总结</h2>
+
+<pre><code>TCP服务器知识树
+├── 粘包处理
+│   ├── EOF分隔符 (open_eof_check)
+│   ├── 固定长度
+│   └── 长度头 (open_length_check) ★
+├── 协议设计
+│   ├── Magic + Length + Body
+│   ├── JSON / 二进制编码
+│   └── 大端字节序 (pack N)
+├── 连接管理
+│   ├── Swoole\Table共享
+│   ├── 认证机制
+│   └── 广播遍历 + exists检查
+├── 心跳机制
+│   ├── heartbeat_check_interval
+│   └── heartbeat_idle_time
+└── 安全
+    ├── Token认证
+    └── SSL/TLS (ssl_cert_file)</code></pre>
+
+<h2>九、举一反三</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>协议选择</th>
+<th>实现方式</th>
+</tr></thead><tbody>
+<tr>
+<td>简单Echo</td>
+<td>EOF分隔符</td>
+<td>open_eof_check + package_eof</td>
+</tr>
+<tr>
+<td>游戏服务器</td>
+<td>长度头+二进制</td>
+<td>open_length_check + 自定义序列化</td>
+</tr>
+<tr>
+<td>IoT设备</td>
+<td>长度头+Protobuf</td>
+<td>open_length_check + protobuf解码</td>
+</tr>
+<tr>
+<td>IM聊天</td>
+<td>长度头+JSON</td>
+<td>open_length_check + JSON</td>
+</tr>
+<tr>
+<td>文件传输</td>
+<td>长度头+分块</td>
+<td>按块发送，接收端拼装</td>
+</tr>
+</tbody></table>
+
+<h2>十、参考资料</h2>
+
+<ul>
+<li><a href="https://wiki.swoole.com/#/server/tcp">Swoole TCP Server文档</a></li>
+<li><a href="https://wiki.swoole.com/#/learn?id=tcp_sticky_packet">Swoole粘包处理</a></li>
+<li><a href="https://wiki.swoole.com/#/server/setting?id=open_length_check">Swoole长度检查协议</a></li>
+<li><a href="https://www.php.net/manual/en/function.pack.php">pack/unpack格式说明</a></li>
+
+<h2>十一、代码演进</h2>
+
+<h3>v1：原始TCP Echo（无粘包处理）</h3>
+<pre><code class="language-php">&lt;?php
+// v1: No protocol, raw echo
+$server = new Swoole\Server(&#x27;0.0.0.0&#x27;, 9501);
+$server-&gt;on(&#x27;receive&#x27;, function ($s, $fd, $rid, $data) {
+    $s-&gt;send($fd, $data); // May have sticky packet issues
+});
+$server-&gt;start();</code></pre>
+
+<h3>v2：EOF分隔符协议</h3>
+<pre><code class="language-php">&lt;?php
+// v2: EOF-delimited protocol
+$server = new Swoole\Server(&#x27;0.0.0.0&#x27;, 9501);
+$server-&gt;set([
+    &#x27;open_eof_check&#x27; =&gt; true,
+    &#x27;package_eof&#x27;    =&gt; &quot;\n&quot;,
+]);
+$server-&gt;on(&#x27;receive&#x27;, function ($s, $fd, $rid, $data) {
+    $s-&gt;send($fd, &quot;Echo: &quot; . trim($data) . &quot;\n&quot;);
+});
+$server-&gt;start();</code></pre>
+
+<h3>v3：完整长度头协议（含认证、广播、心跳）</h3>
+<p>见上方「生产级TCP服务器」完整代码。</p>
+
+<hr>
+
+<p><strong>下期预告：</strong> 004-UDP服务器，将讲解UDP的特点、适用场景和实现方式。</p>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

@@ -1,0 +1,547 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>007 - Django REST Framework 完全指南：从手动序列化到生产级 API</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Python/index.html">Python</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Python/03-实战/index.html">Python实战</a>
+</nav>
+<h1>007 - Django REST Framework 完全指南：从手动序列化到生产级 API</h1>
+<div class="meta">
+<span>📂 Python实战</span>
+<span>🏷️ Python</span>
+</div>
+<article>
+
+
+<h2>难度标注</h2>
+
+<blockquote><p><strong>难度：⭐⭐⭐ 中级</strong> | 预计阅读时间：15分钟 | 前置知识：Django基础、HTTP协议、JSON</p></blockquote>
+
+<h2>概念讲解</h2>
+
+<h3>什么是 REST？</h3>
+
+<p>REST（Representational State Transfer）是一种软件架构风格，核心思想是用 <strong>URL 表示资源</strong>，用 <strong>HTTP 方法表示操作</strong>：</p>
+
+<table><thead><tr>
+<th>HTTP方法</th>
+<th>用途</th>
+<th>幂等性</th>
+<th>安全性</th>
+</tr></thead><tbody>
+<tr>
+<td>GET</td>
+<td>获取资源</td>
+<td>✅</td>
+<td>✅</td>
+</tr>
+<tr>
+<td>POST</td>
+<td>创建资源</td>
+<td>❌</td>
+<td>❌</td>
+</tr>
+<tr>
+<td>PUT</td>
+<td>全量更新</td>
+<td>✅</td>
+<td>❌</td>
+</tr>
+<tr>
+<td>PATCH</td>
+<td>部分更新</td>
+<td>✅</td>
+<td>❌</td>
+</tr>
+<tr>
+<td>DELETE</td>
+<td>删除资源</td>
+<td>✅</td>
+<td>❌</td>
+</tr>
+</tbody></table>
+
+<h3>为什么选 DRF？</h3>
+
+<p>Django REST Framework（DRF）是 Django 生态中最成熟的 API 框架：</p>
+
+<ul>
+<li><strong>序列化器</strong>：自动处理 Model ↔ JSON 转换</li>
+<li><strong>视图集</strong>：一套 CRUD 逻辑，几行代码搞定</li>
+<li><strong>认证/权限</strong>：内置 Token、JWT、OAuth 等方案</li>
+<li><strong>Browsable API</strong>：自带可调试的 Web 界面</li>
+<li><strong>分页/过滤/排序</strong>：开箱即用</li>
+
+<h2>脑图</h2>
+
+<pre><code>DRF 核心架构
+├── Serializer（序列化器）
+│   ├── ModelSerializer
+│   ├── SerializerMethodField
+│   └── 嵌套序列化
+├── View（视图层）
+│   ├── APIView
+│   ├── GenericAPIView + Mixins
+│   ├── ViewSet
+│   └── ModelViewSet（推荐）
+├── Router（路由）
+│   ├── DefaultRouter
+│   └── SimpleRouter
+├── Authentication（认证）
+│   ├── SessionAuthentication
+│   ├── TokenAuthentication
+│   └── JWTAuthentication
+└── Permission（权限）
+    ├── IsAuthenticated
+    ├── IsAdminUser
+    └── 自定义权限</code></pre>
+
+<h2>完整代码：博客 API 系统</h2>
+
+<h3>v1 基础版本 - 手动序列化</h3>
+
+<pre><code class="language-python"># models.py
+from django.db import models
+
+class Article(models.Model):
+    title = models.CharField(max_length=200)
+    content = models.TextField()
+    author = models.ForeignKey(&#x27;auth.User&#x27;, on_delete=models.CASCADE)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    is_published = models.BooleanField(default=False)
+
+    def __str__(self):
+        return self.title</code></pre>
+
+<pre><code class="language-python"># views.py - v1: raw APIView, manual serialization
+from django.http import JsonResponse
+from django.views import View
+import json
+from .models import Article
+
+class ArticleListView(View):
+    &quot;&quot;&quot;Manual list/create without DRF.&quot;&quot;&quot;
+
+    def get(self, request):
+        articles = Article.objects.all()
+        data = [
+            {
+                &quot;id&quot;: a.id,
+                &quot;title&quot;: a.title,
+                &quot;author&quot;: a.author.username,
+                &quot;created_at&quot;: a.created_at.isoformat(),
+            }
+            for a in articles
+        ]
+        return JsonResponse(data, safe=False)
+
+    def post(self, request):
+        body = json.loads(request.body)
+        article = Article.objects.create(
+            title=body[&quot;title&quot;],
+            content=body.get(&quot;content&quot;, &quot;&quot;),
+            author=request.user,
+        )
+        return JsonResponse({&quot;id&quot;: article.id}, status=201)</code></pre>
+
+<p><strong>v1 的问题</strong>：手动序列化太累、没有验证、没有分页、错误处理不全。</p>
+
+<h3>v2 进阶版本 - 使用 Serializer + Generic View</h3>
+
+<pre><code class="language-python"># serializers.py
+from rest_framework import serializers
+from .models import Article
+
+class ArticleSerializer(serializers.ModelSerializer):
+    author_name = serializers.CharField(source=&quot;author.username&quot;, read_only=True)
+
+    class Meta:
+        model = Article
+        fields = [&quot;id&quot;, &quot;title&quot;, &quot;content&quot;, &quot;author&quot;, &quot;author_name&quot;,
+                  &quot;created_at&quot;, &quot;updated_at&quot;, &quot;is_published&quot;]
+        read_only_fields = [&quot;author&quot;, &quot;created_at&quot;, &quot;updated_at&quot;]
+
+    def validate_title(self, value):
+        &quot;&quot;&quot;Title must be at least 2 characters.&quot;&quot;&quot;
+        if len(value) &lt; 2:
+            raise serializers.ValidationError(&quot;Title too short&quot;)
+        return value</code></pre>
+
+<pre><code class="language-python"># views.py - v2: generic views with serializer
+from rest_framework import generics, permissions
+from .models import Article
+from .serializers import ArticleSerializer
+
+class ArticleListCreateView(generics.ListCreateAPIView):
+    queryset = Article.objects.select_related(&quot;author&quot;).all()
+    serializer_class = ArticleSerializer
+    permission_classes = [permissions.IsAuthenticatedOrReadOnly]
+
+    def perform_create(self, serializer):
+        serializer.save(author=self.request.user)
+
+class ArticleDetailView(generics.RetrieveUpdateDestroyAPIView):
+    queryset = Article.objects.select_related(&quot;author&quot;).all()
+    serializer_class = ArticleSerializer
+    permission_classes = [permissions.IsAuthenticatedOrReadOnly]</code></pre>
+
+<pre><code class="language-python"># urls.py - v2
+from django.urls import path
+from .views import ArticleListCreateView, ArticleDetailView
+
+urlpatterns = [
+    path(&quot;api/articles/&quot;, ArticleListCreateView.as_view()),
+    path(&quot;api/articles/&lt;int:pk&gt;/&quot;, ArticleDetailView.as_view()),
+]</code></pre>
+
+<h3>v3 生产版本 - ViewSet + Router + JWT + 分页 + 过滤</h3>
+
+<pre><code class="language-python"># serializers.py - v3: nested + custom fields
+from rest_framework import serializers
+from .models import Article
+
+class ArticleSerializer(serializers.ModelSerializer):
+    author_name = serializers.CharField(source=&quot;author.username&quot;, read_only=True)
+    word_count = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Article
+        fields = &quot;__all__&quot;
+        read_only_fields = [&quot;author&quot;, &quot;created_at&quot;, &quot;updated_at&quot;]
+
+    def get_word_count(self, obj):
+        return len(obj.content.split()) if obj.content else 0</code></pre>
+
+<pre><code class="language-python"># views.py - v3: ViewSet + filter + permission
+from rest_framework import viewsets, permissions, filters, status
+from rest_framework.decorators import action
+from rest_framework.response import Response
+from django_filters.rest_framework import DjangoFilterBackend
+from .models import Article
+from .serializers import ArticleSerializer
+from .permissions import IsAuthorOrReadOnly
+
+class ArticleViewSet(viewsets.ModelViewSet):
+    &quot;&quot;&quot;Full CRUD + custom actions for articles.&quot;&quot;&quot;
+
+    queryset = Article.objects.select_related(&quot;author&quot;).all()
+    serializer_class = ArticleSerializer
+    permission_classes = [permissions.IsAuthenticatedOrReadOnly, IsAuthorOrReadOnly]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filterset_fields = [&quot;is_published&quot;, &quot;author&quot;]
+    search_fields = [&quot;title&quot;, &quot;content&quot;]
+    ordering_fields = [&quot;created_at&quot;, &quot;updated_at&quot;]
+    ordering = [&quot;-created_at&quot;]
+
+    def perform_create(self, serializer):
+        serializer.save(author=self.request.user)
+
+    @action(detail=False, methods=[&quot;get&quot;])
+    def published(self, request):
+        &quot;&quot;&quot;Custom action: list only published articles.&quot;&quot;&quot;
+        articles = self.queryset.filter(is_published=True)
+        serializer = self.get_serializer(articles, many=True)
+        return Response(serializer.data)
+
+    @action(detail=True, methods=[&quot;post&quot;])
+    def publish(self, request, pk=None):
+        &quot;&quot;&quot;Custom action: publish an article.&quot;&quot;&quot;
+        article = self.get_object()
+        article.is_published = True
+        article.save()
+        return Response({&quot;status&quot;: &quot;published&quot;})</code></pre>
+
+<pre><code class="language-python"># permissions.py
+from rest_framework import permissions
+
+class IsAuthorOrReadOnly(permissions.BasePermission):
+    &quot;&quot;&quot;Only allow author to edit/delete their own articles.&quot;&quot;&quot;
+
+    def has_object_permission(self, request, view, obj):
+        if request.method in permissions.SAFE_METHODS:
+            return True
+        return obj.author == request.user</code></pre>
+
+<pre><code class="language-python"># urls.py - v3: router auto-generates URLs
+from django.urls import path, include
+from rest_framework.routers import DefaultRouter
+from .views import ArticleViewSet
+
+router = DefaultRouter()
+router.register(r&quot;articles&quot;, ArticleViewSet)
+
+urlpatterns = [
+    path(&quot;api/&quot;, include(router.urls)),
+]</code></pre>
+
+<pre><code class="language-python"># settings.py - key DRF settings
+INSTALLED_APPS += [
+    &quot;rest_framework&quot;,
+    &quot;rest_framework_simplejwt&quot;,
+    &quot;django_filters&quot;,
+]
+
+REST_FRAMEWORK = {
+    &quot;DEFAULT_AUTHENTICATION_CLASSES&quot;: [
+        &quot;rest_framework_simplejwt.authentication.JWTAuthentication&quot;,
+        &quot;rest_framework.authentication.SessionAuthentication&quot;,
+    ],
+    &quot;DEFAULT_PERMISSION_CLASSES&quot;: [
+        &quot;rest_framework.permissions.IsAuthenticatedOrReadOnly&quot;,
+    ],
+    &quot;DEFAULT_PAGINATION_CLASS&quot;: &quot;rest_framework.pagination.PageNumberPagination&quot;,
+    &quot;PAGE_SIZE&quot;: 20,
+    &quot;DEFAULT_FILTER_BACKENDS&quot;: [
+        &quot;django_filters.rest_framework.DjangoFilterBackend&quot;,
+        &quot;rest_framework.filters.SearchFilter&quot;,
+        &quot;rest_framework.filters.OrderingFilter&quot;,
+    ],
+}</code></pre>
+
+<h2>执行预览</h2>
+
+<pre><code class="language-bash"># Start server
+python manage.py runserver
+
+# Get JWT token
+curl -X POST http://localhost:8000/api/token/ \
+  -H &quot;Content-Type: application/json&quot; \
+  -d &#x27;{&quot;username&quot;:&quot;admin&quot;,&quot;password&quot;:&quot;secret&quot;}&#x27;
+# -&gt; {&quot;access&quot;:&quot;eyJ...&quot;,&quot;refresh&quot;:&quot;eyJ...&quot;}
+
+# List articles
+curl http://localhost:8000/api/articles/
+# -&gt; {&quot;count&quot;:42,&quot;next&quot;:&quot;...?page=2&quot;,&quot;results&quot;:[...]}
+
+# Create article
+curl -X POST http://localhost:8000/api/articles/ \
+  -H &quot;Authorization: Bearer eyJ...&quot; \
+  -H &quot;Content-Type: application/json&quot; \
+  -d &#x27;{&quot;title&quot;:&quot;DRF Guide&quot;,&quot;content&quot;:&quot;Hello World&quot;}&#x27;
+# -&gt; {&quot;id&quot;:1,&quot;title&quot;:&quot;DRF Guide&quot;,&quot;author_name&quot;:&quot;admin&quot;,...}
+
+# Custom action: publish
+curl -X POST http://localhost:8000/api/articles/1/publish/ \
+  -H &quot;Authorization: Bearer eyJ...&quot;
+# -&gt; {&quot;status&quot;:&quot;published&quot;}</code></pre>
+
+<h2>注意事项</h2>
+
+<table><thead><tr>
+<th>项目</th>
+<th>说明</th>
+<th>建议</th>
+</tr></thead><tbody>
+<tr>
+<td>N+1 查询</td>
+<td>嵌套序列化导致多次查询</td>
+<td>用 <code>select_related</code>/<code>prefetch_related</code></td>
+</tr>
+<tr>
+<td>分页</td>
+<td>数据量大时必须分页</td>
+<td>设置 <code>DEFAULT_PAGINATION_CLASS</code></td>
+</tr>
+<tr>
+<td>认证</td>
+<td>生产环境别用 Session</td>
+<td>推荐 JWT（SimpleJWT）</td>
+</tr>
+<tr>
+<td>CORS</td>
+<td>前端跨域请求被拒</td>
+<td>安装 <code>django-cors-headers</code></td>
+</tr>
+<tr>
+<td>版本控制</td>
+<td>API 迭代需要版本管理</td>
+<td>URL前缀 <code>/api/v1/</code> 或 Header 版本</td>
+</tr>
+<tr>
+<td>序列化嵌套</td>
+<td>深层嵌套导致性能差</td>
+<td>控制嵌套层数，用 <code>depth = 1</code> 限制</td>
+</tr>
+</tbody></table>
+
+<h2>避坑指南</h2>
+
+<p>❌ <strong>在 Serializer 的 <code>to_representation</code> 里做数据库查询</strong></p>
+<p>✅ 在 ViewSet 的 <code>get_queryset</code> 里用 <code>prefetch_related</code> 预加载</p>
+
+<p>❌ <strong>把所有逻辑写在 View 里</strong></p>
+<p>✅ 业务逻辑放 Service 层，View 只做参数校验和调用</p>
+
+<p>❌ <strong>用 <code>fields = "__all__"</code> 忽略敏感字段</strong></p>
+<p>✅ 显式列出 fields，敏感字段加 <code>read_only_fields</code></p>
+
+<p>❌ <strong>忘记配置权限类</strong></p>
+<p>✅ 全局默认 <code>DEFAULT_PERMISSION_CLASSES</code> + 视图级别覆盖</p>
+
+<p>❌ <strong>GET 请求需要认证才能查看公开内容</strong></p>
+<p>✅ 用 <code>IsAuthenticatedOrReadOnly</code> 区分读写权限</p>
+
+<h2>练习题</h2>
+
+<p>🟢 <strong>基础题：创建一个只读 API</strong></p>
+<p>创建一个 Book 模型的只读 API（GET list + GET detail），使用 <code>ReadOnlyModelViewSet</code>。</p>
+
+<p>🟡 <strong>进阶题：自定义 Action</strong></p>
+<p>为 Article 添加一个 <code>toggle_publish</code> Action，每次调用切换 <code>is_published</code> 状态，返回当前状态。</p>
+
+<p>🔴 <strong>挑战题：嵌套资源 + 权限</strong></p>
+<p>实现 <code>/api/articles/<id>/comments/</code> 嵌套路由，评论只能由文章作者和评论作者删除。</p>
+
+<h2>知识点总结</h2>
+
+<pre><code>Django REST Framework
+├── 序列化
+│   ├── ModelSerializer - 自动映射 Model 字段
+│   ├── SerializerMethodField - 计算字段
+│   └── validate_* - 字段级验证
+├── 视图层
+│   ├── APIView -&gt; 最底层
+│   ├── GenericAPIView -&gt; 加入 queryset/serializer
+│   └── ModelViewSet -&gt; 完整 CRUD（推荐）
+├── 路由
+│   └── Router.register() - 自动生成 URL
+├── 认证
+│   ├── Token - 简单场景
+│   └── JWT - 生产推荐
+└── 进阶
+    ├── 自定义 Action - @action 装饰器
+    ├── 过滤/搜索/排序 - filter_backends
+    └── 权限 - has_permission + has_object_permission</code></pre>
+
+<h2>举一反三</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>方案</th>
+<th>关键点</th>
+</tr></thead><tbody>
+<tr>
+<td>只读公开 API</td>
+<td><code>ReadOnlyModelViewSet</code> + <code>AllowAny</code></td>
+<td>禁用写方法</td>
+</tr>
+<tr>
+<td>用户注册/登录</td>
+<td><code>dj-rest-auth</code> 或手动 ViewSet</td>
+<td>密码哈希、Token返回</td>
+</tr>
+<tr>
+<td>文件上传 API</td>
+<td><code>FileField</code> + multipart parser</td>
+<td>限制文件大小和类型</td>
+</tr>
+<tr>
+<td>API 限流</td>
+<td><code>rest_framework.throttling</code></td>
+<td>按 IP/User 限速</td>
+</tr>
+<tr>
+<td>API 文档自动生成</td>
+<td><code>drf-spectacular</code> (OpenAPI 3)</td>
+<td>自动生成 Swagger UI</td>
+</tr>
+<tr>
+<td>多角色权限</td>
+<td>自定义 Permission 类</td>
+<td>粒度控制到字段级别</td>
+</tr>
+</tbody></table>
+
+<h2>参考资料</h2>
+
+<ul>
+<li><a href="https://www.django-rest-framework.org/">DRF 官方文档</a></li>
+<li><a href="https://django-rest-framework-simplejwt.readthedocs.io/">SimpleJWT 文档</a></li>
+<li><a href="https://drf-spectacular.readthedocs.io/">drf-spectacular - OpenAPI 3 自动文档</a></li>
+<li><a href="https://django-filter.readthedocs.io/">Django Filter 文档</a></li>
+
+<h2>代码演进总结</h2>
+
+<table><thead><tr>
+<th>版本</th>
+<th>特点</th>
+<th>适用场景</th>
+</tr></thead><tbody>
+<tr>
+<td>v1</td>
+<td>手动序列化 + APIView</td>
+<td>学习理解原理</td>
+</tr>
+<tr>
+<td>v2</td>
+<td>Serializer + GenericView</td>
+<td>小型项目、简单 CRUD</td>
+</tr>
+<tr>
+<td>v3</td>
+<td>ViewSet + Router + JWT + 过滤</td>
+<td>生产级项目</td>
+</tr>
+</tbody></table>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

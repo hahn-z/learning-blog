@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>013 - 模块系统与命名空间</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/TypeScript/index.html">TypeScript</a>
+<span class="sep">›</span>
+<a href="/tech-blog/TypeScript/01-TypeScript/index.html">TypeScript</a>
+</nav>
+<h1>013 - 模块系统与命名空间</h1>
+<div class="meta">
+<span>📂 TypeScript</span>
+<span>🏷️ TypeScript</span>
+</div>
+<article>
+
+
+<h1>模块系统与命名空间</h1>
+
+<blockquote><p><strong>难度：</strong> ⭐⭐⭐ 进阶级 | <strong>阅读时间：</strong> 约15分钟 | <strong>前置知识：</strong> ES Modules、TypeScript基础</p></blockquote>
+
+<h2>一、概念讲解</h2>
+
+<p>TypeScript的模块系统建立在ES Modules之上，并添加了类型导入/导出的能力。理解模块解析机制、路径映射和命名空间的正确使用场景，是构建大型TypeScript项目的关键。</p>
+
+<h3>ES Modules vs CommonJS vs Namespaces</h3>
+
+<pre><code class="language-typescript">// ES Module (推荐) - static analysis, tree-shakeable
+import { User } from &quot;./user&quot;;
+export function createUser() {}
+
+// CommonJS (Node.js legacy)
+const { User } = require(&quot;./user&quot;);
+module.exports = { createUser };
+
+// Namespace (legacy, avoid in new projects)
+namespace App {
+  export function createUser() {}
+}</code></pre>
+
+<h3>模块解析策略</h3>
+
+<p>TypeScript有两种模块解析策略：</p>
+<ul>
+<li><strong>Classic</strong>：旧的解析方式，主要用于AMD/System</li>
+<li><strong>Node</strong>：模拟Node.js的解析逻辑（推荐）</li>
+
+<h2>二、脑图</h2>
+
+<pre><code>模块系统与命名空间
+├── ES Modules (推荐)
+│   ├── import/export
+│   ├── import type
+│   ├── re-export (barrel files)
+│   └── dynamic import()
+├── 模块解析
+│   ├── Node策略 (推荐)
+│   ├── Classic策略
+│   ├── 路径映射 paths
+│   └── baseUrl
+├── tsconfig 模块配置
+│   ├── module
+│   ├── moduleResolution
+│   ├── esModuleInterop
+│   └── allowSyntheticDefaultImports
+├── 命名空间 namespace
+│   ├── 基本用法
+│   ├── 嵌套命名空间
+│   ├── 声明合并
+│   └── 与模块结合
+└── Barrel Files (index.ts)
+    ├── 统一导出
+    ├── 优缺点
+    └── Tree-shaking影响</code></pre>
+
+<h2>三、完整TypeScript代码</h2>
+
+<pre><code class="language-typescript">// ============================================
+// Module System &amp; Namespaces
+// ============================================
+
+// --- 1. Named Exports (math.ts) ---
+export const PI = 3.14159;
+
+export function add(a: number, b: number): number {
+  return a + b;
+}
+
+export function multiply(a: number, b: number): number {
+  return a * b;
+}
+
+export interface MathResult {
+  value: number;
+  operation: string;
+}
+
+// --- 2. Type-only Exports ---
+export type { MathResult };
+export type Operation = &quot;add&quot; | &quot;subtract&quot; | &quot;multiply&quot; | &quot;divide&quot;;
+
+// --- 3. Default Export (calculator.ts) ---
+export default class Calculator {
+  private history: string[] = [];
+
+  compute(a: number, op: Operation, b: number): number {
+    const ops: Record&lt;Operation, (a: number, b: number) =&gt; number&gt; = {
+      add: (x, y) =&gt; x + y,
+      subtract: (x, y) =&gt; x - y,
+      multiply: (x, y) =&gt; x * y,
+      divide: (x, y) =&gt; (y !== 0 ? x / y : NaN),
+    };
+    const result = ops[op](a, b);
+    this.history.push(`${a} ${op} ${b} = ${result}`);
+    return result;
+  }
+
+  getHistory(): readonly string[] {
+    return Object.freeze([...this.history]);
+  }
+}
+
+// --- 4. Barrel File (index.ts) ---
+// Re-export everything from submodules
+// export { Calculator } from &quot;./calculator&quot;;
+// export { PI, add, multiply } from &quot;./math&quot;;
+// export type { MathResult, Operation } from &quot;./math&quot;;
+
+// --- 5. Namespace (legacy pattern) ---
+namespace Validator {
+  export function isEmail(value: string): boolean {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+  }
+
+  export function isUrl(value: string): boolean {
+    try {
+      new URL(value);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  export function isInRange(value: number, min: number, max: number): boolean {
+    return value &gt;= min &amp;&amp; value &lt;= max;
+  }
+
+  // Nested namespace
+  export namespace String {
+    export function minLength(value: string, min: number): boolean {
+      return value.length &gt;= min;
+    }
+
+    export function maxLength(value: string, max: number): boolean {
+      return value.length &lt;= max;
+    }
+  }
+}
+
+// Usage
+Validator.isEmail(&quot;test@example.com&quot;); // true
+Validator.String.minLength(&quot;hello&quot;, 3); // true
+
+// --- 6. Module with Namespace Pattern ---
+// Modern approach: one module per file, no namespaces
+// user.types.ts
+export interface User {
+  id: string;
+  name: string;
+  email: string;
+  role: UserRole;
+}
+
+export type UserRole = &quot;admin&quot; | &quot;editor&quot; | &quot;viewer&quot;;
+
+// user.service.ts
+import type { User, UserRole } from &quot;./user.types&quot;;
+
+export class UserService {
+  private users = new Map&lt;string, User&gt;();
+
+  create(data: Omit&lt;User, &quot;id&quot;&gt;): User {
+    const user: User = {
+      ...data,
+      id: crypto.randomUUID(),
+    };
+    this.users.set(user.id, user);
+    return user;
+  }
+
+  findByRole(role: UserRole): User[] {
+    return Array.from(this.users.values()).filter((u) =&gt; u.role === role);
+  }
+}
+
+// --- 7. Dynamic Imports ---
+async function loadChartLibrary(): Promise&lt;void&gt; {
+  // Dynamic import for code splitting
+  const { Chart } = await import(&quot;./calculator&quot;);
+  // Use Chart...
+}
+
+// --- 8. Path Mapping ---
+// tsconfig.json:
+// {
+//   &quot;compilerOptions&quot;: {
+//     &quot;baseUrl&quot;: &quot;.&quot;,
+//     &quot;paths&quot;: {
+//       &quot;@/*&quot;: [&quot;src/*&quot;],
+//       &quot;@utils/*&quot;: [&quot;src/utils/*&quot;],
+//       &quot;@services/*&quot;: [&quot;src/services/*&quot;]
+//     }
+//   }
+// }
+
+// With path aliases:
+// import { UserService } from &quot;@services/user.service&quot;;
+// import type { User } from &quot;@types/user&quot;;
+
+// --- 9. Conditional Exports (package.json) ---
+// Modern packages can define different entry points:
+// {
+//   &quot;exports&quot;: {
+//     &quot;.&quot;: { &quot;import&quot;: &quot;./dist/esm/index.js&quot;, &quot;require&quot;: &quot;./dist/cjs/index.js&quot; },
+//     &quot;./utils&quot;: { &quot;import&quot;: &quot;./dist/esm/utils.js&quot; }
+//   }
+// }
+
+// --- 10. Circular Dependency Handling ---
+// a.ts imports from b.ts and vice versa
+// Solution: extract shared types to a third file
+
+// shared.types.ts
+export interface SharedConfig {
+  name: string;
+  version: string;
+}
+
+// moduleA.ts
+import type { SharedConfig } from &quot;./shared.types&quot;;
+export function createA(config: SharedConfig) { return config; }
+
+// moduleB.ts
+import type { SharedConfig } from &quot;./shared.types&quot;;
+export function createB(config: SharedConfig) { return config; }</code></pre>
+
+<h2>四、执行预览</h2>
+
+<pre><code>$ npx tsc --moduleResolution node --module esnext --noEmit
+# 编译通过 ✅
+
+$ tree src/
+src/
+├── index.ts        # barrel file
+├── calculator.ts   # Calculator class
+├── math.ts         # math utilities
+├── user.types.ts   # type definitions
+└── user.service.ts # business logic</code></pre>
+
+<h2>五、注意事项</h2>
+
+<table><thead><tr>
+<th>要点</th>
+<th>说明</th>
+<th>建议</th>
+</tr></thead><tbody>
+<tr>
+<td>import type</td>
+<td>纯类型导入不产生运行时代码</td>
+<td>始终用 <code>import type</code> 导入类型</td>
+</tr>
+<tr>
+<td>barrel files</td>
+<td>index.ts统一导出可能影响tree-shaking</td>
+<td>只在必要时使用</td>
+</tr>
+<tr>
+<td>命名空间</td>
+<td>旧模式，不推荐新项目使用</td>
+<td>用ES Modules替代</td>
+</tr>
+<tr>
+<td>路径映射</td>
+<td>需要 bundler 或 tsconfig-paths 支持</td>
+<td>确保运行时也能解析</td>
+</tr>
+<tr>
+<td>循环依赖</td>
+<td>模块间互相导入</td>
+<td>提取共享类型到独立文件</td>
+</tr>
+</tbody></table>
+
+<h2>六、避坑指南</h2>
+
+<pre><code class="language-typescript">// ❌ namespace 和 module 混用
+namespace App { export class User {} }
+import { User } from &quot;some-module&quot;;
+// ✅ 统一使用 ES Modules
+
+// ❌ barrel file 导致循环依赖
+// a/index.ts re-exports from b, which imports from a
+// ✅ 避免在 barrel file 中导入有依赖关系的模块
+
+// ❌ 忘记设置 moduleResolution
+// &quot;moduleResolution&quot;: &quot;classic&quot; (outdated)
+// ✅ 使用 &quot;moduleResolution&quot;: &quot;node&quot; 或 &quot;bundler&quot;
+
+// ❌ 路径别名在运行时无法解析
+import { foo } from &quot;@utils/foo&quot;; // Runtime error!
+// ✅ 使用 tsconfig-paths 或 bundler 的 alias 功能</code></pre>
+
+<h2>七、练习题</h2>
+
+<h3>🟢 入门</h3>
+<ol>
+<li>创建一个ES Module，导出函数、接口和类型别名</li>
+</ul>
+<ol>
+<li>编写一个barrel file，统一导出子模块</li>
+
+<h3>🟡 进阶</h3>
+<ol>
+<li>配置 <code>tsconfig.json</code> 的路径映射（<code>@/<em></code> → <code>src/</em></code>）</li>
+</ul>
+<ol>
+<li>重构一个使用namespace的旧代码为ES Modules</li>
+
+<h3>🔴 挑战</h3>
+<ol>
+<li>设计一个支持条件导出（ESM/CJS）的库的TypeScript配置</li>
+
+<h2>八、知识点总结</h2>
+
+<pre><code>模块系统
+├── ES Modules → import/export (推荐)
+│   ├── import type → 纯类型导入
+│   └── dynamic import → 代码分割
+├── 模块解析 → Node策略
+│   ├── 路径映射 → @/* 别名
+│   └── 条件导出 → package.json exports
+├── 命名空间 → 旧模式，避免使用
+├── Barrel Files → 统一导出入口
+└── 循环依赖 → 提取共享类型解决</code></pre>
+
+<h2>九、举一反三</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>方案</th>
+<th>关键点</th>
+</tr></thead><tbody>
+<tr>
+<td>Monorepo</td>
+<td>项目引用(project references)</td>
+<td><code>composite: true</code></td>
+</tr>
+<tr>
+<td>库开发</td>
+<td>双格式导出(ESM+CJS)</td>
+<td>package.json exports</td>
+</tr>
+<tr>
+<td>大型应用</td>
+<td>路径别名</td>
+<td>@/ → src/</td>
+</tr>
+<tr>
+<td>旧代码迁移</td>
+<td>namespace → ES Modules</td>
+<td>渐进式重构</td>
+</tr>
+<tr>
+<td>懒加载</td>
+<td>dynamic import()</td>
+<td>路由级代码分割</td>
+</tr>
+</tbody></table>
+
+<h2>十、参考资料</h2>
+
+<ul>
+<li><a href="https://www.typescriptlang.org/docs/handbook/2/modules.html">TypeScript Handbook - Modules</a></li>
+<li><a href="https://www.typescriptlang.org/docs/handbook/module-resolution.html">TypeScript Handbook - Module Resolution</a></li>
+<li><a href="https://nodejs.org/api/packages.html#exports">Node.js - Package Exports</a></li>
+
+<h2>十一、代码演进</h2>
+
+<h3>v1 → 命名空间</h3>
+
+<pre><code class="language-typescript">namespace App {
+  export class User { constructor(public name: string) {} }
+  export function create(name: string) { return new User(name); }
+}</code></pre>
+
+<h3>v2 → ES Modules + 类型分离</h3>
+
+<pre><code class="language-typescript">// types.ts
+export interface User { name: string; }
+// service.ts
+import type { User } from &quot;./types&quot;;
+export function create(name: string): User { return { name }; }</code></pre>
+
+<h3>v3 → 路径别名 + 模块化架构</h3>
+
+<pre><code class="language-typescript">import type { User } from &quot;@/types&quot;;
+import { UserService } from &quot;@/services/user.service&quot;;
+import { validate } from &quot;@/utils/validator&quot;;</code></pre>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

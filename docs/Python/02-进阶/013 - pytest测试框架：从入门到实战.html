@@ -1,0 +1,813 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>013 - pytest测试框架：从入门到实战</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Python/index.html">其他</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Python/02-进阶/index.html">Python进阶</a>
+</nav>
+<h1>013 - pytest测试框架：从入门到实战</h1>
+<div class="meta">
+<span>📂 Python进阶</span>
+<span>🏷️ 其他</span>
+</div>
+<article>
+
+
+<hr>
+<p>difficulty: ⭐⭐⭐中级</p>
+<p>tags: [Python, pytest, 测试, 单元测试]</p>
+<hr>
+
+<h1>pytest测试框架：从入门到实战</h1>
+
+<blockquote><p><strong>难度标注：⭐⭐⭐ 中级</strong> | 适合有Python基础，想系统学习测试的开发者</p></blockquote>
+
+<h2>一、概念讲解</h2>
+
+<h3>什么是 pytest？</h3>
+
+<p>pytest 是 Python 生态中最流行的测试框架，相比 unittest，它更简洁、更强大、插件生态更丰富。</p>
+
+<p><strong>核心优势：</strong></p>
+<ul>
+<li><strong>零样板代码</strong>：不需要继承任何基类，普通函数即可作为测试</li>
+<li><strong>强大的断言</strong>：用原生 <code>assert</code>，失败信息自动生成详细对比</li>
+<li><strong>fixture 机制</strong>：灵活的测试准备和清理机制</li>
+<li><strong>插件生态</strong>：800+ 插件覆盖各种场景</li>
+<li><strong>参数化测试</strong>：一行代码实现多组数据测试</li>
+
+<h3>pytest vs unittest</h3>
+
+<table><thead><tr>
+<th>特性</th>
+<th>pytest</th>
+<th>unittest</th>
+</tr></thead><tbody>
+<tr>
+<td>断言方式</td>
+<td><code>assert x == 1</code></td>
+<td><code>self.assertEqual(x, 1)</code></td>
+</tr>
+<tr>
+<td>测试发现</td>
+<td>自动发现 <code>test_*.py</code></td>
+<td>需要配置或手动加载</td>
+</tr>
+<tr>
+<td>fixture</td>
+<td>灵活，支持依赖注入</td>
+<td><code>setUp/tearDown</code></td>
+</tr>
+<tr>
+<td>参数化</td>
+<td><code>@pytest.mark.parametrize</code></td>
+<td>需要 <code>subTest</code></td>
+</tr>
+<tr>
+<td>插件数</td>
+<td>800+</td>
+<td>较少</td>
+</tr>
+<tr>
+<td>学习曲线</td>
+<td>低</td>
+<td>中</td>
+</tr>
+</tbody></table>
+
+<h2>二、脑图</h2>
+
+<pre><code>pytest 测试框架
+├── 基础
+│   ├── 安装：pip install pytest
+│   ├── 测试文件命名：test_*.py / *_test.py
+│   ├── 测试函数命名：test_*
+│   └── 运行：pytest / pytest -v / pytest -k &quot;pattern&quot;
+├── 断言
+│   ├── assert 语句
+│   ├── pytest.approx()（浮点比较）
+│   └── 异常断言：pytest.raises()
+├── Fixture
+│   ├── @pytest.fixture 定义
+│   ├── 作用域：function / class / module / session
+│   ├── conftest.py 共享
+│   ├── yield 清理
+│   └── 参数化 fixture
+├── 参数化
+│   ├── @pytest.mark.parametrize
+│   ├── 多参数组合
+│   └── indirect 参数化
+├── 标记
+│   ├── @pytest.mark.skip / skipif
+│   ├── @pytest.mark.xfail
+│   ├── @pytest.mark.slow（自定义）
+│   └── -m 选择性运行
+├── 插件
+│   ├── pytest-cov（覆盖率）
+│   ├── pytest-mock（mock 支持）
+│   ├── pytest-asyncio（异步测试）
+│   └── pytest-xdist（并行执行）
+└── 高级
+    ├── conftest.py 层级
+    ├── hook 函数
+    └── 自定义插件</code></pre>
+
+<h2>三、完整代码示例</h2>
+
+<h3>项目结构</h3>
+
+<pre><code>calculator/
+├── calc.py              # 被测代码
+├── tests/
+│   ├── conftest.py      # 共享 fixture
+│   ├── test_calc.py     # 基础测试
+│   ├── test_advanced.py # 高级测试
+│   └── test_params.py   # 参数化测试
+└── pytest.ini           # 配置</code></pre>
+
+<h3>calc.py -- 被测模块</h3>
+
+<pre><code class="language-python">&quot;&quot;&quot;A simple calculator module to demonstrate pytest.&quot;&quot;&quot;
+
+
+class Calculator:
+    &quot;&quot;&quot;Basic calculator with history tracking.&quot;&quot;&quot;
+
+    def __init__(self):
+        self.history: list[float] = []
+
+    def add(self, a: float, b: float) -&gt; float:
+        &quot;&quot;&quot;Add two numbers.&quot;&quot;&quot;
+        result = a + b
+        self.history.append(result)
+        return result
+
+    def subtract(self, a: float, b: float) -&gt; float:
+        &quot;&quot;&quot;Subtract b from a.&quot;&quot;&quot;
+        result = a - b
+        self.history.append(result)
+        return result
+
+    def multiply(self, a: float, b: float) -&gt; float:
+        &quot;&quot;&quot;Multiply two numbers.&quot;&quot;&quot;
+        result = a * b
+        self.history.append(result)
+        return result
+
+    def divide(self, a: float, b: float) -&gt; float:
+        &quot;&quot;&quot;Divide a by b. Raises ZeroDivisionError if b is 0.&quot;&quot;&quot;
+        if b == 0:
+            raise ZeroDivisionError(&quot;Cannot divide by zero&quot;)
+        result = a / b
+        self.history.append(result)
+        return result
+
+    def clear_history(self) -&gt; None:
+        &quot;&quot;&quot;Clear calculation history.&quot;&quot;&quot;
+        self.history.clear()
+
+    def get_last(self) -&gt; float | None:
+        &quot;&quot;&quot;Get the last calculation result.&quot;&quot;&quot;
+        return self.history[-1] if self.history else None</code></pre>
+
+<h3>conftest.py -- 共享 Fixture</h3>
+
+<pre><code class="language-python">&quot;&quot;&quot;Shared fixtures for calculator tests.&quot;&quot;&quot;
+import pytest
+from calc import Calculator
+
+
+@pytest.fixture
+def calc():
+    &quot;&quot;&quot;Provide a fresh Calculator instance for each test.&quot;&quot;&quot;
+    return Calculator()
+
+
+@pytest.fixture
+def calc_with_history(calc):
+    &quot;&quot;&quot;Provide a Calculator with some pre-loaded history.&quot;&quot;&quot;
+    calc.add(1, 2)
+    calc.add(3, 4)
+    return calc
+
+
+@pytest.fixture(scope=&quot;session&quot;)
+def db_connection():
+    &quot;&quot;&quot;Simulate a database connection (session-scoped).&quot;&quot;&quot;
+    print(&quot;\n[Setup] Connecting to database...&quot;)
+    conn = {&quot;connected&quot;: True, &quot;data&quot;: {}}
+    yield conn
+    print(&quot;\n[Teardown] Closing database connection...&quot;)
+    conn[&quot;connected&quot;] = False</code></pre>
+
+<h3>test_calc.py -- 基础测试</h3>
+
+<pre><code class="language-python">&quot;&quot;&quot;Basic tests for Calculator class.&quot;&quot;&quot;
+import pytest
+from calc import Calculator
+
+
+def test_add(calc):
+    &quot;&quot;&quot;Test addition.&quot;&quot;&quot;
+    assert calc.add(2, 3) == 5
+    assert calc.add(-1, 1) == 0
+    assert calc.add(0.1, 0.2) == pytest.approx(0.3)
+
+
+def test_subtract(calc):
+    &quot;&quot;&quot;Test subtraction.&quot;&quot;&quot;
+    assert calc.subtract(5, 3) == 2
+    assert calc.subtract(0, 5) == -5
+
+
+def test_multiply(calc):
+    &quot;&quot;&quot;Test multiplication.&quot;&quot;&quot;
+    assert calc.multiply(3, 4) == 12
+    assert calc.multiply(-2, 3) == -6
+    assert calc.multiply(0, 100) == 0
+
+
+def test_divide(calc):
+    &quot;&quot;&quot;Test division.&quot;&quot;&quot;
+    assert calc.divide(10, 2) == 5
+    assert calc.divide(7, 2) == pytest.approx(3.5)
+
+
+def test_divide_by_zero(calc):
+    &quot;&quot;&quot;Test that dividing by zero raises an exception.&quot;&quot;&quot;
+    with pytest.raises(ZeroDivisionError, match=&quot;Cannot divide by zero&quot;):
+        calc.divide(10, 0)
+
+
+def test_history(calc):
+    &quot;&quot;&quot;Test calculation history.&quot;&quot;&quot;
+    calc.add(1, 2)
+    calc.add(3, 4)
+    assert len(calc.history) == 2
+    assert calc.get_last() == 7
+
+
+def test_clear_history(calc_with_history):
+    &quot;&quot;&quot;Test clearing history.&quot;&quot;&quot;
+    assert len(calc_with_history.history) == 2
+    calc_with_history.clear_history()
+    assert len(calc_with_history.history) == 0
+
+
+def test_get_last_empty(calc):
+    &quot;&quot;&quot;Test get_last on empty history returns None.&quot;&quot;&quot;
+    assert calc.get_last() is None</code></pre>
+
+<h3>test_params.py -- 参数化测试</h3>
+
+<pre><code class="language-python">&quot;&quot;&quot;Parameterized tests for Calculator.&quot;&quot;&quot;
+import pytest
+from calc import Calculator
+
+
+@pytest.mark.parametrize(&quot;a, b, expected&quot;, [
+    (1, 2, 3),
+    (0, 0, 0),
+    (-1, -2, -3),
+    (100, 200, 300),
+    (0.1, 0.2, pytest.approx(0.3)),
+])
+def test_add_parameterized(calc, a, b, expected):
+    &quot;&quot;&quot;Test addition with multiple data sets.&quot;&quot;&quot;
+    assert calc.add(a, b) == expected
+
+
+@pytest.mark.parametrize(&quot;a, b, expected&quot;, [
+    (10, 2, 5),
+    (9, 3, 3),
+    (-6, 2, -3),
+    (0, 1, 0),
+])
+def test_divide_parameterized(calc, a, b, expected):
+    &quot;&quot;&quot;Test division with multiple data sets.&quot;&quot;&quot;
+    assert calc.divide(a, b) == expected
+
+
+# Combine multiple parametrize decorators (Cartesian product)
+@pytest.mark.parametrize(&quot;x&quot;, [1, 2])
+@pytest.mark.parametrize(&quot;y&quot;, [10, 20])
+def test_multiply_combo(calc, x, y):
+    &quot;&quot;&quot;Test multiply with all x,y combinations.&quot;&quot;&quot;
+    assert calc.multiply(x, y) == x * y
+
+
+# Use pytest.param to customize test IDs and marks
+@pytest.mark.parametrize(&quot;a, b, expected&quot;, [
+    pytest.param(1, 1, 2, id=&quot;one-plus-one&quot;),
+    pytest.param(2, 3, 5, id=&quot;small-numbers&quot;),
+    pytest.param(1000, 2000, 3000, id=&quot;large-numbers&quot;),
+    pytest.param(-5, 5, 0, id=&quot;cancel-out&quot;),
+])
+def test_add_with_ids(calc, a, b, expected):
+    &quot;&quot;&quot;Test addition with descriptive test IDs.&quot;&quot;&quot;
+    assert calc.add(a, b) == expected
+
+
+# Fixture parametrization
+@pytest.fixture(params=[
+    (2, 3, 6),
+    (4, 5, 20),
+    (0, 99, 0),
+])
+def multiply_case(request):
+    &quot;&quot;&quot;Parametrized fixture providing multiply test cases.&quot;&quot;&quot;
+    return request.param
+
+
+def test_multiply_with_fixture_param(calc, multiply_case):
+    &quot;&quot;&quot;Test multiply using parametrized fixture.&quot;&quot;&quot;
+    a, b, expected = multiply_case
+    assert calc.multiply(a, b) == expected</code></pre>
+
+<h3>test_advanced.py -- 高级特性</h3>
+
+<pre><code class="language-python">&quot;&quot;&quot;Advanced pytest features demo.&quot;&quot;&quot;
+import sys
+import pytest
+from calc import Calculator
+
+
+@pytest.mark.slow
+class TestAdvancedCalculator:
+    &quot;&quot;&quot;Tests marked as slow (can filter with -m).&quot;&quot;&quot;
+
+    def test_many_operations(self, calc):
+        &quot;&quot;&quot;Run many operations in sequence.&quot;&quot;&quot;
+        for i in range(100):
+            calc.add(i, i + 1)
+        assert len(calc.history) == 100
+
+    def test_mixed_operations(self, calc):
+        &quot;&quot;&quot;Test mixing different operations.&quot;&quot;&quot;
+        calc.add(10, 5)
+        calc.subtract(20, 8)
+        calc.multiply(3, 7)
+        assert len(calc.history) == 3
+        assert calc.get_last() == 21
+
+
+# Skip tests based on conditions
+@pytest.mark.skip(reason=&quot;Not implemented yet&quot;)
+def test_future_feature(calc):
+    &quot;&quot;&quot;This test is skipped.&quot;&quot;&quot;
+    assert False
+
+
+@pytest.mark.skipif(sys.platform == &quot;win32&quot;, reason=&quot;Unix-specific test&quot;)
+def test_unix_only(calc):
+    &quot;&quot;&quot;Only runs on Unix systems.&quot;&quot;&quot;
+    pass
+
+
+# Expected failures
+@pytest.mark.xfail(reason=&quot;Known bug: float precision issue&quot;)
+def test_float_precision(calc):
+    &quot;&quot;&quot;This test is expected to fail.&quot;&quot;&quot;
+    assert calc.add(0.1, 0.2) == 0.3  # Will fail due to float precision
+
+
+# Custom markers (register in pytest.ini)
+@pytest.mark.integration
+def test_database_integration(db_connection):
+    &quot;&quot;&quot;Test with database connection (session-scoped fixture).&quot;&quot;&quot;
+    assert db_connection[&quot;connected&quot;] is True
+    db_connection[&quot;data&quot;][&quot;key&quot;] = &quot;value&quot;
+    assert db_connection[&quot;data&quot;][&quot;key&quot;] == &quot;value&quot;</code></pre>
+
+<h3>pytest.ini -- 配置文件</h3>
+
+<pre><code class="language-ini">[pytest]
+testpaths = tests
+python_files = test_*.py
+python_classes = Test*
+python_functions = test_*
+markers =
+    slow: marks tests as slow (deselect with &#x27;-m &quot;not slow&quot;&#x27;)
+    integration: marks integration tests
+addopts = -v --tb=short</code></pre>
+
+<h2>四、执行预览</h2>
+
+<pre><code class="language-bash">$ pytest -v
+===================== test session starts =====================
+collected 25 items
+
+tests/test_calc.py::test_add PASSED                        [  4%]
+tests/test_calc.py::test_subtract PASSED                   [  8%]
+tests/test_calc.py::test_multiply PASSED                   [ 12%]
+tests/test_calc.py::test_divide PASSED                     [ 16%]
+tests/test_calc.py::test_divide_by_zero PASSED             [ 20%]
+tests/test_calc.py::test_history PASSED                    [ 24%]
+tests/test_calc.py::test_clear_history PASSED              [ 28%]
+tests/test_calc.py::test_get_last_empty PASSED             [ 32%]
+tests/test_params.py::test_add_parameterized[1-2-3] PASSED [ 36%]
+tests/test_params.py::test_add_parameterized[0-0-0] PASSED [ 40%]
+tests/test_params.py::test_add_parameterized[-1--2--3] PASSED [ 44%]
+tests/test_params.py::test_add_parameterized[100-200-300] PASSED [ 48%]
+tests/test_params.py::test_add_parameterized[0.1-0.2-0.3] PASSED [ 52%]
+tests/test_params.py::test_divide_parameterized[10-2-5] PASSED [ 56%]
+...
+tests/test_advanced.py::test_float_precision XFAIL         [ 96%]
+tests/test_advanced.py::test_future_feature SKIPPED        [100%]
+
+================= 23 passed, 1 xfailed, 1 skipped =================</code></pre>
+
+<pre><code class="language-bash"># Run only fast tests
+$ pytest -m &quot;not slow&quot;
+
+# Run with keyword filter
+$ pytest -k &quot;add&quot;
+
+# Run with coverage
+$ pytest --cov=calc --cov-report=term-missing
+
+# Run in parallel (needs pytest-xdist)
+$ pytest -n auto</code></pre>
+
+<h2>五、注意事项</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>注意点</th>
+<th>建议</th>
+</tr></thead><tbody>
+<tr>
+<td>浮点比较</td>
+<td><code>0.1 + 0.2 != 0.3</code></td>
+<td>使用 <code>pytest.approx()</code></td>
+</tr>
+<tr>
+<td>fixture 作用域</td>
+<td><code>session</code> 级别共享状态</td>
+<td>注意测试隔离性</td>
+</tr>
+<tr>
+<td>conftest 层级</td>
+<td>子目录的 conftest 覆盖父级</td>
+<td>合理组织目录结构</td>
+</tr>
+<tr>
+<td>参数化 ID</td>
+<td>默认 ID 不直观</td>
+<td>用 <code>pytest.param(id=...)</code></td>
+</tr>
+<tr>
+<td>异步测试</td>
+<td>普通 pytest 不支持 async</td>
+<td>安装 <code>pytest-asyncio</code></td>
+</tr>
+<tr>
+<td>import 路径</td>
+<td>测试文件 import 路径问题</td>
+<td>用 <code>pyproject.toml</code> 配置包</td>
+</tr>
+<tr>
+<td>测试顺序</td>
+<td>pytest 不保证执行顺序</td>
+<td>不要让测试之间有依赖</td>
+</tr>
+<tr>
+<td>临时文件</td>
+<td>测试中需要临时目录</td>
+<td>使用 <code>tmp_path</code> fixture</td>
+</tr>
+</tbody></table>
+
+<h2>六、避坑指南</h2>
+
+<h3>手动拼接断言消息 vs 用原生 assert</h3>
+
+<pre><code class="language-python"># Bad: unittest 风格
+self.assertEqual(result, expected, f&quot;Expected {expected}, got {result}&quot;)
+
+# Good: pytest 原生 assert，自动生成详细对比
+assert result == expected</code></pre>
+
+<h3>fixture 不控制作用域 vs 合理选择 scope</h3>
+
+<pre><code class="language-python"># Bad: 所有 fixture 都是 function scope，重复创建
+@pytest.fixture
+def db():
+    return create_connection()  # 每个测试都创建
+
+# Good: 合理使用 session/module scope
+@pytest.fixture(scope=&quot;module&quot;)
+def db():
+    conn = create_connection()
+    yield conn
+    conn.close()</code></pre>
+
+<h3>测试之间共享状态 vs 保持测试隔离</h3>
+
+<pre><code class="language-python"># Bad: 测试修改全局状态
+shared_list = []
+
+def test_1():
+    shared_list.append(1)
+
+def test_2():
+    assert len(shared_list) == 1  # 依赖 test_1 的执行顺序
+
+# Good: 每个 test 用独立 fixture
+def test_1(calc):
+    calc.add(1, 2)
+    assert len(calc.history) == 1
+
+def test_2(calc):  # calc 是全新的实例
+    assert len(calc.history) == 0</code></pre>
+
+<h3>不处理异常断言 vs 用 pytest.raises</h3>
+
+<pre><code class="language-python"># Bad: 手动 try/except
+def test_divide_by_zero():
+    try:
+        calc.divide(10, 0)
+        assert False, &quot;Should have raised&quot;
+    except ZeroDivisionError:
+        pass
+
+# Good: pytest.raises
+def test_divide_by_zero(calc):
+    with pytest.raises(ZeroDivisionError, match=&quot;Cannot divide&quot;):
+        calc.divide(10, 0)</code></pre>
+
+<h3>硬编码测试数据 vs 参数化</h3>
+
+<pre><code class="language-python"># Bad: 重复的测试代码
+def test_add_1():
+    assert add(1, 2) == 3
+
+def test_add_2():
+    assert add(0, 0) == 0
+
+def test_add_3():
+    assert add(-1, 1) == 0
+
+# Good: 参数化
+@pytest.mark.parametrize(&quot;a, b, expected&quot;, [
+    (1, 2, 3), (0, 0, 0), (-1, 1, 0),
+])
+def test_add(calc, a, b, expected):
+    assert calc.add(a, b) == expected</code></pre>
+
+<h2>七、练习题</h2>
+
+<h3>基础题</h3>
+
+<ol>
+<li><strong>编写第一个测试</strong>：为以下函数编写 pytest 测试，要求覆盖正常和边界情况。</li>
+
+<pre><code class="language-python">def is_palindrome(s: str) -&gt; bool:
+    return s == s[::-1]</code></pre>
+
+<ol>
+<li><strong>fixture 练习</strong>：创建一个 fixture，提供临时 CSV 文件，写入测试数据，测试结束后自动清理。</li>
+
+<ol>
+<li><strong>异常测试</strong>：编写测试验证 <code>int("abc")</code> 会抛出 <code>ValueError</code>。</li>
+
+<h3>进阶题</h3>
+
+<ol>
+<li><strong>参数化测试</strong>：为字符串反转函数编写参数化测试，至少包含 5 组数据（空字符串、单字符、偶数长度、奇数长度、含空格）。</li>
+
+<ol>
+<li><strong>conftest 层级</strong>：在 <code>tests/</code> 和 <code>tests/unit/</code> 各放一个 <code>conftest.py</code>，验证 fixture 的覆盖和合并规则。</li>
+
+<ol>
+<li><strong>自定义标记</strong>：创建 <code>@pytest.mark.smoke</code> 标记，选择 5 个关键测试标记为 smoke，用 <code>pytest -m smoke</code> 运行。</li>
+
+<h3>挑战题</h3>
+
+<ol>
+<li><strong>端到端测试套件</strong>：为一个 TODO 应用（支持增删改查 + 持久化到 JSON）编写完整的测试套件，包括：</li>
+<li>fixture 管理临时文件</li>
+<li>参数化测试</li>
+<li>边界情况和异常测试</li>
+<li>至少 15 个测试用例</li>
+
+<ol>
+<li><strong>自定义 pytest 插件</strong>：编写一个 pytest 插件，在测试开始前打印当前时间，测试结束后打印耗时，并生成简易 HTML 报告。</li>
+
+<h2>八、知识点总结</h2>
+
+<pre><code>pytest 知识树
+├── 1. 安装与运行
+│   ├── pip install pytest
+│   ├── pytest (运行全部)
+│   ├── pytest -v (详细输出)
+│   ├── pytest -k &quot;pattern&quot; (关键字过滤)
+│   ├── pytest -m &quot;marker&quot; (标记过滤)
+│   └── pytest --cov (覆盖率)
+├── 2. 测试编写
+│   ├── 函数式：def test_xxx()
+│   ├── 类式：class TestXXX
+│   ├── assert 语句
+│   ├── pytest.raises() (异常)
+│   └── pytest.approx() (浮点)
+├── 3. Fixture 机制
+│   ├── @pytest.fixture
+│   ├── scope: function/class/module/session
+│   ├── yield (清理)
+│   ├── conftest.py (共享)
+│   ├── autouse=True (自动)
+│   └── params (参数化)
+├── 4. 参数化
+│   ├── @pytest.mark.parametrize
+│   ├── pytest.param(id=, marks=)
+│   ├── indirect 参数化
+│   └── 笛卡尔积组合
+├── 5. 标记系统
+│   ├── skip / skipif
+│   ├── xfail
+│   ├── 自定义标记
+│   └── -m 选择运行
+└── 6. 插件生态
+    ├── pytest-cov (覆盖率)
+    ├── pytest-xdist (并行)
+    ├── pytest-mock (Mock)
+    ├── pytest-asyncio (异步)
+    └── pytest-html (报告)</code></pre>
+
+<h2>九、举一反三</h2>
+
+<table><thead><tr>
+<th>你学到的</th>
+<th>可以应用到</th>
+<th>示例</th>
+</tr></thead><tbody>
+<tr>
+<td>fixture 依赖注入</td>
+<td>任何需要测试准备的场景</td>
+<td>数据库连接、API 客户端、Mock 对象</td>
+</tr>
+<tr>
+<td>参数化测试</td>
+<td>API 接口的边界值测试</td>
+<td>各种 HTTP 状态码、参数组合</td>
+</tr>
+<tr>
+<td>conftest 层级</td>
+<td>多环境测试配置</td>
+<td>dev/staging/prod 不同配置</td>
+</tr>
+<tr>
+<td>mark 标记</td>
+<td>CI/CD 流水线分组运行</td>
+<td>smoke 快速验证，regression 完整回归</td>
+</tr>
+<tr>
+<td>tmp_path fixture</td>
+<td>文件操作相关测试</td>
+<td>日志处理、文件上传、CSV 解析</td>
+</tr>
+<tr>
+<td>pytest.raises</td>
+<td>防御性编程验证</td>
+<td>输入校验、权限检查、状态异常</td>
+</tr>
+<tr>
+<td>自定义插件</td>
+<td>团队测试规范</td>
+<td>强制代码风格、自动生成文档</td>
+</tr>
+</tbody></table>
+
+<h2>十、参考资料</h2>
+
+<ul>
+<li><a href="https://docs.pytest.org/">pytest 官方文档</a></li>
+<li><a href="https://docs.pytest.org/en/latest/reference/plugin_list.html">pytest 优质插件列表</a></li>
+<li><a href="https://realpython.com/pytest-python-testing/">Effective Python Testing with pytest -- Real Python</a></li>
+<li><a href="https://www.oreilly.com/library/view/pytest-cookbook/">pytest Cookbook -- O'Reilly</a></li>
+<li>《Python Testing with pytest》-- Brian Okken</li>
+
+<h2>十一、代码演进</h2>
+
+<h3>v1 -- 最简单的测试</h3>
+
+<pre><code class="language-python"># test_calc_v1.py -- No framework, just assert
+from calc import Calculator
+
+def test_add():
+    calc = Calculator()
+    assert calc.add(1, 2) == 3
+    print(&quot;test_add passed&quot;)
+
+def test_divide_by_zero():
+    calc = Calculator()
+    try:
+        calc.divide(10, 0)
+        assert False
+    except ZeroDivisionError:
+        print(&quot;test_divide_by_zero passed&quot;)
+
+if __name__ == &quot;__main__&quot;:
+    test_add()
+    test_divide_by_zero()</code></pre>
+
+<p><strong>问题</strong>：无自动发现、无详细报告、手动运行。</p>
+
+<h3>v2 -- 基础 pytest</h3>
+
+<pre><code class="language-python"># test_calc_v2.py -- Basic pytest
+import pytest
+from calc import Calculator
+
+def test_add():
+    calc = Calculator()
+    assert calc.add(1, 2) == 3
+
+def test_divide_by_zero():
+    calc = Calculator()
+    with pytest.raises(ZeroDivisionError):
+        calc.divide(10, 0)</code></pre>
+
+<p><strong>改进</strong>：自动发现、详细断言、异常断言。<strong>问题</strong>：重复创建 Calculator、无参数化。</p>
+
+<h3>v3 -- 完整 pytest 套件</h3>
+
+<pre><code class="language-python"># test_calc_v3.py -- Full pytest with fixture, parametrize, conftest
+import pytest
+
+@pytest.fixture
+def calc():
+    return Calculator()
+
+@pytest.mark.parametrize(&quot;a, b, expected&quot;, [
+    (1, 2, 3), (0, 0, 0), (-1, 1, 0),
+])
+def test_add(calc, a, b, expected):
+    assert calc.add(a, b) == expected
+
+def test_divide_by_zero(calc):
+    with pytest.raises(ZeroDivisionError, match=&quot;Cannot divide&quot;):
+        calc.divide(10, 0)</code></pre>
+
+<p><strong>最终形态</strong>：fixture 复用、参数化、清晰断言、可维护。</p>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

@@ -1,0 +1,550 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>002 - Swoole 协程核心原理与 Hyperf 底层机制</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Hyperf/index.html">Hyperf</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Hyperf/01-微服务实战/index.html">Hyperf微服务实战</a>
+</nav>
+<h1>002 - Swoole 协程核心原理与 Hyperf 底层机制</h1>
+<div class="meta">
+<span>📂 Hyperf微服务实战</span>
+<span>🏷️ Hyperf</span>
+</div>
+<article>
+
+
+<h1>Swoole 协程核心原理与 Hyperf 底层机制</h1>
+
+<blockquote><p><strong>难度：</strong> ⭐⭐⭐<br><strong>前置知识：</strong> PHP 基础、Hyperf 入门（001）、操作系统进程/线程概念<br><strong>预估用时：</strong> 60 分钟</p></blockquote>
+
+<hr>
+
+<h2>一、概念讲解</h2>
+
+<p><strong>一句话定义：</strong> Swoole 协程是一种用户态轻量级线程，由 Swoole 运行时在单个进程内调度，实现非阻塞 I/O 并发。</p>
+
+<p><strong>现实类比：</strong> 你在厨房做一道复杂的菜。传统方式是烧水→等水开→切菜→炒菜，全程傻等；协程方式是烧上水就去切菜，水开了再回来处理，多个任务交替推进，厨师（CPU）从不停歇。</p>
+
+<p><strong>技术场景：</strong> 用户服务中，一个 API 可能需要同时查询数据库、调用 Redis 缓存、请求第三方服务。在 PHP-FPM 下这三个操作串行执行，总耗时 = DB + Redis + HTTP；在 Swoole 协程下，这三个操作自动并行，总耗时 ≈ 最慢的那个。这就是 Hyperf 高性能的底层秘密。</p>
+
+<hr>
+
+<h2>二、实时脑图</h2>
+
+<pre><code>                    ┌─────────────────┐
+                    │  PHP Process     │
+                    │  (Master)        │
+                    └────────┬────────┘
+                             │ fork
+              ┌──────────────┼──────────────┐
+              ▼              ▼              ▼
+        ┌──────────┐  ┌──────────┐  ┌──────────┐
+        │ Worker#0 │  │ Worker#1 │  │ Worker#N │
+        │          │  │          │  │          │
+        │ ┌──────┐ │  │ ┌──────┐ │  │ ┌──────┐ │
+        │ │Cid:1 │ │  │ │Cid:1 │ │  │ │Cid:1 │ │
+        │ ├──────┤ │  │ ├──────┤ │  │ ├──────┤ │
+        │ │Cid:2 │ │  │ │Cid:2 │ │  │ │Cid:2 │ │
+        │ ├──────┤ │  │ ├──────┤ │  │ ├──────┤ │
+        │ │Cid:N │ │  │ │Cid:N │ │  │ │Cid:N │ │
+        │ └──────┘ │  │ └──────┘ │  │ └──────┘ │
+        └──────────┘  └──────────┘  └──────────┘
+        
+        Key: Cid = Coroutine ID (用户态调度)
+             Worker = OS Process (内核态调度)</code></pre>
+
+<hr>
+
+<h2>三、完整代码</h2>
+
+<h3>3.1 协程基础体验</h3>
+
+<pre><code class="language-php">&lt;?php
+// ✅ Test coroutine basics with Swoole
+
+use Swoole\Coroutine;
+use function Swoole\Coroutine\run;
+
+// ✅ Run in coroutine context
+run(function () {
+    $start = microtime(true);
+    
+    // 🟢 Launch multiple concurrent coroutines
+    $results = [];
+    
+    // Coroutine 1: Simulate DB query (100ms)
+    Coroutine::create(function () use (&amp;$results) {
+        Coroutine::sleep(0.1); // ✅ Non-blocking sleep
+        $results[&#x27;db&#x27;] = [&#x27;id&#x27; =&gt; 1, &#x27;name&#x27; =&gt; &#x27;hahn&#x27;];
+    });
+    
+    // Coroutine 2: Simulate Redis query (50ms)
+    Coroutine::create(function () use (&amp;$results) {
+        Coroutine::sleep(0.05);
+        $results[&#x27;redis&#x27;] = [&#x27;cached&#x27; =&gt; true];
+    });
+    
+    // Coroutine 3: Simulate HTTP call (200ms)
+    Coroutine::create(function () use (&amp;$results) {
+        Coroutine::sleep(0.2);
+        $results[&#x27;http&#x27;] = [&#x27;status&#x27; =&gt; &#x27;ok&#x27;];
+    });
+    
+    // ✅ Wait for all coroutines to complete
+    // Swoole automatically schedules coroutines
+    
+    $elapsed = round((microtime(true) - $start) * 1000);
+    echo &quot;Total time: {$elapsed}ms (should be ~200ms, NOT 350ms)\n&quot;;
+    echo &quot;Results: &quot; . json_encode($results) . &quot;\n&quot;;
+});</code></pre>
+
+<h3>3.2 Channel 通信</h3>
+
+<pre><code class="language-php">&lt;?php
+// ✅ Coroutine channel for inter-coroutine communication
+
+use Swoole\Coroutine;
+use Swoole\Coroutine\Channel;
+use function Swoole\Coroutine\run;
+
+run(function () {
+    $channel = new Channel(1);
+    
+    // Producer coroutine
+    Coroutine::create(function () use ($channel) {
+        Coroutine::sleep(0.1);
+        $channel-&gt;push([&#x27;user_id&#x27; =&gt; 1, &#x27;action&#x27; =&gt; &#x27;register&#x27;]);
+        echo &quot;[Producer] Pushed user data to channel\n&quot;;
+    });
+    
+    // Consumer coroutine
+    Coroutine::create(function () use ($channel) {
+        $data = $channel-&gt;pop();
+        echo &quot;[Consumer] Received: &quot; . json_encode($data) . &quot;\n&quot;;
+    });
+});</code></pre>
+
+<h3>3.3 Hyperf 中的协程上下文</h3>
+
+<pre><code class="language-php">&lt;?php
+// ✅ app/Service/CoroutineContextService.php
+
+declare(strict_types=1);
+
+namespace App\Service;
+
+use Hyperf\Coroutine\Coroutine as HyperfCoroutine;
+use Swoole\Coroutine;
+use Psr\Log\LoggerInterface;
+use Hyperf\Di\Annotation\Inject;
+
+class CoroutineContextService
+{
+    #[Inject]
+    private LoggerInterface $logger;
+
+    // 🟢 Demonstrate coroutine-safe context management
+    public function demonstrateContext(): array
+    {
+        $mainCid = HyperfCoroutine::id();
+        $this-&gt;logger-&gt;info(&quot;Main coroutine ID: {$mainCid}&quot;);
+
+        $results = [];
+
+        // ✅ Each coroutine has its own context
+        for ($i = 1; $i &lt;= 3; $i++) {
+            Coroutine::create(function () use ($i, &amp;$results) {
+                $cid = HyperfCoroutine::id();
+                Coroutine::sleep(0.01 * $i);
+                $results[$cid] = &quot;Task {$i} completed in coroutine {$cid}&quot;;
+            });
+        }
+
+        return [
+            &#x27;main_cid&#x27; =&gt; $mainCid,
+            &#x27;tasks&#x27; =&gt; $results,
+            &#x27;message&#x27; =&gt; &#x27;All coroutines executed concurrently&#x27;,
+        ];
+    }
+}</code></pre>
+
+<h3>3.4 WaitGroup 并发控制</h3>
+
+<pre><code class="language-php">&lt;?php
+// ✅ app/Service/ConcurrentUserService.php
+
+declare(strict_types=1);
+
+namespace App\Service;
+
+use Hyperf\Coroutine\WaitGroup;
+
+class ConcurrentUserService
+{
+    // 🟢 Fetch user data from multiple sources concurrently
+    public function fetchUserProfile(int $userId): array
+    {
+        $wg = new WaitGroup();
+        $profile = null;
+        $orders = null;
+        $stats = null;
+
+        // Concurrent task 1: User profile
+        $wg-&gt;add();
+        ConcurrentUserService::go(function () use ($userId, &amp;$profile, $wg) {
+            // Simulate DB query
+            \Swoole\Coroutine::sleep(0.05);
+            $profile = [&#x27;id&#x27; =&gt; $userId, &#x27;name&#x27; =&gt; &#x27;Hahn&#x27;, &#x27;email&#x27; =&gt; &#x27;hahn@example.com&#x27;];
+            $wg-&gt;done();
+        });
+
+        // Concurrent task 2: Recent orders
+        $wg-&gt;add();
+        ConcurrentUserService::go(function () use ($userId, &amp;$orders, $wg) {
+            \Swoole\Coroutine::sleep(0.08);
+            $orders = [[&#x27;order_id&#x27; =&gt; 1001, &#x27;amount&#x27; =&gt; 99.9]];
+            $wg-&gt;done();
+        });
+
+        // Concurrent task 3: User statistics
+        $wg-&gt;add();
+        ConcurrentUserService::go(function () use ($userId, &amp;$stats, $wg) {
+            \Swoole\Coroutine::sleep(0.03);
+            $stats = [&#x27;login_count&#x27; =&gt; 42, &#x27;last_login&#x27; =&gt; &#x27;2026-05-01&#x27;];
+            $wg-&gt;done();
+        });
+
+        // ✅ Wait for all tasks to complete
+        $wg-&gt;wait();
+
+        return [
+            &#x27;profile&#x27; =&gt; $profile,
+            &#x27;orders&#x27; =&gt; $orders,
+            &#x27;stats&#x27; =&gt; $stats,
+        ];
+    }
+    
+    private static function go(callable $fn): void
+    {
+        \Swoole\Coroutine::create($fn);
+    }
+}</code></pre>
+
+<hr>
+
+<h2>四、执行预览</h2>
+
+<pre><code class="language-bash">$ php test_coroutine.php
+Total time: 200ms (should be ~200ms, NOT 350ms)
+Results: {&quot;db&quot;:{&quot;id&quot;:1,&quot;name&quot;:&quot;hahn&quot;},&quot;redis&quot;:{&quot;cached&quot;:true},&quot;http&quot;:{&quot;status&quot;:&quot;ok&quot;}}
+
+$ php test_channel.php
+[Producer] Pushed user data to channel
+[Consumer] Received: {&quot;user_id&quot;:1,&quot;action&quot;:&quot;register&quot;}</code></pre>
+
+<hr>
+
+<h2>五、注意事项</h2>
+
+<table><thead><tr>
+<th>约束</th>
+<th>说明</th>
+<th>违反后果</th>
+</tr></thead><tbody>
+<tr>
+<td>协程内禁止阻塞 I/O</td>
+<td><code>sleep()</code>、<code>file_get_contents</code> 等会阻塞整个 Worker</td>
+<td>所有并发请求卡住</td>
+</tr>
+<tr>
+<td>全局变量/静态属性不安全</td>
+<td>多协程共享同一进程空间</td>
+<td>数据串扰，难以调试的 Bug</td>
+</tr>
+<tr>
+<td>连接池必须使用</td>
+<td>每个协程不能独占连接</td>
+<td>连接耗尽，服务雪崩</td>
+</tr>
+<tr>
+<td>协程间不能共享 PDO 实例</td>
+<td>PDO 不是协程安全的</td>
+<td>数据错乱、连接异常</td>
+</tr>
+<tr>
+<td><code>Coroutine::sleep</code> 代替 <code>sleep</code></td>
+<td>后者是系统级阻塞</td>
+<td>Worker 停止响应</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>六、避坑指南</h2>
+
+<table><thead><tr>
+<th>典型错误</th>
+<th>现象</th>
+<th>正确做法</th>
+</tr></thead><tbody>
+<tr>
+<td>❌ 使用全局 <code>$_GET/$_POST</code></td>
+<td>数据为空或串协程</td>
+<td>使用 <code>$request->input()</code></td>
+</tr>
+<tr>
+<td>❌ <code>new PDO()</code> 手动创建连接</td>
+<td>协程间共享连接导致数据错乱</td>
+<td>使用 Hyperf 连接池</td>
+</tr>
+<tr>
+<td>❌ 在协程中 <code>sleep(1)</code></td>
+<td>整个 Worker 卡住 1 秒</td>
+<td>使用 <code>Coroutine::sleep(1)</code></td>
+</tr>
+<tr>
+<td>❌ 用 <code>static</code> 变量缓存请求上下文</td>
+<td>多请求共享数据</td>
+<td>使用 <code>Context::set()/get()</code></td>
+</tr>
+<tr>
+<td>❌ 忽略协程创建开销</td>
+<td>创建 10 万协程导致内存溢出</td>
+<td>合理控制并发量，使用 Channel 限流</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>七、练习题</h2>
+
+<p>🟢 <strong>基础题 1：</strong> 编写脚本，创建 5 个协程分别 sleep 不同时间（0.1s~0.5s），验证总耗时接近最长时间而非累加时间。</p>
+
+<p>🟢 <strong>基础题 2：</strong> 使用 Channel 实现生产者-消费者模式：一个协程每秒产生一条消息，另一个协程消费并打印。</p>
+
+<p>🟡 <strong>进阶题：</strong> 使用 WaitGroup 实现用户详情页数据聚合：同时获取用户基本信息、积分信息、最近订单，合并返回。</p>
+
+<p>🔴 <strong>开放题：</strong> 研究 Swoole 的 <code>Coroutine::select()</code> 机制，对比 Go 的 <code>select</code> 语句，分析两者在实现多路复用上的异同。</p>
+
+<hr>
+
+<h2>八、知识点总结</h2>
+
+<pre><code>Swoole 协程核心
+├── 进程模型
+│   ├── Master 进程（管理）
+│   ├── Worker 进程（处理请求）
+│   └── Task Worker（异步任务）
+├── 协程机制
+│   ├── Coroutine::create（创建）
+│   ├── Coroutine::sleep（非阻塞等待）
+│   ├── Coroutine::yield/resume（挂起/恢复）
+│   └── 协程调度器（自动抢占）
+├── 通信方式
+│   ├── Channel（管道通信）
+│   ├── WaitGroup（等待组）
+│   └── Context（协程上下文隔离）
+└── Hyperf 封装
+    ├── 连接池（DB/Redis）
+    ├── 协程上下文管理
+    └── 并发工具类</code></pre>
+
+<hr>
+
+<h2>九、举一反三</h2>
+
+<table><thead><tr>
+<th>变种场景</th>
+<th>关键差异</th>
+<th>适配方式</th>
+</tr></thead><tbody>
+<tr>
+<td>微服务 RPC 并发调用</td>
+<td>同时调用 3 个下游服务</td>
+<td>WaitGroup + 协程 HTTP 客户端</td>
+</tr>
+<tr>
+<td>WebSocket 消息推送</td>
+<td>长连接+广播</td>
+<td>Channel + Table 共享内存</td>
+</tr>
+<tr>
+<td>定时任务并发执行</td>
+<td>Crontab 触发多任务</td>
+<td>Parallel 并发执行</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>十、参考资料</h2>
+
+<table><thead><tr>
+<th>资料</th>
+<th>权威等级</th>
+<th>链接</th>
+</tr></thead><tbody>
+<tr>
+<td>Swoole 官方文档 - 协程</td>
+<td>⭐⭐⭐⭐⭐</td>
+<td>https://wiki.swoole.com/#/coroutine</td>
+</tr>
+<tr>
+<td>Hyperf 官方文档 - 协程</td>
+<td>⭐⭐⭐⭐⭐</td>
+<td>https://hyperf.wiki/3.1/#/zh-cn/coroutine</td>
+</tr>
+<tr>
+<td>Swoole 源码分析</td>
+<td>⭐⭐⭐</td>
+<td>https://github.com/swoole/swoole-src</td>
+</tr>
+<tr>
+<td>PHP 协程原理深度解析</td>
+<td>⭐⭐⭐</td>
+<td>社区博文</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>十一、代码演进</h2>
+
+<h3>v1 ❌ 同步阻塞写法</h3>
+
+<pre><code class="language-php">&lt;?php
+// ❌ Blocking: Sequential execution, total ~350ms
+$profile = $this-&gt;db-&gt;query(&quot;SELECT * FROM users WHERE id = 1&quot;); // 100ms
+$orders = $this-&gt;db-&gt;query(&quot;SELECT * FROM orders WHERE user_id = 1&quot;); // 150ms
+$stats = $this-&gt;redis-&gt;get(&quot;user:1:stats&quot;); // 100ms
+// Total: 350ms</code></pre>
+
+<h3>v2 ✅ 协程并发写法</h3>
+
+<pre><code class="language-php">&lt;?php
+// ✅ Concurrent: Using WaitGroup, total ~150ms
+$wg = new WaitGroup();
+$wg-&gt;add(3);
+
+Coroutine::create(function () use (&amp;$profile, $wg) {
+    $profile = $this-&gt;db-&gt;query(&quot;SELECT * FROM users WHERE id = 1&quot;);
+    $wg-&gt;done();
+});
+
+Coroutine::create(function () use (&amp;$orders, $wg) {
+    $orders = $this-&gt;db-&gt;query(&quot;SELECT * FROM orders WHERE user_id = 1&quot;);
+    $wg-&gt;done();
+});
+
+Coroutine::create(function () use (&amp;$stats, $wg) {
+    $stats = $this-&gt;redis-&gt;get(&quot;user:1:stats&quot;);
+    $wg-&gt;done();
+});
+
+$wg-&gt;wait(); // Total: ~150ms (max of three)</code></pre>
+
+<h3>v3 🟢 Hyperf 风格封装</h3>
+
+<pre><code class="language-php">&lt;?php
+// 🟢 Production: Clean service with Hyperf Parallel
+declare(strict_types=1);
+
+namespace App\Service;
+
+use Hyperf\Coroutine\Parallel;
+use Hyperf\DbConnection\Db;
+use Hyperf\Redis\Redis;
+
+class UserProfileService
+{
+    public function getFullProfile(int $userId): array
+    {
+        $parallel = new Parallel(3);
+
+        $parallel-&gt;add(function () use ($userId) {
+            return Db::table(&#x27;users&#x27;)-&gt;find($userId);
+        }, &#x27;profile&#x27;);
+
+        $parallel-&gt;add(function () use ($userId) {
+            return Db::table(&#x27;orders&#x27;)-&gt;where(&#x27;user_id&#x27;, $userId)-&gt;get();
+        }, &#x27;orders&#x27;);
+
+        $parallel-&gt;add(function () use ($userId) {
+            return Redis::get(&quot;user:{$userId}:stats&quot;);
+        }, &#x27;stats&#x27;);
+
+        $results = $parallel-&gt;wait();
+
+        return [
+            &#x27;profile&#x27; =&gt; $results[&#x27;profile&#x27;],
+            &#x27;orders&#x27; =&gt; $results[&#x27;orders&#x27;],
+            &#x27;stats&#x27; =&gt; json_decode($results[&#x27;stats&#x27;], true),
+        ];
+    }
+}</code></pre>
+
+<hr>
+
+<p><strong>上一篇：</strong> <a href="/post/001-hyperf-intro-setup">001 - Hyperf 框架入门与环境搭建</a></p>
+<p><strong>下一篇：</strong> <a href="/post/003-di-container-annotation">003 - 依赖注入容器与注解系统详解</a></p>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

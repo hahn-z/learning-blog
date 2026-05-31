@@ -1,0 +1,637 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>012 - Python 高级日志：从基础到生产级日志架构</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Python/index.html">其他</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Python/02-进阶/index.html">Python进阶</a>
+</nav>
+<h1>012 - Python 高级日志：从基础到生产级日志架构</h1>
+<div class="meta">
+<span>📂 Python进阶</span>
+<span>🏷️ 其他</span>
+</div>
+<article>
+
+
+
+<h1>Python 高级日志：从基础到生产级日志架构</h1>
+
+<blockquote><p><strong>难度：⭐⭐⭐⭐ 高级</strong> | <strong>阅读时间：约 18 分钟</strong></p></blockquote>
+
+<hr>
+
+<h2>一、概念讲解</h2>
+
+<p>Python <code>logging</code> 模块采用<strong>三层架构</strong>：</p>
+
+<ul>
+<li><strong>Logger</strong>：产生日志的入口，每个模块一个 logger</li>
+<li><strong>Handler</strong>：决定日志发往哪里（文件、控制台、网络）</li>
+<li><strong>Formatter</strong>：决定日志长什么样</li>
+
+<p><strong>数据流：Logger → Filter → Handler → Formatter → 目的地</strong></p>
+
+<p>日志级别（从低到高）：<code>DEBUG(10)</code> → <code>INFO(20)</code> → <code>WARNING(30)</code> → <code>ERROR(40)</code> → <code>CRITICAL(50)</code></p>
+
+<pre><code>┌────────────────────────────────────────────────────┐
+│              logging 架构全景脑图                     │
+├──────────────┬───────────────┬─────────────────────┤
+│   Logger     │   Handler     │   Formatter          │
+│   (产生日志)  │  (发送日志)    │  (格式化日志)         │
+├──────────────┼───────────────┼─────────────────────┤
+│ getLogger()  │ StreamHandler │ Formatter(fmt)       │
+│ setLevel()   │ FileHandler   │ JSONFormatter(自定义) │
+│ addHandler() │ RotatingFile  │                      │
+│              │ TimedRotating │                      │
+│              │ SMTPHandler   │                      │
+│              │ QueueHandler  │                      │
+├──────────────┴───────────────┴─────────────────────┤
+│  Filter (可选：细粒度过滤，按条件决定是否记录)           │
+└────────────────────────────────────────────────────┘</code></pre>
+
+<hr>
+
+<h2>二、代码演进</h2>
+
+<h3>v1：print 大法（初级）</h3>
+
+<pre><code class="language-python">def process_order(order_id):
+    print(f&quot;Processing order {order_id}&quot;)
+    try:
+        result = calculate_total(order_id)
+        print(f&quot;Total: {result}&quot;)
+        return result
+    except Exception as e:
+        print(f&quot;Error: {e}&quot;)  # Where? When? What context?</code></pre>
+
+<p>问题：没法按级别过滤、没法轮转、没法输出到文件、生产环境灾难。</p>
+
+<h3>v2：basicConfig（中级）</h3>
+
+<pre><code class="language-python">import logging
+
+logging.basicConfig(
+    level=logging.INFO,
+    format=&quot;%(asctime)s [%(levelname)s] %(message)s&quot;,
+    filename=&quot;app.log&quot;
+)
+logging.info(&quot;Processing order 123&quot;)
+# → 2024-01-15 10:30:00 [INFO] Processing order 123</code></pre>
+
+<p>问题：全局配置共享，不同模块无法设不同级别，日志文件不轮转。</p>
+
+<h3>v3：生产级日志架构（终极）</h3>
+
+<pre><code class="language-python">import logging
+import logging.handlers
+import json
+from datetime import datetime
+
+# Custom JSON Formatter for ELK/Datadog
+class JSONFormatter(logging.Formatter):
+    def format(self, record):
+        log_data = {
+            &quot;timestamp&quot;: datetime.utcnow().isoformat() + &quot;Z&quot;,
+            &quot;level&quot;: record.levelname,
+            &quot;logger&quot;: record.name,
+            &quot;message&quot;: record.getMessage(),
+            &quot;module&quot;: record.module,
+            &quot;line&quot;: record.lineno,
+        }
+        if record.exc_info:
+            log_data[&quot;exception&quot;] = self.formatException(record.exc_info)
+        # Include extra fields
+        for key in (&quot;user_id&quot;, &quot;request_id&quot;, &quot;duration_ms&quot;):
+            if hasattr(record, key):
+                log_data[key] = getattr(record, key)
+        return json.dumps(log_data, ensure_ascii=False)
+
+def setup_logger(name=&quot;app&quot;, level=logging.DEBUG, log_file=&quot;app.log&quot;):
+    logger = logging.getLogger(name)
+    logger.setLevel(level)
+    logger.handlers.clear()  # Prevent duplicate handlers!
+
+    # Console: human readable
+    console = logging.StreamHandler()
+    console.setLevel(logging.INFO)
+    console.setFormatter(logging.Formatter(
+        &quot;%(asctime)s [%(levelname)s] %(name)s: %(message)s&quot;
+    ))
+    logger.addHandler(console)
+
+    # File: JSON + rotation
+    file_handler = logging.handlers.RotatingFileHandler(
+        log_file, maxBytes=10*1024*1024, backupCount=5, encoding=&quot;utf-8&quot;
+    )
+    file_handler.setLevel(logging.DEBUG)
+    file_handler.setFormatter(JSONFormatter())
+    logger.addHandler(file_handler)
+
+    return logger
+
+# Usage
+logger = setup_logger(&quot;myapp&quot;)
+logger.info(&quot;Application started&quot;)
+logger.info(&quot;User login&quot;, extra={&quot;user_id&quot;: &quot;user_123&quot;})
+logger.info(&quot;API completed&quot;, extra={&quot;request_id&quot;: &quot;req_abc&quot;, &quot;duration_ms&quot;: 142})
+
+try:
+    1 / 0
+except ZeroDivisionError:
+    logger.error(&quot;Division failed&quot;, exc_info=True)</code></pre>
+
+<hr>
+
+<h2>三、核心高级用法</h2>
+
+<h3>3.1 日志轮转</h3>
+
+<pre><code class="language-python">from logging.handlers import RotatingFileHandler, TimedRotatingFileHandler
+
+# By size: 10MB per file, keep 5 backups
+size_handler = RotatingFileHandler(
+    &quot;app.log&quot;, maxBytes=10*1024*1024, backupCount=5, encoding=&quot;utf-8&quot;
+)
+# Creates: app.log, app.log.1, ..., app.log.5
+
+# By time: new file every midnight, keep 30 days
+time_handler = TimedRotatingFileHandler(
+    &quot;app.log&quot;, when=&quot;midnight&quot;, backupCount=30, encoding=&quot;utf-8&quot;
+)
+# when options: &quot;S&quot;=seconds, &quot;M&quot;=minutes, &quot;H&quot;=hourly, &quot;D&quot;=daily,
+#               &quot;midnight&quot;, &quot;W0&quot;-&quot;W6&quot;=weekday</code></pre>
+
+<h3>3.2 按模块设置不同级别</h3>
+
+<pre><code class="language-python"># Different modules, different levels
+api_logger = logging.getLogger(&quot;app.api&quot;)
+api_logger.setLevel(logging.INFO)
+
+db_logger = logging.getLogger(&quot;app.db&quot;)
+db_logger.setLevel(logging.WARNING)  # Only warnings+
+
+# Silence noisy third-party libraries
+logging.getLogger(&quot;urllib3&quot;).setLevel(logging.WARNING)
+logging.getLogger(&quot;sqlalchemy.engine&quot;).setLevel(logging.WARNING)
+
+# Logger hierarchy: &quot;app.api&quot; inherits from &quot;app&quot; inherits from root
+# propagate=False stops bubbling up to parent
+api_logger.propagate = False</code></pre>
+
+<h3>3.3 结构化 JSON 日志</h3>
+
+<pre><code class="language-python">import json, logging
+from datetime import datetime
+
+class JSONFormatter(logging.Formatter):
+    def format(self, record):
+        log = {
+            &quot;ts&quot;: datetime.utcnow().isoformat() + &quot;Z&quot;,
+            &quot;level&quot;: record.levelname,
+            &quot;logger&quot;: record.name,
+            &quot;msg&quot;: record.getMessage(),
+            &quot;file&quot;: f&quot;{record.module}:{record.lineno}&quot;,
+        }
+        if record.exc_info:
+            log[&quot;exc&quot;] = self.formatException(record.exc_info)
+        # Auto-include any extra fields
+        standard_attrs = {
+            &quot;name&quot;,&quot;msg&quot;,&quot;args&quot;,&quot;created&quot;,&quot;exc_info&quot;,&quot;levelname&quot;,
+            &quot;levelno&quot;,&quot;lineno&quot;,&quot;module&quot;,&quot;funcName&quot;,&quot;msecs&quot;,&quot;message&quot;,
+            &quot;pathname&quot;,&quot;process&quot;,&quot;processName&quot;,&quot;relativeCreated&quot;,
+            &quot;thread&quot;,&quot;threadName&quot;,&quot;taskName&quot;,&quot;stack_info&quot;,
+        }
+        for k, v in record.__dict__.items():
+            if k not in standard_attrs and not k.startswith(&quot;_&quot;):
+                log[k] = v
+        return json.dumps(log, ensure_ascii=False, default=str)
+
+handler = logging.FileHandler(&quot;structured.jsonl&quot;)
+handler.setFormatter(JSONFormatter())
+logger = logging.getLogger(&quot;structured&quot;)
+logger.addHandler(handler)
+logger.setLevel(logging.DEBUG)
+
+logger.info(&quot;Order created&quot;, extra={
+    &quot;order_id&quot;: &quot;ORD-001&quot;, &quot;amount&quot;: 99.9, &quot;currency&quot;: &quot;CNY&quot;
+})
+# {&quot;ts&quot;:&quot;2024-...&quot;,&quot;level&quot;:&quot;INFO&quot;,&quot;msg&quot;:&quot;Order created&quot;,&quot;order_id&quot;:&quot;ORD-001&quot;,&quot;amount&quot;:99.9}</code></pre>
+
+<h3>3.4 QueueHandler — 异步日志</h3>
+
+<pre><code class="language-python">import logging.handlers
+import queue
+
+log_queue = queue.Queue(-1)  # Unlimited
+
+# Main thread: non-blocking queue handler
+queue_handler = logging.handlers.QueueHandler(log_queue)
+
+# Listener thread: writes to actual destination
+file_handler = logging.FileHandler(&quot;app.log&quot;)
+listener = logging.handlers.QueueListener(log_queue, file_handler)
+listener.start()
+
+logger = logging.getLogger(&quot;async_app&quot;)
+logger.addHandler(queue_handler)
+logger.setLevel(logging.INFO)
+
+# Logging is now non-blocking!
+for i in range(10000):
+    logger.info(f&quot;Processing item {i}&quot;)  # Won&#x27;t block main thread
+
+# On shutdown:
+# listener.stop()</code></pre>
+
+<h3>3.5 自定义 Filter</h3>
+
+<pre><code class="language-python">import time, logging
+
+class RateLimitFilter(logging.Filter):
+    &quot;&quot;&quot;Limit how often identical messages appear.&quot;&quot;&quot;
+    def __init__(self, rate=60):
+        super().__init__()
+        self.rate = rate
+        self._last = {}
+
+    def filter(self, record):
+        now = time.time()
+        key = (record.name, record.getMessage()[:80])
+        if key in self._last and now - self._last[key] &lt; self.rate:
+            return False  # Suppress duplicate
+        self._last[key] = now
+        return True
+
+class ContextFilter(logging.Filter):
+    &quot;&quot;&quot;Add contextual info to every log record.&quot;&quot;&quot;
+    def __init__(self, app_name, version):
+        super().__init__()
+        self.app_name = app_name
+        self.version = version
+
+    def filter(self, record):
+        record.app_name = self.app_name
+        record.version = self.version
+        return True
+
+# Usage
+logger.addFilter(RateLimitFilter(rate=10))
+logger.addFilter(ContextFilter(&quot;myapp&quot;, &quot;2.0.0&quot;))</code></pre>
+
+<h3>3.6 dictConfig — 配置文件管理</h3>
+
+<pre><code class="language-python">import logging.config
+
+LOGGING_CONFIG = {
+    &quot;version&quot;: 1,
+    &quot;disable_existing_loggers&quot;: False,
+    &quot;formatters&quot;: {
+        &quot;simple&quot;: {
+            &quot;format&quot;: &quot;%(asctime)s [%(levelname)s] %(name)s: %(message)s&quot;
+        },
+        &quot;detailed&quot;: {
+            &quot;format&quot;: &quot;%(asctime)s [%(levelname)s] %(name)s %(funcName)s:%(lineno)d - %(message)s&quot;
+        },
+    },
+    &quot;handlers&quot;: {
+        &quot;console&quot;: {
+            &quot;class&quot;: &quot;logging.StreamHandler&quot;,
+            &quot;level&quot;: &quot;INFO&quot;,
+            &quot;formatter&quot;: &quot;simple&quot;,
+            &quot;stream&quot;: &quot;ext://sys.stdout&quot;,
+        },
+        &quot;file&quot;: {
+            &quot;class&quot;: &quot;logging.handlers.RotatingFileHandler&quot;,
+            &quot;level&quot;: &quot;DEBUG&quot;,
+            &quot;formatter&quot;: &quot;detailed&quot;,
+            &quot;filename&quot;: &quot;app.log&quot;,
+            &quot;maxBytes&quot;: 10485760,
+            &quot;backupCount&quot;: 5,
+            &quot;encoding&quot;: &quot;utf-8&quot;,
+        },
+    },
+    &quot;loggers&quot;: {
+        &quot;app.api&quot;: {
+            &quot;level&quot;: &quot;INFO&quot;,
+            &quot;handlers&quot;: [&quot;console&quot;, &quot;file&quot;],
+            &quot;propagate&quot;: False,
+        },
+        &quot;app.db&quot;: {
+            &quot;level&quot;: &quot;WARNING&quot;,
+            &quot;handlers&quot;: [&quot;file&quot;],
+            &quot;propagate&quot;: False,
+        },
+    },
+    &quot;root&quot;: {
+        &quot;level&quot;: &quot;WARNING&quot;,
+        &quot;handlers&quot;: [&quot;console&quot;],
+    },
+}
+
+logging.config.dictConfig(LOGGING_CONFIG)
+logger = logging.getLogger(&quot;app.api&quot;)
+logger.info(&quot;API server started&quot;)</code></pre>
+
+<hr>
+
+<h2>四、执行预览</h2>
+
+<pre><code>$ python advanced_logging_demo.py
+2024-01-15 10:30:00,123 [INFO] myapp: Application started
+2024-01-15 10:30:00,124 [INFO] myapp: User login
+2024-01-15 10:30:00,125 [INFO] myapp: API completed
+2024-01-15 10:30:00,126 [ERROR] myapp: Division failed
+Traceback (most recent call last):
+  File &quot;demo.py&quot;, line 45, in &lt;module&gt;
+    1 / 0
+ZeroDivisionError: division by zero
+
+$ cat app.log
+{&quot;ts&quot;:&quot;2024-01-15T02:30:00.123Z&quot;,&quot;level&quot;:&quot;INFO&quot;,&quot;logger&quot;:&quot;myapp&quot;,&quot;msg&quot;:&quot;Application started&quot;,&quot;module&quot;:&quot;demo&quot;,&quot;line&quot;:38}
+{&quot;ts&quot;:&quot;2024-01-15T02:30:00.124Z&quot;,&quot;level&quot;:&quot;INFO&quot;,&quot;logger&quot;:&quot;myapp&quot;,&quot;msg&quot;:&quot;User login&quot;,&quot;user_id&quot;:&quot;user_123&quot;}
+{&quot;ts&quot;:&quot;2024-01-15T02:30:00.125Z&quot;,&quot;level&quot;:&quot;INFO&quot;,&quot;logger&quot;:&quot;myapp&quot;,&quot;msg&quot;:&quot;API completed&quot;,&quot;request_id&quot;:&quot;req_abc&quot;,&quot;duration_ms&quot;:142}
+{&quot;ts&quot;:&quot;2024-01-15T02:30:00.126Z&quot;,&quot;level&quot;:&quot;ERROR&quot;,&quot;logger&quot;:&quot;myapp&quot;,&quot;msg&quot;:&quot;Division failed&quot;,&quot;exc&quot;:&quot;Traceback...&quot;}</code></pre>
+
+<hr>
+
+<h2>五、注意事项</h2>
+
+<table><thead><tr>
+<th>主题</th>
+<th>注意点</th>
+<th>风险</th>
+</tr></thead><tbody>
+<tr>
+<td>Handler 重复</td>
+<td><code>getLogger</code> 返回同一对象，重复 <code>addHandler</code> 会重复输出</td>
+<td>🔴 日志翻倍</td>
+</tr>
+<tr>
+<td>日志级别</td>
+<td>生产至少 INFO，开发用 DEBUG</td>
+<td>⚠️ 噪音/遗漏</td>
+</tr>
+<tr>
+<td>日志轮转</td>
+<td>多进程写同一文件会冲突，需用 QueueHandler</td>
+<td>🔴 数据丢失</td>
+</tr>
+<tr>
+<td>propagate</td>
+<td>默认 True，日志会冒泡到 root logger</td>
+<td>⚠️ 重复输出</td>
+</tr>
+<tr>
+<td>异常日志</td>
+<td>用 <code>exc_info=True</code> 记录完整堆栈</td>
+<td>⚠️ 丢失上下文</td>
+</tr>
+<tr>
+<td>性能</td>
+<td>避免在 DEBUG 日志中做昂贵计算（用 <code>isEnabledFor</code> 守卫）</td>
+<td>⚠️ 性能</td>
+</tr>
+<tr>
+<td>敏感信息</td>
+<td>不要记录密码、token、个人信息</td>
+<td>🔴 安全</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>六、避坑指南</h2>
+
+<h3>❌ 坑1：重复添加 Handler</h3>
+
+<pre><code class="language-python"># ❌ Wrong: every call adds another handler
+def get_logger():
+    logger = logging.getLogger(&quot;app&quot;)
+    logger.addHandler(logging.StreamHandler())  # Duplicated!
+    return logger
+# 3 calls = 3 handlers = each message printed 3 times</code></pre>
+
+<pre><code class="language-python"># ✅ Correct: check before adding, or clear first
+def get_logger():
+    logger = logging.getLogger(&quot;app&quot;)
+    if not logger.handlers:  # Only add once
+        logger.addHandler(logging.StreamHandler())
+    return logger</code></pre>
+
+<h3>❌ 坑2：日志中的昂贵计算</h3>
+
+<pre><code class="language-python"># ❌ Wrong: expensive operation always runs even if DEBUG is disabled
+logger.debug(f&quot;Data: {expensive_serialize(big_object)}&quot;)</code></pre>
+
+<pre><code class="language-python"># ✅ Correct: guard with isEnabledFor
+if logger.isEnabledFor(logging.DEBUG):
+    logger.debug(f&quot;Data: {expensive_serialize(big_object)}&quot;)
+
+# Or use %s lazy formatting
+logger.debug(&quot;Data: %s&quot;, lambda: expensive_serialize(big_object))</code></pre>
+
+<h3>❌ 坑3：多进程写同一日志文件</h3>
+
+<pre><code class="language-python"># ❌ Wrong: multiple processes writing to same file
+# Process 1 and Process 2 both write to &quot;app.log&quot; → corruption!</code></pre>
+
+<pre><code class="language-python"># ✅ Correct: each process writes to its own file, or use QueueHandler
+# Option 1: per-process files
+file_handler = logging.FileHandler(f&quot;app_{os.getpid()}.log&quot;)
+
+# Option 2: central queue (for multi-process, use multiprocessing.Queue)
+import multiprocessing
+log_queue = multiprocessing.Queue(-1)
+queue_handler = logging.handlers.QueueHandler(log_queue)</code></pre>
+
+<h3>❌ 坑4：propagate 导致重复日志</h3>
+
+<pre><code class="language-python"># ❌ Wrong: both child AND root handler output the message
+logger = logging.getLogger(&quot;app.api&quot;)
+logger.addHandler(console_handler)  # Output #1
+# propagate=True (default) → root logger also handles → Output #2</code></pre>
+
+<pre><code class="language-python"># ✅ Correct: set propagate=False for child loggers
+logger = logging.getLogger(&quot;app.api&quot;)
+logger.addHandler(console_handler)
+logger.propagate = False  # Stop bubbling to root</code></pre>
+
+<hr>
+
+<h2>七、练习题</h2>
+
+<h3>🟢 基础题</h3>
+
+<p><strong>题目1：</strong> 配置一个 logger，同时输出到控制台（INFO 级别）和文件（DEBUG 级别），使用不同格式。</p>
+
+<p><strong>题目2：</strong> 用 <code>RotatingFileHandler</code> 实现日志轮转：每个文件最大 1MB，保留 3 个备份。</p>
+
+<h3>🟡 进阶题</h3>
+
+<p><strong>题目3：</strong> 实现 <code>JSONFormatter</code>，输出的每条日志都是合法 JSON，包含 timestamp、level、logger、message、module 五个字段。</p>
+
+<p><strong>题目4：</strong> 用 <code>dictConfig</code> 配置一个 Web 应用的日志系统：API 层 INFO 级别、数据库层 WARNING 级别、第三方库静默。</p>
+
+<h3>🔴 挑战题</h3>
+
+<p><strong>题目5：</strong> 实现一个带请求追踪 ID 的日志中间件，在 Web 框架中自动为每个请求的日志添加 <code>request_id</code> 字段。</p>
+
+<p><strong>题目6：</strong> 用 <code>QueueHandler</code> + <code>QueueListener</code> 实现多进程安全的日志系统，支持子进程日志统一写入。</p>
+
+<hr>
+
+<h2>八、知识点总结</h2>
+
+<pre><code>logging 高级架构
+├── 核心组件
+│   ├── Logger — 日志入口，分层命名 (app.api.v1)
+│   ├── Handler — 输出目的地
+│   │   ├── StreamHandler — 控制台
+│   │   ├── FileHandler — 文件
+│   │   ├── RotatingFileHandler — 按大小轮转
+│   │   ├── TimedRotatingFileHandler — 按时间轮转
+│   │   ├── SMTPHandler — 邮件告警
+│   │   └── QueueHandler — 异步队列
+│   ├── Formatter — 格式化
+│   │   ├── Formatter(fmt) — 文本格式
+│   │   └── 自定义 JSONFormatter — 结构化
+│   └── Filter — 细粒度过滤
+├── 配置方式
+│   ├── basicConfig() — 简单配置
+│   ├── dictConfig() — 字典配置（推荐）
+│   ├── fileConfig() — INI 文件配置
+│   └── 代码配置 — 最灵活
+├── 高级模式
+│   ├── QueueHandler/QueueListener — 异步日志
+│   ├── 自定义 Filter — 限流/添加上下文
+│   ├── LoggerAdapter — 动态附加信息
+│   └── structured logging — JSON 日志
+└── 最佳实践
+    ├── 生产用 INFO+，开发用 DEBUG
+    ├── 每个模块用 __name__ 做 logger 名
+    ├── exc_info=True 记录异常堆栈
+    ├── 日志轮转防磁盘满
+    └── 敏感信息不入日志</code></pre>
+
+<hr>
+
+<h2>九、举一反三</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>推荐方案</th>
+<th>要点</th>
+</tr></thead><tbody>
+<tr>
+<td>Web 应用日志</td>
+<td>dictConfig + 按模块分层</td>
+<td>API=INFO, DB=WARNING</td>
+</tr>
+<tr>
+<td>日志分析/检索</td>
+<td>JSON 格式 → ELK/Datadog</td>
+<td>结构化便于检索</td>
+</tr>
+<tr>
+<td>高并发日志</td>
+<td>QueueHandler 异步</td>
+<td>不阻塞主线程</td>
+</tr>
+<tr>
+<td>邮件告警</td>
+<td>SMTPHandler</td>
+<td>仅 ERROR+ 级别</td>
+</tr>
+<tr>
+<td>多进程日志</td>
+<td>QueueHandler + multiprocessing.Queue</td>
+<td>避免文件冲突</td>
+</tr>
+<tr>
+<td>日志限流</td>
+<td>自定义 RateLimitFilter</td>
+<td>防止日志风暴</td>
+</tr>
+<tr>
+<td>分布式追踪</td>
+<td>request_id + ContextFilter</td>
+<td>关联请求链路</td>
+</tr>
+<tr>
+<td>日志脱敏</td>
+<td>自定义 Filter 过滤敏感字段</td>
+<td>合规要求</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>十、参考资料</h2>
+
+<ul>
+<li><a href="https://docs.python.org/3/library/logging.html">Python 官方文档 — logging</a></li>
+<li><a href="https://docs.python.org/3/howto/logging.html">Logging HOWTO（官方教程）</a></li>
+<li><a href="https://docs.python.org/3/howto/logging-cookbook.html">Logging Cookbook（官方进阶）</a></li>
+<li><a href="https://peps.python.org/pep-0282/">PEP 282 — Logging System</a></li>
+<li>《Python Cookbook》第 13 章：测试、调试与异常</li>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

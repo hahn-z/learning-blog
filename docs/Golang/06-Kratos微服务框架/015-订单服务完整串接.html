@@ -1,0 +1,946 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>015-订单服务完整串接</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Golang/index.html">Golang</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Golang/06-Kratos微服务框架/index.html">Kratos框架</a>
+</nav>
+<h1>015-订单服务完整串接</h1>
+<div class="meta">
+<span>📂 Kratos框架</span>
+<span>🏷️ Golang</span>
+</div>
+<article>
+
+
+
+<h1>015-订单服务完整串接</h1>
+
+<blockquote><p><strong>难度：</strong> ⭐⭐⭐⭐⭐ | <strong>适合：</strong> 想要完整实践Kratos微服务全流程的开发者</p></blockquote>
+
+<h2>一、概念讲解</h2>
+
+<p>本文将前10+篇知识串接，实现一个<strong>完整的订单微服务</strong>。从Proto定义到HTTP/gRPC双协议、从CRUD到错误处理、从日志追踪到服务发现，展示一个生产级Kratos服务的全貌。</p>
+
+<h3>整体架构</h3>
+
+<pre><code>                         ┌──────────────────────────────────┐
+    Client ──HTTP──→     │        Order Service             │
+                         │  ┌─────────────────────────────┐ │
+                         │  │ HTTP Server (:8000)         │ │
+                         │  │  POST /v1/order             │ │
+                         │  │  GET  /v1/order/{id}        │ │
+                         │  │  PUT  /v1/order/{id}        │ │
+                         │  │  DEL  /v1/order/{id}        │ │
+                         │  └──────────┬──────────────────┘ │
+                         │             │                     │
+                         │  ┌──────────▼──────────────────┐ │
+                         │  │ Service Layer (Business)     │ │
+                         │  │  Create/Get/Update/Delete    │ │
+                         │  └──────────┬──────────────────┘ │
+                         │             │                     │
+                         │  ┌──────────▼──────────────────┐ │
+                         │  │ Data Layer (Repository)      │ │
+                         │  │  GORM + PostgreSQL           │ │
+                         │  └──────────┬──────────────────┘ │
+                         │             │                     │
+                         │  ┌──────────▼──────────────────┐ │
+                         │  │ gRPC Server (:9000)         │ │
+                         │  │  CreateOrder (internal)      │ │
+                         │  │  GetOrder (internal)         │ │
+                         │  └─────────────────────────────┘ │
+                         └──────────────────────────────────┘</code></pre>
+
+<h3>目录结构</h3>
+
+<pre><code>order-service/
+├── api/order/v1/          # Proto生成代码
+│   ├── order.proto
+│   ├── order.pb.go
+│   └── order_grpc.pb.go
+├── cmd/server/main.go     # 入口
+├── internal/
+│   ├── conf/conf.proto    # 配置定义
+│   ├── server/            # HTTP &amp; gRPC Server
+│   ├── service/           # 业务逻辑
+│   ├── data/              # 数据访问
+│   └── biz/               # 业务实体
+├── configs/               # 配置文件
+│   └── config.yaml
+└── third_party/           # 第三方proto</code></pre>
+
+<h2>二、脑图</h2>
+
+<pre><code>订单服务完整串接
+├── Proto定义
+│   ├── Order Service
+│   ├── CRUD RPC方法
+│   └── Message定义
+├── 数据层(Data)
+│   ├── GORM Model
+│   ├── PostgreSQL连接
+│   ├── Repository实现
+│   └── 事务处理
+├── 业务层(Service)
+│   ├── CreateOrder
+│   ├── GetOrder
+│   ├── UpdateOrder
+│   ├── DeleteOrder
+│   └── ListOrders
+├── 传输层(Server)
+│   ├── HTTP Server (外部API)
+│   ├── gRPC Server (内部通信)
+│   └── 中间件链
+├── 配置管理
+│   ├── YAML配置
+│   └── 环境变量覆盖
+├── 错误处理
+│   ├── 业务错误码
+│   ├── HTTP/gRPC错误映射
+│   └── 全局错误响应
+└── 可观测性
+    ├── 结构化日志
+    ├── 链路追踪
+    └── 指标采集</code></pre>
+
+<h2>三、完整Go代码</h2>
+
+<h3>v1: 基础CRUD骨架</h3>
+
+<pre><code class="language-protobuf">// api/order/v1/order.proto
+syntax = &quot;proto3&quot;;
+package order.v1;
+
+option go_package = &quot;order-service/api/order/v1&quot;;
+
+import &quot;google/protobuf/empty.proto&quot;;
+
+service OrderService {
+    rpc CreateOrder(CreateOrderRequest) returns (CreateOrderReply) {}
+    rpc GetOrder(GetOrderRequest) returns (GetOrderReply) {}
+    rpc UpdateOrder(UpdateOrderRequest) returns (UpdateOrderReply) {}
+    rpc DeleteOrder(DeleteOrderRequest) returns (google.protobuf.Empty) {}
+    rpc ListOrders(ListOrdersRequest) returns (ListOrdersReply) {}
+}
+
+message CreateOrderRequest {
+    int64 user_id = 1;
+    repeated OrderItem items = 2;
+}
+
+message OrderItem {
+    int64 product_id = 1;
+    int32 quantity = 2;
+    double price = 3;
+}
+
+message CreateOrderReply {
+    int64 id = 1;
+    string order_no = 2;
+    string status = 3;
+}
+
+message GetOrderRequest {
+    int64 id = 1;
+}
+
+message GetOrderReply {
+    int64 id = 1;
+    string order_no = 2;
+    int64 user_id = 3;
+    string status = 4;
+    double total_amount = 5;
+    string created_at = 6;
+}
+
+message UpdateOrderRequest {
+    int64 id = 1;
+    string status = 2;
+}
+
+message UpdateOrderReply {
+    int64 id = 1;
+    string status = 2;
+}
+
+message DeleteOrderRequest {
+    int64 id = 1;
+}
+
+message ListOrdersRequest {
+    int64 user_id = 1;
+    int32 page = 2;
+    int32 page_size = 3;
+}
+
+message ListOrdersReply {
+    repeated GetOrderReply orders = 1;
+    int32 total = 2;
+}</code></pre>
+
+<pre><code class="language-go">// internal/biz/order.go - Domain entity
+package biz
+
+import &quot;time&quot;
+
+// Order is the domain model
+type Order struct {
+    ID          int64
+    OrderNo     string
+    UserID      int64
+    Status      string // PENDING, PAID, SHIPPED, COMPLETED, CANCELLED
+    TotalAmount float64
+    Items       []OrderItem
+    CreatedAt   time.Time
+    UpdatedAt   time.Time
+}
+
+type OrderItem struct {
+    ProductID int64
+    Quantity  int32
+    Price     float64
+}
+
+// OrderRepo defines repository interface
+type OrderRepo interface {
+    Create(order *Order) (*Order, error)
+    GetByID(id int64) (*Order, error)
+    Update(id int64, status string) (*Order, error)
+    Delete(id int64) error
+    ListByUserID(userID int64, page, pageSize int32) ([]*Order, int32, error)
+}</code></pre>
+
+<h3>v2: 数据层 + 业务层实现</h3>
+
+<pre><code class="language-go">// internal/data/order.go - Data access with GORM
+package data
+
+import (
+    &quot;context&quot;
+    &quot;fmt&quot;
+    &quot;time&quot;
+
+    &quot;gorm.io/gorm&quot;
+    &quot;order-service/internal/biz&quot;
+)
+
+type OrderPO struct {
+    ID          int64          `gorm:&quot;primaryKey&quot;`
+    OrderNo     string         `gorm:&quot;uniqueIndex;size:32&quot;`
+    UserID      int64          `gorm:&quot;index&quot;`
+    Status      string         `gorm:&quot;size:20;default:PENDING&quot;`
+    TotalAmount float64
+    CreatedAt   time.Time
+    UpdatedAt   time.Time
+    DeletedAt   gorm.DeletedAt `gorm:&quot;index&quot;`
+}
+
+func (OrderPO) TableName() string { return &quot;orders&quot; }
+
+type orderRepo struct {
+    db *gorm.DB
+}
+
+// NewOrderRepo creates order repository
+func NewOrderRepo(db *gorm.DB) biz.OrderRepo {
+    return &amp;orderRepo{db: db}
+}
+
+// Create inserts a new order
+func (r *orderRepo) Create(order *biz.Order) (*biz.Order, error) {
+    po := &amp;OrderPO{
+        OrderNo:     fmt.Sprintf(&quot;ORD%s%d&quot;, time.Now().Format(&quot;20060102&quot;), order.UserID),
+        UserID:      order.UserID,
+        Status:      &quot;PENDING&quot;,
+        TotalAmount: r.calcTotal(order.Items),
+    }
+    if err := r.db.Create(po).Error; err != nil {
+        return nil, fmt.Errorf(&quot;create order failed: %w&quot;, err)
+    }
+    order.ID = po.ID
+    order.OrderNo = po.OrderNo
+    order.Status = po.Status
+    return order, nil
+}
+
+// GetByID fetches order by primary key
+func (r *orderRepo) GetByID(id int64) (*biz.Order, error) {
+    var po OrderPO
+    if err := r.db.First(&amp;po, id).Error; err != nil {
+        if err == gorm.ErrRecordNotFound {
+            return nil, biz.ErrOrderNotFound
+        }
+        return nil, fmt.Errorf(&quot;get order failed: %w&quot;, err)
+    }
+    return r.toDomain(&amp;po), nil
+}
+
+// Update modifies order status
+func (r *orderRepo) Update(id int64, status string) (*biz.Order, error) {
+    result := r.db.Model(&amp;OrderPO{}).Where(&quot;id = ?&quot;, id).Update(&quot;status&quot;, status)
+    if result.Error != nil {
+        return nil, fmt.Errorf(&quot;update order failed: %w&quot;, result.Error)
+    }
+    if result.RowsAffected == 0 {
+        return nil, biz.ErrOrderNotFound
+    }
+    return r.GetByID(id)
+}
+
+// Delete soft-deletes an order
+func (r *orderRepo) Delete(id int64) error {
+    result := r.db.Delete(&amp;OrderPO{}, id)
+    if result.RowsAffected == 0 {
+        return biz.ErrOrderNotFound
+    }
+    return result.Error
+}
+
+// ListByUserID returns paginated orders for a user
+func (r *orderRepo) ListByUserID(userID int64, page, pageSize int32) ([]*biz.Order, int32, error) {
+    var total int64
+    var pos []OrderPO
+    query := r.db.Where(&quot;user_id = ?&quot;, userID)
+    query.Model(&amp;OrderPO{}).Count(&amp;total)
+
+    offset := int((page - 1) * pageSize)
+    if err := query.Offset(offset).Limit(int(pageSize)).Order(&quot;created_at DESC&quot;).Find(&amp;pos).Error; err != nil {
+        return nil, 0, err
+    }
+
+    orders := make([]*biz.Order, 0, len(pos))
+    for _, po := range pos {
+        orders = append(orders, r.toDomain(&amp;po))
+    }
+    return orders, int32(total), nil
+}
+
+func (r *orderRepo) calcTotal(items []biz.OrderItem) float64 {
+    var total float64
+    for _, item := range items {
+        total += float64(item.Quantity) * item.Price
+    }
+    return total
+}
+
+func (r *orderRepo) toDomain(po *OrderPO) *biz.Order {
+    return &amp;biz.Order{
+        ID:          po.ID,
+        OrderNo:     po.OrderNo,
+        UserID:      po.UserID,
+        Status:      po.Status,
+        TotalAmount: po.TotalAmount,
+        CreatedAt:   po.CreatedAt,
+        UpdatedAt:   po.UpdatedAt,
+    }
+}</code></pre>
+
+<pre><code class="language-go">// internal/data/data.go - Database initialization
+package data
+
+import (
+    &quot;log&quot;
+
+    &quot;gorm.io/driver/postgres&quot;
+    &quot;gorm.io/gorm&quot;
+)
+
+// NewDB creates database connection
+func NewDB(dsn string) *gorm.DB {
+    db, err := gorm.Open(postgres.Open(dsn), &amp;gorm.Config{})
+    if err != nil {
+        log.Fatalf(&quot;failed to connect database: %v&quot;, err)
+    }
+    // Auto-migrate
+    db.AutoMigrate(&amp;OrderPO{})
+    return db
+}</code></pre>
+
+<pre><code class="language-go">// internal/biz/order.go - Business errors
+package biz
+
+import &quot;github.com/go-kratos/kratos/v2/errors&quot;
+
+var (
+    ErrOrderNotFound = errors.NotFound(&quot;ORDER_NOT_FOUND&quot;, &quot;order not found&quot;)
+    ErrInvalidStatus = errors.BadRequest(&quot;INVALID_STATUS&quot;, &quot;invalid order status&quot;)
+    ErrEmptyItems    = errors.BadRequest(&quot;EMPTY_ITEMS&quot;, &quot;order must have at least one item&quot;)
+)
+
+// Validate validates order creation request
+func (o *Order) Validate() error {
+    if len(o.Items) == 0 {
+        return ErrEmptyItems
+    }
+    return nil
+}</code></pre>
+
+<pre><code class="language-go">// internal/service/order.go - Service layer (implements both HTTP &amp; gRPC)
+package service
+
+import (
+    &quot;context&quot;
+    &quot;fmt&quot;
+
+    pb &quot;order-service/api/order/v1&quot;
+    &quot;order-service/internal/biz&quot;
+
+    &quot;github.com/go-kratos/kratos/v2/log&quot;
+)
+
+type OrderService struct {
+    pb.UnimplementedOrderServiceServer
+    repo biz.OrderRepo
+    log  *log.Helper
+}
+
+// NewOrderService creates order service
+func NewOrderService(repo biz.OrderRepo, logger log.Logger) *OrderService {
+    return &amp;OrderService{repo: repo, log: log.NewHelper(logger)}
+}
+
+// CreateOrder handles order creation
+func (s *OrderService) CreateOrder(ctx context.Context, req *pb.CreateOrderRequest) (*pb.CreateOrderReply, error) {
+    s.log.WithContext(ctx).Infof(&quot;CreateOrder user_id=%d items=%d&quot;, req.UserId, len(req.Items))
+
+    // Build domain object
+    items := make([]biz.OrderItem, 0, len(req.Items))
+    for _, item := range req.Items {
+        items = append(items, biz.OrderItem{
+            ProductID: item.ProductId,
+            Quantity:  item.Quantity,
+            Price:     item.Price,
+        })
+    }
+    order := &amp;biz.Order{UserID: req.UserId, Items: items}
+
+    // Validate
+    if err := order.Validate(); err != nil {
+        return nil, err
+    }
+
+    // Persist
+    created, err := s.repo.Create(order)
+    if err != nil {
+        return nil, fmt.Errorf(&quot;create order failed: %w&quot;, err)
+    }
+
+    return &amp;pb.CreateOrderReply{
+        Id:      created.ID,
+        OrderNo: created.OrderNo,
+        Status:  created.Status,
+    }, nil
+}
+
+// GetOrder retrieves order by ID
+func (s *OrderService) GetOrder(ctx context.Context, req *pb.GetOrderRequest) (*pb.GetOrderReply, error) {
+    order, err := s.repo.GetByID(req.Id)
+    if err != nil {
+        return nil, err
+    }
+    return &amp;pb.GetOrderReply{
+        Id:          order.ID,
+        OrderNo:     order.OrderNo,
+        UserId:      order.UserID,
+        Status:      order.Status,
+        TotalAmount: order.TotalAmount,
+        CreatedAt:   order.CreatedAt.Format(&quot;2006-01-02 15:04:05&quot;),
+    }, nil
+}
+
+// UpdateOrder updates order status
+func (s *OrderService) UpdateOrder(ctx context.Context, req *pb.UpdateOrderRequest) (*pb.UpdateOrderReply, error) {
+    validStatuses := map[string]bool{&quot;PAID&quot;: true, &quot;SHIPPED&quot;: true, &quot;COMPLETED&quot;: true, &quot;CANCELLED&quot;: true}
+    if !validStatuses[req.Status] {
+        return nil, biz.ErrInvalidStatus
+    }
+
+    order, err := s.repo.Update(req.Id, req.Status)
+    if err != nil {
+        return nil, err
+    }
+    return &amp;pb.UpdateOrderReply{Id: order.ID, Status: order.Status}, nil
+}
+
+// DeleteOrder soft-deletes an order
+func (s *OrderService) DeleteOrder(ctx context.Context, req *pb.DeleteOrderRequest) (*pb.DeleteOrderReply, error) {
+    // Return Empty, but proto uses google.protobuf.Empty workaround
+    return nil, s.repo.Delete(req.Id)
+}
+
+// ListOrders returns paginated order list
+func (s *OrderService) ListOrders(ctx context.Context, req *pb.ListOrdersRequest) (*pb.ListOrdersReply, error) {
+    if req.Page &lt;= 0 {
+        req.Page = 1
+    }
+    if req.PageSize &lt;= 0 {
+        req.PageSize = 10
+    }
+
+    orders, total, err := s.repo.ListByUserID(req.UserId, req.Page, req.PageSize)
+    if err != nil {
+        return nil, err
+    }
+
+    reply := &amp;pb.ListOrdersReply{Total: total}
+    for _, o := range orders {
+        reply.Orders = append(reply.Orders, &amp;pb.GetOrderReply{
+            Id:          o.ID,
+            OrderNo:     o.OrderNo,
+            UserId:      o.UserID,
+            Status:      o.Status,
+            TotalAmount: o.TotalAmount,
+            CreatedAt:   o.CreatedAt.Format(&quot;2006-01-02 15:04:05&quot;),
+        })
+    }
+    return reply, nil
+}</code></pre>
+
+<h3>v3: 完整服务装配 + 中间件 + 配置 + 启动</h3>
+
+<pre><code class="language-go">// internal/server/http.go - HTTP server with full middleware
+package server
+
+import (
+    &quot;github.com/go-kratos/kratos/v2/log&quot;
+    &quot;github.com/go-kratos/kratos/v2/middleware/logging&quot;
+    &quot;github.com/go-kratos/kratos/v2/middleware/recovery&quot;
+    &quot;github.com/go-kratos/kratos/v2/middleware/tracing&quot;
+    &quot;github.com/go-kratos/kratos/v2/middleware/validate&quot;
+    khttp &quot;github.com/go-kratos/kratos/v2/transport/http&quot;
+    pb &quot;order-service/api/order/v1&quot;
+    &quot;order-service/internal/service&quot;
+)
+
+func NewHTTPServer(c *conf.Server, svc *service.OrderService) *khttp.Server {
+    var opts = []khttp.ServerOption{
+        khttp.Address(c.Http.Addr),
+        khttp.Middleware(
+            recovery.Recovery(),
+            tracing.Server(),
+            logging.Server(log.DefaultLogger),
+            validate.Validator(),
+        ),
+    }
+    srv := khttp.NewServer(opts...)
+    pb.RegisterOrderServiceHTTPServer(srv, svc)
+    return srv
+}</code></pre>
+
+<pre><code class="language-go">// internal/server/grpc.go - gRPC server for internal calls
+package server
+
+import (
+    &quot;github.com/go-kratos/kratos/v2/log&quot;
+    &quot;github.com/go-kratos/kratos/v2/middleware/logging&quot;
+    &quot;github.com/go-kratos/kratos/v2/middleware/recovery&quot;
+    &quot;github.com/go-kratos/kratos/v2/middleware/tracing&quot;
+    kgrpc &quot;github.com/go-kratos/kratos/v2/transport/grpc&quot;
+    pb &quot;order-service/api/order/v1&quot;
+    &quot;order-service/internal/service&quot;
+)
+
+func NewGRPCServer(c *conf.Server, svc *service.OrderService) *kgrpc.Server {
+    var opts = []kgrpc.ServerOption{
+        kgrpc.Address(c.Grpc.Addr),
+        kgrpc.Middleware(
+            recovery.Recovery(),
+            tracing.Server(),
+            logging.Server(log.DefaultLogger),
+        ),
+    }
+    srv := kgrpc.NewServer(opts...)
+    pb.RegisterOrderServiceServer(srv, svc)
+    return srv
+}</code></pre>
+
+<pre><code class="language-go">// cmd/server/main.go - Application entry point
+package main
+
+import (
+    &quot;log&quot;
+
+    &quot;github.com/go-kratos/kratos/contrib/registry/consul/v2&quot;
+    &quot;github.com/go-kratos/kratos/v2&quot;
+    &quot;github.com/go-kratos/kratos/v2/config&quot;
+    &quot;github.com/go-kratos/kratos/v2/config/file&quot;
+    &quot;github.com/hashicorp/consul/api&quot;
+    &quot;order-service/internal/data&quot;
+    &quot;order-service/internal/server&quot;
+    &quot;order-service/internal/service&quot;
+)
+
+func main() {
+    // Load config
+    c := config.New(
+        config.WithSource(file.NewSource(&quot;configs/config.yaml&quot;)),
+    )
+    if err := c.Load(); err != nil {
+        log.Fatal(err)
+    }
+    var conf conf.Server
+    if err := c.Scan(&amp;conf); err != nil {
+        log.Fatal(err)
+    }
+
+    // Init data layer
+    db := data.NewDB(conf.Database.Dsn)
+    orderRepo := data.NewOrderRepo(db)
+
+    // Init service
+    orderSvc := service.NewOrderService(orderRepo, log.DefaultLogger)
+
+    // Init servers
+    httpSrv := server.NewHTTPServer(&amp;conf, orderSvc)
+    grpcSrv := server.NewGRPCServer(&amp;conf, orderSvc)
+
+    // Registry
+    consulClient, _ := api.NewClient(api.DefaultConfig())
+    r := consul.New(consulClient)
+
+    // Create and run app
+    app := kratos.New(
+        kratos.Name(&quot;order-service&quot;),
+        kratos.Version(&quot;v1.0.0&quot;),
+        kratos.Server(httpSrv, grpcSrv),
+        kratos.Registrar(r),
+    )
+
+    if err := app.Run(); err != nil {
+        log.Fatal(err)
+    }
+}</code></pre>
+
+<pre><code class="language-yaml"># configs/config.yaml
+server:
+  http:
+    addr: 0.0.0.0:8000
+    timeout: 10s
+  grpc:
+    addr: 0.0.0.0:9000
+    timeout: 10s
+  database:
+    dsn: &quot;host=localhost user=postgres password=postgres dbname=orders port=5432 sslmode=disable&quot;</code></pre>
+
+<h2>四、执行预览</h2>
+
+<pre><code class="language-bash"># Setup database
+$ createdb orders
+$ goose postgres &quot;host=localhost dbname=orders sslmode=disable&quot; up
+
+# Start service
+$ go run cmd/server/main.go
+INFO msg=server listening on: [::]:8000
+INFO msg=server listening on: [::]:9000
+INFO msg=registered service: order-service
+
+# === CRUD Operations ===
+
+# Create order
+$ curl -X POST http://localhost:8000/v1/order \
+  -H &quot;Content-Type: application/json&quot; \
+  -d &#x27;{&quot;user_id&quot;:1,&quot;items&quot;:[{&quot;product_id&quot;:101,&quot;quantity&quot;:2,&quot;price&quot;:29.9}]}&#x27;
+{&quot;id&quot;:1,&quot;order_no&quot;:&quot;ORD202604281&quot;,&quot;status&quot;:&quot;PENDING&quot;}
+
+# Get order
+$ curl http://localhost:8000/v1/order/1
+{&quot;id&quot;:1,&quot;order_no&quot;:&quot;ORD202604281&quot;,&quot;user_id&quot;:1,&quot;status&quot;:&quot;PENDING&quot;,&quot;total_amount&quot;:59.8,&quot;created_at&quot;:&quot;2026-04-28 20:00:00&quot;}
+
+# Update order status
+$ curl -X PUT http://localhost:8000/v1/order/1 \
+  -d &#x27;{&quot;status&quot;:&quot;PAID&quot;}&#x27;
+{&quot;id&quot;:1,&quot;status&quot;:&quot;PAID&quot;}
+
+# List orders
+$ curl &quot;http://localhost:8000/v1/order?user_id=1&amp;page=1&amp;page_size=10&quot;
+{&quot;orders&quot;:[{&quot;id&quot;:1,&quot;order_no&quot;:&quot;ORD202604281&quot;,&quot;status&quot;:&quot;PAID&quot;,...}],&quot;total&quot;:1}
+
+# Delete order
+$ curl -X DELETE http://localhost:8000/v1/order/1
+(empty body, 200 OK)
+
+# Error cases
+$ curl http://localhost:8000/v1/order/999
+{&quot;code&quot;:404,&quot;reason&quot;:&quot;ORDER_NOT_FOUND&quot;,&quot;message&quot;:&quot;order not found&quot;}
+
+$ curl -X POST http://localhost:8000/v1/order \
+  -d &#x27;{&quot;user_id&quot;:1,&quot;items&quot;:[]}&#x27;
+{&quot;code&quot;:400,&quot;reason&quot;:&quot;EMPTY_ITEMS&quot;,&quot;message&quot;:&quot;order must have at least one item&quot;}
+
+$ curl -X PUT http://localhost:8000/v1/order/1 \
+  -d &#x27;{&quot;status&quot;:&quot;INVALID&quot;}&#x27;
+{&quot;code&quot;:400,&quot;reason&quot;:&quot;INVALID_STATUS&quot;,&quot;message&quot;:&quot;invalid order status&quot;}</code></pre>
+
+<h2>五、注意事项</h2>
+
+<table><thead><tr>
+<th>注意点</th>
+<th>说明</th>
+<th>建议</th>
+</tr></thead><tbody>
+<tr>
+<td>事务边界</td>
+<td>创建订单需同时写入订单和订单项</td>
+<td>使用GORM事务包裹</td>
+</tr>
+<tr>
+<td>并发安全</td>
+<td>同一订单并发更新可能冲突</td>
+<td>乐观锁(version字段)或分布式锁</td>
+</tr>
+<tr>
+<td>分页参数</td>
+<td>page=0或pageSize=0会查全表</td>
+<td>设置默认值和上限</td>
+</tr>
+<tr>
+<td>软删除</td>
+<td>GORM软删除后查询自动过滤</td>
+<td>注意唯一索引需配合DeletedAt</td>
+</tr>
+<tr>
+<td>状态机</td>
+<td>PENDING→PAID→SHIPPED→COMPLETED</td>
+<td>校验状态转换合法性</td>
+</tr>
+<tr>
+<td>错误传播</td>
+<td>gRPC内部错误需映射为HTTP错误</td>
+<td>使用Kratos errors统一处理</td>
+</tr>
+<tr>
+<td>ID生成</td>
+<td>自增ID暴露业务量</td>
+<td>考虑雪花算法等分布式ID</td>
+</tr>
+</tbody></table>
+
+<h2>六、避坑指南</h2>
+
+<table><thead><tr>
+<th>❌ 错误做法</th>
+<th>✅ 正确做法</th>
+</tr></thead><tbody>
+<tr>
+<td>Service直接操作数据库</td>
+<td>Service→Biz接口→Data层，依赖倒置</td>
+</tr>
+<tr>
+<td>硬编码数据库连接</td>
+<td>配置文件管理，支持环境变量覆盖</td>
+</tr>
+<tr>
+<td>不校验请求参数</td>
+<td>proto validate注解 + validate中间件</td>
+</tr>
+<tr>
+<td>返回裸error</td>
+<td>用 <code>errors.New/BadRequest/NotFound</code> 等</td>
+</tr>
+<tr>
+<td>不处理数据库NotFound</td>
+<td>区分"不存在"和"数据库故障"</td>
+</tr>
+<tr>
+<td>忽略RowsAffected</td>
+<td>更新/删除时检查影响行数</td>
+</tr>
+<tr>
+<td>用int当ID</td>
+<td>大系统用int64，分布式用string雪花ID</td>
+</tr>
+<tr>
+<td>不写日志</td>
+<td>关键操作加结构化日志，方便排查</td>
+</tr>
+</tbody></table>
+
+<h2>七、练习题</h2>
+
+<h3>🟢 基础题</h3>
+<ol>
+<li>运行完整订单服务，用curl完成一次创建→查询→更新→删除的完整流程</li>
+</ul>
+<ol>
+<li>修改配置文件中的端口号，观察服务在Consul中的注册信息变化</li>
+
+<h3>🟡 进阶题</h3>
+<ol>
+<li>添加OrderItem子表，实现创建订单时同时写入订单项（GORM事务）</li>
+</ul>
+<ol>
+<li>实现订单状态机校验：PENDING只能→PAID或CANCELLED，PAID只能→SHIPPED或CANCELLED</li>
+
+<h3>🔴 挑战题</h3>
+<ol>
+<li>实现完整的Order→User→Product三服务调用链，在Jaeger中查看全链路追踪</li>
+</ul>
+<ol>
+<li>添加Redis缓存层：查询订单时先查缓存，未命中再查数据库并写入缓存</li>
+
+<h2>八、知识点总结</h2>
+
+<pre><code>订单服务完整串接
+├── Proto层
+│   ├── Service定义 (CRUD RPCs)
+│   ├── Message定义 (Request/Reply)
+│   └── kratos proto client 代码生成
+├── Biz层 (Domain)
+│   ├── Order实体
+│   ├── OrderRepo接口 (依赖倒置)
+│   └── 业务错误定义
+├── Data层 (Repository)
+│   ├── GORM Model (PO)
+│   ├── 数据库连接初始化
+│   ├── CRUD实现
+│   └── 分页查询
+├── Service层 (UseCase)
+│   ├── 实现Proto定义的gRPC接口
+│   ├── 参数校验
+│   ├── 业务逻辑编排
+│   └── 错误处理
+├── Server层 (Transport)
+│   ├── HTTP Server (外部API)
+│   ├── gRPC Server (内部通信)
+│   └── 中间件链 (recovery/tracing/logging/validate)
+├── 配置管理
+│   ├── YAML配置文件
+│   └── config包加载
+└── 服务注册
+    └── Consul注册</code></pre>
+
+<h2>九、举一反三</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>扩展方向</th>
+<th>技术</th>
+</tr></thead><tbody>
+<tr>
+<td>商品服务</td>
+<td>复制相同分层架构</td>
+<td>Proto→Biz→Data→Service→Server</td>
+</tr>
+<tr>
+<td>支付服务</td>
+<td>订单→支付状态回调</td>
+<td>gRPC + 事件驱动</td>
+</tr>
+<tr>
+<td>库存扣减</td>
+<td>分布式事务</td>
+<td>Saga / TCC</td>
+</tr>
+<tr>
+<td>消息通知</td>
+<td>订单状态变更通知</td>
+<td>Kafka + WebSocket</td>
+</tr>
+<tr>
+<td>后台管理</td>
+<td>管理端CRUD</td>
+<td>同一Service，不同API路径</td>
+</tr>
+<tr>
+<td>数据报表</td>
+<td>订单统计分析</td>
+<td>Read Model + CQRS</td>
+</tr>
+<tr>
+<td>API网关</td>
+<td>统一入口+鉴权</td>
+<td>Kratos Gateway</td>
+</tr>
+</tbody></table>
+
+<h2>十、参考资料</h2>
+
+<ul>
+<li><a href="https://go-kratos.dev/docs/getting-started/start">Kratos官方文档</a></li>
+<li><a href="https://github.com/go-kratos/kratos-layout">Kratos Layout项目模板</a></li>
+<li><a href="https://gorm.io/docs/">GORM官方文档</a></li>
+<li><a href="https://gorm.io/docs/connecting_to_the_database.html#PostgreSQL">PostgreSQL Go Driver</a></li>
+<li><a href="https://github.com/bufbuild/protovalidate">Protocol Buffers Validate</a></li>
+
+<h2>十一、代码演进</h2>
+
+<h3>v1 → v2 的变化</h3>
+<ul>
+<li>从Proto骨架到完整数据层+业务层</li>
+<li>GORM集成 + PostgreSQL</li>
+<li>分层架构（Biz接口 → Data实现）</li>
+<li>完整CRUD实现 + 分页</li>
+<li>业务错误定义和校验</li>
+
+<h3>v2 → v3 的变化</h3>
+<ul>
+<li>完整HTTP + gRPC双协议Server</li>
+<li>中间件链（recovery → tracing → logging → validate）</li>
+<li>配置文件管理</li>
+<li>Consul服务注册</li>
+<li>应用启动和生命周期管理</li>
+<li>完整可运行的main.go</li>
+
+<h3>核心演进路径</h3>
+<pre><code>Proto定义+骨架 → 分层架构+CRUD+数据库 → 双协议+中间件+配置+注册=完整服务</code></pre>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

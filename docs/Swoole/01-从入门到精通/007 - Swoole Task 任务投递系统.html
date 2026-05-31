@@ -1,0 +1,586 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>007 - Swoole Task 任务投递系统</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Swoole/index.html">Swoole</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Swoole/01-从入门到精通/index.html">Swoole从入门到精通</a>
+</nav>
+<h1>007 - Swoole Task 任务投递系统</h1>
+<div class="meta">
+<span>📂 Swoole从入门到精通</span>
+<span>🏷️ Swoole</span>
+</div>
+<article>
+
+
+<h1>Swoole Task 任务投递系统</h1>
+
+<blockquote><p><strong>难度标注：</strong> ⭐⭐⭐ 中级 | 预计阅读时间：20 分钟</p></blockquote>
+
+<h2>一、概念讲解</h2>
+
+<p>Swoole 的 Task 系统是一个<strong>异步任务投递机制</strong>，允许你将耗时的操作（如发送邮件、生成报表、数据处理）从主进程投递到独立的 Task Worker 进程中执行，不阻塞主业务流程。</p>
+
+<h3>核心架构</h3>
+
+<pre><code>┌─────────────┐    task()     ┌──────────────────┐
+│ Worker 进程  │ ──────────→  │ Task Worker 进程   │
+│ (处理请求)   │              │ (执行耗时任务)     │
+└─────────────┘              └──────────────────┘
+       ↑                            │
+       └──── onFinish() ←───────────┘
+              (任务完成回调)</code></pre>
+
+<p><strong>关键角色：</strong></p>
+
+<table><thead><tr>
+<th>角色</th>
+<th>说明</th>
+</tr></thead><tbody>
+<tr>
+<td>Worker 进程</td>
+<td>接收请求，投递任务，继续处理其他请求</td>
+</tr>
+<tr>
+<td>Task Worker 进程</td>
+<td>专门执行耗时任务，独立于 Worker</td>
+</tr>
+<tr>
+<td>Task 队列</td>
+<td>投递和完成队列，使用共享内存通信</td>
+</tr>
+</tbody></table>
+
+<h3>为什么需要 Task？</h3>
+
+<p>传统 PHP-FPM 模式下，发送邮件可能需要 2-5 秒，用户必须等待。使用 Swoole Task：</p>
+
+<pre><code class="language-php">// 传统同步模式 - 用户等待
+$mailer-&gt;send($to, $subject, $body); // 阻塞 3 秒
+return $response; // 3 秒后才返回
+
+// Swoole Task 模式 - 用户立即得到响应
+$server-&gt;task([&#x27;action&#x27; =&gt; &#x27;sendMail&#x27;, &#x27;to&#x27; =&gt; $to, &#x27;body&#x27; =&gt; $body]);
+return $response; // 立即返回，邮件后台发送</code></pre>
+
+<h2>二、脑图（ASCII）</h2>
+
+<pre><code>Swoole Task 系统
+├── 配置
+│   ├── task_worker_num          # Task Worker 数量
+│   ├── task_ipc_mode            # IPC 通信模式
+│   ├── task_max_request         # 最大处理任务数后重启
+│   └── task_tmpdir              # 临时文件目录
+├── 核心方法
+│   ├── task()                   # 投递任务（异步）
+│   ├── taskWait()               # 投递并等待结果（同步）
+│   ├── taskCo()                 # 并发投递多个任务
+│   └── finish()                 # 完成任务，返回结果
+├── 回调函数
+│   ├── onTask()                 # Task Worker 中执行
+│   └── onFinish()               # Worker 中接收结果
+└── 投递数据
+    ├── 字符串 / 整型            # 简单类型
+    ├── 数组                     # 常用方式
+    └── 序列化对象               # 复杂数据</code></pre>
+
+<h2>三、完整代码</h2>
+
+<h3>v1：基础 Task 投递</h3>
+
+<pre><code class="language-php">&lt;?php
+// Basic Task System - v1
+$server = new Swoole\Server(&#x27;0.0.0.0&#x27;, 9501);
+
+$server-&gt;set([
+    &#x27;worker_num&#x27; =&gt; 2,
+    &#x27;task_worker_num&#x27; =&gt; 4, // 4 dedicated task workers
+]);
+
+// Handle incoming connections
+$server-&gt;on(&#x27;receive&#x27;, function ($server, $fd, $reactorId, $data) {
+    $payload = json_decode($data, true);
+    
+    if (!$payload) {
+        $server-&gt;send($fd, json_encode([&#x27;error&#x27; =&gt; &#x27;Invalid JSON&#x27;]));
+        return;
+    }
+    
+    // Dispatch task, get task ID
+    $taskId = $server-&gt;task([
+        &#x27;action&#x27; =&gt; $payload[&#x27;action&#x27;] ?? &#x27;default&#x27;,
+        &#x27;params&#x27; =&gt; $payload[&#x27;params&#x27;] ?? [],
+        &#x27;fd&#x27; =&gt; $fd, // Save client fd for response
+    ]);
+    
+    $server-&gt;send($fd, json_encode([
+        &#x27;status&#x27; =&gt; &#x27;task_dispatched&#x27;,
+        &#x27;task_id&#x27; =&gt; $taskId,
+    ]));
+});
+
+// Execute task in Task Worker process
+$server-&gt;on(&#x27;task&#x27;, function ($server, $taskId, $reactorId, $data) {
+    echo &quot;[TaskWorker] Processing task #{$taskId}: {$data[&#x27;action&#x27;]}\n&quot;;
+    
+    $result = match ($data[&#x27;action&#x27;]) {
+        &#x27;sendMail&#x27; =&gt; (function () use ($data) {
+            // Simulate email sending
+            sleep(2);
+            return [&#x27;sent&#x27; =&gt; true, &#x27;to&#x27; =&gt; $data[&#x27;params&#x27;][&#x27;to&#x27;] ?? &#x27;unknown&#x27;];
+        })(),
+        &#x27;generateReport&#x27; =&gt; (function () use ($data) {
+            // Simulate report generation
+            sleep(3);
+            return [&#x27;report&#x27; =&gt; &#x27;report_&#x27; . date(&#x27;YmdHis&#x27;) . &#x27;.pdf&#x27;, &#x27;size&#x27; =&gt; &#x27;2.3MB&#x27;];
+        })(),
+        default =&gt; [&#x27;error&#x27; =&gt; &#x27;Unknown action&#x27;]
+    };
+    
+    // Return result to Worker via onFinish
+    $server-&gt;finish([
+        &#x27;task_id&#x27; =&gt; $taskId,
+        &#x27;result&#x27; =&gt; $result,
+        &#x27;fd&#x27; =&gt; $data[&#x27;fd&#x27;],
+    ]);
+});
+
+// Receive task result in Worker process
+$server-&gt;on(&#x27;finish&#x27;, function ($server, $taskId, $data) {
+    echo &quot;[Worker] Task #{$taskId} finished\n&quot;;
+    // Push result to client via fd
+    if (isset($data[&#x27;fd&#x27;])) {
+        $server-&gt;send($data[&#x27;fd&#x27;], json_encode([
+            &#x27;status&#x27; =&gt; &#x27;task_completed&#x27;,
+            &#x27;task_id&#x27; =&gt; $data[&#x27;task_id&#x27;],
+            &#x27;result&#x27; =&gt; $data[&#x27;result&#x27;],
+        ]));
+    }
+});
+
+$server-&gt;start();</code></pre>
+
+<h3>v2：Task 协程并发</h3>
+
+<pre><code class="language-php">&lt;?php
+// Concurrent Task with taskCo - v2
+$server = new Swoole\Server(&#x27;0.0.0.0&#x27;, 9501);
+
+$server-&gt;set([
+    &#x27;worker_num&#x27; =&gt; 2,
+    &#x27;task_worker_num&#x27; =&gt; 4,
+]);
+
+$server-&gt;on(&#x27;receive&#x27;, function ($server, $fd, $reactorId, $data) {
+    $payload = json_decode($data, true);
+    $action = $payload[&#x27;action&#x27;] ?? &#x27;&#x27;;
+    
+    if ($action === &#x27;batch&#x27;) {
+        // Use taskCo to run multiple tasks concurrently
+        $results = $server-&gt;taskCo([
+            [&#x27;action&#x27; =&gt; &#x27;fetchUser&#x27;, &#x27;uid&#x27; =&gt; 1],
+            [&#x27;action&#x27; =&gt; &#x27;fetchOrders&#x27;, &#x27;uid&#x27; =&gt; 1],
+            [&#x27;action&#x27; =&gt; &#x27;fetchWallet&#x27;, &#x27;uid&#x27; =&gt; 1],
+        ], 5.0); // 5s timeout
+        
+        $server-&gt;send($fd, json_encode([
+            &#x27;status&#x27; =&gt; &#x27;batch_done&#x27;,
+            &#x27;results&#x27; =&gt; $results,
+        ]));
+    } else {
+        $taskId = $server-&gt;task($payload);
+        $server-&gt;send($fd, json_encode([&#x27;dispatched&#x27; =&gt; $taskId]));
+    }
+});
+
+$server-&gt;on(&#x27;task&#x27;, function ($server, $taskId, $reactorId, $data) {
+    $action = $data[&#x27;action&#x27;];
+    
+    // Simulate different IO operations
+    $result = match ($action) {
+        &#x27;fetchUser&#x27; =&gt; (function () {
+            Co\System::sleep(1); // Simulate DB query
+            return [&#x27;id&#x27; =&gt; 1, &#x27;name&#x27; =&gt; &#x27;Alice&#x27;];
+        })(),
+        &#x27;fetchOrders&#x27; =&gt; (function () {
+            Co\System::sleep(1.5);
+            return [[&#x27;order_id&#x27; =&gt; 101, &#x27;amount&#x27; =&gt; 99.9]];
+        })(),
+        &#x27;fetchWallet&#x27; =&gt; (function () {
+            Co\System::sleep(0.5);
+            return [&#x27;balance&#x27; =&gt; 1000.00];
+        })(),
+        default =&gt; [&#x27;error&#x27; =&gt; &quot;Unknown: {$action}&quot;]
+    };
+    
+    $server-&gt;finish($result);
+});
+
+$server-&gt;on(&#x27;finish&#x27;, function ($server, $taskId, $data) {
+    // For taskCo, results are returned directly, this callback won&#x27;t fire
+});
+
+$server-&gt;start();</code></pre>
+
+<h3>v3：生产级 Task 管理器</h3>
+
+<pre><code class="language-php">&lt;?php
+// Production Task Manager - v3
+class TaskManager
+{
+    private Swoole\Server $server;
+    private array $taskConfig = [];
+    
+    public function __construct(Swoole\Server $server)
+    {
+        $this-&gt;server = $server;
+    }
+    
+    // Register task handler
+    public function register(string $action, callable $handler, array $options = []): void
+    {
+        $this-&gt;taskConfig[$action] = [
+            &#x27;handler&#x27; =&gt; $handler,
+            &#x27;retry&#x27; =&gt; $options[&#x27;retry&#x27;] ?? 0,
+            &#x27;timeout&#x27; =&gt; $options[&#x27;timeout&#x27;] ?? 10,
+        ];
+    }
+    
+    // Dispatch task with retry support
+    public function dispatch(string $action, array $params = [], int $fd = null): int
+    {
+        $taskId = $this-&gt;server-&gt;task([
+            &#x27;action&#x27; =&gt; $action,
+            &#x27;params&#x27; =&gt; $params,
+            &#x27;fd&#x27; =&gt; $fd,
+            &#x27;attempt&#x27; =&gt; 0,
+            &#x27;created_at&#x27; =&gt; microtime(true),
+        ]);
+        return $taskId;
+    }
+    
+    // Handle task execution
+    public function handleTask($server, int $taskId, int $reactorId, array $data): void
+    {
+        $action = $data[&#x27;action&#x27;];
+        
+        if (!isset($this-&gt;taskConfig[$action])) {
+            $server-&gt;finish([&#x27;error&#x27; =&gt; &quot;Unregistered action: {$action}&quot;, &#x27;fd&#x27; =&gt; $data[&#x27;fd&#x27;]]);
+            return;
+        }
+        
+        $config = $this-&gt;taskConfig[$action];
+        
+        try {
+            $result = ($config[&#x27;handler&#x27;])($data[&#x27;params&#x27;]);
+            $server-&gt;finish([
+                &#x27;task_id&#x27; =&gt; $taskId,
+                &#x27;result&#x27; =&gt; $result,
+                &#x27;fd&#x27; =&gt; $data[&#x27;fd&#x27;] ?? null,
+            ]);
+        } catch (\Throwable $e) {
+            $attempt = ($data[&#x27;attempt&#x27;] ?? 0) + 1;
+            
+            if ($attempt &lt;= $config[&#x27;retry&#x27;]) {
+                // Retry: re-dispatch
+                $data[&#x27;attempt&#x27;] = $attempt;
+                $server-&gt;task($data);
+                echo &quot;[Retry] Task #{$taskId} attempt {$attempt}\n&quot;;
+            } else {
+                $server-&gt;finish([
+                    &#x27;task_id&#x27; =&gt; $taskId,
+                    &#x27;error&#x27; =&gt; $e-&gt;getMessage(),
+                    &#x27;fd&#x27; =&gt; $data[&#x27;fd&#x27;] ?? null,
+                ]);
+            }
+        }
+    }
+}
+
+// --- Usage ---
+$server = new Swoole\Server(&#x27;0.0.0.0&#x27;, 9501);
+$server-&gt;set([&#x27;worker_num&#x27; =&gt; 2, &#x27;task_worker_num&#x27; =&gt; 4]);
+
+$taskManager = new TaskManager($server);
+
+// Register task handlers
+$taskManager-&gt;register(&#x27;sendMail&#x27;, function (array $params) {
+    // Real email sending logic here
+    Co\System::sleep(1);
+    return [&#x27;sent&#x27; =&gt; true, &#x27;to&#x27; =&gt; $params[&#x27;to&#x27;] ?? &#x27;unknown&#x27;];
+}, [&#x27;retry&#x27; =&gt; 3, &#x27;timeout&#x27; =&gt; 30]);
+
+$taskManager-&gt;register(&#x27;processImage&#x27;, function (array $params) {
+    // Image processing logic
+    Co\System::sleep(2);
+    return [&#x27;processed&#x27; =&gt; true, &#x27;path&#x27; =&gt; &#x27;/uploads/&#x27; . ($params[&#x27;filename&#x27;] ?? &#x27;img.jpg&#x27;)];
+}, [&#x27;retry&#x27; =&gt; 1]);
+
+$server-&gt;on(&#x27;receive&#x27;, function ($server, $fd, $reactorId, $data) use ($taskManager) {
+    $payload = json_decode($data, true);
+    $taskManager-&gt;dispatch($payload[&#x27;action&#x27;] ?? &#x27;unknown&#x27;, $payload[&#x27;params&#x27;] ?? [], $fd);
+    $server-&gt;send($fd, json_encode([&#x27;status&#x27; =&gt; &#x27;dispatched&#x27;]));
+});
+
+$server-&gt;on(&#x27;task&#x27;, function ($server, $taskId, $reactorId, $data) use ($taskManager) {
+    $taskManager-&gt;handleTask($server, $taskId, $reactorId, $data);
+});
+
+$server-&gt;on(&#x27;finish&#x27;, function ($server, $taskId, $data) {
+    if (!empty($data[&#x27;fd&#x27;])) {
+        $server-&gt;send($data[&#x27;fd&#x27;], json_encode($data));
+    }
+});
+
+$server-&gt;start();</code></pre>
+
+<h2>四、执行预览</h2>
+
+<pre><code>$ php task_server.php
+
+[TaskWorker] Processing task #0: sendMail
+[Worker] Task #0 finished
+[TaskWorker] Processing task #1: generateReport
+[Worker] Task #1 finished
+
+# Client sends:
+$ echo &#x27;{&quot;action&quot;:&quot;sendMail&quot;,&quot;params&quot;:{&quot;to&quot;:&quot;user@example.com&quot;}}&#x27; | nc localhost 9501
+{&quot;status&quot;:&quot;dispatched&quot;,&quot;task_id&quot;:0}
+{&quot;status&quot;:&quot;task_completed&quot;,&quot;task_id&quot;:0,&quot;result&quot;:{&quot;sent&quot;:true,&quot;to&quot;:&quot;user@example.com&quot;}}
+
+# taskCo batch:
+$ echo &#x27;{&quot;action&quot;:&quot;batch&quot;}&#x27; | nc localhost 9501
+{&quot;status&quot;:&quot;batch_done&quot;,&quot;results&quot;:[{&quot;id&quot;:1,&quot;name&quot;:&quot;Alice&quot;},[{&quot;order_id&quot;:101}],{&quot;balance&quot;:1000}]}</code></pre>
+
+<h2>五、注意事项</h2>
+
+<table><thead><tr>
+<th>项目</th>
+<th>说明</th>
+</tr></thead><tbody>
+<tr>
+<td>Task Worker 数量</td>
+<td>建议设为 CPU 核心数的 1-2 倍，过多会浪费内存</td>
+</tr>
+<tr>
+<td>数据大小</td>
+<td>task() 传递数据超过 8KB 会走临时文件，注意 tmpdir 配置</td>
+</tr>
+<tr>
+<td>阻塞操作</td>
+<td>Task Worker 中避免长时间阻塞，会影响其他任务排队</td>
+</tr>
+<tr>
+<td>fd 失效</td>
+<td>onFinish 中 fd 可能已断开，需先检查连接状态</td>
+</tr>
+<tr>
+<td>进程隔离</td>
+<td>Task 和 Worker 是不同进程，不能共享变量</td>
+</tr>
+<tr>
+<td>内存泄漏</td>
+<td>task_max_request 设置合理值，防止 Task Worker 内存泄漏</td>
+</tr>
+</tbody></table>
+
+<h2>六、避坑指南</h2>
+
+<table><thead><tr>
+<th>❌ 错误做法</th>
+<th>✅ 正确做法</th>
+</tr></thead><tbody>
+<tr>
+<td>在 Task 中直接 return 结果</td>
+<td>用 <code>$server->finish()</code> 返回结果</td>
+</tr>
+<tr>
+<td>task() 投递超大对象（>8KB）</td>
+<td>只传必要参数，Task 中查数据库获取详情</td>
+</tr>
+<tr>
+<td>Task Worker 中创建 MySQL 连接不复用</td>
+<td>在 onWorkerStart 中初始化连接池</td>
+</tr>
+<tr>
+<td>忘记设置 task_worker_num</td>
+<td>必须配置，否则 task() 调用报错</td>
+</tr>
+<tr>
+<td>onFinish 中直接操作全局变量</td>
+<td>用 Table 或 Redis 做跨进程数据共享</td>
+</tr>
+<tr>
+<td>taskCo 超时不处理</td>
+<td>设置合理超时，检查返回 false 的情况</td>
+</tr>
+</tbody></table>
+
+<h2>七、练习题</h2>
+
+<p><strong>🟢 基础题：</strong></p>
+<ol>
+<li>创建一个 TCP 服务器，接收字符串并投递 Task，Task 中将字符串转为大写后返回</li>
+</ul>
+<ol>
+<li>配置 2 个 Worker + 2 个 Task Worker，观察任务分配情况</li>
+
+<p><strong>🟡 进阶题：</strong></p>
+<ol>
+<li>使用 <code>taskCo</code> 同时投递 3 个任务（模拟查询用户、订单、积分），实现 1.5 秒内完成</li>
+</ul>
+<ol>
+<li>实现一个带超时重试的 Task 投递（超时 3 秒自动重试，最多 2 次）</li>
+
+<p><strong>🔴 挑战题：</strong></p>
+<ol>
+<li>基于共享内存 Table 实现一个任务状态追踪面板，记录每个任务的投递时间、完成时间、状态</li>
+</ul>
+<ol>
+<li>实现一个 Task 队列限流器：每秒最多处理 10 个任务，超出排队等待</li>
+
+<h2>八、知识点总结</h2>
+
+<pre><code>Swoole Task 知识树
+├── 配置项
+│   ├── task_worker_num ★★★
+│   ├── task_ipc_mode (1=unsock, 2=msgqueue, 3=msgqueue+ipc)
+│   └── task_max_request
+├── 投递方式
+│   ├── task() → 异步投递，返回 taskId
+│   ├── taskWait() → 同步等待，适合串行场景
+│   └── taskCo() → 并发投递，协程等待全部完成
+├── 回调
+│   ├── onTask() → 必须调用 finish() 返回
+│   └── onFinish() → 接收结果，推送客户端
+└── 生产实践
+    ├── 重试机制
+    ├── 超时控制
+    └── 连接池复用</code></pre>
+
+<h2>九、举一反三</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>投递方式</th>
+<th>说明</th>
+</tr></thead><tbody>
+<tr>
+<td>发送验证码邮件</td>
+<td><code>task()</code></td>
+<td>不需要等结果，fire-and-forget</td>
+</tr>
+<tr>
+<td>批量导入数据</td>
+<td><code>task()</code> + 重试</td>
+<td>耗时长，需要容错</td>
+</tr>
+<tr>
+<td>聚合多个 API 数据</td>
+<td><code>taskCo()</code></td>
+<td>并发请求，缩短总耗时</td>
+</tr>
+<tr>
+<td>顺序处理流水线</td>
+<td><code>taskWait()</code></td>
+<td>前一步完成再做下一步</td>
+</tr>
+<tr>
+<td>实时通知推送</td>
+<td><code>task()</code> + fd</td>
+<td>完成后通过 fd 推送给用户</td>
+</tr>
+</tbody></table>
+
+<h2>十、参考资料</h2>
+
+<ul>
+<li><a href="https://wiki.swoole.com/#/server/task">Swoole 官方文档 - Task</a></li>
+<li><a href="https://wiki.swoole.com/#/server/methods?id=task">Swoole Server::task</a></li>
+<li><a href="https://wiki.swoole.com/#/server/methods?id=taskco">Swoole Server::taskCo</a></li>
+<li><a href="https://wiki.swoole.com/#/learn?id=swoole-process-model">Swoole 进程模型</a></li>
+
+<h2>十一、代码演进</h2>
+
+<table><thead><tr>
+<th>版本</th>
+<th>特点</th>
+<th>适用场景</th>
+</tr></thead><tbody>
+<tr>
+<td>v1 基础版</td>
+<td>task() + onTask + onFinish，结构清晰</td>
+<td>学习理解 Task 机制</td>
+</tr>
+<tr>
+<td>v2 并发版</td>
+<td>taskCo() 并发投递多任务</td>
+<td>批量查询、数据聚合</td>
+</tr>
+<tr>
+<td>v3 生产版</td>
+<td>TaskManager 封装 + 重试 + 注册机制</td>
+<td>生产环境任务管理</td>
+</tr>
+</tbody></table>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

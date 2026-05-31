@@ -1,0 +1,782 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>015 - Docker Node.js 部署实战：从开发环境到生产上线</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Node.js/index.html">Node.js</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Node.js/02-实战/index.html">Node.js实战</a>
+</nav>
+<h1>015 - Docker Node.js 部署实战：从开发环境到生产上线</h1>
+<div class="meta">
+<span>📂 Node.js实战</span>
+<span>🏷️ Node.js</span>
+</div>
+<article>
+
+
+<h2>难度标注</h2>
+
+<blockquote><p>🟡 <strong>中级难度</strong> | 需要基础 Node.js 和 Linux 命令行经验</p></blockquote>
+
+<hr>
+
+<h2>概念讲解</h2>
+
+<h3>为什么用 Docker 部署 Node.js？</h3>
+
+<ul>
+<li><strong>环境一致</strong>：开发、测试、生产环境完全相同，告别"在我机器上能跑"</li>
+<li><strong>快速部署</strong>：秒级启动，比传统虚拟机快几个数量级</li>
+<li><strong>资源隔离</strong>：CPU、内存、网络互相隔离，互不影响</li>
+<li><strong>弹性伸缩</strong>：配合 K8s 或 Docker Compose 轻松扩缩容</li>
+<li><strong>版本管理</strong>：镜像版本化，回滚只需改一个 tag</li>
+
+<h3>Docker 核心概念</h3>
+
+<table><thead><tr>
+<th>概念</th>
+<th>说明</th>
+<th>类比</th>
+</tr></thead><tbody>
+<tr>
+<td>Image</td>
+<td>只读模板，包含运行环境和代码</td>
+<td>安装光盘</td>
+</tr>
+<tr>
+<td>Container</td>
+<td>Image 的运行实例</td>
+<td>运行中的程序</td>
+</tr>
+<tr>
+<td>Dockerfile</td>
+<td>构建 Image 的脚本</td>
+<td>安装说明书</td>
+</tr>
+<tr>
+<td>Volume</td>
+<td>持久化数据存储</td>
+<td>外接硬盘</td>
+</tr>
+<tr>
+<td>Network</td>
+<td>容器间通信网络</td>
+<td>局域网</td>
+</tr>
+<tr>
+<td>Registry</td>
+<td>镜像仓库（Docker Hub 等）</td>
+<td>应用商店</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>脑图</h2>
+
+<pre><code>Docker Node.js
+├── Dockerfile
+│   ├── Base Image (node:20-alpine)
+│   ├── WORKDIR / COPY
+│   ├── npm install (production)
+│   ├── Multi-stage Build
+│   └── CMD / ENTRYPOINT
+├── Docker Compose
+│   ├── App Service
+│   ├── Database (PostgreSQL/MySQL)
+│   ├── Redis Cache
+│   ├── Nginx Reverse Proxy
+│   └── Volumes &amp; Networks
+├── Production
+│   ├── Non-root User
+│   ├── Health Check
+│   ├── Memory Limits
+│   ├── .dockerignore
+│   └── Graceful Shutdown
+├── Optimization
+│   ├── Layer Caching
+│   ├── Multi-stage Build
+│   ├── Alpine Base Image
+│   └── npm ci vs npm install
+└── CI/CD
+    ├── GitHub Actions
+    ├── Image Tagging
+    ├── Registry Push
+    └── Rolling Deploy</code></pre>
+
+<hr>
+
+<h2>完整代码：Docker Node.js 部署</h2>
+
+<h3>v1：基础 Dockerfile</h3>
+
+<pre><code class="language-dockerfile"># v1-basic/Dockerfile - Simple Node.js Docker image
+FROM node:20-alpine
+
+# Set working directory
+WORKDIR /app
+
+# Copy package files first (for layer caching)
+COPY package*.json ./
+
+# Install dependencies
+RUN npm install
+
+# Copy application code
+COPY . .
+
+# Expose port
+EXPOSE 3000
+
+# Start application
+CMD [&quot;node&quot;, &quot;server.js&quot;]</code></pre>
+
+<pre><code class="language-javascript">// v1-basic/server.js - Simple Express server
+const express = require(&#x27;express&#x27;);
+const os = require(&#x27;os&#x27;);
+
+const app = express();
+const PORT = process.env.PORT || 3000;
+
+app.get(&#x27;/&#x27;, (req, res) =&gt; {
+  res.json({
+    message: &#x27;Hello from Docker!&#x27;,
+    hostname: os.hostname(),
+    platform: process.platform,
+    nodeVersion: process.version,
+    uptime: process.uptime(),
+  });
+});
+
+app.get(&#x27;/health&#x27;, (req, res) =&gt; {
+  res.json({ status: &#x27;ok&#x27;, timestamp: new Date().toISOString() });
+});
+
+app.listen(PORT, () =&gt; {
+  console.log(`Server running on port ${PORT}`);
+});</code></pre>
+
+<pre><code class="language-text"># v1-basic/.dockerignore - Exclude unnecessary files
+node_modules
+npm-debug.log
+.git
+.gitignore
+.env
+README.md
+.DS_Store</code></pre>
+
+<h3>执行预览</h3>
+
+<pre><code class="language-bash"># Build image
+$ docker build -t my-node-app:v1 .
+
+# Run container
+$ docker run -d -p 3000:3000 --name my-app my-node-app:v1
+
+# Test
+$ curl http://localhost:3000
+{
+  &quot;message&quot;: &quot;Hello from Docker!&quot;,
+  &quot;hostname&quot;: &quot;a1b2c3d4e5f6&quot;,
+  &quot;platform&quot;: &quot;linux&quot;,
+  &quot;nodeVersion&quot;: &quot;v20.11.0&quot;,
+  &quot;uptime&quot;: 2.345
+}
+
+# View logs
+$ docker logs my-app
+Server running on port 3000
+
+# Stop and remove
+$ docker stop my-app &amp;&amp; docker rm my-app</code></pre>
+
+<hr>
+
+<h3>v2：多阶段构建 + 生产优化</h3>
+
+<pre><code class="language-dockerfile"># v2-production/Dockerfile - Multi-stage production build
+
+# === Stage 1: Build ===
+FROM node:20-alpine AS builder
+
+WORKDIR /app
+
+COPY package*.json ./
+RUN npm ci --only=production
+
+COPY . .
+
+# === Stage 2: Production ===
+FROM node:20-alpine AS production
+
+# Install security updates
+RUN apk update &amp;&amp; apk upgrade --no-cache
+
+# Create non-root user
+RUN addgroup -g 1001 -S appgroup &amp;&amp; \
+    adduser -S appuser -u 1001 -G appgroup
+
+# Set working directory
+WORKDIR /app
+
+# Copy from builder stage
+COPY --from=builder --chown=appuser:appgroup /app ./
+
+# Switch to non-root user
+USER appuser
+
+# Set environment variables
+ENV NODE_ENV=production
+ENV PORT=3000
+
+# Expose port
+EXPOSE 3000
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+  CMD wget --no-verbose --tries=1 --spider http://localhost:3000/health || exit 1
+
+# Graceful shutdown support
+STOPSIGNAL SIGTERM
+
+# Start application
+CMD [&quot;node&quot;, &quot;server.js&quot;]</code></pre>
+
+<pre><code class="language-javascript">// v2-production/server.js - Production-ready Express server
+const express = require(&#x27;express&#x27;);
+const graceful = require(&#x27;./graceful&#x27;);
+
+const app = express();
+const PORT = process.env.PORT || 3000;
+
+// Middleware
+app.use(express.json());
+
+// Routes
+app.get(&#x27;/&#x27;, (req, res) =&gt; {
+  res.json({
+    message: &#x27;Hello from Docker!&#x27;,
+    env: process.env.NODE_ENV,
+    version: process.env.APP_VERSION || &#x27;1.0.0&#x27;,
+  });
+});
+
+app.get(&#x27;/health&#x27;, (req, res) =&gt; {
+  res.json({ status: &#x27;ok&#x27;, timestamp: new Date().toISOString() });
+});
+
+// Graceful shutdown
+const server = app.listen(PORT, () =&gt; {
+  console.log(`[${process.env.NODE_ENV}] Server on port ${PORT}`);
+});
+
+graceful(server);</code></pre>
+
+<pre><code class="language-javascript">// v2-production/graceful.js - Graceful shutdown handler
+function setupGracefulShutdown(server) {
+  let isShuttingDown = false;
+
+  const shutdown = (signal) =&gt; {
+    if (isShuttingDown) return;
+    isShuttingDown = true;
+    console.log(`\n[${signal}] Shutting down gracefully...`);
+
+    server.close(() =&gt; {
+      console.log(&#x27;HTTP server closed&#x27;);
+      process.exit(0);
+    });
+
+    // Force exit after 10s
+    setTimeout(() =&gt; {
+      console.error(&#x27;Forced shutdown after timeout&#x27;);
+      process.exit(1);
+    }, 10000);
+  };
+
+  process.on(&#x27;SIGTERM&#x27;, () =&gt; shutdown(&#x27;SIGTERM&#x27;));
+  process.on(&#x27;SIGINT&#x27;, () =&gt; shutdown(&#x27;SIGINT&#x27;));
+}
+
+module.exports = setupGracefulShutdown;</code></pre>
+
+<h3>执行预览 v2</h3>
+
+<pre><code class="language-bash"># Build with multi-stage
+$ docker build -t my-node-app:v2 .
+# Image size reduced from ~400MB to ~120MB
+
+# Run with resource limits
+$ docker run -d \
+  -p 3000:3000 \
+  --memory=512m \
+  --cpus=1.0 \
+  --name my-app \
+  my-node-app:v2
+
+# Check health status
+$ docker inspect --format=&#x27;{{.State.Health.Status}}&#x27; my-app
+healthy</code></pre>
+
+<hr>
+
+<h3>v3：Docker Compose 全栈部署</h3>
+
+<pre><code class="language-yaml"># v3-compose/docker-compose.yml
+version: &#x27;3.8&#x27;
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - &quot;3000:3000&quot;
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=myapp
+      - DB_USER=appuser
+      - DB_PASSWORD=${DB_PASSWORD}
+      - REDIS_URL=redis://redis:6379
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: &#x27;1.0&#x27;
+    networks:
+      - app-network
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: myapp
+      POSTGRES_USER: appuser
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: [&quot;CMD-SHELL&quot;, &quot;pg_isready -U appuser -d myapp&quot;]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - app-network
+
+  redis:
+    image: redis:7-alpine
+    command: redis-server --appendonly yes
+    volumes:
+      - redis-data:/data
+    networks:
+      - app-network
+
+  nginx:
+    image: nginx:alpine
+    ports:
+      - &quot;80:80&quot;
+    volumes:
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - app
+    networks:
+      - app-network
+
+volumes:
+  postgres-data:
+  redis-data:
+
+networks:
+  app-network:
+    driver: bridge</code></pre>
+
+<pre><code class="language-nginx"># v3-compose/nginx.conf - Reverse proxy config
+upstream node_app {
+    server app:3000;
+}
+
+server {
+    listen 80;
+    server_name localhost;
+
+    location / {
+        proxy_pass http://node_app;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection &#x27;upgrade&#x27;;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_cache_bypass $http_upgrade;
+    }
+}</code></pre>
+
+<pre><code class="language-javascript">// v3-compose/server.js - Full-stack app with DB and Redis
+const express = require(&#x27;express&#x27;);
+const { Pool } = require(&#x27;pg&#x27;);
+const redis = require(&#x27;redis&#x27;);
+
+const app = express();
+app.use(express.json());
+
+// Database connection
+const pool = new Pool({
+  host: process.env.DB_HOST || &#x27;localhost&#x27;,
+  port: process.env.DB_PORT || 5432,
+  database: process.env.DB_NAME || &#x27;myapp&#x27;,
+  user: process.env.DB_USER || &#x27;appuser&#x27;,
+  password: process.env.DB_PASSWORD,
+});
+
+// Redis connection
+const redisClient = redis.createClient({
+  url: process.env.REDIS_URL || &#x27;redis://localhost:6379&#x27;,
+});
+redisClient.connect().catch(console.error);
+
+// Cache middleware
+async function cache(key, ttl = 60) {
+  const cached = await redisClient.get(key);
+  if (cached) return JSON.parse(cached);
+  return null;
+}
+
+// Routes
+app.get(&#x27;/api/items&#x27;, async (req, res) =&gt; {
+  try {
+    // Try cache first
+    const cached = await cache(&#x27;items:all&#x27;);
+    if (cached) return res.json({ source: &#x27;cache&#x27;, data: cached });
+
+    // Query database
+    const { rows } = await pool.query(&#x27;SELECT * FROM items ORDER BY id&#x27;);
+    await redisClient.setEx(&#x27;items:all&#x27;, 60, JSON.stringify(rows));
+    res.json({ source: &#x27;db&#x27;, data: rows });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get(&#x27;/health&#x27;, async (req, res) =&gt; {
+  const checks = {
+    server: &#x27;ok&#x27;,
+    db: &#x27;ok&#x27;,
+    redis: &#x27;ok&#x27;,
+  };
+  try { await pool.query(&#x27;SELECT 1&#x27;); } catch { checks.db = &#x27;error&#x27;; }
+  try { await redisClient.ping(); } catch { checks.redis = &#x27;error&#x27;; }
+  const status = Object.values(checks).every(v =&gt; v === &#x27;ok&#x27;) ? 200 : 503;
+  res.status(status).json(checks);
+});
+
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () =&gt; console.log(`Server on port ${PORT}`));</code></pre>
+
+<h3>执行预览 v3</h3>
+
+<pre><code class="language-bash"># Start all services
+$ docker compose up -d
+
+# Check status
+$ docker compose ps
+NAME         STATUS          PORTS
+app          Up (healthy)    3000/tcp
+nginx        Up              0.0.0.0:80-&gt;80/tcp
+postgres     Up (healthy)    5432/tcp
+redis        Up              6379/tcp
+
+# Scale app instances
+$ docker compose up -d --scale app=3
+
+# View logs
+$ docker compose logs -f app
+
+# Stop everything
+$ docker compose down -v</code></pre>
+
+<hr>
+
+<h2>注意事项</h2>
+
+<table><thead><tr>
+<th>维度</th>
+<th>说明</th>
+<th>建议</th>
+</tr></thead><tbody>
+<tr>
+<td>镜像大小</td>
+<td>过大影响拉取速度</td>
+<td>使用 Alpine 基础镜像 + 多阶段构建</td>
+</tr>
+<tr>
+<td>安全性</td>
+<td>容器内 root 有风险</td>
+<td>创建非 root 用户运行应用</td>
+</tr>
+<tr>
+<td>数据持久化</td>
+<td>容器删除数据丢失</td>
+<td>使用 Volume 挂载</td>
+</tr>
+<tr>
+<td>环境变量</td>
+<td>敏感信息不要写死</td>
+<td>使用 .env 文件或密钥管理</td>
+</tr>
+<tr>
+<td>网络配置</td>
+<td>默认 bridge 网络</td>
+<td>自定义网络 + 服务名访问</td>
+</tr>
+<tr>
+<td>日志管理</td>
+<td>日志写在容器内</td>
+<td>使用日志驱动或挂载卷</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>避坑指南</h2>
+
+<table><thead><tr>
+<th>❌ 错误做法</th>
+<th>✅ 正确做法</th>
+</tr></thead><tbody>
+<tr>
+<td>使用 <code>node:latest</code> 基础镜像</td>
+<td>指定版本如 <code>node:20-alpine</code></td>
+</tr>
+<tr>
+<td>把 node_modules COPY 进容器</td>
+<td>用 .dockerignore 排除，在容器内安装</td>
+</tr>
+<tr>
+<td>一个容器跑多个进程</td>
+<td>一个容器一个进程</td>
+</tr>
+<tr>
+<td>忘记 HEALTHCHECK</td>
+<td>配置健康检查，方便编排工具监控</td>
+</tr>
+<tr>
+<td>用 <code>npm start</code> 启动</td>
+<td>直接用 <code>node server.js</code>，减少进程层数</td>
+</tr>
+<tr>
+<td>构建时不利用缓存</td>
+<td>先 COPY package.json → npm install → COPY 源码</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>练习题</h2>
+
+<h3>🟢 基础题</h3>
+
+<ol>
+<li>为一个简单的 Express 应用编写 Dockerfile，构建并运行</li>
+</ul>
+<ol>
+<li>编写 .dockerignore 文件，排除不必要的文件</li>
+
+<h3>🟡 进阶题</h3>
+
+<ol>
+<li>实现多阶段构建，将镜像大小从 ~400MB 优化到 ~120MB</li>
+</ul>
+<ol>
+<li>编写 docker-compose.yml，启动 Node.js + PostgreSQL + Redis 三个服务</li>
+
+<h3>🔴 挑战题</h3>
+
+<ol>
+<li>配置 Nginx 反向代理 + SSL，实现 HTTPS 访问 Node.js 应用</li>
+</ul>
+<ol>
+<li>实现 Docker Swarm 或 K8s 部署，包含滚动更新和回滚策略</li>
+
+<hr>
+
+<h2>知识点总结</h2>
+
+<pre><code>Docker Node.js 部署知识树
+├── Dockerfile
+│   ├── FROM (base image)
+│   ├── WORKDIR / COPY / ADD
+│   ├── RUN (build commands)
+│   ├── ENV / EXPOSE
+│   ├── CMD / ENTRYPOINT
+│   └── HEALTHCHECK
+├── 优化策略
+│   ├── Multi-stage Build
+│   ├── Layer Caching
+│   ├── Alpine 镜像
+│   ├── .dockerignore
+│   └── npm ci vs npm install
+├── Docker Compose
+│   ├── Services 定义
+│   ├── Networks
+│   ├── Volumes
+│   ├── depends_on + healthcheck
+│   └── Environment variables
+├── 生产实践
+│   ├── Non-root User
+│   ├── Graceful Shutdown
+│   ├── Resource Limits
+│   ├── Log Management
+│   └── Security Scanning
+└── CI/CD
+    ├── GitHub Actions
+    ├── Image Registry
+    ├── Tagging Strategy
+    └── Rolling Deployment</code></pre>
+
+<hr>
+
+<h2>举一反三</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>传统部署</th>
+<th>Docker 部署</th>
+<th>优势</th>
+</tr></thead><tbody>
+<tr>
+<td>环境搭建</td>
+<td>手动安装 Node/DB/Redis</td>
+<td>docker compose up</td>
+<td>一键启动</td>
+</tr>
+<tr>
+<td>版本切换</td>
+<td>nvm 切换 + 重装依赖</td>
+<td>换个 Image tag</td>
+<td>秒级切换</td>
+</tr>
+<tr>
+<td>扩容</td>
+<td>手动配置新服务器</td>
+<td>docker compose scale</td>
+<td>自动化</td>
+</tr>
+<tr>
+<td>回滚</td>
+<td>重新部署旧版本</td>
+<td>docker run old-tag</td>
+<td>快速回滚</td>
+</tr>
+<tr>
+<td>多项目</td>
+<td>端口冲突、依赖冲突</td>
+<td>各自隔离的容器</td>
+<td>零冲突</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>参考资料</h2>
+
+<ul>
+<li><a href="https://docs.docker.com/">Docker 官方文档</a></li>
+<li><a href="https://nodejs.org/en/docs/guides/nodejs-docker-webapp">Node.js Docker Best Practices</a></li>
+<li><a href="https://docs.docker.com/compose/">Docker Compose 文档</a></li>
+<li><a href="https://docs.docker.com/engine/security/">Docker 安全最佳实践</a></li>
+<li><a href="https://github.com/veggiemonk/awesome-docker">Awesome Docker</a></li>
+
+<hr>
+
+<h2>代码演进总结</h2>
+
+<table><thead><tr>
+<th>版本</th>
+<th>特点</th>
+<th>适用场景</th>
+</tr></thead><tbody>
+<tr>
+<td>v1</td>
+<td>基础 Dockerfile + 单容器</td>
+<td>学习入门、本地开发</td>
+</tr>
+<tr>
+<td>v2</td>
+<td>多阶段构建 + 安全加固 + 健康检查</td>
+<td>单应用生产部署</td>
+</tr>
+<tr>
+<td>v3</td>
+<td>Docker Compose + DB/Redis/Nginx</td>
+<td>全栈生产部署</td>
+</tr>
+</tbody></table>
+
+<blockquote><p>💡 <strong>镜像大小优化路径</strong>：node:20（~1GB）→ node:20-slim（~250MB）→ node:20-alpine（~120MB）→ 多阶段 Alpine（~80MB）。每一步都是显著优化。</p></blockquote>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

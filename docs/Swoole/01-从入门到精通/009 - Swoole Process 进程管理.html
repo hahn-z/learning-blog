@@ -1,0 +1,662 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>009 - Swoole Process 进程管理</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Swoole/index.html">Swoole</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Swoole/01-从入门到精通/index.html">Swoole从入门到精通</a>
+</nav>
+<h1>009 - Swoole Process 进程管理</h1>
+<div class="meta">
+<span>📂 Swoole从入门到精通</span>
+<span>🏷️ Swoole</span>
+</div>
+<article>
+
+
+<h2>难度标注</h2>
+
+<blockquote><p><strong>难度等级：⭐⭐⭐⭐ 较高</strong><br>前置知识：PHP基础、Linux进程概念、信号机制、管道通信<br>预计学习时间：50-70分钟</p></blockquote>
+
+<h2>概念讲解</h2>
+
+<h3>什么是 Swoole Process？</h3>
+
+<p>Swoole\Process 是 Swoole 提供的<strong>多进程管理模块</strong>，封装了 <code>fork</code>、信号、管道（pipe）等底层操作，让 PHP 也能优雅地编写多进程程序。</p>
+
+<p><strong>为什么需要多进程？</strong></p>
+<ul>
+<li>PHP 是单线程语言，一个进程同一时刻只能做一件事</li>
+<li>多进程可以充分利用多核 CPU</li>
+<li>进程间隔离，一个崩溃不影响其他</li>
+
+<h3>进程间通信（IPC）方式</h3>
+
+<table><thead><tr>
+<th>方式</th>
+<th>说明</th>
+<th>适用场景</th>
+</tr></thead><tbody>
+<tr>
+<td>管道（Pipe）</td>
+<td>双向字节流，默认阻塞读写</td>
+<td>父子进程简单通信</td>
+</tr>
+<tr>
+<td>消息队列（Queue）</td>
+<td>结构化消息，支持阻塞/非阻塞</td>
+<td>任务分发</td>
+</tr>
+<tr>
+<td>共享内存（Table）</td>
+<td>固定结构，高性能</td>
+<td>状态共享</td>
+</tr>
+<tr>
+<td>Unix Socket</td>
+<td>本地套接字</td>
+<td>进程间大量数据传输</td>
+</tr>
+<tr>
+<td>信号（Signal）</td>
+<td>异步通知机制</td>
+<td>进程控制（重启/停止）</td>
+</tr>
+</tbody></table>
+
+<h3>Swoole 进程模型</h3>
+
+<pre><code>                    Master Process
+                   /      |       \
+              Worker0  Worker1  Worker2
+               |         |        |
+           [pipe]    [pipe]    [pipe]
+               |         |        |
+            Task0     Task1    CustomProcess</code></pre>
+
+<h2>脑图（ASCII）</h2>
+
+<pre><code>Swoole Process
+├── 核心类
+│   ├── Swoole\Process → 进程管理
+│   ├── Swoole\Process\Pool → 进程池
+│   └── Swoole\Table → 共享内存
+├── Process API
+│   ├── __construct($callback, $redirect, $pipe)
+│   ├── start() → 启动子进程
+│   ├── write() → 写管道
+│   ├── read() → 读管道
+│   ├── useQueue() → 启用消息队列
+│   ├── push() / pop() → 队列操作
+│   ├── exit() → 退出进程
+│   └── kill() → 发送信号
+├── 信号处理
+│   ├── Process::signal($signo, $callback)
+│   ├── SIGTERM → 优雅退出
+│   ├── SIGUSR1 → 自定义信号
+│   └── SIGCHLD → 子进程退出
+├── 守护进程化
+│   └── Process::daemon(true, true)
+└── 进程池
+    ├── new Pool($workerNum)
+    ├── on(&#x27;WorkerStart&#x27;)
+    ├── on(&#x27;Message&#x27;)
+    └── start()</code></pre>
+
+<h2>完整代码</h2>
+
+<h3>v1：父子进程管道通信</h3>
+
+<pre><code class="language-php">&lt;?php
+// v1_pipe_communication.php
+// Parent-child process communication via pipe
+
+use Swoole\Process;
+
+// Create child process with pipe enabled (default)
+$child = new Process(function (Process $proc) {
+    // ─── Child process code ─────────────────────
+    echo &quot;[Child] PID=&quot; . getmypid() . &quot; started\n&quot;;
+
+    // Read data from parent via pipe
+    $data = $proc-&gt;read();
+    echo &quot;[Child] Received from parent: {$data}\n&quot;;
+
+    // Process the data
+    $result = strtoupper($data);
+    sleep(1);
+
+    // Write result back to parent
+    $proc-&gt;write(&quot;[Child Response] {$result}&quot;);
+    echo &quot;[Child] Sent response back\n&quot;;
+});
+
+// Start child process
+$pid = $child-&gt;start();
+echo &quot;[Parent] Forked child PID={$pid}\n&quot;;
+
+// Send data to child
+$child-&gt;write(&quot;hello from parent pipe&quot;);
+echo &quot;[Parent] Sent data to child\n&quot;;
+
+// Read response (blocking)
+$response = $child-&gt;read();
+echo &quot;[Parent] Got response: {$response}\n&quot;;
+
+// Wait for child to exit
+$status = Process::wait();
+echo &quot;[Parent] Child exited: &quot; . json_encode($status) . &quot;\n&quot;;</code></pre>
+
+<h3>v2：多 Worker 进程池 + 消息队列</h3>
+
+<pre><code class="language-php">&lt;?php
+// v2_process_pool.php
+// Multi-worker process pool with message queue
+
+use Swoole\Process;
+use Swoole\Table;
+
+define(&#x27;WORKER_NUM&#x27;, 4);
+
+// Shared memory for status tracking
+$statusTable = new Table(1024);
+$statusTable-&gt;column(&#x27;pid&#x27;, Table::TYPE_INT);
+$statusTable-&gt;column(&#x27;status&#x27;, Table::TYPE_STRING, 16);
+$statusTable-&gt;column(&#x27;tasks_done&#x27;, Table::TYPE_INT);
+$statusTable-&gt;column(&#x27;updated_at&#x27;, Table::TYPE_STRING, 32);
+$statusTable-&gt;create();
+
+$workers = [];
+
+// ─── Create worker processes ──────────────────────────────────
+for ($i = 0; $i &lt; WORKER_NUM; $i++) {
+    $process = new Process(function (Process $proc) use ($i) {
+        echo &quot;[Worker {$i}] PID=&quot; . getmypid() . &quot; started\n&quot;;
+
+        // Set process name for monitoring
+        $proc-&gt;name(&quot;swoole-worker-{$i}&quot;);
+
+        // Enable message queue
+        $proc-&gt;useQueue(ftok(__FILE__, &#x27;a&#x27;) + $i);
+
+        while (true) {
+            // Try to receive message (blocking)
+            $data = $proc-&gt;pop();
+            if ($data === false) {
+                usleep(100000);
+                continue;
+            }
+
+            $task = json_decode($data, true);
+            if (!$task) continue;
+
+            // Handle shutdown signal
+            if (($task[&#x27;type&#x27;] ?? &#x27;&#x27;) === &#x27;shutdown&#x27;) {
+                echo &quot;[Worker {$i}] Shutting down\n&quot;;
+                break;
+            }
+
+            // Process task
+            echo &quot;[Worker {$i}] Processing task: &quot; . ($task[&#x27;type&#x27;] ?? &#x27;unknown&#x27;) . &quot;\n&quot;;
+
+            $result = processTask($i, $task);
+
+            // Send result back via pipe
+            $proc-&gt;write(json_encode([
+                &#x27;worker_id&#x27; =&gt; $i,
+                &#x27;task_id&#x27; =&gt; $task[&#x27;id&#x27;] ?? 0,
+                &#x27;result&#x27; =&gt; $result,
+            ]));
+        }
+
+        echo &quot;[Worker {$i}] Exited\n&quot;;
+    }, true, true);  // redirect_stdin=true, create_pipe=true
+
+    $pid = $process-&gt;start();
+    $workers[$i] = $process;
+    $statusTable-&gt;set(&quot;worker_{$i}&quot;, [
+        &#x27;pid&#x27; =&gt; $pid,
+        &#x27;status&#x27; =&gt; &#x27;running&#x27;,
+        &#x27;tasks_done&#x27; =&gt; 0,
+        &#x27;updated_at&#x27; =&gt; date(&#x27;H:i:s&#x27;),
+    ]);
+}
+
+// ─── Signal handler for graceful shutdown ──────────────────────
+Process::signal(SIGTERM, function () use ($workers) {
+    echo &quot;[Master] Received SIGTERM, shutting down...\n&quot;;
+    foreach ($workers as $proc) {
+        $proc-&gt;push(json_encode([&#x27;type&#x27; =&gt; &#x27;shutdown&#x27;]));
+    }
+});
+
+Process::signal(SIGCHLD, function () {
+    // Reap zombie processes
+    while (($ret = Process::wait(false)) !== false) {
+        echo &quot;[Master] Child {$ret[&#x27;pid&#x27;]} exited with code {$ret[&#x27;code&#x27;]}\n&quot;;
+    }
+});
+
+// ─── Dispatch tasks to workers ─────────────────────────────────
+$taskId = 0;
+for ($batch = 0; $batch &lt; 3; $batch++) {
+    for ($i = 0; $i &lt; WORKER_NUM; $i++) {
+        $taskId++;
+        $task = [
+            &#x27;id&#x27; =&gt; $taskId,
+            &#x27;type&#x27; =&gt; [&#x27;email&#x27;, &#x27;report&#x27;, &#x27;image&#x27;, &#x27;data_sync&#x27;][rand(0, 3)],
+            &#x27;payload&#x27; =&gt; [&#x27;batch&#x27; =&gt; $batch, &#x27;data&#x27; =&gt; &quot;Task #{$taskId}&quot;],
+        ];
+        $workers[$i]-&gt;push(json_encode($task));
+    }
+    echo &quot;[Master] Dispatched batch {$batch} ({$taskId} tasks total)\n&quot;;
+}
+
+// ─── Collect results ──────────────────────────────────────────
+$results = [];
+foreach ($workers as $i =&gt; $proc) {
+    // Read with timeout using select
+    $data = $proc-&gt;read();
+    if ($data) {
+        $result = json_decode($data, true);
+        $results[] = $result;
+        echo &quot;[Master] Result from worker {$i}: &quot; . json_encode($result) . &quot;\n&quot;;
+
+        $old = $statusTable-&gt;get(&quot;worker_{$i}&quot;);
+        if ($old) {
+            $statusTable-&gt;set(&quot;worker_{$i}&quot;, [
+                &#x27;pid&#x27; =&gt; $old[&#x27;pid&#x27;],
+                &#x27;status&#x27; =&gt; &#x27;idle&#x27;,
+                &#x27;tasks_done&#x27; =&gt; $old[&#x27;tasks_done&#x27;] + 1,
+                &#x27;updated_at&#x27; =&gt; date(&#x27;H:i:s&#x27;),
+            ]);
+        }
+    }
+}
+
+// ─── Shutdown workers ─────────────────────────────────────────
+echo &quot;[Master] Shutting down workers...\n&quot;;
+foreach ($workers as $proc) {
+    $proc-&gt;push(json_encode([&#x27;type&#x27; =&gt; &#x27;shutdown&#x27;]));
+}
+
+// Wait for all children
+foreach ($workers as $proc) {
+    Process::wait(true);
+}
+
+echo &quot;[Master] All workers stopped. Total results: &quot; . count($results) . &quot;\n&quot;;
+
+function processTask(int $workerId, array $task): array
+{
+    usleep(rand(100000, 500000)); // 0.1-0.5s
+    return [
+        &#x27;worker&#x27; =&gt; $workerId,
+        &#x27;task_id&#x27; =&gt; $task[&#x27;id&#x27;],
+        &#x27;processed&#x27; =&gt; true,
+        &#x27;time&#x27; =&gt; date(&#x27;H:i:s&#x27;),
+    ];
+}</code></pre>
+
+<h3>v3：Process\Pool 进程池 + 协程</h3>
+
+<pre><code class="language-php">&lt;?php
+// v3_process_pool_coroutine.php
+// Production process pool with coroutine support
+
+use Swoole\Process\Pool;
+use Swoole\Coroutine;
+
+$workerNum = 4;
+$pool = new Pool($workerNum, SWOOLE_IPC_SOCKET, 0, true);
+
+// Shared state via Redis (or Table for single-machine)
+$pool-&gt;on(&#x27;WorkerStart&#x27;, function (Pool $pool, int $workerId) {
+    echo &quot;[Pool] Worker #{$workerId} started (PID=&quot; . getmypid() . &quot;)\n&quot;;
+
+    // Set up signal handler per worker
+    Process::signal(SIGTERM, function () use ($pool, $workerId) {
+        echo &quot;[Pool] Worker #{$workerId} received SIGTERM\n&quot;;
+        $pool-&gt;shutdown();
+    });
+});
+
+$pool-&gt;on(&#x27;Message&#x27;, function (Pool $pool, string $data) use ($workerNum) {
+    $task = json_decode($data, true);
+    if (!$task) return;
+
+    $type = $task[&#x27;type&#x27;] ?? &#x27;unknown&#x27;;
+    $taskId = $task[&#x27;id&#x27;] ?? 0;
+
+    echo &quot;[Worker] Processing task #{$taskId} type={$type}\n&quot;;
+
+    switch ($type) {
+        case &#x27;http_fetch&#x27;:
+            // Use coroutine for concurrent HTTP requests
+            go(function () use ($pool, $task, $taskId) {
+                $urls = $task[&#x27;urls&#x27;] ?? [];
+                $results = [];
+
+                // Concurrent fetch using coroutines
+                $wg = new Coroutine\WaitGroup();
+                foreach ($urls as $url) {
+                    $wg-&gt;add();
+                    go(function () use ($url, &amp;$results, $wg) {
+                        $client = new Coroutine\Http\Client(
+                            parse_url($url, PHP_URL_HOST),
+                            parse_url($url, PHP_URL_PORT) ?: 80
+                        );
+                        $client-&gt;get(parse_url($url, PHP_URL_PATH) ?: &#x27;/&#x27;);
+                        $results[$url] = [
+                            &#x27;status&#x27; =&gt; $client-&gt;statusCode,
+                            &#x27;size&#x27; =&gt; strlen($client-&gt;body),
+                        ];
+                        $client-&gt;close();
+                        $wg-&gt;done();
+                    });
+                }
+                $wg-&gt;wait();
+
+                $pool-&gt;sendMessage(json_encode([
+                    &#x27;task_id&#x27; =&gt; $taskId,
+                    &#x27;type&#x27; =&gt; &#x27;http_fetch_result&#x27;,
+                    &#x27;results&#x27; =&gt; $results,
+                ]), $pool-&gt;getWorkerId());
+            });
+            break;
+
+        case &#x27;data_process&#x27;:
+            // Heavy data processing in coroutine
+            go(function () use ($pool, $task, $taskId) {
+                $data = $task[&#x27;data&#x27;] ?? [];
+                $processed = [];
+
+                foreach (array_chunk($data, 100) as $chunk) {
+                    $processed = array_merge($processed, array_map(function ($item) {
+                        return [&#x27;processed&#x27; =&gt; true, &#x27;value&#x27; =&gt; $item * 2, &#x27;at&#x27; =&gt; time()];
+                    }, $chunk));
+                    Coroutine::sleep(0.01); // Yield control
+                }
+
+                $pool-&gt;sendMessage(json_encode([
+                    &#x27;task_id&#x27; =&gt; $taskId,
+                    &#x27;type&#x27; =&gt; &#x27;data_result&#x27;,
+                    &#x27;count&#x27; =&gt; count($processed),
+                ]), $pool-&gt;getWorkerId());
+            });
+            break;
+
+        case &#x27;ping&#x27;:
+            $pool-&gt;sendMessage(json_encode([
+                &#x27;task_id&#x27; =&gt; $taskId,
+                &#x27;type&#x27; =&gt; &#x27;pong&#x27;,
+                &#x27;worker&#x27; =&gt; $pool-&gt;getWorkerId(),
+            ]), $pool-&gt;getWorkerId());
+            break;
+
+        default:
+            echo &quot;[Worker] Unknown task type: {$type}\n&quot;;
+    }
+});
+
+$pool-&gt;on(&#x27;WorkerStop&#x27;, function (Pool $pool, int $workerId) {
+    echo &quot;[Pool] Worker #{$workerId} stopped\n&quot;;
+});
+
+echo &quot;[Pool] Starting with {$workerNum} workers...\n&quot;;
+$pool-&gt;start();</code></pre>
+
+<h2>执行预览</h2>
+
+<pre><code># v1 管道通信
+$ php v1_pipe_communication.php
+[Parent] Forked child PID=12345
+[Parent] Sent data to child
+[Child] PID=12346 started
+[Child] Received from parent: hello from parent pipe
+[Child] Sent response back
+[Parent] Got response: [Child Response] HELLO FROM PARENT PIPE
+[Parent] Child exited: {&quot;pid&quot;:12346,&quot;code&quot;:0,&quot;signal&quot;:0}
+
+# v2 进程池
+$ php v2_process_pool.php
+[Worker 0] PID=12350 started
+[Worker 1] PID=12351 started
+[Worker 2] PID=12352 started
+[Worker 3] PID=12353 started
+[Master] Dispatched batch 0 (4 tasks total)
+[Worker 0] Processing task: email
+[Worker 1] Processing task: report
+[Master] Result from worker 0: {&quot;worker_id&quot;:0,&quot;result&quot;:{&quot;processed&quot;:true}}
+...
+[Master] All workers stopped. Total results: 4</code></pre>
+
+<h2>注意事项</h2>
+
+<table><thead><tr>
+<th>注意点</th>
+<th>说明</th>
+</tr></thead><tbody>
+<tr>
+<td>fork 限制</td>
+<td>fork 后子进程继承父进程的文件描述符和内存，注意关闭不需要的</td>
+</tr>
+<tr>
+<td>管道阻塞</td>
+<td><code>read()</code> 默认阻塞，可用 <code>swoole_select</code> 实现非阻塞</td>
+</tr>
+<tr>
+<td>僵尸进程</td>
+<td>必须用 <code>Process::wait()</code> 回收，否则产生僵尸进程</td>
+</tr>
+<tr>
+<td>信号处理</td>
+<td><code>SIGTERM</code>/<code>SIGINT</code> 需要手动处理退出逻辑</td>
+</tr>
+<tr>
+<td>进程重命名</td>
+<td><code>setName()</code> 方便 <code>ps aux</code> 监控</td>
+</tr>
+<tr>
+<td>Table 大小</td>
+<td>Table 创建后大小不可变，需提前规划容量</td>
+</tr>
+</tbody></table>
+
+<h2>避坑指南</h2>
+
+<h3>❌ 错误：fork 后不 wait，产生僵尸进程</h3>
+
+<pre><code class="language-php">$proc = new Process(function () { sleep(10); });
+$proc-&gt;start();
+// ❌ 父进程退出，子进程变成孤儿/僵尸</code></pre>
+
+<h3>✅ 正确：注册 SIGCHLD 信号处理</h3>
+
+<pre><code class="language-php">Process::signal(SIGCHLD, function () {
+    while (($ret = Process::wait(false)) !== false) {
+        echo &quot;Child {$ret[&#x27;pid&#x27;]} exited\n&quot;;
+    }
+});</code></pre>
+
+<h3>❌ 错误：在子进程中使用父进程的 PDO 连接</h3>
+
+<pre><code class="language-php">// ❌ fork 后共享的 PDO 连接会导致混乱
+$pdo = new PDO(...);
+$proc = new Process(function () use ($pdo) {
+    $pdo-&gt;query(...); // DANGER!
+});</code></pre>
+
+<h3>✅ 正确：在子进程中重新创建连接</h3>
+
+<pre><code class="language-php">$proc = new Process(function () {
+    $pdo = new PDO(...); // ✅ 每个进程独立连接
+    $pdo-&gt;query(...);
+});</code></pre>
+
+<h2>练习题</h2>
+
+<h3>🟢 入门级</h3>
+
+<ol>
+<li>创建 2 个子进程，一个负责生成随机数写入管道，另一个读取并求和</li>
+</ul>
+<ol>
+<li>修改 v1 让父子进程交替发送消息（乒乓通信）</li>
+
+<h3>🟡 进阶级</h3>
+
+<ol>
+<li>实现一个简单的任务队列：主进程投递任务，多个 Worker 进程争抢执行</li>
+</ul>
+<ol>
+<li>用 Process\Pool 实现一个简单的 TCP 代理，每个 Worker 处理一部分连接</li>
+
+<h3>🔴 挑战级</h3>
+
+<ol>
+<li>实现多进程 Matser-Worker 架构：Manager 进程监控 Worker 健康状态，自动重启崩溃的 Worker</li>
+
+<h2>知识点总结</h2>
+
+<pre><code>Swoole Process 知识体系
+├── 基础概念
+│   ├── fork() → 创建子进程
+│   ├── 管道通信 → read/write
+│   ├── 消息队列 → push/pop
+│   └── 信号处理 → signal()
+├── Process 类
+│   ├── start() → 启动
+│   ├── write()/read() → 管道
+│   ├── push()/pop() → 队列
+│   ├── exit() → 退出
+│   ├── name() → 重命名
+│   └── daemon() → 守护进程化
+├── Process\Pool 类
+│   ├── WorkerStart/Stop 事件
+│   ├── Message 事件
+│   └── sendMessage() 跨 Worker 通信
+├── 共享方案
+│   ├── Table → 高性能固定结构
+│   ├── Redis → 跨机器共享
+│   └── 文件 → 简单但慢
+└── 信号
+    ├── SIGTERM → 优雅退出
+    ├── SIGUSR1/2 → 自定义
+    ├── SIGCHLD → 子进程回收
+    └── SIGHUP → 重载配置</code></pre>
+
+<h2>举一反三</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>推荐方案</th>
+<th>说明</th>
+</tr></thead><tbody>
+<tr>
+<td>并行数据处理</td>
+<td>Process + Table</td>
+<td>多 Worker 分片处理</td>
+</tr>
+<tr>
+<td>后台任务队列</td>
+<td>Process\Pool</td>
+<td>固定数量 Worker 消费队列</td>
+</tr>
+<tr>
+<td>进程监控</td>
+<td>Master-Worker + signal</td>
+<td>自动重启崩溃 Worker</td>
+</tr>
+<tr>
+<td>定时任务调度</td>
+<td>Worker + Timer</td>
+<td>每个 Worker 独立调度</td>
+</tr>
+<tr>
+<td>数据管道</td>
+<td>多级 Process</td>
+<td>读取→解析→写入，流水线</td>
+</tr>
+<tr>
+<td>守护进程</td>
+<td>Process::daemon()</td>
+<td>脱离终端后台运行</td>
+</tr>
+</tbody></table>
+
+<h2>参考资料</h2>
+
+<ul>
+<li><a href="https://wiki.swoole.com/#/process/process">Swoole Process 官方文档</a></li>
+<li><a href="https://wiki.swoole.com/#/process/process_pool">Swoole Process\Pool 文档</a></li>
+<li><a href="https://man7.org/linux/man-pages/man7/ipc.7.html">Linux 进程间通信（IPC）</a></li>
+<li><a href="https://www.php.net/manual/en/book.pcntl.php">PHP pcntl 扩展对比</a></li>
+
+<h2>代码演进总结</h2>
+
+<pre><code>v1 (基础) → 父子进程管道通信
+  ↓ 添加多 Worker、消息队列、信号处理
+v2 (进程池) → 自管理多进程池，任务分发与回收
+  ↓ 使用 Process\Pool + 协程
+v3 (生产) → 进程池 + 协程并发，支持 HTTP 并发和数据流处理</code></pre>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

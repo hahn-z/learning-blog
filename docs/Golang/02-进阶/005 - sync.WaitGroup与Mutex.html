@@ -1,0 +1,563 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>005 - sync.WaitGroup与Mutex</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Golang/index.html">Golang</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Golang/02-进阶/index.html">Golang进阶</a>
+</nav>
+<h1>005 - sync.WaitGroup与Mutex</h1>
+<div class="meta">
+<span>📂 Golang进阶</span>
+<span>🏷️ Golang</span>
+</div>
+<article>
+
+
+<h1>035 - sync.WaitGroup 与 Mutex</h1>
+
+<blockquote><p>难度：⭐⭐⭐（中级）<br><br>本文系统讲解 Go 并发同步的两大基石：<code>sync.WaitGroup</code>（等待一组 goroutine 完成）和 <code>sync.Mutex</code>（互斥锁保护共享资源），并涵盖 <code>sync.Once</code> 和常见并发错误。</p></blockquote>
+
+<hr>
+
+<h2>一、概念讲解</h2>
+
+<h3>WaitGroup</h3>
+
+<p><code>sync.WaitGroup</code> 用于等待一组 goroutine 完成。它维护一个计数器：</p>
+
+<ul>
+<li><code>Add(delta int)</code> — 增加计数器</li>
+<li><code>Done()</code> — 计数器减 1（等价于 <code>Add(-1)</code>）</li>
+<li><code>Wait()</code> — 阻塞直到计数器归零</li>
+
+<h3>Mutex（互斥锁）</h3>
+
+<p><code>sync.Mutex</code> 提供排他锁：同一时刻只有一个 goroutine 能访问临界区。</p>
+
+<ul>
+<li><code>Lock()</code> — 获取锁（阻塞等待）</li>
+<li><code>Unlock()</code> — 释放锁</li>
+
+<h3>RWMutex（读写锁）</h3>
+
+<p><code>sync.RWMutex</code> 允许多个读操作并行，但写操作独占：</p>
+
+<ul>
+<li><code>RLock()</code> / <code>RUnlock()</code> — 共享读锁</li>
+<li><code>Lock()</code> / <code>Unlock()</code> — 独占写锁</li>
+
+<hr>
+
+<h2>二、脑图</h2>
+
+<pre><code>              并发同步原语
+                   │
+       ┌───────────┼───────────┐
+       │           │           │
+   WaitGroup    Mutex       RWMutex
+       │           │           │
+   ┌───┼───┐   ┌───┼───┐   ┌───┼───┐
+   │   │   │   │   │   │   │   │   │
+  Add Done Wait Lock UnLock RLock RU Lock
+   │                           │
+ 计数器规则                  读写分离
+   │                           │
+ ┌─┼──┐                    读多写少
+ 前置 不得                    场景
+Add  为负</code></pre>
+
+<hr>
+
+<h2>三、完整代码示例</h2>
+
+<h3>v1：WaitGroup 基础用法</h3>
+
+<pre><code class="language-go">package main
+
+import (
+    &quot;fmt&quot;
+    &quot;sync&quot;
+    &quot;time&quot;
+)
+
+// Basic WaitGroup: wait for all goroutines to finish
+func main() {
+    var wg sync.WaitGroup
+
+    tasks := []string{&quot;task-A&quot;, &quot;task-B&quot;, &quot;task-C&quot;, &quot;task-D&quot;, &quot;task-E&quot;}
+
+    for _, task := range tasks {
+        wg.Add(1) // Must call BEFORE goroutine starts
+        go func(name string) {
+            defer wg.Done() // Signal completion
+            time.Sleep(100 * time.Millisecond)
+            fmt.Printf(&quot;Completed: %s\n&quot;, name)
+        }(task)
+    }
+
+    wg.Wait() // Block until all Done() calls
+    fmt.Println(&quot;All tasks finished!&quot;)
+}</code></pre>
+
+<h3>v2：并发安全计数器 + 缓存</h3>
+
+<pre><code class="language-go">package main
+
+import (
+    &quot;fmt&quot;
+    &quot;sync&quot;
+)
+
+// SafeCounter is a thread-safe counter using Mutex
+type SafeCounter struct {
+    mu sync.Mutex
+    v  map[string]int
+}
+
+func (c *SafeCounter) Inc(key string) {
+    c.mu.Lock()
+    defer c.mu.Unlock()
+    c.v[key]++
+}
+
+func (c *SafeCounter) Value(key string) int {
+    c.mu.Lock()
+    defer c.mu.Unlock()
+    return c.v[key]
+}
+
+// SafeCache uses RWMutex for read-heavy access
+type SafeCache struct {
+    mu   sync.RWMutex
+    data map[string]string
+}
+
+func NewSafeCache() *SafeCache {
+    return &amp;SafeCache{data: make(map[string]string)}
+}
+
+func (c *SafeCache) Get(key string) (string, bool) {
+    c.mu.RLock() // Multiple readers allowed
+    defer c.mu.RUnlock()
+    val, ok := c.data[key]
+    return val, ok
+}
+
+func (c *SafeCache) Set(key, value string) {
+    c.mu.Lock() // Exclusive write
+    defer c.mu.Unlock()
+    c.data[key] = value
+}
+
+func main() {
+    // --- Concurrent Counter ---
+    counter := &amp;SafeCounter{v: make(map[string]int)}
+    var wg sync.WaitGroup
+
+    for i := 0; i &lt; 1000; i++ {
+        wg.Add(1)
+        go func() {
+            defer wg.Done()
+            counter.Inc(&quot;hits&quot;)
+        }()
+    }
+    wg.Wait()
+    fmt.Printf(&quot;Counter: %d (expected 1000)\n&quot;, counter.Value(&quot;hits&quot;))
+
+    // --- Concurrent Cache ---
+    cache := NewSafeCache()
+    cache.Set(&quot;name&quot;, &quot;Golang&quot;)
+
+    var wg2 sync.WaitGroup
+    for i := 0; i &lt; 5; i++ {
+        wg2.Add(1)
+        go func(id int) {
+            defer wg2.Done()
+            if val, ok := cache.Get(&quot;name&quot;); ok {
+                fmt.Printf(&quot;Reader %d: %s\n&quot;, id, val)
+            }
+        }(i)
+    }
+    wg2.Wait()
+}</code></pre>
+
+<h3>v3：sync.Once + 生产级并发 Pipeline</h3>
+
+<pre><code class="language-go">package main
+
+import (
+    &quot;fmt&quot;
+    &quot;sync&quot;
+)
+
+// Singleton with sync.Once
+type Config struct {
+    Host string
+    Port int
+}
+
+var (
+    instance *Config
+    once     sync.Once
+)
+
+func GetConfig() *Config {
+    once.Do(func() {
+        fmt.Println(&quot;Initializing config (only once)...&quot;)
+        instance = &amp;Config{Host: &quot;localhost&quot;, Port: 8080}
+    })
+    return instance
+}
+
+// Concurrent pipeline with WaitGroup + Mutex
+type Pipeline struct {
+    mu     sync.Mutex
+    stages []func(interface{}) interface{}
+    result []interface{}
+}
+
+func NewPipeline(stages ...func(interface{}) interface{}) *Pipeline {
+    return &amp;Pipeline{stages: stages, result: make([]interface{}, 0)}
+}
+
+func (p *Pipeline) Run(inputs []interface{}) []interface{} {
+    var wg sync.WaitGroup
+
+    for _, input := range inputs {
+        wg.Add(1)
+        go func(in interface{}) {
+            defer wg.Done()
+            out := in
+            for _, stage := range p.stages {
+                out = stage(out)
+            }
+            p.mu.Lock()
+            p.result = append(p.result, out)
+            p.mu.Unlock()
+        }(input)
+    }
+
+    wg.Wait()
+    return p.result
+}
+
+func main() {
+    // --- sync.Once demo ---
+    var wg sync.WaitGroup
+    for i := 0; i &lt; 5; i++ {
+        wg.Add(1)
+        go func(id int) {
+            defer wg.Done()
+            cfg := GetConfig()
+            fmt.Printf(&quot;Goroutine %d: %s:%d\n&quot;, id, cfg.Host, cfg.Port)
+        }(i)
+    }
+    wg.Wait()
+
+    // --- Pipeline demo ---
+    fmt.Println(&quot;\n--- Pipeline ---&quot;)
+    pipe := NewPipeline(
+        func(v interface{}) interface{} { return v.(int) * 2 },
+        func(v interface{}) interface{} { return fmt.Sprintf(&quot;result=%d&quot;, v.(int)) },
+    )
+
+    inputs := []interface{}{1, 2, 3, 4, 5}
+    results := pipe.Run(inputs)
+    for _, r := range results {
+        fmt.Println(r)
+    }
+}</code></pre>
+
+<hr>
+
+<h2>四、执行预览</h2>
+
+<p><strong>v1 输出：</strong></p>
+<pre><code>Completed: task-E
+Completed: task-A
+Completed: task-B
+Completed: task-C
+Completed: task-D
+All tasks finished!</code></pre>
+
+<p><strong>v2 输出：</strong></p>
+<pre><code>Counter: 1000 (expected 1000)
+Reader 0: Golang
+Reader 1: Golang
+Reader 2: Golang
+Reader 4: Golang
+Reader 3: Golang</code></pre>
+
+<p><strong>v3 输出：</strong></p>
+<pre><code>Initializing config (only once)...
+Goroutine 0: localhost:8080
+Goroutine 4: localhost:8080
+Goroutine 1: localhost:8080
+Goroutine 3: localhost:8080
+Goroutine 2: localhost:8080
+
+--- Pipeline ---
+result=2
+result=4
+result=6
+result=8
+result=10</code></pre>
+
+<hr>
+
+<h2>五、注意事项</h2>
+
+<table><thead><tr>
+<th>注意点</th>
+<th>说明</th>
+</tr></thead><tbody>
+<tr>
+<td>WaitGroup 不可复制</td>
+<td>必须传指针，或用 <code>var wg sync.WaitGroup</code> 共享</td>
+</tr>
+<tr>
+<td>Add 必须在 goroutine 外调用</td>
+<td>否则可能 Wait() 提前返回</td>
+</tr>
+<tr>
+<td>计数器不能为负</td>
+<td><code>Done()</code> 调用次数超过 <code>Add()</code> 会 panic</td>
+</tr>
+<tr>
+<td>Mutex 不要重入</td>
+<td>Go 的 Mutex 不是可重入锁，重复 Lock 会死锁</td>
+</tr>
+<tr>
+<td>defer Unlock</td>
+<td>总是用 <code>defer mu.Unlock()</code> 避免忘记释放</td>
+</tr>
+<tr>
+<td>RWMutex 写饥饿</td>
+<td>大量读锁可能导致写锁长时间获取不到</td>
+</tr>
+<tr>
+<td>WaitGroup 不能复用</td>
+<td>计数器归零后不能再 Add，需要新建</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>六、避坑指南</h2>
+
+<table><thead><tr>
+<th>❌ 错误做法</th>
+<th>✅ 正确做法</th>
+</tr></thead><tbody>
+<tr>
+<td><code>wg.Add(1)</code> 放在 goroutine 内部</td>
+<td>在 <code>go func()</code> <strong>之前</strong>调用 <code>wg.Add(1)</code></td>
+</tr>
+<tr>
+<td>忘记 <code>wg.Done()</code> 导致死锁</td>
+<td>用 <code>defer wg.Done()</code> 确保一定执行</td>
+</tr>
+<tr>
+<td>Mutex 加锁后忘记解锁</td>
+<td>用 <code>defer mu.Unlock()</code></td>
+</tr>
+<tr>
+<td>在持有读锁时再加写锁</td>
+<td>读锁和写锁互斥，会导致死锁</td>
+</tr>
+<tr>
+<td>值传递 WaitGroup/Mutex</td>
+<td>用指针传递或通过结构体指针共享</td>
+</tr>
+<tr>
+<td>goroutine 内用 <code>for range</code> 的循环变量</td>
+<td>传参给 goroutine 或用局部变量捕获</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>七、练习题</h2>
+
+<h3>🟢 初级</h3>
+<ol>
+<li>启动 10 个 goroutine 并用 WaitGroup 等待全部完成，每个打印自己的编号。</li>
+</ul>
+<ol>
+<li>用 Mutex 保护一个全局变量 <code>count</code>，1000 个 goroutine 各加 1，确保最终结果为 1000。</li>
+
+<h3>🟡 中级</h3>
+<ol>
+<li>实现一个并发安全的 <code>Set</code>（集合），支持 Add、Contains、Remove 操作。</li>
+</ul>
+<ol>
+<li>用 RWMutex 实现一个并发安全的配置管理器，支持 Get（并发读）和 Update（独占写）。</li>
+
+<h3>🔴 高级</h3>
+<ol>
+<li>实现一个简单的 goroutine 池：固定 N 个 worker 从任务 channel 取任务执行，用 WaitGroup 等待所有任务完成。</li>
+</ul>
+<ol>
+<li>实现一个带超时的 WaitGroup 包装器：如果超过指定时间还有 goroutine 未完成，返回错误。</li>
+
+<hr>
+
+<h2>八、知识点总结</h2>
+
+<pre><code>并发同步原语
+├── sync.WaitGroup
+│   ├── Add(delta) — 增加计数
+│   ├── Done() — 减少计数
+│   ├── Wait() — 阻塞等待
+│   └── 规则：Add 在 go 之前，计数不能为负
+├── sync.Mutex
+│   ├── Lock() / Unlock()
+│   ├── 互斥访问共享资源
+│   └── defer Unlock 防止遗漏
+├── sync.RWMutex
+│   ├── RLock() / RUnlock() — 共享读
+│   ├── Lock() / Unlock() — 独占写
+│   └── 适用：读多写少场景
+└── sync.Once
+    ├── Do(f) — 仅执行一次
+    └── 适用：单例、初始化</code></pre>
+
+<hr>
+
+<h2>九、举一反三</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>用什么</th>
+<th>说明</th>
+</tr></thead><tbody>
+<tr>
+<td>等待 N 个 goroutine 完成</td>
+<td>WaitGroup</td>
+<td>Add → go → Done → Wait</td>
+</tr>
+<tr>
+<td>保护共享计数器</td>
+<td>Mutex</td>
+<td>简单互斥</td>
+</tr>
+<tr>
+<td>并发读配置</td>
+<td>RWMutex</td>
+<td>读不阻塞读</td>
+</tr>
+<tr>
+<td>数据库连接初始化</td>
+<td>sync.Once</td>
+<td>确保只初始化一次</td>
+</tr>
+<tr>
+<td>HTTP handler 并发安全</td>
+<td>Mutex 包裹共享状态</td>
+<td>或用 sync.Map</td>
+</tr>
+<tr>
+<td>批量任务并行处理</td>
+<td>WaitGroup + channel</td>
+<td>WaitGroup 等待 + channel 收集结果</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>十、参考资料</h2>
+
+<ul>
+<li><a href="https://pkg.go.dev/sync">Go 官方文档 - sync 包</a></li>
+<li><a href="https://pkg.go.dev/sync#Mutex">Go 官方文档 - sync.Mutex</a></li>
+<li><a href="https://go.dev/doc/effective_go#concurrency">Effective Go - Concurrency</a></li>
+<li><a href="https://book.douban.com/subject/27000535/">Go 并发编程实战（第2版）</a></li>
+
+<hr>
+
+<h2>十一、代码演进</h2>
+
+<table><thead><tr>
+<th>版本</th>
+<th>演进</th>
+<th>说明</th>
+</tr></thead><tbody>
+<tr>
+<td>v1</td>
+<td>WaitGroup 基础</td>
+<td>理解 Add/Done/Wait 三件套</td>
+</tr>
+<tr>
+<td>v2</td>
+<td>Mutex + RWMutex</td>
+<td>并发安全计数器和缓存，读写锁分离</td>
+</tr>
+<tr>
+<td>v3</td>
+<td>Once + Pipeline</td>
+<td>单例初始化 + 生产级并发 pipeline</td>
+</tr>
+</tbody></table>
+
+<blockquote><p><strong>上一篇：</strong> <a href="034-select">034 - Select 多路复用</a> | <strong>下一篇：</strong> <a href="036-mutex">036 - sync 包深入</a> → Once/Map/Pool/Cond 高级用法！</p></blockquote>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

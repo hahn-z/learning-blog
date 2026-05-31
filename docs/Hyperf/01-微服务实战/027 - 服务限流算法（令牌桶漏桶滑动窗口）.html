@@ -1,0 +1,643 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>027 - 服务限流算法（令牌桶/漏桶/滑动窗口）</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Hyperf/index.html">Hyperf</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Hyperf/01-微服务实战/index.html">Hyperf微服务实战</a>
+</nav>
+<h1>027 - 服务限流算法（令牌桶/漏桶/滑动窗口）</h1>
+<div class="meta">
+<span>📂 Hyperf微服务实战</span>
+<span>🏷️ Hyperf</span>
+</div>
+<article>
+
+
+<h1>服务限流算法（令牌桶/漏桶/滑动窗口）</h1>
+
+<h2>难度标注</h2>
+
+<p>⭐⭐⭐（中级）</p>
+
+<p><strong>前置知识：</strong> 基础算法、Redis 基础、高并发概念</p>
+
+<p><strong>预估用时：</strong> 45-50 分钟</p>
+
+<hr>
+
+<h2>概念讲解</h2>
+
+<p><strong>服务限流（Rate Limiting）</strong> 是通过限制单位时间内的请求数量来保护系统不被突发流量冲垮的流量控制技术。常见的三种限流算法各有特点：令牌桶允许突发流量，漏桶强制匀速输出，滑动窗口精确统计窗口内请求数。</p>
+
+<p><strong>现实类比：</strong> 三种限流就像三种地铁进站方式。令牌桶 = 售票机每隔固定时间生成一张票，有票就能进，票攒够了可以一波人一起进（允许突发）。漏桶 = 不管来多少人，安检口以固定速率放行，永远匀速。滑动窗口 = 看过去5分钟进了多少人，满了就等，精确但需要记录历史。</p>
+
+<p><strong>技术场景：</strong> 用户服务的 <code>POST /api/users</code> 注册接口需要限流（每秒最多 50 次），防止恶意注册。<code>GET /api/users/{id}</code> 查询接口限流 200 QPS。不同接口需要不同算法——注册用滑动窗口（精确统计），查询用令牌桶（允许突发）。</p>
+
+<hr>
+
+<h2>实时脑图</h2>
+
+<pre><code>              Incoming Requests
+                     │
+        ┌────────────┼────────────┐
+        │            │            │
+   ┌────▼────┐ ┌────▼────┐ ┌────▼──────┐
+   │  Token  │ │ Leaky   │ │  Sliding  │
+   │  Bucket │ │ Bucket  │ │  Window   │
+   └────┬────┘ └────┬────┘ └────┬──────┘
+        │            │            │
+   ┌────▼────┐ ┌────▼────┐ ┌────▼──────┐
+   │Tokens   │ │Queue    │ │Window     │
+   │Available│ │Draining │ │Counter    │
+   │         │ │@ const  │ │@ time     │
+   │burst OK │ │rate     │ │interval   │
+   └────┬────┘ └────┬────┘ └────┬──────┘
+        │            │            │
+        ▼            ▼            ▼
+    Allow/Deny   Allow/Deny   Allow/Deny</code></pre>
+
+<hr>
+
+<h2>完整代码</h2>
+
+<h3>1. 令牌桶算法</h3>
+
+<pre><code class="language-php">&lt;?php
+// app/Service/RateLimit/TokenBucket.php
+
+declare(strict_types=1);
+
+namespace App\Service\RateLimit;
+
+use Hyperf\Redis\Redis;
+
+class TokenBucket
+{
+    public function __construct(
+        private Redis $redis
+    ) {}
+
+    /**
+     * ✅ Token bucket algorithm
+     * @param string $key Resource identifier
+     * @param int $maxTokens Maximum tokens (burst capacity)
+     * @param int $refillRate Tokens added per second
+     * @param int $requestTokens Tokens needed per request (default 1)
+     */
+    public function allow(string $key, int $maxTokens, int $refillRate, int $requestTokens = 1): bool
+    {
+        $now = microtime(true);
+        $redisKey = &quot;ratelimit:token_bucket:{$key}&quot;;
+
+        // ✅ Lua script for atomic token bucket operation
+        $script = &lt;&lt;&lt;&#x27;LUA&#x27;
+local key = KEYS[1]
+local max_tokens = tonumber(ARGV[1])
+local refill_rate = tonumber(ARGV[2])
+local requested = tonumber(ARGV[3])
+local now = tonumber(ARGV[4])
+
+-- Get current bucket state
+local bucket = redis.call(&#x27;HMGET&#x27;, key, &#x27;tokens&#x27;, &#x27;last_refill&#x27;)
+local tokens = tonumber(bucket[1]) or max_tokens
+local last_refill = tonumber(bucket[2]) or now
+
+-- ✅ Calculate tokens to add based on elapsed time
+local elapsed = math.max(0, now - last_refill)
+local tokens_to_add = elapsed * refill_rate
+tokens = math.min(max_tokens, tokens + tokens_to_add)
+
+-- Check if enough tokens available
+if tokens &gt;= requested then
+    tokens = tokens - requested
+    redis.call(&#x27;HMSET&#x27;, key, &#x27;tokens&#x27;, tokens, &#x27;last_refill&#x27;, now)
+    redis.call(&#x27;EXPIRE&#x27;, key, math.ceil(max_tokens / refill_rate) + 1)
+    return 1
+else
+    redis.call(&#x27;HMSET&#x27;, key, &#x27;tokens&#x27;, tokens, &#x27;last_refill&#x27;, now)
+    redis.call(&#x27;EXPIRE&#x27;, key, math.ceil(max_tokens / refill_rate) + 1)
+    return 0
+end
+LUA;
+
+        $result = $this-&gt;redis-&gt;eval($script, [$redisKey, $maxTokens, $refillRate, $requestTokens, $now], 1);
+        
+        return (bool)$result;
+    }
+
+    /**
+     * 🟢 Get remaining tokens for monitoring
+     */
+    public function getRemainingTokens(string $key): int
+    {
+        $tokens = $this-&gt;redis-&gt;hGet(&quot;ratelimit:token_bucket:{$key}&quot;, &#x27;tokens&#x27;);
+        return $tokens !== false ? (int)$tokens : 0;
+    }
+}</code></pre>
+
+<h3>2. 漏桶算法</h3>
+
+<pre><code class="language-php">&lt;?php
+// app/Service/RateLimit/LeakyBucket.php
+
+declare(strict_types=1);
+
+namespace App\Service\RateLimit;
+
+use Hyperf\Redis\Redis;
+
+class LeakyBucket
+{
+    public function __construct(
+        private Redis $redis
+    ) {}
+
+    /**
+     * ✅ Leaky bucket algorithm - fixed rate output
+     * @param string $key Resource identifier
+     * @param int $capacity Bucket capacity (queue size)
+     * @param float $leakRate Requests leaked (processed) per second
+     */
+    public function allow(string $key, int $capacity, float $leakRate): bool
+    {
+        $now = microtime(true);
+        $redisKey = &quot;ratelimit:leaky_bucket:{$key}&quot;;
+
+        // ✅ Atomic Lua script for leaky bucket
+        $script = &lt;&lt;&lt;&#x27;LUA&#x27;
+local key = KEYS[1]
+local capacity = tonumber(ARGV[1])
+local leak_rate = tonumber(ARGV[2])
+local now = tonumber(ARGV[3])
+
+local bucket = redis.call(&#x27;HMGET&#x27;, key, &#x27;water&#x27;, &#x27;last_leak&#x27;)
+local water = tonumber(bucket[1]) or 0
+local last_leak = tonumber(bucket[2]) or now
+
+-- ✅ Calculate leaked water (processed requests) since last check
+local elapsed = math.max(0, now - last_leak)
+local leaked = elapsed * leak_rate
+water = math.max(0, water - leaked)
+
+-- Check if bucket has room
+if water &lt; capacity then
+    water = water + 1
+    redis.call(&#x27;HMSET&#x27;, key, &#x27;water&#x27;, water, &#x27;last_leak&#x27;, now)
+    redis.call(&#x27;EXPIRE&#x27;, key, math.ceil(capacity / leak_rate) + 1)
+    return 1
+else
+    redis.call(&#x27;HMSET&#x27;, key, &#x27;water&#x27;, water, &#x27;last_leak&#x27;, now)
+    return 0
+end
+LUA;
+
+        $result = $this-&gt;redis-&gt;eval($script, [$redisKey, $capacity, $leakRate, $now], 1);
+        return (bool)$result;
+    }
+}</code></pre>
+
+<h3>3. 滑动窗口算法</h3>
+
+<pre><code class="language-php">&lt;?php
+// app/Service/RateLimit/SlidingWindow.php
+
+declare(strict_types=1);
+
+namespace App\Service\RateLimit;
+
+use Hyperf\Redis\Redis;
+
+class SlidingWindow
+{
+    public function __construct(
+        private Redis $redis
+    ) {}
+
+    /**
+     * ✅ Sliding window counter algorithm
+     * @param string $key Resource identifier
+     * @param int $limit Max requests in window
+     * @param int $windowSeconds Window size in seconds
+     */
+    public function allow(string $key, int $limit, int $windowSeconds): bool
+    {
+        $now = time();
+        $redisKey = &quot;ratelimit:sliding_window:{$key}&quot;;
+
+        // ✅ Lua script for precise sliding window
+        $script = &lt;&lt;&lt;&#x27;LUA&#x27;
+local key = KEYS[1]
+local limit = tonumber(ARGV[1])
+local window = tonumber(ARGV[2])
+local now = tonumber(ARGV[3])
+
+-- ✅ Remove expired entries outside the window
+local window_start = now - window
+redis.call(&#x27;ZREMRANGEBYSCORE&#x27;, key, &#x27;-inf&#x27;, window_start)
+
+-- Count current entries in window
+local count = redis.call(&#x27;ZCARD&#x27;, key)
+
+if count &lt; limit then
+    -- Add current request with timestamp as score
+    redis.call(&#x27;ZADD&#x27;, key, now, now .. &#x27;:&#x27; .. math.random(1000000))
+    redis.call(&#x27;EXPIRE&#x27;, key, window + 1)
+    return 1
+else
+    return 0
+end
+LUA;
+
+        $result = $this-&gt;redis-&gt;eval($script, [$redisKey, $limit, $windowSeconds, $now], 1);
+        return (bool)$result;
+    }
+
+    /**
+     * 🟢 Get current count in window for monitoring
+     */
+    public function getCurrentCount(string $key, int $windowSeconds): int
+    {
+        $redisKey = &quot;ratelimit:sliding_window:{$key}&quot;;
+        $now = time();
+        $this-&gt;redis-&gt;zRemRangeByScore($redisKey, &#x27;-inf&#x27;, (string)($now - $windowSeconds));
+        return $this-&gt;redis-&gt;zCard($redisKey);
+    }
+}</code></pre>
+
+<h3>4. 用户服务限流应用</h3>
+
+<pre><code class="language-php">&lt;?php
+// app/Middleware/RateLimitMiddleware.php
+
+declare(strict_types=1);
+
+namespace App\Middleware;
+
+use App\Service\RateLimit\TokenBucket;
+use App\Service\RateLimit\SlidingWindow;
+use Hyperf\HttpMessage\Exception\TooManyRequestsHttpException;
+use Psr\Http\Message\ResponseInterface;
+use Psr\Http\Message\ServerRequestInterface;
+use Psr\Http\Server\MiddlewareInterface;
+use Psr\Http\Server\RequestHandlerInterface;
+
+class RateLimitMiddleware implements MiddlewareInterface
+{
+    // ✅ Per-route rate limit configuration
+    private const ROUTE_LIMITS = [
+        &#x27;/api/users&#x27; =&gt; [&#x27;algorithm&#x27; =&gt; &#x27;sliding_window&#x27;, &#x27;limit&#x27; =&gt; 200, &#x27;window&#x27; =&gt; 1],
+        &#x27;/api/users/register&#x27; =&gt; [&#x27;algorithm&#x27; =&gt; &#x27;sliding_window&#x27;, &#x27;limit&#x27; =&gt; 50, &#x27;window&#x27; =&gt; 1],
+        &#x27;/api/users/login&#x27; =&gt; [&#x27;algorithm&#x27; =&gt; &#x27;token_bucket&#x27;, &#x27;max&#x27; =&gt; 100, &#x27;refill&#x27; =&gt; 20],
+    ];
+
+    public function __construct(
+        private TokenBucket $tokenBucket,
+        private SlidingWindow $slidingWindow
+    ) {}
+
+    public function process(
+        ServerRequestInterface $request,
+        RequestHandlerInterface $handler
+    ): ResponseInterface {
+        $path = $request-&gt;getUri()-&gt;getPath();
+        $config = $this-&gt;getMatchedConfig($path);
+
+        if ($config === null) {
+            return $handler-&gt;handle($request);
+        }
+
+        // ✅ Build rate limit key: path + client IP
+        $clientIp = $request-&gt;getServerParams()[&#x27;remote_addr&#x27;] ?? &#x27;unknown&#x27;;
+        $key = &quot;{$path}:{$clientIp}&quot;;
+
+        $allowed = match ($config[&#x27;algorithm&#x27;]) {
+            &#x27;token_bucket&#x27; =&gt; $this-&gt;tokenBucket-&gt;allow($key, $config[&#x27;max&#x27;], $config[&#x27;refill&#x27;]),
+            &#x27;sliding_window&#x27; =&gt; $this-&gt;slidingWindow-&gt;allow($key, $config[&#x27;limit&#x27;], $config[&#x27;window&#x27;]),
+            default =&gt; true,
+        };
+
+        if (!$allowed) {
+            // 🔴 Rate limit exceeded
+            throw new TooManyRequestsHttpException(
+                null,
+                &#x27;Rate limit exceeded. Please try again later.&#x27;
+            );
+        }
+
+        return $handler-&gt;handle($request);
+    }
+
+    private function getMatchedConfig(string $path): ?array
+    {
+        // Exact match first
+        if (isset(self::ROUTE_LIMITS[$path])) {
+            return self::ROUTE_LIMITS[$path];
+        }
+        
+        // Prefix match
+        foreach (self::ROUTE_LIMITS as $route =&gt; $config) {
+            if (str_starts_with($path, $route)) {
+                return $config;
+            }
+        }
+        return null;
+    }
+}</code></pre>
+
+<hr>
+
+<h2>执行预览</h2>
+
+<pre><code class="language-bash"># Token bucket: allows burst up to max tokens
+$ for i in $(seq 1 5); do curl -s http://localhost:9501/api/users/1; done
+{&quot;id&quot;:1,&quot;name&quot;:&quot;Hahn&quot;}
+{&quot;id&quot;:1,&quot;name&quot;:&quot;Hahn&quot;}
+{&quot;id&quot;:1,&quot;name&quot;:&quot;Hahn&quot;}
+{&quot;error&quot;:&quot;Rate limit exceeded&quot;}  # bucket empty after burst
+{&quot;error&quot;:&quot;Rate limit exceeded&quot;}
+
+# Wait 1 second, tokens refill, request succeeds
+$ sleep 1 &amp;&amp; curl -s http://localhost:9501/api/users/1
+{&quot;id&quot;:1,&quot;name&quot;:&quot;Hahn&quot;}  # ✅ tokens refilled
+
+# Sliding window: strict limit of 50 per second on register
+$ for i in $(seq 1 55); do curl -s -X POST http://localhost:9501/api/users/register; done
+# First 50 succeed, last 5 get 429 Too Many Requests
+
+# Leaky bucket: constant output rate
+# Even with burst input, output stays at fixed rate</code></pre>
+
+<hr>
+
+<h2>注意事项</h2>
+
+<table><thead><tr>
+<th>约束</th>
+<th>说明</th>
+<th>违反后果</th>
+</tr></thead><tbody>
+<tr>
+<td>Lua 脚本保证原子性</td>
+<td>多客户端并发时不能有竞态</td>
+<td>计数不准，超限放行</td>
+</tr>
+<tr>
+<td>Redis Key 要设过期</td>
+<td>避免无限积累</td>
+<td>内存泄漏</td>
+</tr>
+<tr>
+<td>限流 Key 要合理</td>
+<td>IP/用户ID/接口组合</td>
+<td>限不住恶意用户或误杀正常用户</td>
+</tr>
+<tr>
+<td>令牌桶参数要匹配业务</td>
+<td>max 太大等于不限，太小正常用户受影响</td>
+<td>限流失效或过度限制</td>
+</tr>
+<tr>
+<td>滑动窗口用 Sorted Set</td>
+<td>精确记录每个请求时间</td>
+<td>用普通计数器不精确</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>避坑指南</h2>
+
+<table><thead><tr>
+<th>典型错误</th>
+<th>现象</th>
+<th>正确做法</th>
+</tr></thead><tbody>
+<tr>
+<td>用 PHP 变量做计数器</td>
+<td>多进程/协程间不共享</td>
+<td>用 Redis + Lua 保证原子性</td>
+</tr>
+<tr>
+<td>限流不区分用户</td>
+<td>一个用户刷满影响所有人</td>
+<td>Key 包含用户ID或IP</td>
+</tr>
+<tr>
+<td>漏桶容量设太大</td>
+<td>突发流量全部堆积</td>
+<td>容量 = 平均速率 × 可接受延迟</td>
+</tr>
+<tr>
+<td>窗口重置时刻突发</td>
+<td>固定窗口算法在边界会 2x 流量</td>
+<td>用滑动窗口代替固定窗口</td>
+</tr>
+<tr>
+<td>返回 499/500 而非 429</td>
+<td>客户端无法区分限流和故障</td>
+<td>限流统一返回 429 Too Many Requests</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>练习题</h2>
+
+<h3>🟢 基础题</h3>
+
+<ol>
+<li><strong>实现固定窗口限流</strong>：用 Redis 的 INCR + EXPIRE 实现简单的固定窗口计数限流。</li>
+
+<ol>
+<li><strong>对比三种算法</strong>：用 ab/wrk 压测工具测试三种算法在高并发下的行为差异。</li>
+
+<h3>🟡 进阶题</h3>
+
+<ol>
+<li><strong>分层限流</strong>：实现 IP 级（1000 QPS）+ 用户级（100 QPS）+ 接口级（50 QPS）三层限流，全部通过才放行。</li>
+
+<h3>🔴 开放题</h3>
+
+<ol>
+<li><strong>设计自适应限流</strong>：根据系统负载（CPU、响应时间）动态调整限流阈值，而不是固定值。</li>
+
+<hr>
+
+<h2>知识点总结</h2>
+
+<pre><code>限流算法
+├── 令牌桶（Token Bucket）
+│   ├── 匀速生成令牌
+│   ├── 允许突发（桶内有积累令牌）
+│   ├── 适合读多写少场景
+│   └── Redis + Lua 原子实现
+├── 漏桶（Leaky Bucket）
+│   ├── 固定速率流出
+│   ├── 不允许突发
+│   ├── 适合需要匀速的场景
+│   └── 队列 + 恒定速率
+├── 滑动窗口（Sliding Window）
+│   ├── 精确统计时间窗口
+│   ├── Redis Sorted Set 实现
+│   ├── 适合严格限流场景
+│   └── 内存开销较大（记录每个请求）
+├── 固定窗口（Fixed Window）
+│   ├── 最简单但不精确
+│   ├── 边界突发问题
+│   └── 适合精度要求不高的场景
+└── 选型指南
+    ├── 允许突发 → 令牌桶
+    ├── 匀速输出 → 漏桶
+    └── 精确控制 → 滑动窗口</code></pre>
+
+<hr>
+
+<h2>举一反三</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>变种说明</th>
+<th>关键差异</th>
+</tr></thead><tbody>
+<tr>
+<td>单机限流 → 分布式限流</td>
+<td>多实例共享限流状态</td>
+<td>需要 Redis 集中计数</td>
+</tr>
+<tr>
+<td>IP 限流 → 用户限流</td>
+<td>不同维度的 Key</td>
+<td>用户需要先认证获取 ID</td>
+</tr>
+<tr>
+<td>固定阈值 → 动态阈值</td>
+<td>根据负载调整</td>
+<td>需要监控系统配合</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>参考资料</h2>
+
+<table><thead><tr>
+<th>资料</th>
+<th>链接</th>
+<th>权威等级</th>
+</tr></thead><tbody>
+<tr>
+<td>NGINX Rate Limiting</td>
+<td>https://nginx.org/en/docs/http/ngx_http_limit_req_module.html</td>
+<td>⭐⭐⭐⭐</td>
+</tr>
+<tr>
+<td>Redis RATE LIMITING</td>
+<td>https://redis.io/commands/INCR/#pattern-rate-limiter</td>
+<td>⭐⭐⭐⭐</td>
+</tr>
+<tr>
+<td>Google Guava RateLimiter</td>
+<td>https://github.com/google/guava/wiki/RateLimiterExplained</td>
+<td>⭐⭐⭐⭐</td>
+</tr>
+<tr>
+<td>限流算法详解</td>
+<td>https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429</td>
+<td>⭐⭐⭐</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>代码演进</h2>
+
+<h3>v1 ❌ 简单计数器，不精确</h3>
+
+<pre><code class="language-php">// ❌ Not atomic, race conditions in concurrent requests
+$count = (int)$redis-&gt;get(&quot;count:{$key}&quot;) ?: 0;
+if ($count &gt;= $limit) {
+    throw new TooManyRequestsHttpException();
+}
+$redis-&gt;set(&quot;count:{$key}&quot;, $count + 1, $window);</code></pre>
+
+<h3>v2 ✅ Redis + Lua 原子操作</h3>
+
+<pre><code class="language-php">// ✅ Atomic sliding window with Sorted Set
+$script = &quot;local count = redis.call(&#x27;ZCARD&#x27;, key) ...&quot;;
+$result = $redis-&gt;eval($script, [...], 1);
+return (bool)$result;</code></pre>
+
+<h3>v3 🟢 工厂模式 + 多算法支持 + 监控</h3>
+
+<pre><code class="language-php">class RateLimiterFactory {
+    public function create(string $algorithm): RateLimiterInterface {
+        return match($algorithm) {
+            &#x27;token_bucket&#x27; =&gt; new TokenBucket($this-&gt;redis),
+            &#x27;leaky_bucket&#x27; =&gt; new LeakyBucket($this-&gt;redis),
+            &#x27;sliding_window&#x27; =&gt; new SlidingWindow($this-&gt;redis),
+        };
+    }
+}
+// + Prometheus metrics for rate limit events
+// + Dynamic config from config center</code></pre>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

@@ -1,0 +1,753 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>008 - 设计模式（结构型）</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Golang/index.html">Golang</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Golang/03-实战/index.html">Golang实战</a>
+</nav>
+<h1>008 - 设计模式（结构型）</h1>
+<div class="meta">
+<span>📂 Golang实战</span>
+<span>🏷️ Golang</span>
+</div>
+<article>
+
+
+<h1>设计模式（结构型） ⭐⭐⭐中级</h1>
+
+<blockquote><p><strong>难度标注：</strong> ⭐⭐⭐ 中级 | 预计阅读时间：22分钟 | 前置知识：Go接口、嵌入(embedding)、组合</p></blockquote>
+
+<h2>📖 概念讲解</h2>
+
+<p>结构型设计模式关注<strong>"如何组合对象"</strong>，通过接口组合、结构体嵌入、代理包装等方式，在不改变原有代码的基础上扩展功能。Go语言天然适合结构型模式，因为<strong>Go的嵌入(embedding)机制就是天然的装饰器和代理</strong>。</p>
+
+<p>本章覆盖4种结构型模式：<strong>适配器(Adapter)、装饰器(Decorator)、代理(Proxy)、外观(Facade)</strong>。</p>
+
+<pre><code>结构型设计模式脑图
+├── Adapter 适配器
+│   ├── 接口转换
+│   ├── 第三方库适配
+│   └── 不兼容接口桥接
+├── Decorator 装饰器
+│   ├── 中间件模式
+│   ├── 功能叠加
+│   └── Go嵌入天然支持
+├── Proxy 代理
+│   ├── 远程代理
+│   ├── 虚代理(延迟加载)
+│   └── 保护代理(权限控制)
+└── Facade 外观
+    ├── 简化复杂子系统
+    ├── 统一入口
+    └── 微服务网关</code></pre>
+
+<h2>💻 完整Go代码</h2>
+
+<h3>v1 基础版本：适配器 + 简单装饰器</h3>
+
+<pre><code class="language-go">// v1_basic.go - Adapter and simple decorator
+package main
+
+import &quot;fmt&quot;
+
+// ===== Adapter Pattern =====
+
+// LegacyPrinter is an old interface we need to adapt
+type LegacyPrinter interface {
+    PrintOld(text string) string
+}
+
+type OldPrinter struct{}
+
+func (o *OldPrinter) PrintOld(text string) string {
+    return &quot;[OLD] &quot; + text
+}
+
+// ModernPrinter is the new interface our system uses
+type ModernPrinter interface {
+    Print(text string) string
+}
+
+// PrinterAdapter adapts LegacyPrinter to ModernPrinter
+type PrinterAdapter struct {
+    legacy LegacyPrinter
+}
+
+func NewPrinterAdapter(legacy LegacyPrinter) ModernPrinter {
+    return &amp;PrinterAdapter{legacy: legacy}
+}
+
+func (a *PrinterAdapter) Print(text string) string {
+    return a.legacy.PrintOld(text)
+}
+
+// ===== Simple Decorator =====
+
+// Notifier interface
+type Notifier interface {
+    Send(message string)
+}
+
+type EmailNotifier struct{}
+
+func (e *EmailNotifier) Send(message string) {
+    fmt.Println(&quot;Email:&quot;, message)
+}
+
+// SMSDecorator adds SMS capability
+type SMSDecorator struct {
+    wrapped Notifier
+}
+
+func (s *SMSDecorator) Send(message string) {
+    s.wrapped.Send(message) // Call original
+    fmt.Println(&quot;SMS:&quot;, message) // Add new behavior
+}
+
+func main() {
+    // Adapter
+    old := &amp;OldPrinter{}
+    adapted := NewPrinterAdapter(old)
+    fmt.Println(adapted.Print(&quot;Hello World&quot;))
+
+    // Decorator
+    notifier := &amp;SMSDecorator{wrapped: &amp;EmailNotifier{}}
+    notifier.Send(&quot;Server is down!&quot;)
+}</code></pre>
+
+<h3>v2 进阶版本：完整4种结构型模式</h3>
+
+<pre><code class="language-go">// v2_patterns.go - Full structural patterns with Go idioms
+package main
+
+import (
+    &quot;fmt&quot;
+    &quot;sync&quot;
+    &quot;time&quot;
+)
+
+// ===== 1. Adapter - Multi-logger unification =====
+
+// Logger is our unified interface
+type Logger interface {
+    Log(level, msg string)
+}
+
+// JSONLogger outputs JSON format
+type JSONLogger struct{}
+
+func (j *JSONLogger) Log(level, msg string) {
+    fmt.Printf(`{&quot;level&quot;:&quot;%s&quot;,&quot;msg&quot;:&quot;%s&quot;}` + &quot;\n&quot;, level, msg)
+}
+
+// TextLogger outputs plain text (legacy)
+type TextLogger struct{}
+
+func (t *TextLogger) Write(level, msg string) {
+    fmt.Printf(&quot;[%s] %s\n&quot;, level, msg)
+}
+
+// TextLoggerAdapter adapts TextLogger to Logger interface
+type TextLoggerAdapter struct {
+    textLogger *TextLogger
+}
+
+func NewTextLoggerAdapter(t *TextLogger) Logger {
+    return &amp;TextLoggerAdapter{textLogger: t}
+}
+
+func (a *TextLoggerAdapter) Log(level, msg string) {
+    a.textLogger.Write(level, msg) // Delegate to legacy method
+}
+
+// ===== 2. Decorator - Middleware chain =====
+
+// Handler represents an HTTP handler
+type Handler interface {
+    Handle(data string) string
+}
+
+// CoreHandler does the actual work
+type CoreHandler struct{}
+
+func (c *CoreHandler) Handle(data string) string {
+    return &quot;processed: &quot; + data
+}
+
+// LoggingDecorator adds logging
+type LoggingDecorator struct {
+    handler Handler
+    prefix  string
+}
+
+func (d *LoggingDecorator) Handle(data string) string {
+    fmt.Printf(&quot;%s&gt; Input: %s\n&quot;, d.prefix, data)
+    result := d.handler.Handle(data)
+    fmt.Printf(&quot;%s&gt; Output: %s\n&quot;, d.prefix, result)
+    return result
+}
+
+// CacheDecorator adds caching
+type CacheDecorator struct {
+    handler Handler
+    cache   map[string]string
+    mu      sync.RWMutex
+}
+
+func (d *CacheDecorator) Handle(data string) string {
+    d.mu.RLock()
+    if cached, ok := d.cache[data]; ok {
+        d.mu.RUnlock()
+        fmt.Println(&quot;[Cache] Hit!&quot;)
+        return cached
+    }
+    d.mu.RUnlock()
+
+    result := d.handler.Handle(data)
+    d.mu.Lock()
+    d.cache[data] = result
+    d.mu.Unlock()
+    fmt.Println(&quot;[Cache] Miss, cached&quot;)
+    return result
+}
+
+// MetricsDecorator adds timing metrics
+type MetricsDecorator struct {
+    handler Handler
+}
+
+func (d *MetricsDecorator) Handle(data string) string {
+    start := time.Now()
+    result := d.handler.Handle(data)
+    fmt.Printf(&quot;[Metrics] Took: %v\n&quot;, time.Since(start))
+    return result
+}
+
+// ===== 3. Proxy - Protection &amp; Virtual proxy =====
+
+// Database represents an expensive resource
+type Database interface {
+    Query(sql string) string
+}
+
+type RealDatabase struct {
+    connected bool
+}
+
+func (db *RealDatabase) connect() {
+    if !db.connected {
+        fmt.Println(&quot;[DB] Connecting to database...&quot;)
+        time.Sleep(100 * time.Millisecond) // Simulate expensive connection
+        db.connected = true
+    }
+}
+
+func (db *RealDatabase) Query(sql string) string {
+    db.connect()
+    return fmt.Sprintf(&quot;Result of: %s&quot;, sql)
+}
+
+// ConnectionPoolProxy manages connections
+type ConnectionPoolProxy struct {
+    real    *RealDatabase
+    maxConn int
+    active  int
+    mu      sync.Mutex
+}
+
+func NewConnectionPoolProxy(maxConn int) Database {
+    return &amp;ConnectionPoolProxy{
+        real:    &amp;RealDatabase{},
+        maxConn: maxConn,
+    }
+}
+
+func (p *ConnectionPoolProxy) Query(sql string) string {
+    p.mu.Lock()
+    if p.active &gt;= p.maxConn {
+        p.mu.Unlock()
+        return &quot;[Error] Connection pool exhausted&quot;
+    }
+    p.active++
+    p.mu.Unlock()
+
+    result := p.real.Query(sql)
+
+    p.mu.Lock()
+    p.active--
+    p.mu.Unlock()
+    return result
+}
+
+// ProtectionProxy controls access
+type ProtectionProxy struct {
+    real   Database
+    admins map[string]bool
+}
+
+func NewProtectionProxy(real Database, admins []string) Database {
+    a := make(map[string]bool)
+    for _, name := range admins {
+        a[name] = true
+    }
+    return &amp;ProtectionProxy{real: real, admins: a}
+}
+
+func (p *ProtectionProxy) Query(sql string) string {
+    // In real code, check user from context
+    if len(p.admins) == 0 {
+        return &quot;[Error] Unauthorized&quot;
+    }
+    return p.real.Query(sql)
+}
+
+// ===== 4. Facade - Simplified subsystem =====
+
+type InventorySystem struct{}
+
+func (i *InventorySystem) CheckStock(item string) bool {
+    fmt.Printf(&quot;[Inventory] Checking stock for %s\n&quot;, item)
+    return true
+}
+func (i *InventorySystem) Reserve(item string) { fmt.Printf(&quot;[Inventory] Reserved %s\n&quot;, item) }
+
+type PaymentSystem struct{}
+
+func (p *PaymentSystem) Charge(amount float64) bool {
+    fmt.Printf(&quot;[Payment] Charged $%.2f\n&quot;, amount)
+    return true
+}
+
+type ShippingSystem struct{}
+
+func (s *ShippingSystem) Schedule(item, address string) {
+    fmt.Printf(&quot;[Shipping] Scheduled %s to %s\n&quot;, item, address)
+}
+
+// OrderFacade simplifies the ordering process
+type OrderFacade struct {
+    inventory *InventorySystem
+    payment   *PaymentSystem
+    shipping  *ShippingSystem
+}
+
+func NewOrderFacade() *OrderFacade {
+    return &amp;OrderFacade{
+        inventory: &amp;InventorySystem{},
+        payment:   &amp;PaymentSystem{},
+        shipping:  &amp;ShippingSystem{},
+    }
+}
+
+func (f *OrderFacade) PlaceOrder(item string, amount float64, address string) error {
+    if !f.inventory.CheckStock(item) {
+        return fmt.Errorf(&quot;out of stock: %s&quot;, item)
+    }
+    f.inventory.Reserve(item)
+    if !f.payment.Charge(amount) {
+        return fmt.Errorf(&quot;payment failed&quot;)
+    }
+    f.shipping.Schedule(item, address)
+    fmt.Println(&quot;[OrderFacade] Order placed successfully!&quot;)
+    return nil
+}
+
+// ===== Demo =====
+func main() {
+    fmt.Println(&quot;=== 1. Adapter ===&quot;)
+    var logger Logger = NewTextLoggerAdapter(&amp;TextLogger{})
+    logger.Log(&quot;INFO&quot;, &quot;System started&quot;)
+
+    fmt.Println(&quot;\n=== 2. Decorator Chain ===&quot;)
+    var handler Handler = &amp;CoreHandler{}
+    handler = &amp;LoggingDecorator{handler: handler, prefix: &quot;APP&quot;}
+    handler = &amp;CacheDecorator{handler: handler, cache: make(map[string]string)}
+    handler = &amp;MetricsDecorator{handler: handler}
+    result := handler.Handle(&quot;user_data&quot;)
+    handler.Handle(&quot;user_data&quot;) // Cache hit
+
+    fmt.Println(&quot;\n=== 3. Proxy ===&quot;)
+    pool := NewConnectionPoolProxy(2)
+    fmt.Println(pool.Query(&quot;SELECT * FROM users&quot;))
+    fmt.Println(pool.Query(&quot;SELECT * FROM orders&quot;))
+
+    fmt.Println(&quot;\n=== 4. Facade ===&quot;)
+    facade := NewOrderFacade()
+    facade.PlaceOrder(&quot;Go Book&quot;, 49.99, &quot;123 Main St&quot;)
+}</code></pre>
+
+<h3>v3 生产级版本：HTTP中间件链 + 反向代理</h3>
+
+<pre><code class="language-go">// v3_production.go - Real-world middleware chain and reverse proxy
+package main
+
+import (
+    &quot;fmt&quot;
+    &quot;log&quot;
+    &quot;net/http&quot;
+    &quot;net/http/httputil&quot;
+    &quot;net/url&quot;
+    &quot;sync&quot;
+    &quot;time&quot;
+)
+
+// ===== Middleware Decorator (production pattern) =====
+
+// Middleware is a decorator for http.Handler
+type Middleware func(http.Handler) http.Handler
+
+// Chain creates a middleware chain
+func Chain(middlewares ...Middleware) Middleware {
+    return func(final http.Handler) http.Handler {
+        for i := len(middlewares) - 1; i &gt;= 0; i-- {
+            final = middlewares[i](final)
+        }
+        return final
+    }
+}
+
+// LoggingMiddleware logs requests
+func LoggingMiddleware(next http.Handler) http.Handler {
+    return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+        start := time.Now()
+        next.ServeHTTP(w, r)
+        log.Printf(&quot;%s %s %v&quot;, r.Method, r.URL.Path, time.Since(start))
+    })
+}
+
+// RateLimitMiddleware limits requests per IP
+func RateLimitMiddleware(maxRequests int, window time.Duration) Middleware {
+    var mu sync.Mutex
+    counters := make(map[string]int)
+
+    return func(next http.Handler) http.Handler {
+        return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+            ip := r.RemoteAddr
+            mu.Lock()
+            counters[ip]++
+            count := counters[ip]
+            mu.Unlock()
+
+            if count &gt; maxRequests {
+                http.Error(w, &quot;Rate limited&quot;, http.StatusTooManyRequests)
+                return
+            }
+            next.ServeHTTP(w, r)
+        })
+    }
+}
+
+// CORSMiddleware adds CORS headers
+func CORSMiddleware(next http.Handler) http.Handler {
+    return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+        w.Header().Set(&quot;Access-Control-Allow-Origin&quot;, &quot;*&quot;)
+        w.Header().Set(&quot;Access-Control-Allow-Methods&quot;, &quot;GET, POST, PUT, DELETE&quot;)
+        if r.Method == &quot;OPTIONS&quot; {
+            w.WriteHeader(http.StatusOK)
+            return
+        }
+        next.ServeHTTP(w, r)
+    })
+}
+
+// ===== Reverse Proxy (Proxy pattern) =====
+
+func NewReverseProxy(target string) (http.Handler, error) {
+    url, err := url.Parse(target)
+    if err != nil {
+        return nil, err
+    }
+    proxy := httputil.NewSingleHostReverseProxy(url)
+    return proxy, nil
+}
+
+func main() {
+    // Build handler with middleware chain
+    finalHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+        fmt.Fprintf(w, &quot;Hello from %s&quot;, r.URL.Path)
+    })
+
+    chain := Chain(
+        CORSMiddleware,
+        LoggingMiddleware,
+        RateLimitMiddleware(100, time.Minute),
+    )
+
+    http.Handle(&quot;/&quot;, chain(finalHandler))
+
+    log.Println(&quot;Server on :8080 with middleware chain&quot;)
+    log.Fatal(http.ListenAndServe(&quot;:8080&quot;, nil))
+}</code></pre>
+
+<h2>👀 执行预览</h2>
+
+<pre><code class="language-bash">$ go run v2_patterns.go
+=== 1. Adapter ===
+[INFO] System started
+
+=== 2. Decorator Chain ===
+[Metrics] Took: 0s
+[Cache] Miss, cached
+APP&gt; Input: user_data
+APP&gt; Output: processed: user_data
+[Cache] Hit!
+
+=== 3. Proxy ===
+[DB] Connecting to database...
+Result of: SELECT * FROM users
+Result of: SELECT * FROM orders
+
+=== 4. Facade ===
+[Inventory] Checking stock for Go Book
+[Payment] Charged $49.99
+[Shipping] Scheduled Go Book to 123 Main St
+[OrderFacade] Order placed successfully!</code></pre>
+
+<h2>⚠️ 注意事项</h2>
+
+<table><thead><tr>
+<th>事项</th>
+<th>说明</th>
+<th>严重度</th>
+</tr></thead><tbody>
+<tr>
+<td>装饰器顺序</td>
+<td>中间件链的执行顺序取决于Chain的组装顺序</td>
+<td>🔴 高</td>
+</tr>
+<tr>
+<td>代理连接泄漏</td>
+<td>使用完代理连接必须释放，否则池耗尽</td>
+<td>🔴 高</td>
+</tr>
+<tr>
+<td>适配器性能</td>
+<td>适配器增加一层调用，热路径注意开销</td>
+<td>⚠️ 中</td>
+</tr>
+<tr>
+<td>外观层膨胀</td>
+<td>外观层不要堆积业务逻辑，只做协调</td>
+<td>⚠️ 中</td>
+</tr>
+<tr>
+<td>装饰器与接口</td>
+<td>装饰器必须和被装饰对象实现同一接口</td>
+<td>⚠️ 中</td>
+</tr>
+</tbody></table>
+
+<h2>🚫→✅ 避坑指南</h2>
+
+<table><thead><tr>
+<th>❌ 错误做法</th>
+<th>✅ 正确做法</th>
+</tr></thead><tbody>
+<tr>
+<td>装饰器链用继承实现</td>
+<td>Go用接口组合+结构体嵌入，天然支持</td>
+</tr>
+<tr>
+<td>适配器修改已有接口</td>
+<td>适配器包一层，不动原有代码</td>
+</tr>
+<tr>
+<td>代理不加超时控制</td>
+<td>代理层必须设置超时，防止级联阻塞</td>
+</tr>
+<tr>
+<td>外观层暴露子系统细节</td>
+<td>外观只暴露简化后的接口，隐藏内部复杂性</td>
+</tr>
+<tr>
+<td>中间件不传递ResponseWriter</td>
+<td>始终调用 <code>next.ServeHTTP(w, r)</code> 传递下去</td>
+</tr>
+<tr>
+<td>所有功能塞进一个装饰器</td>
+<td>每个装饰器只加一个关注点（日志/缓存/限流）</td>
+</tr>
+</tbody></table>
+
+<h2>🏋️ 练习题</h2>
+
+<h3>🟢 初级</h3>
+<ol>
+<li>实现一个适配器，将 <code>io.Reader</code> 接口适配为 <code>io.Writer</code>（读取内容并写入目标）。</li>
+</ul>
+<ol>
+<li>用装饰器模式给一个简单的 <code>StringProcessor</code> 添加 Trim、ToLower、Reverse 三个可叠加的处理器。</li>
+
+<h3>🟡 中级</h3>
+<ol>
+<li>实现一个带有TTL过期的缓存装饰器，超时自动清除缓存项。</li>
+</ul>
+<ol>
+<li>实现一个智能代理：对只读查询走从库，写操作走主库（用两个 <code>Database</code> 实现）。</li>
+
+<h3>🔴 高级</h3>
+<ol>
+<li>实现完整的HTTP中间件框架：支持 Chain、Group（路由分组）、Recovery（panic恢复）、JWT认证。</li>
+</ul>
+<ol>
+<li>实现一个带熔断器(Circuit Breaker)的代理：连续失败N次后自动断开，定时尝试恢复。</li>
+
+<h2>🌳 知识点总结</h2>
+
+<pre><code>结构型设计模式
+├── Adapter 适配器
+│   ├── 接口适配 → 不兼容接口桥接
+│   ├── 包装器 → 组合旧接口
+│   └── 双向适配 → 两边都能用
+├── Decorator 装饰器
+│   ├── 中间件链 → HTTP handler装饰
+│   ├── 嵌入组合 → Go struct embedding
+│   └──洋葱模型 → 请求穿入穿出
+├── Proxy 代理
+│   ├── 连接池 → 资源管理
+│   ├── 保护代理 → 权限控制
+│   ├── 虚代理 → 延迟初始化
+│   └── 反向代理 → 负载均衡
+└── Facade 外观
+    ├── 子系统封装 → 简化调用
+    ├── 网关模式 → 统一入口
+    └── SDK设计 → 简洁API</code></pre>
+
+<h2>🔄 举一反三</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>推荐模式</th>
+<th>Go实现</th>
+</tr></thead><tbody>
+<tr>
+<td>日志库统一接口</td>
+<td>Adapter</td>
+<td>适配不同日志库到统一接口</td>
+</tr>
+<tr>
+<td>HTTP中间件</td>
+<td>Decorator</td>
+<td><code>func(Handler) Handler</code></td>
+</tr>
+<tr>
+<td>数据库连接池</td>
+<td>Proxy</td>
+<td><code>sql.DB</code> 内部就是代理模式</td>
+</tr>
+<tr>
+<td>微服务网关</td>
+<td>Facade</td>
+<td>统一入口，路由到不同服务</td>
+</tr>
+<tr>
+<td>缓存层</td>
+<td>Decorator+Proxy</td>
+<td>装饰器加缓存，代理控制访问</td>
+</tr>
+<tr>
+<td>第三方SDK封装</td>
+<td>Adapter+Facade</td>
+<td>适配接口+简化API</td>
+</tr>
+</tbody></table>
+
+<h2>📚 参考资料</h2>
+
+<ul>
+<li><a href="https://refactoring.guru/design-patterns/structural-patterns">Go设计模式 - refactoring.guru</a></li>
+<li><a href="https://pkg.go.dev/net/http#Handler">Go HTTP中间件模式</a></li>
+<li><a href="https://www.youtube.com/watch?v=9Chl4maobBI">JustForFunc: 装饰器模式</a></li>
+<li>《设计模式》- GoF 第四章 结构型模式</li>
+<li><a href="https://pkg.go.dev/net/http/httputil#ReverseProxy">Go标准库中的代理模式</a></li>
+
+<h2>📈 代码演进总结</h2>
+
+<table><thead><tr>
+<th>版本</th>
+<th>核心改进</th>
+<th>特点</th>
+<th>适用场景</th>
+</tr></thead><tbody>
+<tr>
+<td>v1 基础版</td>
+<td>适配器+简单装饰器</td>
+<td>概念演示</td>
+<td>学习入门</td>
+</tr>
+<tr>
+<td>v2 完整版</td>
+<td>4种模式完整实现</td>
+<td>Go惯用写法</td>
+<td>实际项目参考</td>
+</tr>
+<tr>
+<td>v3 生产版</td>
+<td>HTTP中间件链+反向代理</td>
+<td>生产级代码</td>
+<td>Web服务、微服务</td>
+</tr>
+</tbody></table>
+
+<blockquote><p><strong>Go哲学：</strong> 结构型模式在Go中比OOP语言自然得多。Go的接口是隐式实现，嵌入就是天然装饰器，函数类型就是天然策略。用Go的方式写模式，而不是把Java模式硬搬过来。</p></blockquote>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

@@ -1,0 +1,547 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>002 - Python 异步编程基础：asyncio 从入门到实战</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Python/index.html">其他</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Python/02-进阶/index.html">Python进阶</a>
+</nav>
+<h1>002 - Python 异步编程基础：asyncio 从入门到实战</h1>
+<div class="meta">
+<span>📂 Python进阶</span>
+<span>🏷️ 其他</span>
+</div>
+<article>
+
+
+<blockquote><p><strong>难度标注</strong>：⭐⭐⭐⭐ 高级 | 预计阅读时间：25 分钟<br><strong>前置知识</strong>：Python 函数、生成器、装饰器基础、网络编程概念</p></blockquote>
+
+<hr>
+
+<h2>一、概念讲解</h2>
+
+<h3>1.1 什么是异步编程</h3>
+
+<p>异步编程是一种<strong>并发模型</strong>：遇到 I/O 等待时不阻塞线程，而是切走去做别的事。核心区别：</p>
+
+<table><thead><tr>
+<th>模型</th>
+<th>等待时做什么</th>
+<th>适合场景</th>
+</tr></thead><tbody>
+<tr>
+<td>同步</td>
+<td>阻塞等待</td>
+<td>CPU 密集型</td>
+</tr>
+<tr>
+<td>多线程</td>
+<td>OS 切换线程</td>
+<td>I/O 密集型（有 GIL 限制）</td>
+</tr>
+<tr>
+<td>异步</td>
+<td>事件循环切换协程</td>
+<td>I/O 密集型（高并发）</td>
+</tr>
+</tbody></table>
+
+<h3>1.2 核心概念三件套</h3>
+
+<p><strong>协程（Coroutine）</strong>：用 <code>async def</code> 定义的函数，调用后返回协程对象，不会立即执行。</p>
+
+<p><strong>事件循环（Event Loop）</strong>：<code>asyncio</code> 的心脏，负责调度协程、处理 I/O 回调。每个线程只有一个。</p>
+
+<p><strong>await</strong>：挂起当前协程，把控制权还给事件循环，等待另一个协程完成。</p>
+
+<h3>1.3 asyncio 执行模型</h3>
+
+<pre><code>┌─────────────────────────────────────┐
+│          Event Loop                  │
+│  ┌─────┐  ┌─────┐  ┌─────┐        │
+│  │ Co1 │  │ Co2 │  │ Co3 │        │
+│  │ ↓   │  │ ↓   │  │ ↓   │        │
+│  │await│→ │run  │→ │await│→ ...   │
+│  └─────┘  └─────┘  └─────┘        │
+│       ↑ I/O ready → resume Co1     │
+└─────────────────────────────────────┘</code></pre>
+
+<p>协程在 <code>await</code> 处让出控制权，事件循环调度其他协程，I/O 完成后恢复。</p>
+
+<hr>
+
+<h2>二、脑图</h2>
+
+<pre><code>asyncio 异步编程基础
+├── 核心概念
+│   ├── async def → 协程函数
+│   ├── await → 挂起/让出控制权
+│   └── Event Loop → 调度器
+├── 运行方式
+│   ├── asyncio.run(coro) — 推荐入口
+│   ├── asyncio.create_task() — 并发调度
+│   └── asyncio.gather() — 等待多个
+├── 常用 API
+│   ├── sleep / wait_for / timeout
+│   ├── Queue — 异步队列
+│   ├── Lock / Semaphore / Event
+│   └── subprocess — 异步子进程
+├── I/O 模型
+│   ├── StreamReader / StreamWriter
+│   └── open_connection / start_server
+└── 注意
+    ├── 协程不等同于线程
+    ├── 避免阻塞调用
+    └── debug 模式: asyncio.run(debug=True)</code></pre>
+
+<hr>
+
+<h2>三、完整代码</h2>
+
+<h3>3.1 基础：协程定义与运行</h3>
+
+<pre><code class="language-python">import asyncio
+import time
+
+# Basic coroutine
+async def say_hello(name, delay):
+    print(f&quot;Hello {name}! Waiting {delay}s...&quot;)
+    await asyncio.sleep(delay)  # Non-blocking sleep
+    print(f&quot;Done waiting for {name}!&quot;)
+    return f&quot;{name} finished&quot;
+
+async def main_basic():
+    result = await say_hello(&quot;World&quot;, 1)
+    print(f&quot;Result: {result}&quot;)
+
+asyncio.run(main_basic())</code></pre>
+
+<h3>3.2 并发：Task 和 gather</h3>
+
+<pre><code class="language-python">import asyncio
+import time
+
+async def fetch_data(url, delay):
+    # Simulate an HTTP request
+    print(f&quot;Fetching {url}...&quot;)
+    await asyncio.sleep(delay)
+    print(f&quot;Done: {url}&quot;)
+    return f&quot;data from {url}&quot;
+
+async def main_concurrent():
+    start = time.time()
+
+    # Method 1: create_task for manual control
+    task1 = asyncio.create_task(fetch_data(&quot;api/users&quot;, 2))
+    task2 = asyncio.create_task(fetch_data(&quot;api/posts&quot;, 3))
+    task3 = asyncio.create_task(fetch_data(&quot;api/comments&quot;, 1))
+
+    r1 = await task1
+    r2 = await task2
+    r3 = await task3
+    print(f&quot;All done in {time.time()-start:.1f}s&quot;)  # ~3s, not 6s
+
+    # Method 2: gather for collecting all results
+    start = time.time()
+    results = await asyncio.gather(
+        fetch_data(&quot;api/a&quot;, 1),
+        fetch_data(&quot;api/b&quot;, 2),
+        fetch_data(&quot;api/c&quot;, 1.5),
+    )
+    print(f&quot;Results: {results}&quot;)
+    print(f&quot;Gather done in {time.time()-start:.1f}s&quot;)  # ~2s
+
+asyncio.run(main_concurrent())</code></pre>
+
+<h3>3.3 异步锁与限流</h3>
+
+<pre><code class="language-python">import asyncio
+
+class AsyncRateLimiter:
+    # Rate limiter using asyncio.Semaphore
+    def __init__(self, max_concurrent=3):
+        self.sem = asyncio.Semaphore(max_concurrent)
+
+    async def fetch(self, url):
+        async with self.sem:
+            print(f&quot;Processing {url}&quot;)
+            await asyncio.sleep(1)  # Simulate work
+            print(f&quot;Done {url}&quot;)
+            return f&quot;result-{url}&quot;
+
+async def main_limiter():
+    limiter = AsyncRateLimiter(max_concurrent=2)
+    tasks = [limiter.fetch(f&quot;url-{i}&quot;) for i in range(6)]
+    results = await asyncio.gather(*tasks)
+    print(f&quot;All results: {results}&quot;)
+
+asyncio.run(main_limiter())</code></pre>
+
+<h3>3.4 生产者-消费者模式</h3>
+
+<pre><code class="language-python">import asyncio
+import random
+
+async def producer(queue, producer_id):
+    # Produce items and put them in the queue
+    for i in range(5):
+        item = f&quot;P{producer_id}-item{i}&quot;
+        await asyncio.sleep(random.uniform(0.1, 0.3))
+        await queue.put(item)
+        print(f&quot;Produced: {item}&quot;)
+    await queue.put(None)  # Sentinel
+
+async def consumer(queue, consumer_id):
+    # Consume items from the queue
+    while True:
+        item = await queue.get()
+        if item is None:
+            queue.task_done()
+            break
+        await asyncio.sleep(random.uniform(0.2, 0.5))
+        print(f&quot;  Consumer {consumer_id} processed: {item}&quot;)
+        queue.task_done()
+
+async def main_queue():
+    queue = asyncio.Queue(maxsize=10)
+    producers = [asyncio.create_task(producer(queue, i)) for i in range(2)]
+    consumers = [asyncio.create_task(consumer(queue, i)) for i in range(3)]
+    await asyncio.gather(*producers)
+    for _ in range(len(consumers) - len(producers)):
+        await queue.put(None)
+    await asyncio.gather(*consumers)
+    print(&quot;All done!&quot;)
+
+asyncio.run(main_queue())</code></pre>
+
+<hr>
+
+<h2>四、执行预览</h2>
+
+<pre><code># main_basic
+Hello World! Waiting 1s...
+Done waiting for World!
+Result: World finished
+
+# main_concurrent
+Fetching api/users...
+Fetching api/posts...
+Fetching api/comments...
+Done: api/comments
+Done: api/users
+Done: api/posts
+All done in 3.0s
+Fetching api/a...
+Fetching api/b...
+Fetching api/c...
+Done: api/a
+Done: api/c
+Done: api/b
+Results: [&#x27;data from api/a&#x27;, &#x27;data from api/b&#x27;, &#x27;data from api/c&#x27;]
+Gather done in 2.0s
+
+# main_limiter (max 2 concurrent)
+Processing url-0
+Processing url-1
+Done url-0
+Processing url-2
+Done url-1
+Processing url-3
+...</code></pre>
+
+<hr>
+
+<h2>五、注意事项</h2>
+
+<table><thead><tr>
+<th>要点</th>
+<th>说明</th>
+</tr></thead><tbody>
+<tr>
+<td><code>asyncio.run()</code> 是入口</td>
+<td>只能调用一次，自动管理事件循环</td>
+</tr>
+<tr>
+<td><code>await</code> 只在 async 函数中</td>
+<td>在普通函数中 await 会语法错误</td>
+</tr>
+<tr>
+<td>协程不自动并发</td>
+<td>必须用 <code>create_task</code> 或 <code>gather</code> 才会并发执行</td>
+</tr>
+<tr>
+<td>不要在协程中阻塞</td>
+<td><code>time.sleep()</code>、<code>requests.get()</code> 会阻塞整个事件循环</td>
+</tr>
+<tr>
+<td>异步上下文管理器</td>
+<td><code>async with</code> 对应 <code>aiofiles</code>、<code>aiohttp</code> 等异步库</td>
+</tr>
+<tr>
+<td>异步迭代器</td>
+<td><code>async for</code> 用于异步生成器</td>
+</tr>
+<tr>
+<td>调试</td>
+<td><code>asyncio.run(main(), debug=True)</code> 开启调试模式</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>六、避坑指南</h2>
+
+<h3>❌ 在协程中调用阻塞函数 → ✅ 用 run_in_executor</h3>
+
+<pre><code class="language-python">import asyncio, time
+
+async def bad():
+    time.sleep(5)  # ❌ Blocks the entire event loop!
+
+async def good():
+    loop = asyncio.get_event_loop()
+    # ✅ Run blocking code in thread pool
+    await loop.run_in_executor(None, lambda: time.sleep(5))</code></pre>
+
+<h3>❌ 忘记 await → ✅ 始终 await 协程</h3>
+
+<pre><code class="language-python">async def fetch():
+    return 42
+
+async def bad():
+    result = fetch()  # ❌ Returns coroutine object, not 42
+    print(result)  # &lt;coroutine object fetch at 0x...&gt;
+
+async def good():
+    result = await fetch()  # ✅ Properly await
+    print(result)  # 42</code></pre>
+
+<h3>❌ 用 requests 库 → ✅ 用 aiohttp</h3>
+
+<pre><code class="language-python">import requests  # ❌ Synchronous, blocks event loop
+
+import aiohttp  # ✅ Async HTTP client
+async def fetch(url):
+    async with aiohttp.ClientSession() as session:
+        async with session.get(url) as resp:
+            return await resp.text()</code></pre>
+
+<h3>❌ 过度并发 → ✅ 用 Semaphore 控制并发数</h3>
+
+<pre><code class="language-python"># ❌ 1000 simultaneous connections
+tasks = [fetch(url) for url in urls]
+await asyncio.gather(*tasks)
+
+# ✅ Limit concurrent connections
+sem = asyncio.Semaphore(10)
+async def limited_fetch(url):
+    async with sem:
+        return await fetch(url)
+tasks = [limited_fetch(url) for url in urls]
+await asyncio.gather(*tasks)</code></pre>
+
+<hr>
+
+<h2>七、练习题</h2>
+
+<h3>🟢 基础题</h3>
+
+<p><strong>题目 1</strong>：写一个异步计时器，每秒打印当前时间，共打印 10 次。</p>
+
+<p><strong>题目 2</strong>：用 <code>asyncio.gather</code> 并发请求 5 个 URL（用 <code>asyncio.sleep</code> 模拟），统计总耗时。</p>
+
+<h3>🟡 进阶题</h3>
+
+<p><strong>题目 3</strong>：实现一个异步缓存装饰器 <code>@async_cache</code>，对异步函数的结果缓存指定时间。</p>
+
+<p><strong>题目 4</strong>：用 <code>asyncio.Queue</code> 实现一个异步管道：读取器 → 处理器 → 写入器，每个阶段并发运行。</p>
+
+<h3>🔴 挑战题</h3>
+
+<p><strong>题目 5</strong>：实现一个异步 Web 爬虫：给定起始 URL，异步抓取页面中的所有链接，BFS 爬取到指定深度，限制最大并发数和最大页面数。</p>
+
+<hr>
+
+<h2>八、知识点总结</h2>
+
+<pre><code>asyncio 基础
+├── 协程
+│   ├── async def → 定义协程函数
+│   ├── await → 等待协程，让出控制权
+│   └── 协程对象 → 调用协程函数返回，不立即执行
+├── 调度
+│   ├── asyncio.run() → 程序入口
+│   ├── create_task() → 并发调度协程
+│   ├── gather() → 等待多个协程，收集结果
+│   └── wait() → 更灵活的等待（FIRST_COMPLETED 等）
+├── 同步原语
+│   ├── Lock → 异步锁
+│   ├── Semaphore → 限制并发数
+│   ├── Event → 事件通知
+│   └── Condition → 条件变量
+├── 通信
+│   ├── Queue → 异步队列
+│   └── StreamReader/Writer → 异步 I/O
+└── 最佳实践
+    ├── 不阻塞事件循环
+    ├── 用 Semaphore 控制并发
+    ├── 用 run_in_executor 处理阻塞代码
+    └── 开启 debug 模式排错</code></pre>
+
+<hr>
+
+<h2>九、举一反三</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>异步方案</th>
+<th>同步方案对比</th>
+</tr></thead><tbody>
+<tr>
+<td>抓取 100 个 API</td>
+<td>aiohttp + gather</td>
+<td>requests 顺序调用慢 100 倍</td>
+</tr>
+<tr>
+<td>数据库查询</td>
+<td>asyncpg / motor</td>
+<td>psycopg2 同步阻塞</td>
+</tr>
+<tr>
+<td>文件读写</td>
+<td>aiofiles / aiofile</td>
+<td>open() 阻塞</td>
+</tr>
+<tr>
+<td>WebSocket 服务</td>
+<td>websockets 库</td>
+<td>需要多线程</td>
+</tr>
+<tr>
+<td>定时任务</td>
+<td>asyncio.sleep 循环</td>
+<td>time.sleep 阻塞</td>
+</tr>
+<tr>
+<td>微服务调用</td>
+<td>httpx.AsyncClient</td>
+<td>requests 库</td>
+</tr>
+<tr>
+<td>进程管理</td>
+<td>asyncio.create_subprocess_exec</td>
+<td>subprocess 阻塞</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>十、参考资料</h2>
+
+<ul>
+<li><a href="https://docs.python.org/3/library/asyncio.html">Python asyncio 官方文档</a></li>
+<li><a href="https://docs.python.org/3/library/asyncio-task.html">asyncio 官方教程</a></li>
+<li><a href="https://docs.aiohttp.org/">aiohttp 文档</a></li>
+<li>《Python Concurrency with asyncio》— Matthew Fowler</li>
+<li>Real Python: <a href="https://realpython.com/async-io-python/">Async IO in Python</a></li>
+
+<hr>
+
+<h2>十一、代码演进</h2>
+
+<h3>需求：并发请求多个 API</h3>
+
+<pre><code class="language-python"># v1: Synchronous — simple but slow
+import requests, time
+
+def fetch_all_sync(urls):
+    results = []
+    for url in urls:
+        resp = requests.get(url)
+        results.append(resp.status_code)
+    return results
+
+# v2: Async with aiohttp — 10x faster
+import aiohttp, asyncio
+
+async def fetch_all_async(urls):
+    async with aiohttp.ClientSession() as session:
+        tasks = [session.get(url) for url in urls]
+        responses = await asyncio.gather(*tasks)
+        return [r.status for r in responses]
+
+# v3: Add rate limiting and error handling
+async def fetch_all_robust(urls, max_concurrent=10):
+    sem = asyncio.Semaphore(max_concurrent)
+    async with aiohttp.ClientSession() as session:
+        async def safe_fetch(url):
+            async with sem:
+                try:
+                    async with session.get(url, timeout=aiohttp.ClientTimeout(total=10)) as r:
+                        return url, r.status, None
+                except Exception as e:
+                    return url, None, str(e)
+        results = await asyncio.gather(*[safe_fetch(u) for u in urls])
+    return results</code></pre>
+
+<p><strong>演进说明</strong>：v1 同步顺序请求 → v2 异步并发 → v3 加限流、超时、错误处理，生产可用。</p>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

@@ -1,0 +1,602 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>011-文件读写操作</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Python/index.html">Python</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Python/01-入门/index.html">Python入门</a>
+</nav>
+<h1>011-文件读写操作</h1>
+<div class="meta">
+<span>📂 Python入门</span>
+<span>🏷️ Python</span>
+</div>
+<article>
+
+
+<h1>011 - 文件读写操作</h1>
+
+<blockquote><p><strong>难度：</strong> ⭐⭐（初级偏上）<br><strong>预计阅读时间：</strong> 20 分钟<br><strong>前置知识：</strong> 字符串、列表、异常处理基础</p></blockquote>
+
+<hr>
+
+<h2>一、概念讲解</h2>
+
+<h3>为什么要学文件操作？</h3>
+
+<p>程序的数据不能只活在内存里。断电就没了。文件操作让你的程序能够<strong>持久化数据</strong>——保存配置、记录日志、处理数据文件。</p>
+
+<h3>Python 文件操作的核心：<code>open()</code> 函数</h3>
+
+<pre><code class="language-python"># Basic but manual - must remember to close
+file = open(&quot;data.txt&quot;, &quot;r&quot;)
+content = file.read()
+file.close()
+
+# Better: with statement (auto-close)
+with open(&quot;data.txt&quot;, &quot;r&quot;) as f:
+    content = f.read()
+# File is automatically closed here</code></pre>
+
+<h3>文件打开模式</h3>
+
+<table><thead><tr>
+<th>模式</th>
+<th>说明</th>
+<th>文件不存在时</th>
+<th>文件存在时</th>
+</tr></thead><tbody>
+<tr>
+<td><code>r</code></td>
+<td>只读</td>
+<td>❌ 报错</td>
+<td>从头读</td>
+</tr>
+<tr>
+<td><code>w</code></td>
+<td>只写</td>
+<td>✅ 创建</td>
+<td>⚠️ 清空</td>
+</tr>
+<tr>
+<td><code>a</code></td>
+<td>追加</td>
+<td>✅ 创建</td>
+<td>末尾追加</td>
+</tr>
+<tr>
+<td><code>x</code></td>
+<td>独占创建</td>
+<td>✅ 创建</td>
+<td>❌ 报错</td>
+</tr>
+<tr>
+<td><code>r+</code></td>
+<td>读写</td>
+<td>❌ 报错</td>
+<td>从头读写</td>
+</tr>
+<tr>
+<td><code>rb</code> / <code>wb</code></td>
+<td>二进制模式</td>
+<td>同上</td>
+<td>同上</td>
+</tr>
+</tbody></table>
+
+<h3>文件路径基础</h3>
+
+<pre><code class="language-python">import os
+
+# Current working directory
+print(os.getcwd())
+
+# Join paths (cross-platform)
+path = os.path.join(&quot;data&quot;, &quot;files&quot;, &quot;report.txt&quot;)
+
+# Better: use pathlib (Python 3.4+)
+from pathlib import Path
+p = Path(&quot;data&quot;) / &quot;files&quot; / &quot;report.txt&quot;</code></pre>
+
+<hr>
+
+<h2>二、脑图（ASCII）</h2>
+
+<pre><code>                    文件读写操作
+                        │
+        ┌───────────────┼───────────────┐
+        │               │               │
+     读取文件         写入文件       路径处理
+        │               │               │
+   ┌────┼────┐     ┌────┼────┐     ┌────┼────┐
+   │    │    │     │    │    │     │    │    │
+ read  readl  CSV  write writel JSON os.path pathlib
+  ()   ines()      ()   ines()
+        │               │
+    按行迭代        文件指针
+    大文件友好      seek() / tell()</code></pre>
+
+<hr>
+
+<h2>三、完整代码示例</h2>
+
+<h3>3.1 基础读写</h3>
+
+<pre><code class="language-python"># === Basic file read/write ===
+
+# Write to a file
+with open(&quot;hello.txt&quot;, &quot;w&quot;, encoding=&quot;utf-8&quot;) as f:
+    f.write(&quot;Hello, Python!\n&quot;)
+    f.write(&quot;File I/O is easy.\n&quot;)
+
+# Read entire file
+with open(&quot;hello.txt&quot;, &quot;r&quot;, encoding=&quot;utf-8&quot;) as f:
+    content = f.read()
+    print(content)
+# Output:
+# Hello, Python!
+# File I/O is easy.
+
+# Read line by line
+with open(&quot;hello.txt&quot;, &quot;r&quot;, encoding=&quot;utf-8&quot;) as f:
+    for line in f:
+        print(line.strip())  # strip() removes trailing newline
+
+# Read all lines into a list
+with open(&quot;hello.txt&quot;, &quot;r&quot;, encoding=&quot;utf-8&quot;) as f:
+    lines = f.readlines()
+    print(lines)  # [&#x27;Hello, Python!\n&#x27;, &#x27;File I/O is easy.\n&#x27;]</code></pre>
+
+<h3>3.2 追加与多行写入</h3>
+
+<pre><code class="language-python"># === Append and multi-line write ===
+
+# Append to existing file
+with open(&quot;hello.txt&quot;, &quot;a&quot;, encoding=&quot;utf-8&quot;) as f:
+    f.write(&quot;This line is appended.\n&quot;)
+
+# Write multiple lines at once
+lines = [&quot;Line 1\n&quot;, &quot;Line 2\n&quot;, &quot;Line 3\n&quot;]
+with open(&quot;hello.txt&quot;, &quot;a&quot;, encoding=&quot;utf-8&quot;) as f:
+    f.writelines(lines)</code></pre>
+
+<h3>3.3 CSV 文件处理</h3>
+
+<pre><code class="language-python"># === CSV file handling ===
+import csv
+
+# Write CSV
+data = [
+    [&quot;name&quot;, &quot;age&quot;, &quot;city&quot;],
+    [&quot;Alice&quot;, 30, &quot;Beijing&quot;],
+    [&quot;Bob&quot;, 25, &quot;Shanghai&quot;],
+    [&quot;Charlie&quot;, 35, &quot;Shenzhen&quot;],
+]
+
+with open(&quot;people.csv&quot;, &quot;w&quot;, newline=&quot;&quot;, encoding=&quot;utf-8&quot;) as f:
+    writer = csv.writer(f)
+    writer.writerows(data)
+
+# Read CSV
+with open(&quot;people.csv&quot;, &quot;r&quot;, encoding=&quot;utf-8&quot;) as f:
+    reader = csv.reader(f)
+    for row in reader:
+        print(row)
+# [&#x27;name&#x27;, &#x27;age&#x27;, &#x27;city&#x27;]
+# [&#x27;Alice&#x27;, &#x27;30&#x27;, &#x27;Beijing&#x27;]
+
+# CSV with DictReader/DictWriter
+with open(&quot;people.csv&quot;, &quot;r&quot;, encoding=&quot;utf-8&quot;) as f:
+    reader = csv.DictReader(f)
+    for row in reader:
+        print(f&quot;{row[&#x27;name&#x27;]} is {row[&#x27;age&#x27;]} years old&quot;)</code></pre>
+
+<h3>3.4 JSON 文件处理</h3>
+
+<pre><code class="language-python"># === JSON file handling ===
+import json
+
+# Write JSON
+config = {
+    &quot;app_name&quot;: &quot;MyApp&quot;,
+    &quot;version&quot;: &quot;1.0.0&quot;,
+    &quot;debug&quot;: True,
+    &quot;users&quot;: [&quot;Alice&quot;, &quot;Bob&quot;],
+}
+
+with open(&quot;config.json&quot;, &quot;w&quot;, encoding=&quot;utf-8&quot;) as f:
+    json.dump(config, f, indent=2, ensure_ascii=False)
+
+# Read JSON
+with open(&quot;config.json&quot;, &quot;r&quot;, encoding=&quot;utf-8&quot;) as f:
+    loaded = json.load(f)
+    print(loaded[&quot;app_name&quot;])  # MyApp
+    print(loaded[&quot;users&quot;])     # [&#x27;Alice&#x27;, &#x27;Bob&#x27;]</code></pre>
+
+<h3>3.5 pathlib 现代文件操作</h3>
+
+<pre><code class="language-python"># === Modern file operations with pathlib ===
+from pathlib import Path
+
+# Create Path object
+p = Path(&quot;data&quot;)
+
+# Create directory (if not exists)
+p.mkdir(exist_ok=True)
+
+# Write and read using Path methods
+file_path = p / &quot;notes.txt&quot;
+file_path.write_text(&quot;Hello from pathlib!\n&quot;, encoding=&quot;utf-8&quot;)
+content = file_path.read_text(encoding=&quot;utf-8&quot;)
+print(content)
+
+# List all .txt files in directory
+for txt_file in p.glob(&quot;*.txt&quot;):
+    print(txt_file.name, txt_file.stat().st_size, &quot;bytes&quot;)
+
+# File info
+print(file_path.exists())   # True
+print(file_path.is_file())  # True
+print(file_path.suffix)     # .txt
+print(file_path.stem)       # notes
+print(file_path.parent)     # data</code></pre>
+
+<h3>3.6 大文件处理</h3>
+
+<pre><code class="language-python"># === Processing large files efficiently ===
+
+# Method 1: Read line by line (memory efficient)
+def count_lines(filepath):
+    count = 0
+    with open(filepath, &quot;r&quot;, encoding=&quot;utf-8&quot;) as f:
+        for line in f:
+            count += 1
+    return count
+
+# Method 2: Chunked reading for binary files
+def read_in_chunks(filepath, chunk_size=8192):
+    with open(filepath, &quot;rb&quot;) as f:
+        while chunk := f.read(chunk_size):
+            yield chunk
+
+# Method 3: Process CSV line by line (streaming)
+import csv
+def process_large_csv(filepath):
+    with open(filepath, &quot;r&quot;, encoding=&quot;utf-8&quot;) as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            yield row[&quot;name&quot;]</code></pre>
+
+<hr>
+
+<h2>四、执行预览</h2>
+
+<pre><code>$ python file_demo.py
+Hello, Python!
+File I/O is easy.
+Hello, Python!
+File I/O is easy.
+
+$ cat config.json
+{
+  &quot;app_name&quot;: &quot;MyApp&quot;,
+  &quot;version&quot;: &quot;1.0.0&quot;,
+  &quot;debug&quot;: true,
+  &quot;users&quot;: [
+    &quot;Alice&quot;,
+    &quot;Bob&quot;
+  ]
+}
+
+$ ls data/
+notes.txt  report.csv</code></pre>
+
+<hr>
+
+<h2>五、注意事项</h2>
+
+<table><thead><tr>
+<th>事项</th>
+<th>说明</th>
+<th>建议</th>
+</tr></thead><tbody>
+<tr>
+<td>编码</td>
+<td>Windows 默认 GBK，Linux/Mac 默认 UTF-8</td>
+<td><strong>始终指定 <code>encoding="utf-8"</code></strong></td>
+</tr>
+<tr>
+<td>文件关闭</td>
+<td>忘记 <code>close()</code> 会导致资源泄露</td>
+<td>始终用 <code>with</code> 语句</td>
+</tr>
+<tr>
+<td>路径分隔符</td>
+<td>Windows <code>\</code>，Linux/Mac <code>/</code></td>
+<td>用 <code>os.path.join</code> 或 <code>pathlib</code></td>
+</tr>
+<tr>
+<td>写模式覆盖</td>
+<td><code>"w"</code> 模式会清空文件</td>
+<td>需追加用 <code>"a"</code>，需保护用 <code>"x"</code></td>
+</tr>
+<tr>
+<td>大文件内存</td>
+<td><code>read()</code> 一次性加载全部内容</td>
+<td>用逐行读取或分块读取</td>
+</tr>
+<tr>
+<td>换行符</td>
+<td>Windows <code>\r\n</code>，Linux <code>\n</code></td>
+<td>Python 自动处理（文本模式）</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>六、避坑指南</h2>
+
+<h3>❌ 坑1：忘记指定编码</h3>
+
+<pre><code class="language-python"># ❌ Windows 上读中文文件可能乱码
+with open(&quot;data.txt&quot;, &quot;r&quot;) as f:
+    content = f.read()  # UnicodeDecodeError!
+
+# ✅ 始终指定编码
+with open(&quot;data.txt&quot;, &quot;r&quot;, encoding=&quot;utf-8&quot;) as f:
+    content = f.read()</code></pre>
+
+<h3>❌ 坑2：忘记关闭文件</h3>
+
+<pre><code class="language-python"># ❌ 没有关闭文件
+f = open(&quot;data.txt&quot;, &quot;w&quot;)
+f.write(&quot;some data&quot;)
+# If exception occurs here, file stays open
+
+# ✅ 使用 with 语句自动关闭
+with open(&quot;data.txt&quot;, &quot;w&quot;) as f:
+    f.write(&quot;some data&quot;)</code></pre>
+
+<h3>❌ 坑3：一次读取超大文件</h3>
+
+<pre><code class="language-python"># ❌ 10GB 文件直接 read() -&gt; 内存爆炸
+content = open(&quot;huge.log&quot;).read()
+
+# ✅ 逐行处理
+with open(&quot;huge.log&quot;, &quot;r&quot;) as f:
+    for line in f:
+        if &quot;ERROR&quot; in line:
+            print(line.strip())</code></pre>
+
+<hr>
+
+<h2>七、练习题</h2>
+
+<h3>🟢 入门题</h3>
+
+<ol>
+<li>写一个程序，创建一个 <code>diary.txt</code> 文件，写入今天的日期和一段话，然后读取并打印。</li>
+
+<ol>
+<li>读取一个文本文件，统计每个单词出现的次数，输出前 10 个高频词。</li>
+
+<h3>🟡 进阶题</h3>
+
+<ol>
+<li>实现一个简单的配置文件管理器：读取 JSON 配置，支持增删改查，写回文件。</li>
+
+<ol>
+<li>编写一个日志分析工具：读取日志文件，提取所有 ERROR 级别的日志，统计错误类型分布。</li>
+
+<h3>🔴 挑战题</h3>
+
+<ol>
+<li>实现一个简单的 CSV 合并工具：将多个结构相同的 CSV 文件合并为一个，去重并排序。支持处理 100MB 以上的文件（流式处理）。</li>
+
+<hr>
+
+<h2>八、知识点总结</h2>
+
+<pre><code>文件读写操作
+├── 基础操作
+│   ├── open() 函数与模式（r/w/a/x）
+│   ├── with 语句（自动关闭）
+│   └── read / readline / readlines
+├── 写入操作
+│   ├── write() / writelines()
+│   ├── 追加模式 &quot;a&quot;
+│   └── 文件指针 seek() / tell()
+├── 常用格式
+│   ├── CSV -&gt; csv 模块
+│   ├── JSON -&gt; json 模块
+│   └── 二进制 -&gt; &quot;rb&quot; / &quot;wb&quot; 模式
+├── 路径处理
+│   ├── os.path（传统）
+│   └── pathlib（推荐，Python 3.4+）
+└── 性能优化
+    ├── 逐行读取（省内存）
+    ├── 分块读取（大文件）
+    └── 流式处理（不一次加载）</code></pre>
+
+<hr>
+
+<h2>九、举一反三</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>工具/模块</th>
+<th>用法示例</th>
+</tr></thead><tbody>
+<tr>
+<td>读取配置</td>
+<td><code>json</code></td>
+<td><code>json.load(open("config.json"))</code></td>
+</tr>
+<tr>
+<td>处理表格数据</td>
+<td><code>csv</code></td>
+<td><code>csv.DictReader(f)</code></td>
+</tr>
+<tr>
+<td>文件复制/移动</td>
+<td><code>shutil</code></td>
+<td><code>shutil.copy(src, dst)</code></td>
+</tr>
+<tr>
+<td>临时文件</td>
+<td><code>tempfile</code></td>
+<td><code>tempfile.NamedTemporaryFile()</code></td>
+</tr>
+<tr>
+<td>遍历目录</td>
+<td><code>pathlib</code></td>
+<td><code>Path(".").rglob("*.py")</code></td>
+</tr>
+<tr>
+<td>文件监控</td>
+<td><code>watchdog</code></td>
+<td>pip install watchdog</td>
+</tr>
+<tr>
+<td>Excel 处理</td>
+<td><code>openpyxl</code></td>
+<td>pip install openpyxl</td>
+</tr>
+<tr>
+<td>日志轮转</td>
+<td><code>logging.handlers</code></td>
+<td><code>RotatingFileHandler</code></td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>十、参考资料</h2>
+
+<ul>
+<li><a href="https://docs.python.org/3/tutorial/inputoutput.html#reading-and-writing-files">Python 官方文档 - Reading and Writing Files</a></li>
+<li><a href="https://docs.python.org/3/library/pathlib.html">Python 官方文档 - pathlib</a></li>
+<li><a href="https://realpython.com/read-write-files-python/">Real Python - Working with Files in Python</a></li>
+<li><a href="https://docs.python.org/3/library/csv.html">CSV 模块文档</a></li>
+
+<hr>
+
+<h2>十一、代码演进</h2>
+
+<h3>v1：基础读写</h3>
+
+<pre><code class="language-python"># Simple but fragile
+f = open(&quot;data.txt&quot;, &quot;w&quot;)
+f.write(&quot;Hello&quot;)
+f.close()
+
+f = open(&quot;data.txt&quot;, &quot;r&quot;)
+print(f.read())
+f.close()</code></pre>
+
+<h3>v2：with 语句 + 编码</h3>
+
+<pre><code class="language-python"># Safe and clean
+with open(&quot;data.txt&quot;, &quot;w&quot;, encoding=&quot;utf-8&quot;) as f:
+    f.write(&quot;Hello&quot;)
+
+with open(&quot;data.txt&quot;, &quot;r&quot;, encoding=&quot;utf-8&quot;) as f:
+    print(f.read())</code></pre>
+
+<h3>v3：封装为工具类</h3>
+
+<pre><code class="language-python"># Reusable file utility
+import json
+from pathlib import Path
+from typing import Any
+
+class FileManager:
+    &quot;&quot;&quot;Simple file manager for common operations.&quot;&quot;&quot;
+
+    @staticmethod
+    def read_text(filepath: str, encoding: str = &quot;utf-8&quot;) -&gt; str:
+        return Path(filepath).read_text(encoding=encoding)
+
+    @staticmethod
+    def write_text(filepath: str, content: str, encoding: str = &quot;utf-8&quot;) -&gt; None:
+        Path(filepath).write_text(content, encoding=encoding)
+
+    @staticmethod
+    def read_json(filepath: str, encoding: str = &quot;utf-8&quot;) -&gt; Any:
+        return json.loads(Path(filepath).read_text(encoding=encoding))
+
+    @staticmethod
+    def write_json(filepath: str, data: Any, encoding: str = &quot;utf-8&quot;) -&gt; None:
+        Path(filepath).write_text(
+            json.dumps(data, indent=2, ensure_ascii=False),
+            encoding=encoding,
+        )
+
+# Usage:
+# fm = FileManager()
+# fm.write_json(&quot;config.json&quot;, {&quot;key&quot;: &quot;value&quot;})
+# config = fm.read_json(&quot;config.json&quot;)</code></pre>
+
+<hr>
+
+<blockquote><p><strong>下一篇：</strong> <a href="/posts/012-exceptions">012 - 异常处理</a><br><strong>上一篇：</strong> <a href="/posts/010-modules">010 - 模块与包管理</a></p></blockquote>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>020 - 正则表达式实战</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/JavaScript/index.html">JavaScript</a>
+<span class="sep">›</span>
+<a href="/tech-blog/JavaScript/01-ES6+/index.html">JavaScript ES6+</a>
+</nav>
+<h1>020 - 正则表达式实战</h1>
+<div class="meta">
+<span>📂 JavaScript ES6+</span>
+<span>🏷️ JavaScript</span>
+</div>
+<article>
+
+
+<h1>正则表达式实战</h1>
+
+<blockquote><p><strong>难度：</strong> ⭐⭐⭐ 中等 | <strong>分类：</strong> JavaScript 核心 | <strong>阅读时间：</strong> ~15分钟</p></blockquote>
+
+<h2>一、概念讲解</h2>
+
+<p>正则表达式（Regular Expression）是文本模式匹配的强大工具。JavaScript 使用 <code>RegExp</code> 对象支持正则，配合 <code>String</code> 的 <code>match</code>、<code>replace</code>、<code>search</code>、<code>split</code> 等方法使用。</p>
+
+<p>核心要素：</p>
+<ul>
+<li><strong>字面量 vs 构造函数</strong>：<code>/pattern/flags</code> vs <code>new RegExp('pattern', 'flags')</code></li>
+<li><strong>字符类</strong>：<code>\d</code>(数字)、<code>\w</code>(单词字符)、<code>\s</code>(空白)、<code>.</code>(任意)</li>
+<li><strong>量词</strong>：<code>*</code>(0+)、<code>+</code>(1+)、<code>?</code>(0/1)、<code>{n,m}</code>(n到m次)</li>
+<li><strong>锚点</strong>：<code>^</code>(开头)、<code>$</code>(结尾)、<code>\b</code>(单词边界)</li>
+<li><strong>分组</strong>：<code>()</code>捕获、<code>(?:)</code>非捕获、<code>(?<name>)</code>命名捕获</li>
+<li><strong>标志</strong>：<code>g</code>(全局)、<code>i</code>(忽略大小写)、<code>m</code>(多行)、<code>s</code>(dotAll)、<code>u</code>(Unicode)</li>
+
+<h2>二、脑图（ASCII）</h2>
+
+<pre><code>              正则表达式
+          ┌──────┴──────┐
+       基础语法         高级特性
+      ┌──┴──┐      ┌───┴───┐
+   字符类  量词   分组捕获   断言
+   \d\w\s *+?   ()(?:)     (?=)
+   []    {n,m}  命名捕获    (?!)
+   .     贪婪   (?&lt;name&gt;)  (?&lt;=)
+         非贪婪            (?&lt;!)</code></pre>
+
+<h2>三、完整 JS 代码</h2>
+
+<pre><code class="language-javascript">// ==================== Common Patterns ====================
+
+// Email validation (practical, not RFC-compliant)
+const emailReg = /^[\w.-]+@[\w.-]+\.\w{2,}$/;
+console.log(emailReg.test(&#x27;user@example.com&#x27;)); // true
+
+// Chinese mobile number
+const phoneReg = /^1[3-9]\d{9}$/;
+console.log(phoneReg.test(&#x27;13800138000&#x27;)); // true
+
+// URL parsing with named groups
+const urlReg = /^(?&lt;protocol&gt;https?):\/\/(?&lt;host&gt;[^/]+)(?&lt;path&gt;\/.*)?$/;
+const urlMatch = &#x27;https://example.com/path/to/page&#x27;.match(urlReg);
+console.log(urlMatch.groups);
+// { protocol: &#x27;https&#x27;, host: &#x27;example.com&#x27;, path: &#x27;/path/to/page&#x27; }
+
+// ==================== Replace with Callback ====================
+
+// Template engine — replace {{key}} with values
+function render(template, data) {
+  return template.replace(/\{\{(\w+)\}\}/g, (_, key) =&gt; data[key] ?? &#x27;&#x27;);
+}
+
+const html = render(&#x27;Hello {{name}}, you have {{count}} messages&#x27;, {
+  name: &#x27;Alice&#x27;, count: 5
+});
+console.log(html); // &#x27;Hello Alice, you have 5 messages&#x27;
+
+// ==================== Advanced: Lookbehind &amp; Lookahead ====================
+
+// Password strength: at least 8 chars, 1 uppercase, 1 lowercase, 1 digit
+const strongPwd = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/;
+console.log(strongPwd.test(&#x27;Abc12345&#x27;)); // true
+console.log(strongPwd.test(&#x27;password&#x27;)); // false
+
+// Match numbers not preceded by $
+const priceText = &#x27;Price: $100, discount 20, total $80&#x27;;
+const discounts = priceText.matchAll(/(?&lt;!\$)\b\d+\b/g);
+for (const m of discounts) {
+  console.log(m[0]); // &#x27;20&#x27;
+}
+
+// ==================== String.prototype.split with Regex ====================
+
+// Split by multiple delimiters
+const csv = &#x27;one,two;three|four&#x27;;
+console.log(csv.split(/[,;|]/)); // [&#x27;one&#x27;, &#x27;two&#x27;, &#x27;three&#x27;, &#x27;four&#x27;]
+
+// ==================== Practical: Parse Log Line ====================
+
+const logReg = /^\[(?&lt;time&gt;\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})\]\s*(?&lt;level&gt;\w+)\s*(?&lt;msg&gt;.+)$/;
+const logLine = &#x27;[2024-01-15 10:30:00] ERROR Database connection failed&#x27;;
+const parsed = logLine.match(logReg);
+console.log(parsed?.groups);
+// { time: &#x27;2024-01-15 10:30:00&#x27;, level: &#x27;ERROR&#x27;, msg: &#x27;Database connection failed&#x27; }</code></pre>
+
+<h2>四、执行预览</h2>
+
+<pre><code>true
+true
+{ protocol: &#x27;https&#x27;, host: &#x27;example.com&#x27;, path: &#x27;/path/to/page&#x27; }
+Hello Alice, you have 5 messages
+true
+false
+20
+[ &#x27;one&#x27;, &#x27;two&#x27;, &#x27;three&#x27;, &#x27;four&#x27; ]
+{ time: &#x27;2024-01-15 10:30:00&#x27;, level: &#x27;ERROR&#x27;, msg: &#x27;Database connection failed&#x27; }</code></pre>
+
+<h2>五、注意事项</h2>
+
+<table><thead><tr>
+<th>项目</th>
+<th>说明</th>
+</tr></thead><tbody>
+<tr>
+<td>贪婪 vs 非贪婪</td>
+<td><code><em></code> 和 <code>+</code> 默认贪婪，加 <code>?</code> 变非贪婪：<code>.</em>?</code></td>
+</tr>
+<tr>
+<td><code>.</code> 不匹配换行</td>
+<td>除非使用 <code>s</code> 标志（dotAll 模式）</td>
+</tr>
+<tr>
+<td><code>g</code> 标志有状态</td>
+<td>带 <code>g</code> 的正则 <code>lastIndex</code> 会变化，重复 <code>exec</code> 要小心</td>
+</tr>
+<tr>
+<td>正则不是万能的</td>
+<td>复杂 HTML 解析请用 DOM parser，别用正则</td>
+</tr>
+<tr>
+<td>转义特殊字符</td>
+<td><code>[</code> <code>]</code> <code>(</code> <code>)</code> <code>.</code> <code>*</code> <code>+</code> <code>?</code> <code>\</code> <code>^</code> <code>$</code> <code>{</code> <code>}</code> `</td>
+<td>` 需转义</td>
+</tr>
+</tbody></table>
+
+<h2>六、避坑指南</h2>
+
+<p>❌ <strong>用正则解析 HTML：</strong></p>
+<pre><code class="language-javascript">const html = &#x27;&lt;div&gt;content&lt;/div&gt;&#x27;;
+html.match(/&lt;div&gt;(.*)&lt;\/div&gt;/); // ❌ Fragile! Nested tags break it</code></pre>
+
+<p>✅ <strong>用 DOM API：</strong></p>
+<pre><code class="language-javascript">const doc = new DOMParser().parseFromString(html, &#x27;text/html&#x27;);
+doc.querySelector(&#x27;div&#x27;).textContent; // ✅</code></pre>
+
+<p>❌ <strong>忘记转义用户输入：</strong></p>
+<pre><code class="language-javascript">new RegExp(userInput); // ❌ If userInput = &#x27;.*&#x27;, matches everything</code></pre>
+
+<p>✅ <strong>转义特殊字符：</strong></p>
+<pre><code class="language-javascript">function escapeRegex(str) {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, &#x27;\\$&amp;&#x27;);
+}
+new RegExp(escapeRegex(userInput)); // ✅</code></pre>
+
+<p>❌ <strong><code>g</code> 标志导致 <code>test()</code> 反复切换：</strong></p>
+<pre><code class="language-javascript">const re = /a/g;
+re.test(&#x27;a&#x27;); // true
+re.test(&#x27;a&#x27;); // false! (lastIndex moved past &#x27;a&#x27;)</code></pre>
+
+<p>✅ <strong>每次创建新正则或手动重置：</strong></p>
+<pre><code class="language-javascript">/a/g.test(&#x27;a&#x27;); // true
+/a/g.test(&#x27;a&#x27;); // true ✅ (new regex each time)</code></pre>
+
+<h2>七、练习题</h2>
+
+<p>🟢 <strong>初级：</strong> 编写正则匹配中国身份证号（18位，最后一位可能是 X）。</p>
+
+<p>🟡 <strong>中级：</strong> 用正则实现一个简单的 Markdown → HTML 转换器（支持 <code><strong>bold</strong></code>、<code><em>italic</em></code>、<code><a href="url">link</a></code>）。</p>
+
+<p>🔴 <strong>高级：</strong> 实现一个 DSL 查询解析器，将 <code>age>18 AND name:"John"</code> 解析为结构化查询对象。</p>
+
+<h2>八、知识点总结（树状）</h2>
+
+<pre><code>正则表达式
+├── 基础语法
+│   ├── 字符类 \d \w \s \D \W \S
+│   ├── 自定义字符类 [abc] [^abc] [a-z]
+│   ├── 量词 * + ? {n} {n,} {n,m}
+│   ├── 贪婪 / 非贪婪 (+? *? ??)
+│   └── 锚点 ^ $ \b \B
+├── 分组与捕获
+│   ├── () 捕获组
+│   ├── (?:) 非捕获组
+│   ├── (?&lt;name&gt;) 命名捕获
+│   └── \1 \2 反向引用
+├── 断言 (零宽度)
+│   ├── (?=) 正向先行
+│   ├── (?!) 负向先行
+│   ├── (?&lt;=) 正向后行
+│   └── (?&lt;!) 负向后行
+├── 标志
+│   ├── g i m s u y
+│   └── lastIndex 状态
+└── JS API
+    ├── RegExp: test() exec()
+    ├── String: match() matchAll()
+    ├── String: replace() replaceAll()
+    └── String: search() split()</code></pre>
+
+<h2>九、举一反三</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>正则模式</th>
+<th>说明</th>
+</tr></thead><tbody>
+<tr>
+<td>手机号</td>
+<td><code>^1[3-9]\d{9}$</code></td>
+<td>中国11位手机</td>
+</tr>
+<tr>
+<td>邮箱</td>
+<td><code>^[\w.-]+@[\w.-]+\.\w{2,}$</code></td>
+<td>常用校验</td>
+</tr>
+<tr>
+<td>IPv4</td>
+<td><code>^(\d{1,3}\.){3}\d{1,3}$</code></td>
+<td>简单匹配</td>
+</tr>
+<tr>
+<td>去除首尾空格</td>
+<td>`^\s+\</td>
+<td>\s+$`</td>
+<td>或用 <code>String.trim()</code></td>
+</tr>
+<tr>
+<td>千分位</td>
+<td><code>/\B(?=(\d{3})+(?!\d))/g</code></td>
+<td>数字格式化</td>
+</tr>
+<tr>
+<td>HTML 标签剥离</td>
+<td><code>/<[^>]+>/g</code></td>
+<td>简单场景可用</td>
+</tr>
+</tbody></table>
+
+<h2>十、参考资料</h2>
+
+<ul>
+<li><a href="https://developer.mozilla.org/zh-CN/docs/Web/JavaScript/Reference/Global_Objects/RegExp">MDN - RegExp</a></li>
+<li><a href="https://regex101.com/">Regex101</a> — 在线测试工具</li>
+<li><a href="https://javascript.info/regular-expressions">JavaScript.info - Regular expressions</a></li>
+
+<h2>十一、代码演进</h2>
+
+<pre><code class="language-javascript">// v1: Basic match and replace
+const str = &#x27;Hello World&#x27;;
+str.match(/World/); // [&#x27;World&#x27;]
+str.replace(/World/, &#x27;JS&#x27;); // &#x27;Hello JS&#x27;
+
+// v2: Named groups + flags
+const re = /(?&lt;year&gt;\d{4})-(?&lt;month&gt;\d{2})-(?&lt;day&gt;\d{2})/;
+const { year, month, day } = re.exec(&#x27;2024-01-15&#x27;).groups;
+
+// v3: Reusable pattern library with builder
+class RegexBuilder {
+  #pattern = &#x27;&#x27;;
+  #flags = &#x27;&#x27;;
+
+  start() { this.#pattern += &#x27;^&#x27;; return this; }
+  end() { this.#pattern += &#x27;$&#x27;; return this; }
+  digits(n) { this.#pattern += n ? `\\d{${n}}` : &#x27;\\d+&#x27;; return this; }
+  literal(s) { this.#pattern += s.replace(/[.*+?^${}()|[\]\\]/g, &#x27;\\$&amp;&#x27;); return this; }
+  group(fn) { this.#pattern += &#x27;(&#x27;; fn(this); this.#pattern += &#x27;)&#x27;; return this; }
+  flags(f) { this.#flags = f; return this; }
+  build() { return new RegExp(this.#pattern, this.#flags); }
+}
+
+// Build: ^\d{4}-\d{2}-\d{2}$
+const dateRe = new RegexBuilder()
+  .start().digits(4).literal(&#x27;-&#x27;).digits(2).literal(&#x27;-&#x27;).digits(2).end()
+  .build();
+console.log(dateRe.test(&#x27;2024-01-15&#x27;)); // true</code></pre>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

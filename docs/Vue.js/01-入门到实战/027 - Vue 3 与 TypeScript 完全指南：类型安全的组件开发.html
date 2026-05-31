@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>027 - Vue 3 与 TypeScript 完全指南：类型安全的组件开发</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Vue.js/index.html">Vue.js</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Vue.js/01-入门到实战/index.html">Vue.js入门到实战</a>
+</nav>
+<h1>027 - Vue 3 与 TypeScript 完全指南：类型安全的组件开发</h1>
+<div class="meta">
+<span>📂 Vue.js入门到实战</span>
+<span>🏷️ Vue.js</span>
+</div>
+<article>
+
+
+<h2>难度标注</h2>
+
+<blockquote><p><strong>难度：⭐⭐⭐⭐（中高级）</strong><br>前置知识：TypeScript基础、Vue 3 Composition API<br>适合人群：想在Vue项目中引入TypeScript、提升代码质量的开发者</p></blockquote>
+
+<hr>
+
+<h2>概念讲解</h2>
+
+<h3>为什么Vue 3 + TypeScript？</h3>
+
+<p>Vue 3的源码本身就是用TypeScript重写的，从底层提供了完整的类型支持。与Vue 2 + <code>vue-class-component</code> 的"外挂"方式不同，Vue 3的TS集成是<strong>原生级别</strong>的。</p>
+
+<h3>核心类型工具</h3>
+
+<table><thead><tr>
+<th>工具</th>
+<th>用途</th>
+</tr></thead><tbody>
+<tr>
+<td><code>defineProps<T>()</code></td>
+<td>Props类型定义</td>
+</tr>
+<tr>
+<td><code>defineEmits<T>()</code></td>
+<td>Emits类型定义</td>
+</tr>
+<tr>
+<td><code>ref<T>()</code></td>
+<td>指定ref的值类型</td>
+</tr>
+<tr>
+<td><code>computed<T>()</code></td>
+<td>指定计算属性返回类型</td>
+</tr>
+<tr>
+<td><code>PropType<T></code></td>
+<td>复杂Props类型</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>脑图</h2>
+
+<pre><code>Vue 3 + TypeScript
+├── 组件类型
+│   ├── defineProps&lt;{}&gt;()
+│   ├── defineEmits&lt;{}&gt;()
+│   └── withDefaults()
+├── 响应式类型
+│   ├── Ref&lt;T&gt;
+│   ├── reactive() 自动推导
+│   └── computed&lt;T&gt;()
+└── 常见类型
+    ├── PropType&lt;T&gt; 复杂props
+    └── ComponentPublicInstance</code></pre>
+
+<hr>
+
+<h2>完整代码示例</h2>
+
+<pre><code class="language-vue">&lt;!-- TypeScriptDemo.vue --&gt;
+&lt;template&gt;
+  &lt;div class=&quot;ts-demo&quot;&gt;
+    &lt;h2&gt;Vue 3 + TypeScript 类型演示&lt;/h2&gt;
+
+    &lt;section&gt;
+      &lt;h3&gt;1. Props 类型系统&lt;/h3&gt;
+      &lt;p&gt;用户: {{ user.name }} ({{ user.role }})&lt;/p&gt;
+    &lt;/section&gt;
+
+    &lt;section&gt;
+      &lt;h3&gt;2. Emits 类型约束&lt;/h3&gt;
+      &lt;button @click=&quot;handleUpdate&quot;&gt;触发更新&lt;/button&gt;
+      &lt;p&gt;{{ emitLog }}&lt;/p&gt;
+    &lt;/section&gt;
+  &lt;/div&gt;
+&lt;/template&gt;
+
+&lt;script setup lang=&quot;ts&quot;&gt;
+import { ref } from &#x27;vue&#x27;
+
+interface User {
+  name: string
+  age: number
+  role: &#x27;admin&#x27; | &#x27;editor&#x27; | &#x27;viewer&#x27;
+}
+
+const props = withDefaults(defineProps&lt;{
+  user: User
+  tags?: string[]
+}&gt;(), {
+  tags: () =&gt; [&#x27;Vue&#x27;, &#x27;TypeScript&#x27;]
+})
+
+const emit = defineEmits&lt;{
+  update: [id: number, data: Partial&lt;User&gt;]
+  delete: [id: number]
+}&gt;()
+
+const emitLog = ref(&#x27;等待操作...&#x27;)
+
+function handleUpdate() {
+  emit(&#x27;update&#x27;, 1, { name: &#x27;Updated&#x27; })
+  emitLog.value = &#x27;已触发 update 事件&#x27;
+}
+&lt;/script&gt;</code></pre>
+
+<hr>
+
+<h2>执行预览</h2>
+
+<pre><code>页面加载后，显示用户信息</code></pre>
+
+<hr>
+
+<h2>注意事项</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>注意点</th>
+<th>解决方案</th>
+</tr></thead><tbody>
+<tr>
+<td>reactive类型</td>
+<td>自动推导可能不够精确</td>
+<td>显式标注 <code>reactive<User>(...)</code></td>
+</tr>
+<tr>
+<td>ref初始null</td>
+<td><code>ref(null)</code> 类型为 <code>Ref<null></code></td>
+<td>用 `ref<HTMLInputElement \</td>
+<td>null>(null)`</td>
+</tr>
+<tr>
+<td>Props默认值</td>
+<td><code>defineProps</code> 泛型形式无默认值</td>
+<td>用 <code>withDefaults()</code> 包装</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>避坑指南</h2>
+
+<h3>❌ Props 不用 withDefaults</h3>
+<pre><code class="language-typescript">// ❌ 泛型props没有默认值
+defineProps&lt;{ count?: number }&gt;()</code></pre>
+<pre><code class="language-typescript">// ✅ 用 withDefaults 设置默认值
+withDefaults(defineProps&lt;{ count?: number }&gt;(), {
+  count: 0
+})</code></pre>
+
+<hr>
+
+<h2>练习题</h2>
+
+<h3>🟢 初级</h3>
+<ol>
+<li><strong>选择题</strong>：<code><script setup></code> 中声明Props类型用什么？</li>
+<li>A. <code>props: { ... }</code></li>
+<li>B. <code>defineProps<{}>()</code></li>
+<li>C. <code>interface Props</code></li>
+
+<p><details><summary>答案</summary>B</details></p>
+
+<hr>
+
+<h2>知识点总结</h2>
+
+<pre><code>Vue 3 + TS 知识树
+├── 组件类型
+│   ├── defineProps&lt;T&gt;()
+│   ├── defineEmits&lt;T&gt;()
+│   └── withDefaults()
+├── 响应式类型
+│   ├── Ref&lt;T&gt; / ref&lt;T&gt;()
+│   └── reactive (自动推导)
+└── 工具类型
+    └── PropType&lt;T&gt;</code></pre>
+
+<hr>
+
+<h2>举一反三</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>TS方案</th>
+</tr></thead><tbody>
+<tr>
+<td>Props定义</td>
+<td><code>defineProps<T>()</code></td>
+</tr>
+<tr>
+<td>API响应类型</td>
+<td>泛型fetch封装</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>参考资料</h2>
+
+<ul>
+<li><a href="https://cn.vuejs.org/guide/typescript/overview.html">Vue 3 官方文档 - TypeScript支持</a></li>
+
+<hr>
+
+<h2>代码演进</h2>
+
+<h3>v1：运行时Props声明</h3>
+<pre><code class="language-javascript">defineProps({
+  count: { type: Number, default: 0 }
+})</code></pre>
+
+<h3>v2：泛型Props + withDefaults</h3>
+<pre><code class="language-typescript">withDefaults(defineProps&lt;{
+  count?: number
+}&gt;(), { count: 0 })</code></pre>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

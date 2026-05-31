@@ -1,0 +1,620 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>016 - Python 创建型设计模式详解：单例、工厂、抽象工厂、建造者、原型</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Python/index.html">其他</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Python/02-进阶/index.html">Python进阶</a>
+</nav>
+<h1>016 - Python 创建型设计模式详解：单例、工厂、抽象工厂、建造者、原型</h1>
+<div class="meta">
+<span>📂 Python进阶</span>
+<span>🏷️ 其他</span>
+</div>
+<article>
+
+
+<h1>创建型设计模式</h1>
+
+<blockquote><p><strong>难度：★★★☆☆ 中高级</strong><br>Python 中实现创建型设计模式的实用指南，涵盖单例、工厂、抽象工厂、建造者、原型五大模式。</p></blockquote>
+
+<h2>一、概念讲解</h2>
+
+<p>创建型设计模式关注"如何创建对象"，将对象的创建与使用分离，让系统不依赖于具体类的实例化方式。Python 作为动态语言，很多模式可以用更简洁的方式实现。</p>
+
+<p><strong>五大创建型模式概览：</strong></p>
+
+<table><thead><tr>
+<th>模式</th>
+<th>核心思想</th>
+<th>适用场景</th>
+</tr></thead><tbody>
+<tr>
+<td>单例(Singleton)</td>
+<td>全局唯一实例</td>
+<td>配置管理、连接池</td>
+</tr>
+<tr>
+<td>工厂方法(Factory Method)</td>
+<td>子类决定创建哪个类</td>
+<td>日志框架、插件系统</td>
+</tr>
+<tr>
+<td>抽象工厂(Abstract Factory)</td>
+<td>创建一组相关对象</td>
+<td>跨平台UI组件</td>
+</tr>
+<tr>
+<td>建造者(Builder)</td>
+<td>分步骤构建复杂对象</td>
+<td>SQL构建、配置组装</td>
+</tr>
+<tr>
+<td>原型(Prototype)</td>
+<td>克隆已有对象</td>
+<td>批量复制、快照</td>
+</tr>
+</tbody></table>
+
+<h2>二、脑图</h2>
+
+<pre><code>创建型模式
+├── 单例 Singleton
+│   ├── 模块级单例
+│   ├── 装饰器实现
+│   └── 元类实现
+├── 工厂方法 Factory Method
+│   ├── 简单工厂
+│   └── 工厂方法
+├── 抽象工厂 Abstract Factory
+│   └── 产品族
+├── 建造者 Builder
+│   ├── 链式调用
+│   └── Director 协调
+└── 原型 Prototype
+    ├── copy.copy
+    └── copy.deepcopy</code></pre>
+
+<h2>三、完整代码</h2>
+
+<h3>3.1 单例模式（三种实现）</h3>
+
+<pre><code class="language-python">&quot;&quot;&quot;Singleton pattern - three Python implementations.&quot;&quot;&quot;
+
+# --- v1: Module-level singleton (simplest) ---
+# In Python, modules are naturally singletons
+# config.py
+class _Config:
+    def __init__(self):
+        self.debug = False
+        self.database_url = &quot;sqlite:///default.db&quot;
+
+config = _Config()  # Module import returns same object
+
+
+# --- v2: Decorator-based singleton ---
+def singleton(cls):
+    &quot;&quot;&quot;Decorator that ensures only one instance exists.&quot;&quot;&quot;
+    _instances = {}
+
+    def get_instance(*args, **kwargs):
+        if cls not in _instances:
+            _instances[cls] = cls(*args, **kwargs)
+        return _instances[cls]
+
+    return get_instance
+
+
+@singleton
+class DatabaseConnection:
+    def __init__(self, host=&quot;localhost&quot;):
+        self.host = host
+        print(f&quot;Connecting to {host}...&quot;)
+
+
+# --- v3: Metaclass-based singleton (most elegant) ---
+class SingletonMeta(type):
+    &quot;&quot;&quot;Metaclass for singleton pattern with thread safety.&quot;&quot;&quot;
+    _instances = {}
+
+    def __call__(cls, *args, **kwargs):
+        if cls not in cls._instances:
+            cls._instances[cls] = super().__call__(*args, **kwargs)
+        return cls._instances[cls]
+
+
+class Logger(metaclass=SingletonMeta):
+    def __init__(self, level=&quot;INFO&quot;):
+        self.level = level
+        self.logs = []
+
+    def log(self, message):
+        self.logs.append(f&quot;[{self.level}] {message}&quot;)</code></pre>
+
+<h3>3.2 工厂方法模式</h3>
+
+<pre><code class="language-python">&quot;&quot;&quot;Factory Method pattern - document exporters.&quot;&quot;&quot;
+
+from abc import ABC, abstractmethod
+from pathlib import Path
+
+
+# Abstract product
+class DocumentExporter(ABC):
+    @abstractmethod
+    def export(self, content: str, filename: str) -&gt; str:
+        pass
+
+
+# Concrete products
+class PDFExporter(DocumentExporter):
+    def export(self, content: str, filename: str) -&gt; str:
+        output = f&quot;{Path(filename).stem}.pdf&quot;
+        print(f&quot;Generating PDF: {output}&quot;)
+        return output
+
+
+class MarkdownExporter(DocumentExporter):
+    def export(self, content: str, filename: str) -&gt; str:
+        output = f&quot;{Path(filename).stem}.md&quot;
+        print(f&quot;Generating Markdown: {output}&quot;)
+        return output
+
+
+class HTMLExporter(DocumentExporter):
+    def export(self, content: str, filename: str) -&gt; str:
+        output = f&quot;{Path(filename).stem}.html&quot;
+        print(f&quot;Generating HTML: {output}&quot;)
+        return output
+
+
+# Creator with factory method
+class ExportService:
+    &quot;&quot;&quot;Service that uses factory method to create exporters.&quot;&quot;&quot;
+
+    _registry: dict[str, type[DocumentExporter]] = {
+        &quot;pdf&quot;: PDFExporter,
+        &quot;markdown&quot;: MarkdownExporter,
+        &quot;html&quot;: HTMLExporter,
+    }
+
+    def export(self, format: str, content: str, filename: str) -&gt; str:
+        exporter_cls = self._registry.get(format)
+        if not exporter_cls:
+            raise ValueError(f&quot;Unknown format: {format}&quot;)
+        exporter = exporter_cls()
+        return exporter.export(content, filename)
+
+    @classmethod
+    def register(cls, format: str, exporter_cls: type):
+        &quot;&quot;&quot;Allow registering new exporters dynamically.&quot;&quot;&quot;
+        cls._registry[format] = exporter_cls</code></pre>
+
+<h3>3.3 抽象工厂模式</h3>
+
+<pre><code class="language-python">&quot;&quot;&quot;Abstract Factory pattern - cross-platform UI components.&quot;&quot;&quot;
+
+from abc import ABC, abstractmethod
+
+
+class Button(ABC):
+    @abstractmethod
+    def render(self) -&gt; str: pass
+
+
+class TextBox(ABC):
+    @abstractmethod
+    def render(self) -&gt; str: pass
+
+
+# Windows family
+class WindowsButton(Button):
+    def render(self) -&gt; str:
+        return &quot;[Windows Button]&quot;
+
+
+class WindowsTextBox(TextBox):
+    def render(self) -&gt; str:
+        return &quot;[Windows TextBox]&quot;
+
+
+# macOS family
+class MacOSButton(Button):
+    def render(self) -&gt; str:
+        return &quot;(macOS Button)&quot;
+
+
+class MacOSTextBox(TextBox):
+    def render(self) -&gt; str:
+        return &quot;(macOS TextBox)&quot;
+
+
+# Abstract factory
+class UIFactory(ABC):
+    @abstractmethod
+    def create_button(self) -&gt; Button: pass
+
+    @abstractmethod
+    def create_textbox(self) -&gt; TextBox: pass
+
+
+class WindowsFactory(UIFactory):
+    def create_button(self) -&gt; Button:
+        return WindowsButton()
+
+    def create_textbox(self) -&gt; TextBox:
+        return WindowsTextBox()
+
+
+class MacOSFactory(UIFactory):
+    def create_button(self) -&gt; Button:
+        return MacOSButton()
+
+    def create_textbox(self) -&gt; TextBox:
+        return MacOSTextBox()
+
+
+# Client code
+def build_ui(factory: UIFactory) -&gt; list[str]:
+    &quot;&quot;&quot;Build UI components using the given factory.&quot;&quot;&quot;
+    button = factory.create_button()
+    textbox = factory.create_textbox()
+    return [button.render(), textbox.render()]</code></pre>
+
+<h3>3.4 建造者模式</h3>
+
+<pre><code class="language-python">&quot;&quot;&quot;Builder pattern - SQL query builder with fluent API.&quot;&quot;&quot;
+
+
+class QueryBuilder:
+    &quot;&quot;&quot;Build SQL queries step by step with method chaining.&quot;&quot;&quot;
+
+    def __init__(self):
+        self._table = &quot;&quot;
+        self._select_cols: list[str] = []
+        self._where_clauses: list[str] = []
+        self._order_by = &quot;&quot;
+        self._limit_val = 0
+
+    def select(self, *columns: str) -&gt; &quot;QueryBuilder&quot;:
+        self._select_cols = list(columns) if columns else [&quot;*&quot;]
+        return self
+
+    def from_table(self, name: str) -&gt; &quot;QueryBuilder&quot;:
+        self._table = name
+        return self
+
+    def where(self, condition: str) -&gt; &quot;QueryBuilder&quot;:
+        self._where_clauses.append(condition)
+        return self
+
+    def order_by(self, column: str) -&gt; &quot;QueryBuilder&quot;:
+        self._order_by = column
+        return self
+
+    def limit(self, n: int) -&gt; &quot;QueryBuilder&quot;:
+        self._limit_val = n
+        return self
+
+    def build(self) -&gt; str:
+        if not self._table:
+            raise ValueError(&quot;Table name is required&quot;)
+
+        cols = &quot;, &quot;.join(self._select_cols)
+        sql = f&quot;SELECT {cols} FROM {self._table}&quot;
+
+        if self._where_clauses:
+            sql += &quot; WHERE &quot; + &quot; AND &quot;.join(self._where_clauses)
+        if self._order_by:
+            sql += f&quot; ORDER BY {self._order_by}&quot;
+        if self._limit_val:
+            sql += f&quot; LIMIT {self._limit_val}&quot;
+
+        return sql</code></pre>
+
+<h3>3.5 原型模式</h3>
+
+<pre><code class="language-python">&quot;&quot;&quot;Prototype pattern - deep copy for object cloning.&quot;&quot;&quot;
+
+import copy
+from dataclasses import dataclass, field
+from typing import Any
+
+
+@dataclass
+class Graphic:
+    &quot;&quot;&quot;A graphic element that can be cloned efficiently.&quot;&quot;&quot;
+    name: str
+    x: int = 0
+    y: int = 0
+    styles: dict[str, Any] = field(default_factory=dict)
+    children: list[&quot;Graphic&quot;] = field(default_factory=list)
+
+    def clone(self) -&gt; &quot;Graphic&quot;:
+        &quot;&quot;&quot;Deep copy to preserve nested structures.&quot;&quot;&quot;
+        return copy.deepcopy(self)
+
+    def __repr__(self):
+        return f&quot;Graphic({self.name!r}, pos=({self.x},{self.y}))&quot;
+
+
+# Demo: clone a complex template
+def demo_prototype():
+    template = Graphic(
+        name=&quot;button_template&quot;,
+        styles={&quot;color&quot;: &quot;blue&quot;, &quot;font&quot;: &quot;Arial&quot;},
+        children=[
+            Graphic(name=&quot;icon&quot;, x=5, y=5),
+            Graphic(name=&quot;label&quot;, x=20, y=5),
+        ],
+    )
+
+    submit_btn = template.clone()
+    submit_btn.name = &quot;submit_button&quot;
+    submit_btn.styles[&quot;color&quot;] = &quot;green&quot;
+
+    cancel_btn = template.clone()
+    cancel_btn.name = &quot;cancel_button&quot;
+    cancel_btn.styles[&quot;color&quot;] = &quot;red&quot;
+
+    return template, submit_btn, cancel_btn</code></pre>
+
+<h2>四、执行预览</h2>
+
+<pre><code class="language-text"># Singleton test
+&gt;&gt;&gt; db1 = DatabaseConnection(host=&quot;prod.db&quot;)
+Connecting to prod.db...
+&gt;&gt;&gt; db2 = DatabaseConnection(host=&quot;test.db&quot;)  # No new connection!
+&gt;&gt;&gt; db1 is db2
+True
+
+# Factory test
+&gt;&gt;&gt; service = ExportService()
+&gt;&gt;&gt; service.export(&quot;pdf&quot;, &quot;Hello World&quot;, &quot;report.txt&quot;)
+Generating PDF: report.pdf
+
+# Abstract Factory test
+&gt;&gt;&gt; build_ui(WindowsFactory())
+[&#x27;[Windows Button]&#x27;, &#x27;[Windows TextBox]&#x27;]
+&gt;&gt;&gt; build_ui(MacOSFactory())
+[&#x27;(macOS Button)&#x27;, &#x27;(macOS TextBox)&#x27;]
+
+# Builder test
+&gt;&gt;&gt; QueryBuilder().select(&quot;name&quot;, &quot;age&quot;).from_table(&quot;users&quot;) \
+...   .where(&quot;age &gt; 18&quot;).order_by(&quot;name&quot;).limit(10).build()
+&#x27;SELECT name, age FROM users WHERE age &gt; 18 ORDER BY name LIMIT 10&#x27;
+
+# Prototype test
+&gt;&gt;&gt; tmpl, s, c = demo_prototype()
+&gt;&gt;&gt; s.styles[&#x27;color&#x27;]
+&#x27;green&#x27;
+&gt;&gt;&gt; tmpl.styles[&#x27;color&#x27;]  # Original unchanged
+&#x27;blue&#x27;</code></pre>
+
+<h2>五、注意事项</h2>
+
+<table><thead><tr>
+<th>要点</th>
+<th>说明</th>
+</tr></thead><tbody>
+<tr>
+<td>线程安全</td>
+<td>单例模式需注意多线程场景，建议用 <code>threading.Lock</code></td>
+</tr>
+<tr>
+<td>过度使用</td>
+<td>不是所有对象都需要设计模式，简单场景直接 <code>__init__</code></td>
+</tr>
+<tr>
+<td>Python 简化</td>
+<td>动态类型让很多模式可以更简单，不必照搬 Java</td>
+</tr>
+<tr>
+<td>deepcopy 性能</td>
+<td>原型模式的 <code>deepcopy</code> 对大对象较慢，慎用</td>
+</tr>
+<tr>
+<td>工厂注册表</td>
+<td>用字典注册比 if-else 更 Pythonic</td>
+</tr>
+</tbody></table>
+
+<h2>六、避坑指南</h2>
+
+<table><thead><tr>
+<th>❌ 错误做法</th>
+<th>✅ 正确做法</th>
+</tr></thead><tbody>
+<tr>
+<td>用全局变量实现单例</td>
+<td>用模块或元类，更清晰</td>
+</tr>
+<tr>
+<td>工厂里写死所有分支</td>
+<td>用注册表模式，支持动态扩展</td>
+</tr>
+<tr>
+<td>每个场景都用建造者</td>
+<td>只有复杂对象才需要分步构建</td>
+</tr>
+<tr>
+<td><code>copy.copy()</code> 浅拷贝嵌套结构</td>
+<td>用 <code>copy.deepcopy()</code> 确保独立</td>
+</tr>
+<tr>
+<td>抽象工厂只有一个产品族</td>
+<td>单产品族用工厂方法就够了</td>
+</tr>
+</tbody></table>
+
+<h2>七、练习题</h2>
+
+<h3>🟢 入门</h3>
+<ol>
+<li>用装饰器实现一个线程安全的单例</li>
+</ul>
+<ol>
+<li>创建一个 <code>ShapeFactory</code>，能生成 Circle、Rectangle、Triangle</li>
+
+<h3>🟡 进阶</h3>
+<ol>
+<li>实现一个 <code>QueryBuilder</code> 支持 JOIN 和 GROUP BY</li>
+</ul>
+<ol>
+<li>用原型模式实现文档模板系统，支持嵌套段落克隆</li>
+
+<h3>🔴 挑战</h3>
+<ol>
+<li>实现一个通用的抽象工厂框架，支持通过配置文件动态加载产品族</li>
+</ul>
+<ol>
+<li>结合注册表模式和工厂方法，实现一个插件系统，支持运行时注册新类型</li>
+
+<h2>八、知识点总结</h2>
+
+<pre><code>创建型模式
+├── 单例
+│   ├── 模块级 ✓ 推荐
+│   ├── 装饰器
+│   └── 元类 ✓ 线程安全
+├── 工厂方法
+│   ├── 简单工厂 (if/else)
+│   └── 注册表工厂 ✓ 可扩展
+├── 抽象工厂
+│   └── 产品族创建
+├── 建造者
+│   └── 链式调用 ✓ 流畅API
+└── 原型
+    ├── shallow copy
+    └── deep copy ✓ 推荐</code></pre>
+
+<h2>九、举一反三</h2>
+
+<table><thead><tr>
+<th>模式</th>
+<th>Python 标准库实例</th>
+<th>实际应用</th>
+</tr></thead><tbody>
+<tr>
+<td>单例</td>
+<td><code>logging.Logger</code></td>
+<td>全局配置、缓存</td>
+</tr>
+<tr>
+<td>工厂方法</td>
+<td><code>json.JSONDecoder</code></td>
+<td>消息解析、插件加载</td>
+</tr>
+<tr>
+<td>抽象工厂</td>
+<td><code>tkinter</code> 的 Widget</td>
+<td>多主题 UI、跨平台适配</td>
+</tr>
+<tr>
+<td>建造者</td>
+<td><code>email.mime</code> 构建邮件</td>
+<td>SQL构建、HTTP请求构建</td>
+</tr>
+<tr>
+<td>原型</td>
+<td><code>copy</code> 模块</td>
+<td>撤销/重做、游戏存档</td>
+</tr>
+</tbody></table>
+
+<h2>十、参考资料</h2>
+
+<ul>
+<li>《Design Patterns》- GoF 四人帮经典</li>
+<li>《Python 设计模式》- Dusty Phillips</li>
+<li><a href="https://docs.python.org/3/library/copy.html">Python docs - copy module</a></li>
+<li><a href="https://refactoring.guru/design-patterns/creational-patterns">Refactoring Guru - Creational Patterns</a></li>
+
+<h2>十一、代码演进：单例模式的进化</h2>
+
+<pre><code class="language-python"># v1: Naive approach - not thread safe
+class SingletonV1:
+    _instance = None
+
+    def __new__(cls):
+        if cls._instance is None:
+            cls._instance = super().__new__(cls)
+        return cls._instance
+
+
+# v2: Module-level singleton (Pythonic)
+# just use a module! myconfig.py with module-level variables
+
+
+# v3: Thread-safe with lock
+import threading
+
+class SingletonV3:
+    _instance = None
+    _lock = threading.Lock()
+
+    def __new__(cls):
+        with cls._lock:
+            if cls._instance is None:
+                cls._instance = super().__new__(cls)
+        return cls._instance</code></pre>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

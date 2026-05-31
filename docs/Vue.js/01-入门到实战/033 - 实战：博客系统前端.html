@@ -1,0 +1,602 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>033 - 实战：博客系统前端</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Vue.js/index.html">Vue.js</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Vue.js/01-入门到实战/index.html">Vue.js入门到实战</a>
+</nav>
+<h1>033 - 实战：博客系统前端</h1>
+<div class="meta">
+<span>📂 Vue.js入门到实战</span>
+<span>🏷️ Vue.js</span>
+</div>
+<article>
+
+
+
+<h2>难度标注</h2>
+<blockquote><p><strong>难度：🟡 中高级</strong> | <strong>前置知识：Vue Router、Pinia、API集成</strong> | <strong>预计学习时间：90 分钟</strong></p></blockquote>
+
+<h2>概念讲解</h2>
+
+<h3>博客系统前端架构</h3>
+
+<p>博客前端是一个经典的 CRUD 应用，但涉及的技术点非常全面：</p>
+
+<ul>
+<li><strong>内容展示</strong>：Markdown 渲染、代码高亮、目录导航</li>
+<li><strong>数据筛选</strong>：分类、标签、搜索、分页</li>
+<li><strong>状态管理</strong>：文章缓存、用户状态、UI 状态</li>
+<li><strong>性能优化</strong>：组件懒加载、图片懒加载、SEO</li>
+
+<h3>技术选型</h3>
+
+<table><thead><tr>
+<th>模块</th>
+<th>技术</th>
+<th>理由</th>
+</tr></thead><tbody>
+<tr>
+<td>框架</td>
+<td>Vue 3 + TypeScript</td>
+<td>类型安全、Composition API</td>
+</tr>
+<tr>
+<td>路由</td>
+<td>Vue Router 4</td>
+<td>官方方案，足够成熟</td>
+</tr>
+<tr>
+<td>状态管理</td>
+<td>Pinia</td>
+<td>轻量、TypeScript 友好</td>
+</tr>
+<tr>
+<td>UI 组件</td>
+<td>Element Plus</td>
+<td>后台管理场景</td>
+</tr>
+<tr>
+<td>Markdown</td>
+<td>markdown-it + highlight.js</td>
+<td>可扩展、高性能</td>
+</tr>
+<tr>
+<td>HTTP</td>
+<td>Axios</td>
+<td>拦截器、取消请求</td>
+</tr>
+<tr>
+<td>构建工具</td>
+<td>Vite</td>
+<td>开发体验极佳</td>
+</tr>
+</tbody></table>
+
+<h2>脑图</h2>
+
+<pre><code>博客前端系统
+├── 页面
+│   ├── 首页 (文章列表)
+│   ├── 文章详情
+│   ├── 分类页
+│   ├── 标签页
+│   ├── 搜索页
+│   └── 关于页
+├── 功能模块
+│   ├── Markdown 渲染
+│   ├── 代码高亮
+│   ├── 目录导航 (TOC)
+│   ├── 文章搜索
+│   ├── 分页加载
+│   └── 响应式布局
+├── 状态管理
+│   ├── 文章缓存
+│   ├── 分类/标签列表
+│   └── UI 状态
+└── 性能优化
+    ├── 路由懒加载
+    ├── 图片懒加载
+    └── Markdown 预渲染</code></pre>
+
+<h2>完整代码</h2>
+
+<h3>路由配置</h3>
+
+<pre><code class="language-ts">// src/router/index.ts
+import { createRouter, createWebHistory } from &#x27;vue-router&#x27;
+
+const router = createRouter({
+  history: createWebHistory(),
+  routes: [
+    {
+      path: &#x27;/&#x27;,
+      component: () =&gt; import(&#x27;@/layouts/BlogLayout.vue&#x27;),
+      children: [
+        { path: &#x27;&#x27;, name: &#x27;home&#x27;, component: () =&gt; import(&#x27;@/views/Home.vue&#x27;) },
+        { path: &#x27;post/:slug&#x27;, name: &#x27;post&#x27;, component: () =&gt; import(&#x27;@/views/PostDetail.vue&#x27;) },
+        { path: &#x27;category/:slug&#x27;, name: &#x27;category&#x27;, component: () =&gt; import(&#x27;@/views/Category.vue&#x27;) },
+        { path: &#x27;tag/:slug&#x27;, name: &#x27;tag&#x27;, component: () =&gt; import(&#x27;@/views/Tag.vue&#x27;) },
+        { path: &#x27;search&#x27;, name: &#x27;search&#x27;, component: () =&gt; import(&#x27;@/views/Search.vue&#x27;) },
+        { path: &#x27;about&#x27;, name: &#x27;about&#x27;, component: () =&gt; import(&#x27;@/views/About.vue&#x27;) }
+      ]
+    }
+  ],
+  scrollBehavior() {
+    return { top: 0 }
+  }
+})
+
+export default router</code></pre>
+
+<h3>文章 Store</h3>
+
+<pre><code class="language-ts">// src/stores/post.ts
+import { defineStore } from &#x27;pinia&#x27;
+import { ref } from &#x27;vue&#x27;
+import { postApi, type Post, type PostListParams } from &#x27;@/api/post&#x27;
+
+export const usePostStore = defineStore(&#x27;post&#x27;, () =&gt; {
+  // Cache fetched posts by slug
+  const cache = ref&lt;Map&lt;string, Post&gt;&gt;(new Map())
+  const currentPost = ref&lt;Post | null&gt;(null)
+
+  async function fetchList(params: PostListParams) {
+    const res = await postApi.getList(params)
+    return res
+  }
+
+  async function fetchBySlug(slug: string) {
+    // Check cache first
+    if (cache.value.has(slug)) {
+      currentPost.value = cache.value.get(slug)!
+      return currentPost.value
+    }
+    const post = await postApi.getBySlug(slug)
+    cache.value.set(slug, post)
+    currentPost.value = post
+    return post
+  }
+
+  function clearCache() {
+    cache.value.clear()
+  }
+
+  return { currentPost, fetchList, fetchBySlug, clearCache }
+})</code></pre>
+
+<h3>Markdown 渲染工具</h3>
+
+<pre><code class="language-ts">// src/utils/markdown.ts
+import MarkdownIt from &#x27;markdown-it&#x27;
+import hljs from &#x27;highlight.js&#x27;
+import toc from &#x27;markdown-it-table-of-contents&#x27;
+
+const md = new MarkdownIt({
+  html: true,
+  linkify: true,
+  // Custom code highlighting
+  highlight(str: string, lang: string) {
+    if (lang &amp;&amp; hljs.getLanguage(lang)) {
+      try {
+        return `&lt;pre class=&quot;hljs&quot;&gt;&lt;code&gt;${hljs.highlight(str, { language: lang }).value}&lt;/code&gt;&lt;/pre&gt;`
+      } catch (_) { /* fallback */ }
+    }
+    return `&lt;pre class=&quot;hljs&quot;&gt;&lt;code&gt;${md.utils.escapeHtml(str)}&lt;/code&gt;&lt;/pre&gt;`
+  }
+})
+
+// Add heading IDs for TOC
+md.use(toc)
+
+// Render markdown to HTML + extract headings for TOC
+export function renderMarkdown(content: string) {
+  const html = md.render(content)
+  const headings = extractHeadings(html)
+  return { html, headings }
+}
+
+// Extract h2/h3 headings for sidebar navigation
+function extractHeadings(html: string) {
+  const regex = /&lt;h([2-3])[^&gt;]*id=&quot;([^&quot;]*)&quot;[^&gt;]*&gt;(.*?)&lt;\/h\1&gt;/g
+  const headings: { level: number; id: string; text: string }[] = []
+  let match
+  while ((match = regex.exec(html)) !== null) {
+    headings.push({
+      level: parseInt(match[1]),
+      id: match[2],
+      text: match[3].replace(/&lt;[^&gt;]*&gt;/g, &#x27;&#x27;) // strip HTML tags
+    })
+  }
+  return headings
+}</code></pre>
+
+<h3>文章详情页</h3>
+
+<pre><code class="language-vue">&lt;!-- src/views/PostDetail.vue --&gt;
+&lt;template&gt;
+  &lt;div class=&quot;post-detail&quot; v-loading=&quot;loading&quot;&gt;
+    &lt;article v-if=&quot;post&quot; class=&quot;post-content&quot;&gt;
+      &lt;header class=&quot;post-header&quot;&gt;
+        &lt;h1 class=&quot;post-title&quot;&gt;{{ post.title }}&lt;/h1&gt;
+        &lt;div class=&quot;post-meta&quot;&gt;
+          &lt;span&gt;{{ formatDate(post.createdAt) }}&lt;/span&gt;
+          &lt;span&gt;·&lt;/span&gt;
+          &lt;router-link :to=&quot;`/category/${post.category.slug}`&quot;&gt;
+            {{ post.category.name }}
+          &lt;/router-link&gt;
+          &lt;span&gt;·&lt;/span&gt;
+          &lt;span&gt;{{ post.readingTime }} min read&lt;/span&gt;
+        &lt;/div&gt;
+        &lt;div class=&quot;post-tags&quot;&gt;
+          &lt;router-link
+            v-for=&quot;tag in post.tags&quot;
+            :key=&quot;tag.slug&quot;
+            :to=&quot;`/tag/${tag.slug}`&quot;
+            class=&quot;tag&quot;
+          &gt;
+            #{{ tag.name }}
+          &lt;/router-link&gt;
+        &lt;/div&gt;
+      &lt;/header&gt;
+
+      &lt;!-- Markdown rendered content --&gt;
+      &lt;div class=&quot;post-body markdown-body&quot; v-html=&quot;renderedHtml&quot; /&gt;
+
+      &lt;footer class=&quot;post-footer&quot;&gt;
+        &lt;h3&gt;Related Posts&lt;/h3&gt;
+        &lt;div class=&quot;related-posts&quot;&gt;
+          &lt;router-link
+            v-for=&quot;related in relatedPosts&quot;
+            :key=&quot;related.slug&quot;
+            :to=&quot;`/post/${related.slug}`&quot;
+            class=&quot;related-card&quot;
+          &gt;
+            &lt;h4&gt;{{ related.title }}&lt;/h4&gt;
+            &lt;p&gt;{{ related.excerpt }}&lt;/p&gt;
+          &lt;/router-link&gt;
+        &lt;/div&gt;
+      &lt;/footer&gt;
+    &lt;/article&gt;
+
+    &lt;!-- TOC Sidebar --&gt;
+    &lt;aside v-if=&quot;headings.length&quot; class=&quot;toc-sidebar&quot;&gt;
+      &lt;h3&gt;Table of Contents&lt;/h3&gt;
+      &lt;nav&gt;
+        &lt;a
+          v-for=&quot;h in headings&quot;
+          :key=&quot;h.id&quot;
+          :href=&quot;`#${h.id}`&quot;
+          :class=&quot;[&#x27;toc-link&#x27;, `toc-h${h.level}`, { active: activeHeading === h.id }]&quot;
+        &gt;
+          {{ h.text }}
+        &lt;/a&gt;
+      &lt;/nav&gt;
+    &lt;/aside&gt;
+  &lt;/div&gt;
+&lt;/template&gt;
+
+&lt;script setup lang=&quot;ts&quot;&gt;
+import { ref, computed, watch, onMounted, onUnmounted } from &#x27;vue&#x27;
+import { useRoute } from &#x27;vue-router&#x27;
+import { usePostStore } from &#x27;@/stores/post&#x27;
+import { renderMarkdown } from &#x27;@/utils/markdown&#x27;
+import { postApi } from &#x27;@/api/post&#x27;
+
+const route = useRoute()
+const postStore = usePostStore()
+
+const loading = ref(false)
+const relatedPosts = ref&lt;any[]&gt;([])
+const activeHeading = ref(&#x27;&#x27;)
+
+// Fetch post data
+const post = computed(() =&gt; postStore.currentPost)
+
+// Render markdown
+const renderedHtml = computed(() =&gt; {
+  if (!post.value?.content) return &#x27;&#x27;
+  return renderMarkdown(post.value.content).html
+})
+
+const headings = computed(() =&gt; {
+  if (!post.value?.content) return []
+  return renderMarkdown(post.value.content).headings
+})
+
+// Load post when slug changes
+async function loadPost(slug: string) {
+  loading.value = true
+  try {
+    await postStore.fetchBySlug(slug)
+    // Load related posts
+    const related = await postApi.getRelated(slug)
+    relatedPosts.value = related
+  } finally {
+    loading.value = false
+  }
+}
+
+watch(() =&gt; route.params.slug, (slug) =&gt; {
+  if (slug) loadPost(slug as string)
+}, { immediate: true })
+
+// Track active heading on scroll
+function handleScroll() {
+  for (const h of headings.value) {
+    const el = document.getElementById(h.id)
+    if (el &amp;&amp; el.getBoundingClientRect().top &gt; 100) break
+    activeHeading.value = h.id
+  }
+}
+
+onMounted(() =&gt; window.addEventListener(&#x27;scroll&#x27;, handleScroll))
+onUnmounted(() =&gt; window.removeEventListener(&#x27;scroll&#x27;, handleScroll))
+
+function formatDate(date: string) {
+  return new Date(date).toLocaleDateString(&#x27;en-US&#x27;, {
+    year: &#x27;numeric&#x27;, month: &#x27;long&#x27;, day: &#x27;numeric&#x27;
+  })
+}
+&lt;/script&gt;
+
+&lt;style scoped&gt;
+.post-detail {
+  display: flex;
+  gap: 2rem;
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 2rem;
+}
+.post-content { flex: 1; min-width: 0; }
+.toc-sidebar {
+  width: 240px;
+  position: sticky;
+  top: 2rem;
+  align-self: flex-start;
+}
+.toc-link { display: block; padding: 4px 0; color: #666; text-decoration: none; }
+.toc-h3 { padding-left: 1rem; }
+.toc-link.active { color: #409eff; font-weight: 600; }
+&lt;/style&gt;</code></pre>
+
+<h2>执行预览</h2>
+
+<pre><code>首页加载
+├── GET /api/posts?page=1&amp;pageSize=10
+├── 渲染文章卡片列表
+└── 侧边栏：分类列表 + 标签云
+
+点击文章 → /post/vue-3-composition-api
+├── GET /api/posts/vue-3-composition-api
+├── Markdown → HTML 渲染
+├── 代码高亮生效
+├── TOC 侧边栏生成
+└── 滚动时高亮当前标题
+
+搜索 &quot;vue&quot;
+├── GET /api/posts?keyword=vue
+└── 展示搜索结果列表</code></pre>
+
+<h2>注意事项</h2>
+
+<table><thead><tr>
+<th>事项</th>
+<th>说明</th>
+<th>建议</th>
+</tr></thead><tbody>
+<tr>
+<td>XSS 安全</td>
+<td>v-html 有注入风险</td>
+<td>后端对 Markdown 内容做 sanitize</td>
+</tr>
+<tr>
+<td>SEO</td>
+<td>SPA 不利 SEO</td>
+<td>考虑 SSR 或预渲染</td>
+</tr>
+<tr>
+<td>图片优化</td>
+<td>博客图片可能很大</td>
+<td>懒加载 + WebP 格式</td>
+</tr>
+<tr>
+<td>代码高亮</td>
+<td>highlight.js 包较大</td>
+<td>按需引入语言包</td>
+</tr>
+<tr>
+<td>TOC 定位</td>
+<td>标题可能动态变化</td>
+<td>用 IntersectionObserver</td>
+</tr>
+<tr>
+<td>缓存策略</td>
+<td>文章内容不常变</td>
+<td>Pinia 缓存 + localStorage</td>
+</tr>
+</tbody></table>
+
+<h2>避坑指南</h2>
+
+<ul>
+<li>❌ 每次进入文章都重新请求 → ✅ Pinia 缓存已加载的文章</li>
+<li>❌ <code>v-html</code> 渲染未过滤的内容 → ✅ 后端 sanitize 或使用 DOMPurify</li>
+<li>❌ 引入全部 highlight.js 语言 → ✅ 只引入需要的语言包</li>
+<li>❌ TOC 用 <code>scroll</code> 事件监听 → ✅ IntersectionObserver 性能更好</li>
+<li>❌ 文章图片不处理 → ✅ 懒加载 + 点击放大</li>
+
+<h2>练习题</h2>
+
+<h3>🟢 基础</h3>
+<ol>
+<li>实现博客首页文章列表，支持分页</li>
+</ul>
+<ol>
+<li>实现文章详情页，Markdown 渲染并显示</li>
+
+<h3>🟡 进阶</h3>
+<ol>
+<li>实现 TOC 侧边栏，滚动时高亮当前章节</li>
+</ul>
+<ol>
+<li>实现搜索功能，支持关键词搜索文章</li>
+
+<h3>🔴 挑战</h3>
+<ol>
+<li>实现文章缓存策略：Pinia + localStorage 持久化</li>
+</ul>
+<ol>
+<li>实现暗黑模式切换，博客主题跟随系统偏好</li>
+
+<h2>知识点总结</h2>
+
+<pre><code>博客前端知识树
+├── 页面结构
+│   ├── 布局组件 (Header/Footer/Sidebar)
+│   ├── 路由配置 (嵌套路由)
+│   └── 响应式适配
+├── 内容渲染
+│   ├── Markdown-it 配置
+│   ├── 代码高亮 (highlight.js)
+│   ├── TOC 生成
+│   └── v-html 安全
+├── 数据管理
+│   ├── Pinia Store (文章缓存)
+│   ├── API 模块化
+│   └── 分页/筛选
+└── 性能优化
+    ├── 路由懒加载
+    ├── 图片懒加载
+    └── 组件按需引入</code></pre>
+
+<h2>举一反三</h2>
+
+<table><thead><tr>
+<th>功能</th>
+<th>实现方式</th>
+<th>关键点</th>
+</tr></thead><tbody>
+<tr>
+<td>文章列表</td>
+<td>分页 API + 卡片组件</td>
+<td>usePagination composable</td>
+</tr>
+<tr>
+<td>文章详情</td>
+<td>Markdown 渲染 + TOC</td>
+<td>markdown-it + heading extraction</td>
+</tr>
+<tr>
+<td>分类筛选</td>
+<td>路由参数 + API 过滤</td>
+<td>/category/:slug</td>
+</tr>
+<tr>
+<td>标签云</td>
+<td>统计标签文章数</td>
+<td>字体大小映射</td>
+</tr>
+<tr>
+<td>搜索</td>
+<td>关键词 + 防抖</td>
+<td>debounce + API keyword</td>
+</tr>
+<tr>
+<td>阅读时间</td>
+<td>字数 / 阅读速度</td>
+<td>约 200 字/分钟</td>
+</tr>
+<tr>
+<td>相关推荐</td>
+<td>同分类/标签文章</td>
+<td>API 按相似度排序</td>
+</tr>
+</tbody></table>
+
+<h2>参考资料</h2>
+
+<ul>
+<li><a href="https://github.com/markdown-it/markdown-it">markdown-it 官方文档</a></li>
+<li><a href="https://highlightjs.org/">highlight.js</a></li>
+<li><a href="https://router.vuejs.org/">Vue Router 4</a></li>
+
+<h2>代码演进</h2>
+
+<h3>v1 — 基础列表 + 详情</h3>
+<pre><code class="language-vue">&lt;!-- Simple list + detail --&gt;
+&lt;template v-for=&quot;post in posts&quot;&gt;
+  &lt;router-link :to=&quot;`/post/${post.slug}`&quot;&gt;{{ post.title }}&lt;/router-link&gt;
+&lt;/template&gt;</code></pre>
+
+<h3>v2 — Markdown + 分页</h3>
+<pre><code class="language-ts">// Added markdown rendering + pagination composable
+const { data, loading, changePage } = usePagination(postApi.getList)</code></pre>
+
+<h3>v3 — 完整博客系统</h3>
+<pre><code class="language-ts">// Cache + TOC + search + responsive + dark mode
+const postStore = usePostStore() // Pinia cache
+const { html, headings } = renderMarkdown(post.content) // TOC
+const { results, search } = useSearch(postApi.search) // Search
+// Dark mode via CSS variables + usePreferredDark()</code></pre>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

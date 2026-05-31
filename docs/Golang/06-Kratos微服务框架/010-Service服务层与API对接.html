@@ -1,0 +1,710 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>010-Service服务层与API对接</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Golang/index.html">Golang</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Golang/06-Kratos微服务框架/index.html">Kratos框架</a>
+</nav>
+<h1>010-Service服务层与API对接</h1>
+<div class="meta">
+<span>📂 Kratos框架</span>
+<span>🏷️ Golang</span>
+</div>
+<article>
+
+
+<h1>010-Service服务层与API对接</h1>
+
+<blockquote><p>难度：⭐⭐⭐（中级）<br>前置知识：Proto生成代码、HTTP/gRPC基础、Kratos biz层</p></blockquote>
+
+<h2>一、概念讲解</h2>
+
+<h3>Service 层的定位</h3>
+
+<p>Service 层是 Kratos 项目中的<strong>传输协议适配层</strong>，它是系统的"门面"：</p>
+
+<ul>
+<li><strong>向上</strong>：对接 HTTP/gRPC 协议，接收请求、返回响应</li>
+<li><strong>向下</strong>：调用 biz 层的 Usecase，执行业务逻辑</li>
+
+<h3>Service 薄层原则</h3>
+
+<p>Service 层应该<strong>尽可能薄</strong>，只做以下事情：</p>
+
+<ol>
+<li><strong>请求转换</strong>：Proto Request → biz 层领域模型</li>
+</ul>
+<ol>
+<li><strong>调用 biz 层</strong>：转发请求到 Usecase</li>
+</ul>
+<ol>
+<li><strong>响应转换</strong>：biz 层返回值 → Proto Response</li>
+</ul>
+<ol>
+<li><strong>错误映射</strong>：biz 层错误 → gRPC/HTTP 错误</li>
+</ul>
+<ol>
+<li><strong>请求验证</strong>：参数基本校验（配合 validate）</li>
+
+<p><strong>Service 层不应该做的</strong>：</p>
+<ul>
+<li>❌ 编写业务逻辑</li>
+<li>❌ 直接操作数据库</li>
+<li>❌ 包含复杂的数据转换规则</li>
+
+<h2>二、脑图</h2>
+
+<pre><code>Service 服务层
+├── 核心职责
+│   ├── 协议适配（HTTP + gRPC）
+│   ├── 请求转换（Proto → BO）
+│   ├── 响应转换（BO → Proto）
+│   ├── 错误映射
+│   └── 请求验证
+├── HTTP 实现
+│   ├── JSON 请求/响应
+│   ├── 路由注册（Proto 生成）
+│   ├── Middleware（认证/限流）
+│   └── 文件上传等特殊处理
+├── gRPC 实现
+│   ├── Protobuf 编解码
+│   ├── 服务注册（Proto 生成）
+│   ├── Interceptor
+│   └── 流式 RPC
+├── 薄层原则
+│   ├── 不写业务逻辑
+│   ├── 不直接操作 DB
+│   ├── 一个方法 5-15 行
+│   └── 复杂逻辑委托 biz 层
+└── 验证与错误处理
+    ├── Proto validate 规则
+    ├── kratos/errors 统一错误
+    └── HTTP Status 自动映射</code></pre>
+
+<h2>三、完整代码示例</h2>
+
+<h3>3.1 Service 实现</h3>
+
+<pre><code class="language-go">// internal/service/order.go
+package service
+
+import (
+    &quot;context&quot;
+
+    pb &quot;myapp/api/order/v1&quot;
+    &quot;myapp/internal/biz&quot;
+
+    &quot;github.com/go-kratos/kratos/v2/log&quot;
+)
+
+// OrderService implements the order service proto interface
+type OrderService struct {
+    pb.UnimplementedOrderServiceServer
+
+    uc  *biz.OrderUsecase
+    log *log.Helper
+}
+
+// NewOrderService creates a new OrderService (thin wrapper)
+func NewOrderService(uc *biz.OrderUsecase, logger log.Logger) *OrderService {
+    return &amp;OrderService{
+        uc:  uc,
+        log: log.NewHelper(logger),
+    }
+}
+
+// CreateOrder handles POST /v1/orders
+func (s *OrderService) CreateOrder(ctx context.Context, req *pb.CreateOrderRequest) (*pb.CreateOrderReply, error) {
+    // Step 1: Convert Proto request to domain model
+    order := &amp;biz.Order{
+        UserID: req.GetUserId(),
+        Remark: req.GetRemark(),
+        Items:  convertCreateItems(req.GetItems()),
+        ShippingAddress: &amp;biz.Address{
+            Name:     req.GetShippingAddress().GetName(),
+            Phone:    req.GetShippingAddress().GetPhone(),
+            FullAddr: formatAddress(req.GetShippingAddress()),
+        },
+    }
+
+    // Step 2: Delegate to biz layer
+    created, err := s.uc.CreateOrder(ctx, order)
+    if err != nil {
+        return nil, err // kratos errors auto-map to HTTP status
+    }
+
+    // Step 3: Convert domain model to Proto response
+    return &amp;pb.CreateOrderReply{
+        Id:    created.ID,
+        Order: toProtoOrder(created),
+    }, nil
+}
+
+// GetOrder handles GET /v1/orders/{id}
+func (s *OrderService) GetOrder(ctx context.Context, req *pb.GetOrderRequest) (*pb.GetOrderReply, error) {
+    order, err := s.uc.GetOrder(ctx, req.GetId())
+    if err != nil {
+        return nil, err
+    }
+
+    return &amp;pb.GetOrderReply{
+        Order: toProtoOrder(order),
+    }, nil
+}
+
+// UpdateOrder handles PUT /v1/orders/{id}
+func (s *OrderService) UpdateOrder(ctx context.Context, req *pb.UpdateOrderRequest) (*pb.UpdateOrderReply, error) {
+    order := &amp;biz.Order{
+        ID:     req.GetId(),
+        Remark: req.GetRemark(),
+    }
+    if addr := req.GetShippingAddress(); addr != nil {
+        order.ShippingAddress = &amp;biz.Address{
+            Name:     addr.GetName(),
+            Phone:    addr.GetPhone(),
+            FullAddr: formatAddress(addr),
+        }
+    }
+
+    updated, err := s.uc.UpdateOrder(ctx, order)
+    if err != nil {
+        return nil, err
+    }
+
+    return &amp;pb.UpdateOrderReply{
+        Order: toProtoOrder(updated),
+    }, nil
+}
+
+// DeleteOrder handles DELETE /v1/orders/{id}
+func (s *OrderService) DeleteOrder(ctx context.Context, req *pb.DeleteOrderRequest) (*pb.DeleteOrderReply, error) {
+    err := s.uc.DeleteOrder(ctx, req.GetId())
+    if err != nil {
+        return nil, err
+    }
+    return &amp;pb.DeleteOrderReply{}, nil
+}
+
+// ListOrders handles GET /v1/orders
+func (s *OrderService) ListOrders(ctx context.Context, req *pb.ListOrdersRequest) (*pb.ListOrdersReply, error) {
+    orders, total, err := s.uc.ListOrders(ctx, req.GetUserId(), int(req.GetPage()), int(req.GetPageSize()))
+    if err != nil {
+        return nil, err
+    }
+
+    pbOrders := make([]*pb.Order, 0, len(orders))
+    for _, o := range orders {
+        pbOrders = append(pbOrders, toProtoOrder(o))
+    }
+
+    return &amp;pb.ListOrdersReply{
+        Orders:   pbOrders,
+        Total:    total,
+        Page:     req.GetPage(),
+        PageSize: req.GetPageSize(),
+    }, nil
+}
+
+// PayOrder handles POST /v1/orders/{id}/pay
+func (s *OrderService) PayOrder(ctx context.Context, req *pb.PayOrderRequest) (*pb.PayOrderReply, error) {
+    order, err := s.uc.PayOrder(ctx, req.GetId())
+    if err != nil {
+        return nil, err
+    }
+
+    return &amp;pb.PayOrderReply{
+        Order: toProtoOrder(order),
+    }, nil
+}
+
+// CancelOrder handles POST /v1/orders/{id}/cancel
+func (s *OrderService) CancelOrder(ctx context.Context, req *pb.CancelOrderRequest) (*pb.CancelOrderReply, error) {
+    order, err := s.uc.CancelOrder(ctx, req.GetId(), req.GetReason())
+    if err != nil {
+        return nil, err
+    }
+
+    return &amp;pb.CancelOrderReply{
+        Order: toProtoOrder(order),
+    }, nil
+}
+
+// ShipOrder handles POST /v1/orders/{id}/ship
+func (s *OrderService) ShipOrder(ctx context.Context, req *pb.ShipOrderRequest) (*pb.ShipOrderReply, error) {
+    order, err := s.uc.ShipOrder(ctx, req.GetId(), req.GetTrackingNumber())
+    if err != nil {
+        return nil, err
+    }
+
+    return &amp;pb.ShipOrderReply{
+        Order: toProtoOrder(order),
+    }, nil
+}</code></pre>
+
+<h3>3.2 转换辅助函数</h3>
+
+<pre><code class="language-go">// internal/service/convert.go
+package service
+
+import (
+    pb &quot;myapp/api/order/v1&quot;
+    &quot;myapp/internal/biz&quot;
+)
+
+// toProtoOrder converts a biz Order to a proto Order
+func toProtoOrder(o *biz.Order) *pb.Order {
+    if o == nil {
+        return nil
+    }
+
+    pOrder := &amp;pb.Order{
+        Id:     o.ID,
+        UserId: o.UserID,
+        Amount: o.TotalAmount,
+        Status: toProtoStatus(o.Status),
+        Remark: o.Remark,
+    }
+
+    // Convert items
+    for _, item := range o.Items {
+        pOrder.Items = append(pOrder.Items, &amp;pb.OrderItem{
+            Id:          item.ID,
+            ProductId:   item.ProductID,
+            ProductName: item.ProductName,
+            Quantity:    item.Quantity,
+            Price:       item.UnitPrice,
+        })
+    }
+
+    // Convert address
+    if o.ShippingAddress != nil {
+        pOrder.ShippingAddress = &amp;pb.Address{
+            Name:  o.ShippingAddress.Name,
+            Phone: o.ShippingAddress.Phone,
+        }
+    }
+
+    return pOrder
+}
+
+// toProtoStatus converts biz status to proto enum
+func toProtoStatus(status biz.OrderStatus) pb.OrderStatus {
+    switch status {
+    case biz.StatusPending:
+        return pb.OrderStatus_ORDER_STATUS_PENDING
+    case biz.StatusPaid:
+        return pb.OrderStatus_ORDER_STATUS_PAID
+    case biz.StatusShipped:
+        return pb.OrderStatus_ORDER_STATUS_SHIPPED
+    case biz.StatusCompleted:
+        return pb.OrderStatus_ORDER_STATUS_COMPLETED
+    case biz.StatusCancelled:
+        return pb.OrderStatus_ORDER_STATUS_CANCELLED
+    default:
+        return pb.OrderStatus_ORDER_STATUS_UNSPECIFIED
+    }
+}
+
+// convertCreateItems converts proto items to biz items
+func convertCreateItems(items []*pb.CreateOrderItem) []*biz.OrderItem {
+    result := make([]*biz.OrderItem, 0, len(items))
+    for _, item := range items {
+        result = append(result, &amp;biz.OrderItem{
+            ProductID: item.GetProductId(),
+            Quantity:  item.GetQuantity(),
+        })
+    }
+    return result
+}
+
+// formatAddress formats a proto address into a full address string
+func formatAddress(addr *pb.Address) string {
+    if addr == nil {
+        return &quot;&quot;
+    }
+    return addr.GetProvince() + addr.GetCity() + addr.GetDistrict() + addr.GetDetail()
+}</code></pre>
+
+<h3>3.3 Server 注册</h3>
+
+<pre><code class="language-go">// server/http.go
+package server
+
+import (
+    pb &quot;myapp/api/order/v1&quot;
+    &quot;myapp/internal/conf&quot;
+    &quot;myapp/internal/service&quot;
+
+    &quot;github.com/go-kratos/kratos/v2/log&quot;
+    &quot;github.com/go-kratos/kratos/v2/transport/http&quot;
+)
+
+// NewHTTPServer creates a new HTTP server
+func NewHTTPServer(c *conf.Server, orderSvc *service.OrderService, logger log.Logger) *http.Server {
+    opts := []http.ServerOption{
+        http.Address(c.Http.GetAddr()),
+        http.Timeout(c.Http.GetTimeout().AsDuration()),
+    }
+
+    srv := http.NewServer(opts...)
+
+    // Register HTTP routes (auto-generated from Proto annotations)
+    pb.RegisterOrderServiceHTTPServer(srv, orderSvc)
+
+    return srv
+}</code></pre>
+
+<pre><code class="language-go">// server/grpc.go
+package server
+
+import (
+    pb &quot;myapp/api/order/v1&quot;
+    &quot;myapp/internal/conf&quot;
+    &quot;myapp/internal/service&quot;
+
+    &quot;github.com/go-kratos/kratos/v2/log&quot;
+    &quot;github.com/go-kratos/kratos/v2/transport/grpc&quot;
+)
+
+// NewGRPCServer creates a new gRPC server
+func NewGRPCServer(c *conf.Server, orderSvc *service.OrderService, logger log.Logger) *grpc.Server {
+    opts := []grpc.ServerOption{
+        grpc.Address(c.Grpc.GetAddr()),
+        grpc.Timeout(c.Grpc.GetTimeout().AsDuration()),
+    }
+
+    srv := grpc.NewServer(opts...)
+
+    // Register gRPC service
+    pb.RegisterOrderServiceServer(srv, orderSvc)
+
+    return srv
+}</code></pre>
+
+<h3>3.4 请求验证 Middleware</h3>
+
+<pre><code class="language-go">// internal/server/middleware.go
+package server
+
+import (
+    &quot;context&quot;
+
+    &quot;github.com/go-kratos/kratos/v2/errors&quot;
+    &quot;github.com/go-kratos/kratos/v2/middleware&quot;
+    &quot;github.com/go-kratos/kratos/v2/transport&quot;
+)
+
+// RequestValidationMiddleware validates incoming requests
+func RequestValidationMiddleware() middleware.Middleware {
+    return func(handler middleware.Handler) middleware.Handler {
+        return func(ctx context.Context, req interface{}) (interface{}, error) {
+            // Basic validation: check if request is nil
+            if req == nil {
+                return nil, errors.BadRequest(&quot;REQUEST_nil&quot;, &quot;request cannot be nil&quot;)
+            }
+
+            // Additional transport-level checks
+            if tr, ok := transport.FromServerContext(ctx); ok {
+                // Log request info
+                info := tr.Operation()
+                _ = info // Could add request logging here
+            }
+
+            return handler(ctx, req)
+        }
+    }
+}</code></pre>
+
+<h2>四、执行预览</h2>
+
+<pre><code class="language-bash"># Start the service
+$ go run cmd/order/main.go -conf configs/config.yaml
+# INFO msg=server started http=:8080 grpc=:9000
+
+# Test HTTP API
+$ curl -X POST http://localhost:8080/v1/orders \
+  -H &quot;Content-Type: application/json&quot; \
+  -d &#x27;{&quot;user_id&quot;:1,&quot;items&quot;:[{&quot;product_id&quot;:100,&quot;quantity&quot;:2}],&quot;shipping_address&quot;:{&quot;name&quot;:&quot;张三&quot;,&quot;phone&quot;:&quot;13800138000&quot;,&quot;province&quot;:&quot;广东&quot;,&quot;city&quot;:&quot;深圳&quot;,&quot;district&quot;:&quot;南山&quot;,&quot;detail&quot;:&quot;科技园&quot;}}&#x27;
+# {&quot;id&quot;:1,&quot;order&quot;:{&quot;id&quot;:1,&quot;userId&quot;:1,&quot;amount&quot;:0,&quot;status&quot;:&quot;ORDER_STATUS_PENDING&quot;}}
+
+# Test gRPC with grpcurl
+$ grpcurl -plaintext -d &#x27;{&quot;id&quot;:1}&#x27; localhost:9000 api.order.v1.OrderService/GetOrder
+# {&quot;order&quot;:{&quot;id&quot;:&quot;1&quot;,&quot;userId&quot;:&quot;1&quot;,&quot;status&quot;:&quot;ORDER_STATUS_PENDING&quot;}}
+
+# Test error response
+$ curl http://localhost:8080/v1/orders/999
+# {&quot;code&quot;:404,&quot;reason&quot;:&quot;ORDER_NOT_FOUND&quot;,&quot;message&quot;:&quot;order 999 not found&quot;,&quot;metadata&quot;:{}}</code></pre>
+
+<h2>五、注意事项</h2>
+
+<table><thead><tr>
+<th>事项</th>
+<th>说明</th>
+<th>建议</th>
+</tr></thead><tbody>
+<tr>
+<td>Service 方法要短</td>
+<td>每个 RPC 方法 5-15 行</td>
+<td>超过 20 行说明逻辑下沉不够</td>
+</tr>
+<tr>
+<td>不要在 Service 写 if/else 业务逻辑</td>
+<td>业务判断放 biz 层</td>
+<td>Service 只做转换和委托</td>
+</tr>
+<tr>
+<td>错误直接返回</td>
+<td>biz 层错误直接 return err</td>
+<td>Kratos 自动映射 HTTP 状态码</td>
+</tr>
+<tr>
+<td>转换函数集中管理</td>
+<td>放在 convert.go</td>
+<td>方便统一维护</td>
+</tr>
+<tr>
+<td>Unimplemented 嵌入</td>
+<td>保留 proto 生成的 Unimplemented</td>
+<td>保证前向兼容</td>
+</tr>
+<tr>
+<td>双协议一致性</td>
+<td>HTTP 和 gRPC 走同一 Service</td>
+<td>不需要写两套逻辑</td>
+</tr>
+</tbody></table>
+
+<h2>六、避坑指南</h2>
+
+<table><thead><tr>
+<th>❌ 错误做法</th>
+<th>✅ 正确做法</th>
+</tr></thead><tbody>
+<tr>
+<td>Service 方法里写业务逻辑</td>
+<td>逻辑放 biz Usecase，Service 只转换</td>
+</tr>
+<tr>
+<td>Service 直接操作数据库</td>
+<td>通过 biz 层间接访问</td>
+</tr>
+<tr>
+<td>每个 Service 方法里重复转换代码</td>
+<td>抽取 toProtoXxx / toBizXxx 转换函数</td>
+</tr>
+<tr>
+<td>用 Proto 生成的类型做业务逻辑</td>
+<td>biz 层用自己的领域模型</td>
+</tr>
+<tr>
+<td>忘记注册 HTTP/gRPC 路由</td>
+<td>使用 Proto 生成的 Register 函数</td>
+</tr>
+<tr>
+<td>Service 层做权限校验</td>
+<td>权限校验放 Middleware 或 biz 层</td>
+</tr>
+</tbody></table>
+
+<h2>七、练习题</h2>
+
+<h3>🟢 初级</h3>
+<ol>
+<li>为 <code>ShipOrder</code> 添加请求验证：<code>tracking_number</code> 不能为空。</li>
+</ul>
+<ol>
+<li>编写一个 <code>toProtoOrderItem</code> 单独的转换函数。</li>
+
+<h3>🟡 中级</h3>
+<ol>
+<li>实现一个 Service Middleware，记录每个 RPC 方法的耗时和状态码。</li>
+</ul>
+<ol>
+<li>在 Service 层添加请求日志，用 <code>log.Infof</code> 记录入参和出参摘要。</li>
+
+<h3>🔴 高级</h3>
+<ol>
+<li>实现一个通用的 Proto→BO 转换代码生成器，自动从 Proto 文件生成 convert.go。</li>
+</ul>
+<ol>
+<li>设计一个 Service 层的请求/响应加密方案，敏感字段在传输层透明加解密。</li>
+
+<h2>八、知识点总结</h2>
+
+<pre><code>Service 服务层
+├── 核心原则
+│   ├── 薄层（5-15行/方法）
+│   ├── 只做转换和委托
+│   └── 不包含业务逻辑
+├── 请求处理流程
+│   ├── 1. 接收 Proto Request
+│   ├── 2. Proto → BO 转换
+│   ├── 3. 调用 biz Usecase
+│   ├── 4. BO → Proto 转换
+│   └── 5. 返回 Proto Response
+├── 协议适配
+│   ├── HTTP (JSON)
+│   ├── gRPC (Protobuf)
+│   └── 同一 Service，双协议
+├── 错误处理
+│   ├── biz 层错误直接返回
+│   ├── kratos/errors 自动映射
+│   └── BadRequest→400, NotFound→404, Conflict→409
+├── 请求验证
+│   ├── Proto validate 规则
+│   ├── Service Middleware
+│   └── 基本参数检查
+└── 代码组织
+    ├── service/order.go (RPC 方法)
+    ├── service/convert.go (转换函数)
+    └── server/http.go, grpc.go (路由注册)</code></pre>
+
+<h2>九、举一反三</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>Service 处理方式</th>
+<th>注意事项</th>
+</tr></thead><tbody>
+<tr>
+<td>文件上传</td>
+<td>HTTP Multipart → 保存路径传给 biz</td>
+<td>文件大小限制</td>
+</tr>
+<tr>
+<td>分页参数</td>
+<td>直接透传给 biz 层</td>
+<td>biz 层做默认值校正</td>
+</tr>
+<tr>
+<td>批量操作</td>
+<td>请求中包含数组，Service 循环调用或批量传给 biz</td>
+<td>考虑事务一致性</td>
+</tr>
+<tr>
+<td>WebSocket</td>
+<td>不走 Proto，单独处理</td>
+<td>HTTP Upgrade</td>
+</tr>
+<tr>
+<td>Server Streaming</td>
+<td>gRPC Stream，循环推送</td>
+<td>流控和超时</td>
+</tr>
+<tr>
+<td>认证 Token</td>
+<td>Middleware 提取，Context 传递</td>
+<td>Service 层不感知</td>
+</tr>
+</tbody></table>
+
+<h2>十、参考资料</h2>
+
+<ul>
+<li><a href="https://go-kratos.dev/docs/getting-started/usage">Kratos Service 层规范</a></li>
+<li><a href="https://github.com/grpc-ecosystem/grpc-gateway">gRPC-Gateway HTTP 映射</a></li>
+<li><a href="https://go-kratos.dev/docs/component/errors">Kratos 错误处理</a></li>
+<li><a href="https://github.com/bufbuild/protoc-gen-validate">Proto validate</a></li>
+
+<h2>十一、代码演进</h2>
+
+<h3>v1: Service 层包含业务逻辑（反模式）</h3>
+
+<pre><code class="language-go">func (s *OrderService) CreateOrder(ctx context.Context, req *pb.CreateReq) (*pb.CreateResp, error) {
+    // BAD: business logic in service layer
+    if len(req.Items) == 0 {
+        return nil, errors.BadRequest(&quot;EMPTY&quot;, &quot;no items&quot;)
+    }
+    total := 0.0
+    for _, item := range req.Items {
+        total += float64(item.Quantity) * item.Price
+    }
+    order := &amp;Order{UserID: req.UserId, Total: total, Status: &quot;pending&quot;}
+    return s.repo.Save(ctx, order)
+}</code></pre>
+
+<p><strong>问题</strong>：业务逻辑混在 Service，不可复用、不可测试。</p>
+
+<h3>v2: Service 调用 Usecase（基本解耦）</h3>
+
+<pre><code class="language-go">func (s *OrderService) CreateOrder(ctx context.Context, req *pb.CreateReq) (*pb.CreateResp, error) {
+    order := toBizOrder(req)
+    created, err := s.uc.CreateOrder(ctx, order)
+    if err != nil {
+        return nil, err
+    }
+    return toProtoResp(created), nil
+}</code></pre>
+
+<p><strong>改进</strong>：Service 层只做转换。<strong>但</strong>转换函数散落各处。</p>
+
+<h3>v3: 生产级（统一转换 + 双协议 + Middleware）</h3>
+
+<pre><code class="language-go">// service/order.go - thin RPC methods
+// service/convert.go - centralized conversion
+// server/http.go + grpc.go - route registration
+// server/middleware.go - validation/logging/auth
+// 完整的薄层架构，如本文代码所示</code></pre>
+
+<p><strong>最终形态</strong>：Service 层极薄、转换集中、双协议统一、中间件可插拔。</p>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>012 - 插槽Slot</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Vue.js/index.html">Vue.js</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Vue.js/01-入门到实战/index.html">Vue.js入门到实战</a>
+</nav>
+<h1>012 - 插槽Slot</h1>
+<div class="meta">
+<span>📂 Vue.js入门到实战</span>
+<span>🏷️ Vue.js</span>
+</div>
+<article>
+
+
+<h1>050-插槽Slot</h1>
+
+<blockquote><p><strong>难度标注：</strong> 🟡 中级 | <strong>前置知识：</strong> Vue 3 组件基础、Props</p></blockquote>
+
+<hr>
+
+<h2>一、概念讲解</h2>
+
+<p>插槽（Slot）是 Vue 的内容分发机制。它让组件成为一个<strong>可以填充内容的容器</strong>，而不是写死内容的黑盒。</p>
+
+<h3>三种插槽类型</h3>
+
+<ol>
+<li><strong>默认插槽（Default Slot）</strong>——最简单，放一段内容进去</li>
+</ul>
+<ol>
+<li><strong>具名插槽（Named Slot）</strong>——多个出口，按名字填充</li>
+</ul>
+<ol>
+<li><strong>作用域插槽（Scoped Slot）</strong>——子组件向插槽传递数据，父组件决定如何渲染</li>
+
+<p>核心思想：<strong>Props 传递数据，Slot 传递模板。</strong></p>
+
+<hr>
+
+<h2>二、脑图（ASCII）</h2>
+
+<pre><code>Slots 插槽
+├── 默认插槽
+│   ├── &lt;slot&gt;&lt;/slot&gt;
+│   ├── 后备内容（fallback）
+│   └── 简写：无 # 的内容
+├── 具名插槽
+│   ├── &lt;slot name=&quot;header&quot;&gt;
+│   ├── &lt;template #header&gt;
+│   └── v-slot 简写 #
+├── 作用域插槽
+│   ├── &lt;slot :data=&quot;item&quot;&gt;
+│   ├── #default=&quot;slotProps&quot;
+│   └── 解构：#default=&quot;{ data }&quot;
+├── 高级模式
+│   ├── 高阶组件（HOC via slots）
+│   ├── 无渲染组件
+│   └── 插槽作为函数
+└── 性能注意
+    ├── 插槽在编译时展开
+    └── 动态插槽 v-slot:[name]</code></pre>
+
+<hr>
+
+<h2>三、完整代码示例</h2>
+
+<pre><code class="language-vue">&lt;!-- Card.vue - Reusable card with named slots --&gt;
+&lt;template&gt;
+  &lt;div class=&quot;card&quot;&gt;
+    &lt;div class=&quot;card-header&quot;&gt;
+      &lt;slot name=&quot;header&quot;&gt;&lt;h3&gt;Default Title&lt;/h3&gt;&lt;/slot&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;card-body&quot;&gt;&lt;slot&gt;&lt;/slot&gt;&lt;/div&gt;
+    &lt;div class=&quot;card-footer&quot;&gt;
+      &lt;slot name=&quot;footer&quot;&gt;&lt;button&gt;Default Action&lt;/button&gt;&lt;/slot&gt;
+    &lt;/div&gt;
+  &lt;/div&gt;
+&lt;/template&gt;
+
+&lt;style scoped&gt;
+.card { border: 1px solid #e0e0e0; border-radius: 12px; overflow: hidden; max-width: 400px; }
+.card-header { background: #f8f9fa; padding: 16px; border-bottom: 1px solid #e0e0e0; }
+.card-body { padding: 16px; }
+.card-footer { padding: 12px 16px; border-top: 1px solid #e0e0e0; text-align: right; }
+&lt;/style&gt;</code></pre>
+
+<pre><code class="language-vue">&lt;!-- DataTable.vue - Scoped slot for flexible rendering --&gt;
+&lt;template&gt;
+  &lt;table class=&quot;data-table&quot;&gt;
+    &lt;thead&gt;
+      &lt;tr&gt;
+        &lt;th v-for=&quot;col in columns&quot; :key=&quot;col.key&quot;&gt;{{ col.label }}&lt;/th&gt;
+        &lt;th&gt;Actions&lt;/th&gt;
+      &lt;/tr&gt;
+    &lt;/thead&gt;
+    &lt;tbody&gt;
+      &lt;tr v-for=&quot;(row, index) in data&quot; :key=&quot;index&quot;&gt;
+        &lt;td v-for=&quot;col in columns&quot; :key=&quot;col.key&quot;&gt;
+          &lt;slot :name=&quot;col.key&quot; :row=&quot;row&quot; :value=&quot;row[col.key]&quot;&gt;
+            {{ row[col.key] }}
+          &lt;/slot&gt;
+        &lt;/td&gt;
+        &lt;td&gt;
+          &lt;slot name=&quot;actions&quot; :row=&quot;row&quot; :index=&quot;index&quot;&gt;
+            &lt;button @click=&quot;$emit(&#x27;edit&#x27;, row)&quot;&gt;Edit&lt;/button&gt;
+          &lt;/slot&gt;
+        &lt;/td&gt;
+      &lt;/tr&gt;
+    &lt;/tbody&gt;
+  &lt;/table&gt;
+&lt;/template&gt;
+
+&lt;script setup&gt;
+defineProps({
+  columns: { type: Array, required: true },
+  data: { type: Array, default: () =&gt; [] }
+})
+defineEmits([&#x27;edit&#x27;, &#x27;delete&#x27;])
+&lt;/script&gt;</code></pre>
+
+<pre><code class="language-vue">&lt;!-- App.vue - Using all slot types --&gt;
+&lt;template&gt;
+  &lt;div&gt;
+    &lt;Card&gt;
+      &lt;template #header&gt;&lt;h2 style=&quot;color: #42b883&quot;&gt;Vue Slots Demo&lt;/h2&gt;&lt;/template&gt;
+      &lt;p&gt;This is the main content injected via default slot.&lt;/p&gt;
+      &lt;template #footer&gt;
+        &lt;button @click=&quot;showTable = !showTable&quot;&gt;{{ showTable ? &#x27;Hide&#x27; : &#x27;Show&#x27; }} Table&lt;/button&gt;
+      &lt;/template&gt;
+    &lt;/Card&gt;
+
+    &lt;DataTable v-if=&quot;showTable&quot; :columns=&quot;columns&quot; :data=&quot;users&quot; @edit=&quot;handleEdit&quot;&gt;
+      &lt;template #status=&quot;{ value }&quot;&gt;
+        &lt;span :style=&quot;{ color: value === &#x27;Active&#x27; ? &#x27;green&#x27; : &#x27;red&#x27; }&quot;&gt;● {{ value }}&lt;/span&gt;
+      &lt;/template&gt;
+      &lt;template #actions=&quot;{ row }&quot;&gt;
+        &lt;button @click=&quot;handleEdit(row)&quot;&gt;Edit&lt;/button&gt;
+        &lt;button @click=&quot;handleDelete(row)&quot;&gt;Delete&lt;/button&gt;
+      &lt;/template&gt;
+    &lt;/DataTable&gt;
+  &lt;/div&gt;
+&lt;/template&gt;
+
+&lt;script setup&gt;
+import { ref } from &#x27;vue&#x27;
+import Card from &#x27;./Card.vue&#x27;
+import DataTable from &#x27;./DataTable.vue&#x27;
+
+const showTable = ref(true)
+const columns = [
+  { key: &#x27;name&#x27;, label: &#x27;Name&#x27; },
+  { key: &#x27;email&#x27;, label: &#x27;Email&#x27; },
+  { key: &#x27;status&#x27;, label: &#x27;Status&#x27; }
+]
+const users = ref([
+  { name: &#x27;Alice&#x27;, email: &#x27;alice@test.com&#x27;, status: &#x27;Active&#x27; },
+  { name: &#x27;Bob&#x27;, email: &#x27;bob@test.com&#x27;, status: &#x27;Inactive&#x27; },
+  { name: &#x27;Charlie&#x27;, email: &#x27;charlie@test.com&#x27;, status: &#x27;Active&#x27; }
+])
+
+function handleEdit(row) { alert(`Editing: ${row.name}`) }
+function handleDelete(row) { users.value = users.value.filter(u =&gt; u.name !== row.name) }
+&lt;/script&gt;</code></pre>
+
+<hr>
+
+<h2>四、执行预览</h2>
+
+<pre><code>┌──────────────────────────────────────┐
+│  Vue Slots Demo (green)              │
+├──────────────────────────────────────┤
+│  This is the main content injected   │
+│  via default slot.                   │
+├──────────────────────────────────────┤
+│                        [Hide Table]  │
+└──────────────────────────────────────┘
+
+| Name    | Email            | Status     | Actions         |
+|---------|------------------|------------|-----------------|
+| Alice   | alice@test.com   | ● Active   | [Edit] [Delete] |
+| Bob     | bob@test.com     | ● Inactive | [Edit] [Delete] |
+| Charlie | charlie@test.com | ● Active   | [Edit] [Delete] |</code></pre>
+
+<hr>
+
+<h2>五、注意事项</h2>
+
+<table><thead><tr>
+<th>事项</th>
+<th>说明</th>
+<th>建议</th>
+</tr></thead><tbody>
+<tr>
+<td>后备内容</td>
+<td><code><slot>fallback</slot></code></td>
+<td>始终提供有意义的后备内容</td>
+</tr>
+<tr>
+<td>插槽编译</td>
+<td>插槽内容在父组件作用域编译</td>
+<td>无法访问子组件数据（除非作用域插槽）</td>
+</tr>
+<tr>
+<td>动态插槽</td>
+<td><code>v-slot:[dynamicName]</code></td>
+<td>少用，性能有影响</td>
+</tr>
+<tr>
+<td>缩写</td>
+<td><code>v-slot:name</code> → <code>#name</code></td>
+<td>只在模板中使用缩写</td>
+</tr>
+<tr>
+<td>作用域解构</td>
+<td><code>#default="{ row, value }"</code></td>
+<td>解构后依然是响应式的</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>六、避坑指南</h2>
+
+<table><thead><tr>
+<th>❌ 错误做法</th>
+<th>✅ 正确做法</th>
+</tr></thead><tbody>
+<tr>
+<td>具名插槽不用 <code><template></code> 包裹</td>
+<td><code><template #header></code> 包裹内容</td>
+</tr>
+<tr>
+<td>作用域插槽不接收参数</td>
+<td><code>#default="slotProps"</code> 接收子组件数据</td>
+</tr>
+<tr>
+<td>多个默认插槽</td>
+<td>一个组件只有一个默认插槽</td>
+</tr>
+<tr>
+<td>在子组件中直接渲染插槽内容</td>
+<td>用 <code>$slots</code> 检查是否存在即可</td>
+</tr>
+<tr>
+<td>默认插槽也写 <code><template #default></code></td>
+<td>无特殊情况直接写内容即可</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>七、练习题</h2>
+
+<h3>🟢 基础</h3>
+<ol>
+<li>创建 <code>Alert</code> 组件，用默认插槽显示消息，后备内容为 "No message"。</li>
+</ul>
+<ol>
+<li>创建 <code>PageLayout</code> 组件，有 <code>header</code>、<code>sidebar</code>、<code>main</code>、<code>footer</code> 四个具名插槽。</li>
+
+<h3>🟡 进阶</h3>
+<ol>
+<li>创建 <code>List</code> 组件，用作用域插槽让父组件自定义每一项的渲染方式。</li>
+</ul>
+<ol>
+<li>扩展 <code>DataTable</code>，支持 <code>#header-col="{ column }"</code> 自定义表头渲染。</li>
+
+<h3>🔴 挑战</h3>
+<ol>
+<li>实现 <code>VirtualScroll</code> 组件，用作用域插槽只渲染可见区域的列表项。</li>
+
+<hr>
+
+<h2>八、知识点总结</h2>
+
+<pre><code>Slot 插槽系统
+├── &lt;slot&gt; 出口
+│   ├── 默认 &lt;slot&gt;&lt;/slot&gt;
+│   ├── 具名 &lt;slot name=&quot;x&quot;&gt;
+│   └── 作用域 &lt;slot :prop=&quot;val&quot;&gt;
+├── 使用方式
+│   ├── 默认：直接写内容
+│   ├── 具名：&lt;template #name&gt;
+│   └── 作用域：&lt;template #name=&quot;props&quot;&gt;
+├── $slots API
+│   ├── 检查插槽是否传入
+│   └── 条件渲染优化
+└── 设计模式
+    ├── Layout 组件
+    ├── Renderless 组件
+    └── Compound 组件</code></pre>
+
+<hr>
+
+<h2>九、举一反三</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>插槽类型</th>
+<th>示例</th>
+</tr></thead><tbody>
+<tr>
+<td>页面布局</td>
+<td>具名插槽</td>
+<td>header + sidebar + main + footer</td>
+</tr>
+<tr>
+<td>列表渲染</td>
+<td>作用域插槽</td>
+<td>传入 item + index，父组件自定义渲染</td>
+</tr>
+<tr>
+<td>通用卡片</td>
+<td>默认+具名</td>
+<td>header + body + footer</td>
+</tr>
+<tr>
+<td>表格组件</td>
+<td>作用域插槽</td>
+<td>自定义列渲染、操作按钮</td>
+</tr>
+<tr>
+<td>模态框</td>
+<td>具名+默认</td>
+<td>title + body + actions</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>十、参考资料</h2>
+
+<ul>
+<li><a href="https://vuejs.org/guide/components/slots.html">Vue 3 Slots 官方文档</a></li>
+<li><a href="https://vuejs.org/guide/components/slots.html#scoped-slots">Scoped Slots 详解</a></li>
+
+<hr>
+
+<h2>十一、代码演进</h2>
+
+<h3>v1 - 简单默认插槽</h3>
+<pre><code class="language-vue">&lt;template&gt;
+  &lt;div class=&quot;box&quot;&gt;&lt;slot&gt;Empty&lt;/slot&gt;&lt;/div&gt;
+&lt;/template&gt;</code></pre>
+
+<h3>v2 - 具名插槽 + 后备内容</h3>
+<pre><code class="language-vue">&lt;template&gt;
+  &lt;div class=&quot;card&quot;&gt;
+    &lt;div class=&quot;header&quot;&gt;&lt;slot name=&quot;header&quot;&gt;Title&lt;/slot&gt;&lt;/div&gt;
+    &lt;div class=&quot;body&quot;&gt;&lt;slot&gt;&lt;/slot&gt;&lt;/div&gt;
+    &lt;div class=&quot;footer&quot;&gt;&lt;slot name=&quot;footer&quot;&gt;&lt;/slot&gt;&lt;/div&gt;
+  &lt;/div&gt;
+&lt;/template&gt;</code></pre>
+
+<h3>v3 - 作用域插槽 + 动态列</h3>
+<pre><code class="language-vue">&lt;template&gt;
+  &lt;table&gt;
+    &lt;tr v-for=&quot;row in data&quot;&gt;
+      &lt;td v-for=&quot;col in columns&quot;&gt;
+        &lt;slot :name=&quot;col.key&quot; :row=&quot;row&quot; :value=&quot;row[col.key]&quot;&gt;
+          {{ row[col.key] }}
+        &lt;/slot&gt;
+      &lt;/td&gt;
+    &lt;/tr&gt;
+  &lt;/table&gt;
+&lt;/template&gt;</code></pre>
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

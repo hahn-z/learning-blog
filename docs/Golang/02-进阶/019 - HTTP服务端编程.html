@@ -1,0 +1,545 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>019 - HTTP服务端编程</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Golang/index.html">Golang</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Golang/02-进阶/index.html">Golang进阶</a>
+</nav>
+<h1>019 - HTTP服务端编程</h1>
+<div class="meta">
+<span>📂 Golang进阶</span>
+<span>🏷️ Golang</span>
+</div>
+<article>
+
+
+<h1>049 - HTTP服务端编程</h1>
+
+<blockquote><p>难度：⭐⭐⭐ | 预计学习时间：35分钟</p></blockquote>
+
+<h2>一、概念讲解</h2>
+
+<p>Go的 <code>net/http</code> 包内置了生产级的HTTP服务器。核心接口是 <code>http.Handler</code>，配合 <code>http.ServeMux</code> 路由器和中间件模式，可以构建灵活的Web服务。</p>
+
+<p>关键组件：</p>
+<ul>
+<li><strong>http.Handler</strong> 接口：<code>ServeHTTP(ResponseWriter, *Request)</code></li>
+<li><strong>http.HandleFunc</strong>：将函数转为Handler</li>
+<li><strong>http.ServeMux</strong>：内置路由器（支持路径前缀匹配）</li>
+<li><strong>中间件</strong>：包裹Handler实现横切关注点（日志、认证等）</li>
+<li><strong>http.Server</strong>：服务器配置（超时、TLS等）</li>
+
+<h2>二、脑图</h2>
+
+<pre><code>HTTP服务端编程
+├── 基础
+│   ├── http.HandleFunc 注册路由
+│   ├── http.ListenAndServe 启动
+│   ├── ResponseWriter 响应写入
+│   └── Request 请求解析
+├── 路由
+│   ├── ServeMux 路由匹配
+│   ├── 精确匹配 vs 前缀匹配
+│   └── 路由参数(手动解析)
+├── 中间件
+│   ├── 函数签名: func(Handler) Handler
+│   ├── 链式调用
+│   └── 常见: 日志/认证/CORS/限流
+├── 请求处理
+│   ├── Query参数
+│   ├── Header
+│   ├── Body解析
+│   ├── Form/JSON
+│   └── Cookie
+├── 响应
+│   ├── JSON响应
+│   ├── 文件下载
+│   ├── 重定向
+│   └── SSE (Server-Sent Events)
+└── 运维
+    ├── Graceful Shutdown
+    ├── HTTPS/TLS
+    ├── 超时配置
+    └── http.Server配置</code></pre>
+
+<h2>三、完整Go代码</h2>
+
+<h3>v1: 基础路由 + JSON API</h3>
+
+<pre><code class="language-go">package main
+
+import (
+	&quot;encoding/json&quot;
+	&quot;fmt&quot;
+	&quot;log&quot;
+	&quot;net/http&quot;
+)
+
+type Response struct {
+	Status  string `json:&quot;status&quot;`
+	Message string `json:&quot;message&quot;`
+}
+
+type User struct {
+	Name  string `json:&quot;name&quot;`
+	Email string `json:&quot;email&quot;`
+}
+
+func main() {
+	mux := http.NewServeMux()
+
+	// Simple handler
+	mux.HandleFunc(&quot;/&quot;, func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprintf(w, &quot;Welcome! Path: %s\n&quot;, r.URL.Path)
+	})
+
+	// JSON API endpoint
+	mux.HandleFunc(&quot;/api/hello&quot;, func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set(&quot;Content-Type&quot;, &quot;application/json&quot;)
+		json.NewEncoder(w).Encode(Response{
+			Status: &quot;ok&quot;, Message: &quot;Hello, World!&quot;,
+		})
+	})
+
+	// POST endpoint - read JSON body
+	mux.HandleFunc(&quot;/api/users&quot;, func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			http.Error(w, &quot;Method not allowed&quot;, http.StatusMethodNotAllowed)
+			return
+		}
+		var user User
+		if err := json.NewDecoder(r.Body).Decode(&amp;user); err != nil {
+			http.Error(w, &quot;Invalid JSON&quot;, http.StatusBadRequest)
+			return
+		}
+		w.Header().Set(&quot;Content-Type&quot;, &quot;application/json&quot;)
+		json.NewEncoder(w).Encode(map[string]any{
+			&quot;status&quot;: &quot;created&quot;,
+			&quot;user&quot;:   user,
+		})
+	})
+
+	// Query parameters
+	mux.HandleFunc(&quot;/api/search&quot;, func(w http.ResponseWriter, r *http.Request) {
+		q := r.URL.Query().Get(&quot;q&quot;)
+		page := r.URL.Query().Get(&quot;page&quot;)
+		if page == &quot;&quot; {
+			page = &quot;1&quot;
+		}
+		w.Header().Set(&quot;Content-Type&quot;, &quot;application/json&quot;)
+		json.NewEncoder(w).Encode(map[string]any{
+			&quot;query&quot;: q,
+			&quot;page&quot;:  page,
+		})
+	})
+
+	fmt.Println(&quot;Server running on :8080&quot;)
+	log.Fatal(http.ListenAndServe(&quot;:8080&quot;, mux))
+}</code></pre>
+
+<p><strong>执行预览：</strong></p>
+<pre><code class="language-bash"># curl http://localhost:8080/
+Welcome! Path: /
+
+# curl http://localhost:8080/api/hello
+{&quot;status&quot;:&quot;ok&quot;,&quot;message&quot;:&quot;Hello, World!&quot;}
+
+# curl -X POST http://localhost:8080/api/users -d &#x27;{&quot;name&quot;:&quot;Alice&quot;,&quot;email&quot;:&quot;alice@test.com&quot;}&#x27;
+{&quot;status&quot;:&quot;created&quot;,&quot;user&quot;:{&quot;name&quot;:&quot;Alice&quot;,&quot;email&quot;:&quot;alice@test.com&quot;}}
+
+# curl &quot;http://localhost:8080/api/search?q=go&amp;page=2&quot;
+{&quot;page&quot;:&quot;2&quot;,&quot;query&quot;:&quot;go&quot;}</code></pre>
+
+<h3>v2: 中间件链</h3>
+
+<pre><code class="language-go">package main
+
+import (
+	&quot;encoding/json&quot;
+	&quot;log&quot;
+	&quot;net/http&quot;
+	&quot;time&quot;
+)
+
+// Middleware type: wraps a handler
+type Middleware func(http.Handler) http.Handler
+
+// Chain middlewares: m1(m2(m3(final)))
+func Chain(h http.Handler, middlewares ...Middleware) http.Handler {
+	for i := len(middlewares) - 1; i &gt;= 0; i-- {
+		h = middlewares[i](h)
+	}
+	return h
+}
+
+// Logging middleware
+func Logging(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		start := time.Now()
+		next.ServeHTTP(w, r)
+		log.Printf(&quot;%s %s %v&quot;, r.Method, r.URL.Path, time.Since(start))
+	})
+}
+
+// CORS middleware
+func CORS(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set(&quot;Access-Control-Allow-Origin&quot;, &quot;*&quot;)
+		w.Header().Set(&quot;Access-Control-Allow-Methods&quot;, &quot;GET, POST, PUT, DELETE&quot;)
+		w.Header().Set(&quot;Access-Control-Allow-Headers&quot;, &quot;Content-Type, Authorization&quot;)
+		if r.Method == &quot;OPTIONS&quot; {
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
+// Auth middleware (simple Bearer token check)
+func Auth(token string) Middleware {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			auth := r.Header.Get(&quot;Authorization&quot;)
+			if auth != &quot;Bearer &quot;+token {
+				w.Header().Set(&quot;Content-Type&quot;, &quot;application/json&quot;)
+				w.WriteHeader(http.StatusUnauthorized)
+				json.NewEncoder(w).Encode(map[string]string{
+					&quot;error&quot;: &quot;unauthorized&quot;,
+				})
+				return
+			}
+			next.ServeHTTP(w, r)
+		})
+	}
+}
+
+func main() {
+	mux := http.NewServeMux()
+
+	mux.HandleFunc(&quot;/public&quot;, func(w http.ResponseWriter, r *http.Request) {
+		json.NewEncoder(w).Encode(map[string]string{&quot;msg&quot;: &quot;public endpoint&quot;})
+	})
+
+	mux.HandleFunc(&quot;/private&quot;, func(w http.ResponseWriter, r *http.Request) {
+		json.NewEncoder(w).Encode(map[string]string{&quot;msg&quot;: &quot;secret data&quot;})
+	})
+
+	// Apply middleware chain
+	handler := Chain(mux, Logging, CORS)
+
+	// For private routes, add auth
+	protectedMux := http.NewServeMux()
+	protectedMux.HandleFunc(&quot;/private&quot;, func(w http.ResponseWriter, r *http.Request) {
+		json.NewEncoder(w).Encode(map[string]string{&quot;msg&quot;: &quot;secret data&quot;})
+	})
+
+	log.Println(&quot;Server on :8080 with middleware&quot;)
+	log.Fatal(http.ListenAndServe(&quot;:8080&quot;, handler))
+}</code></pre>
+
+<h3>v3: Graceful Shutdown + HTTPS</h3>
+
+<pre><code class="language-go">package main
+
+import (
+	&quot;context&quot;
+	&quot;encoding/json&quot;
+	&quot;fmt&quot;
+	&quot;log&quot;
+	&quot;net/http&quot;
+	&quot;os&quot;
+	&quot;os/signal&quot;
+	&quot;syscall&quot;
+	&quot;time&quot;
+)
+
+func main() {
+	mux := http.NewServeMux()
+
+	mux.HandleFunc(&quot;/&quot;, func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set(&quot;Content-Type&quot;, &quot;application/json&quot;)
+		json.NewEncoder(w).Encode(map[string]string{
+			&quot;status&quot;:  &quot;running&quot;,
+			&quot;message&quot;: &quot;Server is healthy&quot;,
+		})
+	})
+
+	mux.HandleFunc(&quot;/slow&quot;, func(w http.ResponseWriter, r *http.Request) {
+		time.Sleep(3 * time.Second) // simulate slow work
+		w.Write([]byte(&quot;Done after delay\n&quot;))
+	})
+
+	// Configure server with timeouts
+	server := &amp;http.Server{
+		Addr:         &quot;:8080&quot;,
+		Handler:      mux,
+		ReadTimeout:  5 * time.Second,
+		WriteTimeout: 10 * time.Second,
+		IdleTimeout:  120 * time.Second,
+	}
+
+	// Graceful shutdown: listen for signals
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+
+	go func() {
+		fmt.Println(&quot;Server starting on :8080&quot;)
+		if err := server.ListenAndServe(); err != http.ErrServerClosed {
+			log.Fatalf(&quot;Server error: %v&quot;, err)
+		}
+	}()
+
+	&lt;-quit // Wait for interrupt signal
+	fmt.Println(&quot;\nShutting down gracefully...&quot;)
+
+	// Give outstanding requests 5 seconds to complete
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	if err := server.Shutdown(ctx); err != nil {
+		log.Printf(&quot;Shutdown error: %v&quot;, err)
+	}
+	fmt.Println(&quot;Server stopped&quot;)
+
+	// HTTPS version (commented - needs cert files):
+	// server.TLSConfig = &amp;tls.Config{MinVersion: tls.VersionTLS12}
+	// server.ListenAndServeTLS(&quot;cert.pem&quot;, &quot;key.pem&quot;)
+}</code></pre>
+
+<p><strong>执行预览：</strong></p>
+<pre><code class="language-bash"># Start server
+Server starting on :8080
+
+# In another terminal:
+curl http://localhost:8080/
+{&quot;status&quot;:&quot;running&quot;,&quot;message&quot;:&quot;Server is healthy&quot;}
+
+# Send SIGINT (Ctrl+C)
+^C
+Shutting down gracefully...
+Server stopped</code></pre>
+
+<h2>四、注意事项</h2>
+
+<table><thead><tr>
+<th>要点</th>
+<th>说明</th>
+</tr></thead><tbody>
+<tr>
+<td>ServeMux前缀匹配</td>
+<td><code>/api/</code> 会匹配 <code>/api/</code> 及其子路径，<code>/api</code> 不含尾部斜杠则精确匹配</td>
+</tr>
+<tr>
+<td>响应顺序</td>
+<td>先设置Header/StatusCode，再写入Body</td>
+</tr>
+<tr>
+<td>Body必须读取</td>
+<td>即使不用Body也要读取或关闭，否则连接无法复用</td>
+</tr>
+<tr>
+<td>超时很重要</td>
+<td>无超时配置的服务器面对慢客户端会耗尽资源</td>
+</tr>
+<tr>
+<td>goroutine安全</td>
+<td>Handler在独立goroutine中运行，注意并发安全</td>
+</tr>
+<tr>
+<td>Context传播</td>
+<td>用r.Context()获取请求context，支持取消</td>
+</tr>
+</tbody></table>
+
+<h2>五、避坑指南</h2>
+
+<p>❌ 不设超时：</p>
+<pre><code class="language-go">http.ListenAndServe(&quot;:8080&quot;, nil) // 默认无超时</code></pre>
+<p>✅ 使用http.Server配置超时：</p>
+<pre><code class="language-go">&amp;http.Server{
+    ReadTimeout:  5*time.Second,
+    WriteTimeout: 10*time.Second,
+}</code></pre>
+
+<p>❌ 写完Body再设状态码：</p>
+<pre><code class="language-go">w.Write(data)
+w.WriteHeader(200) // 太晚了！已默认200</code></pre>
+<p>✅ 先Header后Body：</p>
+<pre><code class="language-go">w.WriteHeader(200)
+w.Write(data)</code></pre>
+
+<p>❌ 用http.ListenAndServe做Graceful Shutdown：</p>
+<pre><code class="language-go">http.ListenAndServe(&quot;:8080&quot;, mux) // 无法优雅关闭</code></pre>
+<p>✅ 用http.Server + Shutdown</p>
+
+<p>❌ 忽略METHOD检查：</p>
+<pre><code class="language-go">func handler(w, r) {
+    // 任何方法都响应，不安全
+}</code></pre>
+<p>✅ 检查方法：</p>
+<pre><code class="language-go">if r.Method != http.MethodGet {
+    http.Error(w, &quot;Method not allowed&quot;, 405)
+    return
+}</code></pre>
+
+<h2>六、练习题</h2>
+
+<p>🟢 <strong>基础题：</strong> 实现一个静态文件服务器，提供当前目录的文件访问，自定义404页面。</p>
+
+<p>🟡 <strong>进阶题：</strong> 实现完整的RESTful CRUD API（内存存储），包含中间件（日志+认证），支持JSON请求/响应。</p>
+
+<p>🔴 <strong>挑战题：</strong> 实现一个支持SSE(Server-Sent Events)的实时推送服务，客户端连接后定期接收服务器时间，支持Graceful Shutdown。</p>
+
+<h2>七、知识点总结</h2>
+
+<pre><code>HTTP服务端
+├── 核心
+│   ├── Handler接口
+│   ├── ServeMux路由
+│   └── http.Server
+├── 请求处理
+│   ├── Method判断
+│   ├── URL/Query解析
+│   ├── Header读取
+│   ├── Body解码(JSON/Form)
+│   └── Cookie管理
+├── 中间件
+│   ├── 函数签名
+│   ├── 链式组合
+│   └── 常见模式
+└── 运维
+    ├── 超时配置
+    ├── Graceful Shutdown
+    ├── HTTPS/TLS
+    └── 信号处理</code></pre>
+
+<h2>八、举一反三</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>方案</th>
+<th>关键组件</th>
+</tr></thead><tbody>
+<tr>
+<td>REST API</td>
+<td>ServeMux + JSON</td>
+<td>HandleFunc + json.Encoder</td>
+</tr>
+<tr>
+<td>静态文件</td>
+<td>http.FileServer</td>
+<td>mux.Handle("/static/", ...)</td>
+</tr>
+<tr>
+<td>SPA应用</td>
+<td>首页fallback</td>
+<td>检查路径→返回index.html</td>
+</tr>
+<tr>
+<td>API网关</td>
+<td>反向代理中间件</td>
+<td>httputil.ReverseProxy</td>
+</tr>
+<tr>
+<td>WebSocket</td>
+<td>gorilla/websocket</td>
+<td>Upgrade协议</td>
+</tr>
+<tr>
+<td>微服务</td>
+<td>+ gRPC gateway</td>
+<td>双协议支持</td>
+</tr>
+</tbody></table>
+
+<h2>九、参考资料</h2>
+
+<ul>
+<li><a href="https://pkg.go.dev/net/http">Go官方文档：net/http</a></li>
+<li><a href="https://go.dev/doc/articles/wiki/">Writing Web Applications (Go Wiki)</a></li>
+<li><a href="https://pkg.go.dev/net/http#Server.Shutdown">Graceful Shutdown in Go</a></li>
+
+<h2>十、代码演进总结</h2>
+
+<table><thead><tr>
+<th>版本</th>
+<th>重点</th>
+<th>适用场景</th>
+</tr></thead><tbody>
+<tr>
+<td>v1</td>
+<td>基础路由+JSON API</td>
+<td>简单Web服务原型</td>
+</tr>
+<tr>
+<td>v2</td>
+<td>中间件链</td>
+<td>生产级Web应用</td>
+</tr>
+<tr>
+<td>v3</td>
+<td>Graceful Shutdown+HTTPS</td>
+<td>可运维的生产服务</td>
+</tr>
+</tbody></table>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

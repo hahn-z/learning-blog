@@ -1,0 +1,614 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>017 - Docker + Python：从开发到生产部署全指南</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Python/index.html">Python</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Python/03-实战/index.html">Python实战</a>
+</nav>
+<h1>017 - Docker + Python：从开发到生产部署全指南</h1>
+<div class="meta">
+<span>📂 Python实战</span>
+<span>🏷️ Python</span>
+</div>
+<article>
+
+
+<h1>Docker + Python：从开发到生产部署全指南</h1>
+
+<blockquote><p><strong>难度：⭐⭐⭐ 中高级</strong> | <strong>预计阅读：20 分钟</strong> | <strong>Python 3.8+ / Docker 24+</strong></p></blockquote>
+
+<h2>一、概念讲解</h2>
+
+<p>Docker 解决了"在我机器上能跑"的经典问题。对于 Python 项目，它解决了：</p>
+
+<ul>
+<li><strong>依赖地狱</strong>：不同项目需要不同 Python 版本和库版本</li>
+<li><strong>环境一致性</strong>：开发、测试、生产环境完全一致</li>
+<li><strong>部署简化</strong>：一条命令启动完整服务栈</li>
+<li><strong>隔离性</strong>：多个服务互不干扰</li>
+
+<p><strong>核心术语</strong>：</p>
+
+<table><thead><tr>
+<th>术语</th>
+<th>说明</th>
+<th>类比</th>
+</tr></thead><tbody>
+<tr>
+<td><strong>Dockerfile</strong></td>
+<td>构建镜像的脚本</td>
+<td>菜谱</td>
+</tr>
+<tr>
+<td><strong>Image</strong></td>
+<td>只读模板，包含运行所需的一切</td>
+<td>菜品的模具</td>
+</tr>
+<tr>
+<td><strong>Container</strong></td>
+<td>镜像的运行实例</td>
+<td>做出来的那道菜</td>
+</tr>
+<tr>
+<td><strong>Volume</strong></td>
+<td>持久化数据存储</td>
+<td>菜的保鲜盒</td>
+</tr>
+<tr>
+<td><strong>Docker Compose</strong></td>
+<td>多容器编排工具</td>
+<td>一桌宴席的统筹</td>
+</tr>
+</tbody></table>
+
+<h2>二、脑图（ASCII）</h2>
+
+<pre><code>              Docker + Python 部署
+                     |
+        +------------+------------+
+        |            |            |
+    Dockerfile    Compose      优化
+        |            |            |
+   +----+----+  +---+---+  +----+----+
+   |基础镜像 |  |多服务 |  |多阶段构建|
+   |依赖安装 |  |网络   |  |镜像瘦身 |
+   |CMD/ENTRY|  |Volume |  |安全加固 |
+   +---------+  +-------+  +---------+</code></pre>
+
+<h2>三、完整代码</h2>
+
+<h3>v1：最简 Dockerfile</h3>
+
+<pre><code class="language-dockerfile"># Dockerfile - Simple Python container
+FROM python:3.12-slim
+
+WORKDIR /app
+
+# Install dependencies first (layer caching)
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy application code
+COPY . .
+
+EXPOSE 8000
+
+CMD [&quot;python&quot;, &quot;app.py&quot;]</code></pre>
+
+<pre><code class="language-python"># app.py - Simple FastAPI application
+from fastapi import FastAPI
+import uvicorn
+
+app = FastAPI()
+
+@app.get(&quot;/&quot;)
+def root():
+    return {&quot;message&quot;: &quot;Hello from Docker!&quot;, &quot;version&quot;: &quot;1.0&quot;}
+
+@app.get(&quot;/health&quot;)
+def health():
+    return {&quot;status&quot;: &quot;healthy&quot;}
+
+if __name__ == &quot;__main__&quot;:
+    uvicorn.run(app, host=&quot;0.0.0.0&quot;, port=8000)</code></pre>
+
+<pre><code class="language-text"># requirements.txt
+fastapi==0.115.0
+uvicorn==0.32.0</code></pre>
+
+<p>构建与运行：</p>
+<pre><code class="language-bash">docker build -t myapp:v1 .
+docker run -p 8000:8000 myapp:v1</code></pre>
+
+<h3>v2：多阶段构建 + docker-compose</h3>
+
+<pre><code class="language-dockerfile"># Dockerfile - Multi-stage build
+FROM python:3.12-slim AS builder
+
+WORKDIR /build
+COPY requirements.txt .
+RUN pip install --no-cache-dir --prefix=/install -r requirements.txt
+
+FROM python:3.12-slim
+
+# Security: run as non-root user
+RUN groupadd -r appuser &amp;&amp; useradd -r -g appuser appuser
+
+WORKDIR /app
+COPY --from=builder /install /usr/local
+COPY --chown=appuser:appuser . .
+
+USER appuser
+
+EXPOSE 8000
+
+HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
+  CMD python -c &quot;import urllib.request; urllib.request.urlopen(&#x27;http://localhost:8000/health&#x27;)&quot;
+
+CMD [&quot;uvicorn&quot;, &quot;app:app&quot;, &quot;--host&quot;, &quot;0.0.0.0&quot;, &quot;--port&quot;, &quot;8000&quot;]</code></pre>
+
+<pre><code class="language-yaml"># docker-compose.yml
+version: &quot;3.8&quot;
+
+services:
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - &quot;8000:8000&quot;
+    environment:
+      - DATABASE_URL=postgresql://user:pass@db:5432/mydb
+      - REDIS_URL=redis://redis:6379/0
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    volumes:
+      - ./app:/app
+    restart: unless-stopped
+
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: pass
+      POSTGRES_DB: mydb
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: [&quot;CMD-SHELL&quot;, &quot;pg_isready -U user&quot;]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    volumes:
+      - redisdata:/data
+
+volumes:
+  pgdata:
+  redisdata:</code></pre>
+
+<pre><code class="language-python"># app.py - Updated with DB and Redis
+from fastapi import FastAPI
+from pydantic import BaseModel
+import psycopg
+import redis
+import os
+import json
+
+app = FastAPI()
+
+def get_db():
+    return psycopg.connect(os.environ[&quot;DATABASE_URL&quot;])
+
+def get_redis():
+    return redis.from_url(os.environ.get(&quot;REDIS_URL&quot;, &quot;redis://localhost:6379/0&quot;))
+
+class Item(BaseModel):
+    name: str
+    value: int
+
+@app.post(&quot;/items&quot;)
+def create_item(item: Item):
+    with get_db() as conn:
+        with conn.cursor() as cur:
+            cur.execute(&quot;INSERT INTO items (name, value) VALUES (%s, %s) RETURNING id&quot;,
+                       (item.name, item.value))
+            item_id = cur.fetchone()[0]
+    return {&quot;id&quot;: item_id, **item.model_dump()}
+
+@app.get(&quot;/items&quot;)
+def list_items():
+    r = get_redis()
+    cached = r.get(&quot;items:all&quot;)
+    if cached:
+        return json.loads(cached)
+    with get_db() as conn:
+        with conn.cursor() as cur:
+            cur.execute(&quot;SELECT id, name, value FROM items&quot;)
+            items = [{&quot;id&quot;: row[0], &quot;name&quot;: row[1], &quot;value&quot;: row[2]} for row in cur.fetchall()]
+    r.setex(&quot;items:all&quot;, 60, json.dumps(items))
+    return items</code></pre>
+
+<h3>v3：生产级部署 + Nginx + 监控</h3>
+
+<pre><code class="language-dockerfile"># Dockerfile.prod - Production optimized
+FROM python:3.12-slim AS builder
+WORKDIR /build
+COPY requirements.txt .
+RUN pip install --no-cache-dir --prefix=/install -r requirements.txt
+
+FROM python:3.12-slim
+RUN apt-get update &amp;&amp; apt-get upgrade -y &amp;&amp; \
+    apt-get install -y --no-install-recommends curl &amp;&amp; \
+    rm -rf /var/lib/apt/lists/*
+RUN groupadd -r appuser &amp;&amp; useradd -r -g appuser appuser
+WORKDIR /app
+COPY --from=builder /install /usr/local
+COPY --chown=appuser:appuser . .
+USER appuser
+EXPOSE 8000
+CMD [&quot;uvicorn&quot;, &quot;app:app&quot;, &quot;--host&quot;, &quot;0.0.0.0&quot;, &quot;--port&quot;, &quot;8000&quot;, &quot;--workers&quot;, &quot;4&quot;]</code></pre>
+
+<pre><code class="language-yaml"># docker-compose.prod.yml
+version: &quot;3.8&quot;
+
+services:
+  nginx:
+    image: nginx:alpine
+    ports:
+      - &quot;80:80&quot;
+      - &quot;443:443&quot;
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./certs:/etc/nginx/certs:ro
+    depends_on:
+      - web
+    restart: always
+
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile.prod
+    environment:
+      - DATABASE_URL=postgresql://user:pass@db:5432/mydb
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: always
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: &quot;1.0&quot;
+
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD_FILE: /run/secrets/db_password
+      POSTGRES_DB: mydb
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: [&quot;CMD-SHELL&quot;, &quot;pg_isready -U user&quot;]
+    secrets:
+      - db_password
+    restart: always
+
+  redis:
+    image: redis:7-alpine
+    command: redis-server --appendonly yes
+    volumes:
+      - redisdata:/data
+    restart: always
+
+volumes:
+  pgdata:
+  redisdata:
+
+secrets:
+  db_password:
+    file: ./secrets/db_password.txt</code></pre>
+
+<pre><code class="language-nginx"># nginx.conf
+events { worker_connections 1024; }
+
+http {
+    upstream web {
+        server web:8000;
+    }
+
+    limit_req_zone $binary_remote_addr zone=api:10m rate=30r/m;
+
+    server {
+        listen 80;
+        server_name example.com;
+        return 301 https://$host$request_uri;
+    }
+
+    server {
+        listen 443 ssl;
+        server_name example.com;
+        ssl_certificate /etc/nginx/certs/cert.pem;
+        ssl_certificate_key /etc/nginx/certs/key.pem;
+
+        location / {
+            limit_req zone=api burst=10 nodelay;
+            proxy_pass http://web;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+        }
+
+        location /health {
+            proxy_pass http://web/health;
+            access_log off;
+        }
+    }
+}</code></pre>
+
+<h2>四、执行预览</h2>
+
+<pre><code>$ docker compose up --build
+[+] Building 12.3s
+[+] Running 5/5
+ ✔ Network myapp_default    Created
+ ✔ Container myapp-db-1     Healthy
+ ✔ Container myapp-redis-1  Started
+ ✔ Container myapp-web-1    Started
+ ✔ Container myapp-nginx-1  Started
+
+$ curl http://localhost/health
+{&quot;status&quot;:&quot;healthy&quot;}
+
+$ curl -X POST http://localhost/items \
+  -H &quot;Content-Type: application/json&quot; \
+  -d &#x27;{&quot;name&quot;:&quot;test&quot;,&quot;value&quot;:42}&#x27;
+{&quot;id&quot;:1,&quot;name&quot;:&quot;test&quot;,&quot;value&quot;:42}
+
+$ docker compose ps
+NAME              STATUS         PORTS
+myapp-db-1        Up (healthy)   5432/tcp
+myapp-redis-1     Up             6379/tcp
+myapp-web-1       Up             8000/tcp
+myapp-nginx-1     Up             0.0.0.0:80-&gt;80/tcp</code></pre>
+
+<h2>五、注意事项</h2>
+
+<table><thead><tr>
+<th>事项</th>
+<th>说明</th>
+<th>建议</th>
+</tr></thead><tbody>
+<tr>
+<td>基础镜像</td>
+<td><code>python:3.12</code> 约 1GB，<code>-slim</code> 约 150MB</td>
+<td>生产用 slim 或 alpine</td>
+</tr>
+<tr>
+<td>.dockerignore</td>
+<td>避免复制不必要文件</td>
+<td>排除 .git, __pycache__, .env</td>
+</tr>
+<tr>
+<td>层缓存</td>
+<td>COPY requirements.txt 在 COPY . 之前</td>
+<td>依赖不变时复用缓存</td>
+</tr>
+<tr>
+<td>安全</td>
+<td>默认以 root 运行</td>
+<td>创建非 root 用户</td>
+</tr>
+<tr>
+<td>环境变量</td>
+<td>不要硬编码密码</td>
+<td>用 Docker secrets 或 env_file</td>
+</tr>
+<tr>
+<td>日志</td>
+<td>Docker 默认 json-file 驱动</td>
+<td>生产配置日志轮转</td>
+</tr>
+<tr>
+<td>多阶段构建</td>
+<td>减少最终镜像大小</td>
+<td>编译和运行阶段分离</td>
+</tr>
+<tr>
+<td>数据持久化</td>
+<td>容器删除后数据丢失</td>
+<td>重要数据用 Volume</td>
+</tr>
+</tbody></table>
+
+<h2>六、避坑指南</h2>
+
+<table><thead><tr>
+<th>❌ 错误做法</th>
+<th>✅ 正确做法</th>
+<th>原因</th>
+</tr></thead><tbody>
+<tr>
+<td>用 <code>python:3.12</code> 完整镜像</td>
+<td>用 <code>python:3.12-slim</code></td>
+<td>镜像体积差 6 倍</td>
+</tr>
+<tr>
+<td><code>COPY . .</code> 在 pip install 之前</td>
+<td>先 COPY requirements.txt 再 pip</td>
+<td>无法利用缓存</td>
+</tr>
+<tr>
+<td>在容器内生成文件不加 Volume</td>
+<td>持久化数据挂载 Volume</td>
+<td>容器重建数据丢失</td>
+</tr>
+<tr>
+<td><code>docker exec</code> 手动改容器</td>
+<td>修改 Dockerfile 重新构建</td>
+<td>不可复现</td>
+</tr>
+<tr>
+<td>用 <code>latest</code> tag</td>
+<td>用明确版本号 tag</td>
+<td>不可预测的部署结果</td>
+</tr>
+<tr>
+<td>一个容器跑多个服务</td>
+<td>每个服务一个容器</td>
+<td>违背单一职责</td>
+</tr>
+</tbody></table>
+
+<h2>七、练习题</h2>
+
+<p>🟢 <strong>基础题</strong>：为一个 Flask 应用编写 Dockerfile，要求镜像小于 200MB。</p>
+
+<pre><code class="language-python"># Hint: use python:3.12-slim + gunicorn</code></pre>
+
+<p>🟡 <strong>进阶题</strong>：编写 docker-compose.yml，包含 Django + PostgreSQL + Redis + Celery Worker + Celery Beat 五个服务，配置健康检查和依赖关系。</p>
+
+<p>🔴 <strong>挑战题</strong>：设计零停机部署方案：(1) 蓝绿部署或滚动更新 (2) 数据库迁移在部署流程中的位置 (3) 回滚策略。</p>
+
+<h2>八、知识点总结</h2>
+
+<pre><code>Docker + Python 知识树
+├── Dockerfile
+│   ├── 基础镜像选择
+│   ├── 多阶段构建
+│   ├── 层缓存优化
+│   └── 安全最佳实践
+├── Docker Compose
+│   ├── 服务编排
+│   ├── 网络配置
+│   ├── Volume 持久化
+│   └── 健康检查
+├── 生产部署
+│   ├── Nginx 反向代理
+│   ├── SSL/TLS 配置
+│   ├── 资源限制
+│   └── 日志管理
+└── CI/CD
+    ├── 镜像构建流水线
+    ├── 镜像仓库推送
+    └── 自动部署</code></pre>
+
+<h2>九、举一反三</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>Docker 方案</th>
+<th>关键技术</th>
+</tr></thead><tbody>
+<tr>
+<td>微服务架构</td>
+<td>每个服务独立镜像 + compose</td>
+<td>服务发现 + 网络隔离</td>
+</tr>
+<tr>
+<td>CI/CD 流水线</td>
+<td>Docker-in-Docker 构建</td>
+<td>多阶段构建 + 镜像缓存</td>
+</tr>
+<tr>
+<td>开发环境统一</td>
+<td>devcontainer.json</td>
+<td>VS Code Remote Containers</td>
+</tr>
+<tr>
+<td>爬虫集群</td>
+<td>多 Worker 容器 + Redis 队列</td>
+<td>水平扩展 + 共享队列</td>
+</tr>
+<tr>
+<td>ML 模型部署</td>
+<td>GPU 镜像 + FastAPI</td>
+<td>nvidia-docker + 模型加载</td>
+</tr>
+</tbody></table>
+
+<h2>十、参考资料</h2>
+
+<ul>
+<li><a href="https://docs.docker.com/">Docker 官方文档</a></li>
+<li><a href="https://docs.docker.com/compose/compose-file/">Docker Compose 文件参考</a></li>
+<li><a href="https://docs.docker.com/language/python/">Python Docker 最佳实践</a></li>
+<li><a href="https://docs.docker.com/build/building/multi-stage/">多阶段构建指南</a></li>
+
+<h2>十一、代码演进路线</h2>
+
+<pre><code>v1 (入门)      -&gt;  v2 (工程化)       -&gt;  v3 (生产级)
+--------------------------------------------------
+单 Dockerfile      多阶段构建          Nginx 反向代理
+无优化             docker-compose      SSL 证书
+root 运行          非 root 用户        Docker Secrets
+开发模式           健康检查            资源限制
+手动构建           Volume 持久化       零停机部署</code></pre>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

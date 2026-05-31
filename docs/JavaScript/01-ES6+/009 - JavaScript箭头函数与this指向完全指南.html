@@ -1,0 +1,486 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>009 - JavaScript箭头函数与this指向完全指南</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/JavaScript/index.html">JavaScript</a>
+<span class="sep">›</span>
+<a href="/tech-blog/JavaScript/01-ES6+/index.html">JavaScript ES6+</a>
+</nav>
+<h1>009 - JavaScript箭头函数与this指向完全指南</h1>
+<div class="meta">
+<span>📂 JavaScript ES6+</span>
+<span>🏷️ JavaScript</span>
+</div>
+<article>
+
+
+
+<h1>JavaScript箭头函数与this指向完全指南</h1>
+
+<blockquote><p><strong>难度标注：</strong> 🟡 中级 | <strong>前置知识：</strong> 函数基础、对象方法<br><strong>阅读时间：</strong> 约16分钟 | <strong>代码量：</strong> 约130行</p></blockquote>
+
+<hr>
+
+<h2>一、概念讲解</h2>
+
+<h3>1.1 箭头函数语法</h3>
+
+<p>ES6引入的简洁函数语法：<code>(参数) => 表达式/代码块</code>。没有自己的<code>this</code>、<code>arguments</code>、<code>super</code>、<code>new.target</code>。</p>
+
+<h3>1.2 this绑定规则（普通函数）</h3>
+
+<table><thead><tr>
+<th>调用方式</th>
+<th>this指向</th>
+</tr></thead><tbody>
+<tr>
+<td><code>obj.fn()</code></td>
+<td>obj</td>
+</tr>
+<tr>
+<td><code>fn()</code></td>
+<td>undefined (strict) / window</td>
+</tr>
+<tr>
+<td><code>new Fn()</code></td>
+<td>新创建的实例</td>
+</tr>
+<tr>
+<td><code>fn.call/apply/bind(ctx)</code></td>
+<td>指定的ctx</td>
+</tr>
+</tbody></table>
+
+<h3>1.3 箭头函数的this</h3>
+
+<p><strong>继承外层词法作用域的this</strong>，在定义时绑定，无法被<code>call/apply/bind</code>改变。</p>
+
+<hr>
+
+<h2>二、脑图</h2>
+
+<pre><code>                    this指向
+                   /        \
+              普通函数      箭头函数
+             /    |    \       |
+        对象调用  普通调用  new   继承外层this
+         obj    window   实例   定义时绑定
+                      |
+              call/apply/bind
+              可改变(普通) / 不可改变(箭头)</code></pre>
+
+<hr>
+
+<h2>三、完整代码示例</h2>
+
+<pre><code class="language-javascript">// ============================================
+// 1. Arrow function syntax variations
+// ============================================
+// Single param, single expression
+const double = x =&gt; x * 2;
+console.log(double(5)); // 10
+
+// Multiple params
+const add = (a, b) =&gt; a + b;
+console.log(add(3, 4)); // 7
+
+// Block body
+const greet = (name) =&gt; {
+  const msg = `Hello, ${name}!`;
+  return msg;
+};
+console.log(greet(&quot;Alice&quot;)); // Hello, Alice!
+
+// Returning an object literal (wrap in parens)
+const createUser = (name, age) =&gt; ({ name, age });
+console.log(createUser(&quot;Bob&quot;, 25)); // { name: &#x27;Bob&#x27;, age: 25 }
+
+// ============================================
+// 2. this in regular vs arrow functions
+// ============================================
+const team = {
+  name: &quot;Alpha&quot;,
+  members: [&quot;Alice&quot;, &quot;Bob&quot;, &quot;Charlie&quot;],
+
+  // Regular function: this = team (called as method)
+  showMembersRegular: function() {
+    console.log(`${this.name} members:`);
+    this.members.forEach(function(member) {
+      // BUG: &#x27;this&#x27; is undefined (strict) or window here
+      // console.log(`${this.name} - ${member}`);
+    });
+  },
+
+  // Arrow function in callback: inherits this from showMembersArrow
+  showMembersArrow: function() {
+    console.log(`${this.name} members:`);
+    this.members.forEach((member) =&gt; {
+      console.log(`${this.name} - ${member}`); // works!
+    });
+  },
+
+  // Pitfall: arrow function as method
+  showNameArrow: () =&gt; {
+    // this = outer scope (window/global), NOT team
+    console.log(this?.name); // undefined
+  },
+};
+
+team.showMembersRegular();
+team.showMembersArrow();
+team.showNameArrow();
+
+// ============================================
+// 3. call/apply/bind with arrow functions
+// ============================================
+const arrowFn = () =&gt; console.log(this);
+
+const ctx = { foo: &quot;bar&quot; };
+arrowFn.call(ctx);   // still prints global this
+arrowFn.apply(ctx);  // same
+const bound = arrowFn.bind(ctx);
+bound();             // still global this
+
+// Regular function respects call/apply/bind
+function regularFn() {
+  console.log(this);
+}
+regularFn.call(ctx); // { foo: &#x27;bar&#x27; }
+
+// ============================================
+// 4. Practical: event handlers &amp; class methods
+// ============================================
+class Timer {
+  constructor() {
+    this.seconds = 0;
+  }
+
+  // Arrow field: auto-binds to instance
+  start = () =&gt; {
+    this.interval = setInterval(() =&gt; {
+      this.seconds++;
+      if (this.seconds &lt;= 3) {
+        console.log(`Tick: ${this.seconds}s`);
+      } else {
+        clearInterval(this.interval);
+      }
+    }, 100);
+  };
+}
+
+const timer = new Timer();
+timer.start();</code></pre>
+
+<hr>
+
+<h2>四、执行预览</h2>
+
+<pre><code>10
+7
+Hello, Alice!
+{ name: &#x27;Bob&#x27;, age: 25 }
+Alpha members:
+Alpha members:
+Alpha - Alice
+Alpha - Bob
+Alpha - Charlie
+undefined
+{ ... global object ... }
+{ foo: &#x27;bar&#x27; }
+Tick: 1s
+Tick: 2s
+Tick: 3s</code></pre>
+
+<hr>
+
+<h2>五、注意事项</h2>
+
+<table><thead><tr>
+<th>特性</th>
+<th>普通函数</th>
+<th>箭头函数</th>
+<th>说明</th>
+</tr></thead><tbody>
+<tr>
+<td>this绑定</td>
+<td>调用时决定</td>
+<td>定义时继承</td>
+<td>箭头函数没有自己的this</td>
+</tr>
+<tr>
+<td>arguments</td>
+<td>✅</td>
+<td>❌</td>
+<td>箭头函数用剩余参数代替</td>
+</tr>
+<tr>
+<td>constructor</td>
+<td>✅</td>
+<td>❌</td>
+<td>箭头函数不能new</td>
+</tr>
+<tr>
+<td>prototype</td>
+<td>✅</td>
+<td>❌</td>
+<td>箭头函数无prototype属性</td>
+</tr>
+<tr>
+<td>call/apply/bind</td>
+<td>✅ 改变this</td>
+<td>❌ 无效</td>
+<td>箭头函数this不可变</td>
+</tr>
+<tr>
+<td>作对象方法</td>
+<td>✅</td>
+<td>⚠️</td>
+<td>箭头方法this不指向对象</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>六、避坑指南</h2>
+
+<h3>❌ 箭头函数作为对象方法</h3>
+<pre><code class="language-javascript">const obj = {
+  name: &quot;test&quot;,
+  sayHi: () =&gt; console.log(this.name), // this ≠ obj
+};
+obj.sayHi(); // undefined</code></pre>
+<h3>✅ 使用普通函数或方法简写</h3>
+<pre><code class="language-javascript">const obj = {
+  name: &quot;test&quot;,
+  sayHi() { console.log(this.name); }, // this = obj
+};
+obj.sayHi(); // &quot;test&quot;</code></pre>
+
+<h3>❌ 箭头函数做构造函数</h3>
+<pre><code class="language-javascript">const Foo = () =&gt; {};
+new Foo(); // TypeError: Foo is not a constructor</code></pre>
+<h3>✅ 使用class或普通函数</h3>
+<pre><code class="language-javascript">class Foo {
+  constructor() { this.x = 1; }
+}
+new Foo(); // OK</code></pre>
+
+<hr>
+
+<h2>七、练习题</h2>
+
+<h3>🟢 基础</h3>
+<ol>
+<li>将以下函数改写为箭头函数：</li>
+<pre><code class="language-javascript">function square(x) { return x * x; }
+function isPositive(x) { return x &gt; 0; }</code></pre>
+
+<h3>🟡 进阶</h3>
+<ol>
+<li>预测输出：</li>
+<pre><code class="language-javascript">const obj = {
+  a: 1,
+  b: function() {
+    const inner = () =&gt; this.a;
+    return inner();
+  },
+  c: () =&gt; this.a,
+};
+console.log(obj.b());
+console.log(obj.c());</code></pre>
+
+<h3>🔴 挑战</h3>
+<ol>
+<li>实现一个<code>bind(fn, context)</code>函数（简化版Function.prototype.bind），并解释为什么对箭头函数无效。</li>
+
+<hr>
+
+<h2>八、知识点总结</h2>
+
+<pre><code>箭头函数与this
+├── 箭头函数特性
+│   ├── 简洁语法
+│   ├── 隐式返回
+│   ├── 无this/arguments/super/new.target
+│   └── 不可作为构造函数
+├── this绑定规则（普通函数）
+│   ├── 默认绑定（window/undefined）
+│   ├── 隐式绑定（obj.fn()）
+│   ├── 显式绑定（call/apply/bind）
+│   └── new绑定
+└── 选用原则
+    ├── 回调/闭包 → 箭头函数（保留外层this）
+    ├── 对象方法 → 普通函数
+    ├── 构造函数 → class
+    └── 事件处理 → 箭头函数或bind</code></pre>
+
+<hr>
+
+<h2>九、举一反三</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>推荐</th>
+<th>原因</th>
+</tr></thead><tbody>
+<tr>
+<td>Array.map/filter回调</td>
+<td>箭头</td>
+<td>简洁，无需自己的this</td>
+</tr>
+<tr>
+<td>React事件处理</td>
+<td>箭头</td>
+<td>自动绑定组件this</td>
+</tr>
+<tr>
+<td>对象方法</td>
+<td>普通函数/简写</td>
+<td>需要this指向对象</td>
+</tr>
+<tr>
+<td>Class方法</td>
+<td>箭头字段</td>
+<td>自动绑定实例</td>
+</tr>
+<tr>
+<td>setTimeout回调</td>
+<td>箭头</td>
+<td>保留外层this</td>
+</tr>
+<tr>
+<td>构造/工厂</td>
+<td>class</td>
+<td>箭头不能new</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>十、参考资料</h2>
+
+<ul>
+<li><a href="https://developer.mozilla.org/zh-CN/docs/Web/JavaScript/Reference/Functions/Arrow_functions">MDN: 箭头函数</a></li>
+<li><a href="https://developer.mozilla.org/zh-CN/docs/Web/JavaScript/Reference/Operators/this">MDN: this</a></li>
+<li><a href="https://github.com/getify/You-Dont-Know-JS">You Don't Know JS: this & Object Prototypes</a></li>
+
+<hr>
+
+<h2>十一、代码演进</h2>
+
+<h3>v1: var that = this 模式</h3>
+<pre><code class="language-javascript">const obj = {
+  data: [1, 2, 3],
+  process: function() {
+    var that = this;
+    this.data.forEach(function(item) {
+      console.log(that.data, item); // use &#x27;that&#x27; to access obj
+    });
+  },
+};</code></pre>
+
+<h3>v2: bind/call</h3>
+<pre><code class="language-javascript">const obj = {
+  data: [1, 2, 3],
+  process: function() {
+    this.data.forEach(function(item) {
+      console.log(this.data, item);
+    }.bind(this));
+  },
+};</code></pre>
+
+<h3>v3: 箭头函数（现代写法）</h3>
+<pre><code class="language-javascript">const obj = {
+  data: [1, 2, 3],
+  process() {
+    this.data.forEach(item =&gt; {
+      console.log(this.data, item); // this auto-inherited
+    });
+  },
+};</code></pre>
+
+<hr>
+
+<h2>十二、总结</h2>
+
+<table><thead><tr>
+<th>原则</th>
+<th>说明</th>
+</tr></thead><tbody>
+<tr>
+<td><strong>回调用箭头</strong></td>
+<td>自动继承外层this</td>
+</tr>
+<tr>
+<td><strong>方法用普通函数</strong></td>
+<td>this需要指向对象</td>
+</tr>
+<tr>
+<td><strong>箭头不能new</strong></td>
+<td>没有prototype和constructor</td>
+</tr>
+<tr>
+<td><strong>this不可变</strong></td>
+<td>call/apply/bind对箭头函数无效</td>
+</tr>
+</tbody></table>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

@@ -1,0 +1,807 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>003 - 字符串操作详解</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Python/index.html">Python</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Python/01-入门/index.html">Python入门</a>
+</nav>
+<h1>003 - 字符串操作详解</h1>
+<div class="meta">
+<span>📂 Python入门</span>
+<span>🏷️ Python</span>
+</div>
+<article>
+
+
+<h2>📊 难度标注</h2>
+
+<blockquote><p><strong>难度：</strong> ⭐⭐☆☆☆ 基础级<br><strong>前置知识：</strong> 变量与数据类型（002）<br><strong>预计用时：</strong> 50-60分钟<br><strong>学习目标：</strong> 熟练使用字符串创建、切片、格式化、常用方法</p></blockquote>
+
+<hr>
+
+<h2>📖 概念讲解</h2>
+
+<h3>字符串的本质</h3>
+
+<p>Python中，字符串是<strong>不可变的Unicode字符序列</strong>。三个关键点：</p>
+
+<ol>
+<li><strong>不可变</strong>：创建后不能修改，每次"修改"实际是创建新字符串</li>
+</ul>
+<ol>
+<li><strong>序列</strong>：有序、可迭代、可通过索引访问</li>
+</ul>
+<ol>
+<li><strong>Unicode</strong>：原生支持中文、emoji等所有字符</li>
+
+<pre><code class="language-python">s = &quot;Hello&quot;
+# s[0] = &quot;h&quot;  # ERROR! Strings are immutable
+s = &quot;hello&quot;    # This creates a NEW string, doesn&#x27;t modify the old one</code></pre>
+
+<h3>字符串的四种创建方式</h3>
+
+<pre><code class="language-python"># Single quotes
+s1 = &#x27;Hello&#x27;
+
+# Double quotes (identical to single)
+s2 = &quot;Hello&quot;
+
+# Triple quotes (multi-line)
+s3 = &quot;&quot;&quot;Line 1
+Line 2
+Line 3&quot;&quot;&quot;
+
+# Raw strings (no escape processing)
+s4 = r&quot;C:\new\test&quot;  # \n and \t are literal, not escape sequences</code></pre>
+
+<p>单引号和双引号完全等价，选择标准是：<strong>字符串内容包含哪种引号就用另一种</strong>。</p>
+
+<h3>字符串格式化演进</h3>
+
+<p>Python字符串格式化经历了三代：</p>
+
+<table><thead><tr>
+<th>方式</th>
+<th>语法</th>
+<th>Python版本</th>
+<th>推荐度</th>
+</tr></thead><tbody>
+<tr>
+<td>% 格式化</td>
+<td><code>"Hello %s" % name</code></td>
+<td>所有版本</td>
+<td>⭐⭐</td>
+</tr>
+<tr>
+<td>.format()</td>
+<td><code>"Hello {}".format(name)</code></td>
+<td>2.6+</td>
+<td>⭐⭐⭐</td>
+</tr>
+<tr>
+<td>f-string</td>
+<td><code>f"Hello {name}"</code></td>
+<td>3.6+</td>
+<td>⭐⭐⭐⭐⭐</td>
+</tr>
+</tbody></table>
+
+<p><strong>f-string 是现代Python的标准写法</strong>，性能最好、语法最简洁。</p>
+
+<h3>切片（Slicing）</h3>
+
+<p>切片是Python最优雅的特性之一，用于提取子序列：</p>
+
+<pre><code>字符串:  P  y  t  h  o  n
+索引:    0  1  2  3  4  5
+负索引: -6 -5 -4 -3 -2 -1
+
+语法: s[start:stop:step]</code></pre>
+
+<hr>
+
+<h2>🗺️ 知识脑图</h2>
+
+<pre><code>字符串操作
+├── 创建
+│   ├── 单/双引号：&#x27;hello&#x27;, &quot;world&quot;
+│   ├── 三引号：多行字符串
+│   ├── 原始字符串：r&quot;raw&quot;
+│   └── 转义字符：\n, \t, \\
+├── 基础操作
+│   ├── 拼接：+ 和 join()
+│   ├── 重复：*
+│   ├── 索引：s[0], s[-1]
+│   ├── 切片：s[1:4], s[::-1]
+│   └── 长度：len(s)
+├── 格式化
+│   ├── f-string（推荐）
+│   ├── .format()
+│   ├── % 格式化
+│   └── 格式规范：:.2f, :&gt;10, :^20
+├── 常用方法
+│   ├── 查找：find(), index(), count()
+│   ├── 判断：startswith(), isdigit()
+│   ├── 变换：upper(), lower(), strip()
+│   ├── 替换：replace()
+│   └── 分割：split(), join()
+└── 高级技巧
+    ├── 字符串对齐
+    ├── 编码解码：encode(), decode()
+    └── 正则表达式入门</code></pre>
+
+<hr>
+
+<h2>💻 完整Python代码</h2>
+
+<h3>字符串创建与基础操作</h3>
+
+<pre><code class="language-python"># string_basics.py - String creation and basic operations
+
+# Four ways to create strings
+s1 = &#x27;Single quotes&#x27;
+s2 = &quot;Double quotes&quot;
+s3 = &quot;&quot;&quot;Triple quotes
+can span
+multiple lines&quot;&quot;&quot;
+s4 = r&quot;Raw string: \n is not newline&quot;
+
+# Concatenation
+greeting = &quot;Hello&quot; + &quot; &quot; + &quot;World&quot;
+print(greeting)  # Hello World
+
+# Repetition
+separator = &quot;-&quot; * 30
+print(separator)  # ------------------------------
+
+# Length
+print(f&quot;Length of &#x27;{s1}&#x27;: {len(s1)}&quot;)  # 14
+
+# Membership test
+print(f&quot;&#x27;quotes&#x27; in s1: {&#x27;quotes&#x27; in s1}&quot;)  # True
+print(f&quot;&#x27;double&#x27; in s1: {&#x27;double&#x27; in s1}&quot;)  # False</code></pre>
+
+<h3>索引与切片</h3>
+
+<pre><code class="language-python"># slicing.py - String indexing and slicing
+
+s = &quot;Python&quot;
+
+# Indexing
+print(f&quot;s[0] = &#x27;{s[0]}&#x27;&quot;)    # P
+print(f&quot;s[-1] = &#x27;{s[-1]}&#x27;&quot;)  # n
+print(f&quot;s[3] = &#x27;{s[3]}&#x27;&quot;)    # h
+
+# Basic slicing: s[start:stop] (stop is exclusive)
+print(f&quot;s[0:3] = &#x27;{s[0:3]}&#x27;&quot;)   # Pyt
+print(f&quot;s[2:5] = &#x27;{s[2:5]}&#x27;&quot;)   # tho
+print(f&quot;s[:3] = &#x27;{s[:3]}&#x27;&quot;)     # Pyt (omit start = 0)
+print(f&quot;s[3:] = &#x27;{s[3:]}&#x27;&quot;)     # hon (omit end = len)
+
+# Negative index slicing
+print(f&quot;s[-3:] = &#x27;{s[-3:]}&#x27;&quot;)   # hon (last 3 chars)
+print(f&quot;s[:-2] = &#x27;{s[:-2]}&#x27;&quot;)   # Pyth (all but last 2)
+
+# Step slicing: s[start:stop:step]
+print(f&quot;s[::2] = &#x27;{s[::2]}&#x27;&quot;)     # Pto (every 2nd char)
+print(f&quot;s[1::2] = &#x27;{s[1::2]}&#x27;&quot;)   # yhn (every 2nd, starting from index 1)
+print(f&quot;s[::-1] = &#x27;{s[::-1]}&#x27;&quot;)   # nohtyP (reverse!)
+print(f&quot;s[::-2] = &#x27;{s[::-2]}&#x27;&quot;)   # nhy (reverse every 2nd)
+
+# Practical examples
+email = &quot;user@example.com&quot;
+domain = email.split(&quot;@&quot;)[1]  # example.com
+username = email.split(&quot;@&quot;)[0]  # user
+print(f&quot;\nUsername: {username}, Domain: {domain}&quot;)
+
+# Reverse a string
+text = &quot;ABBA&quot;
+print(f&quot;&#x27;{text}&#x27; reversed: &#x27;{text[::-1]}&#x27;&quot;)
+print(f&quot;Is palindrome: {text == text[::-1]}&quot;)  # True</code></pre>
+
+<h3>f-string 格式化大全</h3>
+
+<pre><code class="language-python"># fstring_demo.py - f-string formatting complete guide
+
+name = &quot;Python&quot;
+version = 3.12
+pi = 3.14159265
+
+# Basic f-string
+print(f&quot;Language: {name} {version}&quot;)
+
+# Expressions inside f-string
+print(f&quot;Upper: {name.upper()}&quot;)
+print(f&quot;2 + 3 = {2 + 3}&quot;)
+print(f&quot;Version check: {&#x27;modern&#x27; if version &gt;= 3.6 else &#x27;old&#x27;}&quot;)
+
+# Number formatting
+print(f&quot;\n--- Number Formatting ---&quot;)
+print(f&quot;Pi: {pi}&quot;)                  # 3.14159265
+print(f&quot;Pi (2 decimal): {pi:.2f}&quot;)  # 3.14
+print(f&quot;Pi (4 decimal): {pi:.4f}&quot;)  # 3.1416
+print(f&quot;Percent: {0.856:.1%}&quot;)      # 85.6%
+print(f&quot;Scientific: {pi:.2e}&quot;)      # 3.14e+00
+print(f&quot;Thousand sep: {1234567:,}&quot;) # 1,234,567
+print(f&quot;Binary: {42:b}&quot;)            # 101010
+print(f&quot;Hex: {255:x}&quot;)              # ff
+print(f&quot;Octal: {8:o}&quot;)              # 10
+print(f&quot;Padding: {42:05d}&quot;)         # 00042
+
+# Alignment
+print(f&quot;\n--- Alignment ---&quot;)
+print(f&quot;{&#x27;Left&#x27;:&lt;20}|&quot;)    # Left                 |
+print(f&quot;{&#x27;Center&#x27;:^20}|&quot;)  #        Center        |
+print(f&quot;{&#x27;Right&#x27;:&gt;20}|&quot;)   #                 Right|
+print(f&quot;{&#x27;Fill&#x27;:*^20}|&quot;)   # ********Fill********|
+
+# Dictionary in f-string
+data = {&quot;name&quot;: &quot;Alice&quot;, &quot;score&quot;: 95}
+print(f&quot;\nStudent: {data[&#x27;name&#x27;]}, Score: {data[&#x27;score&#x27;]}&quot;)
+
+nums = [1, 2, 3]
+print(f&quot;List: {nums}&quot;)</code></pre>
+
+<h3>常用字符串方法</h3>
+
+<pre><code class="language-python"># string_methods.py - Essential string methods
+
+# --- Case methods ---
+s = &quot;Hello World&quot;
+print(f&quot;upper():      &#x27;{s.upper()}&#x27;&quot;)       # HELLO WORLD
+print(f&quot;lower():      &#x27;{s.lower()}&#x27;&quot;)       # hello world
+print(f&quot;title():      &#x27;{s.title()}&#x27;&quot;)       # Hello World
+print(f&quot;capitalize():  &#x27;{s.capitalize()}&#x27;&quot;) # Hello world
+print(f&quot;swapcase():   &#x27;{s.swapcase()}&#x27;&quot;)    # hELLO wORLD
+
+# --- Search methods ---
+text = &quot;Python is awesome. Python is fun.&quot;
+print(f&quot;\nfind(&#x27;Python&#x27;):    {text.find(&#x27;Python&#x27;)}&quot;)     # 0
+print(f&quot;find(&#x27;Java&#x27;):      {text.find(&#x27;Java&#x27;)}&quot;)        # -1 (not found)
+print(f&quot;rfind(&#x27;Python&#x27;):   {text.rfind(&#x27;Python&#x27;)}&quot;)     # 19
+print(f&quot;index(&#x27;Python&#x27;):   {text.index(&#x27;Python&#x27;)}&quot;)     # 0
+print(f&quot;count(&#x27;Python&#x27;):   {text.count(&#x27;Python&#x27;)}&quot;)     # 2
+print(f&quot;startswith(&#x27;Py&#x27;):  {text.startswith(&#x27;Py&#x27;)}&quot;)    # True
+print(f&quot;endswith(&#x27;fun.&#x27;):  {text.endswith(&#x27;fun.&#x27;)}&quot;)    # True
+
+# --- Strip methods ---
+messy = &quot;  Hello World  &quot;
+print(f&quot;\nstrip():    &#x27;{messy.strip()}&#x27;&quot;)     # &#x27;Hello World&#x27;
+print(f&quot;lstrip():   &#x27;{messy.lstrip()}&#x27;&quot;)    # &#x27;Hello World  &#x27;
+print(f&quot;rstrip():   &#x27;{messy.rstrip()}&#x27;&quot;)    # &#x27;  Hello World&#x27;
+
+# Strip specific characters
+code = &quot;xxHelloxx&quot;
+print(f&quot;strip(&#x27;x&#x27;): &#x27;{code.strip(&#x27;x&#x27;)}&quot;)   # &#x27;Hello&#x27;
+
+# --- Replace and split ---
+greeting = &quot;Hello World&quot;
+print(f&quot;\nreplace(&#x27;World&#x27;, &#x27;Python&#x27;): &#x27;{greeting.replace(&#x27;World&#x27;, &#x27;Python&#x27;)}&#x27;&quot;)
+print(f&quot;replace(&#x27;l&#x27;, &#x27;L&#x27;, 1): &#x27;{greeting.replace(&#x27;l&#x27;, &#x27;L&#x27;, 1)}&#x27;&quot;)  # Only first
+
+csv_line = &quot;name,age,city&quot;
+parts = csv_line.split(&quot;,&quot;)
+print(f&quot;split(&#x27;,&#x27;): {parts}&quot;)  # [&#x27;name&#x27;, &#x27;age&#x27;, &#x27;city&#x27;]
+
+words = &quot;Hello World&quot;
+print(f&quot;split(): {words.split()}&quot;)  # [&#x27;Hello&#x27;, &#x27;World&#x27;]
+
+# Join (reverse of split)
+fruits = [&quot;apple&quot;, &quot;banana&quot;, &quot;cherry&quot;]
+print(f&quot;&#x27; | &#x27;.join(fruits): &#x27;{&#x27; | &#x27;.join(fruits)}&#x27;&quot;)
+
+# --- Check methods ---
+print(f&quot;\n&#x27;123&#x27;.isdigit(): {&#x27;123&#x27;.isdigit()}&quot;)        # True
+print(f&quot;&#x27;abc&#x27;.isalpha(): {&#x27;abc&#x27;.isalpha()}&quot;)          # True
+print(f&quot;&#x27;abc123&#x27;.isalnum(): {&#x27;abc123&#x27;.isalnum()}&quot;)    # True
+print(f&quot;&#x27;   &#x27;.isspace(): {&#x27;   &#x27;.isspace()}&quot;)          # True
+print(f&quot;&#x27;Hello&#x27;.islower(): {&#x27;Hello&#x27;.islower()}&quot;)      # False
+print(f&quot;&#x27;HELLO&#x27;.isupper(): {&#x27;HELLO&#x27;.isupper()}&quot;)       # True</code></pre>
+
+<h3>实用字符串处理示例</h3>
+
+<pre><code class="language-python"># practical_strings.py - Real-world string processing
+
+def clean_user_input(text: str) -&gt; str:
+    # Clean and normalize user input
+    return text.strip().lower()
+
+def format_phone(phone: str) -&gt; str:
+    # Format phone number: 13812345678 -&gt; 138-1234-5678
+    phone = phone.replace(&quot;-&quot;, &quot;&quot;).replace(&quot; &quot;, &quot;&quot;)
+    if len(phone) == 11 and phone.isdigit():
+        return f&quot;{phone[:3]}-{phone[3:7]}-{phone[7:]}&quot;
+    return phone
+
+def mask_email(email: str) -&gt; str:
+    # Mask email: alice@example.com -&gt; a***e@example.com
+    if &quot;@&quot; not in email:
+        return email
+    user, domain = email.split(&quot;@&quot;)
+    if len(user) &lt;= 2:
+        masked = user[0] + &quot;***&quot;
+    else:
+        masked = user[0] + &quot;***&quot; + user[-1]
+    return f&quot;{masked}@{domain}&quot;
+
+def truncate(text: str, max_len: int = 20, suffix: str = &quot;...&quot;) -&gt; str:
+    # Truncate text with ellipsis
+    if len(text) &lt;= max_len:
+        return text
+    return text[:max_len - len(suffix)] + suffix
+
+# Demo
+print(&quot;--- User Input Cleaning ---&quot;)
+inputs = [&quot;  Hello  &quot;, &quot;WORLD&quot;, &quot;  Python  &quot;]
+for raw in inputs:
+    print(f&quot;&#x27;{raw}&#x27; -&gt; &#x27;{clean_user_input(raw)}&#x27;&quot;)
+
+print(&quot;\n--- Phone Formatting ---&quot;)
+phones = [&quot;13812345678&quot;, &quot;138-1234-5678&quot;, &quot;123&quot;]
+for p in phones:
+    print(f&quot;{p} -&gt; {format_phone(p)}&quot;)
+
+print(&quot;\n--- Email Masking ---&quot;)
+emails = [&quot;alice@example.com&quot;, &quot;bob@test.org&quot;, &quot;x@y.com&quot;]
+for e in emails:
+    print(f&quot;{e} -&gt; {mask_email(e)}&quot;)
+
+print(&quot;\n--- Text Truncation ---&quot;)
+texts = [&quot;Hello World&quot;, &quot;This is a very long sentence that needs truncation&quot;]
+for t in texts:
+    print(f&quot;&#x27;{t}&#x27; -&gt; &#x27;{truncate(t, 20)}&#x27;&quot;)</code></pre>
+
+<hr>
+
+<h2>👀 执行预览</h2>
+
+<p><strong>运行 slicing.py：</strong></p>
+
+<pre><code>$ python slicing.py
+s[0] = &#x27;P&#x27;
+s[-1] = &#x27;n&#x27;
+s[3] = &#x27;h&#x27;
+s[0:3] = &#x27;Pyt&#x27;
+s[2:5] = &#x27;tho&#x27;
+s[:3] = &#x27;Pyt&#x27;
+s[3:] = &#x27;hon&#x27;
+s[-3:] = &#x27;hon&#x27;
+s[:-2] = &#x27;Pyth&#x27;
+s[::2] = &#x27;Pto&#x27;
+s[1::2] = &#x27;yhn&#x27;
+s[::-1] = &#x27;nohtyP&#x27;
+s[::-2] = &#x27;nhy&#x27;
+
+Username: user, Domain: example.com
+
+&#x27;ABBA&#x27; reversed: &#x27;ABBA&#x27;
+Is palindrome: True</code></pre>
+
+<p><strong>运行 fstring_demo.py（部分输出）：</strong></p>
+
+<pre><code>Language: Python 3.12
+Upper: PYTHON
+2 + 3 = 5
+Version check: modern
+
+--- Number Formatting ---
+Pi: 3.14159265
+Pi (2 decimal): 3.14
+Percent: 85.6%
+Thousand sep: 1,234,567
+Binary: 101010
+Padding: 00042
+
+--- Alignment ---
+Left                |
+       Center       |
+               Right|
+********Fill********|</code></pre>
+
+<p><strong>运行 practical_strings.py：</strong></p>
+
+<pre><code>--- User Input Cleaning ---
+&#x27;  Hello  &#x27; -&gt; &#x27;hello&#x27;
+&#x27;WORLD&#x27; -&gt; &#x27;world&#x27;
+&#x27;  Python  &#x27; -&gt; &#x27;python&#x27;
+
+--- Phone Formatting ---
+13812345678 -&gt; 138-1234-5678
+138-1234-5678 -&gt; 138-1234-5678
+123 -&gt; 123
+
+--- Email Masking ---
+alice@example.com -&gt; a***e@example.com
+bob@test.org -&gt; b***b@test.org
+x@y.com -&gt; x***@y.com
+
+--- Text Truncation ---
+&#x27;Hello World&#x27; -&gt; &#x27;Hello World&#x27;
+&#x27;This is a very long sentence...&#x27; -&gt; &#x27;This is a very lo...&#x27;</code></pre>
+
+<hr>
+
+<h2>⚠️ 注意事项</h2>
+
+<table><thead><tr>
+<th>项目</th>
+<th>说明</th>
+<th>建议</th>
+</tr></thead><tbody>
+<tr>
+<td>不可变性</td>
+<td>字符串操作返回新字符串</td>
+<td><code>s = s.upper()</code> 而不是 <code>s.upper()</code></td>
+</tr>
+<tr>
+<td>编码</td>
+<td>Python 3默认UTF-8</td>
+<td>涉及文件读写时指定 <code>encoding='utf-8'</code></td>
+</tr>
+<tr>
+<td>原始字符串</td>
+<td><code>r""</code> 不处理转义</td>
+<td>正则表达式和Windows路径用 <code>r""</code></td>
+</tr>
+<tr>
+<td>join vs +</td>
+<td><code>+</code> 拼接大量字符串效率低</td>
+<td>批量拼接用 <code>"".join(list)</code></td>
+</tr>
+<tr>
+<td>index vs find</td>
+<td><code>index()</code> 找不到会抛异常</td>
+<td>不确定是否存在时用 <code>find()</code></td>
+</tr>
+<tr>
+<td>切片越界</td>
+<td>不会报错，返回空串</td>
+<td><code>s[100:]</code> 返回 <code>""</code> 而非报错</td>
+</tr>
+<tr>
+<td>中文长度</td>
+<td>一个中文算一个字符</td>
+<td><code>len("你好")</code> = 2</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>🚫 避坑指南</h2>
+
+<h3>❌ 拼接大量字符串用 +</h3>
+
+<pre><code class="language-python"># Inefficient! Creates a new string each iteration
+result = &quot;&quot;
+for i in range(10000):
+    result += str(i)  # O(n^2) time complexity</code></pre>
+
+<p>✅ <strong>正确做法：</strong> 使用 <code>join()</code></p>
+
+<pre><code class="language-python"># Efficient! O(n) time complexity
+parts = [str(i) for i in range(10000)]
+result = &quot;&quot;.join(parts)</code></pre>
+
+<h3>❌ 忘记字符串不可变</h3>
+
+<pre><code class="language-python">s = &quot;hello&quot;
+s.upper()  # Returns &quot;HELLO&quot; but s is still &quot;hello&quot;!
+print(s)   # hello</code></pre>
+
+<p>✅ <strong>正确做法：</strong> 重新赋值</p>
+
+<pre><code class="language-python">s = &quot;hello&quot;
+s = s.upper()  # s is now &quot;HELLO&quot;</code></pre>
+
+<h3>❌ 判断包含用 find() >= 0</h3>
+
+<pre><code class="language-python">if s.find(&quot;hello&quot;) &gt;= 0:  # Unnecessary
+    print(&quot;found&quot;)</code></pre>
+
+<p>✅ <strong>正确做法：</strong> 使用 <code>in</code> 运算符</p>
+
+<pre><code class="language-python">if &quot;hello&quot; in s:  # Pythonic!
+    print(&quot;found&quot;)</code></pre>
+
+<h3>❌ 格式化浮点数用字符串截断</h3>
+
+<pre><code class="language-python">pi_str = str(3.14159)[:4]  # &quot;3.14&quot; — fragile and wrong for larger numbers</code></pre>
+
+<p>✅ <strong>正确做法：</strong> 使用格式化</p>
+
+<pre><code class="language-python">pi_str = f&quot;{3.14159:.2f}&quot;  # &quot;3.14&quot; — correct and clear</code></pre>
+
+<h3>❌ Windows路径转义问题</h3>
+
+<pre><code class="language-python">path = &quot;C:\new\test&quot;  # \n and \t are escape sequences!
+print(path)  # C:
+# ew    est</code></pre>
+
+<p>✅ <strong>正确做法：</strong> 使用原始字符串</p>
+
+<pre><code class="language-python">path = r&quot;C:\new\test&quot;  # Raw string, no escape
+# Or use forward slashes (works on Windows too!)
+path = &quot;C:/new/test&quot;</code></pre>
+
+<hr>
+
+<h2>🏋️ 练习题</h2>
+
+<h3>🟢 入门题</h3>
+
+<p><strong>1. 回文检测</strong></p>
+
+<p>编写函数，判断一个字符串是否是回文（忽略大小写和空格）。</p>
+
+<pre><code class="language-python">def is_palindrome(s: str) -&gt; bool:
+    pass
+
+print(is_palindrome(&quot;racecar&quot;))     # True</code></pre>
+
+<p><strong>2. 字符串反转</strong></p>
+
+<p>用三种不同方法反转字符串 "Hello World"。</p>
+
+<h3>🟡 进阶题</h3>
+
+<p><strong>3. 密码强度检测</strong></p>
+
+<p>编写函数，检查密码强度：</p>
+<ul>
+<li>至少8位</li>
+<li>包含大小写字母</li>
+<li>包含数字</li>
+<li>包含特殊字符</li>
+<li>返回强度等级（弱/中/强）</li>
+
+<p><strong>4. 文本统计器</strong></p>
+
+<p>输入一段文字，统计：</p>
+<ul>
+<li>总字符数</li>
+<li>单词数</li>
+<li>行数</li>
+<li>各字符出现频率（Top 10）</li>
+
+<h3>🔴 挑战题</h3>
+
+<p><strong>5. 简易模板引擎</strong></p>
+
+<p>实现一个模板替换函数：</p>
+
+<pre><code class="language-python">template = &quot;Dear {name}, welcome to {city}!&quot;
+data = {&quot;name&quot;: &quot;Alice&quot;, &quot;city&quot;: &quot;Beijing&quot;}
+
+def render(template: str, data: dict) -&gt; str:
+    # &quot;Dear Alice, welcome to Beijing!&quot;
+    pass
+
+# Bonus: support nested placeholders and default values
+# &quot;Hello {user.name|Guest}&quot;</code></pre>
+
+<hr>
+
+<h2>🌳 知识点总结</h2>
+
+<pre><code>字符串操作
+├── 创建方式
+│   ├── &#x27;str&#x27; / &quot;str&quot; / multi-line
+│   ├── r&quot;raw string&quot;
+│   └── 转义字符：\n \t \\ \&quot;
+├── 索引与切片
+│   ├── s[i] / s[-i]
+│   ├── s[start:stop:step]
+│   ├── s[::-1] → 反转
+│   └── 切片越界不报错
+├── 格式化
+│   ├── f-string → f&quot;{var}&quot;（首选）
+│   ├── .format() → &quot;{}&quot;.format(v)
+│   ├── % 格式化 → &quot;%s&quot; % v
+│   └── 格式码：.2f &gt;10 &lt;20 ^20 , b x o
+├── 查找与判断
+│   ├── find() / rfind() → 返回索引/-1
+│   ├── index() / rindex() → 返回索引/异常
+│   ├── count() → 出现次数
+│   ├── in → 包含判断
+│   ├── startswith() / endswith()
+│   └── isdigit() / isalpha() / isalnum()
+├── 变换
+│   ├── upper() / lower() / title()
+│   ├── strip() / lstrip() / rstrip()
+│   ├── replace(old, new[, count])
+│   └── split(sep) / join(iterable)
+└── 性能
+    ├── join &gt; + （批量拼接）
+    ├── f-string &gt; .format() &gt; %
+    └── 字符串不可变 → 每次操作创建新对象</code></pre>
+
+<hr>
+
+<h2>🔄 举一反三</h2>
+
+<table><thead><tr>
+<th>你学到的</th>
+<th>可以应用到</th>
+<th>例子</th>
+</tr></thead><tbody>
+<tr>
+<td>切片</td>
+<td>提取文件扩展名</td>
+<td><code>name[name.rfind('.'):]</code></td>
+</tr>
+<tr>
+<td>split/join</td>
+<td>CSV数据处理</td>
+<td><code>",".join(row)</code></td>
+</tr>
+<tr>
+<td>strip()</td>
+<td>清洗用户输入</td>
+<td><code>input().strip()</code></td>
+</tr>
+<tr>
+<td>f-string</td>
+<td>日志和报告输出</td>
+<td><code>f"[{time}] {level}: {msg}"</code></td>
+</tr>
+<tr>
+<td>replace()</td>
+<td>文本批量替换</td>
+<td>模板变量替换</td>
+</tr>
+<tr>
+<td>正则+字符串</td>
+<td>数据清洗提取</td>
+<td>提取网页中的URL</td>
+</tr>
+<tr>
+<td>格式化</td>
+<td>数据对齐显示</td>
+<td>表格化输出</td>
+</tr>
+<tr>
+<td>编码</td>
+<td>网络通信</td>
+<td><code>data.encode('utf-8')</code></td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>📚 参考资料</h2>
+
+<ul>
+<li><a href="https://docs.python.org/3/library/stdtypes.html#string-methods">Python字符串方法文档</a></li>
+<li><a href="https://docs.python.org/3/reference/lexical_analysis.html#f-strings">f-string官方文档</a></li>
+<li><a href="https://docs.python.org/3/howto/unicode.html">Unicode入门</a></li>
+<li><a href="https://realpython.com/python-string-formatting/">Python字符串格式化指南</a></li>
+
+<hr>
+
+<h2>🔬 代码演进</h2>
+
+<h3>v1：基础字符串拼接</h3>
+
+<pre><code class="language-python"># v1: Basic string concatenation
+first = &quot;Hello&quot;
+last = &quot;World&quot;
+message = first + &quot; &quot; + last
+print(message)</code></pre>
+
+<h3>v2：使用字符串方法</h3>
+
+<pre><code class="language-python"># v2: Using string methods
+name = &quot;  Python  &quot;
+print(name.strip().upper())
+print(name.strip().lower())
+print(f&quot;Length: {len(name.strip())}&quot;)
+
+# Split and join
+words = &quot;apple,banana,cherry&quot;.split(&quot;,&quot;)
+print(&quot; | &quot;.join(words))</code></pre>
+
+<h3>v3：完整的文本处理器</h3>
+
+<pre><code class="language-python"># v3: Text processor with multiple utilities
+import re
+from collections import Counter
+
+class TextProcessor:
+    # A simple text processing toolkit
+
+    def __init__(self, text: str):
+        self.text = text
+
+    def word_count(self) -&gt; int:
+        return len(self.text.split())
+
+    def char_count(self, ignore_spaces: bool = True) -&gt; int:
+        if ignore_spaces:
+            return len(self.text.replace(&quot; &quot;, &quot;&quot;))
+        return len(self.text)
+
+    def top_chars(self, n: int = 5) -&gt; list:
+        chars = [c.lower() for c in self.text if c.isalpha()]
+        return Counter(chars).most_common(n)
+
+    def reverse_words(self) -&gt; str:
+        return &quot; &quot;.join(self.text.split()[::-1])
+
+    def extract_numbers(self) -&gt; list:
+        return [int(n) for n in re.findall(r&#x27;\d+&#x27;, self.text)]
+
+    def summary(self) -&gt; str:
+        lines = [
+            f&quot;Characters: {self.char_count()}&quot;,
+            f&quot;Words: {self.word_count()}&quot;,
+            f&quot;Top chars: {self.top_chars(3)}&quot;,
+            f&quot;Reversed: {self.reverse_words()}&quot;,
+        ]
+        return &quot;\n&quot;.join(lines)
+
+# Usage
+tp = TextProcessor(&quot;Hello World 123 Python 456&quot;)
+print(tp.summary())</code></pre>
+
+<blockquote><p><strong>下一步：</strong> 掌握字符串操作后，你已经具备了文本处理的基础能力。后续将学习条件判断和循环控制，让程序具备逻辑判断能力！</p></blockquote>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

@@ -1,0 +1,890 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>033-多服务协作实战</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Golang/index.html">Golang</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Golang/06-Kratos微服务框架/index.html">Kratos框架</a>
+</nav>
+<h1>033-多服务协作实战</h1>
+<div class="meta">
+<span>📂 Kratos框架</span>
+<span>🏷️ Golang</span>
+</div>
+<article>
+
+
+<h1>033-多服务协作实战</h1>
+
+<blockquote><p>难度：⭐⭐⭐⭐⭐（高级实战篇）<br>适用：全栈工程师、微服务开发者、系统架构师<br>前置知识：Kratos完整基础、gRPC、Docker、数据库基础</p></blockquote>
+
+<hr>
+
+<h2>一、概念讲解</h2>
+
+<h3>1.1 微服务协作的挑战</h3>
+
+<p>在真实电商场景中，一个下单操作涉及<strong>用户服务、商品服务、订单服务、库存服务、支付服务</strong>的协同。核心挑战：</p>
+
+<table><thead><tr>
+<th>挑战</th>
+<th>说明</th>
+</tr></thead><tbody>
+<tr>
+<td>服务间通信</td>
+<td>HTTP vs gRPC，同步 vs 异步</td>
+</tr>
+<tr>
+<td>数据一致性</td>
+<td>跨服务的数据如何保持一致</td>
+</tr>
+<tr>
+<td>服务发现</td>
+<td>服务实例动态变化，如何互相找到</td>
+</tr>
+<tr>
+<td>链路追踪</td>
+<td>一次请求跨多个服务，如何追踪</td>
+</tr>
+<tr>
+<td>故障隔离</td>
+<td>一个服务挂了，不影响整体</td>
+</tr>
+</tbody></table>
+
+<h3>1.2 分布式事务方案</h3>
+
+<table><thead><tr>
+<th>方案</th>
+<th>适用场景</th>
+<th>复杂度</th>
+<th>一致性</th>
+</tr></thead><tbody>
+<tr>
+<td>2PC (两阶段提交)</td>
+<td>数据库层面</td>
+<td>中</td>
+<td>强一致</td>
+</tr>
+<tr>
+<td>TCC (Try-Confirm-Cancel)</td>
+<td>资源预留型业务</td>
+<td>高</td>
+<td>最终一致</td>
+</tr>
+<tr>
+<td>Saga (编排式)</td>
+<td>长事务、异步流程</td>
+<td>中</td>
+<td>最终一致</td>
+</tr>
+<tr>
+<td>本地消息表</td>
+<td>简单可靠场景</td>
+<td>低</td>
+<td>最终一致</td>
+</tr>
+</tbody></table>
+
+<h3>1.3 项目架构</h3>
+
+<pre><code>┌────────────────────────────────────────────┐
+│                  Client                     │
+└───────────────────┬────────────────────────┘
+                    │
+              ┌─────▼─────┐
+              │ API Gateway│ (APISIX/Kong)
+              └─────┬─────┘
+       ┌────────────┼────────────┐
+       v            v            v
+ ┌──────────┐ ┌──────────┐ ┌──────────┐
+ │  User    │ │  Order   │ │ Product  │
+ │ Service  │ │ Service  │ │ Service  │
+ │ :8001    │ │ :8002    │ │ :8003    │
+ │ gRPC:9001│ │ gRPC:9002│ │ gRPC:9003│
+ └──────────┘ └──────────┘ └──────────┘
+       │            │            │
+       v            v            v
+  [PostgreSQL] [PostgreSQL] [MySQL]
+                    │
+              ┌─────▼─────┐
+              │   Kafka    │ (异步事件)
+              └───────────┘</code></pre>
+
+<hr>
+
+<h2>二、脑图</h2>
+
+<pre><code>多服务协作实战
+├── 服务设计
+│   ├── 用户服务 (User)
+│   │   ├── 注册/登录
+│   │   ├── 用户信息
+│   │   └── 地址管理
+│   ├── 商品服务 (Product)
+│   │   ├── 商品CRUD
+│   │   ├── 库存管理
+│   │   └── 分类管理
+│   └── 订单服务 (Order)
+│       ├── 创建订单
+│       ├── 订单状态
+│       └── 订单查询
+├── 服务通信
+│   ├── gRPC (服务间同步调用)
+│   ├── HTTP (对外API)
+│   └── Kafka (异步事件)
+├── 数据一致性
+│   ├── 本地消息表
+│   ├── Saga编排
+│   └── 补偿事务
+└── 基础设施
+    ├── 服务发现 (Consul/etcd)
+    ├── 链路追踪 (OpenTelemetry)
+    ├── Docker Compose
+    └── 数据库迁移</code></pre>
+
+<hr>
+
+<h2>三、完整Go代码</h2>
+
+<h3>3.1 项目结构</h3>
+
+<pre><code>ecommerce/
+├── api/                    # Protobuf definitions
+│   ├── user/v1/
+│   ├── order/v1/
+│   └── product/v1/
+├── cmd/
+│   ├── user/main.go
+│   ├── order/main.go
+│   └── product/main.go
+├── internal/
+│   ├── user/              # User service
+│   │   ├── service.go
+│   │   ├── repository.go
+│   │   └── biz/
+│   ├── order/             # Order service
+│   │   ├── service.go
+│   │   ├── repository.go
+│   │   └── saga.go
+│   └── product/           # Product service
+│       ├── service.go
+│       └── repository.go
+├── pkg/
+│   ├── event/             # Event publishing
+│   └── middleware/         # Shared middleware
+└── docker-compose.yml</code></pre>
+
+<h3>3.2 Protobuf定义</h3>
+
+<pre><code class="language-protobuf">// api/order/v1/order.proto
+syntax = &quot;proto3&quot;;
+package order.v1;
+
+option go_package = &quot;ecommerce/api/order/v1&quot;;
+
+import &quot;google/api/annotations.proto&quot;;
+import &quot;google/protobuf/empty.proto&quot;;
+
+service OrderService {
+  rpc CreateOrder(CreateOrderRequest) returns (CreateOrderReply) {
+    option (google.api.http) = {post: &quot;/v1/orders&quot;};
+  }
+  rpc GetOrder(GetOrderRequest) returns (OrderReply) {
+    option (google.api.http) = {get: &quot;/v1/orders/{id}&quot;};
+  }
+  rpc ListOrders(ListOrdersRequest) returns (ListOrdersReply) {
+    option (google.api.http) = {get: &quot;/v1/orders&quot;};
+  }
+  rpc CancelOrder(CancelOrderRequest) returns (google.protobuf.Empty) {
+    option (google.api.http) = {put: &quot;/v1/orders/{id}/cancel&quot;};
+  }
+}
+
+message CreateOrderRequest {
+  string user_id = 1;
+  repeated OrderItem items = 2;
+}
+
+message OrderItem {
+  string product_id = 1;
+  int32 quantity = 2;
+}
+
+message CreateOrderReply {
+  string id = 1;
+  string status = 2;
+}
+
+message GetOrderRequest { string id = 1; }
+
+message OrderReply {
+  string id = 1;
+  string user_id = 2;
+  string status = 3;
+  repeated OrderItemReply items = 4;
+  float total_amount = 5;
+  string created_at = 6;
+}
+
+message OrderItemReply {
+  string product_id = 1;
+  string product_name = 2;
+  int32 quantity = 3;
+  float price = 4;
+}
+
+message ListOrdersRequest {
+  string user_id = 1;
+  int32 page = 2;
+  int32 page_size = 3;
+}
+
+message ListOrdersReply {
+  repeated OrderReply orders = 1;
+  int32 total = 2;
+}
+
+message CancelOrderRequest { string id = 1; }</code></pre>
+
+<h3>3.3 订单服务实现（含多服务协作）</h3>
+
+<pre><code class="language-go">// internal/order/service.go - Order service with multi-service collaboration
+package order
+
+import (
+	&quot;context&quot;
+	&quot;fmt&quot;
+	&quot;log&quot;
+	&quot;time&quot;
+
+	pb &quot;ecommerce/api/order/v1&quot;
+	pbProduct &quot;ecommerce/api/product/v1&quot;
+	pbUser &quot;ecommerce/api/user/v1&quot;
+
+	&quot;github.com/go-kratos/kratos/v2/middleware/recovery&quot;
+	&quot;google.golang.org/grpc&quot;
+)
+
+// OrderServiceImpl implements OrderService
+type OrderServiceImpl struct {
+	pb.UnimplementedOrderServiceServer
+
+	repo          OrderRepository
+	productClient pbProduct.ProductServiceClient
+	userClient    pbUser.UserServiceClient
+	eventPublisher EventPublisher
+}
+
+// NewOrderService creates a new order service
+func NewOrderService(
+	repo OrderRepository,
+	productConn *grpc.ClientConn,
+	userConn *grpc.ClientConn,
+	publisher EventPublisher,
+) *OrderServiceImpl {
+	return &amp;OrderServiceImpl{
+		repo:           repo,
+		productClient:  pbProduct.NewProductServiceClient(productConn),
+		userClient:     pbUser.NewUserServiceClient(userConn),
+		eventPublisher: publisher,
+	}
+}
+
+// CreateOrder handles order creation with multi-service collaboration
+// Flow: validate user → check stock → create order → deduct stock → emit event
+func (s *OrderServiceImpl) CreateOrder(ctx context.Context, req *pb.CreateOrderRequest) (*pb.CreateOrderReply, error) {
+	// Step 1: Validate user exists
+	user, err := s.userClient.GetUser(ctx, &amp;pbUser.GetUserRequest{Id: req.UserId})
+	if err != nil {
+		return nil, fmt.Errorf(&quot;user validation failed: %w&quot;, err)
+	}
+	log.Printf(&quot;User validated: %s (%s)&quot;, user.Name, req.UserId)
+
+	// Step 2: Check product availability and get prices
+	productIDs := make([]string, 0, len(req.Items))
+	for _, item := range req.Items {
+		productIDs = append(productIDs, item.ProductId)
+	}
+	products, err := s.productClient.BatchGetProducts(ctx, &amp;pbProduct.BatchGetRequest{Ids: productIDs})
+	if err != nil {
+		return nil, fmt.Errorf(&quot;product query failed: %w&quot;, err)
+	}
+
+	// Validate stock availability
+	for _, item := range req.Items {
+		product := findProduct(products.Products, item.ProductId)
+		if product == nil {
+			return nil, fmt.Errorf(&quot;product %s not found&quot;, item.ProductId)
+		}
+		if product.Stock &lt; item.Quantity {
+			return nil, fmt.Errorf(&quot;product %s insufficient stock: have %d, need %d&quot;,
+				item.ProductId, product.Stock, item.Quantity)
+		}
+	}
+
+	// Step 3: Calculate total and create order in DB
+	order := &amp;Order{
+		UserID:    req.UserId,
+		Status:    &quot;pending&quot;,
+		Items:     make([]OrderItem, 0, len(req.Items)),
+		CreatedAt: time.Now(),
+	}
+	var total float64
+	for _, item := range req.Items {
+		product := findProduct(products.Products, item.ProductId)
+		order.Items = append(order.Items, OrderItem{
+			ProductID:   item.ProductId,
+			ProductName: product.Name,
+			Quantity:    item.Quantity,
+			Price:       product.Price,
+		})
+		total += product.Price * float64(item.Quantity)
+	}
+	order.TotalAmount = total
+
+	if err := s.repo.Create(ctx, order); err != nil {
+		return nil, fmt.Errorf(&quot;create order failed: %w&quot;, err)
+	}
+
+	// Step 4: Deduct stock (synchronous call with compensation on failure)
+	for _, item := range req.Items {
+		_, err := s.productClient.DeductStock(ctx, &amp;pbProduct.DeductStockRequest{
+			ProductId: item.ProductId,
+			Quantity:  item.Quantity,
+		})
+		if err != nil {
+			// Compensation: cancel the order
+			s.repo.UpdateStatus(ctx, order.ID, &quot;cancelled&quot;)
+			return nil, fmt.Errorf(&quot;stock deduction failed for %s: %w&quot;, item.ProductId, err)
+		}
+	}
+
+	// Step 5: Update order status and emit event
+	s.repo.UpdateStatus(ctx, order.ID, &quot;confirmed&quot;)
+	s.eventPublisher.Publish(ctx, &quot;order.created&quot;, map[string]interface{}{
+		&quot;order_id&quot;:  order.ID,
+		&quot;user_id&quot;:   req.UserId,
+		&quot;total&quot;:     total,
+		&quot;item_count&quot;: len(req.Items),
+	})
+
+	log.Printf(&quot;Order created: id=%s user=%s total=%.2f&quot;, order.ID, user.Name, total)
+
+	return &amp;pb.CreateOrderReply{
+		Id:     order.ID,
+		Status: &quot;confirmed&quot;,
+	}, nil
+}
+
+// GetOrder returns order details
+func (s *OrderServiceImpl) GetOrder(ctx context.Context, req *pb.GetOrderRequest) (*pb.OrderReply, error) {
+	order, err := s.repo.GetByID(ctx, req.Id)
+	if err != nil {
+		return nil, fmt.Errorf(&quot;order not found: %w&quot;, err)
+	}
+	return orderToReply(order), nil
+}
+
+// CancelOrder cancels an order and restores stock
+func (s *OrderServiceImpl) CancelOrder(ctx context.Context, req *pb.CancelOrderRequest) (*pb.Empty, error) {
+	order, err := s.repo.GetByID(ctx, req.Id)
+	if err != nil {
+		return nil, fmt.Errorf(&quot;order not found: %w&quot;, err)
+	}
+	if order.Status == &quot;cancelled&quot; {
+		return nil, fmt.Errorf(&quot;order already cancelled&quot;)
+	}
+
+	// Restore stock for each item
+	for _, item := range order.Items {
+		_, err := s.productClient.RestoreStock(ctx, &amp;pbProduct.RestoreStockRequest{
+			ProductId: item.ProductID,
+			Quantity:  item.Quantity,
+		})
+		if err != nil {
+			log.Printf(&quot;Warning: stock restore failed for %s: %v&quot;, item.ProductID, err)
+			// Continue anyway - can be reconciled later
+		}
+	}
+
+	// Update order status
+	if err := s.repo.UpdateStatus(ctx, req.Id, &quot;cancelled&quot;); err != nil {
+		return nil, err
+	}
+
+	// Emit cancellation event
+	s.eventPublisher.Publish(ctx, &quot;order.cancelled&quot;, map[string]interface{}{
+		&quot;order_id&quot;: req.Id,
+	})
+
+	return &amp;pb.Empty{}, nil
+}
+
+func findProduct(products []*pbProduct.ProductReply, id string) *pbProduct.ProductReply {
+	for _, p := range products {
+		if p.Id == id {
+			return p
+		}
+	}
+	return nil
+}</code></pre>
+
+<h3>3.4 Docker Compose配置</h3>
+
+<pre><code class="language-yaml"># docker-compose.yml
+version: &#x27;3.8&#x27;
+services:
+  # User Service
+  user-service:
+    build: ./cmd/user
+    ports:
+      - &quot;8001:8000&quot;
+      - &quot;9001:9000&quot;
+    environment:
+      - DB_HOST=user-db
+      - DB_PORT=5432
+      - DB_NAME=users
+      - CONSUL_ADDR=consul:8500
+    depends_on:
+      - user-db
+      - consul
+
+  # Order Service
+  order-service:
+    build: ./cmd/order
+    ports:
+      - &quot;8002:8000&quot;
+      - &quot;9002:9000&quot;
+    environment:
+      - DB_HOST=order-db
+      - DB_PORT=5432
+      - DB_NAME=orders
+      - CONSUL_ADDR=consul:8500
+      - KAFKA_BROKERS=kafka:9092
+      - PRODUCT_SERVICE_ADDR=product-service:9000
+      - USER_SERVICE_ADDR=user-service:9000
+    depends_on:
+      - order-db
+      - consul
+      - kafka
+
+  # Product Service
+  product-service:
+    build: ./cmd/product
+    ports:
+      - &quot;8003:8000&quot;
+      - &quot;9003:9000&quot;
+    environment:
+      - DB_HOST=product-db
+      - DB_PORT=3306
+      - DB_NAME=products
+      - CONSUL_ADDR=consul:8500
+    depends_on:
+      - product-db
+      - consul
+
+  # Databases
+  user-db:
+    image: postgres:15
+    environment:
+      POSTGRES_DB: users
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: secret
+    volumes:
+      - user-db-data:/var/lib/postgresql/data
+
+  order-db:
+    image: postgres:15
+    environment:
+      POSTGRES_DB: orders
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: secret
+    volumes:
+      - order-db-data:/var/lib/postgresql/data
+
+  product-db:
+    image: mysql:8
+    environment:
+      MYSQL_DATABASE: products
+      MYSQL_ROOT_PASSWORD: secret
+
+  # Infrastructure
+  consul:
+    image: consul:1.15
+    ports:
+      - &quot;8500:8500&quot;
+
+  kafka:
+    image: bitnami/kafka:3.5
+    ports:
+      - &quot;9092:9092&quot;
+    environment:
+      - KAFKA_CFG_NODE_ID=1
+      - KAFKA_CFG_PROCESS_ROLES=broker,controller
+      - KAFKA_CFG_CONTROLLER_QUORUM_VOTERS=1@kafka:9093
+      - ALLOW_PLAINTEXT_LISTENER=yes
+
+volumes:
+  user-db-data:
+  order-db-data:</code></pre>
+
+<hr>
+
+<h2>四、执行预览</h2>
+
+<pre><code class="language-bash"># Start all services
+$ docker-compose up -d
+Creating network &quot;ecommerce_default&quot;
+Creating ecommerce_consul_1 ... done
+Creating ecommerce_kafka_1  ... done
+Creating ecommerce_user-db_1 ... done
+Creating ecommerce_product-db_1 ... done
+Creating ecommerce_order-db_1 ... done
+Creating ecommerce_user-service_1 ... done
+Creating ecommerce_product-service_1 ... done
+Creating ecommerce_order-service_1 ... done
+
+# Verify services are registered in Consul
+$ curl http://localhost:8500/v1/agent/services | jq &#x27;keys&#x27;
+[&quot;order-service&quot;, &quot;product-service&quot;, &quot;user-service&quot;]
+
+# Create a product
+$ curl -X POST http://localhost:8003/v1/products -d &#x27;{
+  &quot;name&quot;: &quot;Go编程圣经&quot;,
+  &quot;price&quot;: 99.9,
+  &quot;stock&quot;: 100
+}&#x27;
+{&quot;id&quot;: &quot;prod-1&quot;, &quot;name&quot;: &quot;Go编程圣经&quot;, &quot;price&quot;: 99.9, &quot;stock&quot;: 100}
+
+# Create an order (multi-service collaboration)
+$ curl -X POST http://localhost:8002/v1/orders -d &#x27;{
+  &quot;user_id&quot;: &quot;user-1&quot;,
+  &quot;items&quot;: [
+    {&quot;product_id&quot;: &quot;prod-1&quot;, &quot;quantity&quot;: 2}
+  ]
+}&#x27;
+{&quot;id&quot;: &quot;order-001&quot;, &quot;status&quot;: &quot;confirmed&quot;}
+
+# Check stock was deducted
+$ curl http://localhost:8003/v1/products/prod-1
+{&quot;id&quot;: &quot;prod-1&quot;, &quot;stock&quot;: 98}  # Was 100, now 98
+
+# Cancel the order (stock restored)
+$ curl -X PUT http://localhost:8002/v1/orders/order-001/cancel
+{}
+
+# Check stock restored
+$ curl http://localhost:8003/v1/products/prod-1
+{&quot;id&quot;: &quot;prod-1&quot;, &quot;stock&quot;: 100}  # Restored to 100</code></pre>
+
+<hr>
+
+<h2>五、注意事项</h2>
+
+<table><thead><tr>
+<th>注意点</th>
+<th>说明</th>
+<th>影响</th>
+</tr></thead><tbody>
+<tr>
+<td>超时设置</td>
+<td>每个gRPC调用都要设超时</td>
+<td>防止级联阻塞</td>
+</tr>
+<tr>
+<td>重试策略</td>
+<td>幂等操作可重试，非幂等要谨慎</td>
+<td>重复扣款风险</td>
+</tr>
+<tr>
+<td>数据库隔离</td>
+<td>每个服务独立数据库</td>
+<td>数据一致性边界</td>
+</tr>
+<tr>
+<td>服务发现</td>
+<td>动态地址需注册中心</td>
+<td>服务上下线感知</td>
+</tr>
+<tr>
+<td>日志关联</td>
+<td>全链路TraceID透传</td>
+<td>排障效率</td>
+</tr>
+<tr>
+<td>库存扣减</td>
+<td>先扣后创建 vs 先创建后扣</td>
+<td>并发安全策略</td>
+</tr>
+<tr>
+<td>优雅停机</td>
+<td>服务关闭时完成进行中的请求</td>
+<td>数据完整性</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>六、避坑指南</h2>
+
+<table><thead><tr>
+<th>❌ 错误做法</th>
+<th>✅ 正确做法</th>
+</tr></thead><tbody>
+<tr>
+<td>所有服务共享一个数据库</td>
+<td>每个服务独立数据库，通过API通信</td>
+</tr>
+<tr>
+<td>同步调用链过长（A→B→C→D）</td>
+<td>限制调用链深度，异步解耦长链路</td>
+</tr>
+<tr>
+<td>不做超时控制</td>
+<td>每层设置合理超时，使用context传递</td>
+</tr>
+<tr>
+<td>忽略部分失败</td>
+<td>库存扣减失败要回滚已成功的操作</td>
+</tr>
+<tr>
+<td>服务间直接传DB对象</td>
+<td>通过Protobuf定义清晰的API契约</td>
+</tr>
+<tr>
+<td>不做服务发现</td>
+<td>用Consul/etcd注册发现，不硬编码地址</td>
+</tr>
+<tr>
+<td>单体思维设计API</td>
+<td>按领域拆分，每个服务有独立生命周期</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>七、练习题</h2>
+
+<h3>🟢 初级</h3>
+
+<ol>
+<li><strong>服务拆分</strong>：一个电商系统，你会如何划分微服务边界？依据是什么？</li>
+</ul>
+<ol>
+<li><strong>Docker部署</strong>：使用docker-compose启动上面三个服务，验证互相连通。</li>
+</ul>
+<ol>
+<li><strong>gRPC调用</strong>：写一个简单的gRPC客户端，调用商品服务的ListProducts接口。</li>
+
+<h3>🟡 中级</h3>
+
+<ol>
+<li><strong>创建订单</strong>：完整实现CreateOrder接口，含用户验证、库存检查、价格计算。</li>
+</ul>
+<ol>
+<li><strong>服务发现</strong>：集成Consul，实现服务自动注册和发现。</li>
+</ul>
+<ol>
+<li><strong>链路追踪</strong>：集成OpenTelemetry，实现跨服务的请求追踪。</li>
+
+<h3>🔴 高级</h3>
+
+<ol>
+<li><strong>分布式事务</strong>：实现本地消息表方案，保证订单创建和库存扣解的最终一致性。</li>
+</ul>
+<ol>
+<li><strong>并发安全</strong>：实现乐观锁库存扣减，处理高并发下的超卖问题。</li>
+</ul>
+<ol>
+<li><strong>完整系统</strong>：添加支付服务和通知服务，实现完整的电商下单流程。</li>
+
+<hr>
+
+<h2>八、知识点总结</h2>
+
+<pre><code>多服务协作知识点
+├── 服务设计
+│   ├── 服务边界划分（按领域）
+│   ├── 独立数据库（数据隔离）
+│   └── API契约（Protobuf）
+├── 服务通信
+│   ├── 同步：gRPC（服务间）
+│   ├── 对外：HTTP（客户端）
+│   └── 异步：Kafka（事件）
+├── 数据一致性
+│   ├── 本地消息表
+│   ├── Saga模式
+│   └── 补偿事务
+├── 基础设施
+│   ├── 服务发现（Consul）
+│   ├── 链路追踪（OpenTelemetry）
+│   └── 容器编排（Docker Compose）
+└── 最佳实践
+    ├── 超时控制
+    ├── 重试策略
+    ├── 优雅停机
+    └── 可观测性</code></pre>
+
+<hr>
+
+<h2>九、举一反三</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>服务划分</th>
+<th>通信方式</th>
+<th>关键挑战</th>
+</tr></thead><tbody>
+<tr>
+<td>电商</td>
+<td>用户/商品/订单/支付/库存</td>
+<td>gRPC+Kafka</td>
+<td>分布式事务</td>
+</tr>
+<tr>
+<td>社交</td>
+<td>用户/动态/评论/消息/推荐</td>
+<td>gRPC+消息队列</td>
+<td>Feed流聚合</td>
+</tr>
+<tr>
+<td>外卖</td>
+<td>用户/商家/菜品/订单/配送</td>
+<td>gRPC+WebSocket</td>
+<td>实时状态推送</td>
+</tr>
+<tr>
+<td>在线教育</td>
+<td>用户/课程/订单/直播/作业</td>
+<td>gRPC+流式</td>
+<td>高并发直播</td>
+</tr>
+<tr>
+<td>SaaS</td>
+<td>租户/用户/权限/计费/通知</td>
+<td>gRPC+事件</td>
+<td>多租户隔离</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>十、参考资料</h2>
+
+<ol>
+<li><a href="https://go-kratos.dev/">Kratos官方文档</a></li>
+</ul>
+<ol>
+<li><a href="https://microservices.io/patterns/">微服务设计模式 - Microservices.io</a></li>
+</ul>
+<ol>
+<li><a href="https://developer.hashicorp.com/consul/docs">Consul服务发现</a></li>
+</ul>
+<ol>
+<li><a href="https://opentelemetry.io/docs/instrumentation/go/">OpenTelemetry Go</a></li>
+</ul>
+<ol>
+<li><a href="https://docs.docker.com/compose/">Docker Compose文档</a></li>
+
+<hr>
+
+<h2>十一、代码演进</h2>
+
+<h3>v1：单体应用</h3>
+<pre><code class="language-go">// v1: Everything in one service, one database
+func CreateOrder(db *sql.DB, req OrderReq) error {
+    user := queryUser(db, req.UserID)
+    product := queryProduct(db, req.ProductID)
+    // Direct DB transaction for everything
+    tx := db.Begin()
+    tx.Exec(&quot;INSERT INTO orders ...&quot;)
+    tx.Exec(&quot;UPDATE products SET stock = stock - ?&quot;, req.Quantity)
+    tx.Commit()
+}</code></pre>
+
+<h3>v2：微服务拆分 + 同步调用</h3>
+<pre><code class="language-go">// v2: Separate services, synchronous gRPC calls
+func (s *OrderService) CreateOrder(ctx context.Context, req *CreateReq) (*Order, error) {
+    user := s.userClient.GetUser(ctx, &amp;GetUserReq{Id: req.UserID})
+    product := s.productClient.GetProduct(ctx, &amp;GetProductReq{Id: req.ProductID})
+    // Cross-service calls, but no transaction guarantees
+    s.productClient.DeductStock(ctx, &amp;DeductReq{...})
+    s.repo.Create(ctx, order)
+}</code></pre>
+
+<h3>v3：微服务 + 事件驱动 + 补偿事务</h3>
+<pre><code class="language-go">// v3: Event-driven with saga compensation
+func (s *OrderService) CreateOrder(ctx context.Context, req *CreateReq) (*Order, error) {
+    // Create order in pending state
+    order := s.repo.CreatePending(ctx, req)
+    
+    // Publish event for async processing
+    s.eventBus.Publish(ctx, OrderCreatedEvent{OrderID: order.ID, Items: req.Items})
+    
+    // Saga coordinator handles: deduct stock → confirm → notify
+    // With compensation: cancel → restore stock → notify cancellation
+    return order, nil
+}</code></pre>
+
+<p><strong>演进路线</strong>：单体事务 → 微服务同步调用 → 事件驱动 + Saga补偿</p>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

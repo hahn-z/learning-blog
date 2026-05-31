@@ -1,0 +1,740 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>017 - Gin WebSocket 实时通信</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Golang/index.html">Golang</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Golang/05-Gin框架/index.html">Gin框架</a>
+</nav>
+<h1>017 - Gin WebSocket 实时通信</h1>
+<div class="meta">
+<span>📂 Gin框架</span>
+<span>🏷️ Golang</span>
+</div>
+<article>
+
+
+<h1>017 - Gin WebSocket 实时通信</h1>
+
+<blockquote><p><strong>难度：⭐⭐⭐⭐</strong> | <strong>预计阅读：20 分钟</strong><br><br>使用 gorilla/websocket 在 Gin 中实现 WebSocket 实时通信，包括连接管理、广播、房间模式和聊天室实战。</p></blockquote>
+
+<hr>
+
+<h2>一、概念讲解</h2>
+
+<p>WebSocket 是一种在单个 TCP 连接上实现全双工通信的协议。与 HTTP 的请求-响应模式不同，WebSocket 允许服务端主动推送数据。</p>
+
+<p><strong>HTTP vs WebSocket：</strong></p>
+
+<pre><code>HTTP:       Client → Request → Server → Response → Client（每次都要重新连接）
+WebSocket:  Client → Handshake → Server ⇄ 双向通信 ⇄（一次连接，持续通信）</code></pre>
+
+<p><strong>核心概念：</strong></p>
+<ul>
+<li><strong>升级握手</strong>：HTTP 请求带上 <code>Upgrade: websocket</code> 头，服务端返回 101 状态码</li>
+<li><strong>消息帧</strong>：文本帧（string）和二进制帧（[]byte）</li>
+<li><strong>Ping/Pong</strong>：心跳机制，保持连接活跃</li>
+<li><strong>房间模式</strong>：将连接分组，实现定向广播</li>
+
+<hr>
+
+<h2>二、脑图</h2>
+
+<pre><code>WebSocket 实时通信
+├── 基础
+│   ├── HTTP 升级 WebSocket
+│   ├── Upgrader 配置
+│   └── 消息读写 (ReadJSON/WriteJSON)
+├── 连接管理
+│   ├── 注册/注销
+│   ├── 心跳检测 (Ping/Pong)
+│   └── 断线重连
+├── 消息模式
+│   ├── 广播 (Broadcast)
+│   ├── 单播 (Unicast)
+│   └── 房间 (Room/Group)
+└── 实战
+    ├── 聊天室
+    ├── 在线状态
+    └── 消息持久化</code></pre>
+
+<hr>
+
+<h2>三、完整代码</h2>
+
+<h3>v1：基础 WebSocket 连接</h3>
+
+<pre><code class="language-go">package main
+
+import (
+	&quot;log&quot;
+	&quot;net/http&quot;
+
+	&quot;github.com/gin-gonic/gin&quot;
+	&quot;github.com/gorilla/websocket&quot;
+)
+
+var upgrader = websocket.Upgrader{
+	ReadBufferSize:  1024,
+	WriteBufferSize: 1024,
+	// Allow all origins for development
+	CheckOrigin: func(r *http.Request) bool { return true },
+}
+
+func handleWebSocket(c *gin.Context) {
+	conn, err := upgrader.Upgrade(c.Writer, c.Request, nil)
+	if err != nil {
+		log.Printf(&quot;Upgrade error: %v&quot;, err)
+		return
+	}
+	defer conn.Close()
+
+	log.Printf(&quot;Client connected: %s&quot;, c.ClientIP())
+
+	for {
+		messageType, msg, err := conn.ReadMessage()
+		if err != nil {
+			log.Printf(&quot;Read error: %v&quot;, err)
+			break
+		}
+		log.Printf(&quot;Received: %s&quot;, msg)
+
+		// Echo back
+		if err := conn.WriteMessage(messageType, msg); err != nil {
+			log.Printf(&quot;Write error: %v&quot;, err)
+			break
+		}
+	}
+}
+
+func main() {
+	r := gin.Default()
+	r.GET(&quot;/ws&quot;, handleWebSocket)
+	log.Println(&quot;Server on :8080&quot;)
+	r.Run(&quot;:8080&quot;)
+}</code></pre>
+
+<h3>v2：聊天室 + 广播 + 连接管理</h3>
+
+<pre><code class="language-go">package main
+
+import (
+	&quot;encoding/json&quot;
+	&quot;log&quot;
+	&quot;net/http&quot;
+	&quot;sync&quot;
+	&quot;time&quot;
+
+	&quot;github.com/gin-gonic/gin&quot;
+	&quot;github.com/gorilla/websocket&quot;
+)
+
+// Message represents a chat message
+type Message struct {
+	Type    string `json:&quot;type&quot;`    // &quot;join&quot;, &quot;leave&quot;, &quot;chat&quot;, &quot;system&quot;
+	User    string `json:&quot;user&quot;`
+	Content string `json:&quot;content&quot;`
+	Time    string `json:&quot;time&quot;`
+}
+
+// Client wraps a websocket connection
+type Client struct {
+	Conn *websocket.Conn
+	User string
+	Send chan Message
+}
+
+// Hub manages all connected clients
+type Hub struct {
+	clients map[*Client]bool
+	mu      sync.RWMutex
+}
+
+var hub = &amp;Hub{clients: make(map[*Client]bool)}
+
+var upgrader = websocket.Upgrader{
+	ReadBufferSize:  1024,
+	WriteBufferSize: 1024,
+	CheckOrigin:     func(r *http.Request) bool { return true },
+}
+
+func (h *Hub) Register(client *Client) {
+	h.mu.Lock()
+	h.clients[client] = true
+	count := len(h.clients)
+	h.mu.Unlock()
+
+	h.Broadcast(Message{
+		Type:    &quot;system&quot;,
+		Content: client.User + &quot; joined (&quot; + intToStr(count) + &quot; online)&quot;,
+		Time:    time.Now().Format(&quot;15:04:05&quot;),
+	})
+}
+
+func (h *Hub) Unregister(client *Client) {
+	h.mu.Lock()
+	if _, ok := h.clients[client]; ok {
+		delete(h.clients, client)
+		close(client.Send)
+	}
+	count := len(h.clients)
+	h.mu.Unlock()
+
+	h.Broadcast(Message{
+		Type:    &quot;system&quot;,
+		Content: client.User + &quot; left (&quot; + intToStr(count) + &quot; online)&quot;,
+		Time:    time.Now().Format(&quot;15:04:05&quot;),
+	})
+}
+
+func (h *Hub) Broadcast(msg Message) {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+	for client := range h.clients {
+		select {
+		case client.Send &lt;- msg:
+		default:
+			// Buffer full, skip
+		}
+	}
+}
+
+func intToStr(n int) string {
+	return json.Number(json.Number(string(rune(&#x27;0&#x27; + n)))).String()
+}
+
+// writePump pumps messages from hub to websocket
+func (c *Client) writePump() {
+	ticker := time.NewTicker(30 * time.Second)
+	defer func() {
+		ticker.Stop()
+		c.Conn.Close()
+	}()
+
+	for {
+		select {
+		case msg, ok := &lt;-c.Send:
+			c.Conn.SetWriteDeadline(time.Now().Add(10 * time.Second))
+			if !ok {
+				c.Conn.WriteMessage(websocket.CloseMessage, []byte{})
+				return
+			}
+			if err := c.Conn.WriteJSON(msg); err != nil {
+				return
+			}
+		case &lt;-ticker.C:
+			// Send ping for heartbeat
+			c.Conn.SetWriteDeadline(time.Now().Add(10 * time.Second))
+			if err := c.Conn.WriteMessage(websocket.PingMessage, nil); err != nil {
+				return
+			}
+		}
+	}
+}
+
+// readPump reads messages from websocket and broadcasts
+func (c *Client) readPump() {
+	defer func() {
+		hub.Unregister(c)
+		c.Conn.Close()
+	}()
+
+	c.Conn.SetReadDeadline(time.Now().Add(60 * time.Second))
+	c.Conn.SetPongHandler(func(string) error {
+		c.Conn.SetReadDeadline(time.Now().Add(60 * time.Second))
+		return nil
+	})
+
+	for {
+		_, msgBytes, err := c.Conn.ReadMessage()
+		if err != nil {
+			break
+		}
+
+		var msg Message
+		if err := json.Unmarshal(msgBytes, &amp;msg); err != nil {
+			msg = Message{Type: &quot;chat&quot;, Content: string(msgBytes)}
+		}
+		msg.User = c.User
+		msg.Time = time.Now().Format(&quot;15:04:05&quot;)
+		hub.Broadcast(msg)
+	}
+}
+
+func handleChat(c *gin.Context) {
+	user := c.Query(&quot;user&quot;)
+	if user == &quot;&quot; {
+		user = &quot;anonymous&quot;
+	}
+
+	conn, err := upgrader.Upgrade(c.Writer, c.Request, nil)
+	if err != nil {
+		return
+	}
+
+	client := &amp;Client{Conn: conn, User: user, Send: make(chan Message, 256)}
+	hub.Register(client)
+
+	go client.writePump()
+	go client.readPump()
+}
+
+func main() {
+	r := gin.Default()
+	r.GET(&quot;/ws/chat&quot;, handleChat)
+	r.StaticFile(&quot;/&quot;, &quot;./index.html&quot;)
+	log.Println(&quot;Chat server on :8080&quot;)
+	r.Run(&quot;:8080&quot;)
+}</code></pre>
+
+<h3>v3：多房间聊天室</h3>
+
+<pre><code class="language-go">package main
+
+import (
+	&quot;encoding/json&quot;
+	&quot;log&quot;
+	&quot;net/http&quot;
+	&quot;sync&quot;
+	&quot;time&quot;
+
+	&quot;github.com/gin-gonic/gin&quot;
+	&quot;github.com/gorilla/websocket&quot;
+)
+
+type Message struct {
+	Type    string `json:&quot;type&quot;`
+	Room    string `json:&quot;room&quot;`
+	User    string `json:&quot;user&quot;`
+	Content string `json:&quot;content&quot;`
+	Time    string `json:&quot;time&quot;`
+}
+
+type Client struct {
+	Conn *websocket.Conn
+	User string
+	Room string
+	Send chan Message
+}
+
+// Room manages clients in a single room
+type Room struct {
+	Name    string
+	clients map[*Client]bool
+	mu      sync.RWMutex
+}
+
+// RoomHub manages all rooms
+type RoomHub struct {
+	rooms map[string]*Room
+	mu    sync.RWMutex
+}
+
+var roomHub = &amp;RoomHub{rooms: make(map[string]*Room)}
+
+var upgrader = websocket.Upgrader{
+	CheckOrigin: func(r *http.Request) bool { return true },
+}
+
+func (rh *RoomHub) GetOrCreate(name string) *Room {
+	rh.mu.Lock()
+	defer rh.mu.Unlock()
+	if r, ok := rh.rooms[name]; ok {
+		return r
+	}
+	r := &amp;Room{Name: name, clients: make(map[*Client]bool)}
+	rh.rooms[name] = r
+	return r
+}
+
+func (r *Room) Join(c *Client) {
+	r.mu.Lock()
+	r.clients[c] = true
+	count := len(r.clients)
+	r.mu.Unlock()
+	r.broadcast(Message{
+		Type:    &quot;system&quot;,
+		Room:    r.Name,
+		Content: c.User + &quot; joined (&quot; + itoa(count) + &quot; in room)&quot;,
+		Time:    time.Now().Format(&quot;15:04:05&quot;),
+	})
+}
+
+func (r *Room) Leave(c *Client) {
+	r.mu.Lock()
+	delete(r.clients, c)
+	r.mu.Unlock()
+	close(c.Send)
+	r.broadcast(Message{
+		Type:    &quot;system&quot;,
+		Room:    r.Name,
+		Content: c.User + &quot; left&quot;,
+		Time:    time.Now().Format(&quot;15:04:05&quot;),
+	})
+}
+
+func (r *Room) broadcast(msg Message) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	for c := range r.clients {
+		select {
+		case c.Send &lt;- msg:
+		default:
+		}
+	}
+}
+
+func handleRoomChat(c *gin.Context) {
+	room := c.Param(&quot;room&quot;)
+	user := c.Query(&quot;user&quot;)
+	if user == &quot;&quot; {
+		user = &quot;anonymous&quot;
+	}
+
+	conn, err := upgrader.Upgrade(c.Writer, c.Request, nil)
+	if err != nil {
+		return
+	}
+
+	r := roomHub.GetOrCreate(room)
+	client := &amp;Client{Conn: conn, User: user, Room: room, Send: make(chan Message, 256)}
+	r.Join(client)
+
+	go writePump(client, r)
+	go readPump(client, r)
+}
+
+func writePump(c *Client, room *Room) {
+	ticker := time.NewTicker(30 * time.Second)
+	defer func() { ticker.Stop(); c.Conn.Close() }()
+
+	for {
+		select {
+		case msg, ok := &lt;-c.Send:
+			c.Conn.SetWriteDeadline(time.Now().Add(10 * time.Second))
+			if !ok {
+				c.Conn.WriteMessage(websocket.CloseMessage, nil)
+				return
+			}
+			c.Conn.WriteJSON(msg)
+		case &lt;-ticker.C:
+			c.Conn.SetWriteDeadline(time.Now().Add(10 * time.Second))
+			if err := c.Conn.WriteMessage(websocket.PingMessage, nil); err != nil {
+				return
+			}
+		}
+	}
+}
+
+func readPump(c *Client, room *Room) {
+	defer func() { room.Leave(c); c.Conn.Close() }()
+
+	c.Conn.SetReadDeadline(time.Now().Add(60 * time.Second))
+	c.Conn.SetPongHandler(func(string) error {
+		c.Conn.SetReadDeadline(time.Now().Add(60 * time.Second))
+		return nil
+	})
+
+	for {
+		_, data, err := c.Conn.ReadMessage()
+		if err != nil {
+			break
+		}
+		room.broadcast(Message{
+			Type:    &quot;chat&quot;,
+			Room:    c.Room,
+			User:    c.User,
+			Content: string(data),
+			Time:    time.Now().Format(&quot;15:04:05&quot;),
+		})
+	}
+}
+
+// List rooms API
+func listRooms(c *gin.Context) {
+	roomHub.mu.RLock()
+	defer roomHub.mu.RUnlock()
+	rooms := make(map[string]int)
+	for name, r := range roomHub.rooms {
+		r.mu.RLock()
+		rooms[name] = len(r.clients)
+		r.mu.RUnlock()
+	}
+	c.JSON(200, rooms)
+}
+
+func itoa(n int) string {
+	return json.Number(string(rune(&#x27;0&#x27; + n))).String()
+}
+
+func main() {
+	r := gin.Default()
+	r.GET(&quot;/ws/:room&quot;, handleRoomChat)
+	r.GET(&quot;/api/rooms&quot;, listRooms)
+	log.Println(&quot;Room chat server on :8080&quot;)
+	r.Run(&quot;:8080&quot;)
+}</code></pre>
+
+<hr>
+
+<h2>四、执行预览</h2>
+
+<pre><code class="language-bash"># 连接 WebSocket（使用 wscat 工具）
+wscat -c &quot;ws://localhost:8080/ws/chat?user=Alice&quot;
+
+# 另一个终端
+wscat -c &quot;ws://localhost:8080/ws/chat?user=Bob&quot;
+
+# Alice 发送消息
+&gt; {&quot;type&quot;:&quot;chat&quot;,&quot;content&quot;:&quot;Hello Bob!&quot;}
+# Bob 收到: {&quot;type&quot;:&quot;chat&quot;,&quot;user&quot;:&quot;Alice&quot;,&quot;content&quot;:&quot;Hello Bob!&quot;,&quot;time&quot;:&quot;14:30:00&quot;}
+
+# 房间聊天
+wscat -c &quot;ws://localhost:8080/ws/general?user=Alice&quot;
+wscat -c &quot;ws://localhost:8080/ws/general?user=Bob&quot;
+
+# 查看房间列表
+curl http://localhost:8080/api/rooms
+# → {&quot;general&quot;:2}</code></pre>
+
+<hr>
+
+<h2>五、注意事项</h2>
+
+<table><thead><tr>
+<th>项目</th>
+<th>说明</th>
+</tr></thead><tbody>
+<tr>
+<td><code>CheckOrigin</code></td>
+<td>生产环境必须校验 Origin，防止跨站 WebSocket 劫持</td>
+</tr>
+<tr>
+<td>并发写入</td>
+<td><code>websocket.Conn</code> 非线程安全，同一 conn 只能一个 goroutine 写</td>
+</tr>
+<tr>
+<td>缓冲区大小</td>
+<td><code>Send</code> channel 建议 256，避免慢客户端阻塞</td>
+</tr>
+<tr>
+<td>心跳间隔</td>
+<td>建议 30s ping，60s 超时断开</td>
+</tr>
+<tr>
+<td>内存泄漏</td>
+<td>客户端断开必须从 Hub 中移除并关闭 channel</td>
+</tr>
+<tr>
+<td>优雅关闭</td>
+<td>服务端关闭时发送 CloseMessage 并等待确认</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>六、避坑指南</h2>
+
+<table><thead><tr>
+<th>❌ 错误做法</th>
+<th>✅ 正确做法</th>
+</tr></thead><tbody>
+<tr>
+<td>多个 goroutine 同时写同一个 conn</td>
+<td>只用一个 goroutine 负责写（writePump）</td>
+</tr>
+<tr>
+<td>不设 ReadDeadline，连接永不超时</td>
+<td>设置心跳 + ReadDeadline 自动断开死连接</td>
+</tr>
+<tr>
+<td><code>CheckOrigin: return true</code> 上线</td>
+<td>校验 Origin 白名单</td>
+</tr>
+<tr>
+<td>客户端断开不清理 map</td>
+<td>defer 中移除 + close channel</td>
+</tr>
+<tr>
+<td>用 <code>c.JSON()</code> 返回 WebSocket 错误</td>
+<td>升级失败已自动返回 HTTP 错误，不需额外处理</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>七、练习题</h2>
+
+<h3>🟢 入门</h3>
+<ol>
+<li>实现一个 Echo WebSocket 服务，收到的消息原样返回</li>
+</ul>
+<ol>
+<li>连接时发送欢迎消息</li>
+
+<h3>🟡 进阶</h3>
+<ol>
+<li>实现广播聊天室，支持用户名显示</li>
+</ul>
+<ol>
+<li>添加心跳检测，60秒无响应断开</li>
+
+<h3>🔴 挑战</h3>
+<ol>
+<li>实现多房间聊天室 + 私聊功能</li>
+</ul>
+<ol>
+<li>将聊天记录持久化到 Redis，支持离线消息</li>
+
+<hr>
+
+<h2>八、知识点总结</h2>
+
+<pre><code>WebSocket 知识树
+├── 协议基础
+│   ├── HTTP Upgrade 握手
+│   ├── 文本/二进制帧
+│   └── Ping/Pong 心跳
+├── gorilla/websocket
+│   ├── Upgrader 配置
+│   ├── ReadMessage / WriteMessage
+│   └── ReadJSON / WriteJSON
+├── 架构模式
+│   ├── Hub-Client 模型
+│   ├── 读/写分离 goroutine
+│   └── Channel 缓冲通信
+└── 生产化
+    ├── 心跳 + 超时
+    ├── 房间管理
+    └── 消息持久化</code></pre>
+
+<hr>
+
+<h2>九、举一反三</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>方案</th>
+<th>关键点</th>
+</tr></thead><tbody>
+<tr>
+<td>实时通知</td>
+<td>WebSocket + Redis Pub/Sub</td>
+<td>多实例消息同步</td>
+</tr>
+<tr>
+<td>协同编辑</td>
+<td>OT/CRDT + WebSocket</td>
+<td>冲突解决算法</td>
+</tr>
+<tr>
+<td>实时看板</td>
+<td>定时推送数据变更</td>
+<td>增量更新减少带宽</td>
+</tr>
+<tr>
+<td>游戏同步</td>
+<td>二进制帧 + Protobuf</td>
+<td>低延迟序列化</td>
+</tr>
+<tr>
+<td>直播弹幕</td>
+<td>WebSocket + 扇出优化</td>
+<td>消息聚合减少写入</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>十、参考资料</h2>
+
+<ul>
+<li><a href="https://pkg.go.dev/github.com/gorilla/websocket">gorilla/websocket 官方文档</a></li>
+<li><a href="https://tools.ietf.org/html/rfc6455">WebSocket 协议 RFC 6455</a></li>
+<li><a href="https://github.com/gorilla/websocket/tree/master/examples/chat">Gorilla Chat Example</a></li>
+
+<hr>
+
+<h2>十一、代码演进</h2>
+
+<table><thead><tr>
+<th>版本</th>
+<th>特点</th>
+<th>适用场景</th>
+</tr></thead><tbody>
+<tr>
+<td><strong>v1</strong></td>
+<td>Echo 服务，基础连接</td>
+<td>学习、调试</td>
+</tr>
+<tr>
+<td><strong>v2</strong></td>
+<td>广播聊天室 + 连接管理</td>
+<td>小型应用</td>
+</tr>
+<tr>
+<td><strong>v3</strong></td>
+<td>多房间 + REST API + 心跳</td>
+<td>生产环境</td>
+</tr>
+</tbody></table>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

@@ -1,0 +1,472 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>021 - 生命周期钩子</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Vue.js/index.html">Vue.js</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Vue.js/01-入门到实战/index.html">Vue.js入门到实战</a>
+</nav>
+<h1>021 - 生命周期钩子</h1>
+<div class="meta">
+<span>📂 Vue.js入门到实战</span>
+<span>🏷️ Vue.js</span>
+</div>
+<article>
+
+
+<h2>难度标注</h2>
+
+<blockquote><p>🟢 <strong>初级</strong> — Vue 3 基础，了解 Composition API</p></blockquote>
+
+<h2>概念讲解</h2>
+
+<h3>什么是生命周期？</h3>
+
+<p>Vue 组件从<strong>创建、挂载、更新到销毁</strong>的整个过程称为生命周期。Vue 在每个阶段提供了<strong>钩子函数</strong>，让你能在特定时机执行自定义逻辑。</p>
+
+<h3>Vue 3 生命周期钩子</h3>
+
+<table><thead><tr>
+<th>钩子</th>
+<th>时机</th>
+<th>常见用途</th>
+</tr></thead><tbody>
+<tr>
+<td><code>onMounted</code></td>
+<td>DOM 挂载完成</td>
+<td>获取 DOM、发请求、初始化第三方库</td>
+</tr>
+<tr>
+<td><code>onUpdated</code></td>
+<td>响应式数据更新后</td>
+<td>操作更新后的 DOM</td>
+</tr>
+<tr>
+<td><code>onUnmounted</code></td>
+<td>组件卸载</td>
+<td>清除定时器、取消订阅、销毁实例</td>
+</tr>
+<tr>
+<td><code>onBeforeMount</code></td>
+<td>挂载前</td>
+<td>很少使用</td>
+</tr>
+<tr>
+<td><code>onBeforeUpdate</code></td>
+<td>更新前</td>
+<td>获取更新前的 DOM 状态</td>
+</tr>
+<tr>
+<td><code>onBeforeUnmount</code></td>
+<td>卸载前</td>
+<td>最后的清理机会</td>
+</tr>
+</tbody></table>
+
+<h3>与 Vue 2 的区别</h3>
+
+<table><thead><tr>
+<th>Vue 2</th>
+<th>Vue 3 Composition API</th>
+</tr></thead><tbody>
+<tr>
+<td><code>created</code></td>
+<td><code>setup()</code> 本身</td>
+</tr>
+<tr>
+<td><code>mounted</code></td>
+<td><code>onMounted()</code></td>
+</tr>
+<tr>
+<td><code>destroyed</code></td>
+<td><code>onUnmounted()</code></td>
+</tr>
+<tr>
+<td><code>beforeDestroy</code></td>
+<td><code>onBeforeUnmount()</code></td>
+</tr>
+</tbody></table>
+
+<h2>脑图</h2>
+
+<pre><code>生命周期钩子
+├── 执行顺序
+│   ├── setup() ≈ created
+│   ├── onBeforeMount
+│   ├── onMounted ← 最常用
+│   ├── onBeforeUpdate
+│   ├── onUpdated
+│   ├── onBeforeUnmount
+│   └── onUnmounted ← 清理资源
+├── 常见场景
+│   ├── onMounted: API请求、DOM操作
+│   ├── onUpdated: 依赖DOM的操作
+│   └── onUnmounted: 清除副作用
+├── 父子组件顺序
+│   ├── 挂载: 父beforeMount → 子mounted → 父mounted
+│   └── 卸载: 父beforeUnmount → 子unmounted → 父unmounted
+└── 特殊场景
+    ├── keep-alive: onActivated/onDeactivated
+    ├── 异步组件: Suspense
+    └── SSR: only onMounted在客户端执行</code></pre>
+
+<h2>完整代码</h2>
+
+<pre><code class="language-vue">&lt;!-- components/LifecycleDemo.vue — Complete lifecycle demonstration --&gt;
+&lt;script setup&gt;
+import {
+  onBeforeMount,
+  onMounted,
+  onBeforeUpdate,
+  onUpdated,
+  onBeforeUnmount,
+  onUnmounted,
+  ref
+} from &#x27;vue&#x27;
+
+const count = ref(0)
+let timer = null
+
+onBeforeMount(() =&gt; {
+  console.log(&#x27;1. onBeforeMount — template about to render&#x27;)
+})
+
+onMounted(() =&gt; {
+  console.log(&#x27;2. onMounted — DOM is ready&#x27;)
+
+  // Safe to access DOM
+  const el = document.getElementById(&#x27;counter-display&#x27;)
+  console.log(&#x27;DOM element:&#x27;, el?.textContent)
+
+  // Start a timer (will be cleaned up in onUnmounted)
+  timer = setInterval(() =&gt; {
+    count.value++
+  }, 1000)
+})
+
+onBeforeUpdate(() =&gt; {
+  console.log(&#x27;3. onBeforeUpdate — data changed, DOM not yet updated&#x27;)
+})
+
+onUpdated(() =&gt; {
+  console.log(&#x27;4. onUpdated — DOM updated, count:&#x27;, count.value)
+})
+
+onBeforeUnmount(() =&gt; {
+  console.log(&#x27;5. onBeforeUnmount — component about to destroy&#x27;)
+})
+
+onUnmounted(() =&gt; {
+  console.log(&#x27;6. onUnmounted — component destroyed, cleaning up&#x27;)
+  // Critical: clean up timer to prevent memory leaks
+  if (timer) {
+    clearInterval(timer)
+    timer = null
+  }
+})
+&lt;/script&gt;
+
+&lt;template&gt;
+  &lt;div&gt;
+    &lt;p id=&quot;counter-display&quot;&gt;Count: {{ count }}&lt;/p&gt;
+    &lt;button @click=&quot;count++&quot;&gt;Manual +1&lt;/button&gt;
+  &lt;/div&gt;
+&lt;/template&gt;</code></pre>
+
+<pre><code class="language-vue">&lt;!-- composables/useEventListener.js — Cleanup pattern --&gt;
+&lt;script setup&gt;
+import { onUnmounted, ref } from &#x27;vue&#x27;
+
+// Composable that auto-cleans up
+function useEventListener(target, event, callback) {
+  target.addEventListener(event, callback)
+
+  onUnmounted(() =&gt; {
+    target.removeEventListener(event, callback)
+  })
+}
+
+// Usage
+const mouseX = ref(0)
+const mouseY = ref(0)
+
+useEventListener(window, &#x27;mousemove&#x27;, (e) =&gt; {
+  mouseX.value = e.clientX
+  mouseY.value = e.clientY
+})
+&lt;/script&gt;</code></pre>
+
+<pre><code class="language-vue">&lt;!-- components/AutoRefresh.vue — Real-world pattern --&gt;
+&lt;script setup&gt;
+import { ref, onMounted, onUnmounted } from &#x27;vue&#x27;
+
+const data = ref(null)
+const loading = ref(false)
+let intervalId = null
+
+async function fetchData() {
+  loading.value = true
+  try {
+    const res = await fetch(&#x27;/api/dashboard&#x27;)
+    data.value = await res.json()
+  } catch (e) {
+    console.error(&#x27;Fetch failed:&#x27;, e)
+  } finally {
+    loading.value = false
+  }
+}
+
+// Mount: initial fetch + auto refresh
+onMounted(() =&gt; {
+  fetchData()
+  intervalId = setInterval(fetchData, 30000) // Refresh every 30s
+})
+
+// Unmount: cleanup
+onUnmounted(() =&gt; {
+  if (intervalId) {
+    clearInterval(intervalId)
+    intervalId = null
+  }
+})
+&lt;/script&gt;
+
+&lt;template&gt;
+  &lt;div v-if=&quot;loading&quot;&gt;Loading...&lt;/div&gt;
+  &lt;div v-else-if=&quot;data&quot;&gt;
+    &lt;pre&gt;{{ data }}&lt;/pre&gt;
+  &lt;/div&gt;
+&lt;/template&gt;</code></pre>
+
+<h2>执行预览</h2>
+
+<pre><code>组件创建:
+  1. setup() 执行（≈ created）
+  2. onBeforeMount 触发
+  3. onMounted 触发 → 开始定时器
+
+count 变化:
+  4. onBeforeUpdate 触发
+  5. DOM 更新
+  6. onUpdated 触发
+
+组件销毁:
+  7. onBeforeUnmount 触发
+  8. onUnmounted 触发 → clearInterval(timer)</code></pre>
+
+<h2>注意事项</h2>
+
+<table><thead><tr>
+<th>注意点</th>
+<th>说明</th>
+</tr></thead><tbody>
+<tr>
+<td>setup ≈ created</td>
+<td><code>setup()</code> 本身相当于 <code>created</code>，此时 DOM 不可用</td>
+</tr>
+<tr>
+<td>onMounted 发请求</td>
+<td>大多数数据获取放在 onMounted 中</td>
+</tr>
+<tr>
+<td>必须清理副作用</td>
+<td>定时器、事件监听、WebSocket 必须在 onUnmounted 清除</td>
+</tr>
+<tr>
+<td>onUpdated 小心死循环</td>
+<td>在 onUpdated 中修改响应式数据可能导致无限循环</td>
+</tr>
+<tr>
+<td>钩子注册位置</td>
+<td>必须在 <code>setup()</code> 同步代码中调用，不能放在 async 函数里</td>
+</tr>
+<tr>
+<td>SSR 场景</td>
+<td>服务端只执行 setup 和 onBeforeMount，onMounted 只在客户端</td>
+</tr>
+</tbody></table>
+
+<h2>避坑指南</h2>
+
+<table><thead><tr>
+<th>❌ 错误做法</th>
+<th>✅ 正确做法</th>
+</tr></thead><tbody>
+<tr>
+<td>在 setup 中直接操作 DOM</td>
+<td>在 onMounted 中操作 DOM</td>
+</tr>
+<tr>
+<td>定时器/事件不在 onUnmounted 清理</td>
+<td>onUnmounted 中 clearInterval/removeEventListener</td>
+</tr>
+<tr>
+<td>在 onUpdated 中修改响应式数据</td>
+<td>onUpdated 只做读取，避免无限循环</td>
+</tr>
+<tr>
+<td>钩子写在 async 函数内部</td>
+<td>钩子必须在 setup 同步上下文中注册</td>
+</tr>
+<tr>
+<td>忘记父 → 子的挂载顺序</td>
+<td>子组件 onMounted 先于父组件 onMounted</td>
+</tr>
+</tbody></table>
+
+<h2>练习题</h2>
+
+<h3>🟢 基础</h3>
+<ol>
+<li>在 onMounted 中调用 API 获取数据并显示</li>
+</ul>
+<ol>
+<li>创建一个组件，挂载时添加 window resize 监听，卸载时移除</li>
+
+<h3>🟡 进阶</h3>
+<ol>
+<li>实现一个 useIntersectionObserver 组合式函数，在 onUnmounted 自动断开观察</li>
+</ul>
+<ol>
+<li>实现一个自动轮询组件，支持暂停/恢复和配置轮询间隔</li>
+
+<h3>🔴 挑战</h3>
+<ol>
+<li>实现一个通用的副作用管理 composable，支持注册多个副作用并在卸载时批量清理</li>
+
+<h2>知识点总结</h2>
+
+<pre><code>生命周期钩子
+├── 核心
+│   ├── onMounted — DOM就绪，发请求
+│   ├── onUpdated — 更新后操作
+│   └── onUnmounted — 清理资源
+├── 模式
+│   ├── 数据获取 → onMounted
+│   ├── 事件监听 → onMounted + onUnmounted
+│   ├── 定时器 → onMounted + onUnmounted
+│   └── 第三方库 → onMounted init + onUnmounted destroy
+├── 父子顺序
+│   ├── 挂载: 子先 父后
+│   └── 卸载: 子先 父后
+└── 特殊
+    ├── keep-alive: onActivated/onDeactivated
+    └── setup ≈ created</code></pre>
+
+<h2>举一反三</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>钩子</th>
+<th>模式</th>
+</tr></thead><tbody>
+<tr>
+<td>首次数据加载</td>
+<td>onMounted</td>
+<td>fetch + render</td>
+</tr>
+<tr>
+<td>窗口 resize</td>
+<td>onMounted + onUnmounted</td>
+<td>addEventListener + cleanup</td>
+</tr>
+<tr>
+<td>轮询数据</td>
+<td>onMounted + onUnmounted</td>
+<td>setInterval + cleanup</td>
+</tr>
+<tr>
+<td>图表初始化</td>
+<td>onMounted + onUnmounted</td>
+<td>new Chart() + chart.destroy()</td>
+</tr>
+<tr>
+<td>WebSocket</td>
+<td>onMounted + onUnmounted</td>
+<td>ws.connect() + ws.close()</td>
+</tr>
+</tbody></table>
+
+<h2>参考资料</h2>
+
+<ul>
+<li><a href="https://vuejs.org/api/composition-api-lifecycle.html">Vue 3 官方文档 - Lifecycle Hooks</a></li>
+<li><a href="https://vuejs.org/guide/essentials/lifecycle.html">Vue 3 官方文档 - Lifecycle Diagram</a></li>
+
+<h2>代码演进</h2>
+
+<h3>v1 — 基础使用</h3>
+<pre><code class="language-javascript">onMounted(() =&gt; {
+  fetchData()
+})</code></pre>
+
+<h3>v2 — 加入清理</h3>
+<pre><code class="language-javascript">let timer = null
+onMounted(() =&gt; { timer = setInterval(fetch, 30000) })
+onUnmounted(() =&gt; { clearInterval(timer) })</code></pre>
+
+<h3>v3 — 完整模式（本文代码）</h3>
+<ul>
+<li>封装为 composable</li>
+<li>自动清理模式</li>
+<li>完整的生命周期演示</li>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

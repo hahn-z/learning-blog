@@ -1,0 +1,550 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>011 - 反射进阶与实际应用</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Golang/index.html">Golang</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Golang/02-进阶/index.html">Golang进阶</a>
+</nav>
+<h1>011 - 反射进阶与实际应用</h1>
+<div class="meta">
+<span>📂 Golang进阶</span>
+<span>🏷️ Golang</span>
+</div>
+<article>
+
+
+<h1>041 - 反射进阶与实际应用</h1>
+
+<blockquote><p><strong>难度：</strong> ⭐⭐⭐⭐<br><strong>关键词：</strong> CanSet、Elem、Set、reflect.Select、struct tag、ORM 映射、代码生成</p></blockquote>
+
+<h2>一、概念讲解</h2>
+
+<p>上篇我们学习了反射的基础操作。本篇深入<strong>修改值</strong>、<strong>动态 select</strong>、<strong>struct tag 应用</strong> 和 <strong>反射实现 ORM 映射</strong>等进阶主题，最后讨论反射 vs 代码生成的选型。</p>
+
+<h3>反射修改值三步曲</h3>
+
+<ol>
+<li>传指针：<code>reflect.ValueOf(&x)</code></li>
+</ul>
+<ol>
+<li>解引用：<code>.Elem()</code></li>
+</ul>
+<ol>
+<li>设置值：<code>.Setxxx()</code> 或 <code>.Set(reflect.Value)</code></li>
+
+<p>前提条件：<code>CanSet()</code> 返回 <code>true</code>。</p>
+
+<h3>struct tag</h3>
+
+<p>Go 结构体字段的 tag 是编译期绑定的元数据字符串，通过反射在运行时读取。这是 JSON、数据库映射、验证等库的基础。</p>
+
+<h3>reflect.Select</h3>
+
+<p><code>reflect.Select</code> 允许在运行时动态构建 select case 列表，实现不确定数量的 channel 同时监听。</p>
+
+<h2>二、脑图</h2>
+
+<pre><code>反射进阶
+├── 修改值
+│   ├── 传指针 → Elem() → CanSet() → Set()
+│   ├── SetInt / SetString / SetFloat ...
+│   └── Set(reflect.Value)
+├── struct tag
+│   ├── Tag.Get(&quot;key&quot;)
+│   ├── Tag.Lookup(&quot;key&quot;) → (value, ok)
+│   └── 应用: json / db / validate / form
+├── reflect.Select
+│   ├── SelectDir (SelectSend/SelectRecv/SelectDefault)
+│   ├── 动态构建 case 列表
+│   └── 返回 (chosen, recv, ok)
+├── 简易 ORM
+│   ├── 结构体 → 表名/字段映射
+│   ├── SELECT 构建器
+│   └── Scan 行 → 结构体
+└── 反射 vs 代码生成
+    ├── 反射: 灵活、运行时、慢
+    ├── 代码生成: 编译期、快、需生成步骤
+    └── 选型: 热路径用生成, 工具用反射</code></pre>
+
+<h2>三、完整代码</h2>
+
+<pre><code class="language-go">package main
+
+import (
+	&quot;fmt&quot;
+	&quot;reflect&quot;
+	&quot;strings&quot;
+)
+
+// === 1. Struct with tags for ORM mapping ===
+
+type User struct {
+	ID    int    `db:&quot;id&quot; json:&quot;id&quot;`
+	Name  string `db:&quot;name&quot; json:&quot;name&quot;`
+	Email string `db:&quot;email&quot; json:&quot;email&quot;`
+}
+
+// TableName returns the table name for ORM
+func (User) TableName() string {
+	return &quot;users&quot;
+}
+
+// === 2. Simple ORM using reflection ===
+
+// Schema holds field-to-column mapping
+type Schema struct {
+	TableName   string
+	Fields      []reflect.StructField
+	FieldValues []reflect.Value
+	ColumnMap   map[string]int // column name -&gt; field index
+}
+
+// NewSchema creates a schema from a struct pointer
+func NewSchema(model interface{}) *Schema {
+	t := reflect.TypeOf(model)
+	if t.Kind() == reflect.Ptr {
+		t = t.Elem()
+	}
+	v := reflect.ValueOf(model)
+	if v.Kind() == reflect.Ptr {
+		v = v.Elem()
+	}
+
+	s := &amp;Schema{
+		TableName:   t.Name() + &quot;s&quot;, // pluralize naively
+		ColumnMap:   make(map[string]int),
+	}
+
+	// Check for TableName method
+	if tn := reflect.ValueOf(model).MethodByName(&quot;TableName&quot;); tn.IsValid() {
+		result := tn.Call(nil)
+		s.TableName = result[0].String()
+	}
+
+	for i := 0; i &lt; t.NumField(); i++ {
+		sf := t.Field(i)
+		col := sf.Tag.Get(&quot;db&quot;)
+		if col == &quot;&quot; {
+			col = strings.ToLower(sf.Name)
+		}
+		s.Fields = append(s.Fields, sf)
+		s.FieldValues = append(s.FieldValues, v.Field(i))
+		s.ColumnMap[col] = i
+	}
+	return s
+}
+
+// BuildSelect generates a SELECT query
+func (s *Schema) BuildSelect(conditions ...string) string {
+	cols := make([]string, len(s.Fields))
+	for i, f := range s.Fields {
+		col := f.Tag.Get(&quot;db&quot;)
+		if col == &quot;&quot; {
+			col = strings.ToLower(f.Name)
+		}
+		cols[i] = col
+	}
+	query := fmt.Sprintf(&quot;SELECT %s FROM %s&quot;, strings.Join(cols, &quot;, &quot;), s.TableName)
+	if len(conditions) &gt; 0 {
+		query += &quot; WHERE &quot; + strings.Join(conditions, &quot; AND &quot;)
+	}
+	return query
+}
+
+// Scan maps a row (map[string]interface{}) into a struct
+func (s *Schema) Scan(row map[string]interface{}, dest interface{}) {
+	v := reflect.ValueOf(dest).Elem()
+	for col, val := range row {
+		if idx, ok := s.ColumnMap[col]; ok {
+			field := v.Field(idx)
+			if field.CanSet() {
+				field.Set(reflect.ValueOf(val))
+			}
+		}
+	}
+}
+
+// === 3. Validator using struct tags ===
+
+func Validate(x interface{}) []string {
+	var errors []string
+	v := reflect.ValueOf(x)
+	if v.Kind() == reflect.Ptr {
+		v = v.Elem()
+	}
+	t := v.Type()
+
+	for i := 0; i &lt; t.NumField(); i++ {
+		sf := t.Field(i)
+		fv := v.Field(i)
+
+		// Check &quot;required&quot; tag
+		if sf.Tag.Get(&quot;validate&quot;) == &quot;required&quot; {
+			switch fv.Kind() {
+			case reflect.String:
+				if fv.String() == &quot;&quot; {
+					errors = append(errors, fmt.Sprintf(&quot;%s is required&quot;, sf.Name))
+				}
+			case reflect.Int:
+				if fv.Int() == 0 {
+					errors = append(errors, fmt.Sprintf(&quot;%s is required&quot;, sf.Name))
+				}
+			}
+		}
+	}
+	return errors
+}
+
+// === 4. Reflect modify value ===
+
+func setField(ptr interface{}, fieldName string, value interface{}) error {
+	v := reflect.ValueOf(ptr).Elem()
+	f := v.FieldByName(fieldName)
+	if !f.IsValid() {
+		return fmt.Errorf(&quot;field %s not found&quot;, fieldName)
+	}
+	if !f.CanSet() {
+		return fmt.Errorf(&quot;field %s cannot be set&quot;, fieldName)
+	}
+	val := reflect.ValueOf(value)
+	if val.Type() != f.Type() {
+		// Try to convert
+		if val.Type().ConvertibleTo(f.Type()) {
+			val = val.Convert(f.Type())
+		} else {
+			return fmt.Errorf(&quot;type mismatch: field=%s, value=%s&quot;, f.Type(), val.Type())
+		}
+	}
+	f.Set(val)
+	return nil
+}
+
+func main() {
+	// === 1. Modify value via reflection ===
+	fmt.Println(&quot;=== Modify Value ===&quot;)
+	u := User{ID: 1, Name: &quot;Alice&quot;, Email: &quot;alice@example.com&quot;}
+	fmt.Printf(&quot;Before: %+v\n&quot;, u)
+
+	// Modify fields via pointer
+	setField(&amp;u, &quot;Name&quot;, &quot;Bob&quot;)
+	setField(&amp;u, &quot;Email&quot;, &quot;bob@example.com&quot;)
+	fmt.Printf(&quot;After:  %+v\n&quot;, u)
+
+	// Direct approach
+	v := reflect.ValueOf(&amp;u).Elem()
+	nameField := v.FieldByName(&quot;Name&quot;)
+	fmt.Printf(&quot;CanSet Name: %v\n&quot;, nameField.CanSet())
+	nameField.SetString(&quot;Charlie&quot;)
+	fmt.Printf(&quot;Direct set:  %+v\n&quot;, u)
+
+	// === 2. ORM Schema ===
+	fmt.Println(&quot;\n=== ORM Schema ===&quot;)
+	schema := NewSchema(&amp;User{})
+	fmt.Printf(&quot;Table: %s\n&quot;, schema.TableName)
+	fmt.Printf(&quot;Select: %s\n&quot;, schema.BuildSelect(&quot;id = ?&quot;, &quot;active = true&quot;))
+
+	// === 3. ORM Scan ===
+	fmt.Println(&quot;\n=== ORM Scan ===&quot;)
+	row := map[string]interface{}{
+		&quot;id&quot;:    42,
+		&quot;name&quot;:  &quot;Dave&quot;,
+		&quot;email&quot;: &quot;dave@example.com&quot;,
+	}
+	var u2 User
+	schema.Scan(row, &amp;u2)
+	fmt.Printf(&quot;Scanned: %+v\n&quot;, u2)
+
+	// === 4. Read all tags ===
+	fmt.Println(&quot;\n=== Struct Tags ===&quot;)
+	t := reflect.TypeOf(User{})
+	for i := 0; i &lt; t.NumField(); i++ {
+		f := t.Field(i)
+		fmt.Printf(&quot;  %s: db=%q, json=%q\n&quot;, f.Name, f.Tag.Get(&quot;db&quot;), f.Tag.Get(&quot;json&quot;))
+	}
+
+	// === 5. reflect.Select (dynamic select) ===
+	fmt.Println(&quot;\n=== reflect.Select ===&quot;)
+	demoReflectSelect()
+}
+
+func demoReflectSelect() {
+	ch1 := make(chan string, 1)
+	ch2 := make(chan string, 1)
+
+	ch1 &lt;- &quot;from channel 1&quot;
+	// ch2 has no data
+
+	// Build select cases dynamically
+	cases := []reflect.SelectCase{
+		{Dir: reflect.SelectRecv, Chan: reflect.ValueOf(ch1)},
+		{Dir: reflect.SelectRecv, Chan: reflect.ValueOf(ch2)},
+		{Dir: reflect.SelectDefault},
+	}
+
+	chosen, value, ok := reflect.Select(cases)
+	fmt.Printf(&quot;  Chosen case %d, value=%v, ok=%v\n&quot;, chosen, value, ok)
+}</code></pre>
+
+<h2>四、执行预览</h2>
+
+<pre><code>=== Modify Value ===
+Before: {ID:1 Name:Alice Email:alice@example.com}
+After:  {ID:1 Name:Bob Email:bob@example.com}
+CanSet Name: true
+Direct set:  {ID:1 Name:Charlie Email:bob@example.com}
+
+=== ORM Schema ===
+Table: users
+Select: SELECT id, name, email FROM users WHERE id = ? AND active = true
+
+=== ORM Scan ===
+Scanned: {ID:42 Name:Dave Email:dave@example.com}
+
+=== Struct Tags ===
+  ID: db=&quot;id&quot;, json=&quot;id&quot;
+  Name: db=&quot;name&quot;, json=&quot;name&quot;
+  Email: db=&quot;email&quot;, json=&quot;email&quot;
+
+=== reflect.Select ===
+  Chosen case 0, value=from channel 1, ok=true</code></pre>
+
+<h2>五、注意事项</h2>
+
+<table><thead><tr>
+<th>项目</th>
+<th>说明</th>
+</tr></thead><tbody>
+<tr>
+<td>CanSet 条件</td>
+<td>必须传指针 + Elem()，且字段是导出的</td>
+</tr>
+<tr>
+<td>unexported 字段</td>
+<td>私有字段即使通过指针也无法 Set</td>
+</tr>
+<tr>
+<td>Tag.Get vs Tag.Lookup</td>
+<td>Get 返回空串表示不存在；Lookup 返回 (val, ok) 区分空 tag</td>
+</tr>
+<tr>
+<td>reflect.Select 性能</td>
+<td>比原生 select 慢，只在动态 channel 场景使用</td>
+</tr>
+<tr>
+<td>ORM Scan 类型匹配</td>
+<td>map 的 value 类型必须与结构体字段类型兼容</td>
+</tr>
+</tbody></table>
+
+<h2>六、避坑指南</h2>
+
+<p>❌ <strong>忘记 Elem() 导致 CanSet 为 false</strong></p>
+<pre><code class="language-go">v := reflect.ValueOf(&amp;x)
+v.SetInt(10) // panic: SetInt on ptr, not the value</code></pre>
+<p>✅ <strong>先 Elem() 解引用</strong></p>
+<pre><code class="language-go">v := reflect.ValueOf(&amp;x).Elem()
+v.SetInt(10) // OK</code></pre>
+
+<p>❌ <strong>Tag 写法错误</strong></p>
+<pre><code class="language-go">Name string `json:&quot;name&quot;`db:&quot;user_name`` // syntax error</code></pre>
+<p>✅ <strong>用空格分隔多个 tag</strong></p>
+<pre><code class="language-go">Name string `json:&quot;name&quot; db:&quot;user_name&quot;`</code></pre>
+
+<p>❌ <strong>反射修改 slice/map 的容量</strong></p>
+<pre><code class="language-go">s := []int{1, 2, 3}
+reflect.ValueOf(&amp;s).Elem().SetLen(10) // panic: len &gt; cap</code></pre>
+<p>✅ <strong>先确保 cap 足够，或用 MakeSlice</strong></p>
+<pre><code class="language-go">newSlice := reflect.MakeSlice(reflect.TypeOf(s), 10, 10)
+reflect.ValueOf(&amp;s).Elem().Set(newSlice)</code></pre>
+
+<h2>七、练习题</h2>
+
+<p>🟢 <strong>基础：</strong> 写一个函数 <code>SetJSONTag(obj interface{}, fieldName, tagValue string)</code>，通过反射修改结构体字段的 json tag（提示：这是不可变的，思考为什么）。</p>
+
+<p>🟡 <strong>进阶：</strong> 实现 <code>DynamicMerge(dst, src interface{})</code>，用反射将 src 的非零字段合并到 dst。</p>
+
+<p>🔴 <strong>挑战：</strong> 实现一个简易 <code>SELECT</code> 查询构建器，支持 <code>Where</code>、<code>OrderBy</code>、<code>Limit</code> 链式调用，通过反射读取 struct tag 构建列名。</p>
+
+<h2>八、知识点总结</h2>
+
+<pre><code>反射进阶
+├── 值修改
+│   ├── ValueOf(&amp;x).Elem() → 可寻址 Value
+│   ├── CanSet() / CanAddr()
+│   ├── SetInt / SetString / Set / SetLen
+│   └── unexported 字段不可 Set
+├── struct tag
+│   ├── Tag.Get(&quot;key&quot;) → string
+│   ├── Tag.Lookup(&quot;key&quot;) → (string, bool)
+│   ├── json / db / validate / form
+│   └── struct tag 在编译期绑定，运行时只读
+├── reflect.Select
+│   ├── SelectCase{Dir, Chan, Send}
+│   ├── SelectSend / SelectRecv / SelectDefault
+│   └── 返回 (chosen, value, ok)
+├── ORM 映射
+│   ├── Type → 表结构
+│   ├── Tag → 列名
+│   ├── Value → 数据
+│   └── Scan: row → struct
+└── 反射 vs 代码生成
+    ├── 反射: 运行时、灵活、较慢
+    ├── 代码生成: 编译期、快速、需工具链
+    └── 推荐: 热路径用生成，框架用反射</code></pre>
+
+<h2>九、举一反三</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>技术</th>
+<th>实际项目</th>
+</tr></thead><tbody>
+<tr>
+<td>JSON 序列化</td>
+<td>Tag.Get("json") + 反射读值</td>
+<td>encoding/json</td>
+</tr>
+<tr>
+<td>数据库映射</td>
+<td>Tag.Get("db") + Scan</td>
+<td>GORM, sqlx</td>
+</tr>
+<tr>
+<td>表单验证</td>
+<td>Tag.Get("validate") + Kind switch</td>
+<td>go-playground/validator</td>
+</tr>
+<tr>
+<td>配置绑定</td>
+<td>FieldByName + Set</td>
+<td>viper</td>
+</tr>
+<tr>
+<td>动态路由</td>
+<td>MethodByName + Call</td>
+<td>框架路由分发</td>
+</tr>
+<tr>
+<td>多 channel 聚合</td>
+<td>reflect.Select</td>
+<td>fan-in 模式</td>
+</tr>
+<tr>
+<td>Mock 框架</td>
+<td>Set 方法返回值 + Call</td>
+<td>gomock</td>
+</tr>
+</tbody></table>
+
+<h2>十、参考资料</h2>
+
+<ul>
+<li><a href="https://go.dev/blog/laws-of-reflection">The Laws of Reflection - Go Blog</a></li>
+<li><a href="https://pkg.go.dev/reflect#StructTag">struct tag 规范</a></li>
+<li><a href="https://github.com/go-gorm/gorm">GORM 反射源码</a></li>
+<li><a href="https://github.com/go-playground/validator">go-playground/validator</a></li>
+
+<h2>十一、代码演进</h2>
+
+<h3>v1 — 硬编码字段映射</h3>
+
+<pre><code class="language-go">func scanUser(row map[string]interface{}) User {
+    return User{
+        ID:    row[&quot;id&quot;].(int),
+        Name:  row[&quot;name&quot;].(string),
+        Email: row[&quot;email&quot;].(string),
+    }
+}
+// Works but not reusable</code></pre>
+
+<h3>v2 — 通用反射 Scan</h3>
+
+<pre><code class="language-go">func scan(row map[string]interface{}, dest interface{}) {
+    v := reflect.ValueOf(dest).Elem()
+    t := v.Type()
+    for i := 0; i &lt; t.NumField(); i++ {
+        col := t.Field(i).Tag.Get(&quot;db&quot;)
+        if val, ok := row[col]; ok {
+            v.Field(i).Set(reflect.ValueOf(val))
+        }
+    }
+}
+// Reusable but slower than hand-written code</code></pre>
+
+<h3>v3 — Schema 缓存 + ORM 构建器</h3>
+
+<pre><code class="language-go">// Schema parsed once, cached per type
+var schemaCache sync.Map
+
+func getSchema(t reflect.Type) *Schema {
+    if s, ok := schemaCache.Load(t); ok {
+        return s.(*Schema)
+    }
+    s := parseSchema(t)
+    schemaCache.Store(t, s)
+    return s
+}
+// Parse once, use many times — best of both worlds</code></pre>
+
+<blockquote><p><strong>小结：</strong> 反射进阶的核心是理解可寻址性、struct tag 和动态 select。实际项目中，ORM 和验证库大量使用反射；但在性能敏感场景，代码生成是更好的选择。</p></blockquote>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

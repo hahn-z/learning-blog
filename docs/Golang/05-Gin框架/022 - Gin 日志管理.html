@@ -1,0 +1,695 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>022 - Gin 日志管理</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Golang/index.html">Golang</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Golang/05-Gin框架/index.html">Gin框架</a>
+</nav>
+<h1>022 - Gin 日志管理</h1>
+<div class="meta">
+<span>📂 Gin框架</span>
+<span>🏷️ Golang</span>
+</div>
+<article>
+
+
+<h1>022 - Gin 日志管理</h1>
+
+<blockquote><p><strong>难度：</strong> ⭐⭐⭐（较高）<br><strong>前置知识：</strong> Gin 中间件、Go io 接口、结构化日志概念<br><strong>预计阅读时间：</strong> 25 分钟</p></blockquote>
+
+<hr>
+
+<h2>一、概念讲解</h2>
+
+<p>日志是生产环境的"黑匣子"。Gin 默认的 <code>gin.Logger()</code> 只输出文本格式日志，在生产环境中远远不够。我们需要结构化日志、请求追踪、日志轮转和性能分级。</p>
+
+<p><strong>日志层次体系：</strong></p>
+
+<table><thead><tr>
+<th>层级</th>
+<th>用途</th>
+<th>示例</th>
+</tr></thead><tbody>
+<tr>
+<td>请求日志</td>
+<td>每个 HTTP 请求的进出记录</td>
+<td>method, path, status, latency</td>
+</tr>
+<tr>
+<td>业务日志</td>
+<td>业务逻辑关键节点</td>
+<td>order_created, payment_success</td>
+</tr>
+<tr>
+<td>错误日志</td>
+<td>异常和错误堆栈</td>
+<td>db_connection_failed</td>
+</tr>
+<tr>
+<td>审计日志</td>
+<td>安全敏感操作</td>
+<td>user_login, permission_change</td>
+</tr>
+</tbody></table>
+
+<p><strong>技术选型对比：</strong></p>
+
+<table><thead><tr>
+<th>方案</th>
+<th>性能</th>
+<th>结构化</th>
+<th>适用场景</th>
+</tr></thead><tbody>
+<tr>
+<td><code>log/slog</code> (Go 1.21+)</td>
+<td>中</td>
+<td>✅ 原生</td>
+<td>标准库优先、新项目推荐</td>
+</tr>
+<tr>
+<td><code>uber-go/zap</code></td>
+<td>极高</td>
+<td>✅</td>
+<td>高并发、高性能要求</td>
+</tr>
+<tr>
+<td><code>gin.Logger()</code></td>
+<td>低</td>
+<td>❌</td>
+<td>仅开发环境</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>二、脑图</h2>
+
+<pre><code>日志管理
+├── slog 结构化日志
+│   ├── JSON Handler
+│   ├── 替换 Gin 默认日志
+│   └── Context 传递
+├── 请求日志中间件
+│   ├── method/path/status/latency
+│   ├── 请求体记录(谨慎)
+│   └── 响应体包装
+├── zap 高性能日志
+│   ├── Logger(强类型) vs Sugar(灵活)
+│   ├── Development/Production 预设
+│   └── 自定义 Encoder
+├── 日志轮转
+│   ├── lumberjack 按大小切割
+│   ├── 按日期归档
+│   └── 自动清理策略
+├── 请求 ID 追踪
+│   ├── UUID 生成
+│   ├── Context 传递
+│   └── 全链路串联
+└── 慢请求日志
+    ├── 阈值配置
+    ├── 自动告警
+    └── 与 APM 集成</code></pre>
+
+<hr>
+
+<h2>三、完整代码</h2>
+
+<h3>v1：slog 结构化日志 + 请求 ID</h3>
+
+<pre><code class="language-go">// main.go - v1 slog integration with request ID
+package main
+
+import (
+	&quot;log/slog&quot;
+	&quot;net/http&quot;
+	&quot;os&quot;
+	&quot;time&quot;
+
+	&quot;github.com/gin-gonic/gin&quot;
+	&quot;github.com/google/uuid&quot;
+)
+
+func main() {
+	// Configure structured JSON logger
+	logger := slog.New(slog.NewJSONHandler(os.Stdout, &amp;slog.HandlerOptions{
+		Level: slog.LevelInfo,
+	}))
+	slog.SetDefault(logger)
+
+	r := gin.New() // no default middleware
+	r.Use(gin.Recovery())
+	r.Use(requestIDMiddleware())
+	r.Use(slogRequestMiddleware())
+
+	r.GET(&quot;/ping&quot;, func(c *gin.Context) {
+		slog.InfoContext(c.Request.Context(), &quot;ping received&quot;,
+			&quot;path&quot;, c.Request.URL.Path)
+		c.JSON(http.StatusOK, gin.H{&quot;message&quot;: &quot;pong&quot;})
+	})
+
+	r.GET(&quot;/users/:id&quot;, func(c *gin.Context) {
+		slog.InfoContext(c.Request.Context(), &quot;fetching user&quot;,
+			&quot;user_id&quot;, c.Param(&quot;id&quot;))
+		c.JSON(http.StatusOK, gin.H{
+			&quot;id&quot;: c.Param(&quot;id&quot;), &quot;name&quot;: &quot;Alice&quot;,
+		})
+	})
+
+	r.Run(&quot;:8080&quot;)
+}
+
+// requestIDMiddleware generates and propagates a request ID
+func requestIDMiddleware() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		requestID := c.GetHeader(&quot;X-Request-ID&quot;)
+		if requestID == &quot;&quot; {
+			requestID = uuid.New().String()
+		}
+		c.Set(&quot;request_id&quot;, requestID)
+		c.Header(&quot;X-Request-ID&quot;, requestID)
+		c.Next()
+	}
+}
+
+// slogRequestMiddleware logs every request with slog
+func slogRequestMiddleware() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		start := time.Now()
+		path := c.Request.URL.Path
+		query := c.Request.URL.RawQuery
+
+		c.Next()
+
+		latency := time.Since(start)
+		slog.Info(&quot;request&quot;,
+			&quot;request_id&quot;, c.GetString(&quot;request_id&quot;),
+			&quot;status&quot;, c.Writer.Status(),
+			&quot;method&quot;, c.Request.Method,
+			&quot;path&quot;, path,
+			&quot;query&quot;, query,
+			&quot;latency_ms&quot;, latency.Milliseconds(),
+			&quot;client_ip&quot;, c.ClientIP(),
+			&quot;user_agent&quot;, c.Request.UserAgent(),
+			&quot;body_size&quot;, c.Writer.Size(),
+			&quot;errors&quot;, c.Errors.ByType(gin.ErrorTypePrivate).String(),
+		)
+	}
+}</code></pre>
+
+<h3>v2：zap + lumberjack 日志轮转</h3>
+
+<pre><code class="language-go">// main.go - v2 zap + lumberjack with rotation
+package main
+
+import (
+	&quot;net/http&quot;
+	&quot;time&quot;
+
+	&quot;github.com/gin-gonic/gin&quot;
+	&quot;github.com/google/uuid&quot;
+	&quot;go.uber.org/zap&quot;
+	&quot;go.uber.org/zap/zapcore&quot;
+	&quot;gopkg.in/natefinch/lumberjack.v2&quot;
+)
+
+var logger *zap.Logger
+
+func main() {
+	initLogger()
+	defer logger.Sync()
+
+	r := gin.New()
+	r.Use(gin.Recovery())
+	r.Use(requestIDMiddleware())
+	r.Use(zapRequestMiddleware())
+	r.Use(slowRequestMiddleware(500*time.Millisecond))
+
+	r.GET(&quot;/ping&quot;, func(c *gin.Context) {
+		logger.Info(&quot;ping&quot;,
+			zap.String(&quot;request_id&quot;, c.GetString(&quot;request_id&quot;)))
+		c.JSON(http.StatusOK, gin.H{&quot;message&quot;: &quot;pong&quot;})
+	})
+
+	r.GET(&quot;/heavy&quot;, func(c *gin.Context) {
+		time.Sleep(800 * time.Millisecond) // simulate slow
+		c.JSON(http.StatusOK, gin.H{&quot;done&quot;: true})
+	})
+
+	r.Run(&quot;:8080&quot;)
+}
+
+// initLogger sets up zap with lumberjack rotation
+func initLogger() {
+	// Lumberjack for log rotation
+	writer := &amp;lumberjack.Logger{
+		Filename:   &quot;logs/app.log&quot;,
+		MaxSize:    100, // MB per file
+		MaxBackups: 10,  // keep 10 old files
+		MaxAge:     30,  // days
+		Compress:   true,
+	}
+
+	core := zapcore.NewCore(
+		zapcore.NewJSONEncoder(zap.NewProductionEncoderConfig()),
+		zapcore.AddSync(writer),
+		zapcore.InfoLevel,
+	)
+
+	logger = zap.New(core, zap.AddCaller(), zap.AddStacktrace(zap.ErrorLevel))
+}
+
+func requestIDMiddleware() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		requestID := c.GetHeader(&quot;X-Request-ID&quot;)
+		if requestID == &quot;&quot; {
+			requestID = uuid.New().String()
+		}
+		c.Set(&quot;request_id&quot;, requestID)
+		c.Header(&quot;X-Request-ID&quot;, requestID)
+		c.Next()
+	}
+}
+
+func zapRequestMiddleware() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		start := time.Now()
+		c.Next()
+		latency := time.Since(start)
+
+		logger.Info(&quot;request&quot;,
+			zap.String(&quot;request_id&quot;, c.GetString(&quot;request_id&quot;)),
+			zap.String(&quot;method&quot;, c.Request.Method),
+			zap.String(&quot;path&quot;, c.Request.URL.Path),
+			zap.Int(&quot;status&quot;, c.Writer.Status()),
+			zap.Duration(&quot;latency&quot;, latency),
+			zap.String(&quot;client_ip&quot;, c.ClientIP()),
+		)
+	}
+}
+
+// slowRequestMiddleware logs warnings for requests exceeding threshold
+func slowRequestMiddleware(threshold time.Duration) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		start := time.Now()
+		c.Next()
+		latency := time.Since(start)
+
+		if latency &gt; threshold {
+			logger.Warn(&quot;slow request detected&quot;,
+				zap.String(&quot;request_id&quot;, c.GetString(&quot;request_id&quot;)),
+				zap.String(&quot;method&quot;, c.Request.Method),
+				zap.String(&quot;path&quot;, c.Request.URL.Path),
+				zap.Duration(&quot;latency&quot;, latency),
+				zap.Duration(&quot;threshold&quot;, threshold),
+			)
+		}
+	}
+}</code></pre>
+
+<h3>v3：slog + zap 双轨 + 分级输出</h3>
+
+<pre><code class="language-go">// main.go - v3 dual logger with level-based output
+package main
+
+import (
+	&quot;io&quot;
+	&quot;log/slog&quot;
+	&quot;net/http&quot;
+	&quot;os&quot;
+	&quot;time&quot;
+
+	&quot;github.com/gin-gonic/gin&quot;
+	&quot;github.com/google/uuid&quot;
+	&quot;go.uber.org/zap&quot;
+	&quot;go.uber.org/zap/zapcore&quot;
+	&quot;gopkg.in/natefinch/lumberjack.v2&quot;
+)
+
+var zapLogger *zap.Logger
+
+func main() {
+	// Setup slog to stdout for development visibility
+	slog.SetDefault(slog.New(slog.NewJSONHandler(os.Stdout, &amp;slog.HandlerOptions{
+		Level: slog.LevelDebug,
+	})))
+
+	// Setup zap to file for production persistence
+	initZapLogger()
+	defer zapLogger.Sync()
+
+	r := gin.New()
+	r.Use(gin.Recovery())
+	r.Use(requestIDMiddleware())
+	r.Use(dualLogMiddleware())
+	r.Use(slowRequestMiddleware(500*time.Millisecond))
+
+	r.GET(&quot;/ping&quot;, func(c *gin.Context) {
+		slog.InfoContext(c.Request.Context(), &quot;ping&quot;)
+		c.JSON(http.StatusOK, gin.H{&quot;message&quot;: &quot;pong&quot;})
+	})
+
+	r.GET(&quot;/error&quot;, func(c *gin.Context) {
+		slog.ErrorContext(c.Request.Context(), &quot;simulated error&quot;,
+			&quot;detail&quot;, &quot;something went wrong&quot;)
+		c.JSON(http.StatusInternalServerError, gin.H{&quot;error&quot;: &quot;internal&quot;})
+	})
+
+	r.Run(&quot;:8080&quot;)
+}
+
+func initZapLogger() {
+	infoWriter := &amp;lumberjack.Logger{
+		Filename: &quot;logs/info.log&quot;, MaxSize: 100, MaxBackups: 5, Compress: true,
+	}
+	errorWriter := &amp;lumberjack.Logger{
+		Filename: &quot;logs/error.log&quot;, MaxSize: 50, MaxBackups: 10, Compress: true,
+	}
+
+	// Info and above → info.log, Error and above → error.log
+	infoCore := zapcore.NewCore(
+		zapcore.NewJSONEncoder(zap.NewProductionEncoderConfig()),
+		zapcore.AddSync(infoWriter),
+		zapcore.InfoLevel,
+	)
+	errorCore := zapcore.NewCore(
+		zapcore.NewJSONEncoder(zap.NewProductionEncoderConfig()),
+		zapcore.AddSync(errorWriter),
+		zapcore.ErrorLevel,
+	)
+
+	zapLogger = zap.New(zapcore.NewTee(infoCore, errorCore),
+		zap.AddCaller(), zap.AddStacktrace(zap.ErrorLevel))
+}
+
+func requestIDMiddleware() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		rid := c.GetHeader(&quot;X-Request-ID&quot;)
+		if rid == &quot;&quot; {
+			rid = uuid.New().String()
+		}
+		c.Set(&quot;request_id&quot;, rid)
+		c.Header(&quot;X-Request-ID&quot;, rid)
+		c.Next()
+	}
+}
+
+func dualLogMiddleware() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		start := time.Now()
+		c.Next()
+		latency := time.Since(start)
+		rid := c.GetString(&quot;request_id&quot;)
+
+		// slog to stdout
+		slog.Info(&quot;request&quot;, &quot;request_id&quot;, rid, &quot;status&quot;, c.Writer.Status(),
+			&quot;latency_ms&quot;, latency.Milliseconds(), &quot;path&quot;, c.Request.URL.Path)
+
+		// zap to file
+		zapLogger.Info(&quot;request&quot;,
+			zap.String(&quot;request_id&quot;, rid),
+			zap.String(&quot;method&quot;, c.Request.Method),
+			zap.String(&quot;path&quot;, c.Request.URL.Path),
+			zap.Int(&quot;status&quot;, c.Writer.Status()),
+			zap.Duration(&quot;latency&quot;, latency),
+			zap.String(&quot;client_ip&quot;, c.ClientIP()),
+		)
+	}
+}
+
+func slowRequestMiddleware(threshold time.Duration) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		start := time.Now()
+		c.Next()
+		if d := time.Since(start); d &gt; threshold {
+			slog.Warn(&quot;slow request&quot;, &quot;path&quot;, c.Request.URL.Path, &quot;latency&quot;, d)
+			zapLogger.Warn(&quot;slow request&quot;,
+				zap.String(&quot;path&quot;, c.Request.URL.Path),
+				zap.Duration(&quot;latency&quot;, d))
+		}
+	}
+}</code></pre>
+
+<hr>
+
+<h2>四、执行预览</h2>
+
+<pre><code class="language-bash"># v1: slog 基础
+$ go run main.go
+# Output (JSON):
+# {&quot;time&quot;:&quot;2024-01-15T10:30:00Z&quot;,&quot;level&quot;:&quot;INFO&quot;,&quot;msg&quot;:&quot;request&quot;,&quot;request_id&quot;:&quot;abc-123&quot;,&quot;status&quot;:200,&quot;method&quot;:&quot;GET&quot;,&quot;path&quot;:&quot;/ping&quot;,&quot;latency_ms&quot;:1}
+
+# v2: zap + rotation
+$ mkdir -p logs &amp;&amp; go run main.go
+# logs/app.log grows until 100MB, then rotates to app-1234567890.log.gz
+
+# v3: dual output
+$ go run main.go
+# stdout → colored JSON for development
+# logs/info.log → all info+ messages
+# logs/error.log → only errors and panics
+
+# Slow request warning:
+# {&quot;level&quot;:&quot;WARN&quot;,&quot;msg&quot;:&quot;slow request&quot;,&quot;path&quot;:&quot;/heavy&quot;,&quot;latency&quot;:&quot;800ms&quot;,&quot;threshold&quot;:&quot;500ms&quot;}</code></pre>
+
+<hr>
+
+<h2>五、注意事项</h2>
+
+<table><thead><tr>
+<th>事项</th>
+<th>说明</th>
+</tr></thead><tbody>
+<tr>
+<td>日志不要记敏感信息</td>
+<td>密码、Token、身份证号必须脱敏或排除</td>
+</tr>
+<tr>
+<td>请求体日志要谨慎</td>
+<td>大文件上传、JSON 请求体可能很大，设上限</td>
+</tr>
+<tr>
+<td>zap Logger vs Sugar</td>
+<td>Logger 性能更高（强类型），Sugar 更灵活，按需选择</td>
+</tr>
+<tr>
+<td>lumberjack 并发安全</td>
+<td>内部有 mutex，多 goroutine 写入没问题</td>
+</tr>
+<tr>
+<td>请求 ID 传播</td>
+<td>微服务场景需在 HTTP/gRPC 调用间透传 X-Request-ID</td>
+</tr>
+<tr>
+<td>slog 最低版本</td>
+<td>需要 Go 1.21+，老项目用 zap</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>六、避坑指南</h2>
+
+<table><thead><tr>
+<th>❌ 错误做法</th>
+<th>✅ 正确做法</th>
+</tr></thead><tbody>
+<tr>
+<td>用 <code>fmt.Println</code> 做日志</td>
+<td>用 slog/zap 结构化输出，方便日志平台检索</td>
+</tr>
+<tr>
+<td>日志打到 stdout 不落盘</td>
+<td>配合 lumberjack 写文件，或发送到日志平台</td>
+</tr>
+<tr>
+<td>每个请求打印完整请求体</td>
+<td>设置大小上限，超过只记录前 N 字节</td>
+</tr>
+<tr>
+<td>zap 不调用 <code>Sync()</code></td>
+<td>程序退出前 <code>defer logger.Sync()</code> 确保刷盘</td>
+</tr>
+<tr>
+<td>错误日志不含堆栈</td>
+<td><code>zap.AddStacktrace(zap.ErrorLevel)</code> 自动附加</td>
+</tr>
+<tr>
+<td>日志文件不轮转</td>
+<td>lumberjack 自动按大小/时间切割，避免磁盘爆满</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>七、练习题</h2>
+
+<h3>🟢 基础题</h3>
+<ol>
+<li>用 slog 实现一个中间件，记录请求的 User-Agent 和 Referer</li>
+</ul>
+<ol>
+<li>配置 lumberjack，设置日志文件超过 50MB 自动切割，保留最近 5 个备份</li>
+
+<h3>🟡 进阶题</h3>
+<ol>
+<li>实现请求 ID 在 HTTP 调用链中透传（A 服务调 B 服务时自动携带）</li>
+</ul>
+<ol>
+<li>实现基于响应状态码的分级日志：2xx → Info、4xx → Warn、5xx → Error</li>
+
+<h3>🔴 挑战题</h3>
+<ol>
+<li>实现 zap + slog 双轨日志，并添加 Prometheus metrics 统计各状态码的请求量</li>
+
+<hr>
+
+<h2>八、知识点总结</h2>
+
+<pre><code>Gin 日志管理
+├── 1. slog (Go 1.21+)
+│   ├── NewJSONHandler → JSON 格式
+│   ├── InfoContext/ErrorContext → context 传递
+│   └── SetDefault → 全局默认
+├── 2. zap (uber-go)
+│   ├── NewProduction/NewDevelopment → 预设
+│   ├── Core + Encoder + Writer → 自定义
+│   ├── AddCaller → 记录调用位置
+│   └── AddStacktrace → 错误堆栈
+├── 3. lumberjack 轮转
+│   ├── MaxSize → 文件大小上限
+│   ├── MaxBackups → 保留备份数
+│   ├── MaxAge → 保留天数
+│   └── Compress → gzip 压缩
+├── 4. 请求 ID
+│   ├── UUID 生成
+│   ├── Header 透传
+│   └── Context 存储
+└── 5. 慢请求检测
+    ├── 阈值配置
+    ├── Warn 级别记录
+    └── APM 集成</code></pre>
+
+<hr>
+
+<h2>九、举一反三</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>方案</th>
+</tr></thead><tbody>
+<tr>
+<td>ELK 日志平台</td>
+<td>zap JSON → Filebeat → Logstash → Elasticsearch → Kibana</td>
+</tr>
+<tr>
+<td>链路追踪</td>
+<td>OpenTelemetry + Jaeger，request_id 映射为 trace_id</td>
+</tr>
+<tr>
+<td>实时日志告警</td>
+<td>日志写入 Kafka → Flink/Consumer → 告警规则</td>
+</tr>
+<tr>
+<td>多服务统一日志</td>
+<td>统一日志格式 + 分布式 ID + 日志聚合平台</td>
+</tr>
+<tr>
+<td>性能分析</td>
+<td>慢请求日志 → pprof 分析 → 火焰图定位</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>十、参考资料</h2>
+
+<ul>
+<li><a href="https://pkg.go.dev/log/slog">Go slog 官方文档</a></li>
+<li><a href="https://github.com/uber-go/zap">uber-go/zap GitHub</a></li>
+<li><a href="https://github.com/natefinch/lumberjack">lumberjack 日志轮转</a></li>
+<li><a href="https://gin-gonic.com/docs/examples/custom-log-format/">Gin 自定义日志</a></li>
+
+<hr>
+
+<h2>十一、代码演进</h2>
+
+<table><thead><tr>
+<th>版本</th>
+<th>变化</th>
+</tr></thead><tbody>
+<tr>
+<td><strong>v1</strong></td>
+<td>slog 结构化日志 + 请求 ID 追踪</td>
+</tr>
+<tr>
+<td><strong>v2</strong></td>
+<td>zap 高性能日志 + lumberjack 轮转 + 慢请求检测</td>
+</tr>
+<tr>
+<td><strong>v3</strong></td>
+<td>双轨日志（slog→stdout, zap→file）+ 分级文件输出</td>
+</tr>
+</tbody></table>
+
+<blockquote><p><strong>下一步建议：</strong> 集成 OpenTelemetry，将日志与分布式追踪串联，实现全链路可观测性。</p></blockquote>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

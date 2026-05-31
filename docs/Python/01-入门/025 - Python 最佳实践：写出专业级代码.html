@@ -1,0 +1,809 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>025 - Python 最佳实践：写出专业级代码</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Python/index.html">Python</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Python/01-入门/index.html">Python入门</a>
+</nav>
+<h1>025 - Python 最佳实践：写出专业级代码</h1>
+<div class="meta">
+<span>📂 Python入门</span>
+<span>🏷️ Python</span>
+</div>
+<article>
+
+
+<h1>Python 最佳实践：写出专业级代码</h1>
+
+<blockquote><p><strong>难度：</strong> 🟡 中级 | <strong>预计阅读：</strong> 25 分钟<br><strong>前置知识：</strong> Python 基础语法、函数、类、模块</p></blockquote>
+
+<hr>
+
+<h2>一、概念讲解：为什么需要最佳实践？</h2>
+
+<p>"能跑就行"和"专业代码"之间的差距，就是最佳实践。</p>
+
+<p>最佳实践不是教条，而是前人踩坑总结的经验：</p>
+
+<ul>
+<li><strong>可读性</strong> —— 6 个月后的你能看懂吗？</li>
+<li><strong>可维护性</strong> —— 改一个功能要改几个文件？</li>
+<li><strong>健壮性</strong> —— 边界情况处理了吗？</li>
+<li><strong>一致性</strong> —— 团队代码风格统一吗？</li>
+
+<h3>核心原则</h3>
+
+<table><thead><tr>
+<th>原则</th>
+<th>含义</th>
+<th>代码体现</th>
+</tr></thead><tbody>
+<tr>
+<td>DRY</td>
+<td>Don't Repeat Yourself</td>
+<td>提取函数和类</td>
+</tr>
+<tr>
+<td>KISS</td>
+<td>Keep It Simple, Stupid</td>
+<td>不过度设计</td>
+</tr>
+<tr>
+<td>YAGNI</td>
+<td>You Aren't Gonna Need It</td>
+<td>不提前写用不到的代码</td>
+</tr>
+<tr>
+<td>SRP</td>
+<td>Single Responsibility</td>
+<td>一个函数只做一件事</td>
+</tr>
+<tr>
+<td>EAFP</td>
+<td>Easier to Ask Forgiveness</td>
+<td>先做，出错再处理</td>
+</tr>
+<tr>
+<td>LBYL</td>
+<td>Look Before You Leap</td>
+<td>先检查，再做（Python 不推荐）</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>二、脑图（ASCII）</h2>
+
+<pre><code>Python 最佳实践
+├── 代码风格
+│   ├── PEP 8 规范
+│   ├── Black (自动格式化)
+│   ├── Ruff (lint + format)
+│   └── 命名规范
+├── 项目结构
+│   ├── src layout
+│   ├── pyproject.toml
+│   ├── __init__.py
+│   └── tests/
+├── 代码质量
+│   ├── 类型注解 (mypy)
+│   ├── Lint (ruff/flake8)
+│   ├── 测试 (pytest)
+│   └── pre-commit hooks
+├── 错误处理
+│   ├── 具体异常 &gt; 裸 except
+│   ├── 自定义异常类
+│   └── 上下文管理器
+├── 性能优化
+│   ├── 算法优先
+│   ├── 生成器 &gt; 列表
+│   ├── 缓存 (functools.lru_cache)
+│   └── 性能分析 (cProfile)
+└── 现代特性
+    ├── f-string (3.6+)
+    ├── dataclass (3.7+)
+    ├── walrus operator := (3.8+)
+    ├── match/case (3.10+)
+    └── type hints | 语法 (3.10+)</code></pre>
+
+<hr>
+
+<h2>三、完整代码示例</h2>
+
+<h3>v1：代码风格与基础规范</h3>
+
+<pre><code class="language-python">&quot;&quot;&quot;
+v1: Code style and basic conventions
+Following PEP 8 and modern Python patterns
+&quot;&quot;&quot;
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Iterator
+
+# ============================================================
+# 1. Naming conventions
+# ============================================================
+# Variables and functions: snake_case
+user_name = &quot;Alice&quot;
+total_count = 42
+
+def calculate_total(prices: list[float]) -&gt; float:
+    return sum(prices)
+
+# Constants: UPPER_SNAKE_CASE
+MAX_RETRIES = 3
+DEFAULT_TIMEOUT = 30
+
+# Classes: PascalCase
+class UserRepository:
+    def __init__(self, db_path: Path) -&gt; None:
+        self.db_path = db_path
+
+# ============================================================
+# 2. Use dataclass instead of boilerplate __init__
+# ============================================================
+@dataclass(frozen=True)  # frozen=True for immutability
+class User:
+    &quot;&quot;&quot;Represents a user in the system.&quot;&quot;&quot;
+    id: int
+    name: str
+    email: str
+    active: bool = True
+
+    def display_name(self) -&gt; str:
+        return f&quot;{self.name} &lt;{self.email}&gt;&quot;
+
+# ============================================================
+# 3. Use pathlib instead of os.path
+# ============================================================
+def find_python_files(directory: str) -&gt; list[Path]:
+    &quot;&quot;&quot;Find all Python files in a directory recursively.&quot;&quot;&quot;
+    base = Path(directory)
+    if not base.exists():
+        raise FileNotFoundError(f&quot;Directory not found: {directory}&quot;)
+    return sorted(base.rglob(&quot;*.py&quot;))
+
+# ============================================================
+# 4. Use generators for large datasets
+# ============================================================
+def read_large_file(path: Path) -&gt; Iterator[str]:
+    &quot;&quot;&quot;Yield lines from a large file without loading it all.&quot;&quot;&quot;
+    with path.open(&quot;r&quot;, encoding=&quot;utf-8&quot;) as f:
+        for line in f:
+            yield line.strip()
+
+def count_words(lines: Iterator[str]) -&gt; dict[str, int]:
+    &quot;&quot;&quot;Count word frequencies from an iterator of lines.&quot;&quot;&quot;
+    freq: dict[str, int] = {}
+    for line in lines:
+        for word in line.split():
+            freq[word] = freq.get(word, 0) + 1
+    return freq
+
+# ============================================================
+# 5. Context managers for resource management
+# ============================================================
+class Timer:
+    &quot;&quot;&quot;A simple context manager to measure execution time.&quot;&quot;&quot;
+
+    def __init__(self, label: str = &quot;Operation&quot;):
+        self.label = label
+
+    def __enter__(self) -&gt; &quot;Timer&quot;:
+        import time
+        self.start = time.monotonic()
+        return self
+
+    def __exit__(self, *args) -&gt; None:
+        import time
+        elapsed = time.monotonic() - self.start
+        print(f&quot;{self.label}: {elapsed:.4f}s&quot;)
+
+if __name__ == &quot;__main__&quot;:
+    users = [
+        User(1, &quot;Alice&quot;, &quot;alice@example.com&quot;),
+        User(2, &quot;Bob&quot;, &quot;bob@example.com&quot;, active=False),
+    ]
+    for u in users:
+        print(u.display_name())
+
+    with Timer(&quot;List comprehension&quot;):
+        squares = [x**2 for x in range(1_000_000)]</code></pre>
+
+<h3>v2：错误处理与测试</h3>
+
+<pre><code class="language-python">&quot;&quot;&quot;
+v2: Error handling and testing patterns
+Robust error handling with custom exceptions
+&quot;&quot;&quot;
+from dataclasses import dataclass
+from typing import Optional
+import json
+from pathlib import Path
+
+# ============================================================
+# 1. Custom exception hierarchy
+# ============================================================
+class AppError(Exception):
+    &quot;&quot;&quot;Base exception for the application.&quot;&quot;&quot;
+    pass
+
+class ValidationError(AppError):
+    &quot;&quot;&quot;Raised when input validation fails.&quot;&quot;&quot;
+    pass
+
+class NotFoundError(AppError):
+    &quot;&quot;&quot;Raised when a resource is not found.&quot;&quot;&quot;
+    pass
+
+class DatabaseError(AppError):
+    &quot;&quot;&quot;Raised when a database operation fails.&quot;&quot;&quot;
+    pass
+
+# ============================================================
+# 2. Result pattern (alternative to exceptions for expected cases)
+# ============================================================
+@dataclass
+class Result[T]:
+    &quot;&quot;&quot;A simple Result type for success/error handling.&quot;&quot;&quot;
+    value: Optional[T] = None
+    error: Optional[str] = None
+
+    @property
+    def ok(self) -&gt; bool:
+        return self.error is None
+
+    def unwrap(self) -&gt; T:
+        if self.error is not None:
+            raise AppError(self.error)
+        return self.value  # type: ignore
+
+def parse_user(data: str) -&gt; Result[dict]:
+    &quot;&quot;&quot;Parse a JSON string into user data.&quot;&quot;&quot;
+    try:
+        user = json.loads(data)
+    except json.JSONDecodeError as e:
+        return Result(error=f&quot;Invalid JSON: {e}&quot;)
+
+    if &quot;name&quot; not in user:
+        return Result(error=&quot;Missing required field: name&quot;)
+    if &quot;email&quot; not in user:
+        return Result(error=&quot;Missing required field: email&quot;)
+
+    return Result(value=user)
+
+# ============================================================
+# 3. EAFP style (Pythonic error handling)
+# ============================================================
+def get_config_value(config: dict, key: str, default: str = &quot;&quot;) -&gt; str:
+    &quot;&quot;&quot;Get config value using EAFP style.&quot;&quot;&quot;
+    try:
+        return config[key]
+    except KeyError:
+        return default
+
+# ============================================================
+# 4. Proper resource cleanup
+# ============================================================
+class DataFile:
+    &quot;&quot;&quot;Context manager for safe file operations.&quot;&quot;&quot;
+
+    def __init__(self, path: str, mode: str = &quot;r&quot;) -&gt; None:
+        self.path = Path(path)
+        self.mode = mode
+        self._file = None
+
+    def __enter__(self) -&gt; &quot;DataFile&quot;:
+        try:
+            self._file = self.path.open(self.mode, encoding=&quot;utf-8&quot;)
+        except FileNotFoundError:
+            raise NotFoundError(f&quot;File not found: {self.path}&quot;)
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb) -&gt; None:
+        if self._file:
+            self._file.close()
+
+    def read_lines(self) -&gt; list[str]:
+        if self._file is None:
+            raise DatabaseError(&quot;File not opened&quot;)
+        return [line.strip() for line in self._file]
+
+if __name__ == &quot;__main__&quot;:
+    # Result pattern
+    good = parse_user(&#x27;{&quot;name&quot;: &quot;Alice&quot;, &quot;email&quot;: &quot;a@b.com&quot;}&#x27;)
+    print(f&quot;OK: {good.ok}, value: {good.value}&quot;)
+
+    bad = parse_user(&quot;not json&quot;)
+    print(f&quot;OK: {bad.ok}, error: {bad.error}&quot;)
+
+    # EAFP
+    config = {&quot;host&quot;: &quot;localhost&quot;, &quot;port&quot;: &quot;8080&quot;}
+    print(get_config_value(config, &quot;host&quot;))       # localhost
+    print(get_config_value(config, &quot;debug&quot;, &quot;false&quot;))  # false</code></pre>
+
+<pre><code class="language-python"># test_app.py - pytest tests for v2 code
+&quot;&quot;&quot;Tests demonstrating testing best practices.&quot;&quot;&quot;
+import pytest
+from v2_error_handling import parse_user, Result, get_config_value
+
+class TestParseUser:
+    &quot;&quot;&quot;Tests for the parse_user function.&quot;&quot;&quot;
+
+    def test_valid_json(self):
+        result = parse_user(&#x27;{&quot;name&quot;: &quot;Alice&quot;, &quot;email&quot;: &quot;a@b.com&quot;}&#x27;)
+        assert result.ok
+        assert result.value[&quot;name&quot;] == &quot;Alice&quot;
+
+    def test_invalid_json(self):
+        result = parse_user(&quot;not json&quot;)
+        assert not result.ok
+        assert &quot;Invalid JSON&quot; in result.error
+
+    def test_missing_name(self):
+        result = parse_user(&#x27;{&quot;email&quot;: &quot;a@b.com&quot;}&#x27;)
+        assert not result.ok
+        assert &quot;name&quot; in result.error
+
+    def test_missing_email(self):
+        result = parse_user(&#x27;{&quot;name&quot;: &quot;Alice&quot;}&#x27;)
+        assert not result.ok
+        assert &quot;email&quot; in result.error
+
+class TestGetConfigValue:
+    &quot;&quot;&quot;Tests for the get_config_value function.&quot;&quot;&quot;
+
+    def test_existing_key(self):
+        assert get_config_value({&quot;a&quot;: &quot;1&quot;}, &quot;a&quot;) == &quot;1&quot;
+
+    def test_missing_key_with_default(self):
+        assert get_config_value({}, &quot;x&quot;, &quot;default&quot;) == &quot;default&quot;
+
+    def test_missing_key_no_default(self):
+        assert get_config_value({}, &quot;x&quot;) == &quot;&quot;</code></pre>
+
+<h3>v3：生产级项目结构</h3>
+
+<pre><code>v3: Production-grade project structure and tooling
+
+Project layout:
+myproject/
+├── pyproject.toml
+├── README.md
+├── .github/workflows/ci.yml
+├── src/
+│   └── myproject/
+│       ├── __init__.py
+│       ├── config.py
+│       ├── models.py
+│       ├── services.py
+│       └── main.py
+└── tests/
+    ├── conftest.py
+    ├── test_models.py
+    └── test_services.py</code></pre>
+
+<pre><code class="language-toml"># pyproject.toml
+[project]
+name = &quot;myproject&quot;
+version = &quot;1.0.0&quot;
+requires-python = &quot;&gt;=3.10&quot;
+dependencies = [&quot;pydantic&gt;=2.0&quot;]
+
+[project.optional-dependencies]
+dev = [&quot;pytest&gt;=7.4&quot;, &quot;ruff&gt;=0.1&quot;, &quot;mypy&gt;=1.7&quot;, &quot;pre-commit&gt;=3.0&quot;]
+
+[tool.ruff]
+line-length = 88
+select = [&quot;E&quot;, &quot;F&quot;, &quot;I&quot;, &quot;N&quot;, &quot;UP&quot;, &quot;B&quot;]
+
+[tool.ruff.format]
+quote-style = &quot;double&quot;
+
+[tool.mypy]
+strict = true
+
+[tool.pytest.ini_options]
+testpaths = [&quot;tests&quot;]</code></pre>
+
+<pre><code class="language-python"># src/myproject/config.py
+&quot;&quot;&quot;Application configuration with validation.&quot;&quot;&quot;
+from dataclasses import dataclass
+import os
+
+@dataclass(frozen=True)
+class Config:
+    &quot;&quot;&quot;Immutable application configuration.&quot;&quot;&quot;
+    debug: bool = False
+    database_url: str = &quot;sqlite:///app.db&quot;
+    log_level: str = &quot;INFO&quot;
+    port: int = 8000
+
+    @classmethod
+    def from_env(cls) -&gt; &quot;Config&quot;:
+        &quot;&quot;&quot;Load configuration from environment variables.&quot;&quot;&quot;
+        return cls(
+            debug=os.getenv(&quot;DEBUG&quot;, &quot;false&quot;).lower() == &quot;true&quot;,
+            database_url=os.getenv(&quot;DATABASE_URL&quot;, cls.database_url),
+            log_level=os.getenv(&quot;LOG_LEVEL&quot;, cls.log_level),
+            port=int(os.getenv(&quot;PORT&quot;, str(cls.port))),
+        )</code></pre>
+
+<pre><code class="language-python"># src/myproject/services.py
+&quot;&quot;&quot;Business logic layer with proper dependency injection.&quot;&quot;&quot;
+from __future__ import annotations
+from dataclasses import dataclass
+from typing import Protocol
+
+class UserStore(Protocol):
+    &quot;&quot;&quot;Protocol for user storage backends.&quot;&quot;&quot;
+    def get(self, user_id: int) -&gt; User | None: ...
+    def save(self, user: User) -&gt; None: ...
+
+@dataclass(frozen=True)
+class User:
+    id: int
+    name: str
+    email: str
+
+class UserService:
+    &quot;&quot;&quot;Service with dependency injection via Protocol.&quot;&quot;&quot;
+
+    def __init__(self, store: UserStore) -&gt; None:
+        self._store = store
+
+    def get_user(self, user_id: int) -&gt; User:
+        user = self._store.get(user_id)
+        if user is None:
+            raise ValueError(f&quot;User {user_id} not found&quot;)
+        return user
+
+    def create_user(self, name: str, email: str) -&gt; User:
+        user_id = hash(email) &amp; 0xFFFFFFFF  # Simplified ID generation
+        user = User(id=user_id, name=name, email=email)
+        self._store.save(user)
+        return user</code></pre>
+
+<hr>
+
+<h2>四、执行预览</h2>
+
+<h3>pytest 运行结果</h3>
+
+<pre><code class="language-bash">$ pytest tests/ -v
+tests/test_app.py::TestParseUser::test_valid_json PASSED
+tests/test_app.py::TestParseUser::test_invalid_json PASSED
+tests/test_app.py::TestParseUser::test_missing_name PASSED
+tests/test_app.py::TestParseUser::test_missing_email PASSED
+tests/test_app.py::TestGetConfigValue::test_existing_key PASSED
+tests/test_app.py::TestGetConfigValue::test_missing_key_with_default PASSED
+tests/test_app.py::TestGetConfigValue::test_missing_key_no_default PASSED
+===== 7 passed in 0.03s =====</code></pre>
+
+<h3>ruff 检查</h3>
+
+<pre><code class="language-bash">$ ruff check src/
+0 errors, 0 warnings
+
+$ ruff format --check src/
+3 files already formatted</code></pre>
+
+<hr>
+
+<h2>五、注意事项</h2>
+
+<table><thead><tr>
+<th>事项</th>
+<th>说明</th>
+<th>建议</th>
+</tr></thead><tbody>
+<tr>
+<td>PEP 8 不是教条</td>
+<td>有些规则可以灵活处理</td>
+<td>用 Black/Ruff 自动格式化</td>
+</tr>
+<tr>
+<td>过度优化</td>
+<td>不要过早优化</td>
+<td>先正确，再高效</td>
+</tr>
+<tr>
+<td>测试覆盖率</td>
+<td>100% 覆盖不一定好</td>
+<td>核心逻辑覆盖即可</td>
+</tr>
+<tr>
+<td>类型注解成本</td>
+<td>维护注解需要时间</td>
+<td>渐进式添加</td>
+</tr>
+<tr>
+<td>依赖膨胀</td>
+<td>谨慎添加第三方依赖</td>
+<td>能用标准库就用标准库</td>
+</tr>
+<tr>
+<td>文档字符串</td>
+<td>不是每个函数都需要</td>
+<td>公共 API 必须有</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>六、避坑指南</h2>
+
+<h3>❌ 坑 1：裸 except 捕获所有异常</h3>
+
+<pre><code class="language-python"># ❌ Catches everything including KeyboardInterrupt
+try:
+    do_something()
+except:
+    pass
+
+# ✅ Catch specific exceptions
+try:
+    do_something()
+except (ValueError, TypeError) as e:
+    logger.error(f&quot;Failed: {e}&quot;)</code></pre>
+
+<h3>❌ 坑 2：可变默认参数</h3>
+
+<pre><code class="language-python"># ❌ Default list is shared across calls!
+def append_to(item, target=[]):
+    target.append(item)
+    return target
+
+# ✅ Use None as default
+def append_to(item, target=None):
+    if target is None:
+        target = []
+    target.append(item)
+    return target</code></pre>
+
+<h3>❌ 坑 3：用 == 判断 None</h3>
+
+<pre><code class="language-python"># ❌ Can be fooled by __eq__ override
+if value == None:
+    ...
+
+# ✅ Use is for None checks
+if value is None:
+    ...</code></pre>
+
+<h3>❌ 坑 4：忽略 with 语句</h3>
+
+<pre><code class="language-python"># ❌ File might not be closed if exception occurs
+f = open(&quot;data.txt&quot;)
+content = f.read()
+f.close()
+
+# ✅ Always use with
+with open(&quot;data.txt&quot;) as f:
+    content = f.read()</code></pre>
+
+<hr>
+
+<h2>七、练习题</h2>
+
+<h3>🟢 入门：代码规范改造</h3>
+
+<p>将以下代码改写为符合最佳实践的版本：</p>
+
+<pre><code class="language-python">def process_data(d):
+    r=[]
+    for i in d:
+        if type(i)==int and i&gt;0:
+            r.append(i*2)
+    return r</code></pre>
+
+<p>要求：类型注解、列表推导式、命名规范。</p>
+
+<h3>🟡 进阶：完整项目结构</h3>
+
+<ol>
+<li>创建 <code>src/mypackage/</code> 结构</li>
+</ul>
+<ol>
+<li>配置 <code>pyproject.toml</code>（ruff + mypy + pytest）</li>
+</ul>
+<ol>
+<li>编写 dataclass 模型 + Protocol 接口</li>
+</ul>
+<ol>
+<li>编写 pytest 测试</li>
+
+<h3>🔴 挑战：CI/CD 流水线</h3>
+
+<ol>
+<li>配置 GitHub Actions（ruff + mypy + pytest）</li>
+</ul>
+<ol>
+<li>添加 pre-commit hooks</li>
+</ul>
+<ol>
+<li>实现自动化版本号管理</li>
+</ul>
+<ol>
+<li>配置 coverage 报告</li>
+
+<hr>
+
+<h2>八、知识点总结（树状）</h2>
+
+<pre><code>Python 最佳实践
+├── 代码风格
+│   ├── PEP 8
+│   ├── 命名：snake_case / PascalCase / UPPER
+│   ├── Black/Ruff 自动格式化
+│   └── isort 导入排序
+├── 项目结构
+│   ├── src layout（推荐）
+│   ├── pyproject.toml 统一配置
+│   └── README + CHANGELOG
+├── 代码质量工具链
+│   ├── Ruff (lint + format)
+│   ├── mypy (类型检查)
+│   ├── pytest (测试)
+│   └── pre-commit (Git hooks)
+├── Pythonic 模式
+│   ├── EAFP &gt; LBYL
+│   ├── 生成器/迭代器
+│   ├── 上下文管理器
+│   ├── dataclass
+│   └── pathlib &gt; os.path
+├── 错误处理
+│   ├── 具体异常类型
+│   ├── 自定义异常层次
+│   ├── Result 模式
+│   └── 资源管理 (with)
+└── 性能意识
+    ├── 算法复杂度优先
+    ├── functools.lru_cache
+    ├── 生成器避免大列表
+    └── cProfile 定位瓶颈</code></pre>
+
+<hr>
+
+<h2>九、举一反三</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>推荐实践</th>
+<th>关键工具</th>
+</tr></thead><tbody>
+<tr>
+<td>个人脚本</td>
+<td>类型注解 + pathlib + f-string</td>
+<td>mypy</td>
+</tr>
+<tr>
+<td>团队项目</td>
+<td>src layout + ruff + pytest + CI</td>
+<td>GitHub Actions</td>
+</tr>
+<tr>
+<td>开源库</td>
+<td>pyproject.toml + 完整文档 + typing</td>
+<td>Sphinx + CI</td>
+</tr>
+<tr>
+<td>数据处理</td>
+<td>dataclass + 生成器 + 类型注解</td>
+<td>pandas/polars</td>
+</tr>
+<tr>
+<td>Web 服务</td>
+<td>Protocol + 分层架构 + 测试</td>
+<td>FastAPI + pytest</td>
+</tr>
+<tr>
+<td>CLI 工具</td>
+<td>click/typer + Rich + 打包</td>
+<td>PyPI 发布</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>十、参考资料</h2>
+
+<ul>
+<li>📖 <a href="https://peps.python.org/pep-0008/">PEP 8 - Style Guide</a></li>
+<li>📖 <a href="https://docs.python-guide.org/">The Hitchhiker's Guide to Python</a></li>
+<li>📖 <a href="https://realpython.com/tutorials/best-practices/">Real Python - Best Practices</a></li>
+<li>🔧 <a href="https://docs.astral.sh/ruff/">Ruff</a> - 极速 Python linter + formatter</li>
+<li>🔧 <a href="https://github.com/psf/black">Black</a> - 代码格式化工具</li>
+<li>🔧 <a href="https://pre-commit.com/">pre-commit</a> - Git hooks 管理</li>
+<li>📖 <a href="https://docs.python-guide.org/writing/structure/">Structuring Your Project</a></li>
+
+<hr>
+
+<h2>十一、代码演进总结</h2>
+
+<table><thead><tr>
+<th>版本</th>
+<th>特点</th>
+<th>适用场景</th>
+</tr></thead><tbody>
+<tr>
+<td>v1 代码规范</td>
+<td>命名、dataclass、pathlib、生成器</td>
+<td>所有 Python 项目的基础</td>
+</tr>
+<tr>
+<td>v2 错误处理与测试</td>
+<td>自定义异常、Result 模式、pytest</td>
+<td>中大型项目</td>
+</tr>
+<tr>
+<td>v3 生产级结构</td>
+<td>src layout、Protocol、pyproject.toml、CI</td>
+<td>生产环境项目</td>
+</tr>
+</tbody></table>
+
+<p><strong>演进路径：</strong> <code>代码规范 → 错误处理/测试 → 项目结构/CI → 持续改进</code></p>
+
+<blockquote><p>💡 <strong>一句话总结：</strong> 好的代码不是一次写成的，而是通过规范、工具和持续改进打磨出来的。先让它工作，再让它正确，最后让它快。</p></blockquote>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

@@ -1,0 +1,556 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>020 - Pinia进阶：Getters与Actions</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Vue.js/index.html">Vue.js</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Vue.js/01-入门到实战/index.html">Vue.js入门到实战</a>
+</nav>
+<h1>020 - Pinia进阶：Getters与Actions</h1>
+<div class="meta">
+<span>📂 Vue.js入门到实战</span>
+<span>🏷️ Vue.js</span>
+</div>
+<article>
+
+
+<h1>058-Pinia进阶：Getters与Actions</h1>
+
+<blockquote><p>📌 <strong>难度标注</strong>：⭐⭐⭐ 中高级（需要掌握 Pinia 基础用法）</p></blockquote>
+
+<h2>一、概念讲解</h2>
+
+<h3>Getters 进阶</h3>
+
+<ul>
+<li><strong>接受参数</strong>：通过返回函数实现（注意：不被缓存）</li>
+<li><strong>引用其他 Getter</strong>：通过 <code>this</code> 访问同一 Store 的其他 Getter</li>
+<li><strong>引用其他 Store</strong>：在 Getter 中使用另一个 Store 的数据</li>
+
+<h3>Actions 进阶</h3>
+
+<ul>
+<li><strong>统一入口</strong>：同步和异步都在 Actions 中处理</li>
+<li><strong>组合调用</strong>：一个 Action 可以调用另一个 Action</li>
+<li><strong>错误处理</strong>：在 Action 中 try/catch，或通过 <code>$onAction</code> 全局捕获</li>
+<li><strong>Store 间协作</strong>：直接在 Action 中调用其他 Store</li>
+
+<h3>插件机制</h3>
+
+<p>Pinia 插件是一个函数，在每个 Store 创建时执行，可以添加新功能、监听变化、实现持久化等。</p>
+
+<h2>二、脑图</h2>
+
+<pre><code>Pinia 进阶
+├── Getters 进阶
+│   ├── 参数化 Getter (返回函数)
+│   ├── 引用其他 Getter (this.xxx)
+│   ├── 引用其他 Store
+│   └── 缓存机制
+├── Actions 进阶
+│   ├── async/await 异步
+│   ├── 调用其他 Action
+│   ├── 调用其他 Store
+│   ├── $onAction 全局监听
+│   └── 错误处理策略
+├── Store 组合模式
+│   ├── 扁平 Store (各自独立)
+│   ├── 组合函数 (Composables)
+│   └── Store 内引用 Store
+├── 插件系统
+│   ├── PiniaPlugin 函数
+│   ├── $subscribe 监听 state
+│   ├── $onAction 监听 action
+│   └── 常用插件: 持久化/日志
+└── 性能优化
+    ├── storeToRefs 避免多余渲染
+    ├── $patch 批量更新
+    └── computed 缓存</code></pre>
+
+<h2>三、完整代码</h2>
+
+<pre><code class="language-javascript">// stores/products.js
+import { defineStore } from &#x27;pinia&#x27;
+import { ref, computed } from &#x27;vue&#x27;
+
+export const useProductStore = defineStore(&#x27;products&#x27;, () =&gt; {
+  const products = ref([
+    { id: 1, name: &#x27;Vue 实战&#x27;, price: 89, category: &#x27;前端&#x27;, stock: 10 },
+    { id: 2, name: &#x27;Node.js 指南&#x27;, price: 69, category: &#x27;后端&#x27;, stock: 5 },
+    { id: 3, name: &#x27;TypeScript 入门&#x27;, price: 59, category: &#x27;前端&#x27;, stock: 0 },
+    { id: 4, name: &#x27;Docker 实践&#x27;, price: 79, category: &#x27;运维&#x27;, stock: 8 },
+    { id: 5, name: &#x27;React 精讲&#x27;, price: 99, category: &#x27;前端&#x27;, stock: 3 }
+  ])
+  const searchQuery = ref(&#x27;&#x27;)
+  const selectedCategory = ref(&#x27;all&#x27;)
+  const loading = ref(false)
+  const error = ref(null)
+
+  // Basic getters
+  const inStockProducts = computed(() =&gt;
+    products.value.filter(p =&gt; p.stock &gt; 0)
+  )
+  
+  const categories = computed(() =&gt;
+    [...new Set(products.value.map(p =&gt; p.category))]
+  )
+
+  // Parameterized getter (NOT cached)
+  const getProductById = computed(() =&gt; {
+    return (id) =&gt; products.value.find(p =&gt; p.id === id)
+  })
+
+  // Chained getters
+  const filteredProducts = computed(() =&gt; {
+    let result = inStockProducts.value
+    if (selectedCategory.value !== &#x27;all&#x27;) {
+      result = result.filter(p =&gt; p.category === selectedCategory.value)
+    }
+    if (searchQuery.value) {
+      const q = searchQuery.value.toLowerCase()
+      result = result.filter(p =&gt; p.name.toLowerCase().includes(q))
+    }
+    return result
+  })
+
+  const averagePrice = computed(() =&gt; {
+    const list = filteredProducts.value
+    if (!list.length) return 0
+    return Math.round(list.reduce((s, p) =&gt; s + p.price, 0) / list.length)
+  })
+
+  async function fetchProducts() {
+    loading.value = true
+    error.value = null
+    try {
+      await new Promise(r =&gt; setTimeout(r, 500))
+    } catch (e) {
+      error.value = e.message
+    } finally {
+      loading.value = false
+    }
+  }
+
+  function setSearch(query) { searchQuery.value = query }
+  function setCategory(category) { selectedCategory.value = category }
+
+  return {
+    products, searchQuery, selectedCategory, loading, error,
+    inStockProducts, categories, getProductById,
+    filteredProducts, averagePrice,
+    fetchProducts, setSearch, setCategory
+  }
+})</code></pre>
+
+<pre><code class="language-javascript">// stores/cart.js - Cross-store collaboration
+import { defineStore } from &#x27;pinia&#x27;
+import { ref, computed } from &#x27;vue&#x27;
+import { useProductStore } from &#x27;./products&#x27;
+
+export const useCartStore = defineStore(&#x27;cart&#x27;, () =&gt; {
+  const items = ref([]) // { productId, quantity }
+
+  const productStore = useProductStore()
+
+  const cartItems = computed(() =&gt;
+    items.value.map(item =&gt; {
+      const product = productStore.getProductById(item.productId)
+      return { ...product, quantity: item.quantity }
+    }).filter(item =&gt; item.name)
+  )
+
+  const totalCount = computed(() =&gt;
+    items.value.reduce((sum, item) =&gt; sum + item.quantity, 0)
+  )
+
+  const totalPrice = computed(() =&gt;
+    cartItems.value.reduce((sum, item) =&gt; sum + item.price * item.quantity, 0)
+  )
+
+  const isEmpty = computed(() =&gt; items.value.length === 0)
+
+  function addToCart(productId) {
+    const existing = items.value.find(i =&gt; i.productId === productId)
+    if (existing) existing.quantity++
+    else items.value.push({ productId, quantity: 1 })
+  }
+
+  function removeFromCart(productId) {
+    items.value = items.value.filter(i =&gt; i.productId !== productId)
+  }
+
+  function updateQuantity(productId, quantity) {
+    const item = items.value.find(i =&gt; i.productId === productId)
+    if (item) {
+      if (quantity &lt;= 0) removeFromCart(productId)
+      else item.quantity = quantity
+    }
+  }
+
+  async function checkout() {
+    if (isEmpty.value) return false
+    try {
+      await new Promise(r =&gt; setTimeout(r, 1000))
+      items.value = []
+      return true
+    } catch (e) {
+      console.error(&#x27;Checkout failed:&#x27;, e)
+      return false
+    }
+  }
+
+  return {
+    items, cartItems, totalCount, totalPrice, isEmpty,
+    addToCart, removeFromCart, updateQuantity, checkout
+  }
+})</code></pre>
+
+<pre><code class="language-javascript">// plugins/pinia-logger.js - Custom plugin
+export function piniaLogger({ store }) {
+  store.$onAction(({ name, args, after, onError }) =&gt; {
+    const startTime = Date.now()
+    console.log(`[${store.$id}] Action &quot;${name}&quot; started`)
+
+    after((result) =&gt; {
+      console.log(`[${store.$id}] Action &quot;${name}&quot; finished in ${Date.now() - startTime}ms`)
+    })
+
+    onError((error) =&gt; {
+      console.error(`[${store.$id}] Action &quot;${name}&quot; failed:`, error)
+    })
+  })
+
+  store.$subscribe((mutation, state) =&gt; {
+    console.log(`[${store.$id}] State changed:`, mutation.type)
+  })
+}</code></pre>
+
+<pre><code class="language-vue">&lt;!-- components/ProductList.vue --&gt;
+&lt;template&gt;
+  &lt;div&gt;
+    &lt;h2&gt;商品列表&lt;/h2&gt;
+    &lt;div class=&quot;filters&quot;&gt;
+      &lt;input v-model=&quot;productStore.searchQuery&quot; placeholder=&quot;搜索商品...&quot; /&gt;
+      &lt;select v-model=&quot;productStore.selectedCategory&quot;&gt;
+        &lt;option value=&quot;all&quot;&gt;全部分类&lt;/option&gt;
+        &lt;option v-for=&quot;cat in productStore.categories&quot; :key=&quot;cat&quot; :value=&quot;cat&quot;&gt;
+          {{ cat }}
+        &lt;/option&gt;
+      &lt;/select&gt;
+    &lt;/div&gt;
+    &lt;p&gt;共 {{ productStore.filteredProducts.length }} 件，均价 ¥{{ productStore.averagePrice }}&lt;/p&gt;
+    &lt;div class=&quot;grid&quot;&gt;
+      &lt;div v-for=&quot;product in productStore.filteredProducts&quot; :key=&quot;product.id&quot; class=&quot;card&quot;&gt;
+        &lt;h3&gt;{{ product.name }}&lt;/h3&gt;
+        &lt;p&gt;¥{{ product.price }} | 库存：{{ product.stock }}&lt;/p&gt;
+        &lt;button @click=&quot;cartStore.addToCart(product.id)&quot; :disabled=&quot;product.stock === 0&quot;&gt;
+          加入购物车
+        &lt;/button&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+  &lt;/div&gt;
+&lt;/template&gt;
+
+&lt;script setup&gt;
+import { useProductStore } from &#x27;../stores/products&#x27;
+import { useCartStore } from &#x27;../stores/cart&#x27;
+const productStore = useProductStore()
+const cartStore = useCartStore()
+&lt;/script&gt;</code></pre>
+
+<pre><code class="language-vue">&lt;!-- components/ShoppingCart.vue --&gt;
+&lt;template&gt;
+  &lt;div&gt;
+    &lt;h2&gt;购物车 ({{ cartStore.totalCount }}件)&lt;/h2&gt;
+    &lt;div v-if=&quot;cartStore.isEmpty&quot;&gt;购物车是空的&lt;/div&gt;
+    &lt;div v-else&gt;
+      &lt;div v-for=&quot;item in cartStore.cartItems&quot; :key=&quot;item.productId&quot;&gt;
+        &lt;span&gt;{{ item.name }}&lt;/span&gt;
+        &lt;span&gt;¥{{ item.price }} x {{ item.quantity }}&lt;/span&gt;
+        &lt;button @click=&quot;cartStore.updateQuantity(item.productId, item.quantity + 1)&quot;&gt;+&lt;/button&gt;
+        &lt;button @click=&quot;cartStore.updateQuantity(item.productId, item.quantity - 1)&quot;&gt;-&lt;/button&gt;
+        &lt;button @click=&quot;cartStore.removeFromCart(item.productId)&quot;&gt;删除&lt;/button&gt;
+      &lt;/div&gt;
+      &lt;p&gt;&lt;strong&gt;总计：¥{{ cartStore.totalPrice }}&lt;/strong&gt;&lt;/p&gt;
+      &lt;button @click=&quot;handleCheckout&quot;&gt;结算&lt;/button&gt;
+    &lt;/div&gt;
+  &lt;/div&gt;
+&lt;/template&gt;
+
+&lt;script setup&gt;
+import { useCartStore } from &#x27;../stores/cart&#x27;
+const cartStore = useCartStore()
+const handleCheckout = async () =&gt; {
+  const ok = await cartStore.checkout()
+  alert(ok ? &#x27;下单成功！&#x27; : &#x27;下单失败&#x27;)
+}
+&lt;/script&gt;</code></pre>
+
+<h2>四、执行预览</h2>
+
+<pre><code>商品列表：
+  搜索 &quot;Vue&quot; -&gt; 显示 Vue 实战
+  分类 &quot;前端&quot; -&gt; 显示 Vue实战, TypeScript入门, React精讲
+  点击 &quot;加入购物车&quot; -&gt; 购物车数量 +1
+
+购物车：
+  显示商品名、单价x数量
+  +/- 调整数量
+  总计实时计算
+  结算 -&gt; 异步操作 -&gt; 清空购物车
+
+控制台（插件日志）：
+  [cart] Action &quot;addToCart&quot; started
+  [cart] State changed: direct
+  [cart] Action &quot;addToCart&quot; finished in 2ms</code></pre>
+
+<h2>五、注意事项</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>注意事项</th>
+<th>推荐做法</th>
+</tr></thead><tbody>
+<tr>
+<td>参数化 Getter</td>
+<td>每次返回新函数，无缓存</td>
+<td>仅动态参数时使用</td>
+</tr>
+<tr>
+<td>跨 Store 引用</td>
+<td>避免循环依赖</td>
+<td>A依赖B可以，不要A<->B</td>
+</tr>
+<tr>
+<td>Action 错误</td>
+<td>未捕获会静默失败</td>
+<td>使用 $onAction 全局监听</td>
+</tr>
+<tr>
+<td>插件注册</td>
+<td>必须在 app.use(pinia) 之前</td>
+<td>pinia.use(plugin) -> app.use(pinia)</td>
+</tr>
+<tr>
+<td>$subscribe</td>
+<td>默认组件卸载后停止</td>
+<td>{ detached: true } 保持监听</td>
+</tr>
+<tr>
+<td>大列表过滤</td>
+<td>computed 缓存但大数据仍需注意</td>
+<td>虚拟滚动 + 分页</td>
+</tr>
+</tbody></table>
+
+<h2>六、避坑指南</h2>
+
+<h3>❌ 坑1：参数化 Getter 滥用</h3>
+
+<pre><code class="language-javascript">// ❌ 每次访问创建新函数，无缓存
+const getProductsByCategory = computed(() =&gt; 
+  (category) =&gt; products.value.filter(p =&gt; p.category === category)
+)
+
+// ✅ 用 state 存筛选条件
+const filterCategory = ref(&#x27;all&#x27;)
+const filteredProducts = computed(() =&gt; 
+  filterCategory.value === &#x27;all&#x27; 
+    ? products.value 
+    : products.value.filter(p =&gt; p.category === filterCategory.value)
+)</code></pre>
+
+<h3>❌ 坑2：Store 循环依赖</h3>
+
+<pre><code class="language-javascript">// ❌ storeA 和 storeB 互相引用
+// storeA.js - top level
+const b = useStoreB() // Error if B also imports A
+
+// ✅ 在 action 中延迟获取
+function doSomething() {
+  const b = useStoreB()
+  b.someAction()
+}</code></pre>
+
+<h3>❌ 坑3：$patch 浅合并</h3>
+
+<pre><code class="language-javascript">// ❌ $patch 对象是浅合并
+store.$patch({ user: { name: &#x27;New&#x27; } }) // Replaces entire user!
+
+// ✅ 使用函数式 $patch
+store.$patch((state) =&gt; { state.user.name = &#x27;New&#x27; })</code></pre>
+
+<h2>七、练习题</h2>
+
+<h3>🟢 入门：带搜索的用户列表</h3>
+<p>创建 UserStore，实现按姓名搜索、按角色过滤、添加/删除用户。</p>
+
+<h3>🟡 进阶：跨 Store 权限系统</h3>
+<p>创建 AuthStore + PermissionStore，登录后获取可访问路由列表。</p>
+
+<h3>🔴 挑战：实现持久化插件</h3>
+<p>不使用第三方库，实现 Pinia 插件将指定 Store 的 state 保存到 localStorage。</p>
+
+<h2>八、知识点总结</h2>
+
+<pre><code>Pinia 进阶
+├── Getters
+│   ├── 基础 computed -&gt; 缓存
+│   ├── 参数化 -&gt; 返回函数(不缓存)
+│   ├── 链式 -&gt; 引用其他 getter
+│   └── 跨 Store -&gt; useOtherStore()
+├── Actions
+│   ├── 同步/异步统一
+│   ├── this 访问 state/getters
+│   ├── 跨 Store 调用
+│   └── 错误处理
+├── 插件
+│   ├── pinia.use(pluginFn)
+│   ├── store.$onAction()
+│   └── store.$subscribe()
+└── 模式
+    ├── 扁平 Store
+    ├── 组合函数封装
+    └── Store-&gt;Store 引用(避免循环)</code></pre>
+
+<h2>九、举一反三</h2>
+
+<table><thead><tr>
+<th>模式</th>
+<th>适用场景</th>
+<th>优势</th>
+</tr></thead><tbody>
+<tr>
+<td>参数化 Getter</td>
+<td>按ID查找、动态过滤</td>
+<td>灵活传参</td>
+</tr>
+<tr>
+<td>跨 Store 引用</td>
+<td>购物车依赖商品数据</td>
+<td>数据单一来源</td>
+</tr>
+<tr>
+<td>插件</td>
+<td>日志、持久化、权限</td>
+<td>一次编写全局受益</td>
+</tr>
+<tr>
+<td>$subscribe</td>
+<td>自动保存、WebSocket同步</td>
+<td>响应式监听</td>
+</tr>
+<tr>
+<td>$patch批量更新</td>
+<td>表单一次修改多字段</td>
+<td>减少渲染次数</td>
+</tr>
+<tr>
+<td>$onAction</td>
+<td>API统计、错误上报</td>
+<td>集中式监控</td>
+</tr>
+</tbody></table>
+
+<h2>十、参考资料</h2>
+
+<ul>
+<li><a href="https://pinia.vuejs.org/zh/core-concepts/getters.html">Pinia 官方文档 - Getters</a></li>
+<li><a href="https://pinia.vuejs.org/zh/core-concepts/actions.html">Pinia 官方文档 - Actions</a></li>
+<li><a href="https://pinia.vuejs.org/zh/core-concepts/plugins.html">Pinia 官方文档 - 插件</a></li>
+
+<h2>十一、代码演进</h2>
+
+<h3>v1：基础 Store + Getter</h3>
+<pre><code class="language-javascript">export const useProductStore = defineStore(&#x27;products&#x27;, () =&gt; {
+  const products = ref([])
+  const inStock = computed(() =&gt; products.value.filter(p =&gt; p.stock &gt; 0))
+  return { products, inStock }
+})</code></pre>
+
+<h3>v2：搜索 + 跨 Store</h3>
+<pre><code class="language-javascript">export const useProductStore = defineStore(&#x27;products&#x27;, () =&gt; {
+  const getById = computed(() =&gt; (id) =&gt; products.value.find(p =&gt; p.id === id))
+  return { products, getById }
+})
+
+export const useCartStore = defineStore(&#x27;cart&#x27;, () =&gt; {
+  const products = useProductStore()
+  const cartItems = computed(() =&gt; 
+    items.value.map(i =&gt; ({ ...products.getById(i.productId), qty: i.qty }))
+  )
+  return { cartItems }
+})</code></pre>
+
+<h3>v3：插件 + 持久化</h3>
+<pre><code class="language-javascript">const pinia = createPinia()
+pinia.use(({ store }) =&gt; {
+  const saved = localStorage.getItem(store.$id)
+  if (saved) store.$patch(JSON.parse(saved))
+  store.$subscribe((_, state) =&gt; {
+    localStorage.setItem(store.$id, JSON.stringify(state))
+  })
+})
+app.use(pinia)</code></pre>
+
+<blockquote><p>💡 <strong>总结</strong>：Pinia 进阶核心是理解 Getter 缓存机制、Action 异步处理与跨 Store 协作。善用插件系统可将横切关注点从业务代码中抽离。</p></blockquote>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

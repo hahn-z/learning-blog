@@ -1,0 +1,505 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>009 - 联合类型与类型守卫</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/TypeScript/index.html">TypeScript</a>
+<span class="sep">›</span>
+<a href="/tech-blog/TypeScript/01-TypeScript/index.html">TypeScript</a>
+</nav>
+<h1>009 - 联合类型与类型守卫</h1>
+<div class="meta">
+<span>📂 TypeScript</span>
+<span>🏷️ TypeScript</span>
+</div>
+<article>
+
+
+<h1>036-联合类型与类型守卫</h1>
+
+<blockquote><p><strong>难度：</strong> 🟡 进阶 | <strong>阅读时间：</strong> 20分钟 | <strong>前置知识：</strong> 泛型基础</p></blockquote>
+
+<hr>
+
+<h2>一、概念讲解</h2>
+
+<h3>联合类型（Union Types）</h3>
+
+<p>联合类型表示一个值可以是<strong>多种类型之一</strong>：</p>
+
+<pre><code class="language-typescript">let id: string | number;
+id = &#x27;abc&#x27;;  // OK
+id = 123;    // OK</code></pre>
+
+<h3>类型收窄（Type Narrowing）</h3>
+
+<p>TypeScript编译器通过分析代码的控制流，自动将联合类型<strong>收窄</strong>到更具体的类型：</p>
+
+<pre><code class="language-typescript">function process(value: string | number) {
+  // Here: value is string | number
+  if (typeof value === &#x27;string&#x27;) {
+    // Here: value is string (narrowed!)
+    console.log(value.toUpperCase());
+  } else {
+    // Here: value is number
+    console.log(value.toFixed(2));
+  }
+}</code></pre>
+
+<h3>类型守卫（Type Guards）</h3>
+
+<p>类型守卫是<strong>返回类型谓词</strong>的函数，告诉编译器如何收窄：</p>
+
+<pre><code class="language-typescript">function isString(val: unknown): val is string {
+  return typeof val === &#x27;string&#x27;;
+}</code></pre>
+
+<h3>可辨识联合（Discriminated Unions）</h3>
+
+<p>通过一个<strong>共同的字面量属性</strong>来区分联合成员：</p>
+
+<pre><code class="language-typescript">type Shape =
+  | { kind: &#x27;circle&#x27;; radius: number }
+  | { kind: &#x27;square&#x27;; size: number }
+  | { kind: &#x27;triangle&#x27;; base: number; height: number };
+
+function area(shape: Shape): number {
+  switch (shape.kind) {  // &#x27;kind&#x27; is the discriminant
+    case &#x27;circle&#x27;: return Math.PI * shape.radius ** 2;
+    case &#x27;square&#x27;: return shape.size ** 2;
+    case &#x27;triangle&#x27;: return 0.5 * shape.base * shape.height;
+  }
+}</code></pre>
+
+<hr>
+
+<h2>二、思维导图</h2>
+
+<pre><code>联合类型与类型守卫
+├── 联合类型
+│   ├── 基本联合 (A | B)
+│   ├── 字面量联合
+│   └── 可辨识联合
+├── 类型收窄
+│   ├── typeof
+│   ├── instanceof
+│   ├── in 操作符
+│   ├── 赋值收窄
+│   ├── 控制流分析
+│   └── switch (discriminant)
+├── 类型守卫
+│   ├── 自定义(val is Type)
+│   ├── 断言函数(asserts val is Type)
+│   └── 内置谓词
+└── 模式匹配
+    ├── 穷尽检查(never)
+    ├── 解构+收窄
+    └── satisfies操作符</code></pre>
+
+<hr>
+
+<h2>三、完整代码示例</h2>
+
+<pre><code class="language-typescript">// ============================================
+// Union Types and Type Guards
+// ============================================
+
+// --- 1. Basic Union Types ---
+type ID = string | number;
+
+function displayId(id: ID): string {
+  if (typeof id === &#x27;string&#x27;) {
+    return id.toUpperCase(); // narrowed to string
+  }
+  return id.toFixed(0);     // narrowed to number
+}
+
+// --- 2. typeof Guards ---
+function padLeft(value: string, padding: string | number): string {
+  if (typeof padding === &#x27;number&#x27;) {
+    return &#x27; &#x27;.repeat(padding) + value;
+  }
+  return padding + value;
+}
+
+console.log(padLeft(&#x27;hello&#x27;, 4));    // &quot;    hello&quot;
+console.log(padLeft(&#x27;hello&#x27;, &#x27;&gt;&gt;&#x27;)); // &quot;&gt;&gt;hello&quot;
+
+// --- 3. instanceof Guards ---
+class Dog {
+  bark() { return &#x27;Woof!&#x27;; }
+}
+class Cat {
+  meow() { return &#x27;Meow!&#x27;; }
+}
+
+type Pet = Dog | Cat;
+
+function speak(pet: Pet): string {
+  if (pet instanceof Dog) return pet.bark();
+  return pet.meow();
+}
+
+// --- 4. &#x27;in&#x27; Operator Guard ---
+interface Fish {
+  swim(): void;
+  waterType: string;
+}
+
+interface Bird {
+  fly(): void;
+  wingspan: number;
+}
+
+type Animal = Fish | Bird;
+
+function move(animal: Animal): void {
+  if (&#x27;swim&#x27; in animal) {
+    animal.swim(); // narrowed to Fish
+  } else {
+    animal.fly();  // narrowed to Bird
+  }
+}
+
+// --- 5. Discriminated Unions ---
+
+type Result&lt;T&gt; =
+  | { status: &#x27;success&#x27;; data: T }
+  | { status: &#x27;error&#x27;; error: string }
+  | { status: &#x27;loading&#x27; };
+
+function handleResult&lt;T&gt;(result: Result&lt;T&gt;): string {
+  switch (result.status) {
+    case &#x27;success&#x27;:
+      return `Got: ${JSON.stringify(result.data)}`;
+    case &#x27;error&#x27;:
+      return `Error: ${result.error}`;
+    case &#x27;loading&#x27;:
+      return &#x27;Loading...&#x27;;
+  }
+}
+
+console.log(handleResult({ status: &#x27;success&#x27;, data: [1, 2, 3] }));
+console.log(handleResult({ status: &#x27;error&#x27;, error: &#x27;Not found&#x27; }));
+
+// --- 6. Custom Type Guards ---
+
+// String guard
+function isNonEmptyString(value: unknown): value is string {
+  return typeof value === &#x27;string&#x27; &amp;&amp; value.length &gt; 0;
+}
+
+// Array element guard
+function isArrayOf&lt;T&gt;(guard: (val: unknown) =&gt; val is T) {
+  return (arr: unknown): arr is T[] =&gt;
+    Array.isArray(arr) &amp;&amp; arr.every(guard);
+}
+
+const isNumberArray = isArrayOf((v: unknown): v is number =&gt; typeof v === &#x27;number&#x27;);
+
+const maybeNumbers: unknown = [1, 2, 3];
+if (isNumberArray(maybeNumbers)) {
+  console.log(maybeNumbers.reduce((a, b) =&gt; a + b, 0)); // 6, type: number[]
+}
+
+// --- 7. Assertion Functions ---
+function assertString(value: unknown, msg?: string): asserts value is string {
+  if (typeof value !== &#x27;string&#x27;) {
+    throw new TypeError(msg ?? `Expected string, got ${typeof value}`);
+  }
+}
+
+let input: unknown = &#x27;hello&#x27;;
+assertString(input);
+console.log(input.toUpperCase()); // TS knows input is string
+
+// --- 8. Exhaustive Check with never ---
+type TrafficLight = &#x27;red&#x27; | &#x27;yellow&#x27; | &#x27;green&#x27;;
+
+function handleTraffic(light: TrafficLight): string {
+  switch (light) {
+    case &#x27;red&#x27;: return &#x27;Stop&#x27;;
+    case &#x27;yellow&#x27;: return &#x27;Caution&#x27;;
+    case &#x27;green&#x27;: return &#x27;Go&#x27;;
+    default: {
+      const exhaustive: never = light; // Error if a case is missed
+      return exhaustive;
+    }
+  }
+}
+
+// --- 9. satisfies operator (TS 4.9+) ---
+const colors = {
+  red: &#x27;#FF0000&#x27;,
+  green: &#x27;#00FF00&#x27;,
+  blue: &#x27;#0000FF&#x27;
+} satisfies Record&lt;string, string&gt;;
+// typeof colors = { red: string; green: string; blue: string }
+// NOT Record&lt;string, string&gt; - keeps literal keys!
+
+console.log(&#x27;All union &amp; guard examples completed!&#x27;);</code></pre>
+
+<hr>
+
+<h2>四、执行预览</h2>
+
+<pre><code class="language-bash">$ npx ts-node union-guards.ts
+    hello
+&gt;&gt;hello
+Got: [1,2,3]
+Error: Not found
+6
+HELLO
+All union &amp; guard examples completed!</code></pre>
+
+<hr>
+
+<h2>五、注意事项</h2>
+
+<table><thead><tr>
+<th>注意点</th>
+<th>说明</th>
+</tr></thead><tbody>
+<tr>
+<td>typeof只能检查原始类型</td>
+<td><code>typeof []</code>是<code>'object'</code>，不区分数组</td>
+</tr>
+<tr>
+<td>instanceof需要class</td>
+<td>对接口/类型别名无效，它们编译后不存在</td>
+</tr>
+<tr>
+<td>联合类型是OR关系</td>
+<td>`A \</td>
+<td>B`表示A<strong>或</strong>B，不是A<strong>和</strong>B</td>
+</tr>
+<tr>
+<td>穷尽检查很重要</td>
+<td><code>default</code>分支用<code>never</code>确保处理了所有情况</td>
+</tr>
+<tr>
+<td>类型谓词要准确实现</td>
+<td><code>is</code>声明和实际检查逻辑要一致</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>六、避坑指南</h2>
+
+<table><thead><tr>
+<th>❌ 常见错误</th>
+<th>✅ 正确做法</th>
+</tr></thead><tbody>
+<tr>
+<td>用typeof检查数组</td>
+<td>用<code>Array.isArray()</code></td>
+</tr>
+<tr>
+<td>忘记穷尽检查</td>
+<td><code>default</code>分支用<code>never</code>兜底</td>
+</tr>
+<tr>
+<td>可辨识联合属性名不一致</td>
+<td>统一用<code>type</code>或<code>kind</code>做判别属性</td>
+</tr>
+<tr>
+<td>自定义守卫返回boolean</td>
+<td>用<code>val is Type</code>谓词语法</td>
+</tr>
+<tr>
+<td><code>in</code>操作符检查假值</td>
+<td>先检查<code>!= null</code>再<code>in</code></td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>七、练习题</h2>
+
+<h3>🟢 基础</h3>
+<ol>
+<li>编写一个类型守卫<code>isNumber(val: unknown): val is number</code>。</li>
+</ul>
+<ol>
+<li>定义可辨识联合<code>NetworkState</code>：Loading | Failed | Success，编写render函数。</li>
+
+<h3>🟡 进阶</h3>
+<ol>
+<li>实现<code>assertDefined<T>(val: T | undefined, msg?: string): asserts val is T</code>。</li>
+</ul>
+<ol>
+<li>编写组合类型守卫<code>isNonNull<T>(val: T | null): val is T</code>。</li>
+
+<h3>🔴 挑战</h3>
+<ol>
+<li>实现类型安全的Reducer，使用可辨识联合处理不同Action类型。</li>
+
+<hr>
+
+<h2>八、知识点总结</h2>
+
+<pre><code>联合类型与类型守卫
+├── 联合类型 (A | B)
+│   ├── 基本联合
+│   ├── 字面量联合
+│   └── 可辨识联合
+├── 类型收窄
+│   ├── typeof
+│   ├── instanceof
+│   ├── in
+│   ├── 赋值
+│   └── 控制流
+├── 类型守卫
+│   ├── val is Type (谓词)
+│   ├── asserts val is Type
+│   └── 组合守卫
+├── 模式
+│   ├── 穷尽检查(never)
+│   ├── switch + discriminant
+│   └── satisfies
+└── 常见场景
+    ├── Result&lt;T&gt; = Success | Error
+    ├── State = Loading | Ready | Error
+    └── Event = Click | Input | Focus</code></pre>
+
+<hr>
+
+<h2>九、举一反三</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>模式</th>
+</tr></thead><tbody>
+<tr>
+<td>异步请求状态</td>
+<td>`type State = Loading \</td>
+<td>Success<T> \</td>
+<td>Error`</td>
+</tr>
+<tr>
+<td>Redux Action</td>
+<td>可辨识联合 + switch穷尽</td>
+</tr>
+<tr>
+<td>表单验证</td>
+<td>`type Result = Valid \</td>
+<td>Invalid`</td>
+</tr>
+<tr>
+<td>AST遍历</td>
+<td>节点类型可辨识联合</td>
+</tr>
+<tr>
+<td>API错误处理</td>
+<td>`type ApiResult<T> = { ok: true; data: T } \</td>
+<td>{ ok: false; error: string }`</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>十、参考资料</h2>
+
+<ul>
+<li><a href="https://www.typescriptlang.org/docs/handbook/2/narrowing.html">TypeScript Handbook - Narrowing</a></li>
+<li><a href="https://www.typescriptlang.org/docs/handbook/2/narrowing.html#discriminated-unions">TypeScript Handbook - Discriminated Unions</a></li>
+
+<hr>
+
+<h2>十一、代码演进</h2>
+
+<h3>v1 — 运行时检查，无类型安全</h3>
+<pre><code class="language-typescript">function process(value: any) {
+  if (typeof value === &#x27;string&#x27;) return value.toUpperCase();
+  return value.toFixed(2);
+}</code></pre>
+
+<h3>v2 — 联合类型+typeof收窄</h3>
+<pre><code class="language-typescript">function process(value: string | number): string {
+  if (typeof value === &#x27;string&#x27;) return value.toUpperCase();
+  return value.toFixed(2);
+}</code></pre>
+
+<h3>v3 — 可辨识联合+穷尽检查</h3>
+<pre><code class="language-typescript">type Action =
+  | { type: &#x27;SET_NAME&#x27;; name: string }
+  | { type: &#x27;SET_AGE&#x27;; age: number }
+  | { type: &#x27;RESET&#x27; };
+
+type State = { name: string; age: number };
+
+function reducer(state: State, action: Action): State {
+  switch (action.type) {
+    case &#x27;SET_NAME&#x27;: return { ...state, name: action.name };
+    case &#x27;SET_AGE&#x27;: return { ...state, age: action.age };
+    case &#x27;RESET&#x27;: return { name: &#x27;&#x27;, age: 0 };
+    default: {
+      const _: never = action;
+      return _;
+    }
+  }
+}</code></pre>
+
+<hr>
+
+<p><strong>总结：</strong> 联合类型+类型守卫是TypeScript类型安全的基石。掌握收窄机制和可辨识联合模式，你就能处理几乎所有「不同类型走不同分支」的场景。</p>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

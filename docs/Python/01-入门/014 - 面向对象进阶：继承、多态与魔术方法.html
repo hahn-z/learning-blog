@@ -1,0 +1,613 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>014 - 面向对象进阶：继承、多态与魔术方法</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Python/index.html">Python</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Python/01-入门/index.html">Python入门</a>
+</nav>
+<h1>014 - 面向对象进阶：继承、多态与魔术方法</h1>
+<div class="meta">
+<span>📂 Python入门</span>
+<span>🏷️ Python</span>
+</div>
+<article>
+
+
+<h1>面向对象进阶：继承、多态与魔术方法</h1>
+
+<blockquote><p><strong>难度：</strong> ⭐⭐⭐☆☆（中级）<br><strong>前置知识：</strong> 类、对象、封装（上一篇）<br><strong>阅读时间：</strong> 约 30 分钟</p></blockquote>
+
+<hr>
+
+<h2>1. 概念讲解</h2>
+
+<h3>继承（Inheritance）</h3>
+
+<p>继承让子类<strong>复用父类的代码</strong>，并在其基础上扩展或修改。</p>
+
+<pre><code>现实类比：
+  父类 Animal：有 name、能 eat()
+  子类 Dog：继承 Animal，新增 bark()
+  子类 Cat：继承 Animal，新增 meow()</code></pre>
+
+<h3>多态（Polymorphism）</h3>
+
+<p>多态 = <strong>同一接口，不同实现</strong>。不同类的对象响应相同的方法名，但行为各不同。</p>
+
+<pre><code class="language-python"># Both Dog and Cat have speak(), but sound different
+animals = [Dog(&quot;Rex&quot;), Cat(&quot;Whiskers&quot;)]
+for a in animals:
+    print(a.speak())  # Each class responds differently</code></pre>
+
+<h3>魔术方法（Dunder Methods）</h3>
+
+<p>以双下划线包围的方法（<code>__xxx__</code>），让自定义类支持 Python 内置操作：</p>
+
+<table><thead><tr>
+<th>魔术方法</th>
+<th>触发场景</th>
+<th>示例</th>
+</tr></thead><tbody>
+<tr>
+<td><code>__len__</code></td>
+<td><code>len(obj)</code></td>
+<td><code>len(my_list)</code></td>
+</tr>
+<tr>
+<td><code>__getitem__</code></td>
+<td><code>obj[key]</code></td>
+<td><code>my_list[0]</code></td>
+</tr>
+<tr>
+<td><code>__contains__</code></td>
+<td><code>x in obj</code></td>
+<td><code>3 in my_set</code></td>
+</tr>
+<tr>
+<td><code>__add__</code></td>
+<td><code>a + b</code></td>
+<td><code>Vector(1,2) + Vector(3,4)</code></td>
+</tr>
+<tr>
+<td><code>__eq__</code></td>
+<td><code>a == b</code></td>
+<td>自定义相等比较</td>
+</tr>
+<tr>
+<td><code>__call__</code></td>
+<td><code>obj()</code></td>
+<td>把对象当函数调用</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>2. 知识脑图</h2>
+
+<pre><code>面向对象进阶
+├── 继承
+│   ├── class Child(Parent)
+│   ├── super() 调用父类方法
+│   ├── 方法重写 (Override)
+│   ├── isinstance / issubclass
+│   └── 多重继承 &amp; MRO
+├── 多态
+│   ├── 鸭子类型
+│   ├── 协议/接口
+│   └── 运行时动态绑定
+├── 魔术方法
+│   ├── 比较: __eq__, __lt__, __gt__
+│   ├── 算术: __add__, __sub__, __mul__
+│   ├── 容器: __len__, __getitem__, __contains__
+│   ├── 字符串: __repr__, __str__, __format__
+│   ├── 可调用: __call__
+│   └── 上下文: __enter__, __exit__
+└── 抽象基类 (ABC)
+    ├── @abstractmethod
+    └── 强制子类实现</code></pre>
+
+<hr>
+
+<h2>3. 代码演进</h2>
+
+<h3>v1：基本继承</h3>
+
+<pre><code class="language-python"># v1: Basic inheritance
+
+class Animal:
+    def __init__(self, name: str):
+        self.name = name
+
+    def speak(self) -&gt; str:
+        return f&quot;{self.name} makes a sound&quot;
+
+class Dog(Animal):
+    def speak(self) -&gt; str:              # override
+        return f&quot;{self.name} says Woof!&quot;
+
+class Cat(Animal):
+    def speak(self) -&gt; str:
+        return f&quot;{self.name} says Meow!&quot;
+
+# Polymorphism in action
+animals = [Dog(&quot;Rex&quot;), Cat(&quot;Whiskers&quot;), Animal(&quot;Thing&quot;)]
+for a in animals:
+    print(a.speak())
+# Rex says Woof!
+# Whiskers says Meow!
+# Thing makes a sound</code></pre>
+
+<h3>v2：继承 + super + 多态</h3>
+
+<pre><code class="language-python"># v2: Inheritance with super(), working with parent state
+
+class Employee:
+    def __init__(self, name: str, salary: float):
+        self.name = name
+        self.salary = salary
+
+    def __repr__(self):
+        return f&quot;Employee({self.name!r}, salary={self.salary})&quot;
+
+    def annual_cost(self) -&gt; float:
+        return self.salary * 12
+
+class Manager(Employee):
+    def __init__(self, name: str, salary: float, bonus: float):
+        super().__init__(name, salary)   # call parent __init__
+        self.bonus = bonus
+
+    def annual_cost(self) -&gt; float:      # override with extension
+        return super().annual_cost() + self.bonus
+
+    def __repr__(self):
+        return f&quot;Manager({self.name!r}, salary={self.salary}, bonus={self.bonus})&quot;
+
+e = Employee(&quot;Alice&quot;, 10000)
+m = Manager(&quot;Bob&quot;, 15000, 50000)
+print(e.annual_cost())  # 120000
+print(m.annual_cost())  # 230000</code></pre>
+
+<h3>v3：完整版（魔术方法 + ABC + 自定义容器）</h3>
+
+<pre><code class="language-python"># v3: Full featured - magic methods, ABC, custom container
+
+from abc import ABC, abstractmethod
+from typing import Iterator
+
+# --- Abstract base class ---
+class Shape(ABC):
+    @abstractmethod
+    def area(self) -&gt; float: ...
+
+    @abstractmethod
+    def __repr__(self) -&gt; str: ...
+
+    def __eq__(self, other):
+        if not isinstance(other, Shape):
+            return NotImplemented
+        return abs(self.area() - other.area()) &lt; 1e-9
+
+    def __lt__(self, other):
+        if not isinstance(other, Shape):
+            return NotImplemented
+        return self.area() &lt; other.area()
+
+
+class Rectangle(Shape):
+    def __init__(self, width: float, height: float):
+        self.width = width
+        self.height = height
+
+    def area(self) -&gt; float:
+        return self.width * self.height
+
+    def __repr__(self):
+        return f&quot;Rectangle({self.width}x{self.height})&quot;
+
+
+class Circle(Shape):
+    def __init__(self, radius: float):
+        self.radius = radius
+
+    def area(self) -&gt; float:
+        import math
+        return math.pi * self.radius ** 2
+
+    def __repr__(self):
+        return f&quot;Circle(r={self.radius})&quot;
+
+
+# --- Custom container with magic methods ---
+class Drawing:
+    &quot;&quot;&quot;A collection of shapes — behaves like a list.&quot;&quot;&quot;
+
+    def __init__(self):
+        self._shapes: list[Shape] = []
+
+    def add(self, shape: Shape):
+        self._shapes.append(shape)
+        return self
+
+    # Container protocol
+    def __len__(self):
+        return len(self._shapes)
+
+    def __getitem__(self, index):
+        return self._shapes[index]
+
+    def __contains__(self, shape):
+        return shape in self._shapes
+
+    def __iter__(self) -&gt; Iterator[Shape]:
+        return iter(self._shapes)
+
+    # Arithmetic: merge two drawings
+    def __add__(self, other):
+        result = Drawing()
+        result._shapes = self._shapes + other._shapes
+        return result
+
+    # Callable: sort shapes by area
+    def __call__(self, reverse=False):
+        self._shapes.sort(key=lambda s: s.area(), reverse=reverse)
+        return self
+
+    def __repr__(self):
+        return f&quot;Drawing({self._shapes})&quot;
+
+
+# --- Demo ---
+if __name__ == &quot;__main__&quot;:
+    d = Drawing()
+    d.add(Rectangle(3, 4)).add(Circle(2)).add(Rectangle(2, 6))
+
+    print(len(d))           # 3
+    print(d[0])             # Rectangle(3x4)
+
+    # Polymorphism: each shape computes area differently
+    for s in d:
+        print(f&quot;  {s} → area = {s.area():.2f}&quot;)
+
+    # Comparison via magic methods
+    print(Rectangle(3, 4) == Rectangle(2, 6))  # True (same area)
+    print(Rectangle(3, 4) &lt; Circle(3))          # True (12 &lt; ~28.27)
+
+    # Callable: sort by area
+    d(reverse=True)          # sorts in-place, largest first
+    print(d)</code></pre>
+
+<hr>
+
+<h2>4. 执行预览</h2>
+
+<pre><code>3
+Rectangle(3x4)
+  Rectangle(3x4) → area = 12.00
+  Circle(r=2) → area = 12.57
+  Rectangle(2x6) → area = 12.00
+True
+True
+Drawing([Circle(r=2), Rectangle(3x4), Rectangle(2x6)])</code></pre>
+
+<hr>
+
+<h2>5. 注意事项</h2>
+
+<table><thead><tr>
+<th>项目</th>
+<th>说明</th>
+</tr></thead><tbody>
+<tr>
+<td><code>super()</code> 在哪用</td>
+<td><code>__init__</code> 中调父类初始化，方法重写中扩展父类逻辑</td>
+</tr>
+<tr>
+<td>MRO 顺序</td>
+<td><code>ClassName.__mro__</code> 查看方法解析顺序，多重继承时尤为重要</td>
+</tr>
+<tr>
+<td><code>NotImplemented</code> vs <code>NotImplementedError</code></td>
+<td>前者用于比较魔术方法返回，后者用于抽象方法</td>
+</tr>
+<tr>
+<td>鸭子类型优先</td>
+<td>不需要显式继承才能多态，只要有同名方法就行</td>
+</tr>
+<tr>
+<td><code>__slots__</code></td>
+<td>限制实例属性，节省内存，但会阻止动态添加属性</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>6. 避坑指南</h2>
+
+<table><thead><tr>
+<th>❌ 错误</th>
+<th>✅ 正确</th>
+<th>原因</th>
+</tr></thead><tbody>
+<tr>
+<td><code>class Dog:</code> 不调父 <code>__init__</code></td>
+<td><code>super().__init__(name)</code></td>
+<td>父类属性不会自动初始化</td>
+</tr>
+<tr>
+<td>多重继承菱形问题不管</td>
+<td>用 <code>super()</code> 遵循 MRO</td>
+<td>避免重复调用顶层 <code>__init__</code></td>
+</tr>
+<tr>
+<td><code>__eq__</code> 返回 <code>False</code> 对非同类</td>
+<td>返回 <code>NotImplemented</code></td>
+<td>让 Python 尝试反向比较</td>
+</tr>
+<tr>
+<td>忘记实现所有 <code>@abstractmethod</code></td>
+<td>确保每个抽象方法都有实现</td>
+<td>否则子类也无法实例化</td>
+</tr>
+<tr>
+<td>在 <code>__init__</code> 外用 <code>super()</code></td>
+<td><code>super()</code> 可在任何方法中使用</td>
+<td>不限于 <code>__init__</code>，方法重写也可以用</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>7. 练习题</h2>
+
+<h3>🟢 入门：继承链</h3>
+
+<p>创建 <code>Vehicle</code> → <code>Car</code> → <code>ElectricCar</code> 三层继承，每层新增属性和方法。</p>
+
+<p><details><summary>参考答案</summary></p>
+
+<pre><code class="language-python">class Vehicle:
+    def __init__(self, brand: str):
+        self.brand = brand
+
+    def describe(self):
+        return f&quot;A {self.brand} vehicle&quot;
+
+class Car(Vehicle):
+    def __init__(self, brand: str, seats: int):
+        super().__init__(brand)
+        self.seats = seats
+
+    def describe(self):
+        return f&quot;A {self.brand} car with {self.seats} seats&quot;
+
+class ElectricCar(Car):
+    def __init__(self, brand: str, seats: int, range_km: int):
+        super().__init__(brand, seats)
+        self.range_km = range_km
+
+    def describe(self):
+        return f&quot;An electric {self.brand} with {self.range_km}km range, {self.seats} seats&quot;
+
+print(ElectricCar(&quot;Tesla&quot;, 5, 500).describe())
+# An electric Tesla with 500km range, 5 seats</code></pre>
+
+<p></details></p>
+
+<h3>🟡 中级：自定义 Vector 类（魔术方法）</h3>
+
+<p>实现 <code>Vector</code> 类支持 <code>+</code>、<code>-</code>、<code>==</code>、<code>abs()</code>、<code>repr</code> 和 <code>len</code>（维度数）。</p>
+
+<p><details><summary>参考答案</summary></p>
+
+<pre><code class="language-python">import math
+
+class Vector:
+    def __init__(self, *components):
+        self.components = list(components)
+
+    def __add__(self, other):
+        if len(self) != len(other):
+            raise ValueError(&quot;Dimension mismatch&quot;)
+        return Vector(*(a + b for a, b in zip(self.components, other.components)))
+
+    def __sub__(self, other):
+        if len(self) != len(other):
+            raise ValueError(&quot;Dimension mismatch&quot;)
+        return Vector(*(a - b for a, b in zip(self.components, other.components)))
+
+    def __abs__(self):
+        return math.sqrt(sum(c ** 2 for c in self.components))
+
+    def __eq__(self, other):
+        if not isinstance(other, Vector):
+            return NotImplemented
+        return self.components == other.components
+
+    def __len__(self):
+        return len(self.components)
+
+    def __repr__(self):
+        return f&quot;Vector({&#x27;, &#x27;.join(map(str, self.components))})&quot;
+
+v1 = Vector(1, 2, 3)
+v2 = Vector(4, 5, 6)
+print(v1 + v2)    # Vector(5, 7, 9)
+print(abs(v1))     # 3.7416...
+print(len(v1))     # 3</code></pre>
+
+<p></details></p>
+
+<h3>🔴 挑战：实现一个支持切片的 Matrix 类</h3>
+
+<p>用嵌套列表存储矩阵，实现 <code>__getitem__</code> 支持索引和切片、<code>__matmul__</code>（<code>@</code>）矩阵乘法、<code>__repr__</code>。</p>
+
+<p><details><summary>提示</summary></p>
+
+<p><code>__getitem__</code> 的 <code>index</code> 可能是 <code>int</code>（取行）或 <code>tuple</code>（取元素）。<code>__matmul__</code> 需要实现矩阵乘法算法。参考 <code>numpy</code> 的行为。</p>
+
+<p></details></p>
+
+<hr>
+
+<h2>8. 知识点总结</h2>
+
+<pre><code>面向对象进阶
+├── 继承 Inheritance
+│   ├── class Child(Parent) → 单继承
+│   ├── class Child(A, B) → 多重继承（注意 MRO）
+│   ├── super() → 调用父类方法
+│   └── isinstance() / issubclass() → 类型检查
+├── 多态 Polymorphism
+│   ├── 鸭子类型 → 不需要共同父类
+│   ├── 方法重写 → 子类覆盖父类方法
+│   └── 运行时绑定 → 根据实际类型调用
+├── 魔术方法 Dunder
+│   ├── 比较: __eq__, __lt__, __le__, __gt__, __ge__
+│   ├── 算术: __add__, __sub__, __mul__, __matmul__
+│   ├── 容器: __len__, __getitem__, __setitem__, __contains__
+│   ├── 字符串: __repr__, __str__, __format__
+│   ├── 可调用: __call__
+│   └── 上下文: __enter__, __exit__ (with语句)
+└── 抽象基类 ABC
+    ├── from abc import ABC, abstractmethod
+    ├── @abstractmethod → 强制子类实现
+    └── 不能直接实例化</code></pre>
+
+<hr>
+
+<h2>9. 举一反三</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>用到的 OOP 进阶特性</th>
+</tr></thead><tbody>
+<tr>
+<td>自定义排序</td>
+<td><code>__lt__</code> + <code>functools.total_ordering</code></td>
+</tr>
+<tr>
+<td>ORM 模型</td>
+<td>继承基类 Model，多态查询</td>
+</tr>
+<tr>
+<td>插件系统</td>
+<td>ABC 定义接口，子类做具体实现</td>
+</tr>
+<tr>
+<td>自定义集合</td>
+<td><code>__len__</code>, <code>__getitem__</code>, <code>__contains__</code></td>
+</tr>
+<tr>
+<td>管道操作</td>
+<td><code>__or__</code> 实现 `data</td>
+<td>transform1</td>
+<td>transform2`</td>
+</tr>
+<tr>
+<td>上下文管理</td>
+<td><code>__enter__</code>/<code>__exit__</code> 实现 <code>with</code> 语法</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>10. 参考资料</h2>
+
+<ul>
+<li><a href="https://docs.python.org/3/reference/datamodel.html">Python 数据模型 - 官方文档</a></li>
+<li><a href="https://realpython.com/inheritance-composition-python/">Real Python - Inheritance & Composition</a></li>
+<li><a href="https://www.oreilly.com/library/view/fluent-python-2nd/9781492056348/">Fluent Python, 2nd Ed</a> — Chapter 12-14</li>
+
+<hr>
+
+<h2>11. 代码演进回顾</h2>
+
+<table><thead><tr>
+<th>版本</th>
+<th>覆盖特性</th>
+<th>适用场景</th>
+</tr></thead><tbody>
+<tr>
+<td>v1 基本继承</td>
+<td><code>class Child(Parent)</code>, 方法重写</td>
+<td>简单的对象分层</td>
+</tr>
+<tr>
+<td>v2 super 多态</td>
+<td><code>super()</code>, 父类方法扩展</td>
+<td>带状态的继承链</td>
+</tr>
+<tr>
+<td>v3 完整版</td>
+<td>ABC, 魔术方法, 自定义容器</td>
+<td>生产级自定义类</td>
+</tr>
+</tbody></table>
+
+<p><strong>核心认知：</strong> 继承是代码复用，多态是接口统一，魔术方法是让自定义类融入 Python 语言本身。</p>
+
+<hr>
+
+<p><em>上一篇：<a href="013-oop-basics">面向对象基础</a> | 下一篇：<a href="015-decorators">装饰器详解</a></em></p>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

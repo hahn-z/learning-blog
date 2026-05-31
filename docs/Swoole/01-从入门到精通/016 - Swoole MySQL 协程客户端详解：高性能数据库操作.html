@@ -1,0 +1,689 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>016 - Swoole MySQL 协程客户端详解：高性能数据库操作</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Swoole/index.html">Swoole</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Swoole/01-从入门到精通/index.html">Swoole从入门到精通</a>
+</nav>
+<h1>016 - Swoole MySQL 协程客户端详解：高性能数据库操作</h1>
+<div class="meta">
+<span>📂 Swoole从入门到精通</span>
+<span>🏷️ Swoole</span>
+</div>
+<article>
+
+
+<h2>难度标注</h2>
+
+<blockquote><p>⭐⭐⭐☆☆ 中高级</p></blockquote>
+
+<p><strong>前置知识：</strong> MySQL 基础、PDO/MySQLi 使用经验、协程基础</p>
+<p><strong>预计学习时间：</strong> 60 分钟</p>
+
+<hr>
+
+<h2>概念讲解</h2>
+
+<h3>为什么需要 MySQL 协程客户端？</h3>
+
+<p>传统 PHP 中，MySQL 查询是<strong>同步阻塞</strong>的。一个查询耗时 100ms，整个进程就被卡住 100ms。在高并发场景下，这是巨大的浪费。</p>
+
+<p>Swoole 的 MySQL 协程客户端在执行查询时<strong>自动挂起当前协程</strong>，让出 CPU 给其他协程使用。查询完成后<strong>自动恢复</strong>执行。代码看起来和同步写法一样，但底层是异步非阻塞的。</p>
+
+<pre><code>传统模式（阻塞）：
+请求1 → [==DB查询100ms==] → 返回
+请求2 →                     等待... → [==DB查询100ms==] → 返回
+总耗时：200ms
+
+协程模式（非阻塞）：
+请求1 → [==挂起，等待DB==]
+请求2 → [==挂起，等待DB==]
+         ↓ DB同时处理两个查询 ↓
+请求1 → 恢复 → 返回
+请求2 → 恢复 → 返回  
+总耗时：~100ms</code></pre>
+
+<h3>Swoole\Coroutine\MySQL vs PDO</h3>
+
+<table><thead><tr>
+<th>特性</th>
+<th>PDO</th>
+<th>Swoole Coroutine MySQL</th>
+</tr></thead><tbody>
+<tr>
+<td>阻塞行为</td>
+<td>阻塞进程</td>
+<td>非阻塞，协程自动切换</td>
+</tr>
+<tr>
+<td>并发能力</td>
+<td>低</td>
+<td>高</td>
+</tr>
+<tr>
+<td>连接池</td>
+<td>外部实现</td>
+<td>配合 Channel 轻松实现</td>
+</tr>
+<tr>
+<td>预处理</td>
+<td>✅ 原生支持</td>
+<td>✅ 支持</td>
+</tr>
+<tr>
+<td>事务</td>
+<td>✅</td>
+<td>✅</td>
+</tr>
+<tr>
+<td>连接复用</td>
+<td>需外部管理</td>
+<td>协程级隔离+连接池</td>
+</tr>
+<tr>
+<td>语法复杂度</td>
+<td>简单</td>
+<td>略复杂（回调风格）</td>
+</tr>
+</tbody></table>
+
+<h3>核心 API</h3>
+
+<pre><code class="language-php">use Swoole\Coroutine\MySQL;
+
+$db = new MySQL();
+$db-&gt;connect([&#x27;host&#x27; =&gt; &#x27;127.0.0.1&#x27;, &#x27;port&#x27; =&gt; 3306, ...]);
+$db-&gt;query(&#x27;SELECT ...&#x27;);         // Direct query
+$db-&gt;prepare(&#x27;SELECT ... WHERE id=?&#x27;);  // Prepared statement
+$db-&gt;begin();                     // Transaction
+$db-&gt;commit(); / $db-&gt;rollback();</code></pre>
+
+<hr>
+
+<h2>脑图（ASCII）</h2>
+
+<pre><code>Swoole MySQL 协程客户端
+├── 连接管理
+│   ├── connect() 连接
+│   ├── 自动重连
+│   ├── 连接超时
+│   └── 字符集设置
+├── 查询操作
+│   ├── query() 直接查询
+│   ├── prepare() 预处理
+│   ├── execute() 执行
+│   └── affected_rows / insert_id
+├── 事务处理
+│   ├── begin()
+│   ├── commit()
+│   └── rollback()
+├── 连接池
+│   ├── Channel 实现
+│   ├── 借出/归还
+│   ├── 心跳检测
+│   └── 最小/最大连接数
+└── 最佳实践
+    ├── 协程级连接隔离
+    ├── 错误处理
+    ├── 超时设置
+    └── SQL 注入防护</code></pre>
+
+<hr>
+
+<h2>完整代码示例</h2>
+
+<h3>示例 1：基础 CRUD 操作</h3>
+
+<pre><code class="language-php">&lt;?php
+// 016_mysql_crud.php
+// Basic CRUD operations with Swoole MySQL coroutine client
+
+use Swoole\Coroutine\MySQL;
+use function Swoole\Coroutine\run;
+
+run(function () {
+    $db = new MySQL();
+    $connected = $db-&gt;connect([
+        &#x27;host&#x27; =&gt; &#x27;127.0.0.1&#x27;,
+        &#x27;port&#x27; =&gt; 3306,
+        &#x27;user&#x27; =&gt; &#x27;root&#x27;,
+        &#x27;password&#x27; =&gt; &#x27;&#x27;,
+        &#x27;database&#x27; =&gt; &#x27;test&#x27;,
+        &#x27;charset&#x27; =&gt; &#x27;utf8mb4&#x27;,
+        &#x27;timeout&#x27; =&gt; 5.0,
+    ]);
+    
+    if (!$connected) {
+        echo &quot;Connection failed: {$db-&gt;connect_error}\n&quot;;
+        return;
+    }
+    
+    echo &quot;Connected! Server info: {$db-&gt;serverInfo}\n\n&quot;;
+    
+    // Create table
+    $db-&gt;query(&quot;CREATE TABLE IF NOT EXISTS `users` (
+        `id` INT AUTO_INCREMENT PRIMARY KEY,
+        `name` VARCHAR(100) NOT NULL,
+        `email` VARCHAR(255) NOT NULL UNIQUE,
+        `age` INT DEFAULT 0,
+        `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4&quot;);
+    
+    // INSERT
+    $result = $db-&gt;query(&quot;INSERT INTO users (name, email, age) VALUES (&#x27;Alice&#x27;, &#x27;alice@example.com&#x27;, 25)&quot;);
+    echo &quot;INSERT: affected={$db-&gt;affected_rows}, insert_id={$db-&gt;insert_id}\n&quot;;
+    
+    // SELECT
+    $users = $db-&gt;query(&#x27;SELECT * FROM users ORDER BY id DESC LIMIT 10&#x27;);
+    echo &quot;SELECT: found &quot; . count($users) . &quot; rows\n&quot;;
+    foreach ($users as $user) {
+        echo &quot;  - #{$user[&#x27;id&#x27;]} {$user[&#x27;name&#x27;]} ({$user[&#x27;email&#x27;]})\n&quot;;
+    }
+    
+    // UPDATE
+    $db-&gt;query(&quot;UPDATE users SET age = 26 WHERE name = &#x27;Alice&#x27;&quot;);
+    echo &quot;UPDATE: affected={$db-&gt;affected_rows}\n&quot;;
+    
+    // DELETE
+    $db-&gt;query(&quot;DELETE FROM users WHERE id &gt; 100&quot;);
+    echo &quot;DELETE: affected={$db-&gt;affected_rows}\n&quot;;
+});</code></pre>
+
+<h3>示例 2：预处理语句与事务</h3>
+
+<pre><code class="language-php">&lt;?php
+// 016_prepare_transaction.php
+// Prepared statements and transaction handling
+
+use Swoole\Coroutine\MySQL;
+use function Swoole\Coroutine\run;
+
+run(function () {
+    $db = new MySQL();
+    $db-&gt;connect([
+        &#x27;host&#x27; =&gt; &#x27;127.0.0.1&#x27;,
+        &#x27;user&#x27; =&gt; &#x27;root&#x27;,
+        &#x27;password&#x27; =&gt; &#x27;&#x27;,
+        &#x27;database&#x27; =&gt; &#x27;test&#x27;,
+        &#x27;charset&#x27; =&gt; &#x27;utf8mb4&#x27;,
+    ]);
+    
+    // Prepared statement
+    $stmt = $db-&gt;prepare(&#x27;SELECT * FROM users WHERE age &gt; ? AND name LIKE ?&#x27;);
+    if (!$stmt) {
+        echo &quot;Prepare failed: {$db-&gt;error}\n&quot;;
+        return;
+    }
+    
+    $result = $stmt-&gt;execute([18, &#x27;%ali%&#x27;]);
+    echo &quot;Found &quot; . count($result) . &quot; users matching criteria\n&quot;;
+    
+    // Transaction example: transfer money
+    $db-&gt;query(&#x27;CREATE TABLE IF NOT EXISTS accounts (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        name VARCHAR(100),
+        balance DECIMAL(10,2) DEFAULT 0
+    )&#x27;);
+    
+    $db-&gt;begin();
+    try {
+        // Deduct from Alice
+        $db-&gt;query(&#x27;UPDATE accounts SET balance = balance - 100 WHERE name = &quot;Alice&quot;&#x27;);
+        if ($db-&gt;affected_rows === 0) throw new \Exception(&#x27;Alice not found&#x27;);
+        
+        // Add to Bob
+        $db-&gt;query(&#x27;UPDATE accounts SET balance = balance + 100 WHERE name = &quot;Bob&quot;&#x27;);
+        if ($db-&gt;affected_rows === 0) throw new \Exception(&#x27;Bob not found&#x27;);
+        
+        $db-&gt;commit();
+        echo &quot;Transfer successful!\n&quot;;
+    } catch (\Exception $e) {
+        $db-&gt;rollback();
+        echo &quot;Transfer failed: {$e-&gt;getMessage()}, rolled back.\n&quot;;
+    }
+});</code></pre>
+
+<h3>示例 3：连接池实现</h3>
+
+<pre><code class="language-php">&lt;?php
+// 016_connection_pool.php
+// Production-ready MySQL connection pool
+
+use Swoole\Coroutine;
+use Swoole\Coroutine\MySQL;
+use Swoole\Coroutine\Channel;
+use function Swoole\Coroutine\run;
+
+class MySQLPool
+{
+    private Channel $pool;
+    private int $minSize;
+    private int $maxSize;
+    private array $config;
+    private int $created = 0;
+
+    public function __construct(array $config, int $minSize = 2, int $maxSize = 10)
+    {
+        $this-&gt;config = $config;
+        $this-&gt;minSize = $minSize;
+        $this-&gt;maxSize = $maxSize;
+        $this-&gt;pool = new Channel($maxSize);
+        
+        // Pre-create minimum connections
+        for ($i = 0; $i &lt; $minSize; $i++) {
+            $this-&gt;pool-&gt;push($this-&gt;createConnection());
+        }
+    }
+
+    private function createConnection(): MySQL
+    {
+        $db = new MySQL();
+        $db-&gt;connect($this-&gt;config);
+        $this-&gt;created++;
+        return $db;
+    }
+
+    public function get(float $timeout = 5.0): MySQL
+    {
+        if (!$this-&gt;pool-&gt;isEmpty()) {
+            return $this-&gt;pool-&gt;pop();
+        }
+        if ($this-&gt;created &lt; $this-&gt;maxSize) {
+            return $this-&gt;createConnection();
+        }
+        return $this-&gt;pool-&gt;pop($timeout);
+    }
+
+    public function put(MySQL $db): void
+    {
+        if ($db-&gt;connected) {
+            $this-&gt;pool-&gt;push($db);
+        } else {
+            $this-&gt;created--;
+        }
+    }
+
+    public function stats(): array
+    {
+        return [
+            &#x27;created&#x27; =&gt; $this-&gt;created,
+            &#x27;available&#x27; =&gt; $this-&gt;pool-&gt;length(),
+        ];
+    }
+}
+
+run(function () {
+    $config = [
+        &#x27;host&#x27; =&gt; &#x27;127.0.0.1&#x27;,
+        &#x27;user&#x27; =&gt; &#x27;root&#x27;,
+        &#x27;password&#x27; =&gt; &#x27;&#x27;,
+        &#x27;database&#x27; =&gt; &#x27;test&#x27;,
+        &#x27;charset&#x27; =&gt; &#x27;utf8mb4&#x27;,
+        &#x27;timeout&#x27; =&gt; 3.0,
+    ];
+    
+    $pool = new MySQLPool($config, 2, 5);
+    
+    // Concurrent queries using pool
+    for ($i = 0; $i &lt; 10; $i++) {
+        go(function () use ($i, $pool) {
+            $db = $pool-&gt;get();
+            
+            $result = $db-&gt;query(&#x27;SELECT SLEEP(0.01) AS wait, NOW() AS now&#x27;);
+            echo &quot;[Query {$i}] Done: &quot; . json_encode($result[0] ?? []) . &quot;\n&quot;;
+            
+            $pool-&gt;put($db);
+        });
+    }
+    
+    Coroutine::sleep(1);
+    echo &quot;\nPool stats: &quot; . json_encode($pool-&gt;stats()) . &quot;\n&quot;;
+});</code></pre>
+
+<hr>
+
+<h2>执行预览</h2>
+
+<h3>示例 1 输出</h3>
+
+<pre><code>$ php 016_mysql_crud.php
+Connected! Server info: 5.7.xx
+
+INSERT: affected=1, insert_id=1
+SELECT: found 1 rows
+  - #1 Alice (alice@example.com)
+UPDATE: affected=1
+DELETE: affected=0</code></pre>
+
+<h3>示例 3 输出（连接池）</h3>
+
+<pre><code>$ php 016_connection_pool.php
+[Query 0] Done: {&quot;wait&quot;:&quot;0&quot;,&quot;now&quot;:&quot;2026-04-28 22:00:00&quot;}
+[Query 1] Done: {&quot;wait&quot;:&quot;0&quot;,&quot;now&quot;:&quot;2026-04-28 22:00:00&quot;}
+...
+[Query 9] Done: {&quot;wait&quot;:&quot;0&quot;,&quot;now&quot;:&quot;2026-04-28 22:00:00&quot;}
+
+Pool stats: {&quot;created&quot;:5,&quot;available&quot;:5}</code></pre>
+
+<hr>
+
+<h2>注意事项</h2>
+
+<table><thead><tr>
+<th>项目</th>
+<th>说明</th>
+<th>严重程度</th>
+</tr></thead><tbody>
+<tr>
+<td>连接不是协程安全的</td>
+<td>同一连接不能被多协程同时使用</td>
+<td>🔴 严重</td>
+</tr>
+<tr>
+<td>连接可能断开</td>
+<td>长时间闲置需检测 connected 属性</td>
+<td>🟡 中等</td>
+</tr>
+<tr>
+<td>query() 返回值不同</td>
+<td>SELECT 返回数组，INSERT/UPDATE 返回 bool</td>
+<td>🟡 中等</td>
+</tr>
+<tr>
+<td>字符集必须设置</td>
+<td>不设置可能导致中文乱码</td>
+<td>🟡 中等</td>
+</tr>
+<tr>
+<td>affected_rows 时效</td>
+<td>被下一条 query 覆盖，需立即读取</td>
+<td>🟢 一般</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>避坑指南</h2>
+
+<h3>❌ 多协程共享同一连接</h3>
+<pre><code class="language-php">// WRONG: Race condition - data corruption
+$db = new MySQL();
+$db-&gt;connect($config);
+go(function () use ($db) { $db-&gt;query(&#x27;...&#x27;); });
+go(function () use ($db) { $db-&gt;query(&#x27;...&#x27;); }); // Conflict!</code></pre>
+
+<h3>✅ 每协程一个连接或使用连接池</h3>
+<pre><code class="language-php">// CORRECT: Connection pool
+go(function () use ($pool) {
+    $db = $pool-&gt;get();
+    try {
+        $db-&gt;query(&#x27;...&#x27;);
+    } finally {
+        $pool-&gt;put($db);
+    }
+});</code></pre>
+
+<hr>
+
+<h3>❌ 忽略连接断开</h3>
+<pre><code class="language-php">// WRONG: Connection might be stale
+$result = $db-&gt;query(&#x27;SELECT 1&#x27;); // May throw if disconnected</code></pre>
+
+<h3>✅ 检查连接状态并重连</h3>
+<pre><code class="language-php">// CORRECT: Check before use
+if (!$db-&gt;connected) {
+    $db-&gt;connect($config);
+}
+$result = $db-&gt;query(&#x27;SELECT 1&#x27;);</code></pre>
+
+<hr>
+
+<h3>❌ SQL 拼接导致注入</h3>
+<pre><code class="language-php">// WRONG: SQL injection vulnerability
+$db-&gt;query(&quot;SELECT * FROM users WHERE name = &#x27;{$_GET[&#x27;name&#x27;]}&#x27;&quot;);</code></pre>
+
+<h3>✅ 使用预处理语句</h3>
+<pre><code class="language-php">// CORRECT: Parameterized query
+$stmt = $db-&gt;prepare(&#x27;SELECT * FROM users WHERE name = ?&#x27;);
+$result = $stmt-&gt;execute([$_GET[&#x27;name&#x27;]]);</code></pre>
+
+<hr>
+
+<h2>练习题</h2>
+
+<h3>🟢 初级</h3>
+<ol>
+<li>使用 Swoole MySQL 协程客户端连接数据库，查询 users 表并输出</li>
+</ul>
+<ol>
+<li>使用预处理语句插入 10 条测试数据</li>
+
+<h3>🟡 中级</h3>
+<ol>
+<li>实现一个带心跳检测的连接池，定期 ping 检测连接是否存活</li>
+</ul>
+<ol>
+<li>使用事务实现一个简单的银行转账操作，包含余额不足检查</li>
+
+<h3>🔴 高级</h3>
+<ol>
+<li>实现一个 MySQL 读写分离客户端：写操作走主库，读操作走从库，支持故障自动切换</li>
+
+<p><details></p>
+<p><summary>参考答案（题3 - 心跳连接池）</summary></p>
+
+<pre><code class="language-php">&lt;?php
+use Swoole\Coroutine;
+use Swoole\Coroutine\MySQL;
+use Swoole\Coroutine\Channel;
+use function Swoole\Coroutine\run;
+
+class HeartbeatMySQLPool
+{
+    private Channel $pool;
+    private array $config;
+    private int $maxSize;
+    
+    public function __construct(array $config, int $maxSize = 10)
+    {
+        $this-&gt;config = $config;
+        $this-&gt;maxSize = $maxSize;
+        $this-&gt;pool = new Channel($maxSize);
+    }
+    
+    private function create(): MySQL
+    {
+        $db = new MySQL();
+        $db-&gt;connect($this-&gt;config);
+        return $db;
+    }
+    
+    public function get(float $timeout = 5.0): MySQL
+    {
+        if ($this-&gt;pool-&gt;isEmpty()) return $this-&gt;create();
+        
+        $db = $this-&gt;pool-&gt;pop($timeout);
+        // Health check
+        if (!$db-&gt;connected || !$db-&gt;query(&#x27;SELECT 1&#x27;)) {
+            return $this-&gt;create(); // Replace broken connection
+        }
+        return $db;
+    }
+    
+    public function put(MySQL $db): void
+    {
+        if ($db-&gt;connected) {
+            $this-&gt;pool-&gt;push($db);
+        }
+    }
+}</code></pre>
+
+<p></details></p>
+
+<hr>
+
+<h2>知识点总结（树状）</h2>
+
+<pre><code>Swoole MySQL 协程客户端
+├── 连接管理
+│   ├── connect(config)
+│   ├── connected 状态检测
+│   ├── 超时设置
+│   └── 自动重连
+├── 查询
+│   ├── query() 直接查询
+│   ├── prepare() + execute() 预处理
+│   ├── insert_id / affected_rows
+│   └── 错误处理 error / errno
+├── 事务
+│   ├── begin() / commit() / rollback()
+│   └── try/finally 保证 rollback
+├── 连接池
+│   ├── Channel 实现
+│   ├── get() / put() 接口
+│   ├── 心跳检测
+│   └── 最小/最大连接数
+└── 最佳实践
+    ├── 每协程独立连接
+    ├── 预处理防注入
+    ├── 连接池复用
+    └── 超时保护</code></pre>
+
+<hr>
+
+<h2>举一反三</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>传统 PDO</th>
+<th>Swoole 协程 MySQL</th>
+<th>提升</th>
+</tr></thead><tbody>
+<tr>
+<td>10个并发查询</td>
+<td>串行 ~1s</td>
+<td>并发 ~0.1s</td>
+<td>~10x</td>
+</tr>
+<tr>
+<td>批量插入</td>
+<td>逐条 INSERT</td>
+<td>多协程并发+预处理</td>
+<td>~Nx</td>
+</tr>
+<tr>
+<td>事务操作</td>
+<td>阻塞等待</td>
+<td>挂起让出CPU</td>
+<td>吞吐量提升</td>
+</tr>
+<tr>
+<td>连接管理</td>
+<td>每次新建/短连接</td>
+<td>连接池复用</td>
+<td>减少连接开销</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>参考资料</h2>
+
+<ul>
+<li><a href="https://wiki.swoole.com/#/coroutine_client/mysql">Swoole MySQL 协程客户端文档</a></li>
+<li><a href="https://dev.mysql.com/doc/dev/mysql-server/latest/page_protocol.html">MySQL 协议详解</a></li>
+<li><a href="https://wiki.swoole.com/#/question/use?id=连接池">Swoole 连接池最佳实践</a></li>
+
+<hr>
+
+<h2>代码演进</h2>
+
+<h3>v1：单次查询</h3>
+<pre><code class="language-php">&lt;?php
+// v1: Simple query
+use Swoole\Coroutine\MySQL;
+use function Swoole\Coroutine\run;
+
+run(function () {
+    $db = new MySQL();
+    $db-&gt;connect([&#x27;host&#x27; =&gt; &#x27;127.0.0.1&#x27;, &#x27;user&#x27; =&gt; &#x27;root&#x27;, &#x27;password&#x27; =&gt; &#x27;&#x27;, &#x27;database&#x27; =&gt; &#x27;test&#x27;]);
+    $result = $db-&gt;query(&#x27;SELECT 1 AS ping&#x27;);
+    var_dump($result);
+});</code></pre>
+
+<h3>v2：预处理+事务</h3>
+<pre><code class="language-php">&lt;?php
+// v2: Prepared statements + transactions
+// (See 示例2 above)</code></pre>
+
+<h3>v3：生产级连接池</h3>
+<pre><code class="language-php">&lt;?php
+// v3: Production connection pool with health check
+// (See 示例3 above)</code></pre>
+
+<p><strong>演进思路：</strong></p>
+<ul>
+<li>v1 → 基础连接和查询</li>
+<li>v2 → 安全查询（预处理）+ 事务保证数据一致性</li>
+<li>v3 → 生产级连接池：复用连接、健康检查、并发安全</li>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

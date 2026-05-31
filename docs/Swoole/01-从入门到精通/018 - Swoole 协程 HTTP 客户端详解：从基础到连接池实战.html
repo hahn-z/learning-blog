@@ -1,0 +1,673 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>018 - Swoole 协程 HTTP 客户端详解：从基础到连接池实战</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Swoole/index.html">Swoole</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Swoole/01-从入门到精通/index.html">Swoole从入门到精通</a>
+</nav>
+<h1>018 - Swoole 协程 HTTP 客户端详解：从基础到连接池实战</h1>
+<div class="meta">
+<span>📂 Swoole从入门到精通</span>
+<span>🏷️ Swoole</span>
+</div>
+<article>
+
+
+<h2>难度标注</h2>
+
+<blockquote><p>⭐⭐⭐☆☆ 中级 | 预计阅读时间：15分钟</p></blockquote>
+
+<p>适合有 Swoole 协程基础，想深入掌握 HTTP 客户端用法的开发者。</p>
+
+<hr>
+
+<h2>概念讲解</h2>
+
+<h3>什么是协程 HTTP 客户端？</h3>
+
+<p>Swoole 的 <code>Coroutine\Http\Client</code> 是基于协程的 HTTP 客户端，与传统的 <code>curl</code> 或 <code>file_get_contents</code> 不同，它<strong>完全运行在协程空间</strong>，不会阻塞工作进程。</p>
+
+<p><strong>传统 HTTP 请求 vs 协程 HTTP 请求：</strong></p>
+
+<table><thead><tr>
+<th>特性</th>
+<th>curl</th>
+<th>Swoole HTTP Client</th>
+</tr></thead><tbody>
+<tr>
+<td>阻塞行为</td>
+<td>阻塞当前进程</td>
+<td>仅让出当前协程</td>
+</tr>
+<tr>
+<td>并发能力</td>
+<td>需要多线程/curl_multi</td>
+<td>天然支持协程并发</td>
+</tr>
+<tr>
+<td>连接复用</td>
+<td>需手动管理</td>
+<td>自动 keep-alive</td>
+</tr>
+<tr>
+<td>超时控制</td>
+<td>全局设置</td>
+<td>精确到每次请求</td>
+</tr>
+<tr>
+<td>WebSocket</td>
+<td>不支持</td>
+<td>原生支持</td>
+</tr>
+</tbody></table>
+
+<h3>核心优势</h3>
+
+<ol>
+<li><strong>非阻塞 I/O</strong>：等待响应时自动让出协程，不浪费 CPU</li>
+</ul>
+<ol>
+<li><strong>连接池友好</strong>：同一 host:port 复用 TCP 连接</li>
+</ul>
+<ol>
+<li><strong>完整 HTTP 支持</strong>：GET/POST/PUT/DELETE、上传下载、Cookie、Header</li>
+</ul>
+<ol>
+<li><strong>SSL/TLS 支持</strong>：内置 SSL，无需额外扩展</li>
+
+<hr>
+
+<h2>脑图</h2>
+
+<pre><code>Coroutine\Http\Client
+├── 基础用法
+│   ├── GET 请求
+│   ├── POST 请求
+│   ├── 自定义 Header
+│   └── 超时设置
+├── 进阶功能
+│   ├── 文件上传
+│   ├── 大文件下载
+│   ├── Cookie 管理
+│   └── HTTPS 支持
+├── 并发请求
+│   ├── 多协程并发
+│   ├── 连接复用
+│   └── 并发控制
+└── 最佳实践
+    ├── 超时策略
+    ├── 错误重试
+    └── 连接池</code></pre>
+
+<hr>
+
+<h2>完整代码</h2>
+
+<h3>v1：基础 GET/POST 请求</h3>
+
+<pre><code class="language-php">&lt;?php
+// v1: Basic HTTP GET and POST with Swoole coroutine client
+
+use Swoole\Coroutine\Http\Client;
+use function Swoole\Coroutine\run;
+
+run(function () {
+    // --- GET Request ---
+    $client = new Client(&#x27;httpbin.org&#x27;, 80);
+    $client-&gt;setHeaders([
+        &#x27;User-Agent&#x27; =&gt; &#x27;SwooleCoroutine/1.0&#x27;,
+        &#x27;Accept&#x27;     =&gt; &#x27;application/json&#x27;,
+    ]);
+    $client-&gt;set([&#x27;timeout&#x27; =&gt; 5]);
+
+    $client-&gt;get(&#x27;/get?name=swoole&amp;version=5.0&#x27;);
+    echo &quot;[GET] Status: {$client-&gt;statusCode}\n&quot;;
+    echo &quot;[GET] Body: {$client-&gt;body}\n&quot;;
+    $client-&gt;close();
+
+    // --- POST Request with JSON ---
+    $client = new Client(&#x27;httpbin.org&#x27;, 80);
+    $client-&gt;setHeaders([
+        &#x27;Content-Type&#x27; =&gt; &#x27;application/json&#x27;,
+        &#x27;User-Agent&#x27;   =&gt; &#x27;SwooleCoroutine/1.0&#x27;,
+    ]);
+
+    $data = json_encode([&#x27;action&#x27; =&gt; &#x27;test&#x27;, &#x27;payload&#x27; =&gt; &#x27;hello&#x27;]);
+    $client-&gt;post(&#x27;/post&#x27;, $data);
+    echo &quot;[POST] Status: {$client-&gt;statusCode}\n&quot;;
+    echo &quot;[POST] Body: {$client-&gt;body}\n&quot;;
+    $client-&gt;close();
+});</code></pre>
+
+<h3>v2：并发请求 + 超时 + 重试</h3>
+
+<pre><code class="language-php">&lt;?php
+// v2: Concurrent requests with timeout and retry
+
+use Swoole\Coroutine\Http\Client;
+use Swoole\Coroutine;
+use function Swoole\Coroutine\run;
+
+/**
+ * Fetch a URL with retry logic
+ */
+function fetchWithRetry(string $host, string $path, int $port = 80, int $maxRetries = 3): ?string
+{
+    for ($attempt = 1; $attempt &lt;= $maxRetries; $attempt++) {
+        $client = new Client($host, $port);
+        $client-&gt;set([
+            &#x27;timeout&#x27;      =&gt; 3,
+            &#x27;connect_timeout&#x27; =&gt; 2,
+        ]);
+        $client-&gt;setHeaders([&#x27;User-Agent&#x27; =&gt; &#x27;SwooleBot/2.0&#x27;]);
+        $client-&gt;get($path);
+
+        if ($client-&gt;statusCode === 200) {
+            $body = $client-&gt;body;
+            $client-&gt;close();
+            return $body;
+        }
+
+        echo &quot;[Retry {$attempt}/{$maxRetries}] Status: {$client-&gt;statusCode}\n&quot;;
+        $client-&gt;close();
+
+        // Exponential backoff
+        if ($attempt &lt; $maxRetries) {
+            Coroutine::sleep(0.1 * (2 ** $attempt));
+        }
+    }
+    return null;
+}
+
+run(function () {
+    $urls = [
+        [&#x27;host&#x27; =&gt; &#x27;httpbin.org&#x27;, &#x27;path&#x27; =&gt; &#x27;/get?id=1&#x27;],
+        [&#x27;host&#x27; =&gt; &#x27;httpbin.org&#x27;, &#x27;path&#x27; =&gt; &#x27;/get?id=2&#x27;],
+        [&#x27;host&#x27; =&gt; &#x27;httpbin.org&#x27;, &#x27;path&#x27; =&gt; &#x27;/get?id=3&#x27;],
+        [&#x27;host&#x27; =&gt; &#x27;httpbin.org&#x27;, &#x27;path&#x27; =&gt; &#x27;/delay/2&#x27;],  // slow response
+        [&#x27;host&#x27; =&gt; &#x27;httpbin.org&#x27;, &#x27;path&#x27; =&gt; &#x27;/status/404&#x27;], // 404 error
+    ];
+
+    $results = [];
+    $wg = new Swoole\Coroutine\WaitGroup();
+
+    foreach ($urls as $i =&gt; $url) {
+        $wg-&gt;add();
+        Coroutine::create(function () use ($url, $i, &amp;$results, $wg) {
+            $results[$i] = fetchWithRetry($url[&#x27;host&#x27;], $url[&#x27;path&#x27;]);
+            $wg-&gt;done();
+        });
+    }
+
+    $wg-&gt;wait();
+
+    foreach ($results as $i =&gt; $body) {
+        echo &quot;[{$i}] &quot; . ($body ? substr($body, 0, 80) . &#x27;...&#x27; : &#x27;FAILED&#x27;) . &quot;\n&quot;;
+    }
+    echo &quot;Total: &quot; . count($results) . &quot; requests completed\n&quot;;
+});</code></pre>
+
+<h3>v3：生产级连接池 + 文件上传/下载</h3>
+
+<pre><code class="language-php">&lt;?php
+// v3: Production-grade HTTP client with connection pool and file operations
+
+use Swoole\Coroutine\Http\Client;
+use Swoole\Coroutine\WaitGroup;
+use Swoole\Coroutine;
+use function Swoole\Coroutine\run;
+
+class HttpPool
+{
+    private array $pool = [];
+    private int $maxIdle;
+    private string $host;
+    private int $port;
+    private bool $ssl;
+
+    public function __construct(string $host, int $port = 443, bool $ssl = true, int $maxIdle = 10)
+    {
+        $this-&gt;host    = $host;
+        $this-&gt;port    = $port;
+        $this-&gt;ssl     = $ssl;
+        $this-&gt;maxIdle = $maxIdle;
+    }
+
+    /**
+     * Get a client from pool or create new one
+     */
+    private function getClient(): Client
+    {
+        if (!empty($this-&gt;pool)) {
+            return array_pop($this-&gt;pool);
+        }
+        $client = new Client($this-&gt;host, $this-&gt;port, $this-&gt;ssl);
+        $client-&gt;set([
+            &#x27;timeout&#x27;         =&gt; 10,
+            &#x27;connect_timeout&#x27; =&gt; 5,
+            &#x27;keep_alive&#x27;      =&gt; true,
+        ]);
+        $client-&gt;setHeaders([
+            &#x27;User-Agent&#x27; =&gt; &#x27;SwoolePool/3.0&#x27;,
+            &#x27;Accept&#x27;     =&gt; &#x27;application/json&#x27;,
+        ]);
+        return $client;
+    }
+
+    /**
+     * Return client to pool
+     */
+    private function release(Client $client): void
+    {
+        if (count($this-&gt;pool) &lt; $this-&gt;maxIdle) {
+            $this-&gt;pool[] = $client;
+        } else {
+            $client-&gt;close();
+        }
+    }
+
+    /**
+     * Execute a GET request
+     */
+    public function get(string $path): array
+    {
+        $client = $this-&gt;getClient();
+        $client-&gt;get($path);
+        $result = [
+            &#x27;status&#x27; =&gt; $client-&gt;statusCode,
+            &#x27;body&#x27;   =&gt; $client-&gt;body,
+            &#x27;headers&#x27; =&gt; $client-&gt;getHeaders(),
+        ];
+        $this-&gt;release($client);
+        return $result;
+    }
+
+    /**
+     * Execute a POST request
+     */
+    public function post(string $path, array $data, array $files = []): array
+    {
+        $client = $this-&gt;getClient();
+
+        if (!empty($files)) {
+            // multipart/form-data with file upload
+            foreach ($files as $name =&gt; $file) {
+                $client-&gt;addFile($file, $name);
+            }
+            $client-&gt;post($path, $data);
+        } else {
+            $client-&gt;setHeaders([&#x27;Content-Type&#x27; =&gt; &#x27;application/json&#x27;]);
+            $client-&gt;post($path, json_encode($data));
+        }
+
+        $result = [
+            &#x27;status&#x27; =&gt; $client-&gt;statusCode,
+            &#x27;body&#x27;   =&gt; $client-&gt;body,
+        ];
+        $this-&gt;release($client);
+        return $result;
+    }
+
+    /**
+     * Download a file
+     */
+    public function download(string $path, string $saveTo): bool
+    {
+        $client = $this-&gt;getClient();
+        $client-&gt;download($path, $saveTo);
+        $ok = $client-&gt;statusCode === 200;
+        $this-&gt;release($client);
+        return $ok;
+    }
+
+    public function __destruct()
+    {
+        foreach ($this-&gt;pool as $client) {
+            $client-&gt;close();
+        }
+    }
+}
+
+// --- Usage Demo ---
+run(function () {
+    $pool = new HttpPool(&#x27;httpbin.org&#x27;, 80, false);
+
+    // Concurrent API calls with connection pool
+    $wg = new WaitGroup();
+    $results = [];
+
+    for ($i = 0; $i &lt; 5; $i++) {
+        $wg-&gt;add();
+        Coroutine::create(function () use ($pool, $i, &amp;$results, $wg) {
+            $results[$i] = $pool-&gt;get(&quot;/get?request={$i}&quot;);
+            $wg-&gt;done();
+        });
+    }
+
+    $wg-&gt;wait();
+
+    foreach ($results as $i =&gt; $r) {
+        echo &quot;[{$i}] Status: {$r[&#x27;status&#x27;]}, Body length: &quot; . strlen($r[&#x27;body&#x27;]) . &quot;\n&quot;;
+    }
+
+    // POST with JSON
+    $res = $pool-&gt;post(&#x27;/post&#x27;, [&#x27;message&#x27; =&gt; &#x27;hello from pool&#x27;, &#x27;id&#x27; =&gt; 42]);
+    echo &quot;[POST] Status: {$res[&#x27;status&#x27;]}\n&quot;;
+
+    echo &quot;Pool demo complete.\n&quot;;
+});</code></pre>
+
+<hr>
+
+<h2>执行预览</h2>
+
+<pre><code>$ php v1_basic.php
+[GET] Status: 200
+[GET] Body: {&quot;args&quot;:{&quot;name&quot;:&quot;swoole&quot;,&quot;version&quot;:&quot;5.0&quot;},...}
+[POST] Status: 200
+[POST] Body: {&quot;json&quot;:{&quot;action&quot;:&quot;test&quot;,&quot;payload&quot;:&quot;hello&quot;},...}
+
+$ php v2_concurrent.php
+[Retry 1/3] Status: 404
+[Retry 2/3] Status: 404
+[Retry 3/3] Status: 404
+[0] {&quot;args&quot;:{&quot;id&quot;:&quot;1&quot;},...}...
+[1] {&quot;args&quot;:{&quot;id&quot;:&quot;2&quot;},...}...
+[2] {&quot;args&quot;:{&quot;id&quot;:&quot;3&quot;},...}...
+[3] {&quot;args&quot;:{},...}...
+[4] FAILED
+Total: 5 requests completed
+
+$ php v3_pool.php
+[0] Status: 200, Body length: 312
+[1] Status: 200, Body length: 312
+[2] Status: 200, Body length: 312
+[3] Status: 200, Body length: 312
+[4] Status: 200, Body length: 312
+[POST] Status: 200
+Pool demo complete.</code></pre>
+
+<hr>
+
+<h2>注意事项</h2>
+
+<table><thead><tr>
+<th>事项</th>
+<th>说明</th>
+<th>建议</th>
+</tr></thead><tbody>
+<tr>
+<td>超时设置</td>
+<td>默认无超时，可能永久挂起</td>
+<td>始终设置 <code>timeout</code> 和 <code>connect_timeout</code></td>
+</tr>
+<tr>
+<td>连接关闭</td>
+<td>用完不 close 会泄露</td>
+<td>使用连接池或在 finally 中 close</td>
+</tr>
+<tr>
+<td>DNS 解析</td>
+<td>协程中 DNS 解析可能阻塞</td>
+<td>使用 <code>Swoole\Coroutine::gethostbyname()</code></td>
+</tr>
+<tr>
+<td>HTTPS</td>
+<td>需要 SSL 支持</td>
+<td>构造函数第三个参数传 <code>true</code></td>
+</tr>
+<tr>
+<td>并发控制</td>
+<td>无限制并发可能压垮目标</td>
+<td>使用 Channel 控制并发数</td>
+</tr>
+<tr>
+<td>Header 大小</td>
+<td>默认限制 8KB</td>
+<td>大 Header 需调整 <code>header_package_max_size</code></td>
+</tr>
+<tr>
+<td>Cookie</td>
+<td>客户端级别自动管理</td>
+<td>注意 Cookie 作用域和安全性</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>避坑指南</h2>
+
+<h3>❌ 忘记设置超时</h3>
+<pre><code class="language-php">// Bad: No timeout, may hang forever
+$client = new Client(&#x27;slow-api.example.com&#x27;, 80);
+$client-&gt;get(&#x27;/slow-endpoint&#x27;);</code></pre>
+
+<h3>✅ 始终设置超时</h3>
+<pre><code class="language-php">// Good: Set reasonable timeouts
+$client = new Client(&#x27;slow-api.example.com&#x27;, 80);
+$client-&gt;set([
+    &#x27;timeout&#x27; =&gt; 10,
+    &#x27;connect_timeout&#x27; =&gt; 5,
+]);
+$client-&gt;get(&#x27;/slow-endpoint&#x27;);</code></pre>
+
+<h3>❌ 循环中反复创建连接</h3>
+<pre><code class="language-php">// Bad: New connection per iteration
+for ($i = 0; $i &lt; 100; $i++) {
+    $c = new Client(&#x27;api.example.com&#x27;, 80);
+    $c-&gt;get(&quot;/items/{$i}&quot;);
+    $c-&gt;close();
+}</code></pre>
+
+<h3>✅ 复用连接或使用连接池</h3>
+<pre><code class="language-php">// Good: Reuse single connection
+$client = new Client(&#x27;api.example.com&#x27;, 80);
+for ($i = 0; $i &lt; 100; $i++) {
+    $client-&gt;get(&quot;/items/{$i}&quot;);
+    echo $client-&gt;body;
+}
+$client-&gt;close();</code></pre>
+
+<h3>❌ 忽略 SSL 证书验证</h3>
+<pre><code class="language-php">// Bad: Disabling verification blindly
+$client-&gt;set([&#x27;ssl_verify_peer&#x27; =&gt; false]);</code></pre>
+
+<h3>✅ 正确配置 SSL</h3>
+<pre><code class="language-php">// Good: Use proper CA bundle
+$client-&gt;set([
+    &#x27;ssl_verify_peer&#x27; =&gt; true,
+    &#x27;ssl_cafile&#x27; =&gt; &#x27;/etc/ssl/certs/ca-certificates.crt&#x27;,
+]);</code></pre>
+
+<hr>
+
+<h2>练习题</h2>
+
+<h3>🟢 初级</h3>
+<ol>
+<li>使用 <code>Coroutine\Http\Client</code> 发送一个 GET 请求到 <code>httpbin.org/get</code>，打印响应状态码和 body</li>
+</ul>
+<ol>
+<li>发送一个 POST 请求，携带 JSON 数据 <code>{"name": "swoole"}</code>，并解析响应</li>
+
+<h3>🟡 中级</h3>
+<ol>
+<li>实现一个并发抓取器：同时请求 10 个 URL，收集所有结果，统计成功/失败数</li>
+</ul>
+<ol>
+<li>为 HTTP 客户端添加指数退避重试机制（最多重试 3 次）</li>
+
+<h3>🔴 高级</h3>
+<ol>
+<li>实现一个通用连接池类，支持 GET/POST，带最大空闲连接数限制和健康检查</li>
+</ul>
+<ol>
+<li>实现一个限速下载器：使用 <code>download()</code> 方法下载大文件，并用 Channel 控制同时下载数不超过 3</li>
+
+<hr>
+
+<h2>知识点总结</h2>
+
+<pre><code>Swoole HTTP 协程客户端
+├── 基础
+│   ├── Coroutine\Http\Client 构造函数
+│   ├── setHeaders() 设置请求头
+│   ├── set() 设置超时等参数
+│   ├── get() / post() 发送请求
+│   ├── statusCode 响应状态码
+│   └── body 响应体
+├── 进阶
+│   ├── addFile() 文件上传
+│   ├── download() 文件下载
+│   ├── setCookies() Cookie 管理
+│   ├── upgrade() WebSocket 升级
+│   └── getHeaders() 响应头
+├── 并发
+│   ├── Coroutine::create() 创建协程
+│   ├── WaitGroup 协程同步
+│   └── Channel 并发控制
+└── 生产实践
+    ├── 连接池复用
+    ├── 重试与退避
+    ├── 超时策略
+    └── SSL/TLS 配置</code></pre>
+
+<hr>
+
+<h2>举一反三</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>技术方案</th>
+<th>关键点</th>
+</tr></thead><tbody>
+<tr>
+<td>微服务间 HTTP 调用</td>
+<td>连接池 + 超时 + 重试</td>
+<td>服务发现、负载均衡</td>
+</tr>
+<tr>
+<td>API 网关聚合</td>
+<td>WaitGroup 并发请求</td>
+<td>合并响应、超时裁剪</td>
+</tr>
+<tr>
+<td>爬虫/数据抓取</td>
+<td>Channel 控制并发 + 连接池</td>
+<td>限速、去重、代理</td>
+</tr>
+<tr>
+<td>文件同步服务</td>
+<td>download() + 分块传输</td>
+<td>断点续传、进度回调</td>
+</tr>
+<tr>
+<td>Webhook 投递</td>
+<td>异步队列 + 重试</td>
+<td>指数退避、死信队列</td>
+</tr>
+<tr>
+<td>第三方 API 对接</td>
+<td>JSON POST + 签名</td>
+<td>鉴权、日志、监控</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>参考资料</h2>
+
+<ul>
+<li><a href="https://wiki.swoole.com/#/coroutine_client/http">Swoole 官方文档 - Coroutine\Http\Client</a></li>
+<li><a href="https://wiki.swoole.com/#/coroutine">Swoole 官方文档 - 协程</a></li>
+<li><a href="https://httpbin.org/">httpbin.org</a> - HTTP 请求测试服务</li>
+<li><a href="https://www.php-fig.org/psr/psr-7/">PSR-7 HTTP Message Interfaces</a></li>
+
+<hr>
+
+<h2>代码演进路线</h2>
+
+<table><thead><tr>
+<th>版本</th>
+<th>重点</th>
+<th>适用场景</th>
+</tr></thead><tbody>
+<tr>
+<td>v1 基础版</td>
+<td>GET/POST 单次请求</td>
+<td>学习入门、简单调用</td>
+</tr>
+<tr>
+<td>v2 并发版</td>
+<td>协程并发 + 重试</td>
+<td>批量抓取、API 批量调用</td>
+</tr>
+<tr>
+<td>v3 生产版</td>
+<td>连接池 + 文件操作</td>
+<td>微服务、生产环境</td>
+</tr>
+</tbody></table>
+
+<p><strong>演进思路：</strong> 先掌握基础请求 → 加并发和容错 → 再做连接池和完整封装。每一步都是前一步的自然延伸。</p>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

@@ -1,0 +1,588 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>003 - Go 泛型基础</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Golang/index.html">Golang</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Golang/04-高级/index.html">Golang高级</a>
+</nav>
+<h1>003 - Go 泛型基础</h1>
+<div class="meta">
+<span>📂 Golang高级</span>
+<span>🏷️ Golang</span>
+</div>
+<article>
+
+
+<h2>难度标注</h2>
+
+<blockquote><p>🟠 <strong>高级难度</strong> | 需掌握 Go 接口、类型系统基础，建议了解其他语言泛型概念</p></blockquote>
+
+<hr>
+
+<h2>概念讲解</h2>
+
+<h3>Go 泛型是什么？</h3>
+
+<p>Go 1.18 引入了<strong>泛型（Generics）</strong>，允许函数和类型使用<strong>类型参数</strong>，实现真正的类型安全复用。在此之前，Go 只能用 <code>interface{}</code> 实现通用逻辑，牺牲了类型安全和性能。</p>
+
+<h3>核心概念速览</h3>
+
+<table><thead><tr>
+<th>概念</th>
+<th>说明</th>
+<th>示例</th>
+</tr></thead><tbody>
+<tr>
+<td>类型参数</td>
+<td>函数/类型的占位类型</td>
+<td><code>func Print<a href="v T">T any</a></code></td>
+</tr>
+<tr>
+<td>类型约束</td>
+<td>限制类型参数的范围</td>
+<td>`[T int \</td>
+<td>float64]`</td>
+</tr>
+<tr>
+<td>类型实例化</td>
+<td>用具体类型替换类型参数</td>
+<td><code>Print<a href="42">int</a></code></td>
+</tr>
+<tr>
+<td>类型推断</td>
+<td>编译器自动推断类型参数</td>
+<td><code>Print(42)</code> → <code>T=int</code></td>
+</tr>
+</tbody></table>
+
+<h3><code>any</code> vs <code>interface{}</code></h3>
+
+<pre><code class="language-go">// 以下两种写法完全等价（any 是 interface{} 的别名）
+func Old(v interface{}) {}
+func New(v any)          {}
+
+// 但泛型比 interface{} 强在：编译时类型安全 + 无装箱开销
+func Generic[T any](v T) T { return v }</code></pre>
+
+<h3>内置约束：<code>comparable</code> 和 <code>any</code></h3>
+
+<ul>
+<li><code>any</code>：无约束，等价于 <code>interface{}</code></li>
+<li><code>comparable</code>：支持 <code>==</code> 和 <code>!=</code> 的类型（数字、字符串、布尔、指针……）</li>
+
+<hr>
+
+<h2>脑图</h2>
+
+<pre><code>                    Go 泛型
+                       │
+         ┌─────────────┼─────────────┐
+         │             │             │
+     类型参数       类型约束       应用场景
+         │             │             │
+    ┌────┴────┐   ┌────┴────┐   ┌───┴───┐
+    │         │   │         │   │       │
+  函数泛型  类型泛型  内置约束  自定义约束  通用容器  通用算法
+    │         │   any       接口语法   泛型Slice  Sort/Filter/Map
+  [T any]  Stack[T] comparable ~int ~string</code></pre>
+
+<hr>
+
+<h2>代码演进</h2>
+
+<h3>v1：泛型函数 — Filter / Map / Reduce</h3>
+
+<pre><code class="language-go">package main
+
+import &quot;fmt&quot;
+
+// Filter returns elements matching the predicate
+func Filter[T any](slice []T, predicate func(T) bool) []T {
+    var result []T
+    for _, v := range slice {
+        if predicate(v) {
+            result = append(result, v)
+        }
+    }
+    return result
+}
+
+// Map transforms each element
+func Map[T any, U any](slice []T, transform func(T) U) []U {
+    result := make([]U, len(slice))
+    for i, v := range slice {
+        result[i] = transform(v)
+    }
+    return result
+}
+
+// Reduce folds the slice into a single value
+func Reduce[T any, U any](slice []T, initial U, fn func(U, T) U) U {
+    acc := initial
+    for _, v := range slice {
+        acc = fn(acc, v)
+    }
+    return acc
+}
+
+func main() {
+    nums := []int{1, 2, 3, 4, 5, 6, 7, 8}
+
+    // Filter even numbers
+    evens := Filter(nums, func(n int) bool { return n%2 == 0 })
+    fmt.Println(&quot;Evens:&quot;, evens)
+
+    // Map to strings
+    strs := Map(nums, func(n int) string {
+        return fmt.Sprintf(&quot;&lt;%d&gt;&quot;, n)
+    })
+    fmt.Println(&quot;Mapped:&quot;, strs)
+
+    // Reduce to sum
+    sum := Reduce(nums, 0, func(acc, n int) int { return acc + n })
+    fmt.Println(&quot;Sum:&quot;, sum)
+}</code></pre>
+
+<p><strong>执行预览：</strong></p>
+<pre><code>Evens: [2 4 6 8]
+Mapped: [&lt;1&gt; &lt;2&gt; &lt;3&gt; &lt;4&gt; &lt;5&gt; &lt;6&gt; &lt;7&gt; &lt;8&gt;]
+Sum: 36</code></pre>
+
+<h3>v2：泛型类型 — Stack / Set / Pair</h3>
+
+<pre><code class="language-go">package main
+
+import &quot;fmt&quot;
+
+// Stack is a generic LIFO data structure
+type Stack[T any] struct {
+    items []T
+}
+
+// Push adds an element
+func (s *Stack[T]) Push(v T) {
+    s.items = append(s.items, v)
+}
+
+// Pop removes and returns the top element
+func (s *Stack[T]) Pop() (T, bool) {
+    if len(s.items) == 0 {
+        var zero T
+        return zero, false
+    }
+    top := s.items[len(s.items)-1]
+    s.items = s.items[:len(s.items)-1]
+    return top, true
+}
+
+// Peek returns the top element without removing
+func (s *Stack[T]) Peek() (T, bool) {
+    if len(s.items) == 0 {
+        var zero T
+        return zero, false
+    }
+    return s.items[len(s.items)-1], true
+}
+
+// Len returns stack size
+func (s *Stack[T]) Len() int {
+    return len(s.items)
+}
+
+// Set is a generic unique collection
+type Set[T comparable] struct {
+    items map[T]struct{}
+}
+
+// NewSet creates a new Set
+func NewSet[T comparable]() *Set[T] {
+    return &amp;Set[T]{items: make(map[T]struct{})}
+}
+
+// Add inserts a value
+func (s *Set[T]) Add(v T) {
+    s.items[v] = struct{}{}
+}
+
+// Contains checks membership
+func (s *Set[T]) Contains(v T) bool {
+    _, ok := s.items[v]
+    return ok
+}
+
+// Elements returns all elements as a slice
+func (s *Set[T]) Elements() []T {
+    result := make([]T, 0, len(s.items))
+    for k := range s.items {
+        result = append(result, k)
+    }
+    return result
+}
+
+func main() {
+    // Stack demo
+    s := &amp;Stack[string]{}
+    s.Push(&quot;hello&quot;)
+    s.Push(&quot;world&quot;)
+    s.Push(&quot;!&quot;)
+
+    for s.Len() &gt; 0 {
+        if v, ok := s.Pop(); ok {
+            fmt.Println(&quot;Pop:&quot;, v)
+        }
+    }
+
+    // Set demo
+    set := NewSet[int]()
+    set.Add(1)
+    set.Add(2)
+    set.Add(2) // duplicate, ignored
+    set.Add(3)
+    fmt.Println(&quot;Contains 2:&quot;, set.Contains(2))
+    fmt.Println(&quot;Contains 4:&quot;, set.Contains(4))
+    fmt.Println(&quot;Elements:&quot;, set.Elements())
+}</code></pre>
+
+<p><strong>执行预览：</strong></p>
+<pre><code>Pop: !
+Pop: world
+Pop: hello
+Contains 2: true
+Contains 4: false
+Elements: [1 2 3]</code></pre>
+
+<h3>v3：类型约束 + 泛型算法 — 排序、最大值、二分查找</h3>
+
+<pre><code class="language-go">package main
+
+import &quot;fmt&quot;
+
+// Ordered is a constraint for ordered types
+type Ordered interface {
+    ~int | ~int8 | ~int16 | ~int32 | ~int64 |
+    ~uint | ~uint8 | ~uint16 | ~uint32 | ~uint64 |
+    ~float32 | ~float64 |
+    ~string
+}
+
+// Max returns the larger of two values
+func Max[T Ordered](a, b T) T {
+    if a &gt; b {
+        return a
+    }
+    return b
+}
+
+// Min returns the smaller of two values
+func Min[T Ordered](a, b T) T {
+    if a &lt; b {
+        return a
+    }
+    return b
+}
+
+// Sort sorts a slice using insertion sort (simple, for demo)
+func Sort[T Ordered](slice []T) []T {
+    result := make([]T, len(slice))
+    copy(result, slice)
+
+    for i := 1; i &lt; len(result); i++ {
+        key := result[i]
+        j := i - 1
+        for j &gt;= 0 &amp;&amp; result[j] &gt; key {
+            result[j+1] = result[j]
+            j--
+        }
+        result[j+1] = key
+    }
+    return result
+}
+
+// BinarySearch finds the index of target, or -1
+func BinarySearch[T Ordered](slice []T, target T) int {
+    lo, hi := 0, len(slice)-1
+    for lo &lt;= hi {
+        mid := lo + (hi-lo)/2
+        if slice[mid] == target {
+            return mid
+        }
+        if slice[mid] &lt; target {
+            lo = mid + 1
+        } else {
+            hi = mid - 1
+        }
+    }
+    return -1
+}
+
+// Clamp restricts value to [min, max]
+func Clamp[T Ordered](val, minVal, maxVal T) T {
+    return Max(minVal, Min(val, maxVal))
+}
+
+func main() {
+    // Max / Min
+    fmt.Println(&quot;Max(3, 7):&quot;, Max(3, 7))
+    fmt.Println(&quot;Min(\&quot;apple\&quot;, \&quot;banana\&quot;):&quot;, Min(&quot;apple&quot;, &quot;banana&quot;))
+
+    // Sort
+    nums := []int{5, 3, 8, 1, 9, 2, 7}
+    sorted := Sort(nums)
+    fmt.Println(&quot;Sorted:&quot;, sorted)
+
+    // BinarySearch
+    idx := BinarySearch(sorted, 7)
+    fmt.Printf(&quot;BinarySearch(7) → index %d\n&quot;, idx)
+
+    // Clamp
+    fmt.Println(&quot;Clamp(15, 0, 10):&quot;, Clamp(15, 0, 10))
+    fmt.Println(&quot;Clamp(-3, 0, 10):&quot;, Clamp(-3, 0, 10))
+
+    // Works with string slices too
+    words := []string{&quot;cherry&quot;, &quot;apple&quot;, &quot;banana&quot;, &quot;date&quot;}
+    fmt.Println(&quot;Sorted strings:&quot;, Sort(words))
+}</code></pre>
+
+<p><strong>执行预览：</strong></p>
+<pre><code>Max(3, 7): 7
+Min(&quot;apple&quot;, &quot;banana&quot;): apple
+Sorted: [1 2 3 5 7 8 9]
+BinarySearch(7) → index 4
+Clamp(15, 0, 10): 10
+Clamp(-3, 0, 10): 0
+Sorted strings: [apple banana cherry date]</code></pre>
+
+<hr>
+
+<h2>注意事项</h2>
+
+<table><thead><tr>
+<th>要点</th>
+<th>说明</th>
+</tr></thead><tbody>
+<tr>
+<td>Go 版本</td>
+<td>泛型需要 Go 1.18+，旧版本不可用</td>
+</tr>
+<tr>
+<td>类型推断限制</td>
+<td>复杂场景编译器可能推断失败，需显式指定</td>
+</tr>
+<tr>
+<td>方法限制</td>
+<td>泛型类型的方法<strong>不能</strong>引入新的类型参数</td>
+</tr>
+<tr>
+<td>运行时开销</td>
+<td>泛型通过 GC shape stenciling 实现，大部分场景无额外开销</td>
+</tr>
+<tr>
+<td>不支持特化</td>
+<td>Go 不支持 C++ 风格的模板特化</td>
+</tr>
+<tr>
+<td>调试体验</td>
+<td>泛型错误信息可能很长，1.21 后有所改善</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>避坑指南</h2>
+
+<table><thead><tr>
+<th>❌ 错误做法</th>
+<th>✅ 正确做法</th>
+</tr></thead><tbody>
+<tr>
+<td>泛型所有东西</td>
+<td>只在真正需要类型参数时用泛型</td>
+</tr>
+<tr>
+<td><code>T any</code> 然后类型断言</td>
+<td>用类型约束限制范围</td>
+</tr>
+<tr>
+<td>泛型方法加新类型参数</td>
+<td>用泛型函数代替，或在类型上定义足购的参数</td>
+</tr>
+<tr>
+<td>忽略 <code>comparable</code> 约束</td>
+<td>做 map key 或比较时必须加 <code>comparable</code></td>
+</tr>
+<tr>
+<td>在泛型代码里调 <code>reflect</code></td>
+<td>用接口约束代替运行时检查</td>
+</tr>
+<tr>
+<td>过度嵌套 <code>[]T</code> 泛型</td>
+<td>保持简单，不超过 2 个类型参数</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>练习题</h2>
+
+<h3>🟢 基础</h3>
+<ol>
+<li>实现泛型函数 <code>Contains<a href="slice []T, target T">T comparable</a> bool</code>。</li>
+</ul>
+<ol>
+<li>实现泛型 <code>Pair[T, U]</code> 类型，带 <code>First()</code> 和 <code>Second()</code> 方法。</li>
+
+<h3>🟡 进阶</h3>
+<ol>
+<li>实现泛型 <code>Queue[T]</code>（FIFO），带 <code>Enqueue</code>/<code>Dequeue</code>。</li>
+</ul>
+<ol>
+<li>实现泛型 <code>MergeSort[T Ordered]</code>。</li>
+
+<h3>🔴 挑战</h3>
+<ol>
+<li>实现泛型 <code>Graph[T comparable]</code>，支持 <code>AddNode</code>/<code>AddEdge</code>/<code>BFS</code>/<code>DFS</code>。</li>
+</ul>
+<ol>
+<li>实现 <code>GroupBy<a href="slice []T, key func(T">T any, K comparable</a> K) map[K][]T</code>。</li>
+
+<hr>
+
+<h2>知识点总结</h2>
+
+<pre><code>Go 泛型
+├── 语法
+│   ├── [T any]          → 类型参数声明
+│   ├── [T comparable]   → 可比较约束
+│   ├── [T Ordered]      → 自定义约束（联合类型）
+│   └── [T any, U any]   → 多类型参数
+├── 泛型函数
+│   ├── Filter / Map / Reduce
+│   ├── Max / Min / Clamp
+│   ├── Sort / BinarySearch
+│   └── 类型推断 → 大部分场景自动推断
+├── 泛型类型
+│   ├── Stack[T]
+│   ├── Set[T comparable]
+│   ├── Pair[T, U]
+│   └── 方法不能引入新类型参数
+├── 类型约束
+│   ├── any          → 无约束
+│   ├── comparable   → 可 == / !=
+│   ├── 联合类型     → int | float64 | string
+│   ├── ~底层类型    → ~int 包含 type MyInt int
+│   └── 接口语法     → type Ordered interface { ... }
+└── 局限
+    ├── 不支持特化
+    ├── 不支持运算符重载
+    └── 方法不能加新类型参数</code></pre>
+
+<hr>
+
+<h2>举一反三</h2>
+
+<table><thead><tr>
+<th>技术点</th>
+<th>本文学到</th>
+<th>延伸应用</th>
+</tr></thead><tbody>
+<tr>
+<td><code>[T any]</code></td>
+<td>泛型函数声明</td>
+<td>通用序列化/反序列化</td>
+</tr>
+<tr>
+<td><code>[T comparable]</code></td>
+<td>限制可比较类型</td>
+<td>泛型 Map / Cache</td>
+</tr>
+<tr>
+<td>联合约束</td>
+<td><code>Ordered</code> 接口</td>
+<td>限制数值运算类型</td>
+</tr>
+<tr>
+<td>泛型容器</td>
+<td>Stack / Set</td>
+<td>泛型队列、优先队列、图</td>
+</tr>
+<tr>
+<td>多类型参数</td>
+<td><code>Map[T, U]</code></td>
+<td>KV 存储、Pair 操作</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>参考资料</h2>
+
+<ul>
+<li><a href="https://go.dev/doc/go1.18#generics">Go Generics 官方提案</a></li>
+<li><a href="https://go.googlesource.com/proposal/+/refs/heads/master/design/43651-type-parameters.md">Type Parameters Proposal</a></li>
+<li><a href="https://go.dev/doc/tutorial/generics">Go 泛型教程 — go.dev</a></li>
+<li><a href="https://pkg.go.dev/golang.org/x/exp/constraints">golang.org/x/exp/constraints</a></li>
+
+<hr>
+
+<blockquote><p>💡 <strong>一句话总结</strong>：泛型让 Go 终于能优雅地写通用代码了——但别忘了，简单的 <code>interface{}</code> 有时仍然是最简单的方案。</p></blockquote>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

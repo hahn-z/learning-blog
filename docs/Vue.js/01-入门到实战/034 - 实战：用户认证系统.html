@@ -1,0 +1,617 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>034 - 实战：用户认证系统</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Vue.js/index.html">Vue.js</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Vue.js/01-入门到实战/index.html">Vue.js入门到实战</a>
+</nav>
+<h1>034 - 实战：用户认证系统</h1>
+<div class="meta">
+<span>📂 Vue.js入门到实战</span>
+<span>🏷️ Vue.js</span>
+</div>
+<article>
+
+
+
+<h2>难度标注</h2>
+<blockquote><p><strong>难度：🔴 高级</strong> | <strong>前置知识：Vue Router、Pinia、Axios、JWT 基础</strong> | <strong>预计学习时间：70 分钟</strong></p></blockquote>
+
+<h2>概念讲解</h2>
+
+<h3>前端认证架构</h3>
+
+<p>用户认证是 Web 应用的核心安全模块。前端需要处理：</p>
+
+<ol>
+<li><strong>登录/注册流程</strong>：表单提交、验证、错误处理</li>
+</ul>
+<ol>
+<li><strong>Token 管理</strong>：存储、自动注入、刷新、过期处理</li>
+</ul>
+<ol>
+<li><strong>路由守卫</strong>：未登录跳转、权限验证</li>
+</ul>
+<ol>
+<li><strong>权限控制</strong>：角色/权限级别的 UI 控制</li>
+
+<h3>JWT 认证流程</h3>
+
+<pre><code>登录 → POST /auth/login (email+password)
+     ← { accessToken, refreshToken }
+     → 存储 Token (localStorage/cookie)
+     → 后续请求 Authorization: Bearer &lt;token&gt;
+     → Token 过期 → POST /auth/refresh → 新 Token</code></pre>
+
+<h3>Token 存储对比</h3>
+
+<table><thead><tr>
+<th>方案</th>
+<th>安全性</th>
+<th>持久性</th>
+<th>XSS 风险</th>
+<th>适用场景</th>
+</tr></thead><tbody>
+<tr>
+<td>localStorage</td>
+<td>中</td>
+<td>浏览器关闭保留</td>
+<td>有</td>
+<td>SPA 普通项目</td>
+</tr>
+<tr>
+<td>sessionStorage</td>
+<td>中</td>
+<td>标签页关闭清除</td>
+<td>有</td>
+<td>敏感操作</td>
+</tr>
+<tr>
+<td>Cookie (HttpOnly)</td>
+<td>高</td>
+<td>可设过期时间</td>
+<td>无</td>
+<td>安全优先</td>
+</tr>
+<tr>
+<td>Pinia (内存)</td>
+<td>高</td>
+<td>刷新丢失</td>
+<td>无</td>
+<td>需配合持久化</td>
+</tr>
+</tbody></table>
+
+<h2>脑图</h2>
+
+<pre><code>用户认证系统
+├── 登录/注册
+│   ├── 表单验证
+│   ├── API 调用
+│   ├── 错误处理
+│   └── 第三方登录 (OAuth)
+├── Token 管理
+│   ├── 存储 (localStorage)
+│   ├── 自动注入 (拦截器)
+│   ├── 刷新机制
+│   └── 过期处理
+├── 路由守卫
+│   ├── beforeEach 全局守卫
+│   ├── 白名单路由
+│   ├── 权限元信息
+│   └── 登录后回跳
+├── 权限控制
+│   ├── 角色判断
+│   ├── v-permission 指令
+│   └── 按钮级权限
+└── 安全考虑
+    ├── CSRF 防护
+    ├── XSS 防护
+    └── 密码强度</code></pre>
+
+<h2>完整代码</h2>
+
+<h3>Auth Store</h3>
+
+<pre><code class="language-ts">// src/stores/auth.ts
+import { defineStore } from &#x27;pinia&#x27;
+import { ref, computed } from &#x27;vue&#x27;
+import { authApi, type User, type LoginParams, type RegisterParams } from &#x27;@/api/auth&#x27;
+import router from &#x27;@/router&#x27;
+
+export const useAuthStore = defineStore(&#x27;auth&#x27;, () =&gt; {
+  const user = ref&lt;User | null&gt;(null)
+  const token = ref&lt;string&gt;(localStorage.getItem(&#x27;token&#x27;) || &#x27;&#x27;)
+  const refreshToken = ref&lt;string&gt;(localStorage.getItem(&#x27;refreshToken&#x27;) || &#x27;&#x27;)
+
+  // Computed auth state
+  const isAuthenticated = computed(() =&gt; !!token.value)
+  const userRole = computed(() =&gt; user.value?.role || &#x27;guest&#x27;)
+
+  // Login action
+  async function login(params: LoginParams) {
+    const res = await authApi.login(params)
+    token.value = res.accessToken
+    refreshToken.value = res.refreshToken
+    user.value = res.user
+    localStorage.setItem(&#x27;token&#x27;, res.accessToken)
+    localStorage.setItem(&#x27;refreshToken&#x27;, res.refreshToken)
+  }
+
+  // Register action
+  async function register(params: RegisterParams) {
+    const res = await authApi.register(params)
+    token.value = res.accessToken
+    refreshToken.value = res.refreshToken
+    user.value = res.user
+    localStorage.setItem(&#x27;token&#x27;, res.accessToken)
+    localStorage.setItem(&#x27;refreshToken&#x27;, res.refreshToken)
+  }
+
+  // Get current user profile
+  async function fetchUser() {
+    if (!token.value) return
+    try {
+      user.value = await authApi.getProfile()
+    } catch {
+      logout()
+    }
+  }
+
+  // Refresh expired token
+  async function refreshAccessToken() {
+    const res = await authApi.refresh(refreshToken.value)
+    token.value = res.accessToken
+    localStorage.setItem(&#x27;token&#x27;, res.accessToken)
+    return res.accessToken
+  }
+
+  // Logout: clear all auth state
+  function logout() {
+    user.value = null
+    token.value = &#x27;&#x27;
+    refreshToken.value = &#x27;&#x27;
+    localStorage.removeItem(&#x27;token&#x27;)
+    localStorage.removeItem(&#x27;refreshToken&#x27;)
+    router.push(&#x27;/login&#x27;)
+  }
+
+  return {
+    user, token, isAuthenticated, userRole,
+    login, register, fetchUser, refreshAccessToken, logout
+  }
+})</code></pre>
+
+<h3>Axios 拦截器（Token 自动注入 + 刷新）</h3>
+
+<pre><code class="language-ts">// src/utils/http.ts (auth-related part)
+import axios from &#x27;axios&#x27;
+import { useAuthStore } from &#x27;@/stores/auth&#x27;
+
+let isRefreshing = false
+let pendingRequests: ((token: string) =&gt; void)[] = []
+
+http.interceptors.response.use(
+  (response) =&gt; response,
+  async (error) =&gt; {
+    const originalRequest = error.config
+
+    // If 401 and not already retrying
+    if (error.response?.status === 401 &amp;&amp; !originalRequest._retry) {
+      const auth = useAuthStore()
+
+      if (isRefreshing) {
+        // Queue pending requests while refreshing
+        return new Promise((resolve) =&gt; {
+          pendingRequests.push((newToken: string) =&gt; {
+            originalRequest.headers.Authorization = `Bearer ${newToken}`
+            resolve(http(originalRequest))
+          })
+        })
+      }
+
+      originalRequest._retry = true
+      isRefreshing = true
+
+      try {
+        const newToken = await auth.refreshAccessToken()
+        // Replay all pending requests
+        pendingRequests.forEach(cb =&gt; cb(newToken))
+        pendingRequests = []
+        originalRequest.headers.Authorization = `Bearer ${newToken}`
+        return http(originalRequest)
+      } catch {
+        auth.logout()
+        return Promise.reject(error)
+      } finally {
+        isRefreshing = false
+      }
+    }
+
+    return Promise.reject(error)
+  }
+)</code></pre>
+
+<h3>路由守卫</h3>
+
+<pre><code class="language-ts">// src/router/guards.ts
+import type { Router } from &#x27;vue-router&#x27;
+import { useAuthStore } from &#x27;@/stores/auth&#x27;
+
+// Routes that don&#x27;t require authentication
+const WHITE_LIST = [&#x27;/login&#x27;, &#x27;/register&#x27;, &#x27;/forgot-password&#x27;, &#x27;/&#x27;]
+
+export function setupRouterGuards(router: Router) {
+  router.beforeEach(async (to, from, next) =&gt; {
+    const auth = useAuthStore()
+
+    // White list routes: always allow
+    if (WHITE_LIST.includes(to.path)) {
+      // If already logged in, redirect to dashboard
+      if (auth.isAuthenticated &amp;&amp; to.path === &#x27;/login&#x27;) {
+        next(&#x27;/dashboard&#x27;)
+        return
+      }
+      next()
+      return
+    }
+
+    // Not authenticated: redirect to login
+    if (!auth.isAuthenticated) {
+      next({ path: &#x27;/login&#x27;, query: { redirect: to.fullPath } })
+      return
+    }
+
+    // Fetch user profile if not loaded
+    if (!auth.user) {
+      try {
+        await auth.fetchUser()
+      } catch {
+        next(&#x27;/login&#x27;)
+        return
+      }
+    }
+
+    // Check role-based permissions
+    const requiredRole = to.meta.role as string | undefined
+    if (requiredRole &amp;&amp; auth.userRole !== requiredRole) {
+      next(&#x27;/403&#x27;) // Forbidden
+      return
+    }
+
+    next()
+  })
+}</code></pre>
+
+<h3>登录页面</h3>
+
+<pre><code class="language-vue">&lt;!-- src/views/Login.vue --&gt;
+&lt;template&gt;
+  &lt;div class=&quot;login-page&quot;&gt;
+    &lt;el-card class=&quot;login-card&quot;&gt;
+      &lt;h2&gt;Sign In&lt;/h2&gt;
+      &lt;el-form ref=&quot;formRef&quot; :model=&quot;form&quot; :rules=&quot;rules&quot; @submit.prevent=&quot;handleLogin&quot;&gt;
+        &lt;el-form-item prop=&quot;email&quot;&gt;
+          &lt;el-input v-model=&quot;form.email&quot; placeholder=&quot;Email&quot; prefix-icon=&quot;Message&quot; /&gt;
+        &lt;/el-form-item&gt;
+        &lt;el-form-item prop=&quot;password&quot;&gt;
+          &lt;el-input v-model=&quot;form.password&quot; type=&quot;password&quot; placeholder=&quot;Password&quot;
+            prefix-icon=&quot;Lock&quot; show-password /&gt;
+        &lt;/el-form-item&gt;
+        &lt;el-form-item&gt;
+          &lt;el-button type=&quot;primary&quot; native-type=&quot;submit&quot; :loading=&quot;loading&quot; style=&quot;width: 100%&quot;&gt;
+            Sign In
+          &lt;/el-button&gt;
+        &lt;/el-form-item&gt;
+      &lt;/el-form&gt;
+      &lt;p class=&quot;hint&quot;&gt;
+        Don&#x27;t have an account?
+        &lt;router-link to=&quot;/register&quot;&gt;Register&lt;/router-link&gt;
+      &lt;/p&gt;
+    &lt;/el-card&gt;
+  &lt;/div&gt;
+&lt;/template&gt;
+
+&lt;script setup lang=&quot;ts&quot;&gt;
+import { ref, reactive } from &#x27;vue&#x27;
+import { useRouter, useRoute } from &#x27;vue-router&#x27;
+import { useAuthStore } from &#x27;@/stores/auth&#x27;
+import type { FormInstance } from &#x27;element-plus&#x27;
+
+const router = useRouter()
+const route = useRoute()
+const auth = useAuthStore()
+const formRef = ref&lt;FormInstance&gt;()
+const loading = ref(false)
+
+const form = reactive({ email: &#x27;&#x27;, password: &#x27;&#x27; })
+const rules = {
+  email: [
+    { required: true, message: &#x27;Please enter email&#x27;, trigger: &#x27;blur&#x27; },
+    { type: &#x27;email&#x27;, message: &#x27;Invalid email format&#x27;, trigger: &#x27;blur&#x27; }
+  ],
+  password: [
+    { required: true, message: &#x27;Please enter password&#x27;, trigger: &#x27;blur&#x27; },
+    { min: 6, message: &#x27;Password must be at least 6 characters&#x27;, trigger: &#x27;blur&#x27; }
+  ]
+}
+
+async function handleLogin() {
+  await formRef.value?.validate()
+  loading.value = true
+  try {
+    await auth.login(form)
+    // Redirect to original page or dashboard
+    const redirect = (route.query.redirect as string) || &#x27;/dashboard&#x27;
+    router.push(redirect)
+  } catch (err: any) {
+    // Error handled by interceptor
+  } finally {
+    loading.value = false
+  }
+}
+&lt;/script&gt;
+
+&lt;style scoped&gt;
+.login-page {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  background: #f5f7fa;
+}
+.login-card { width: 400px; }
+&lt;/style&gt;</code></pre>
+
+<h3>权限指令</h3>
+
+<pre><code class="language-ts">// src/directives/permission.ts
+import type { Directive } from &#x27;vue&#x27;
+import { useAuthStore } from &#x27;@/stores/auth&#x27;
+
+// v-permission=&quot;&#x27;admin&#x27;&quot; — only show for admin users
+export const vPermission: Directive&lt;HTMLElement, string&gt; = {
+  mounted(el, binding) {
+    const auth = useAuthStore()
+    const requiredRole = binding.value
+    if (auth.userRole !== requiredRole) {
+      el.parentNode?.removeChild(el)
+    }
+  }
+}
+
+// Usage in template:
+// &lt;button v-permission=&quot;&#x27;admin&#x27;&quot;&gt;Admin Only Button&lt;/button&gt;</code></pre>
+
+<h2>执行预览</h2>
+
+<pre><code>访问 /dashboard → 未登录 → 跳转 /login?redirect=/dashboard
+输入 email + password → POST /auth/login → 200 { accessToken, refreshToken }
+→ 存储 Token → 跳转 /dashboard
+
+Token 过期后请求 → 401 → 自动 refresh → 重发原请求 → 200
+→ 用户无感知
+
+退出登录 → 清除 Token → 跳转 /login</code></pre>
+
+<h2>注意事项</h2>
+
+<table><thead><tr>
+<th>事项</th>
+<th>说明</th>
+<th>建议</th>
+</tr></thead><tbody>
+<tr>
+<td>密码安全</td>
+<td>前端不明文存储密码</td>
+<td>后端 bcrypt 加密</td>
+</tr>
+<tr>
+<td>Token 刷新</td>
+<td>并发请求时只刷新一次</td>
+<td>队列机制处理</td>
+</tr>
+<tr>
+<td>路由回跳</td>
+<td>登录后跳回原页面</td>
+<td>redirect query 参数</td>
+</tr>
+<tr>
+<td>首次加载</td>
+<td>刷新页面后需获取用户信息</td>
+<td>路由守卫中 fetchUser</td>
+</tr>
+<tr>
+<td>记住登录</td>
+<td>localStorage vs sessionStorage</td>
+<td>根据安全需求选择</td>
+</tr>
+<tr>
+<td>XSS 防护</td>
+<td>Token 可被窃取</td>
+<td>HttpOnly Cookie 更安全</td>
+</tr>
+</tbody></table>
+
+<h2>避坑指南</h2>
+
+<ul>
+<li>❌ Token 放在 sessionStorage → 刷新丢失 → ✅ localStorage + 过期时间检查</li>
+<li>❌ 并发请求都触发 refresh → ✅ 锁机制 + 队列，只刷新一次</li>
+<li>❌ 路由守卫只检查 Token 存在 → ✅ 还需验证 Token 有效性（fetchUser）</li>
+<li>❌ 登录后直接 <code>router.push('/dashboard')</code> → ✅ 读取 redirect 参数回跳</li>
+<li>❌ 权限检查只在前端 → ✅ 后端必须同步做权限验证</li>
+<li>❌ logout 不清 localStorage → ✅ 清除所有 Token 和用户数据</li>
+
+<h2>练习题</h2>
+
+<h3>🟢 基础</h3>
+<ol>
+<li>实现登录页面，提交表单并存储 Token</li>
+</ul>
+<ol>
+<li>实现路由守卫，未登录用户跳转到登录页</li>
+
+<h3>🟡 进阶</h3>
+<ol>
+<li>实现 Token 自动刷新，处理并发请求</li>
+</ul>
+<ol>
+<li>实现权限指令 <code>v-permission</code>，控制按钮显示</li>
+
+<h3>🔴 挑战</h3>
+<ol>
+<li>实现第三方 OAuth 登录（GitHub/Google）</li>
+</ul>
+<ol>
+<li>实现 RBAC 权限系统：角色 → 权限 → 菜单/按钮</li>
+
+<h2>知识点总结</h2>
+
+<pre><code>认证系统知识树
+├── Token 管理
+│   ├── 存储 (localStorage)
+│   ├── 注入 (Axios 拦截器)
+│   ├── 刷新 (refresh 机制)
+│   └── 清除 (logout)
+├── 路由守卫
+│   ├── 白名单
+│   ├── 登录检测
+│   ├── 权限验证 (meta.role)
+│   └── 回跳 (redirect)
+├── 权限控制
+│   ├── 角色判断 (userRole)
+│   ├── v-permission 指令
+│   └── 菜单动态渲染
+└── 安全
+    ├── HTTPS
+    ├── HttpOnly Cookie
+    └── CSRF Token</code></pre>
+
+<h2>举一反三</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>方案</th>
+<th>关键点</th>
+</tr></thead><tbody>
+<tr>
+<td>普通登录</td>
+<td>email + password</td>
+<td>Token 存储 + 路由守卫</td>
+</tr>
+<tr>
+<td>Token 过期</td>
+<td>自动 refresh</td>
+<td>队列 + 锁</td>
+</tr>
+<tr>
+<td>角色权限</td>
+<td>meta.role + v-permission</td>
+<td>路由级 + 按钮级</td>
+</tr>
+<tr>
+<td>多标签同步</td>
+<td>storage event 监听</td>
+<td>一处登出全部登出</td>
+</tr>
+<tr>
+<td>记住登录</td>
+<td>localStorage</td>
+<td>自动填充 + Token 持久化</td>
+</tr>
+<tr>
+<td>社交登录</td>
+<td>OAuth 重定向</td>
+<td>code 换 Token</td>
+</tr>
+</tbody></table>
+
+<h2>参考资料</h2>
+
+<ul>
+<li><a href="https://jwt.io/">JWT.io</a></li>
+<li><a href="https://router.vuejs.org/guide/advanced/navigation-guards.html">Vue Router 导航守卫</a></li>
+<li><a href="https://cheatsheetseries.owasp.org/">OWASP 认证最佳实践</a></li>
+
+<h2>代码演进</h2>
+
+<h3>v1 — 基础登录</h3>
+<pre><code class="language-ts">// Simple login + localStorage
+async function login(email: string, password: string) {
+  const { data } = await axios.post(&#x27;/auth/login&#x27;, { email, password })
+  localStorage.setItem(&#x27;token&#x27;, data.token)
+}</code></pre>
+
+<h3>v2 — Pinia Store + 路由守卫</h3>
+<pre><code class="language-ts">// Centralized auth state
+const auth = useAuthStore()
+await auth.login({ email, password })
+router.push(&#x27;/dashboard&#x27;)</code></pre>
+
+<h3>v3 — 完整认证系统</h3>
+<pre><code class="language-ts">// Auto-refresh + queue + role-based guard + v-permission
+// Axios interceptor handles 401 → refresh → retry
+// Router guard checks meta.role
+// v-permission directive hides unauthorized UI</code></pre>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

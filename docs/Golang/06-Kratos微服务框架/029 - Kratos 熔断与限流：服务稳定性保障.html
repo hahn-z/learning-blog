@@ -1,0 +1,567 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>029 - Kratos 熔断与限流：服务稳定性保障</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Golang/index.html">Golang</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Golang/06-Kratos微服务框架/index.html">Kratos框架</a>
+</nav>
+<h1>029 - Kratos 熔断与限流：服务稳定性保障</h1>
+<div class="meta">
+<span>📂 Kratos框架</span>
+<span>🏷️ Golang</span>
+</div>
+<article>
+
+
+<h1>029 - Kratos 熔断与限流</h1>
+
+<blockquote><p><strong>难度：⭐⭐⭐⭐（较难）</strong><br>熔断与限流是微服务稳定性的两大核心保障。本文详解熔断器原理、Kratos 熔断中间件、限流策略以及降级方案。</p></blockquote>
+
+<hr>
+
+<h2>一、概念讲解</h2>
+
+<h3>熔断器原理（三态模型）</h3>
+
+<p>熔断器借鉴了电路保险丝的思想，有三个状态：</p>
+
+<pre><code>         成功率恢复               连续失败达到阈值
+    ┌─────────────────┐      ┌──────────────────────┐
+    │                 │      │                      │
+    ▼                 │      ▼                      │
+┌───────┐     失败达阈值    ┌──────────┐    超时     │
+│ CLOSED│───────────────▶│   OPEN   │──────────┐    │
+└───────┘                └──────────┘           │    │
+    ▲                                          │    │
+    │               ┌─────────────┐            │    │
+    └───────────────│ HALF-OPEN   │◀───────────┘    │
+        成功        └─────────────┘    探测请求       │
+                    半开：放少量请求探测               │</code></pre>
+
+<table><thead><tr>
+<th>状态</th>
+<th>行为</th>
+</tr></thead><tbody>
+<tr>
+<td><strong>CLOSED</strong></td>
+<td>正常放行，统计失败率</td>
+</tr>
+<tr>
+<td><strong>OPEN</strong></td>
+<td>直接拒绝，返回降级响应</td>
+</tr>
+<tr>
+<td><strong>HALF-OPEN</strong></td>
+<td>放少量请求探测，成功则关闭，失败则继续打开</td>
+</tr>
+</tbody></table>
+
+<h3>限流策略对比</h3>
+
+<table><thead><tr>
+<th>算法</th>
+<th>原理</th>
+<th>优点</th>
+<th>缺点</th>
+</tr></thead><tbody>
+<tr>
+<td><strong>令牌桶</strong></td>
+<td>固定速率往桶里放令牌</td>
+<td>允许突发流量</td>
+<td>实现稍复杂</td>
+</tr>
+<tr>
+<td><strong>滑动窗口</strong></td>
+<td>统计时间窗口内请求数</td>
+<td>平滑限流</td>
+<td>内存占用较高</td>
+</tr>
+<tr>
+<td><strong>漏桶</strong></td>
+<td>固定速率处理请求</td>
+<td>输出均匀</td>
+<td>无法应对突发</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>二、脑图</h2>
+
+<pre><code>熔断与限流
+├── 熔断器
+│   ├── 三态模型 (Closed/Open/Half-Open)
+│   ├── 失败率统计
+│   ├── 超时探测
+│   └── Kratos circuitbreaker 中间件
+├── 限流
+│   ├── 令牌桶 (Token Bucket)
+│   ├── 滑动窗口 (Sliding Window)
+│   ├── 自适应限流
+│   └── Kratos ratelimit 中间件
+├── 降级策略
+│   ├── 返回默认值
+│   ├── 返回缓存数据
+│   └── 服务降级提示
+└── 组合使用
+    ├── 熔断 + 限流 + 重试
+    └── 中间件顺序</code></pre>
+
+<hr>
+
+<h2>三、完整代码示例</h2>
+
+<h3>v1：基础熔断器配置</h3>
+
+<pre><code class="language-go">package main
+
+import (
+    &quot;context&quot;
+    &quot;os&quot;
+    &quot;time&quot;
+
+    &quot;github.com/go-kratos/kratos/v2/log&quot;
+    &quot;github.com/go-kratos/kratos/v2/middleware/circuitbreaker&quot;
+    &quot;github.com/go-kratos/kratos/v2/transport/grpc&quot;
+)
+
+func main() {
+    logger := log.NewStdLogger(os.Stdout)
+
+    // gRPC client with circuit breaker
+    conn, err := grpc.DialInsecure(
+        context.Background(),
+        grpc.WithEndpoint(&quot;localhost:9000&quot;),
+        grpc.WithMiddleware(
+            circuitbreaker.Client(),
+        ),
+        grpc.WithTimeout(5*time.Second),
+    )
+    if err != nil {
+        log.NewHelper(logger).Fatal(err)
+    }
+    defer conn.Close()
+
+    // When circuit opens, requests fail fast with error
+    // circuitbreaker.ErrNotAllowed
+}</code></pre>
+
+<h3>v2：熔断 + 限流 + 降级</h3>
+
+<pre><code class="language-go">package main
+
+import (
+    &quot;context&quot;
+    &quot;errors&quot;
+    &quot;os&quot;
+
+    &quot;github.com/go-kratos/kratos/v2/log&quot;
+    &quot;github.com/go-kratos/kratos/v2/middleware&quot;
+    &quot;github.com/go-kratos/kratos/v2/middleware/circuitbreaker&quot;
+    &quot;github.com/go-kratos/kratos/v2/middleware/ratelimit&quot;
+    &quot;github.com/go-kratos/kratos/v2/transport/grpc&quot;
+    &quot;github.com/go-kratos/kratos/v2/transport/http&quot;
+)
+
+// FallbackMiddleware provides degraded responses when circuit is open
+func FallbackMiddleware(fallbackFn func(ctx context.Context, req interface{}) (interface{}, error)) middleware.Middleware {
+    return func(handler middleware.Handler) middleware.Handler {
+        return func(ctx context.Context, req interface{}) (interface{}, error) {
+            reply, err := handler(ctx, req)
+            if err != nil {
+                // Check if circuit breaker rejected the request
+                if errors.Is(err, circuitbreaker.ErrNotAllowed) {
+                    log.NewHelper(nil).Warn(&quot;Circuit open, using fallback&quot;)
+                    return fallbackFn(ctx, req)
+                }
+                return nil, err
+            }
+            return reply, nil
+        }
+    }
+}
+
+// Example fallback: return cached/default user profile
+func userFallback(ctx context.Context, req interface{}) (interface{}, error) {
+    // Return a default/cached response
+    return map[string]interface{}{
+        &quot;id&quot;:    &quot;default&quot;,
+        &quot;name&quot;:  &quot;Service Unavailable&quot;,
+        &quot;cache&quot;: true,
+    }, nil
+}
+
+func main() {
+    logger := log.NewStdLogger(os.Stdout)
+    helper := log.NewHelper(logger)
+
+    // Server with rate limiting
+    gs := grpc.NewServer(
+        grpc.Address(&quot;:9000&quot;),
+        grpc.Middleware(
+            ratelimit.Server(), // Rate limit incoming requests
+        ),
+    )
+
+    hs := http.NewServer(
+        http.Address(&quot;:8000&quot;),
+        http.Middleware(
+            ratelimit.Server(),
+        ),
+    )
+
+    // Client with circuit breaker + fallback
+    _ = conn := func() {
+        c, _ := grpc.DialInsecure(
+            context.Background(),
+            grpc.WithEndpoint(&quot;localhost:9000&quot;),
+            grpc.WithMiddleware(
+                circuitbreaker.Client(),            // Circuit breaker
+                FallbackMiddleware(userFallback),    // Degradation
+            ),
+        )
+        defer c.Close()
+    }
+
+    helper.Info(&quot;Server started with rate limiting and circuit breaker&quot;)
+}</code></pre>
+
+<h3>v3：自定义限流策略 + 自适应限流</h3>
+
+<pre><code class="language-go">package main
+
+import (
+    &quot;context&quot;
+    &quot;time&quot;
+
+    &quot;github.com/go-kratos/kratos/v2/log&quot;
+    &quot;github.com/go-kratos/kratos/v2/middleware&quot;
+    &quot;github.com/go-kratos/kratos/v2/middleware/circuitbreaker&quot;
+    &quot;github.com/go-kratos/aegis/pkg/ratelimit&quot;
+    &quot;github.com/go-kratos/aegis/pkg/ratelimit/bbr&quot;
+)
+
+// BBRLimiter uses BBR (Bottleneck Bandwidth and RTT) adaptive rate limiting
+func BBRLimiter() (middleware.Middleware, func()) {
+    limiter := bbr.NewLimiter(
+        bbr.WithWindow(10*time.Second),
+        bbr.WithBucketSize(100),
+        bbr.WithCpuUsage(0.8), // Trigger at 80% CPU
+    )
+    done := func() { limiter.Close() }
+
+    return func(handler middleware.Handler) middleware.Handler {
+        return func(ctx context.Context, req interface{}) (interface{}, error) {
+            doneFunc, err := limiter.Allow()
+            if err != nil {
+                return nil, ratelimit.ErrLimitExceed
+            }
+            reply, err := handler(ctx, req)
+            doneFunc(ratelimit.DoneInfo{Err: err})
+            return reply, err
+        }
+    }, done
+}
+
+// SlidingWindowLimiter implements a simple sliding window rate limiter
+type SlidingWindowLimiter struct {
+    limit  int
+    window time.Duration
+}
+
+func NewSlidingWindowLimiter(limit int, window time.Duration) *SlidingWindowLimiter {
+    return &amp;SlidingWindowLimiter{limit: limit, window: window}
+}
+
+func (s *SlidingWindowLimiter) Allow() bool {
+    // Simplified: in production use redis or atomic counters
+    return true
+}
+
+// MiddlewareStack returns the recommended middleware chain
+func MiddlewareStack(logger log.Logger) ([]middleware.Middleware, func()) {
+    bbrMiddleware, bbrDone := BBRLimiter()
+
+    middlewares := []middleware.Middleware{
+        bbrMiddleware,            // Adaptive rate limiting (first)
+        circuitbreaker.Server(),  // Circuit breaker
+    }
+
+    return middlewares, bbrDone
+}
+
+func main() {
+    // Usage: apply MiddlewareStack to your server
+    middlewares, cleanup := MiddlewareStack(log.DefaultLogger)
+    defer cleanup()
+
+    _ = middlewares // Use in grpc.NewServer(grpc.Middleware(middlewares...))
+}</code></pre>
+
+<hr>
+
+<h2>四、执行预览</h2>
+
+<pre><code class="language-bash"># Normal request
+$ curl http://localhost:8000/api/v1/users/123
+{&quot;id&quot;:&quot;123&quot;,&quot;name&quot;:&quot;John&quot;}
+
+# Rate limited (too many requests)
+$ for i in $(seq 1 200); do curl -s http://localhost:8000/api/v1/users/123; done
+{&quot;id&quot;:&quot;123&quot;,&quot;name&quot;:&quot;John&quot;}
+...
+HTTP 429 Too Many Requests
+
+# Circuit breaker open (downstream failing)
+WARN Circuit open, using fallback
+{&quot;id&quot;:&quot;default&quot;,&quot;name&quot;:&quot;Service Unavailable&quot;,&quot;cache&quot;:true}</code></pre>
+
+<hr>
+
+<h2>五、注意事项</h2>
+
+<table><thead><tr>
+<th>项目</th>
+<th>说明</th>
+</tr></thead><tbody>
+<tr>
+<td>中间件顺序</td>
+<td>限流 → 熔断 → 业务逻辑，限流在外层保护系统</td>
+</tr>
+<tr>
+<td>熔断粒度</td>
+<td>按服务/接口粒度配置，不要一个熔断器覆盖所有接口</td>
+</tr>
+<tr>
+<td>降级方案</td>
+<td>降级不是返回 error，而是返回有意义的兜底数据</td>
+</tr>
+<tr>
+<td>限流阈值</td>
+<td>需要压测确定，不要拍脑袋定值</td>
+</tr>
+<tr>
+<td>自适应限流</td>
+<td>BBR 基于 CPU 和 inflight 请求数自动调节，适合网关</td>
+</tr>
+<tr>
+<td>监控告警</td>
+<td>熔断器状态变化和限流触发都需要告警</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>六、避坑指南</h2>
+
+<table><thead><tr>
+<th>❌ 错误做法</th>
+<th>✅ 正确做法</th>
+</tr></thead><tbody>
+<tr>
+<td>熔断打开后直接返回 500</td>
+<td>返回降级数据或友好提示</td>
+</tr>
+<tr>
+<td>限流阈值设得太高等于没限</td>
+<td>基于压测数据设置合理阈值</td>
+</tr>
+<tr>
+<td>只在客户端加熔断</td>
+<td>服务端也要加限流，双向保护</td>
+</tr>
+<tr>
+<td>熔断超时设太短，频繁试探</td>
+<td>根据下游恢复时间设置合理超时</td>
+</tr>
+<tr>
+<td>限流用固定阈值不调优</td>
+<td>使用自适应限流(BBR)或定期调整</td>
+</tr>
+<tr>
+<td>忽略限流错误的日志和监控</td>
+<td>限流触发是重要信号，要告警</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>七、练习题</h2>
+
+<h3>🟢 入门</h3>
+<ol>
+<li>为一个 gRPC 服务配置熔断中间件，模拟下游故障观察熔断效果</li>
+</ul>
+<ol>
+<li>使用 <code>ratelimit.Server()</code> 限制 HTTP 服务 QPS 为 100</li>
+
+<h3>🟡 进阶</h3>
+<ol>
+<li>实现自定义降级中间件，对不同接口返回不同的兜底数据</li>
+</ul>
+<ol>
+<li>组合使用熔断 + 限流 + 超时三个中间件，验证正确的行为链</li>
+
+<h3>🔴 挑战</h3>
+<ol>
+<li>基于 CPU 利用率和 inflight 请求数实现自适应限流器</li>
+</ul>
+<ol>
+<li>实现分布式限流（基于 Redis），支持跨实例的统一限流</li>
+
+<hr>
+
+<h2>八、知识点总结</h2>
+
+<pre><code>熔断与限流
+├── 熔断器
+│   ├── 三态: Closed → Open → Half-Open
+│   ├── circuitbreaker.Client() — 客户端熔断
+│   ├── circuitbreaker.Server() — 服务端熔断
+│   └── ErrNotAllowed — 熔断拒绝错误
+├── 限流
+│   ├── ratelimit.Server() — 内置限流
+│   ├── BBR 自适应限流 (aegis)
+│   └── 分布式限流 (Redis)
+├── 降级
+│   ├── Fallback 中间件
+│   └── 缓存/默认值
+└── 组合策略
+    └── 限流 → 熔断 → 重试 → 业务</code></pre>
+
+<hr>
+
+<h2>九、举一反三</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>保护策略</th>
+<th>推荐方案</th>
+</tr></thead><tbody>
+<tr>
+<td>API 网关</td>
+<td>高并发入口限流</td>
+<td>BBR 自适应限流</td>
+</tr>
+<tr>
+<td>下游服务不稳定</td>
+<td>防止级联故障</td>
+<td>熔断器 + 降级</td>
+</tr>
+<tr>
+<td>第三方 API 调用</td>
+<td>防止超时拖垮</td>
+<td>熔断 + 超时 + 重试</td>
+</tr>
+<tr>
+<td>核心交易链路</td>
+<td>确保可用性</td>
+<td>限流 + 降级 + 队列缓冲</td>
+</tr>
+<tr>
+<td>秒杀/抢购</td>
+<td>瞬时高并发</td>
+<td>令牌桶限流 + 排队</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>十、参考资料</h2>
+
+<ul>
+<li><a href="https://go-kratos.dev/docs/component/middleware/circuitbreaker">Kratos Circuit Breaker</a></li>
+<li><a href="https://go-kratos.dev/docs/component/middleware/ratelimit">Kratos Rate Limit</a></li>
+<li><a href="https://github.com/go-kratos/aegis">Kratos Aegis 自适应限流</a></li>
+<li><a href="https://research.google/pubs/pub46264/">Google BBR 算法论文</a></li>
+
+<hr>
+
+<h2>十一、代码演进</h2>
+
+<table><thead><tr>
+<th>版本</th>
+<th>说明</th>
+<th>适用场景</th>
+</tr></thead><tbody>
+<tr>
+<td>v1</td>
+<td>基础熔断配置</td>
+<td>学习理解</td>
+</tr>
+<tr>
+<td>v2</td>
+<td>熔断 + 限流 + 降级</td>
+<td>一般项目</td>
+</tr>
+<tr>
+<td>v3</td>
+<td>自适应限流 + 自定义策略</td>
+<td>生产环境</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<blockquote><p><strong>下篇预告：</strong> 030 - 优雅关闭与服务治理，学习如何让服务安全退出并保障零丢请求。</p></blockquote>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

@@ -1,0 +1,615 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>023 - Python 类型注解与 mypy：让动态语言拥有静态类型安全</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Python/index.html">Python</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Python/01-入门/index.html">Python入门</a>
+</nav>
+<h1>023 - Python 类型注解与 mypy：让动态语言拥有静态类型安全</h1>
+<div class="meta">
+<span>📂 Python入门</span>
+<span>🏷️ Python</span>
+</div>
+<article>
+
+
+<h1>Python 类型注解与 mypy：让动态语言拥有静态类型安全</h1>
+
+<blockquote><p><strong>难度：</strong> 🟡 中级 | <strong>预计阅读：</strong> 25 分钟<br><strong>前置知识：</strong> Python 基础语法、函数定义、面向对象</p></blockquote>
+
+<hr>
+
+<h2>一、概念讲解：为什么需要类型注解？</h2>
+
+<p>Python 是动态类型语言——变量不需要声明类型，运行时才确定。这带来了灵活性，但也带来了隐患：</p>
+
+<pre><code class="language-python">def process(data):
+    return data.strip().upper()  # data 是 str？还是 int？没人知道...</code></pre>
+
+<p><strong>类型注解（Type Hints）</strong> 解决了这个问题：</p>
+
+<ol>
+<li><strong>代码自文档化</strong> —— 不用猜参数类型</li>
+</ul>
+<ol>
+<li><strong>IDE 智能提示</strong> —— 补全更精准</li>
+</ul>
+<ol>
+<li><strong>静态检查</strong> —— mypy 在运行前发现 bug</li>
+</ul>
+<ol>
+<li><strong>团队协作</strong> —— 接口契约更清晰</li>
+
+<blockquote><p>⚠️ 注意：类型注解是<strong>提示</strong>，不影响运行时行为。Python 仍然是动态类型语言。</p></blockquote>
+
+<h3>类型注解 vs 类型检查</h3>
+
+<table><thead><tr>
+<th>概念</th>
+<th>作用</th>
+<th>时机</th>
+</tr></thead><tbody>
+<tr>
+<td>Type Hints</td>
+<td>标注类型信息</td>
+<td>写代码时</td>
+</tr>
+<tr>
+<td>mypy</td>
+<td>静态检查类型错误</td>
+<td>运行前（CI/本地）</td>
+</tr>
+<tr>
+<td>isinstance()</td>
+<td>运行时类型判断</td>
+<td>程序运行时</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>二、脑图（ASCII）</h2>
+
+<pre><code>Type Hints
+├── 基础类型
+│   ├── int, float, str, bool
+│   ├── list[int], dict[str, int]
+│   ├── tuple[int, str, ...]
+│   └── set[str]
+├── 函数注解
+│   ├── 参数类型: def f(x: int) -&gt; str
+│   ├── 可选参数: Optional[int]
+│   └── 默认值: x: int = 0
+├── 高级类型
+│   ├── Union[int, str]
+│   ├── Optional[T] = Union[T, None]
+│   ├── Any
+│   ├── Callable[[int, str], bool]
+│   └── TypeVar / Generic
+├── mypy 工具
+│   ├── 安装: pip install mypy
+│   ├── 运行: mypy src/
+│   ├── 配置: mypy.ini / pyproject.toml
+│   └── 常见错误码
+└── 最佳实践
+    ├── 渐进式添加
+    ├── 从公共 API 开始
+    └── py.typed 标记</code></pre>
+
+<hr>
+
+<h2>三、完整代码示例</h2>
+
+<h3>v1：基础类型注解</h3>
+
+<pre><code class="language-python">&quot;&quot;&quot;
+v1: Basic type annotations
+Covering variables, functions, and collections
+&quot;&quot;&quot;
+from typing import Optional
+
+# Variable annotations (Python 3.6+)
+name: str = &quot;Alice&quot;
+age: int = 30
+scores: list[float] = [89.5, 92.0, 78.3]
+user_map: dict[str, int] = {&quot;alice&quot;: 1, &quot;bob&quot;: 2}
+
+def greet(name: str, formal: bool = False) -&gt; str:
+    &quot;&quot;&quot;Greet a person with optional formal mode.&quot;&quot;&quot;
+    if formal:
+        return f&quot;Good day, {name}.&quot;
+    return f&quot;Hi, {name}!&quot;
+
+def find_user(user_id: int) -&gt; Optional[str]:
+    &quot;&quot;&quot;Look up a user by ID. Returns None if not found.&quot;&quot;&quot;
+    database = {1: &quot;Alice&quot;, 2: &quot;Bob&quot;}
+    return database.get(user_id)
+
+def sum_numbers(numbers: list[float]) -&gt; float:
+    &quot;&quot;&quot;Calculate the sum of a list of numbers.&quot;&quot;&quot;
+    return sum(numbers)
+
+if __name__ == &quot;__main__&quot;:
+    print(greet(&quot;Alice&quot;))
+    print(greet(&quot;Bob&quot;, formal=True))
+    print(find_user(1))   # Alice
+    print(find_user(99))  # None
+    print(sum_numbers([1.5, 2.5, 3.0]))</code></pre>
+
+<h3>v2：高级类型 + mypy 配置</h3>
+
+<pre><code class="language-python">&quot;&quot;&quot;
+v2: Advanced types - Union, Callable, TypeVar, Generic
+Requires: pip install mypy
+&quot;&quot;&quot;
+from typing import Union, Callable, TypeVar, Generic, Sequence
+from dataclasses import dataclass
+
+# Union: multiple possible types
+def process_input(data: Union[str, int]) -&gt; str:
+    &quot;&quot;&quot;Process string or integer input.&quot;&quot;&quot;
+    if isinstance(data, int):
+        return f&quot;Number: {data}&quot;
+    return f&quot;String: {data}&quot;
+
+# Callable: function as parameter
+def apply_operation(
+    value: int,
+    operation: Callable[[int], int]
+) -&gt; int:
+    &quot;&quot;&quot;Apply a function to a value.&quot;&quot;&quot;
+    return operation(value)
+
+# TypeVar: generic type variable
+T = TypeVar(&quot;T&quot;)
+
+def first(items: Sequence[T]) -&gt; T:
+    &quot;&quot;&quot;Get the first element of a sequence.&quot;&quot;&quot;
+    return items[0]
+
+# Generic class
+@dataclass
+class Stack(Generic[T]):
+    &quot;&quot;&quot;A type-safe stack data structure.&quot;&quot;&quot;
+    _items: list[T]
+
+    def __init__(self) -&gt; None:
+        self._items = []
+
+    def push(self, item: T) -&gt; None:
+        self._items.append(item)
+
+    def pop(self) -&gt; T:
+        if not self._items:
+            raise IndexError(&quot;Stack is empty&quot;)
+        return self._items.pop()
+
+    def peek(self) -&gt; T:
+        if not self._items:
+            raise IndexError(&quot;Stack is empty&quot;)
+        return self._items[-1]
+
+    def __len__(self) -&gt; int:
+        return len(self._items)
+
+# Dataclass with type annotations
+@dataclass
+class User:
+    name: str
+    age: int
+    email: str
+    active: bool = True
+
+def create_user(name: str, age: int, email: str) -&gt; User:
+    &quot;&quot;&quot;Factory function for creating users.&quot;&quot;&quot;
+    return User(name=name, age=age, email=email)
+
+if __name__ == &quot;__main__&quot;:
+    # Stack usage
+    stack: Stack[str] = Stack()
+    stack.push(&quot;hello&quot;)
+    stack.push(&quot;world&quot;)
+    print(stack.pop())  # world
+
+    # Function as parameter
+    result = apply_operation(5, lambda x: x * 2)
+    print(f&quot;Doubled: {result}&quot;)
+
+    # User creation
+    user = create_user(&quot;Alice&quot;, 30, &quot;alice@example.com&quot;)
+    print(f&quot;User: {user.name}, active: {user.active}&quot;)</code></pre>
+
+<h3>v3：mypy 严格模式 + Protocol</h3>
+
+<pre><code class="language-python">&quot;&quot;&quot;
+v3: Strict typing with mypy
+Demonstrates production-grade type safety
+
+pyproject.toml config:
+[tool.mypy]
+python_version = &quot;3.12&quot;
+strict = true
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+&quot;&quot;&quot;
+from __future__ import annotations
+
+from typing import Protocol, runtime_checkable
+from dataclasses import dataclass, field
+
+# Protocol: structural typing (like Go interfaces)
+@runtime_checkable
+class Printable(Protocol):
+    def to_string(self) -&gt; str: ...
+
+@dataclass(frozen=True)
+class Product:
+    id: int
+    name: str
+    price: float
+    tags: list[str] = field(default_factory=list)
+
+    def to_string(self) -&gt; str:
+        return f&quot;{self.name} (${self.price:.2f})&quot;
+
+class ProductCatalog:
+    &quot;&quot;&quot;Type-safe product catalog with strict annotations.&quot;&quot;&quot;
+
+    def __init__(self) -&gt; None:
+        self._products: dict[int, Product] = {}
+
+    def add(self, product: Product) -&gt; None:
+        &quot;&quot;&quot;Add a product to the catalog.&quot;&quot;&quot;
+        if product.id in self._products:
+            raise ValueError(f&quot;Product {product.id} already exists&quot;)
+        self._products[product.id] = product
+
+    def find(self, product_id: int) -&gt; Product | None:
+        &quot;&quot;&quot;Find a product by ID.&quot;&quot;&quot;
+        return self._products.get(product_id)
+
+    def list_by_tag(self, tag: str) -&gt; list[Product]:
+        &quot;&quot;&quot;List all products with a given tag.&quot;&quot;&quot;
+        return [
+            p for p in self._products.values()
+            if tag in p.tags
+        ]
+
+    def total_value(self) -&gt; float:
+        &quot;&quot;&quot;Calculate total value of all products.&quot;&quot;&quot;
+        return sum(p.price for p in self._products.values())
+
+def print_item(item: Printable) -&gt; str:
+    &quot;&quot;&quot;Print any object that implements Printable protocol.&quot;&quot;&quot;
+    return item.to_string()
+
+if __name__ == &quot;__main__&quot;:
+    catalog = ProductCatalog()
+
+    catalog.add(Product(1, &quot;Python Book&quot;, 49.99, [&quot;book&quot;, &quot;programming&quot;]))
+    catalog.add(Product(2, &quot;Coffee Mug&quot;, 12.50, [&quot;drinkware&quot;, &quot;fun&quot;]))
+
+    found = catalog.find(1)
+    if found:
+        print(print_item(found))
+
+    books = catalog.list_by_tag(&quot;book&quot;)
+    print(f&quot;Books: {[b.name for b in books]}&quot;)
+    print(f&quot;Total value: ${catalog.total_value():.2f}&quot;)</code></pre>
+
+<hr>
+
+<h2>四、执行预览</h2>
+
+<h3>mypy 检查输出</h3>
+
+<pre><code class="language-bash">$ mypy v3_strict.py
+Success: no issues found in 1 source file
+
+$ mypy --strict bad_example.py
+bad_example.py:15: error: Argument 1 to &quot;greet&quot; has incompatible type &quot;int&quot;;
+                        expected &quot;str&quot;  [arg-type]
+bad_example.py:20: error: Missing return statement  [return]
+Found 2 errors in 1 file (checked 1 source file)</code></pre>
+
+<h3>v3 运行输出</h3>
+
+<pre><code>Python Book ($49.99)
+Books: [&#x27;Python Book&#x27;]
+Total value: $62.49</code></pre>
+
+<hr>
+
+<h2>五、注意事项</h2>
+
+<table><thead><tr>
+<th>事项</th>
+<th>说明</th>
+<th>建议</th>
+</tr></thead><tbody>
+<tr>
+<td>运行时不强制</td>
+<td>类型注解不影响运行</td>
+<td>用 mypy 做静态检查</td>
+</tr>
+<tr>
+<td>性能开销</td>
+<td>类型注解几乎无运行时开销</td>
+<td>可用 <code>from __future__ import annotations</code> 延迟求值</td>
+</tr>
+<tr>
+<td>复杂类型可读性</td>
+<td>嵌套类型注解难以阅读</td>
+<td>用 TypeAlias 简化</td>
+</tr>
+<tr>
+<td>第三方库无注解</td>
+<td>旧库没有类型信息</td>
+<td>安装 <code>types-*</code> stub 包</td>
+</tr>
+<tr>
+<td>mypy 误报</td>
+<td>有时报告不准确的错误</td>
+<td>用 <code># type: ignore</code> 注释（慎用）</td>
+</tr>
+<tr>
+<td>Python 版本</td>
+<td>新语法需要新版本</td>
+<td>3.10+ 支持 `X \</td>
+<td>Y<code>，3.9+ 支持 </code>list[int]`</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>六、避坑指南</h2>
+
+<h3>❌ 坑 1：混淆 type 和 isinstance</h3>
+
+<pre><code class="language-python"># ❌ type() doesn&#x27;t handle inheritance
+if type(obj) == Animal:  # Misses subclasses
+    ...
+
+# ✅ Use isinstance() for runtime checks
+if isinstance(obj, Animal):
+    ...</code></pre>
+
+<h3>❌ 坑 2：滥用 Any</h3>
+
+<pre><code class="language-python"># ❌ Any disables type checking entirely
+def process(data: Any) -&gt; Any:
+    return data
+
+# ✅ Use specific types or generics
+def process(data: str | int) -&gt; str:
+    ...</code></pre>
+
+<h3>❌ 坑 3：忘记 Optional</h3>
+
+<pre><code class="language-python"># ❌ mypy error: missing None possibility
+def find(id: int) -&gt; str:  # What if not found?
+    return database.get(id)  # Returns None!
+
+# ✅ Explicit Optional
+def find(id: int) -&gt; str | None:
+    return database.get(id)</code></pre>
+
+<hr>
+
+<h2>七、练习题</h2>
+
+<h3>🟢 入门：基础注解</h3>
+
+<p>为以下函数添加类型注解：</p>
+
+<pre><code class="language-python">def calculate_area(length, width):
+    return length * width
+
+def format_name(first, last, uppercase=False):
+    name = f&quot;{first} {last}&quot;
+    return name.upper() if uppercase else name</code></pre>
+
+<h3>🟡 进阶：泛型与 Protocol</h3>
+
+<ol>
+<li>实现一个类型安全的 <code>Repository[T]</code> 泛型类，支持 <code>get</code>、<code>save</code>、<code>delete</code> 方法</li>
+</ul>
+<ol>
+<li>定义一个 <code>Serializable</code> Protocol，要求实现 <code>to_dict()</code> 和 <code>from_dict()</code> 方法</li>
+
+<h3>🔴 挑战：mypy 严格模式</h3>
+
+<ol>
+<li>创建一个完整的项目结构（<code>src/</code>、<code>tests/</code>）</li>
+</ul>
+<ol>
+<li>配置 <code>pyproject.toml</code> 启用 <code>strict = true</code></li>
+</ul>
+<ol>
+<li>确保 <code>mypy src/</code> 零错误通过</li>
+</ul>
+<ol>
+<li>使用 <code>Protocol</code> 和 <code>TypeVar</code> 实现一个插件系统</li>
+
+<hr>
+
+<h2>八、知识点总结（树状）</h2>
+
+<pre><code>Type Hints &amp; mypy
+├── 基础类型注解
+│   ├── 变量: name: str = &quot;Alice&quot;
+│   ├── 函数: def f(x: int) -&gt; str
+│   └── 类属性: class C: x: int
+├── 容器类型 (3.9+)
+│   ├── list[int]
+│   ├── dict[str, int]
+│   ├── tuple[int, str]
+│   └── set[str]
+├── 高级类型
+│   ├── Union[A, B] / A | B (3.10+)
+│   ├── Optional[T] = T | None
+│   ├── Any
+│   ├── Callable[[Args], Return]
+│   ├── TypeVar(&quot;T&quot;)
+│   ├── Generic[T]
+│   └── Protocol (结构化类型)
+├── mypy 工具
+│   ├── 安装: pip install mypy
+│   ├── 运行: mypy src/
+│   ├── 严格模式: --strict
+│   └── 配置: pyproject.toml [tool.mypy]
+└── 最佳实践
+    ├── 渐进式添加（从公共 API 开始）
+    ├── CI 中集成 mypy
+    ├── 用 stub 包补充第三方库类型
+    └── 避免 Any，用泛型替代</code></pre>
+
+<hr>
+
+<h2>九、举一反三</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>推荐方案</th>
+<th>关键类型</th>
+</tr></thead><tbody>
+<tr>
+<td>函数参数</td>
+<td>基础注解 + 默认值</td>
+<td><code>str</code>, <code>int</code>, <code>bool</code></td>
+</tr>
+<tr>
+<td>API 响应</td>
+<td>dataclass + TypedDict</td>
+<td><code>@dataclass</code>, <code>TypedDict</code></td>
+</tr>
+<tr>
+<td>回调函数</td>
+<td>Callable</td>
+<td><code>Callable[[int], str]</code></td>
+</tr>
+<tr>
+<td>容器/集合</td>
+<td>泛型容器</td>
+<td><code>list[T]</code>, <code>dict[K, V]</code></td>
+</tr>
+<tr>
+<td>插件系统</td>
+<td>Protocol + TypeVar</td>
+<td>结构化类型</td>
+</tr>
+<tr>
+<td>配置管理</td>
+<td>TypedDict 或 Pydantic</td>
+<td><code>BaseModel</code></td>
+</tr>
+<tr>
+<td>事件处理</td>
+<td>Callable + Union</td>
+<td>回调类型签名</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>十、参考资料</h2>
+
+<ul>
+<li>📖 <a href="https://peps.python.org/pep-0484/">PEP 484 - Type Hints</a></li>
+<li>📖 <a href="https://peps.python.org/pep-0604/">PEP 604 - Union 语法 (X \| Y)</a></li>
+<li>📖 <a href="https://mypy.readthedocs.io/">mypy 官方文档</a></li>
+<li>📖 <a href="https://mypy.readthedocs.io/en/stable/cheat_sheet_py3.html">Type Hints Cheatsheet</a></li>
+<li>🔧 <a href="https://docs.pydantic.dev/">pydantic</a> - 运行时类型验证</li>
+<li>🔧 <a href="https://github.com/beartype/beartype">beartype</a> - 运行时类型检查</li>
+
+<hr>
+
+<h2>十一、代码演进总结</h2>
+
+<table><thead><tr>
+<th>版本</th>
+<th>特点</th>
+<th>适用场景</th>
+</tr></thead><tbody>
+<tr>
+<td>v1 基础注解</td>
+<td>变量、函数、Optional</td>
+<td>学习、小型脚本</td>
+</tr>
+<tr>
+<td>v2 高级类型</td>
+<td>Union、Generic、Protocol</td>
+<td>中型项目</td>
+</tr>
+<tr>
+<td>v3 严格模式</td>
+<td>mypy strict、Protocol、完整类型安全</td>
+<td>生产环境</td>
+</tr>
+</tbody></table>
+
+<p><strong>演进路径：</strong> <code>基础注解 → 高级类型 → mypy 严格模式 → CI 集成</code></p>
+
+<blockquote><p>💡 <strong>一句话总结：</strong> 类型注解不会改变 Python 的动态特性，但能让你的代码更安全、更易维护。渐进式采用，从公共 API 开始。</p></blockquote>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

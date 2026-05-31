@@ -1,0 +1,522 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>002 - 模块系统：CommonJS 与 ESM</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Node.js/index.html">Node.js</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Node.js/01-入门/index.html">Node.js入门</a>
+</nav>
+<h1>002 - 模块系统：CommonJS 与 ESM</h1>
+<div class="meta">
+<span>📂 Node.js入门</span>
+<span>🏷️ Node.js</span>
+</div>
+<article>
+
+
+<h1>模块系统：CommonJS 与 ESM</h1>
+
+<blockquote><p><strong>难度：</strong> ⭐⭐ 初级 | <strong>预计阅读：</strong> 18 分钟 | <strong>标签：</strong> Node.js, 模块, CommonJS, ES Modules</p></blockquote>
+
+<hr>
+
+<h2>一、概念讲解</h2>
+
+<h3>1.1 为什么需要模块化？</h3>
+
+<p>没有模块化的世界：</p>
+<ul>
+<li>所有代码在一个文件里 → 几千行无法维护</li>
+<li>变量全局污染 → 命名冲突频发</li>
+<li>代码无法复用 → 复制粘贴满天飞</li>
+
+<p>模块化解决的核心问题：<strong>封装、复用、依赖管理</strong>。</p>
+
+<h3>1.2 两大模块系统</h3>
+
+<table><thead><tr>
+<th>特性</th>
+<th>CommonJS (CJS)</th>
+<th>ES Modules (ESM)</th>
+</tr></thead><tbody>
+<tr>
+<td>语法</td>
+<td><code>require()</code> / <code>module.exports</code></td>
+<td><code>import</code> / <code>export</code></td>
+</tr>
+<tr>
+<td>加载方式</td>
+<td><strong>同步</strong>（运行时加载）</td>
+<td><strong>异步</strong>（编译时静态分析）</td>
+</tr>
+<tr>
+<td>加载时机</td>
+<td>首次 require 时执行并缓存</td>
+<td>编译时确定依赖</td>
+</tr>
+<tr>
+<td>this 指向</td>
+<td><code>module.exports</code></td>
+<td><code>undefined</code>（模块顶层）</td>
+</tr>
+<tr>
+<td>启用方式</td>
+<td>默认（.js 文件）</td>
+<td><code>"type": "module"</code> 或 <code>.mjs</code></td>
+</tr>
+<tr>
+<td>循环引用</td>
+<td>返回已执行部分的快照</td>
+<td>引用绑定，可能 TDZ 报错</td>
+</tr>
+<tr>
+<td>适用场景</td>
+<td>Node.js 服务端</td>
+<td>浏览器 + Node.js 通用</td>
+</tr>
+</tbody></table>
+
+<h3>1.3 Node.js 模块类型</h3>
+
+<ul>
+<li><strong>核心模块</strong>：Node.js 自带，如 <code>fs</code>、<code>http</code>、<code>path</code></li>
+<li><strong>文件模块</strong>：你自己写的 <code>.js</code> 文件</li>
+<li><strong>第三方模块</strong>：npm 安装的包，如 <code>express</code></li>
+<li><strong>内置 C++ 模块</strong>：如 <code>crypto</code>，底层用 C++ 实现</li>
+
+<hr>
+
+<h2>二、知识脑图</h2>
+
+<pre><code>Node.js 模块系统
+├── CommonJS (CJS)
+│   ├── module.exports = value（导出整体）
+│   ├── exports.name = value（导出属性）
+│   ├── require(&#x27;./path&#x27;)（引入）
+│   ├── 加载缓存机制
+│   └── require.resolve()（查找路径）
+├── ES Modules (ESM)
+│   ├── export default
+│   ├── export { name }
+│   ├── import name from &#x27;module&#x27;
+│   ├── import { name } from &#x27;module&#x27;
+│   ├── 动态 import()
+│   └── 启用：package.json &quot;type&quot;:&quot;module&quot;
+├── 模块解析规则
+│   ├── 核心模块 → 直接用名字
+│   ├── 相对路径 → ./ ../ 开头
+│   ├── 绝对路径 → / 开头
+│   └── node_modules → 逐级向上查找
+└── 特殊机制
+    ├── 循环依赖处理
+    └── CJS ↔ ESM 互操作</code></pre>
+
+<hr>
+
+<h2>三、完整代码示例</h2>
+
+<h3>3.1 CommonJS 模块</h3>
+
+<pre><code class="language-javascript">// math.js - CommonJS module (exports)
+const PI = 3.14159;
+
+function add(a, b) {
+  return a + b;
+}
+
+function multiply(a, b) {
+  return a * b;
+}
+
+// Export individual properties
+exports.PI = PI;
+exports.add = add;
+exports.multiply = multiply;</code></pre>
+
+<pre><code class="language-javascript">// logger.js - CommonJS module (module.exports)
+class Logger {
+  constructor(prefix) {
+    this.prefix = prefix;
+  }
+
+  info(msg) {
+    console.log(`[${this.prefix}] INFO: ${msg}`);
+  }
+
+  error(msg) {
+    console.error(`[${this.prefix}] ERROR: ${msg}`);
+  }
+}
+
+// Export the whole class
+module.exports = Logger;</code></pre>
+
+<pre><code class="language-javascript">// app.js - Using CommonJS modules
+const { PI, add, multiply } = require(&#x27;./math&#x27;);
+const Logger = require(&#x27;./logger&#x27;);
+
+const log = new Logger(&#x27;App&#x27;);
+
+log.info(`PI = ${PI}`);
+log.info(`2 + 3 = ${add(2, 3)}`);
+log.info(`4 * 5 = ${multiply(4, 5)}`);
+
+// Require cache demo
+const math2 = require(&#x27;./math&#x27;);
+console.log(math2 === require(&#x27;./math&#x27;) ? &#x27;Cached!&#x27; : &#x27;New instance&#x27;);</code></pre>
+
+<h3>3.2 ES Modules</h3>
+
+<pre><code class="language-javascript">// utils.mjs - ES Module exports
+export const VERSION = &#x27;1.0.0&#x27;;
+
+export function capitalize(str) {
+  return str.charAt(0).toUpperCase() + str.slice(1);
+}
+
+export function sleep(ms) {
+  return new Promise(resolve =&gt; setTimeout(resolve, ms));
+}
+
+export default function greet(name) {
+  return `Hello, ${capitalize(name)}!`;
+}</code></pre>
+
+<pre><code class="language-javascript">// main.mjs - ES Module imports
+import greet, { capitalize, VERSION } from &#x27;./utils.mjs&#x27;;
+
+console.log(`Version: ${VERSION}`);
+console.log(greet(&#x27;node&#x27;));
+console.log(`Capitalized: ${capitalize(&#x27;hello world&#x27;)}`);
+
+// Dynamic import
+const { sleep } = await import(&#x27;./utils.mjs&#x27;);
+console.log(&#x27;Waiting 1s...&#x27;);
+await sleep(1000);
+console.log(&#x27;Done!&#x27;);</code></pre>
+
+<h3>3.3 混合模式（package.json type: module）</h3>
+
+<pre><code class="language-json">{
+  &quot;name&quot;: &quot;my-project&quot;,
+  &quot;type&quot;: &quot;module&quot;
+}</code></pre>
+
+<pre><code class="language-javascript">// config.js - ESM with top-level await
+import fs from &#x27;fs/promises&#x27;;
+import path from &#x27;path&#x27;;
+
+const CONFIG_PATH = path.join(process.cwd(), &#x27;config.json&#x27;);
+
+export async function loadConfig() {
+  try {
+    const data = await fs.readFile(CONFIG_PATH, &#x27;utf-8&#x27;);
+    return JSON.parse(data);
+  } catch {
+    return { port: 3000, host: &#x27;localhost&#x27; };
+  }
+}
+
+export const isDev = process.env.NODE_ENV !== &#x27;production&#x27;;</code></pre>
+
+<hr>
+
+<h2>四、执行预览</h2>
+
+<pre><code class="language-bash"># CommonJS
+$ node app.js
+[App] INFO: PI = 3.14159
+[App] INFO: 2 + 3 = 5
+[App] INFO: 4 * 5 = 20
+Cached!
+
+# ESM
+$ node main.mjs
+Version: 1.0.0
+Hello, Node!
+Capitalized: Hello world
+Waiting 1s...
+Done!</code></pre>
+
+<hr>
+
+<h2>五、注意事项</h2>
+
+<table><thead><tr>
+<th>事项</th>
+<th>说明</th>
+<th>建议</th>
+</tr></thead><tbody>
+<tr>
+<td>文件扩展名</td>
+<td>CJS 用 <code>.js</code>，ESM 用 <code>.mjs</code> 或 <code>"type":"module"</code></td>
+<td>项目统一一种，不要混用</td>
+</tr>
+<tr>
+<td><code>exports</code> 赋值</td>
+<td><code>exports = {}</code> 会断开引用</td>
+<td>用 <code>module.exports = {}</code> 重新赋值</td>
+</tr>
+<tr>
+<td>ESM 路径</td>
+<td>import 必须写完整扩展名</td>
+<td><code>"type":"module"</code> 时写 <code>.js</code>，<code>.mjs</code> 写 <code>.mjs</code></td>
+</tr>
+<tr>
+<td><code>__dirname</code></td>
+<td>ESM 中不存在</td>
+<td>用 <code>import.meta.dirname</code>（Node 21+）或 <code>fileURLToPath</code></td>
+</tr>
+<tr>
+<td>循环依赖</td>
+<td>CJS 返回部分执行结果，ESM 可能 TDZ</td>
+<td>设计上避免循环依赖</td>
+</tr>
+<tr>
+<td>Top-level await</td>
+<td>ESM 支持，CJS 不支持</td>
+<td>需要顶层 await 必须用 ESM</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>六、避坑指南</h2>
+
+<table><thead><tr>
+<th>❌ 错误做法</th>
+<th>✅ 正确做法</th>
+</tr></thead><tbody>
+<tr>
+<td><code>exports = { a: 1 }</code></td>
+<td><code>module.exports = { a: 1 }</code> 或 <code>exports.a = 1</code></td>
+</tr>
+<tr>
+<td><code>require('./math')</code> 省略扩展名</td>
+<td>Node 会依次尝试 <code>.js</code> → <code>.json</code> → <code>.node</code>（CJS 可省略，ESM 不可）</td>
+</tr>
+<tr>
+<td>在 ESM 中使用 <code>__dirname</code></td>
+<td>用 <code>import.meta.dirname</code> 或 <code>fileURLToPath(import.meta.url)</code></td>
+</tr>
+<tr>
+<td>在 ESM 中使用 <code>require()</code></td>
+<td>用 <code>import</code> 或 <code>createRequire(import.meta.url)</code></td>
+</tr>
+<tr>
+<td>混用两种模块系统</td>
+<td>项目统一一种，互操作用工具转换</td>
+</tr>
+<tr>
+<td>忘记 <code>.mjs</code> 扩展名又没设 <code>"type":"module"</code></td>
+<td>二选一：要么设 type，要么用 <code>.mjs</code></td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>七、练习题</h2>
+
+<h3>🟢 入门</h3>
+<ol>
+<li>创建一个 <code>math.cjs</code>，导出加减乘除四个函数，在另一个文件中引入使用</li>
+</ul>
+<ol>
+<li>创建一个 <code>str.mjs</code>，用 ESM 导出字符串工具函数</li>
+</ul>
+<ol>
+<li>用 <code>require.resolve('express')</code> 查看一个 npm 包的实际路径</li>
+
+<h3>🟡 进阶</h3>
+<ol>
+<li>实现一个模块，导出一个带状态计数器（<code>count()</code>、<code>reset()</code>），验证 require 缓存机制</li>
+</ul>
+<ol>
+<li>用 <code>import()</code> 动态加载一个模块，实现插件模式</li>
+</ul>
+<ol>
+<li>在 ESM 项目中正确获取 <code>__dirname</code> 的等价路径</li>
+
+<h3>🔴 挑战</h3>
+<ol>
+<li>实现一个简单的模块加载器：给定路径，手动读取文件并执行（模拟 require）</li>
+</ul>
+<ol>
+<li>处理 CJS 和 ESM 的循环依赖，观察两者行为差异</li>
+
+<hr>
+
+<h2>八、知识点总结</h2>
+
+<pre><code>模块系统
+├── CommonJS
+│   ├── exports.xxx = value
+│   ├── module.exports = value
+│   ├── require(&#x27;path&#x27;)
+│   ├── 缓存机制（require.cache）
+│   └── 模块包装函数（function(exports, require, module, __filename, __dirname)）
+├── ES Modules
+│   ├── export / export default
+│   ├── import / import {}
+│   ├── 动态 import()（返回 Promise）
+│   ├── import.meta.url
+│   └── top-level await
+├── 解析规则
+│   ├── 核心模块：fs, http...
+│   ├── 文件模块：./path
+│   └── node_modules 查找
+└── 互操作
+    ├── CJS require ESM → 不行（同步无法加载异步）
+    └── ESM import CJS → 可以（default 导出）</code></pre>
+
+<hr>
+
+<h2>九、举一反三</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>你学到的</th>
+<th>扩展应用</th>
+</tr></thead><tbody>
+<tr>
+<td>配置文件</td>
+<td><code>module.exports = {}</code></td>
+<td>多环境配置（dev/prod/test）</td>
+</tr>
+<tr>
+<td>工具函数库</td>
+<td>多个 export 函数</td>
+<td>Lodash 风格的工具库</td>
+</tr>
+<tr>
+<td>动态加载</td>
+<td><code>import()</code> 动态导入</td>
+<td>插件系统、按需加载</td>
+</tr>
+<tr>
+<td>模块缓存</td>
+<td>require 只执行一次</td>
+<td>单例模式实现</td>
+</tr>
+<tr>
+<td>ESM __dirname</td>
+<td><code>import.meta.url</code></td>
+<td>跨模块系统兼容的工具库</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>十、参考资料</h2>
+
+<ul>
+<li><a href="https://nodejs.org/api/modules.html">Node.js Modules 官方文档</a></li>
+<li><a href="https://nodejs.org/api/esm.html">ES Modules in Node.js</a></li>
+<li><a href="https://redfin.engineering/node-modules-madness">Node.js Module Confusion — Dan Fabulich</a></li>
+<li><a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Modules">JavaScript Modules: A Beginner's Guide — MDN</a></li>
+
+<hr>
+
+<h2>十一、代码演进</h2>
+
+<h3>v1：CommonJS 基础导出</h3>
+<pre><code class="language-javascript">// math.cjs - v1: Basic CJS exports
+function add(a, b) { return a + b; }
+function sub(a, b) { return a - b; }
+
+exports.add = add;
+exports.sub = sub;</code></pre>
+
+<h3>v2：module.exports 重写 + 缓存验证</h3>
+<pre><code class="language-javascript">// math.cjs - v2: module.exports with cache demo
+const operations = {
+  add: (a, b) =&gt; a + b,
+  sub: (a, b) =&gt; a - b,
+  mul: (a, b) =&gt; a * b,
+  div: (a, b) =&gt; b !== 0 ? a / b : NaN,
+};
+
+// Stateful counter to prove caching
+let callCount = 0;
+module.exports = {
+  ...operations,
+  getCallCount: () =&gt; callCount,
+  _track: () =&gt; callCount++,
+};</code></pre>
+
+<h3>v3：ESM 重写 + 动态导入</h3>
+<pre><code class="language-javascript">// math.mjs - v3: ESM with dynamic import support
+
+export const add = (a, b) =&gt; a + b;
+export const sub = (a, b) =&gt; a - b;
+export const mul = (a, b) =&gt; a * b;
+export const div = (a, b) =&gt; b !== 0 ? a / b : NaN;
+
+export default function calculator(a, op, b) {
+  const ops = { &#x27;+&#x27;: add, &#x27;-&#x27;: sub, &#x27;*&#x27;: mul, &#x27;/&#x27;: div };
+  return ops[op]?.(a, b) ?? NaN;
+}
+
+// Usage in another file:
+// import calc, { add } from &#x27;./math.mjs&#x27;;
+// const ops = await import(&#x27;./math.mjs&#x27;);  // dynamic</code></pre>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

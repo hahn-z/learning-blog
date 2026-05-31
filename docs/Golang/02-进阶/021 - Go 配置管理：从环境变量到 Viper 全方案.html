@@ -1,0 +1,480 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>021 - Go 配置管理：从环境变量到 Viper 全方案</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Golang/index.html">Golang</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Golang/02-进阶/index.html">Golang进阶</a>
+</nav>
+<h1>021 - Go 配置管理：从环境变量到 Viper 全方案</h1>
+<div class="meta">
+<span>📂 Golang进阶</span>
+<span>🏷️ Golang</span>
+</div>
+<article>
+
+
+<h1>051 - Go 配置管理：从环境变量到 Viper 全方案</h1>
+
+<blockquote><p><strong>难度：⭐⭐</strong> | 配置管理是工程化的第一步，本文从 os.Getenv 到 Viper 全覆盖。</p></blockquote>
+
+<h2>一、概念讲解</h2>
+
+<p>配置管理解决的问题是：<strong>如何让同一份代码在不同环境（开发、测试、生产）下正确运行？</strong></p>
+
+<p>12-Factor App 的第三条原则要求：<strong>将配置存储在环境变量中</strong>。但实际项目中，我们往往需要更灵活的方案——支持配置文件、环境变量、命令行参数等多种来源，并且能优雅地合并优先级。</p>
+
+<p>Go 生态中，配置管理的主要方案：</p>
+
+<table><thead><tr>
+<th>方案</th>
+<th>适用场景</th>
+<th>复杂度</th>
+</tr></thead><tbody>
+<tr>
+<td><code>os.Getenv</code></td>
+<td>简单环境变量读取</td>
+<td>⭐</td>
+</tr>
+<tr>
+<td><code>encoding/json</code></td>
+<td>JSON 配置文件</td>
+<td>⭐⭐</td>
+</tr>
+<tr>
+<td><code>gopkg.in/yaml.v3</code></td>
+<td>YAML 配置文件</td>
+<td>⭐⭐</td>
+</tr>
+<tr>
+<td><code>github.com/BurntSushi/toml</code></td>
+<td>TOML 配置文件</td>
+<td>⭐⭐</td>
+</tr>
+<tr>
+<td><code>github.com/spf13/viper</code></td>
+<td>全功能配置管理</td>
+<td>⭐⭐⭐</td>
+</tr>
+</tbody></table>
+
+<h2>二、脑图</h2>
+
+<pre><code>配置管理
+├── 环境变量
+│   ├── os.Getenv
+│   ├── os.LookupEnv
+│   └── os.Setenv (不推荐)
+├── 配置文件
+│   ├── JSON
+│   ├── YAML
+│   └── TOML
+├── Viper 库
+│   ├── 多来源读取
+│   ├── 结构体映射
+│   ├── 配置热更新
+│   └── 环境变量绑定
+└── 多环境配置
+    ├── dev / staging / prod
+    ├── 配置覆盖优先级
+    └── 12-Factor App</code></pre>
+
+<h2>三、代码演进</h2>
+
+<h3>v1：原生 os.Getenv 读取</h3>
+
+<pre><code class="language-go">package main
+
+import (
+	&quot;fmt&quot;
+	&quot;os&quot;
+	&quot;strconv&quot;
+)
+
+// Config holds application configuration
+type Config struct {
+	Port     int
+	DBHost   string
+	DBPort   int
+	LogLevel string
+}
+
+// LoadConfig reads config from environment variables
+func LoadConfig() *Config {
+	return &amp;Config{
+		Port:     getEnvInt(&quot;APP_PORT&quot;, 8080),
+		DBHost:   getEnv(&quot;DB_HOST&quot;, &quot;localhost&quot;),
+		DBPort:   getEnvInt(&quot;DB_PORT&quot;, 5432),
+		LogLevel: getEnv(&quot;LOG_LEVEL&quot;, &quot;info&quot;),
+	}
+}
+
+func getEnv(key, fallback string) string {
+	if val, ok := os.LookupEnv(key); ok {
+		return val
+	}
+	return fallback
+}
+
+func getEnvInt(key string, fallback int) int {
+	val := getEnv(key, &quot;&quot;)
+	if n, err := strconv.Atoi(val); err == nil {
+		return n
+	}
+	return fallback
+}
+
+func main() {
+	cfg := LoadConfig()
+	fmt.Printf(&quot;Server running on :%d\n&quot;, cfg.Port)
+	fmt.Printf(&quot;DB: %s:%d\n&quot;, cfg.DBHost, cfg.DBPort)
+	fmt.Printf(&quot;LogLevel: %s\n&quot;, cfg.LogLevel)
+}</code></pre>
+
+<p><strong>执行预览：</strong></p>
+<pre><code>$ go run main.go
+Server running on :8080
+DB: localhost:5432
+LogLevel: info
+
+$ APP_PORT=3000 DB_HOST=db.prod.com go run main.go
+Server running on :3000
+DB: db.prod.com:5432
+LogLevel: info</code></pre>
+
+<h3>v2：JSON 配置文件 + 环境变量覆盖</h3>
+
+<pre><code class="language-go">package main
+
+import (
+	&quot;encoding/json&quot;
+	&quot;fmt&quot;
+	&quot;os&quot;
+	&quot;path/filepath&quot;
+)
+
+// Config holds application configuration
+type Config struct {
+	Port     int    `json:&quot;port&quot;`
+	DBHost   string `json:&quot;db_host&quot;`
+	DBPort   int    `json:&quot;db_port&quot;`
+	LogLevel string `json:&quot;log_level&quot;`
+}
+
+// LoadFromFile reads config from a JSON file
+func LoadFromFile(path string) (*Config, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, fmt.Errorf(&quot;read config file: %w&quot;, err)
+	}
+	cfg := &amp;Config{
+		Port:     8080,
+		DBHost:   &quot;localhost&quot;,
+		DBPort:   5432,
+		LogLevel: &quot;info&quot;,
+	}
+	if err := json.Unmarshal(data, cfg); err != nil {
+		return nil, fmt.Errorf(&quot;parse config: %w&quot;, err)
+	}
+	return cfg, nil
+}
+
+// OverrideFromEnv allows environment variables to override file config
+func (c *Config) OverrideFromEnv() {
+	if v := os.Getenv(&quot;APP_PORT&quot;); v != &quot;&quot; {
+		fmt.Sscanf(v, &quot;%d&quot;, &amp;c.Port)
+	}
+	if v := os.Getenv(&quot;DB_HOST&quot;); v != &quot;&quot; {
+		c.DBHost = v
+	}
+	if v := os.Getenv(&quot;DB_PORT&quot;); v != &quot;&quot; {
+		fmt.Sscanf(v, &quot;%d&quot;, &amp;c.DBPort)
+	}
+	if v := os.Getenv(&quot;LOG_LEVEL&quot;); v != &quot;&quot; {
+		c.LogLevel = v
+	}
+}
+
+func main() {
+	configPath := filepath.Join(&quot;config&quot;, &quot;app.json&quot;)
+	cfg, err := LoadFromFile(configPath)
+	if err != nil {
+		fmt.Printf(&quot;Using defaults: %v\n&quot;, err)
+		cfg = &amp;Config{Port: 8080, DBHost: &quot;localhost&quot;, DBPort: 5432, LogLevel: &quot;info&quot;}
+	}
+	cfg.OverrideFromEnv()
+	fmt.Printf(&quot;Config: %+v\n&quot;, cfg)
+}</code></pre>
+
+<h3>v3：Viper 全功能方案</h3>
+
+<pre><code class="language-go">package main
+
+import (
+	&quot;fmt&quot;
+	&quot;strings&quot;
+
+	&quot;github.com/spf13/viper&quot;
+)
+
+// Config holds all application settings
+type Config struct {
+	Server   ServerConfig   `mapstructure:&quot;server&quot;`
+	Database DatabaseConfig `mapstructure:&quot;database&quot;`
+	Log      LogConfig      `mapstructure:&quot;log&quot;`
+}
+
+// ServerConfig defines HTTP server settings
+type ServerConfig struct {
+	Port         int `mapstructure:&quot;port&quot;`
+	ReadTimeout  int `mapstructure:&quot;read_timeout&quot;`
+	WriteTimeout int `mapstructure:&quot;write_timeout&quot;`
+}
+
+// DatabaseConfig defines database connection settings
+type DatabaseConfig struct {
+	Host     string `mapstructure:&quot;host&quot;`
+	Port     int    `mapstructure:&quot;port&quot;`
+	Name     string `mapstructure:&quot;name&quot;`
+	User     string `mapstructure:&quot;user&quot;`
+	Password string `mapstructure:&quot;password&quot;`
+}
+
+// LogConfig defines logging settings
+type LogConfig struct {
+	Level  string `mapstructure:&quot;level&quot;`
+	Format string `mapstructure:&quot;format&quot;`
+}
+
+// LoadConfig initializes Viper with multiple config sources
+func LoadConfig(env string) (*Config, error) {
+	v := viper.New()
+
+	// 1. Set defaults
+	v.SetDefault(&quot;server.port&quot;, 8080)
+	v.SetDefault(&quot;server.read_timeout&quot;, 10)
+	v.SetDefault(&quot;server.write_timeout&quot;, 10)
+	v.SetDefault(&quot;database.host&quot;, &quot;localhost&quot;)
+	v.SetDefault(&quot;database.port&quot;, 5432)
+	v.SetDefault(&quot;database.name&quot;, &quot;myapp&quot;)
+	v.SetDefault(&quot;log.level&quot;, &quot;info&quot;)
+	v.SetDefault(&quot;log.format&quot;, &quot;json&quot;)
+
+	// 2. Config file
+	v.SetConfigName(fmt.Sprintf(&quot;config.%s&quot;, env))
+	v.SetConfigType(&quot;yaml&quot;)
+	v.AddConfigPath(&quot;./config&quot;)
+	v.AddConfigPath(&quot;.&quot;)
+
+	if err := v.ReadInConfig(); err != nil {
+		fmt.Printf(&quot;Warning: config file not found, using defaults\n&quot;)
+	}
+
+	// 3. Environment variable override (MYAPP_SERVER_PORT -&gt; server.port)
+	v.SetEnvPrefix(&quot;MYAPP&quot;)
+	v.SetEnvKeyReplacer(strings.NewReplacer(&quot;.&quot;, &quot;_&quot;))
+	v.AutomaticEnv()
+
+	// 4. Unmarshal to struct
+	var cfg Config
+	if err := v.Unmarshal(&amp;cfg); err != nil {
+		return nil, fmt.Errorf(&quot;unmarshal config: %w&quot;, err)
+	}
+
+	return &amp;cfg, nil
+}
+
+func main() {
+	env := &quot;dev&quot; // could come from os.Args or GO_ENV
+	if e := fmt.Sprintf(&quot;&quot;); e == &quot;&quot; {
+		// just use default
+	}
+	
+	cfg, err := LoadConfig(env)
+	if err != nil {
+		fmt.Printf(&quot;Error loading config: %v\n&quot;, err)
+		return
+	}
+	fmt.Printf(&quot;Server:   :%d\n&quot;, cfg.Server.Port)
+	fmt.Printf(&quot;Database: %s:%d/%s\n&quot;, cfg.Database.Host, cfg.Database.Port, cfg.Database.Name)
+	fmt.Printf(&quot;Log:      %s (%s)\n&quot;, cfg.Log.Level, cfg.Log.Format)
+}</code></pre>
+
+<h2>四、注意事项</h2>
+
+<table><thead><tr>
+<th>项目</th>
+<th>说明</th>
+</tr></thead><tbody>
+<tr>
+<td>敏感配置</td>
+<td>密码、密钥不要硬编码，使用环境变量或密钥管理服务</td>
+</tr>
+<tr>
+<td>配置验证</td>
+<td>加载后务必校验必填项，避免运行时空指针</td>
+</tr>
+<tr>
+<td>默认值</td>
+<td>生产环境不要依赖默认值，显式配置更安全</td>
+</tr>
+<tr>
+<td>配置文件版本</td>
+<td>配置文件应纳入 Git 管理，敏感值用占位符</td>
+</tr>
+<tr>
+<td>热更新</td>
+<td>Viper 的 <code>WatchConfig</code> 有文件系统兼容性问题，生产慎用</td>
+</tr>
+</tbody></table>
+
+<h2>五、避坑指南</h2>
+
+<table><thead><tr>
+<th>❌ 错误做法</th>
+<th>✅ 正确做法</th>
+</tr></thead><tbody>
+<tr>
+<td><code>os.Setenv("PORT", "8080")</code> 在代码里设置环境变量</td>
+<td>使用配置文件或真实环境变量</td>
+</tr>
+<tr>
+<td>配置结构体用 <code>string</code> 存端口号</td>
+<td>用 <code>int</code> 并做范围校验</td>
+</tr>
+<tr>
+<td>把密码写进 config.yml 提交到 Git</td>
+<td>使用环境变量覆盖或 vault</td>
+</tr>
+<tr>
+<td>全局 <code>viper.Get("key")</code> 散落各处</td>
+<td>统一 Unmarshal 到结构体，依赖注入传递</td>
+</tr>
+<tr>
+<td>忽略 <code>viper.AutomaticEnv</code> 绑定失败</td>
+<td>显式绑定 <code>v.BindEnv("database.host")</code></td>
+</tr>
+</tbody></table>
+
+<h2>六、练习题</h2>
+
+<p>🟢 <strong>基础：</strong> 用 <code>os.Getenv</code> 读取 <code>DATABASE_URL</code> 环境变量，不存在时 panic。</p>
+
+<p>🟡 <strong>进阶：</strong> 用 Viper 实现一个支持 <code>config.dev.yaml</code> / <code>config.prod.yaml</code> 的多环境配置加载器，环境由 <code>GO_ENV</code> 变量决定。</p>
+
+<p>🔴 <strong>挑战：</strong> 实现配置热更新：监听配置文件变化，通过 channel 通知业务层重新加载配置。</p>
+
+<h2>七、知识点总结</h2>
+
+<pre><code>配置管理
+├── 基础
+│   ├── os.Getenv / LookupEnv
+│   └── strconv 类型转换
+├── 文件配置
+│   ├── JSON (标准库)
+│   ├── YAML (gopkg.in/yaml.v3)
+│   └── TOML (BurntSushi/toml)
+├── Viper 核心概念
+│   ├── SetDefault → 配置文件 → 环境变量 (优先级从低到高)
+│   ├── mapstructure tag 映射
+│   ├── AutomaticEnv 环境变量绑定
+│   └── WatchConfig 热更新
+└── 最佳实践
+    ├── 结构体映射
+    ├── 环境隔离
+    └── 敏感信息管理</code></pre>
+
+<h2>八、举一反三</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>推荐方案</th>
+</tr></thead><tbody>
+<tr>
+<td>CLI 小工具</td>
+<td><code>os.Getenv</code> + <code>flag</code> 包</td>
+</tr>
+<tr>
+<td>Web 服务（简单）</td>
+<td>JSON 配置文件 + 环境变量覆盖</td>
+</tr>
+<tr>
+<td>Web 服务（生产级）</td>
+<td>Viper + YAML + 环境变量</td>
+</tr>
+<tr>
+<td>微服务 / K8s</td>
+<td>环境变量 + ConfigMap + Secret</td>
+</tr>
+<tr>
+<td>需要热更新</td>
+<td>Viper WatchConfig 或 etcd/consul</td>
+</tr>
+</tbody></table>
+
+<h2>九、参考资料</h2>
+
+<ul>
+<li><a href="https://12factor.net/zh_cn/config">12-Factor App - 配置</a></li>
+<li><a href="https://github.com/spf13/viper">Viper 官方文档</a></li>
+<li><a href="https://github.com/golang-standards/project-layout">Go 项目布局参考</a></li>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

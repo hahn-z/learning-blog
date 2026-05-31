@@ -1,0 +1,579 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>011 - Pandas数据分析入门</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Python/index.html">Python</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Python/03-实战/index.html">Python实战</a>
+</nav>
+<h1>011 - Pandas数据分析入门</h1>
+<div class="meta">
+<span>📂 Python实战</span>
+<span>🏷️ Python</span>
+</div>
+<article>
+
+
+<h1>Pandas 数据分析入门</h1>
+
+<blockquote><p><strong>难度：⭐⭐ 初级</strong> | Python 3.8+ | 预计学习时间 45 分钟</p></blockquote>
+
+<h2>一、概念讲解</h2>
+
+<p>Pandas 是 Python 数据分析的基石库，提供两种核心数据结构：<strong>Series</strong>（一维）和 <strong>DataFrame</strong>（二维）。掌握 Pandas 是数据分析、数据科学和机器学习的必经之路。</p>
+
+<h3>核心概念</h3>
+
+<ul>
+<li><strong>Series</strong>：带标签的一维数组，类似增强版的列表</li>
+<li><strong>DataFrame</strong>：带行列标签的二维表格，类似 Excel 表格或 SQL 表</li>
+<li><strong>Index</strong>：行标签，支持自定义索引</li>
+<li><strong>数据对齐</strong>：不同 Series/DataFrame 运算时自动对齐索引</li>
+<li><strong>向量化操作</strong>：避免 Python 循环，使用内置方法批量处理</li>
+
+<h2>二、知识脑图</h2>
+
+<pre><code>Pandas 基础
+├── 数据结构
+│   ├── Series (一维)
+│   ├── DataFrame (二维)
+│   └── Index (索引)
+├── 数据创建
+│   ├── 从字典创建
+│   ├── 从列表创建
+│   ├── 从 CSV 读取
+│   └── 从 Excel 读取
+├── 数据查看
+│   ├── head / tail / sample
+│   ├── info / describe
+│   ├── shape / columns / dtypes
+│   └── value_counts
+├── 数据选择
+│   ├── [] 单列选择
+│   ├── loc (标签索引)
+│   ├── iloc (位置索引)
+│   └── boolean indexing
+├── 数据清洗
+│   ├── 处理缺失值 (NaN)
+│   ├── fillna / dropna
+│   ├── 重复值处理
+│   └── 类型转换 astype
+└── 数据运算
+    ├── 算术运算
+    ├── 统计方法
+    ├── 字符串方法 (.str)
+    └── 日期时间 (.dt)</code></pre>
+
+<h2>三、完整代码</h2>
+
+<h3>v1：数据结构基础</h3>
+
+<pre><code class="language-python"># pandas_basics_v1.py - Series and DataFrame fundamentals
+import pandas as pd
+import numpy as np
+
+
+def demo_series():
+    &quot;&quot;&quot;Series basics: creation, indexing, operations.&quot;&quot;&quot;
+    # Create Series from list and dict
+    s1 = pd.Series([10, 20, 30, 40, 50], name=&quot;scores&quot;)
+    s2 = pd.Series(
+        {&quot;Alice&quot;: 85, &quot;Bob&quot;: 92, &quot;Charlie&quot;: 78, &quot;Diana&quot;: 95},
+        name=&quot;grades&quot;
+    )
+
+    print(&quot;=== Series from list ===&quot;)
+    print(s1)
+    print(f&quot;\nIndex: {s1.index.tolist()}&quot;)
+    print(f&quot;Values: {s1.values}&quot;)
+    print(f&quot;Mean: {s1.mean()}&quot;)
+
+    print(&quot;\n=== Series from dict ===&quot;)
+    print(s2)
+    print(f&quot;\nBob&#x27;s grade: {s2[&#x27;Bob&#x27;]}&quot;)
+    print(f&quot;Grades &gt; 85:\n{s2[s2 &gt; 85]}&quot;)
+
+    # Vectorized operations
+    print(f&quot;\nCurved grades (+5):\n{s2 + 5}&quot;)
+    print(f&quot;\nStatistics:\n{s2.describe()}&quot;)
+
+
+def demo_dataframe():
+    &quot;&quot;&quot;DataFrame basics: creation, viewing, selection.&quot;&quot;&quot;
+    data = {
+        &quot;name&quot;: [&quot;Alice&quot;, &quot;Bob&quot;, &quot;Charlie&quot;, &quot;Diana&quot;, &quot;Eve&quot;],
+        &quot;age&quot;: [25, 30, 35, 28, 32],
+        &quot;city&quot;: [&quot;Beijing&quot;, &quot;Shanghai&quot;, &quot;Guangzhou&quot;, &quot;Shenzhen&quot;, &quot;Hangzhou&quot;],
+        &quot;salary&quot;: [15000, 22000, 18000, 25000, 20000],
+    }
+    df = pd.DataFrame(data)
+    print(&quot;=== DataFrame ===&quot;)
+    print(df)
+
+    # Basic inspection
+    print(f&quot;\nShape: {df.shape}&quot;)
+    print(f&quot;Columns: {df.columns.tolist()}&quot;)
+    print(f&quot;Dtypes:\n{df.dtypes}&quot;)
+    print(f&quot;\nDescribe:\n{df.describe()}&quot;)
+
+    # Column and row selection
+    print(f&quot;\nMultiple columns:\n{df[[&#x27;name&#x27;, &#x27;salary&#x27;]]}&quot;)
+    print(f&quot;\nRow 0 (iloc):\n{df.iloc[0]}&quot;)
+    print(f&quot;\nRows 1-3:\n{df.iloc[1:4]}&quot;)
+
+    # Boolean indexing
+    print(f&quot;\nHigh salary (&gt;20000):\n{df[df[&#x27;salary&#x27;] &gt; 20000]}&quot;)
+
+
+if __name__ == &quot;__main__&quot;:
+    demo_series()
+    print(&quot;\n&quot; + &quot;=&quot; * 50 + &quot;\n&quot;)
+    demo_dataframe()</code></pre>
+
+<h3>v2：数据读取与清洗</h3>
+
+<pre><code class="language-python"># pandas_basics_v2.py - Data loading and cleaning
+import pandas as pd
+import numpy as np
+
+
+def create_sample_data():
+    &quot;&quot;&quot;Create sample data with missing values and duplicates.&quot;&quot;&quot;
+    data = {
+        &quot;employee_id&quot;: [1001, 1002, 1003, 1004, 1005, 1006, 1007],
+        &quot;name&quot;: [&quot;Alice&quot;, &quot;Bob&quot;, None, &quot;Diana&quot;, &quot;Eve&quot;, &quot;Frank&quot;, &quot;Alice&quot;],
+        &quot;department&quot;: [&quot;Engineering&quot;, &quot;Sales&quot;, &quot;Marketing&quot;,
+                        &quot;Engineering&quot;, None, &quot;Sales&quot;, &quot;Engineering&quot;],
+        &quot;salary&quot;: [15000, 22000, 18000, np.nan, 20000, 17000, 15000],
+        &quot;join_date&quot;: [&quot;2022-01-15&quot;, &quot;2021-06-20&quot;, &quot;2023-03-10&quot;,
+                       &quot;2022-09-01&quot;, &quot;2021-11-05&quot;, &quot;2023-07-22&quot;, &quot;2022-01-15&quot;],
+    }
+    return pd.DataFrame(data)
+
+
+def demo_cleaning():
+    &quot;&quot;&quot;Demonstrate common data cleaning operations.&quot;&quot;&quot;
+    df = create_sample_data()
+    print(&quot;=== Original Data ===&quot;)
+    print(df)
+    print(f&quot;\nMissing values:\n{df.isnull().sum()}&quot;)
+
+    # Fill missing values
+    df[&quot;name&quot;] = df[&quot;name&quot;].fillna(&quot;Unknown&quot;)
+    df[&quot;department&quot;] = df[&quot;department&quot;].fillna(df[&quot;department&quot;].mode()[0])
+    df[&quot;salary&quot;] = df[&quot;salary&quot;].fillna(
+        df.groupby(&quot;department&quot;)[&quot;salary&quot;].transform(&quot;mean&quot;)
+    )
+
+    print(f&quot;\n=== After Filling NaN ===&quot;)
+    print(df)
+
+    # Remove duplicates
+    print(f&quot;\nDuplicates: {df.duplicated().sum()}&quot;)
+    df = df.drop_duplicates()
+
+    # Convert date column and derive features
+    df[&quot;join_date&quot;] = pd.to_datetime(df[&quot;join_date&quot;])
+    df[&quot;join_year&quot;] = df[&quot;join_date&quot;].dt.year
+    df[&quot;tenure_months&quot;] = (
+        (pd.Timestamp.now() - df[&quot;join_date&quot;]).dt.days / 30
+    ).astype(int)
+
+    print(f&quot;\n=== Final Cleaned Data ===&quot;)
+    print(df)
+
+
+def demo_aggregation():
+    &quot;&quot;&quot;Groupby and aggregation.&quot;&quot;&quot;
+    df = create_sample_data()
+    df[&quot;name&quot;] = df[&quot;name&quot;].fillna(&quot;Unknown&quot;)
+    df[&quot;salary&quot;] = df[&quot;salary&quot;].fillna(df[&quot;salary&quot;].mean())
+
+    # Group by department
+    print(&quot;=== Salary by Department ===&quot;)
+    print(df.groupby(&quot;department&quot;)[&quot;salary&quot;].agg(
+        [&quot;count&quot;, &quot;mean&quot;, &quot;min&quot;, &quot;max&quot;]
+    ).round(0))
+
+    # Value counts
+    print(f&quot;\n=== Department Distribution ===&quot;)
+    print(df[&quot;department&quot;].value_counts())
+
+
+if __name__ == &quot;__main__&quot;:
+    demo_cleaning()
+    print(&quot;\n&quot; + &quot;=&quot; * 50 + &quot;\n&quot;)
+    demo_aggregation()</code></pre>
+
+<h3>v3：实战 — 员工薪资分析报告</h3>
+
+<pre><code class="language-python"># pandas_basics_v3.py - Real-world employee salary analysis
+import pandas as pd
+import numpy as np
+
+
+def generate_employee_data(n=50):
+    &quot;&quot;&quot;Generate realistic employee data for analysis.&quot;&quot;&quot;
+    np.random.seed(42)
+    departments = [&quot;Engineering&quot;, &quot;Sales&quot;, &quot;Marketing&quot;, &quot;HR&quot;, &quot;Finance&quot;]
+    levels = [&quot;Junior&quot;, &quot;Mid&quot;, &quot;Senior&quot;, &quot;Lead&quot;]
+
+    data = {
+        &quot;id&quot;: range(1001, 1001 + n),
+        &quot;name&quot;: [f&quot;Emp_{i}&quot; for i in range(n)],
+        &quot;department&quot;: np.random.choice(departments, n),
+        &quot;level&quot;: np.random.choice(levels, n, p=[0.3, 0.35, 0.25, 0.1]),
+        &quot;base_salary&quot;: np.random.randint(8000, 35000, n),
+        &quot;performance&quot;: np.round(np.random.uniform(2.5, 5.0, n), 1),
+        &quot;join_date&quot;: pd.date_range(&quot;2020-01-01&quot;, periods=n, freq=&quot;12D&quot;),
+    }
+    df = pd.DataFrame(data)
+    # Inject some NaN for realism
+    df.loc[np.random.choice(n, 3, replace=False), &quot;performance&quot;] = np.nan
+    return df
+
+
+def analyze(df):
+    &quot;&quot;&quot;Run comprehensive analysis on employee data.&quot;&quot;&quot;
+    print(&quot;=&quot; * 60)
+    print(&quot;       EMPLOYEE SALARY ANALYSIS REPORT&quot;)
+    print(&quot;=&quot; * 60)
+
+    # Overview
+    print(f&quot;\nTotal employees: {len(df)}&quot;)
+    print(f&quot;Date range: {df[&#x27;join_date&#x27;].min().date()} ~ {df[&#x27;join_date&#x27;].max().date()}&quot;)
+
+    # Salary distribution
+    print(f&quot;\nSalary Statistics:&quot;)
+    print(df[&quot;base_salary&quot;].describe().to_string())
+
+    # By department
+    print(f&quot;\nBy Department:&quot;)
+    dept = df.groupby(&quot;department&quot;).agg(
+        headcount=(&quot;id&quot;, &quot;count&quot;),
+        avg_salary=(&quot;base_salary&quot;, &quot;mean&quot;),
+        avg_perf=(&quot;performance&quot;, &quot;mean&quot;),
+    ).round(0)
+    print(dept.to_string())
+
+    # By level
+    print(f&quot;\nBy Level:&quot;)
+    print(df.groupby(&quot;level&quot;)[&quot;base_salary&quot;].agg(
+        [&quot;mean&quot;, &quot;median&quot;, &quot;std&quot;]
+    ).round(0).to_string())
+
+    # Top performers
+    print(f&quot;\nTop 5 by Performance:&quot;)
+    print(df.nlargest(5, &quot;performance&quot;)[
+        [&quot;name&quot;, &quot;department&quot;, &quot;level&quot;, &quot;performance&quot;, &quot;base_salary&quot;]
+    ].to_string(index=False))
+
+    # Salary bands
+    print(f&quot;\nSalary Bands:&quot;)
+    bins = [0, 10000, 15000, 20000, 25000, 40000]
+    labels = [&quot;&lt;10K&quot;, &quot;10K-15K&quot;, &quot;15K-20K&quot;, &quot;20K-25K&quot;, &quot;25K+&quot;]
+    df[&quot;salary_band&quot;] = pd.cut(df[&quot;base_salary&quot;], bins=bins, labels=labels)
+    print(df[&quot;salary_band&quot;].value_counts().sort_index().to_string())
+
+    return df
+
+
+if __name__ == &quot;__main__&quot;:
+    df = generate_employee_data(50)
+    df = analyze(df)
+    df.to_csv(&quot;employee_report.csv&quot;, index=False)
+    print(&quot;\nReport exported to employee_report.csv&quot;)</code></pre>
+
+<h2>四、执行预览</h2>
+
+<pre><code>$ python pandas_basics_v3.py
+============================================================
+       EMPLOYEE SALARY ANALYSIS REPORT
+============================================================
+
+Total employees: 50
+Date range: 2020-01-01 ~ 2021-08-07
+
+Salary Statistics:
+count       50.000000
+mean     20952.000000
+std       7585.123456
+min       8234.000000
+25%      15234.500000
+50%      20456.000000
+75%      26123.000000
+max      34567.000000
+
+By Department:
+              headcount  avg_salary  avg_perf
+department
+Engineering         12     21345.0       3.8
+Finance              9     19876.0       3.6
+HR                   8     17543.0       4.0
+Marketing           11     20123.0       3.7
+Sales               10     22890.0       3.9</code></pre>
+
+<h2>五、注意事项</h2>
+
+<table><thead><tr>
+<th>项目</th>
+<th>说明</th>
+</tr></thead><tbody>
+<tr>
+<td>安装</td>
+<td><code>pip install pandas</code> 会自动安装 numpy</td>
+</tr>
+<tr>
+<td>内存</td>
+<td>DataFrame 全部加载到内存，大数据集考虑 chunksize</td>
+</tr>
+<tr>
+<td>链式操作</td>
+<td>注意 <code>inplace=True</code> vs 返回新对象</td>
+</tr>
+<tr>
+<td>SettingWithCopyWarning</td>
+<td>使用 <code>.copy()</code> 或 <code>.loc[]</code> 避免</td>
+</tr>
+<tr>
+<td>编码</td>
+<td>读取 CSV 时指定 <code>encoding="utf-8"</code> 或 <code>"gbk"</code></td>
+</tr>
+<tr>
+<td>索引</td>
+<td>操作后注意 index 是否需要 <code>reset_index()</code></td>
+</tr>
+<tr>
+<td>类型推断</td>
+<td>Pandas 自动推断类型，有时需手动 <code>astype()</code></td>
+</tr>
+</tbody></table>
+
+<h2>六、避坑指南</h2>
+
+<table><thead><tr>
+<th>坑</th>
+<th>❌ 错误做法</th>
+<th>✅ 正确做法</th>
+</tr></thead><tbody>
+<tr>
+<td>列选择</td>
+<td><code>df.name</code>（可能与方法冲突）</td>
+<td><code>df["name"]</code> 或 <code>df[["name"]]</code></td>
+</tr>
+<tr>
+<td>行选择</td>
+<td><code>df[1:3]</code>（不直观）</td>
+<td><code>df.iloc[1:3]</code> 或 <code>df.loc[]</code></td>
+</tr>
+<tr>
+<td>修改警告</td>
+<td><code>df[df["a"]>0]["b"] = 1</code></td>
+<td><code>df.loc[df["a"]>0, "b"] = 1</code></td>
+</tr>
+<tr>
+<td>链式赋值</td>
+<td><code>df.dropna().fillna(0)</code> 不保存</td>
+<td><code>df = df.dropna().fillna(0)</code></td>
+</tr>
+<tr>
+<td>大文件</td>
+<td><code>pd.read_csv("huge.csv")</code></td>
+<td><code>chunksize=10000</code> 分块读取</td>
+</tr>
+<tr>
+<td>日期解析</td>
+<td>字符串日期无法计算</td>
+<td><code>pd.to_datetime()</code> 转换</td>
+</tr>
+<tr>
+<td>循环操作</td>
+<td><code>for i in range(len(df))</code></td>
+<td>向量化操作 <code>df["col"].str.upper()</code></td>
+</tr>
+</tbody></table>
+
+<h2>七、练习题</h2>
+
+<h3>🟢 入门</h3>
+<ol>
+<li>创建一个包含 10 名学生成绩的 DataFrame，计算每科平均分和总分排名</li>
+</ul>
+<ol>
+<li>读取一个 CSV 文件，显示前 5 行和基本统计信息</li>
+
+<h3>🟡 进阶</h3>
+<ol>
+<li>清洗一个含缺失值和重复行的数据集，要求：填充缺失值、去重、类型转换</li>
+</ul>
+<ol>
+<li>使用 <code>groupby</code> + <code>agg</code> 分析某电商数据集的月度销售趋势</li>
+</ul>
+<ol>
+<li>实现 <code>pd.cut</code> 和 <code>pd.qcut</code> 分箱操作，对比等宽与等频分箱的差异</li>
+
+<h3>🔴 挑战</h3>
+<ol>
+<li>从 3 个 CSV 文件读取数据，使用 <code>merge</code> 关联后生成完整的分析报告</li>
+</ul>
+<ol>
+<li>编写一个通用的数据清洗函数，自动检测并处理缺失值、异常值、重复行</li>
+
+<h2>八、知识点总结</h2>
+
+<pre><code>Pandas 基础知识体系
+├── 数据结构
+│   ├── Series → 一维，带索引
+│   ├── DataFrame → 二维，行列表格
+│   └── Index → 标签系统
+├── 数据操作
+│   ├── 选择 → loc / iloc / []
+│   ├── 过滤 → boolean indexing
+│   ├── 排序 → sort_values / sort_index
+│   └── 去重 → drop_duplicates
+├── 数据清洗
+│   ├── 缺失值 → isnull / fillna / dropna
+│   ├── 类型转换 → astype / to_datetime
+│   └── 字符串 → .str 访问器
+├── 聚合分析
+│   ├── groupby → 分组
+│   ├── agg → 多种聚合
+│   ├── value_counts → 频次统计
+│   └── describe → 描述性统计
+└── 数据 IO
+    ├── read_csv / to_csv
+    ├── read_excel / to_excel
+    └── read_json / to_json</code></pre>
+
+<h2>九、举一反三</h2>
+
+<table><thead><tr>
+<th>应用场景</th>
+<th>核心技术</th>
+<th>扩展方向</th>
+</tr></thead><tbody>
+<tr>
+<td>数据报表</td>
+<td>groupby + agg</td>
+<td>自动化周报/月报生成</td>
+</tr>
+<tr>
+<td>数据清洗</td>
+<td>fillna + dedup</td>
+<td>ETL 管道构建</td>
+</tr>
+<tr>
+<td>探索分析</td>
+<td>describe + 可视化</td>
+<td>Pandas Profiling 自动报告</td>
+</tr>
+<tr>
+<td>特征工程</td>
+<td>cut + transform</td>
+<td>机器学习特征处理</td>
+</tr>
+<tr>
+<td>数据合并</td>
+<td>merge + concat</td>
+<td>多源数据整合</td>
+</tr>
+<tr>
+<td>日志分析</td>
+<td>时间解析 + groupby</td>
+<td>运维监控数据分析</td>
+</tr>
+</tbody></table>
+
+<h2>十、参考资料</h2>
+
+<ul>
+<li><a href="https://pandas.pydata.org/docs/">Pandas 官方文档</a></li>
+<li><a href="https://pandas.pydata.org/Pandas_Cheat_Sheet.pdf">Pandas Cheat Sheet</a></li>
+<li><a href="https://pandas.pydata.org/docs/user_guide/10min.html">10 Minutes to Pandas</a></li>
+<li><a href="https://realpython.com/pandas-python-explore-dataset/">Real Python Pandas Tutorial</a></li>
+
+<h2>十一、代码演进</h2>
+
+<table><thead><tr>
+<th>版本</th>
+<th>重点</th>
+<th>改进</th>
+</tr></thead><tbody>
+<tr>
+<td>v1 数据结构</td>
+<td>Series + DataFrame 基础操作</td>
+<td>理解数据结构和选择方式</td>
+</tr>
+<tr>
+<td>v2 数据清洗</td>
+<td>缺失值 + 去重 + 类型转换</td>
+<td>掌握真实数据清洗流程</td>
+</tr>
+<tr>
+<td>v3 实战分析</td>
+<td>完整分析报告 + 多维度统计</td>
+<td>从数据生成到报告输出</td>
+</tr>
+</tbody></table>
+
+<blockquote><p><strong>下一步建议：</strong> 学习 Pandas 进阶技巧（merge、pivot_table、时间序列），处理更复杂的数据分析场景。</p></blockquote>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

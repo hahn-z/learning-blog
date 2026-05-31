@@ -1,0 +1,531 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>014 - 实战工具库类型设计</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/TypeScript/index.html">TypeScript</a>
+<span class="sep">›</span>
+<a href="/tech-blog/TypeScript/01-TypeScript/index.html">TypeScript</a>
+</nav>
+<h1>014 - 实战工具库类型设计</h1>
+<div class="meta">
+<span>📂 TypeScript</span>
+<span>🏷️ TypeScript</span>
+</div>
+<article>
+
+
+<h1>实战工具库类型设计</h1>
+
+<blockquote><p><strong>难度：</strong> ⭐⭐⭐⭐ 高级 | <strong>阅读时间：</strong> 约20分钟 | <strong>前置知识：</strong> 泛型、条件类型、映射类型</p></blockquote>
+
+<h2>一、概念讲解</h2>
+
+<p>设计一个类型安全的工具库，需要将TypeScript的高级类型特性发挥到极致。本文通过实际案例，展示如何设计既灵活又类型安全的工具函数。</p>
+
+<h3>设计原则</h3>
+
+<ol>
+<li><strong>类型推导优先</strong>：让用户不需要手动标注类型</li>
+</ul>
+<ol>
+<li><strong>错误在编译时暴露</strong>：不可能的用法应该编译失败</li>
+</ul>
+<ol>
+<li><strong>类型守卫结合</strong>：编译时+运行时双重保障</li>
+</ul>
+<ol>
+<li><strong>API最小化</strong>：少量精心设计的函数胜过大量同质函数</li>
+
+<h2>二、脑图</h2>
+
+<pre><code>工具库类型设计
+├── 核心工具类型
+│   ├── DeepPartial&lt;T&gt;
+│   ├── DeepReadonly&lt;T&gt;
+│   ├── PickByValue&lt;T, V&gt;
+│   └── RequiredKeys&lt;T&gt;
+├── 函数式工具
+│   ├── 类型安全的 compose
+│   ├── 类型安全的 pipe
+│   └── 类型安全的 curry
+├── 对象工具
+│   ├── 类型安全的 pick/omit
+│   ├── 类型安全的 merge
+│   └── 类型安全的 groupBy
+├── 验证工具
+│   ├── Schema 定义
+│   ├── 类型推导
+│   └── 运行时验证
+└── 设计模式
+    ├── Builder
+    ├── Fluent API
+    └── 类型状态机</code></pre>
+
+<h2>三、完整TypeScript代码</h2>
+
+<pre><code class="language-typescript">// ============================================
+// Utility Library Type Design - Complete Demo
+// ============================================
+
+// --- 1. Deep Utility Types ---
+type DeepPartial&lt;T&gt; = T extends object
+  ? { [K in keyof T]?: DeepPartial&lt;T[K]&gt; }
+  : T;
+
+type DeepReadonly&lt;T&gt; = T extends object
+  ? { readonly [K in keyof T]: DeepReadonly&lt;T[K]&gt; }
+  : T;
+
+type DeepRequired&lt;T&gt; = T extends object
+  ? { [K in keyof T]-?: DeepRequired&lt;T[K]&gt; }
+  : T;
+
+// --- 2. Key/Value Filtering ---
+type PickByValue&lt;T, V&gt; = {
+  [K in keyof T as T[K] extends V ? K : never]: T[K];
+};
+
+type OmitByValue&lt;T, V&gt; = {
+  [K in keyof T as T[K] extends V ? never : K]: T[K];
+};
+
+type RequiredKeys&lt;T&gt; = {
+  [K in keyof T]-?: {} extends Pick&lt;T, K&gt; ? never : K;
+}[keyof T];
+
+type OptionalKeys&lt;T&gt; = {
+  [K in keyof T]-?: {} extends Pick&lt;T, K&gt; ? K : never;
+}[keyof T];
+
+// --- 3. Type-safe Object Functions ---
+function typedPick&lt;T extends object, K extends keyof T&gt;(
+  obj: T,
+  keys: K[]
+): Pick&lt;T, K&gt; {
+  const result = {} as Pick&lt;T, K&gt;;
+  for (const key of keys) {
+    result[key] = obj[key];
+  }
+  return result;
+}
+
+function typedOmit&lt;T extends object, K extends keyof T&gt;(
+  obj: T,
+  keys: K[]
+): Omit&lt;T, K&gt; {
+  const result = { ...obj };
+  for (const key of keys) {
+    delete result[key];
+  }
+  return result;
+}
+
+// --- 4. Type-safe groupBy ---
+function groupBy&lt;T, K extends keyof T&gt;(
+  arr: T[],
+  key: K
+): Record&lt;string, T[]&gt; {
+  return arr.reduce(
+    (groups, item) =&gt; {
+      const groupKey = String(item[key]);
+      if (!groups[groupKey]) {
+        groups[groupKey] = [];
+      }
+      groups[groupKey].push(item);
+      return groups;
+    },
+    {} as Record&lt;string, T[]&gt;
+  );
+}
+
+// --- 5. Type-safe compose/pipe ---
+function compose&lt;A, B, C&gt;(
+  f: (a: B) =&gt; C,
+  g: (a: A) =&gt; B
+): (a: A) =&gt; C;
+function compose&lt;A, B, C, D&gt;(
+  f: (a: C) =&gt; D,
+  g: (b: B) =&gt; C,
+  h: (a: A) =&gt; B
+): (a: A) =&gt; D;
+function compose(...fns: Function[]): Function {
+  return (x: unknown) =&gt; fns.reduceRight((acc, fn) =&gt; fn(acc), x);
+}
+
+function pipe&lt;A&gt;(a: A): A;
+function pipe&lt;A, B&gt;(a: A, ab: (a: A) =&gt; B): B;
+function pipe&lt;A, B, C&gt;(a: A, ab: (a: A) =&gt; B, bc: (b: B) =&gt; C): C;
+function pipe&lt;A, B, C, D&gt;(
+  a: A,
+  ab: (a: A) =&gt; B,
+  bc: (b: B) =&gt; C,
+  cd: (c: C) =&gt; D
+): D;
+function pipe(initial: unknown, ...fns: Function[]): unknown {
+  return fns.reduce((acc, fn) =&gt; fn(acc), initial);
+}
+
+// --- 6. Type-safe EventEmitter (Advanced) ---
+type EventMap = Record&lt;string, unknown&gt;;
+type EventKey&lt;T extends EventMap&gt; = string &amp; keyof T;
+
+interface TypedEventEmitter&lt;Events extends EventMap&gt; {
+  on&lt;K extends EventKey&lt;Events&gt;&gt;(
+    event: K,
+    listener: (payload: Events[K]) =&gt; void
+  ): this;
+  off&lt;K extends EventKey&lt;Events&gt;&gt;(
+    event: K,
+    listener: (payload: Events[K]) =&gt; void
+  ): this;
+  emit&lt;K extends EventKey&lt;Events&gt;(event: K, payload: Events[K]): boolean;
+}
+
+class EventEmitter&lt;Events extends EventMap&gt; implements TypedEventEmitter&lt;Events&gt; {
+  private listeners = new Map&lt;string, Set&lt;Function&gt;&gt;();
+
+  on&lt;K extends EventKey&lt;Events&gt;&gt;(
+    event: K,
+    listener: (payload: Events[K]) =&gt; void
+  ): this {
+    if (!this.listeners.has(event)) {
+      this.listeners.set(event, new Set());
+    }
+    this.listeners.get(event)!.add(listener);
+    return this;
+  }
+
+  off&lt;K extends EventKey&lt;Events&gt;&gt;(
+    event: K,
+    listener: (payload: Events[K]) =&gt; void
+  ): this {
+    this.listeners.get(event)?.delete(listener);
+    return this;
+  }
+
+  emit&lt;K extends EventKey&lt;Events&gt;&gt;(event: K, payload: Events[K]): boolean {
+    const handlers = this.listeners.get(event);
+    if (!handlers?.size) return false;
+    handlers.forEach((fn) =&gt; fn(payload));
+    return true;
+  }
+}
+
+// --- 7. Type-safe Schema Validator ---
+type SchemaType&lt;S extends Schema&gt; = S extends SchemaString
+  ? string
+  : S extends SchemaNumber
+    ? number
+    : S extends SchemaBoolean
+      ? boolean
+      : S extends SchemaObject&lt;infer T&gt;
+        ? { [K in keyof T]: SchemaType&lt;T[K]&gt; }
+        : never;
+
+interface SchemaString {
+  type: &quot;string&quot;;
+  min?: number;
+  max?: number;
+}
+
+interface SchemaNumber {
+  type: &quot;number&quot;;
+  min?: number;
+  max?: number;
+}
+
+interface SchemaBoolean {
+  type: &quot;boolean&quot;;
+}
+
+interface SchemaObject&lt;T extends Record&lt;string, Schema&gt;&gt; {
+  type: &quot;object&quot;;
+  properties: T;
+  required?: (keyof T)[];
+}
+
+type Schema = SchemaString | SchemaNumber | SchemaBoolean | SchemaObject&lt;Record&lt;string, Schema&gt;&gt;;
+
+function validate&lt;S extends Schema&gt;(
+  value: unknown,
+  schema: S
+): value is SchemaType&lt;S&gt; {
+  if (schema.type === &quot;string&quot;) {
+    if (typeof value !== &quot;string&quot;) return false;
+    if (schema.min !== undefined &amp;&amp; value.length &lt; schema.min) return false;
+    if (schema.max !== undefined &amp;&amp; value.length &gt; schema.max) return false;
+    return true;
+  }
+  if (schema.type === &quot;number&quot;) {
+    if (typeof value !== &quot;number&quot;) return false;
+    if (schema.min !== undefined &amp;&amp; value &lt; schema.min) return false;
+    if (schema.max !== undefined &amp;&amp; value &gt; schema.max) return false;
+    return true;
+  }
+  if (schema.type === &quot;boolean&quot;) {
+    return typeof value === &quot;boolean&quot;;
+  }
+  if (schema.type === &quot;object&quot;) {
+    if (typeof value !== &quot;object&quot; || value === null) return false;
+    const obj = value as Record&lt;string, unknown&gt;;
+    for (const [key, propSchema] of Object.entries(schema.properties)) {
+      if (!(key in obj)) {
+        if (schema.required?.includes(key)) return false;
+        continue;
+      }
+      if (!validate(obj[key], propSchema as Schema)) return false;
+    }
+    return true;
+  }
+  return false;
+}
+
+// --- 8. Usage Example ---
+interface Product {
+  id: string;
+  name: string;
+  price: number;
+  category: string;
+}
+
+const products: Product[] = [
+  { id: &quot;1&quot;, name: &quot;TypeScript Guide&quot;, price: 49.99, category: &quot;Books&quot; },
+  { id: &quot;2&quot;, name: &quot;React Handbook&quot;, price: 39.99, category: &quot;Books&quot; },
+  { id: &quot;3&quot;, name: &quot;VS Code&quot;, price: 0, category: &quot;Tools&quot; },
+];
+
+// groupBy
+const byCategory = groupBy(products, &quot;category&quot;);
+console.log(&quot;Books:&quot;, byCategory[&quot;Books&quot;]?.length); // 2
+
+// typedPick
+const preview = typedPick(products[0], [&quot;id&quot;, &quot;name&quot;]);
+console.log(&quot;Preview:&quot;, preview);
+
+// Schema validation
+const userSchema: SchemaObject&lt;{
+  name: SchemaString;
+  age: SchemaNumber;
+}&gt; = {
+  type: &quot;object&quot;,
+  properties: {
+    name: { type: &quot;string&quot;, min: 1 },
+    age: { type: &quot;number&quot;, min: 0, max: 150 },
+  },
+  required: [&quot;name&quot;, &quot;age&quot;],
+};
+
+const testData = { name: &quot;Alice&quot;, age: 30 };
+if (validate(testData, userSchema)) {
+  // TypeScript knows testData has { name: string; age: number }
+  console.log(`Valid: ${testData.name}, age ${testData.age}`);
+}</code></pre>
+
+<h2>四、执行预览</h2>
+
+<pre><code>$ npx ts-node utility-library.ts
+Books: 2
+Preview: { id: &#x27;1&#x27;, name: &#x27;TypeScript Guide&#x27; }
+Valid: Alice, age 30</code></pre>
+
+<h2>五、注意事项</h2>
+
+<table><thead><tr>
+<th>要点</th>
+<th>说明</th>
+<th>建议</th>
+</tr></thead><tbody>
+<tr>
+<td>递归类型</td>
+<td><code>DeepPartial</code> 等可能很慢</td>
+<td>限制递归深度，或用具体类型</td>
+</tr>
+<tr>
+<td>函数重载</td>
+<td>compose/pipe需要大量重载</td>
+<td>考虑用更简单的API设计</td>
+</tr>
+<tr>
+<td>类型推导</td>
+<td>复杂类型可能导致推导失败</td>
+<td>适当添加手动注解</td>
+</tr>
+<tr>
+<td>运行时开销</td>
+<td>类型复杂不代表运行时慢</td>
+<td>类型在编译时擦除</td>
+</tr>
+<tr>
+<td>Schema验证</td>
+<td>手写验证器容易有bug</td>
+<td>生产环境用Zod等成熟库</td>
+</tr>
+</tbody></table>
+
+<h2>六、避坑指南</h2>
+
+<pre><code class="language-typescript">// ❌ 工具类型没有约束
+type MyPartial&lt;T&gt; = { [K in keyof T]?: T[K] }; // handles arrays poorly
+// ✅ 处理特殊类型
+type DeepPartial&lt;T&gt; = T extends (infer U)[]
+  ? DeepPartial&lt;U&gt;[]
+  : T extends object
+    ? { [K in keyof T]?: DeepPartial&lt;T[K]&gt; }
+    : T;
+
+// ❌ 过度复杂的类型体操
+// ✅ 类型设计要服务于实际需求
+
+// ❌ 忽略性能（复杂类型增加编译时间）
+// ✅ 用简单类型组合代替单个复杂类型</code></pre>
+
+<h2>七、练习题</h2>
+
+<h3>🟢 入门</h3>
+<ol>
+<li>实现 <code>Mutable<T></code>，移除所有 <code>readonly</code> 修饰符</li>
+</ul>
+<ol>
+<li>实现 <code>PickByType<T, U></code>，筛选值为特定类型的属性</li>
+
+<h3>🟡 进阶</h3>
+<ol>
+<li>实现类型安全的 <code>curry</code> 函数</li>
+</ul>
+<ol>
+<li>设计一个支持链式调用的 QueryBuilder</li>
+
+<h3>🔴 挑战</h3>
+<ol>
+<li>实现 <code>TupleToUnion<T></code> 和 <code>UnionToTuple<T></code></li>
+
+<h2>八、知识点总结</h2>
+
+<pre><code>工具库类型设计
+├── 深层工具类型 → DeepPartial, DeepReadonly
+├── 条件映射 → PickByValue, OmitByValue
+├── 函数式组合 → compose, pipe, curry
+├── 事件系统 → TypedEventEmitter
+├── Schema验证 → 类型推导 + 运行时检查
+└── 设计原则 → 推导优先、编译时错误、API最小化</code></pre>
+
+<h2>九、举一反三</h2>
+
+<table><thead><tr>
+<th>需求</th>
+<th>工具类型</th>
+<th>应用</th>
+</tr></thead><tbody>
+<tr>
+<td>表单部分更新</td>
+<td>DeepPartial<T></td>
+<td>PATCH请求体</td>
+</tr>
+<tr>
+<td>不可变数据</td>
+<td>DeepReadonly<T></td>
+<td>Redux state</td>
+</tr>
+<tr>
+<td>数据筛选</td>
+<td>PickByValue<T, V></td>
+<td>过滤可选字段</td>
+</tr>
+<tr>
+<td>API响应转换</td>
+<td>类型安全pick/omit</td>
+<td>字段裁剪</td>
+</tr>
+<tr>
+<td>输入验证</td>
+<td>Schema + validate</td>
+<td>表单/API验证</td>
+</tr>
+</tbody></table>
+
+<h2>十、参考资料</h2>
+
+<ul>
+<li><a href="https://www.typescriptlang.org/docs/handbook/2/types-from-types.html">TypeScript Handbook - Type Manipulation</a></li>
+<li><a href="https://github.com/type-challenges/type-challenges">Type Challenges</a></li>
+<li><a href="https://zod.dev">Zod - Schema Validation</a></li>
+
+<h2>十一、代码演进</h2>
+
+<h3>v1 → 简单工具函数</h3>
+
+<pre><code class="language-typescript">function pick(obj: any, keys: string[]) {
+  return keys.reduce((acc, k) =&gt; ({ ...acc, [k]: obj[k] }), {});
+}</code></pre>
+
+<h3>v2 → 泛型 + 类型安全</h3>
+
+<pre><code class="language-typescript">function pick&lt;T, K extends keyof T&gt;(obj: T, keys: K[]): Pick&lt;T, K&gt; {
+  return keys.reduce((acc, k) =&gt; ({ ...acc, [k]: obj[k] }), {} as Pick&lt;T, K&gt;);
+}</code></pre>
+
+<h3>v3 → 条件类型 + Schema推导</h3>
+
+<pre><code class="language-typescript">type SchemaType&lt;S&gt; = S extends SchemaObject&lt;infer T&gt;
+  ? { [K in keyof T]: SchemaType&lt;T[K]&gt; }
+  : S extends SchemaString ? string : never;</code></pre>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

@@ -1,0 +1,520 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>004 - 中间件、请求生命周期与管道模式</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Hyperf/index.html">Hyperf</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Hyperf/01-微服务实战/index.html">Hyperf微服务实战</a>
+</nav>
+<h1>004 - 中间件、请求生命周期与管道模式</h1>
+<div class="meta">
+<span>📂 Hyperf微服务实战</span>
+<span>🏷️ Hyperf</span>
+</div>
+<article>
+
+
+<h1>中间件、请求生命周期与管道模式</h1>
+
+<blockquote><p><strong>难度：</strong> ⭐⭐⭐<br><strong>前置知识：</strong> DI 容器（003）、HTTP 基础、PSR-7/PSR-15 规范<br><strong>预估用时：</strong> 50 分钟</p></blockquote>
+
+<hr>
+
+<h2>一、概念讲解</h2>
+
+<p><strong>一句话定义：</strong> 中间件是在请求到达控制器之前和响应返回之后执行的过滤器链，采用管道模式（Pipeline）依次处理。</p>
+
+<p><strong>现实类比：</strong> 你去银行办业务——先取号（认证中间件）→ 过安检（安全中间件）→ 到窗口办业务（Controller）→ 拿回执离开（日志中间件）。每个环节都是一个中间件，可以放行也可以拒绝。</p>
+
+<p><strong>技术场景：</strong> 用户服务中，每个 API 请求都需要经过：CORS 处理 → 请求日志 → JWT 鉴权 → 速率限制 → 到达 Controller。这些横切关注点用中间件统一管理，避免在每个 Controller 里重复编写。</p>
+
+<hr>
+
+<h2>二、实时脑图</h2>
+
+<pre><code>Request → [CORS] → [Log] → [Auth] → [RateLimit] → Controller
+                                                      │
+Response ← [CORS] ← [Log] ← [Auth] ← [RateLimit] ← ┘
+
+Pipeline Flow:
+┌──────────┐    ┌──────────┐    ┌──────────┐    ┌──────────┐
+│Middleware │───→│Middleware │───→│Middleware │───→│Controller│
+│    A      │    │    B      │    │    C      │    │  Handler │
+└──────────┘    └──────────┘    └──────────┘    └──────────┘
+     ↑                                               │
+     └──────────── Response flows back ──────────────┘</code></pre>
+
+<hr>
+
+<h2>三、完整代码</h2>
+
+<h3>3.1 CORS 中间件</h3>
+
+<pre><code class="language-php">&lt;?php
+// ✅ app/Middleware/CorsMiddleware.php
+
+declare(strict_types=1);
+
+namespace App\Middleware;
+
+use Psr\Http\Message\ResponseInterface;
+use Psr\Http\Message\ServerRequestInterface;
+use Psr\Http\Server\MiddlewareInterface;
+use Psr\Http\Server\RequestHandlerInterface;
+
+class CorsMiddleware implements MiddlewareInterface
+{
+    public function process(
+        ServerRequestInterface $request,
+        RequestHandlerInterface $handler
+    ): ResponseInterface {
+        // ✅ Handle preflight OPTIONS request
+        if ($request-&gt;getMethod() === &#x27;OPTIONS&#x27;) {
+            $response = (new \Hyperf\HttpServer\Response())
+                -&gt;withStatus(204);
+        } else {
+            $response = $handler-&gt;handle($request);
+        }
+
+        // ✅ Add CORS headers
+        return $response
+            -&gt;withHeader(&#x27;Access-Control-Allow-Origin&#x27;, &#x27;*&#x27;)
+            -&gt;withHeader(&#x27;Access-Control-Allow-Methods&#x27;, &#x27;GET,POST,PUT,DELETE,OPTIONS&#x27;)
+            -&gt;withHeader(&#x27;Access-Control-Allow-Headers&#x27;, &#x27;Content-Type,Authorization&#x27;)
+            -&gt;withHeader(&#x27;Access-Control-Max-Age&#x27;, &#x27;86400&#x27;);
+    }
+}</code></pre>
+
+<h3>3.2 请求日志中间件</h3>
+
+<pre><code class="language-php">&lt;?php
+// ✅ app/Middleware/RequestLogMiddleware.php
+
+declare(strict_types=1);
+
+namespace App\Middleware;
+
+use Hyperf\Di\Annotation\Inject;
+use Psr\Http\Message\ResponseInterface;
+use Psr\Http\Message\ServerRequestInterface;
+use Psr\Http\Server\MiddlewareInterface;
+use Psr\Http\Server\RequestHandlerInterface;
+use Psr\Log\LoggerInterface;
+
+class RequestLogMiddleware implements MiddlewareInterface
+{
+    #[Inject]
+    private LoggerInterface $logger;
+
+    public function process(
+        ServerRequestInterface $request,
+        RequestHandlerInterface $handler
+    ): ResponseInterface {
+        $startTime = microtime(true);
+        $method = $request-&gt;getMethod();
+        $uri = (string) $request-&gt;getUri();
+
+        $this-&gt;logger-&gt;info(&quot;-&gt; {$method} {$uri}&quot;);
+
+        // ✅ Pass to next middleware
+        $response = $handler-&gt;handle($request);
+
+        $elapsed = round((microtime(true) - $startTime) * 1000, 2);
+        $status = $response-&gt;getStatusCode();
+
+        $this-&gt;logger-&gt;info(&quot;&lt;- {$method} {$uri} [{$status}] {$elapsed}ms&quot;);
+
+        return $response;
+    }
+}</code></pre>
+
+<h3>3.3 JWT 认证中间件</h3>
+
+<pre><code class="language-php">&lt;?php
+// ✅ app/Middleware/JwtAuthMiddleware.php
+
+declare(strict_types=1);
+
+namespace App\Middleware;
+
+use Hyperf\HttpServer\Contract\RequestInterface;
+use Psr\Http\Message\ResponseInterface;
+use Psr\Http\Message\ServerRequestInterface;
+use Psr\Http\Server\MiddlewareInterface;
+use Psr\Http\Server\RequestHandlerInterface;
+
+class JwtAuthMiddleware implements MiddlewareInterface
+{
+    public function process(
+        ServerRequestInterface $request,
+        RequestHandlerInterface $handler
+    ): ResponseInterface {
+        // ✅ Extract token from Authorization header
+        $header = $request-&gt;getHeaderLine(&#x27;Authorization&#x27;);
+
+        if (!$header || !str_starts_with($header, &#x27;Bearer &#x27;)) {
+            return $this-&gt;unauthorized(&#x27;Missing or invalid token&#x27;);
+        }
+
+        $token = substr($header, 7);
+
+        // 🔴 TODO: Implement actual JWT validation
+        // For now, just check token is not empty
+        if (empty($token)) {
+            return $this-&gt;unauthorized(&#x27;Empty token&#x27;);
+        }
+
+        // ✅ Token valid, pass to next middleware
+        return $handler-&gt;handle($request);
+    }
+
+    private function unauthorized(string $message): ResponseInterface
+    {
+        return (new \Hyperf\HttpServer\Response())
+            -&gt;withStatus(401)
+            -&gt;withHeader(&#x27;Content-Type&#x27;, &#x27;application/json&#x27;)
+            -&gt;withBody(
+                \Hyperf\HttpMessage\Stream\SwooleStream::create(
+                    json_encode([&#x27;code&#x27; =&gt; 401, &#x27;message&#x27; =&gt; $message])
+                )
+            );
+    }
+}</code></pre>
+
+<h3>3.4 中间件注册</h3>
+
+<pre><code class="language-php">&lt;?php
+// ✅ config/autoload/middlewares.php
+
+declare(strict_types=1);
+
+return [
+    &#x27;http&#x27; =&gt; [
+        App\Middleware\CorsMiddleware::class,
+        App\Middleware\RequestLogMiddleware::class,
+    ],
+];</code></pre>
+
+<h3>3.5 路由级中间件</h3>
+
+<pre><code class="language-php">&lt;?php
+// ✅ config/routes.php
+
+use Hyperf\HttpServer\Router\Router;
+
+// 🟢 Public routes (no auth required)
+Router::addGroup(&#x27;/user&#x27;, function () {
+    Router::post(&#x27;/register&#x27;, &#x27;App\Controller\UserController@register&#x27;);
+    Router::post(&#x27;/login&#x27;, &#x27;App\Controller\UserController@login&#x27;);
+});
+
+// 🟢 Protected routes (auth required)
+Router::addGroup(&#x27;/user&#x27;, function () {
+    Router::get(&#x27;/profile&#x27;, &#x27;App\Controller\UserController@profile&#x27;);
+    Router::put(&#x27;/update&#x27;, &#x27;App\Controller\UserController@update&#x27;);
+    Router::post(&#x27;/logout&#x27;, &#x27;App\Controller\UserController@logout&#x27;);
+}, [&#x27;middleware&#x27; =&gt; [App\Middleware\JwtAuthMiddleware::class]]);</code></pre>
+
+<hr>
+
+<h2>四、执行预览</h2>
+
+<pre><code class="language-bash"># Public endpoint - no auth needed
+$ curl -X POST http://127.0.0.1:9501/user/register \
+  -H &quot;Content-Type: application/json&quot; \
+  -d &#x27;{&quot;name&quot;:&quot;hahn&quot;,&quot;email&quot;:&quot;hahn@test.com&quot;,&quot;password&quot;:&quot;secret123&quot;}&#x27;
+{&quot;code&quot;:0,&quot;data&quot;:{&quot;id&quot;:1,&quot;name&quot;:&quot;hahn&quot;}}
+
+# Protected endpoint - missing token
+$ curl http://127.0.0.1:9501/user/profile
+{&quot;code&quot;:401,&quot;message&quot;:&quot;Missing or invalid token&quot;}
+
+# Protected endpoint - with valid token
+$ curl http://127.0.0.1:9501/user/profile \
+  -H &quot;Authorization: Bearer eyJhbGciOiJIUzI1NiJ9...&quot;
+{&quot;code&quot;:0,&quot;data&quot;:{&quot;id&quot;:1,&quot;name&quot;:&quot;hahn&quot;,&quot;email&quot;:&quot;hahn@test.com&quot;}}</code></pre>
+
+<hr>
+
+<h2>五、注意事项</h2>
+
+<table><thead><tr>
+<th>约束</th>
+<th>说明</th>
+<th>违反后果</th>
+</tr></thead><tbody>
+<tr>
+<td>中间件顺序很重要</td>
+<td>全局中间件按注册顺序执行</td>
+<td>CORS 拦截在 Auth 后面导致预检失败</td>
+</tr>
+<tr>
+<td>必须调用 <code>$handler->handle()</code></td>
+<td>否则请求链断裂</td>
+<td>后续中间件和 Controller 都不执行</td>
+</tr>
+<tr>
+<td>响应对象不可变</td>
+<td>PSR-7 是 immutable 的</td>
+<td>修改 header 不生效（需要 <code>withHeader</code> 返回新对象）</td>
+</tr>
+<tr>
+<td>不要在中间件做重操作</td>
+<td>每个请求都经过中间件</td>
+<td>性能瓶颈</td>
+</tr>
+<tr>
+<td>异常要被捕获</td>
+<td>中间件内异常会中断管道</td>
+<td>返回 500 而非友好提示</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>六、避坑指南</h2>
+
+<table><thead><tr>
+<th>典型错误</th>
+<th>现象</th>
+<th>正确做法</th>
+</tr></thead><tbody>
+<tr>
+<td>❌ 忘记调用 <code>handle()</code></td>
+<td>请求直接返回空响应</td>
+<td>始终在中间件中调用 <code>$handler->handle($request)</code></td>
+</tr>
+<tr>
+<td>❌ 全局注册 Auth 中间件</td>
+<td>登录/注册也需要 token</td>
+<td>使用路由级中间件，区分公开/私有路由</td>
+</tr>
+<tr>
+<td>❌ 直接修改 <code>$response</code></td>
+<td>Header 修改不生效</td>
+<td>用 <code>withHeader()</code> 返回新对象</td>
+</tr>
+<tr>
+<td>❌ 中间件间传递数据用全局变量</td>
+<td>协程间数据串扰</td>
+<td>用 <code>$request->withAttribute()</code> 传递</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>七、练习题</h2>
+
+<p>🟢 <strong>基础题 1：</strong> 创建一个 <code>JsonResponseMiddleware</code>，自动将数组响应转为 JSON 并设置 <code>Content-Type</code>。</p>
+
+<p>🟢 <strong>基础题 2：</strong> 为 <code>/admin/*</code> 路由组创建 <code>AdminAuthMiddleware</code>，检查请求头中是否包含 <code>X-Admin-Key</code>。</p>
+
+<p>🟡 <strong>进阶题：</strong> 实现一个 <code>SignatureMiddleware</code>，验证请求中的 HMAC 签名是否正确（<code>X-Signature</code> header）。</p>
+
+<p>🔴 <strong>开放题：</strong> 研究 Hyperf 的核心 HTTP 请求处理流程（从 <code>onRequest</code> 到 Controller），画出完整的请求生命周期时序图。</p>
+
+<hr>
+
+<h2>八、知识点总结</h2>
+
+<pre><code>中间件系统
+├── PSR-15 规范
+│   ├── MiddlewareInterface
+│   └── RequestHandlerInterface
+├── 中间件分类
+│   ├── 全局中间件（middlewares.php）
+│   ├── 路由组中间件（Router::addGroup）
+│   └── 方法级中间件（#[Middleware] 注解）
+├── 管道模式
+│   ├── 请求正向传递
+│   ├── 响应反向回传
+│   └── 洋葱模型（Onion Model）
+└── 常见中间件
+    ├── CORS 跨域处理
+    ├── 请求日志
+    ├── JWT 认证
+    └── 速率限制</code></pre>
+
+<hr>
+
+<h2>九、举一反三</h2>
+
+<table><thead><tr>
+<th>变种场景</th>
+<th>关键差异</th>
+<th>适配方式</th>
+</tr></thead><tbody>
+<tr>
+<td>WebSocket 中间件</td>
+<td>非 HTTP 请求</td>
+<td>实现 <code>HandeShakeMiddleware</code> 接口</td>
+</tr>
+<tr>
+<td>gRPC 拦截器</td>
+<td>Protocol Buffer 协议</td>
+<td>使用 gRPC Interceptor 而非 HTTP 中间件</td>
+</tr>
+<tr>
+<td>多租户隔离</td>
+<td>根据 Host/Header 切换数据库</td>
+<td>创建 <code>TenantMiddleware</code> 设置上下文</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>十、参考资料</h2>
+
+<table><thead><tr>
+<th>资料</th>
+<th>权威等级</th>
+<th>链接</th>
+</tr></thead><tbody>
+<tr>
+<td>Hyperf 中间件文档</td>
+<td>⭐⭐⭐⭐⭐</td>
+<td>https://hyperf.wiki/3.1/#/zh-cn/middleware</td>
+</tr>
+<tr>
+<td>PSR-15 HTTP 中间件规范</td>
+<td>⭐⭐⭐⭐⭐</td>
+<td>https://www.php-fig.org/psr/psr-15/</td>
+</tr>
+<tr>
+<td>PSR-7 HTTP 消息接口</td>
+<td>⭐⭐⭐⭐</td>
+<td>https://www.php-fig.org/psr/psr-7/</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>十一、代码演进</h2>
+
+<h3>v1 ❌ 控制器内处理横切关注点</h3>
+
+<pre><code class="language-php">&lt;?php
+// ❌ Cross-cutting concerns mixed into controller
+class UserController
+{
+    public function profile(RequestInterface $request): array
+    {
+        // ❌ Auth check in controller - repeated everywhere
+        $token = $request-&gt;getHeaderLine(&#x27;Authorization&#x27;);
+        if (!$token) return [&#x27;code&#x27; =&gt; 401, &#x27;message&#x27; =&gt; &#x27;Unauthorized&#x27;];
+        
+        // ❌ Logging in controller
+        error_log(&quot;User profile requested&quot;);
+        
+        // ❌ Manual JSON header
+        header(&#x27;Content-Type: application/json&#x27;);
+        
+        return [&#x27;data&#x27; =&gt; $user];
+    }
+}</code></pre>
+
+<h3>v2 ✅ 中间件分离横切关注点</h3>
+
+<pre><code class="language-php">&lt;?php
+// ✅ Auth in middleware, controller focuses on business logic
+class UserController
+{
+    #[Inject]
+    private UserService $userService;
+
+    public function profile(RequestInterface $request): array
+    {
+        $id = (int) $request-&gt;input(&#x27;id&#x27;);
+        return [&#x27;code&#x27; =&gt; 0, &#x27;data&#x27; =&gt; $this-&gt;userService-&gt;getUser($id)];
+    }
+}
+// Auth, logging, CORS handled in middleware pipeline</code></pre>
+
+<h3>v3 🟢 注解驱动的中间件配置</h3>
+
+<pre><code class="language-php">&lt;?php
+// 🟢 Annotation-based middleware assignment
+#[AutoController(prefix: &quot;user&quot;)]
+#[Middleware(CorsMiddleware::class)]
+class UserController
+{
+    #[Middleware(JwtAuthMiddleware::class)]
+    #[RateLimit(maxRequests: 100)]
+    public function profile(RequestInterface $request): array
+    {
+        return [&#x27;code&#x27; =&gt; 0, &#x27;data&#x27; =&gt; $this-&gt;userService-&gt;getUser(
+            (int) $request-&gt;input(&#x27;id&#x27;)
+        )];
+    }
+
+    // ✅ No auth middleware - public endpoint
+    public function register(RequestInterface $request): array
+    {
+        // Registration logic...
+    }
+}</code></pre>
+
+<hr>
+
+<p><strong>上一篇：</strong> <a href="/post/003-di-container-annotation">003 - 依赖注入容器与注解系统详解</a></p>
+<p><strong>下一篇：</strong> <a href="/post/005-config-management">005 - 配置管理与环境隔离最佳实践</a></p>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

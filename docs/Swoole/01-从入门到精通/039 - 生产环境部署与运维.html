@@ -1,0 +1,645 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>039 - 生产环境部署与运维</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Swoole/index.html">Swoole</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Swoole/01-从入门到精通/index.html">Swoole从入门到精通</a>
+</nav>
+<h1>039 - 生产环境部署与运维</h1>
+<div class="meta">
+<span>📂 Swoole从入门到精通</span>
+<span>🏷️ Swoole</span>
+</div>
+<article>
+
+
+<hr>
+<p>slug: 039-production-deployment</p>
+<p>title: 生产环境部署与运维</p>
+<p>category: Swoole深度实战</p>
+<p>difficulty: ⭐⭐⭐⭐高级</p>
+<p>tags: [Swoole, 部署, 运维, Supervisor, Systemd, Docker, 监控]</p>
+<hr>
+
+<h1>生产环境部署与运维</h1>
+
+<blockquote><p><strong>难度：⭐⭐⭐⭐高级</strong> | 预计阅读时间：22分钟</p></blockquote>
+
+<h2>一、概念讲解</h2>
+
+<p>Swoole应用是常驻内存的CLI进程，与传统PHP-FPM的"请求-销毁"模式完全不同。这意味着部署、监控、重启策略都需要重新设计。</p>
+
+<h3>FPM vs Swoole部署差异</h3>
+
+<table><thead><tr>
+<th>维度</th>
+<th>PHP-FPM</th>
+<th>Swoole</th>
+</tr></thead><tbody>
+<tr>
+<td>进程管理</td>
+<td>系统服务（systemd）</td>
+<td>需要自己管理或用Supervisor</td>
+</tr>
+<tr>
+<td>代码更新</td>
+<td>自动生效（每次加载）</td>
+<td>需要reload Worker</td>
+</tr>
+<tr>
+<td>日志</td>
+<td>自动写到文件</td>
+<td>需要配置log_file</td>
+</tr>
+<tr>
+<td>崩溃恢复</td>
+<td>FPM自动拉起</td>
+<td>需要进程守护</td>
+</tr>
+<tr>
+<td>优雅重启</td>
+<td>kill -USR2</td>
+<td>Server::reload()</td>
+</tr>
+<tr>
+<td>Docker</td>
+<td>php-fpm镜像</td>
+<td>自定义Entrypoint</td>
+</tr>
+</tbody></table>
+
+<h2>二、脑图</h2>
+
+<pre><code>Swoole生产部署
+├── 进程管理
+│   ├── Supervisor守护
+│   ├── Systemd服务
+│   └── Docker容器
+├── 部署策略
+│   ├── 蓝绿部署
+│   ├── 滚动更新
+│   └── 灰度发布
+├── 监控告警
+│   ├── 进程状态监控
+│   ├── 内存/CPU监控
+│   ├── 业务指标
+│   └── Prometheus + Grafana
+├── 日志管理
+│   ├── Swoole日志
+│   ├── 业务日志
+│   ├── 请求日志
+│   └── ELK采集
+└── 运维操作
+    ├── 优雅重启
+    ├── 扩缩容
+    ├── 故障排查
+    └── 备份恢复</code></pre>
+
+<h2>三、代码演进</h2>
+
+<h3>v1: Supervisor守护进程</h3>
+
+<pre><code class="language-ini">; /etc/supervisor/conf.d/swoole-api.conf
+
+[program:swoole-api]
+command=/usr/bin/php /var/www/api/server.php
+directory=/var/www/api
+user=www-data
+numprocs=1
+autostart=true
+autorestart=true
+startretries=10
+redirect_stderr=true
+stdout_logfile=/var/log/swoole/api.log
+stdout_logfile_maxbytes=50MB
+stdout_logfile_backups=10
+stopsignal=SIGTERM
+stopasgroup=true
+killasgroup=true
+
+; Health check - if process exits within 5s, something is wrong
+startsecs=5
+
+; Environment variables
+environment=APP_ENV=&quot;production&quot;,APP_DEBUG=&quot;false&quot;</code></pre>
+
+<pre><code class="language-php">&lt;?php
+// server.php - Production-ready Swoole HTTP server
+
+// Validate environment before starting
+if (php_sapi_name() !== &#x27;cli&#x27;) {
+    die(&quot;This script must be run from CLI.\n&quot;);
+}
+
+if (!extension_loaded(&#x27;swoole&#x27;)) {
+    die(&quot;Swoole extension is required.\n&quot;);
+}
+
+// Bootstrap application (e.g., Laravel/ThinkPHP)
+require __DIR__ . &#x27;/vendor/autoload.php&#x27;;
+
+$server = new Swoole\Http\Server(&quot;0.0.0.0&quot;, 9501, SWOOLE_PROCESS);
+
+$server-&gt;set([
+    &#x27;worker_num&#x27; =&gt; swoole_cpu_num() * 2,
+    &#x27;max_request&#x27; =&gt; 3000,
+    &#x27;max_coroutine&#x27; =&gt; 50000,
+    &#x27;daemonize&#x27; =&gt; 0, // Let Supervisor manage daemonization
+    &#x27;pid_file&#x27; =&gt; &#x27;/var/run/swoole-api.pid&#x27;,
+    &#x27;log_file&#x27; =&gt; &#x27;/var/log/swoole/server.log&#x27;,
+    &#x27;log_level&#x27; =&gt; SWOOLE_LOG_WARNING,
+    &#x27;backlog&#x27; =&gt; 65535,
+    &#x27;open_tcp_nodelay&#x27; =&gt; true,
+    &#x27;enable_static_handler&#x27; =&gt; true,
+    &#x27;document_root&#x27; =&gt; __DIR__ . &#x27;/public&#x27;,
+    &#x27;hook_flags&#x27; =&gt; SWOOLE_HOOK_ALL,
+]);
+
+$server-&gt;on(&#x27;workerStart&#x27;, function ($server, $workerId) {
+    // Warm up connections, preload data
+    echo &quot;[Worker #{$workerId}] Started at &quot; . date(&#x27;Y-m-d H:i:s&#x27;) . &quot;\n&quot;;
+});
+
+$server-&gt;on(&#x27;request&#x27;, function ($request, $response) {
+    // Handle request through your framework
+    $response-&gt;header(&#x27;Content-Type&#x27;, &#x27;application/json&#x27;);
+    $response-&gt;end(json_encode([&#x27;status&#x27; =&gt; &#x27;ok&#x27;, &#x27;time&#x27; =&gt; time()]));
+});
+
+$server-&gt;on(&#x27;workerError&#x27;, function ($server, $workerId, $workerPid, $exitCode, $signal) {
+    error_log(&quot;[Worker Error] ID:{$workerId} PID:{$workerPid} ExitCode:{$exitCode} Signal:{$signal}&quot;);
+});
+
+$server-&gt;start();</code></pre>
+
+<h3>v2: Systemd服务 + 部署脚本</h3>
+
+<pre><code class="language-ini">; /etc/systemd/system/swoole-api.service
+
+[Unit]
+Description=Swoole API Server
+After=network.target mysql.service redis.service
+Wants=mysql.service redis.service
+
+[Service]
+Type=forking
+PIDFile=/var/run/swoole-api.pid
+User=www-data
+Group=www-data
+WorkingDirectory=/var/www/api
+ExecStart=/usr/bin/php /var/www/api/server.php
+ExecReload=/bin/kill -USR1 $MAINPID
+ExecStop=/bin/kill -SIGTERM $MAINPID
+Restart=on-failure
+RestartSec=5
+LimitNOFILE=1048576
+LimitNPROC=65535
+
+; Security hardening
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/log/swoole /var/run /var/www/api/storage
+
+[Install]
+WantedBy=multi-user.target</code></pre>
+
+<pre><code class="language-bash">#!/bin/bash
+# deploy.sh - Zero-downtime deployment script
+
+set -euo pipefail
+
+APP_DIR=&quot;/var/www/api&quot;
+BACKUP_DIR=&quot;/var/www/api-backups&quot;
+CURRENT_VERSION=$(cat &quot;$APP_DIR/version.txt&quot; 2&gt;/dev/null || echo &quot;unknown&quot;)
+NEW_VERSION=&quot;${1:-$(date +%Y%m%d%H%M%S)}&quot;
+
+echo &quot;=== Deploying $NEW_VERSION (current: $CURRENT_VERSION) ===&quot;
+
+# 1. Backup current version
+echo &quot;[1/6] Backing up...&quot;
+cp -a &quot;$APP_DIR&quot; &quot;$BACKUP_DIR/api-$CURRENT_VERSION&quot;
+
+# 2. Pull latest code
+echo &quot;[2/6] Updating code...&quot;
+cd &quot;$APP_DIR&quot;
+git fetch origin main
+git checkout &quot;main&quot;
+git pull origin main
+
+# 3. Install dependencies
+echo &quot;[3/6] Installing dependencies...&quot;
+composer install --no-dev --optimize-autoloader --classmap-authoritative
+
+# 4. Run migrations
+echo &quot;[4/6] Running migrations...&quot;
+php artisan migrate --force
+
+# 5. Warm caches
+echo &quot;[5/6] Warming caches...&quot;
+php artisan config:cache
+php artisan route:cache
+php artisan view:cache
+
+# 6. Graceful reload
+echo &quot;[6/6] Reloading Swoole workers...&quot;
+if [ -f /var/run/swoole-api.pid ]; then
+    # Send USR1 signal for graceful reload
+    kill -USR1 &quot;$(cat /var/run/swoole-api.pid)&quot;
+    echo &quot;Workers reloading gracefully.&quot;
+else
+    echo &quot;PID file not found, starting service...&quot;
+    systemctl start swoole-api
+fi
+
+# Save version
+echo &quot;$NEW_VERSION&quot; &gt; &quot;$APP_DIR/version.txt&quot;
+echo &quot;=== Deploy complete: $NEW_VERSION ===&quot;</code></pre>
+
+<h3>v3: Docker + 监控</h3>
+
+<pre><code class="language-dockerfile"># Dockerfile - Multi-stage build for Swoole
+FROM php:8.3-cli AS builder
+
+# Install Swoole
+RUN pecl install swoole &amp;&amp; docker-php-ext-enable swoole
+
+# Install Composer
+COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
+
+WORKDIR /app
+COPY composer.* ./
+RUN composer install --no-dev --optimize-autoloader --no-scripts
+
+COPY . .
+RUN composer dump-autoload --optimize
+
+# Production image
+FROM php:8.3-cli-alpine
+
+RUN apk add --no-cache libstdc++ &amp;&amp; \
+    pecl install swoole &amp;&amp; docker-php-ext-enable swoole
+
+COPY --from=builder /app /app
+COPY php-production.ini /usr/local/etc/php/php.ini
+
+WORKDIR /app
+EXPOSE 9501
+
+# Health check
+HEALTHCHECK --interval=10s --timeout=3s --retries=3 \
+    CMD php -r &quot;file_get_contents(&#x27;http://localhost:9501/health&#x27;)&quot; || exit 1
+
+# Non-root user
+RUN addgroup -g 1000 app &amp;&amp; adduser -u 1000 -G app -s /bin/sh -D app
+USER app
+
+CMD [&quot;php&quot;, &quot;server.php&quot;]</code></pre>
+
+<pre><code class="language-yaml"># docker-compose.yml
+version: &#x27;3.8&#x27;
+
+services:
+  swoole-api:
+    build: .
+    ports:
+      - &quot;9501:9501&quot;
+    environment:
+      APP_ENV: production
+      DB_HOST: mysql
+      REDIS_HOST: redis
+    depends_on:
+      mysql: { condition: service_healthy }
+      redis: { condition: service_healthy }
+    deploy:
+      replicas: 2
+      resources:
+        limits: { cpus: &#x27;2.0&#x27;, memory: 512M }
+        reservations: { cpus: &#x27;0.5&#x27;, memory: 128M }
+    restart: unless-stopped
+    healthcheck:
+      test: [&quot;CMD&quot;, &quot;php&quot;, &quot;-r&quot;, &quot;file_get_contents(&#x27;http://localhost:9501/health&#x27;);&quot;]
+      interval: 10s
+      timeout: 3s
+
+  nginx:
+    image: nginx:alpine
+    ports:
+      - &quot;80:80&quot;
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - swoole-api
+
+  prometheus:
+    image: prom/prometheus
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    ports:
+      - &quot;9090:9090&quot;</code></pre>
+
+<pre><code class="language-php">&lt;?php
+// app/Metrics/PrometheusMetrics.php - Metrics collection
+
+class PrometheusMetrics
+{
+    private array $counters = [];
+    private array $gauges = [];
+    private string $prefix;
+    
+    public function __construct(string $prefix = &#x27;swoole_&#x27;)
+    {
+        $this-&gt;prefix = $prefix;
+    }
+    
+    public function incCounter(string $name, array $labels = []): void
+    {
+        $key = $this-&gt;labelKey($name, $labels);
+        $this-&gt;counters[$key] = ($this-&gt;counters[$key] ?? 0) + 1;
+    }
+    
+    public function setGauge(string $name, float $value, array $labels = []): void
+    {
+        $key = $this-&gt;labelKey($name, $labels);
+        $this-&gt;gauges[$key] = $value;
+    }
+    
+    public function render(): string
+    {
+        $output = &quot;&quot;;
+        foreach ($this-&gt;counters as $key =&gt; $value) {
+            $output .= &quot;# TYPE {$this-&gt;prefix}{$key} counter\n&quot;;
+            $output .= &quot;{$this-&gt;prefix}{$key} {$value}\n&quot;;
+        }
+        foreach ($this-&gt;gauges as $key =&gt; $value) {
+            $output .= &quot;# TYPE {$this-&gt;prefix}{$key} gauge\n&quot;;
+            $output .= &quot;{$this-&gt;prefix}{$key} {$value}\n&quot;;
+        }
+        return $output;
+    }
+    
+    private function labelKey(string $name, array $labels): string
+    {
+        return $name . ($labels ? &#x27;{&#x27; . http_build_query($labels, &#x27;&#x27;, &#x27;,&#x27;) . &#x27;}&#x27; : &#x27;&#x27;);
+    }
+}</code></pre>
+
+<p><strong>执行预览：</strong></p>
+<pre><code>$ sudo systemctl start swoole-api
+$ sudo systemctl status swoole-api
+● swoole-api.service - Swoole API Server
+   Active: active (running)
+   CGroup: /system.slice/swoole-api.service
+           └─12345 php /var/www/api/server.php
+
+$ bash deploy.sh v2.1.0
+=== Deploying v2.1.0 (current: v2.0.3) ===
+[1/6] Backing up...
+[2/6] Updating code...
+[3/6] Installing dependencies...
+[4/6] Running migrations...
+[5/6] Warming caches...
+[6/6] Reloading Swoole workers...
+Workers reloading gracefully.
+=== Deploy complete: v2.1.0 ===</code></pre>
+
+<h2>四、注意事项</h2>
+
+<table><thead><tr>
+<th>项目</th>
+<th>说明</th>
+</tr></thead><tbody>
+<tr>
+<td>进程守护</td>
+<td>必须用Supervisor或Systemd，不能裸跑</td>
+</tr>
+<tr>
+<td>优雅重启</td>
+<td>用USR1信号，不是kill -9</td>
+</tr>
+<tr>
+<td>日志轮转</td>
+<td>配置logrotate，防止日志文件无限增长</td>
+</tr>
+<tr>
+<td>健康检查</td>
+<td>实现/health端点，供负载均衡器探活</td>
+</tr>
+<tr>
+<td>端口冲突</td>
+<td>重启前确认端口已释放</td>
+</tr>
+<tr>
+<td>权限分离</td>
+<td>Swoole进程用非root用户运行</td>
+</tr>
+</tbody></table>
+
+<h2>五、避坑指南</h2>
+
+<table><thead><tr>
+<th>❌ 错误做法</th>
+<th>✅ 正确做法</th>
+</tr></thead><tbody>
+<tr>
+<td>直接kill -9杀进程</td>
+<td>用SIGTERM优雅停止</td>
+</tr>
+<tr>
+<td>每次部署全量重启</td>
+<td>用USR1 reload，只重启Worker</td>
+</tr>
+<tr>
+<td>不设进程守护</td>
+<td>Supervisor或Systemd守护</td>
+</tr>
+<tr>
+<td>日志打到stdout不管</td>
+<td>配置日志文件+logrotate</td>
+</tr>
+<tr>
+<td>Docker中用前台进程+daemonize=1</td>
+<td>设daemonize=0让Docker管理</td>
+</tr>
+<tr>
+<td>不做健康检查</td>
+<td>实现/health端点+Docker HEALTHCHECK</td>
+</tr>
+</tbody></table>
+
+<h2>六、练习题</h2>
+
+<h3>🟢 入门</h3>
+<ol>
+<li>用Supervisor配置一个Swoole服务的守护进程</li>
+</ul>
+<ol>
+<li>编写部署脚本，实现git pull + graceful reload</li>
+
+<h3>🟡 进阶</h3>
+<ol>
+<li>用Docker Compose部署Swoole + MySQL + Redis + Nginx</li>
+</ul>
+<ol>
+<li>实现Prometheus metrics采集和Grafana仪表盘</li>
+
+<h3>🔴 挑战</h3>
+<ol>
+<li>实现蓝绿部署：两套Swoole实例 + Nginx upstream切换</li>
+</ul>
+<ol>
+<li>实现自动扩缩容：根据CPU/连接数自动调整Docker副本数</li>
+
+<h2>七、知识点总结</h2>
+
+<pre><code>Swoole生产部署
+├── 进程管理
+│   ├── Supervisor（推荐新手）
+│   ├── Systemd（推荐生产）
+│   └── Docker（推荐容器化）
+├── 部署流程
+│   ├── 代码拉取 → 依赖安装 → 迁移
+│   ├── 缓存预热 → 优雅重启
+│   └── 健康检查 → 流量切换
+├── 监控体系
+│   ├── 进程状态（Supervisor UI）
+│   ├── 系统指标（Prometheus）
+│   ├── 可视化（Grafana）
+│   └── 告警（AlertManager）
+└── 安全
+    ├── 非root运行
+    ├── Systemd安全加固
+    ├── Docker资源限制
+    └── 网络隔离</code></pre>
+
+<h2>八、举一反三</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>方案</th>
+<th>关键组件</th>
+</tr></thead><tbody>
+<tr>
+<td>单机部署</td>
+<td>Systemd + Nginx反代</td>
+<td>简单可靠</td>
+</tr>
+<tr>
+<td>容器化</td>
+<td>Docker Compose</td>
+<td>环境一致性</td>
+</tr>
+<tr>
+<td>K8s编排</td>
+<td>Deployment + Service</td>
+<td>弹性伸缩</td>
+</tr>
+<tr>
+<td>蓝绿部署</td>
+<td>双实例 + 切流量</td>
+<td>零停机</td>
+</tr>
+<tr>
+<td>金丝雀发布</td>
+<td>按比例路由</td>
+<td>渐进发布</td>
+</tr>
+<tr>
+<td>多机房</td>
+<td>DNS轮询 + 健康检查</td>
+<td>高可用</td>
+</tr>
+</tbody></table>
+
+<h2>九、参考资料</h2>
+
+<ul>
+<li><a href="http://supervisord.org/">Supervisor文档</a></li>
+<li><a href="https://www.freedesktop.org/software/systemd/man/systemd.service.html">Systemd Service配置</a></li>
+<li><a href="https://docs.docker.com/build/building/multi-stage/">Docker多阶段构建</a></li>
+<li><a href="https://github.com/PromPHP/prometheus_client_php">Prometheus PHP客户端</a></li>
+
+<h2>十、代码演进总结</h2>
+
+<table><thead><tr>
+<th>版本</th>
+<th>特点</th>
+<th>适用场景</th>
+</tr></thead><tbody>
+<tr>
+<td>v1 Supervisor</td>
+<td>进程守护+基础配置</td>
+<td>快速上手</td>
+</tr>
+<tr>
+<td>v2 Systemd</td>
+<td>服务管理+部署脚本</td>
+<td>传统服务器</td>
+</tr>
+<tr>
+<td>v3 Docker</td>
+<td>容器化+监控</td>
+<td>现代化部署</td>
+</tr>
+</tbody></table>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

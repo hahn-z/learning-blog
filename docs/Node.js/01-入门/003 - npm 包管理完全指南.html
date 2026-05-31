@@ -1,0 +1,612 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>003 - npm 包管理完全指南</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Node.js/index.html">Node.js</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Node.js/01-入门/index.html">Node.js入门</a>
+</nav>
+<h1>003 - npm 包管理完全指南</h1>
+<div class="meta">
+<span>📂 Node.js入门</span>
+<span>🏷️ Node.js</span>
+</div>
+<article>
+
+
+<h1>npm 包管理完全指南</h1>
+
+<blockquote><p><strong>难度：</strong> ⭐⭐ 初级 | <strong>预计阅读：</strong> 20 分钟 | <strong>标签：</strong> Node.js, npm, 包管理, package.json</p></blockquote>
+
+<hr>
+
+<h2>一、概念讲解</h2>
+
+<h3>1.1 什么是 npm？</h3>
+
+<p><strong>npm</strong>（Node Package Manager）是 Node.js 的默认包管理器，也是全球最大的开源软件注册表。</p>
+
+<p>三个层面的含义：</p>
+<ul>
+<li><strong>npm CLI</strong>：命令行工具（<code>npm install</code>、<code>npm run</code> 等）</li>
+<li><strong>npm Registry</strong>：包仓库（npmjs.com）</li>
+<li><strong>npm 网站</strong>：包搜索和文档平台</li>
+
+<h3>1.2 package.json 核心字段</h3>
+
+<pre><code class="language-json">{
+  &quot;name&quot;: &quot;my-project&quot;,
+  &quot;version&quot;: &quot;1.0.0&quot;,
+  &quot;description&quot;: &quot;A sample project&quot;,
+  &quot;main&quot;: &quot;index.js&quot;,
+  &quot;scripts&quot;: {
+    &quot;start&quot;: &quot;node index.js&quot;,
+    &quot;dev&quot;: &quot;nodemon index.js&quot;,
+    &quot;test&quot;: &quot;jest&quot;
+  },
+  &quot;dependencies&quot;: {
+    &quot;express&quot;: &quot;^4.18.2&quot;
+  },
+  &quot;devDependencies&quot;: {
+    &quot;nodemon&quot;: &quot;^3.0.0&quot;,
+    &quot;jest&quot;: &quot;^29.7.0&quot;
+  },
+  &quot;engines&quot;: {
+    &quot;node&quot;: &quot;&gt;=18.0.0&quot;
+  }
+}</code></pre>
+
+<h3>1.3 语义化版本（SemVer）</h3>
+
+<p>格式：<code>MAJOR.MINOR.PATCH</code>（主版本.次版本.补丁版本）</p>
+
+<table><thead><tr>
+<th>符号</th>
+<th>含义</th>
+<th>示例</th>
+<th>允许范围</th>
+</tr></thead><tbody>
+<tr>
+<td><code>^</code></td>
+<td>兼容版本</td>
+<td><code>^1.2.3</code></td>
+<td><code>>=1.2.3 <2.0.0</code></td>
+</tr>
+<tr>
+<td><code>~</code></td>
+<td>近似版本</td>
+<td><code>~1.2.3</code></td>
+<td><code>>=1.2.3 <1.3.0</code></td>
+</tr>
+<tr>
+<td>无</td>
+<td>精确版本</td>
+<td><code>1.2.3</code></td>
+<td>仅 <code>1.2.3</code></td>
+</tr>
+<tr>
+<td><code>>=</code></td>
+<td>最低版本</td>
+<td><code>>=1.2.0</code></td>
+<td>任意 >=</td>
+</tr>
+<tr>
+<td><code>*</code></td>
+<td>任意版本</td>
+<td><code>*</code></td>
+<td>所有版本</td>
+</tr>
+</tbody></table>
+
+<h3>1.4 dependencies vs devDependencies</h3>
+
+<table><thead><tr>
+<th>类型</th>
+<th>用途</th>
+<th>安装命令</th>
+<th>生产部署</th>
+</tr></thead><tbody>
+<tr>
+<td><code>dependencies</code></td>
+<td>运行时需要</td>
+<td><code>npm i pkg</code></td>
+<td>✅ 安装</td>
+</tr>
+<tr>
+<td><code>devDependencies</code></td>
+<td>开发时需要</td>
+<td><code>npm i pkg -D</code></td>
+<td>❌ 不安装（<code>npm i --production</code>）</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>二、知识脑图</h2>
+
+<pre><code>npm 包管理
+├── 初始化
+│   ├── npm init（交互式）
+│   └── npm init -y（快速）
+├── 安装包
+│   ├── npm install &lt;pkg&gt;（dependencies）
+│   ├── npm install &lt;pkg&gt; -D（devDependencies）
+│   ├── npm install -g &lt;pkg&gt;（全局）
+│   └── npm install &lt;pkg&gt;@version（指定版本）
+├── 版本管理
+│   ├── SemVer（MAJOR.MINOR.PATCH）
+│   ├── ^ ~ &gt;= 精确匹配
+│   ├── npm outdated（检查过期）
+│   └── npm update（更新）
+├── 脚本
+│   ├── npm run &lt;script&gt;
+│   ├── npm start / npm test（简写）
+│   ├── pre/post 钩子
+│   └── npx（一次性执行）
+├── 发布
+│   ├── npm login
+│   ├── npm publish
+│   └── npm version patch/minor/major
+└── 核心文件
+    ├── package.json（项目配置）
+    ├── package-lock.json（版本锁定）
+    └── node_modules/（依赖存放）</code></pre>
+
+<hr>
+
+<h2>三、完整代码示例</h2>
+
+<h3>3.1 项目初始化与依赖安装</h3>
+
+<pre><code class="language-bash"># Initialize a new project
+mkdir my-app &amp;&amp; cd my-app
+npm init -y
+
+# Install production dependencies
+npm install express
+npm install cors helmet morgan
+
+# Install dev dependencies
+npm install nodemon jest eslint -D
+
+# Install specific version
+npm install lodash@4.17.21</code></pre>
+
+<h3>3.2 配置 scripts</h3>
+
+<pre><code class="language-json">{
+  &quot;name&quot;: &quot;my-app&quot;,
+  &quot;version&quot;: &quot;1.0.0&quot;,
+  &quot;scripts&quot;: {
+    &quot;start&quot;: &quot;node src/index.js&quot;,
+    &quot;dev&quot;: &quot;nodemon src/index.js&quot;,
+    &quot;lint&quot;: &quot;eslint src/&quot;,
+    &quot;test&quot;: &quot;jest --coverage&quot;,
+    &quot;build&quot;: &quot;echo &#x27;Building...&#x27; &amp;&amp; npm run lint &amp;&amp; npm test&quot;,
+    &quot;prebuild&quot;: &quot;echo &#x27;Running pre-build checks...&#x27;&quot;
+  },
+  &quot;dependencies&quot;: {
+    &quot;cors&quot;: &quot;^2.8.5&quot;,
+    &quot;express&quot;: &quot;^4.18.2&quot;,
+    &quot;helmet&quot;: &quot;^7.1.0&quot;,
+    &quot;morgan&quot;: &quot;^1.10.0&quot;
+  },
+  &quot;devDependencies&quot;: {
+    &quot;jest&quot;: &quot;^29.7.0&quot;,
+    &quot;nodemon&quot;: &quot;^3.0.0&quot;
+  }
+}</code></pre>
+
+<h3>3.3 实际项目结构</h3>
+
+<pre><code class="language-javascript">// src/index.js - Entry point using installed packages
+const express = require(&#x27;express&#x27;);
+const cors = require(&#x27;cors&#x27;);
+const helmet = require(&#x27;helmet&#x27;);
+const morgan = require(&#x27;morgan&#x27;);
+
+const app = express();
+const PORT = process.env.PORT || 3000;
+
+// Middleware
+app.use(helmet());          // Security headers
+app.use(cors());            // CORS support
+app.use(morgan(&#x27;combined&#x27;));// Request logging
+app.use(express.json());    // Parse JSON body
+
+// Routes
+app.get(&#x27;/&#x27;, (req, res) =&gt; {
+  res.json({ status: &#x27;ok&#x27;, timestamp: new Date().toISOString() });
+});
+
+app.get(&#x27;/users&#x27;, (req, res) =&gt; {
+  res.json([
+    { id: 1, name: &#x27;Alice&#x27; },
+    { id: 2, name: &#x27;Bob&#x27; }
+  ]);
+});
+
+// Start server
+app.listen(PORT, () =&gt; {
+  console.log(`Server running on http://localhost:${PORT}`);
+});</code></pre>
+
+<h3>3.4 自定义 npm 包</h3>
+
+<pre><code class="language-javascript">// my-utils/index.js - A simple npm package
+function formatDate(date) {
+  return new Intl.DateTimeFormat(&#x27;zh-CN&#x27;, {
+    year: &#x27;numeric&#x27;, month: &#x27;2-digit&#x27;, day: &#x27;2-digit&#x27;,
+    hour: &#x27;2-digit&#x27;, minute: &#x27;2-digit&#x27;
+  }).format(new Date(date));
+}
+
+function clamp(value, min, max) {
+  return Math.min(Math.max(value, min), max);
+}
+
+function retry(fn, times = 3, delay = 1000) {
+  return new Promise((resolve, reject) =&gt; {
+    const attempt = (n) =&gt; {
+      fn().then(resolve).catch(err =&gt; {
+        if (n &lt;= 1) return reject(err);
+        setTimeout(() =&gt; attempt(n - 1), delay);
+      });
+    };
+    attempt(times);
+  });
+}
+
+module.exports = { formatDate, clamp, retry };</code></pre>
+
+<pre><code class="language-json">{
+  &quot;name&quot;: &quot;@myname/utils&quot;,
+  &quot;version&quot;: &quot;1.0.0&quot;,
+  &quot;main&quot;: &quot;index.js&quot;,
+  &quot;files&quot;: [&quot;index.js&quot;]
+}</code></pre>
+
+<hr>
+
+<h2>四、执行预览</h2>
+
+<pre><code class="language-bash"># Project setup
+$ npm init -y
+Wrote to /path/my-app/package.json
+
+$ npm install express cors helmet
+added 62 packages in 3s
+
+$ npm install nodemon -D
+added 1 package in 1s
+
+# Run scripts
+$ npm run dev
+&gt; nodemon src/index.js
+Server running on http://localhost:3000
+
+$ npm test
+&gt; jest --coverage
+Tests: 3 passed, 3 total
+
+# Check outdated packages
+$ npm outdated
+Package  Current  Wanted  Latest
+express   4.18.2  4.18.3  5.0.0
+
+# Version bump
+$ npm version patch
+v1.0.1</code></pre>
+
+<hr>
+
+<h2>五、注意事项</h2>
+
+<table><thead><tr>
+<th>事项</th>
+<th>说明</th>
+<th>建议</th>
+</tr></thead><tbody>
+<tr>
+<td>package-lock.json</td>
+<td>锁定依赖树，确保团队一致</td>
+<td><strong>必须提交到 Git</strong></td>
+</tr>
+<tr>
+<td>node_modules</td>
+<td>依赖文件，通常很大</td>
+<td><code>.gitignore</code> 中忽略</td>
+</tr>
+<tr>
+<td>全局安装</td>
+<td><code>-g</code> 安装到系统路径</td>
+<td>只装 CLI 工具（nodemon等），不装库</td>
+</tr>
+<tr>
+<td>版本范围</td>
+<td><code>^</code> 可能升级 minor 版本</td>
+<td>锁关键依赖用精确版本</td>
+</tr>
+<tr>
+<td>npm audit</td>
+<td>检查安全漏洞</td>
+<td>定期运行 <code>npm audit fix</code></td>
+</tr>
+<tr>
+<td>registry</td>
+<td>默认 registry.npmjs.org</td>
+<td>国内可用淘宝镜像</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>六、避坑指南</h2>
+
+<table><thead><tr>
+<th>❌ 错误做法</th>
+<th>✅ 正确做法</th>
+</tr></thead><tbody>
+<tr>
+<td>把 <code>node_modules</code> 提交到 Git</td>
+<td><code>.gitignore</code> 加 <code>node_modules/</code></td>
+</tr>
+<tr>
+<td>不提交 <code>package-lock.json</code></td>
+<td><strong>必须提交</strong>，保证团队依赖一致</td>
+</tr>
+<tr>
+<td><code>npm install</code> 不带 <code>--save</code></td>
+<td>npm 5+ 自动保存，不需要 <code>--save</code></td>
+</tr>
+<tr>
+<td>全局安装业务依赖</td>
+<td>业务依赖装本地，只有 CLI 工具才全局</td>
+</tr>
+<tr>
+<td>不看包的下载量和维护状态</td>
+<td>安装前看 npmjs.com 的 weekly downloads</td>
+</tr>
+<tr>
+<td>用 <code>npm uninstall</code> 后忘了清理代码</td>
+<td>卸载包后同步删除使用该包的代码</td>
+</tr>
+<tr>
+<td>直接改 node_modules 里的文件</td>
+<td>改了也白改，<code>npm install</code> 会覆盖</td>
+</tr>
+<tr>
+<td>用 <code>latest</code> 作为版本号</td>
+<td>用具体版本或 <code>^</code> 范围</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>七、练习题</h2>
+
+<h3>🟢 入门</h3>
+<ol>
+<li>用 <code>npm init -y</code> 创建项目，手动修改 <code>package.json</code> 的 name 和 version</li>
+</ul>
+<ol>
+<li>安装 <code>lodash</code> 和 <code>dayjs</code>，写一个脚本使用它们</li>
+</ul>
+<ol>
+<li>运行 <code>npm outdated</code> 查看项目中哪些包有更新</li>
+
+<h3>🟡 进阶</h3>
+<ol>
+<li>配置 <code>scripts</code>，实现 <code>npm run dev</code>（热重载）、<code>npm run lint</code>（代码检查）、<code>npm run test</code>（测试）</li>
+</ul>
+<ol>
+<li>使用 <code>npx</code> 运行一个未全局安装的包（如 <code>npx cowsay hello</code>）</li>
+</ul>
+<ol>
+<li>用 <code>npm version patch/minor/major</code> 管理版本号</li>
+
+<h3>🔴 挑战</h3>
+<ol>
+<li>创建一个自定义 npm 包，发布到 npm（或本地测试）</li>
+</ul>
+<ol>
+<li>搭建一个私有 npm registry（用 Verdaccio），发布和安装私有包</li>
+
+<hr>
+
+<h2>八、知识点总结</h2>
+
+<pre><code>npm 包管理
+├── 核心文件
+│   ├── package.json（项目配置）
+│   ├── package-lock.json（版本锁定）
+│   └── .npmrc（npm 配置）
+├── 常用命令
+│   ├── npm init / init -y
+│   ├── npm install / uninstall
+│   ├── npm run &lt;script&gt;
+│   ├── npm outdated / update
+│   ├── npm audit / audit fix
+│   └── npm publish / version
+├── 依赖类型
+│   ├── dependencies（运行时）
+│   ├── devDependencies（开发时）
+│   ├── peerDependencies（宿主环境）
+│   └── optionalDependencies（可选）
+└── 技巧
+    ├── npx（一次性执行）
+    ├── npm link（本地调试包）
+    └── workspaces（monorepo）</code></pre>
+
+<hr>
+
+<h2>九、举一反三</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>你学到的</th>
+<th>扩展应用</th>
+</tr></thead><tbody>
+<tr>
+<td>版本管理</td>
+<td>SemVer + <code>npm version</code></td>
+<td>CI/CD 自动化发版</td>
+</tr>
+<tr>
+<td>依赖安全</td>
+<td><code>npm audit</code></td>
+<td>GitHub Dependabot 集成</td>
+</tr>
+<tr>
+<td>脚本编排</td>
+<td>npm scripts + pre/post 钩子</td>
+<td>复杂构建流水线</td>
+</tr>
+<tr>
+<td>私有包</td>
+<td>npm publish + scope</td>
+<td>企业内部组件库</td>
+</tr>
+<tr>
+<td>Monorepo</td>
+<td>npm workspaces</td>
+<td>Lerna / Turborepo / pnpm workspaces</td>
+</tr>
+<tr>
+<td>镜像源</td>
+<td><code>.npmrc</code> registry 配置</td>
+<td>cnpm / private registry</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>十、参考资料</h2>
+
+<ul>
+<li><a href="https://docs.npmjs.com/">npm 官方文档</a></li>
+<li><a href="https://semver.org/lang/zh-CN/">SemVer 语义化版本规范</a></li>
+<li><a href="https://npmtrends.com/">npm trends（包对比工具）</a></li>
+<li><a href="https://github.com/sindresorhus/awesome-npm">Awesome npm</a></li>
+
+<hr>
+
+<h2>十一、代码演进</h2>
+
+<h3>v1：最小化 package.json</h3>
+<pre><code class="language-json">{
+  &quot;name&quot;: &quot;my-app&quot;,
+  &quot;version&quot;: &quot;1.0.0&quot;,
+  &quot;scripts&quot;: {
+    &quot;start&quot;: &quot;node index.js&quot;
+  }
+}</code></pre>
+
+<h3>v2：添加依赖和完整脚本</h3>
+<pre><code class="language-json">{
+  &quot;name&quot;: &quot;my-app&quot;,
+  &quot;version&quot;: &quot;1.0.0&quot;,
+  &quot;scripts&quot;: {
+    &quot;start&quot;: &quot;node src/index.js&quot;,
+    &quot;dev&quot;: &quot;nodemon src/index.js&quot;,
+    &quot;test&quot;: &quot;jest&quot;
+  },
+  &quot;dependencies&quot;: {
+    &quot;express&quot;: &quot;^4.18.2&quot;,
+    &quot;cors&quot;: &quot;^2.8.5&quot;
+  },
+  &quot;devDependencies&quot;: {
+    &quot;nodemon&quot;: &quot;^3.0.0&quot;,
+    &quot;jest&quot;: &quot;^29.7.0&quot;
+  }
+}</code></pre>
+
+<h3>v3：生产级配置（engines + lint + pre钩子）</h3>
+<pre><code class="language-json">{
+  &quot;name&quot;: &quot;my-app&quot;,
+  &quot;version&quot;: &quot;1.0.0&quot;,
+  &quot;engines&quot;: {
+    &quot;node&quot;: &quot;&gt;=18.0.0&quot;
+  },
+  &quot;scripts&quot;: {
+    &quot;prebuild&quot;: &quot;npm run lint&quot;,
+    &quot;build&quot;: &quot;echo &#x27;Build complete&#x27;&quot;,
+    &quot;start&quot;: &quot;node src/index.js&quot;,
+    &quot;dev&quot;: &quot;nodemon src/index.js&quot;,
+    &quot;lint&quot;: &quot;eslint src/&quot;,
+    &quot;test&quot;: &quot;jest --coverage&quot;,
+    &quot;version&quot;: &quot;git add package.json&quot;,
+    &quot;postversion&quot;: &quot;git push --tags&quot;
+  },
+  &quot;dependencies&quot;: {
+    &quot;cors&quot;: &quot;^2.8.5&quot;,
+    &quot;express&quot;: &quot;^4.18.2&quot;,
+    &quot;helmet&quot;: &quot;^7.1.0&quot;,
+    &quot;morgan&quot;: &quot;^1.10.0&quot;
+  },
+  &quot;devDependencies&quot;: {
+    &quot;eslint&quot;: &quot;^8.56.0&quot;,
+    &quot;jest&quot;: &quot;^29.7.0&quot;,
+    &quot;nodemon&quot;: &quot;^3.0.0&quot;
+  }
+}</code></pre>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

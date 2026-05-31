@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>001 - TypeScript类型系统入门</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/TypeScript/index.html">TypeScript</a>
+<span class="sep">›</span>
+<a href="/tech-blog/TypeScript/01-TypeScript/index.html">TypeScript</a>
+</nav>
+<h1>001 - TypeScript类型系统入门</h1>
+<div class="meta">
+<span>📂 TypeScript</span>
+<span>🏷️ TypeScript</span>
+</div>
+<article>
+
+
+<h1>TypeScript类型系统入门</h1>
+
+<blockquote><p><strong>难度：</strong> ⭐⭐ 入门级 | <strong>阅读时间：</strong> 约15分钟 | <strong>前置知识：</strong> JavaScript基础</p></blockquote>
+
+<h2>一、概念讲解</h2>
+
+<p>TypeScript的类型系统是它的核心魅力所在。JavaScript是动态类型语言，变量在运行时才能确定类型，这导致很多错误只能在运行时暴露。TypeScript通过<strong>静态类型检查</strong>，在编译阶段就能捕获大部分类型错误。</p>
+
+<h3>静态类型 vs 动态类型</h3>
+
+<pre><code class="language-typescript">// JavaScript - 运行时才报错
+function add(a, b) {
+  return a + b;
+}
+add(&quot;1&quot;, &quot;2&quot;); // &quot;12&quot; — 字符串拼接，不是数字相加！
+
+// TypeScript - 编译时就能发现问题
+function add(a: number, b: number): number {
+  return a + b;
+}
+add(&quot;1&quot;, &quot;2&quot;); // Error: Argument of type &#x27;string&#x27; is not assignable to parameter of type &#x27;number&#x27;.</code></pre>
+
+<h3>类型系统的分类</h3>
+
+<p>TypeScript采用的是<strong>结构化类型系统（Structural Type System）</strong>，也叫"鸭子类型"。只要两个类型的结构兼容，就认为它们是兼容的，不需要显式声明继承关系。</p>
+
+<pre><code class="language-typescript">// Structural typing - only shape matters
+interface Point { x: number; y: number; }
+interface Coordinate { x: number; y: number; }
+
+const p: Point = { x: 1, y: 2 };
+const c: Coordinate = p; // OK! Structure matches</code></pre>
+
+<h2>二、脑图</h2>
+
+<pre><code>TypeScript 类型系统
+├── 基础类型
+│   ├── number / string / boolean
+│   ├── null / undefined
+│   ├── symbol / bigint
+│   ├── void / never
+│   └── any / unknown
+├── 复合类型
+│   ├── 数组 Array&lt;T&gt;
+│   ├── 元组 [T1, T2]
+│   ├── 对象 object
+│   └── 枚举 enum
+├── 类型注解
+│   ├── 变量: Type
+│   ├── 函数参数和返回值
+│   └── 类型断言 as Type
+├── 类型推断
+│   ├── 初始化推断
+│   ├── 返回值推断
+│   └── 最佳通用类型
+└── 高级特性
+    ├── 联合类型 A | B
+    ├── 交叉类型 A &amp; B
+    ├── 字面量类型
+    └── 类型守卫</code></pre>
+
+<h2>三、完整TypeScript代码</h2>
+
+<pre><code class="language-typescript">// ============================================
+// TypeScript Type System Basics - Complete Demo
+// ============================================
+
+// --- 1. Basic Types ---
+const userName: string = &quot;Alice&quot;;
+const userAge: number = 30;
+const isActive: boolean = true;
+const nothing: null = null;
+const notAssigned: undefined = undefined;
+
+// --- 2. Array and Tuple ---
+const scores: number[] = [95, 87, 92];
+const names: Array&lt;string&gt; = [&quot;Alice&quot;, &quot;Bob&quot;];
+
+// Tuple: fixed-length array with known types
+const userRecord: [number, string, boolean] = [1, &quot;Alice&quot;, true];
+
+// --- 3. Enum ---
+enum Direction {
+  Up = &quot;UP&quot;,
+  Down = &quot;DOWN&quot;,
+  Left = &quot;LEFT&quot;,
+  Right = &quot;RIGHT&quot;,
+}
+
+const move: Direction = Direction.Up;
+
+// --- 4. Special Types ---
+// any: opt out of type checking (avoid in production)
+let flexible: any = &quot;hello&quot;;
+flexible = 42; // OK, but unsafe
+
+// unknown: type-safe any
+let safe: unknown = &quot;hello&quot;;
+// safe.toUpperCase(); // Error: Object is of type &#x27;unknown&#x27;
+if (typeof safe === &quot;string&quot;) {
+  safe.toUpperCase(); // OK after type narrowing
+}
+
+// void: function returns nothing
+function logMessage(msg: string): void {
+  console.log(msg);
+}
+
+// never: function never returns
+function throwError(message: string): never {
+  throw new Error(message);
+}
+
+// --- 5. Union and Intersection ---
+type Status = &quot;active&quot; | &quot;inactive&quot; | &quot;banned&quot;;
+type ID = string | number;
+
+interface HasName { name: string; }
+interface HasAge { age: number; }
+type Person = HasName &amp; HasAge; // Intersection: has both name and age
+
+const user: Person = { name: &quot;Alice&quot;, age: 30 };
+
+// --- 6. Type Guards ---
+function processValue(value: string | number): string {
+  if (typeof value === &quot;string&quot;) {
+    return value.toUpperCase(); // TypeScript knows it&#x27;s string here
+  }
+  return value.toFixed(2); // TypeScript knows it&#x27;s number here
+}
+
+// --- 7. Type Assertions ---
+const input = document.getElementById(&quot;email&quot;) as HTMLInputElement;
+const length = input.value.length;
+
+// Non-null assertion (use with caution!)
+const element = document.querySelector(&quot;.box&quot;)!;
+element.classList.add(&quot;active&quot;);
+
+// --- 8. Literal Types ---
+type HttpMethod = &quot;GET&quot; | &quot;POST&quot; | &quot;PUT&quot; | &quot;DELETE&quot;;
+type StatusCode = 200 | 404 | 500;
+
+function request(url: string, method: HttpMethod): void {
+  console.log(`${method} ${url}`);
+}
+
+request(&quot;/api/users&quot;, &quot;GET&quot;); // OK
+// request(&quot;/api/users&quot;, &quot;PATCH&quot;); // Error: &quot;PATCH&quot; is not assignable
+
+// --- 9. Type Inference ---
+let count = 0; // inferred as number
+const greeting = &quot;hello&quot;; // inferred as &quot;hello&quot; (literal type with const)
+
+function multiply(a: number, b: number) {
+  return a * b; // return type inferred as number
+}
+
+// --- 10. Practical Example ---
+interface User {
+  id: number;
+  name: string;
+  email: string;
+  role: &quot;admin&quot; | &quot;editor&quot; | &quot;viewer&quot;;
+}
+
+function createUser(data: Omit&lt;User, &quot;id&quot;&gt;): User {
+  return {
+    id: Math.floor(Math.random() * 10000),
+    ...data,
+  };
+}
+
+function canEdit(user: User): boolean {
+  return user.role === &quot;admin&quot; || user.role === &quot;editor&quot;;
+}
+
+// Usage
+const newUser = createUser({
+  name: &quot;Bob&quot;,
+  email: &quot;bob@example.com&quot;,
+  role: &quot;editor&quot;,
+});
+
+console.log(canEdit(newUser)); // true</code></pre>
+
+<h2>四、执行预览</h2>
+
+<pre><code>$ npx ts-node typescript-basics.ts
+true
+GET /api/users</code></pre>
+
+<p>编译检查：</p>
+<pre><code>$ npx tsc --noEmit typescript-basics.ts
+# 无错误输出 = 类型检查通过 ✅</code></pre>
+
+<h2>五、注意事项</h2>
+
+<table><thead><tr>
+<th>要点</th>
+<th>说明</th>
+<th>建议</th>
+</tr></thead><tbody>
+<tr>
+<td><code>any</code> 的使用</td>
+<td><code>any</code> 会跳过所有类型检查</td>
+<td>尽量用 <code>unknown</code> 替代</td>
+</tr>
+<tr>
+<td>类型断言</td>
+<td><code>as</code> 不会做运行时转换</td>
+<td>只在确定类型时使用</td>
+</tr>
+<tr>
+<td>枚举</td>
+<td>数字枚举会生成反向映射</td>
+<td>优先使用字符串枚举</td>
+</tr>
+<tr>
+<td>类型推断</td>
+<td>TypeScript能自动推断大部分类型</td>
+<td>能推断就不手动标注</td>
+</tr>
+<tr>
+<td><code>never</code></td>
+<td>表示永不存在的类型</td>
+<td>用于穷尽检查和异常函数</td>
+</tr>
+</tbody></table>
+
+<h2>六、避坑指南</h2>
+
+<h3>❌ 到 ✅</h3>
+
+<pre><code class="language-typescript">// ❌ 滥用 any
+function parse(data: any) { return data.value; }
+// ✅ 使用 unknown + 类型守卫
+function parse(data: unknown) {
+  if (typeof data === &quot;object&quot; &amp;&amp; data !== null &amp;&amp; &quot;value&quot; in data) {
+    return (data as { value: string }).value;
+  }
+  throw new Error(&quot;Invalid data&quot;);
+}
+
+// ❌ 忽略 null/undefined
+function getLength(arr: string[]) { return arr[0].length; }
+// ✅ 处理可能为 undefined 的情况
+function getLength(arr: string[]) { return arr[0]?.length ?? 0; }
+
+// ❌ 类型断言绕过检查
+const num = &quot;123&quot; as number; // 运行时仍是字符串
+// ✅ 正确的类型转换
+const num = Number(&quot;123&quot;); // 实际转换
+
+// ❌ 非空断言滥用
+const el = document.querySelector(&quot;.box&quot;)!;
+// ✅ 空值检查
+const el = document.querySelector(&quot;.box&quot;);
+if (el) { el.classList.add(&quot;active&quot;); }</code></pre>
+
+<h2>七、练习题</h2>
+
+<h3>🟢 入门</h3>
+<ol>
+<li>为以下变量添加类型注解：<code>const name = "Alice"</code>, <code>const age = 30</code>, <code>const hobbies = ["coding", "reading"]</code></li>
+</ul>
+<ol>
+<li>编写一个函数 <code>formatUser(name: string, age: number): string</code>，返回 <code>"Alice (30)"</code> 格式</li>
+
+<h3>🟡 进阶</h3>
+<ol>
+<li>定义一个 <code>Result<T></code> 类型，可以是 <code>{ success: true; data: T }</code> 或 <code>{ success: false; error: string }</code></li>
+</ul>
+<ol>
+<li>编写类型守卫函数 <code>isString(value: unknown): value is string</code></li>
+
+<h3>🔴 挑战</h3>
+<ol>
+<li>实现一个 <code>deepReadonly<T></code> 工具类型，将对象所有属性（包括嵌套）变为只读</li>
+
+<h2>八、知识点总结</h2>
+
+<pre><code>TypeScript类型系统核心
+├── 类型注解 → 变量: Type
+├── 类型推断 → 自动推导，减少冗余
+├── 基础类型 → string, number, boolean, null, undefined, void, never
+├── 复合类型 → Array, Tuple, Enum, Object
+├── 组合类型 → Union(|), Intersection(&amp;)
+├── 类型守卫 → typeof, instanceof, in, 自定义守卫
+└── 类型断言 → as Type, !, &lt;&gt;语法</code></pre>
+
+<h2>九、举一反三</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>类型工具</th>
+<th>示例</th>
+</tr></thead><tbody>
+<tr>
+<td>API响应</td>
+<td>联合类型</td>
+<td>`type Response = Success</td>
+<td>Error`</td>
+</tr>
+<tr>
+<td>配置项</td>
+<td>交叉类型</td>
+<td><code>type Config = Default & Partial<UserConfig></code></td>
+</tr>
+<tr>
+<td>事件处理</td>
+<td>字面量类型</td>
+<td>`type Event = "click" \</td>
+<td>"hover"`</td>
+</tr>
+<tr>
+<td>表单验证</td>
+<td>类型守卫</td>
+<td><code>if (typeof value === "string")</code></td>
+</tr>
+<tr>
+<td>错误处理</td>
+<td>never</td>
+<td><code>throw new Error()</code> 返回 never</td>
+</tr>
+</tbody></table>
+
+<h2>十、参考资料</h2>
+
+<ul>
+<li><a href="https://www.typescriptlang.org/docs/handbook/2/everyday-types.html">TypeScript Handbook - Everyday Types</a></li>
+<li><a href="https://basarat.gitbook.io/typescript/type-system">TypeScript Deep Dive - Type System</a></li>
+<li><a href="https://www.typescriptlang.org/play">TypeScript Playground</a></li>
+
+<h2>十一、代码演进</h2>
+
+<h3>v1 → 基础类型注解</h3>
+
+<pre><code class="language-typescript">function greet(name: string): string {
+  return &quot;Hello, &quot; + name;
+}</code></pre>
+
+<h3>v2 → 联合类型 + 类型守卫</h3>
+
+<pre><code class="language-typescript">function greet(name: string | string[]): string {
+  if (Array.isArray(name)) {
+    return name.map(n =&gt; &quot;Hello, &quot; + n).join(&quot;, &quot;);
+  }
+  return &quot;Hello, &quot; + name;
+}</code></pre>
+
+<h3>v3 → 泛型 + 条件类型</h3>
+
+<pre><code class="language-typescript">function greet&lt;T extends string | string[]&gt;(names: T): T extends string[] ? string[] : string {
+  if (Array.isArray(names)) {
+    return names.map(n =&gt; `Hello, ${n}`) as any;
+  }
+  return `Hello, ${names}` as any;
+}</code></pre>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

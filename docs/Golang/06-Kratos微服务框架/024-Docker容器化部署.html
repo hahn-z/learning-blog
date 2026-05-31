@@ -1,0 +1,527 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>024-Docker容器化部署</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Golang/index.html">Golang</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Golang/06-Kratos微服务框架/index.html">Kratos框架</a>
+</nav>
+<h1>024-Docker容器化部署</h1>
+<div class="meta">
+<span>📂 Kratos框架</span>
+<span>🏷️ Golang</span>
+</div>
+<article>
+
+
+
+<h1>024-Docker容器化部署</h1>
+
+<blockquote><p>难度：⭐⭐⭐（中级）<br><br>本文讲解 Kratos 微服务的 Docker 容器化部署，从多阶段构建到 docker-compose 编排，涵盖健康检查、环境配置和 Kubernetes 扩展。</p></blockquote>
+
+<hr>
+
+<h2>一、概念讲解</h2>
+
+<h3>1.1 为什么容器化？</h3>
+
+<ul>
+<li><strong>一致性</strong>：开发、测试、生产环境完全一致</li>
+<li><strong>隔离性</strong>：服务间互不干扰</li>
+<li><strong>可扩展</strong>：配合 K8s 实现自动伸缩</li>
+<li><strong>部署快</strong>：秒级启动，回滚迅速</li>
+
+<h3>1.2 多阶段构建</h3>
+
+<p>Go 编译后的二进制文件是静态链接的，最终镜像可以基于 <code>scratch</code> 或 <code>distroless</code>，大小仅 10-20MB。构建阶段使用 <code>golang</code> 镜像编译，运行阶段只拷贝二进制。</p>
+
+<h3>1.3 Kratos 健康检查</h3>
+
+<p>Kratos 内置 <code>grpc.health.v1.Health</code> 服务，Docker 和 K8s 可以通过 gRPC 健康检查探针检测服务状态。</p>
+
+<hr>
+
+<h2>二、脑图</h2>
+
+<pre><code>Docker容器化
+├── Dockerfile
+│   ├── 多阶段构建
+│   ├── 静态编译
+│   └── scratch/distroless
+├── Docker Compose
+│   ├── 服务编排
+│   ├── 依赖管理
+│   └── 网络配置
+├── 环境配置
+│   ├── 环境变量
+│   ├── 配置文件挂载
+│   └── .env 文件
+├── 健康检查
+│   ├── HTTP /healthz
+│   ├── gRPC health probe
+│   └── readiness/liveness
+└── Kubernetes
+    ├── Deployment
+    ├── Service
+    └── ConfigMap/Secret</code></pre>
+
+<hr>
+
+<h2>三、完整代码</h2>
+
+<h3>v1: 多阶段 Dockerfile</h3>
+
+<pre><code class="language-dockerfile"># Dockerfile - Multi-stage build for Kratos service
+
+# ============ Build Stage ============
+FROM golang:1.23-alpine AS builder
+
+# Install build dependencies
+RUN apk add --no-cache git make
+
+WORKDIR /app
+
+# Cache dependency downloads
+COPY go.mod go.sum ./
+RUN go mod download
+
+# Copy source code
+COPY . .
+
+# Build static binary with optimizations
+# -ldflags: strip debug info and set version
+# CGO_ENABLED=0: static linking
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
+    -ldflags=&quot;-w -s -X main.Version=$(git describe --tags --always)&quot; \
+    -o /app/bin/server ./cmd/server
+
+# ============ Runtime Stage ============
+FROM gcr.io/distroless/static-debian12:nonroot
+
+# Copy binary and configs from builder
+COPY --from=builder /app/bin/server /app/server
+COPY --from=builder /app/configs /app/configs
+
+WORKDIR /app
+
+# Expose HTTP and gRPC ports
+EXPOSE 8000 9000
+
+# Run as non-root user (distroless includes nonroot user)
+USER nonroot:nonroot
+
+ENTRYPOINT [&quot;/app/server&quot;]
+CMD [&quot;-conf&quot;, &quot;/app/configs&quot;]</code></pre>
+
+<h3>v2: Docker Compose 完整编排</h3>
+
+<pre><code class="language-yaml"># docker-compose.yml
+version: &quot;3.8&quot;
+
+services:
+  # Kratos user service
+  user-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - &quot;8000:8000&quot;  # HTTP
+      - &quot;9000:9000&quot;  # gRPC
+    environment:
+      - APP_ENV=production
+      - DATABASE_HOST=mysql
+      - DATABASE_PORT=3306
+      - DATABASE_USER=root
+      - DATABASE_PASSWORD=secret
+      - DATABASE_NAME=kratos_demo
+      - REDIS_ADDR=redis:6379
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    healthcheck:
+      test: [&quot;CMD&quot;, &quot;grpc_health_probe&quot;, &quot;-addr=:9000&quot;]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    networks:
+      - backend
+    restart: unless-stopped
+
+  # MySQL database
+  mysql:
+    image: mysql:8.0
+    environment:
+      MYSQL_ROOT_PASSWORD: secret
+      MYSQL_DATABASE: kratos_demo
+    ports:
+      - &quot;3306:3306&quot;
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: [&quot;CMD&quot;, &quot;mysqladmin&quot;, &quot;ping&quot;, &quot;-h&quot;, &quot;localhost&quot;]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - backend
+
+  # Redis cache
+  redis:
+    image: redis:7-alpine
+    ports:
+      - &quot;6379:6379&quot;
+    volumes:
+      - redis_data:/data
+    networks:
+      - backend
+
+  # gRPC health probe (utility container for debugging)
+  grpc-health-probe:
+    image: grpc_health_probe:latest
+    build:
+      context: ./docker/grpc-health-probe
+    profiles:
+      - debug
+
+networks:
+  backend:
+    driver: bridge
+
+volumes:
+  mysql_data:
+  redis_data:</code></pre>
+
+<h3>v2: 环境配置</h3>
+
+<pre><code class="language-yaml"># configs/config.yaml - Kratos config template
+server:
+  http:
+    addr: 0.0.0.0:8000
+    timeout: 10s
+  grpc:
+    addr: 0.0.0.0:9000
+    timeout: 10s
+
+database:
+  driver: mysql
+  source: &quot;${DATABASE_USER}:${DATABASE_PASSWORD}@tcp(${DATABASE_HOST}:${DATABASE_PORT})/${DATABASE_NAME}?charset=utf8mb4&amp;parseTime=True&quot;
+
+redis:
+  addr: &quot;${REDIS_ADDR}&quot;
+  read_timeout: 0.2s
+  write_timeout: 0.2s</code></pre>
+
+<h3>v3: Kubernetes 部署</h3>
+
+<pre><code class="language-yaml"># k8s/deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: user-service
+  labels:
+    app: user-service
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: user-service
+  template:
+    metadata:
+      labels:
+        app: user-service
+    spec:
+      containers:
+        - name: user-service
+          image: registry.example.com/user-service:latest
+          ports:
+            - containerPort: 8000  # HTTP
+            - containerPort: 9000  # gRPC
+          env:
+            - name: APP_ENV
+              value: production
+            - name: DATABASE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: db-secret
+                  key: password
+          livenessProbe:
+            exec:
+              command: [&quot;grpc_health_probe&quot;, &quot;-addr=:9000&quot;]
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          readinessProbe:
+            exec:
+              command: [&quot;grpc_health_probe&quot;, &quot;-addr=:9000&quot;]
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 256Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: user-service
+spec:
+  selector:
+    app: user-service
+  ports:
+    - name: http
+      port: 8000
+    - name: grpc
+      port: 9000
+  type: ClusterIP</code></pre>
+
+<pre><code class="language-yaml"># k8s/health-check.yaml - Kratos health server config
+# In your Kratos server setup, enable health checks:
+# grpc_health_v1.RegisterHealthServer(server, health.NewServer())</code></pre>
+
+<hr>
+
+<h2>四、执行预览</h2>
+
+<pre><code class="language-bash"># Build and run with docker-compose
+$ docker-compose up -d --build
+[+] Building 45.2s
+[+] Running 4/4
+ ✔ Network backend    Created
+ ✔ Container mysql     Healthy
+ ✔ Container redis     Started
+ ✔ Container user-service  Started
+
+# Check health
+$ docker exec user-service grpc_health_probe -addr=:9000
+status: SERVING
+
+# View logs
+$ docker-compose logs -f user-service
+user-service | INFO msg=server started http=:8000 grpc=:9000
+
+# Scale horizontally
+$ docker-compose up -d --scale user-service=3</code></pre>
+
+<hr>
+
+<h2>五、注意事项</h2>
+
+<table><thead><tr>
+<th>事项</th>
+<th>说明</th>
+</tr></thead><tbody>
+<tr>
+<td>镜像大小</td>
+<td>使用 distroless/scratch，目标 < 30MB</td>
+</tr>
+<tr>
+<td>非 root 运行</td>
+<td>始终使用 <code>USER nonroot</code></td>
+</tr>
+<tr>
+<td>构建缓存</td>
+<td>先 COPY go.mod/go.sum，利用 Docker 层缓存</td>
+</tr>
+<tr>
+<td>健康检查</td>
+<td>必须配置，否则编排器无法判断服务状态</td>
+</tr>
+<tr>
+<td>敏感信息</td>
+<td>密码/密钥用 Docker Secret 或 K8s Secret</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>六、避坑指南</h2>
+
+<table><thead><tr>
+<th>❌ 错误做法</th>
+<th>✅ 正确做法</th>
+</tr></thead><tbody>
+<tr>
+<td>单阶段构建，镜像 1GB+</td>
+<td>多阶段构建，最终镜像 < 30MB</td>
+</tr>
+<tr>
+<td>用 <code>latest</code> tag 部署</td>
+<td>用 Git SHA 或语义版本 tag</td>
+</tr>
+<tr>
+<td>配置硬编码在镜像中</td>
+<td>环境变量 + 挂载配置文件</td>
+</tr>
+<tr>
+<td>不设健康检查</td>
+<td>配置 liveness + readiness probe</td>
+</tr>
+<tr>
+<td>所有服务同一网络</td>
+<td>按职责划分网络（frontend/backend）</td>
+</tr>
+<tr>
+<td>忽略 .dockerignore</td>
+<td>添加 <code>.dockerignore</code> 排除 <code>.git</code> 等</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>七、练习题</h2>
+
+<p>🟢 <strong>初级：</strong> 编写多阶段 Dockerfile，构建并运行 Kratos 服务。</p>
+
+<p>🟡 <strong>中级：</strong> 编写 docker-compose.yml 编排 Kratos 服务 + MySQL + Redis，配置健康检查。</p>
+
+<p>🔴 <strong>高级：</strong> 编写 Kubernetes Deployment + Service + HPA，实现自动伸缩。</p>
+
+<hr>
+
+<h2>八、知识点总结</h2>
+
+<pre><code>容器化部署
+├── 构建
+│   ├── 多阶段 Dockerfile
+│   ├── 静态编译 (CGO_ENABLED=0)
+│   └── distroless 基础镜像
+├── 编排
+│   ├── Docker Compose (开发)
+│   └── Kubernetes (生产)
+├── 配置
+│   ├── 环境变量注入
+│   ├── 配置文件挂载
+│   └── Secret 管理
+├── 健康检查
+│   ├── HTTP /healthz
+│   └── gRPC health probe
+└── 优化
+    ├── .dockerignore
+    ├── 层缓存优化
+    └── 镜像瘦身</code></pre>
+
+<hr>
+
+<h2>九、举一反三</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>方案</th>
+</tr></thead><tbody>
+<tr>
+<td>多服务编排</td>
+<td>Docker Compose 或 K8s Helm Chart</td>
+</tr>
+<tr>
+<td>CI/CD 集成</td>
+<td>GitHub Actions 构建 + 推送镜像</td>
+</tr>
+<tr>
+<td>私有镜像仓库</td>
+<td>Harbor / 阿里云 ACR</td>
+</tr>
+<tr>
+<td>配置中心</td>
+<td>Nacos / Apollo 集成</td>
+</tr>
+<tr>
+<td>日志收集</td>
+<td>Fluentd + Elasticsearch</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>十、参考资料</h2>
+
+<ul>
+<li><a href="https://docs.docker.com/build/building/multi-stage/">Docker 多阶段构建</a></li>
+<li><a href="https://grpc.io/docs/guides/health-checking/">gRPC Health Checking Protocol</a></li>
+<li><a href="https://go-kratos.dev/docs/getting-started/usage">Kratos 部署文档</a></li>
+
+<hr>
+
+<h2>十一、代码演进</h2>
+
+<table><thead><tr>
+<th>版本</th>
+<th>变化</th>
+</tr></thead><tbody>
+<tr>
+<td>v1</td>
+<td>多阶段 Dockerfile，distroless 镜像</td>
+</tr>
+<tr>
+<td>v2</td>
+<td>Docker Compose 编排 + 环境配置 + 健康检查</td>
+</tr>
+<tr>
+<td>v3</td>
+<td>Kubernetes Deployment + Service + HPA + Secret</td>
+</tr>
+</tbody></table>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

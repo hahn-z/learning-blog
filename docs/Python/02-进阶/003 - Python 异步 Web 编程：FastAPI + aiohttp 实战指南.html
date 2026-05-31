@@ -1,0 +1,696 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>003 - Python 异步 Web 编程：FastAPI + aiohttp 实战指南</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Python/index.html">其他</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Python/02-进阶/index.html">Python进阶</a>
+</nav>
+<h1>003 - Python 异步 Web 编程：FastAPI + aiohttp 实战指南</h1>
+<div class="meta">
+<span>📂 Python进阶</span>
+<span>🏷️ 其他</span>
+</div>
+<article>
+
+
+<blockquote><p><strong>难度标注</strong>：⭐⭐⭐⭐ 高级 | 预计阅读时间：25 分钟<br><strong>前置知识</strong>：asyncio 基础、HTTP 协议概念、Web 开发基础</p></blockquote>
+
+<hr>
+
+<h2>一、概念讲解</h2>
+
+<p>异步 Web 编程 = asyncio + Web 框架。核心价值：<strong>单线程处理数千并发连接</strong>，特别适合 I/O 密集的 Web 服务。</p>
+
+<h3>1.1 为什么需要异步 Web</h3>
+
+<table><thead><tr>
+<th>场景</th>
+<th>同步框架（Flask/Django）</th>
+<th>异步框架</th>
+</tr></thead><tbody>
+<tr>
+<td>1000 个并发请求</td>
+<td>需要 50+ 线程/进程</td>
+<td>1 个线程搞定</td>
+</tr>
+<tr>
+<td>等待数据库/外部 API</td>
+<td>线程被阻塞</td>
+<td>协程让出，处理其他请求</td>
+</tr>
+<tr>
+<td>WebSocket 长连接</td>
+<td>需要额外线程</td>
+<td>原生支持</td>
+</tr>
+<tr>
+<td>资源消耗</td>
+<td>高（线程栈、GIL 竞争）</td>
+<td>低（协程轻量）</td>
+</tr>
+</tbody></table>
+
+<h3>1.2 主流异步 Web 框架对比</h3>
+
+<table><thead><tr>
+<th>框架</th>
+<th>特点</th>
+<th>适合场景</th>
+</tr></thead><tbody>
+<tr>
+<td><strong>FastAPI</strong></td>
+<td>高性能、自动文档、类型验证</td>
+<td>API 服务（首选）</td>
+</tr>
+<tr>
+<td><strong>aiohttp</strong></td>
+<td>成熟稳定、底层灵活</td>
+<td>需要精细控制</td>
+</tr>
+<tr>
+<td><strong>Starlette</strong></td>
+<td>轻量，FastAPI 的底层</td>
+<td>微服务/中间件</td>
+</tr>
+<tr>
+<td><strong>Sanic</strong></td>
+<td>类 Flask 风格</td>
+<td>Flask 用户迁移</td>
+</tr>
+</tbody></table>
+
+<h3>1.3 异步 Web 服务架构</h3>
+
+<pre><code>Client → [aiohttp/FastAPI Server] → Event Loop
+              ↓                        ↓
+         Route Handler            Schedule I/O
+              ↓                        ↓
+      await db.query()          await httpx.get()
+              ↓                        ↓
+         Response ← ← ← ← ← I/O Complete</code></pre>
+
+<hr>
+
+<h2>二、脑图</h2>
+
+<pre><code>异步 Web 编程
+├── 服务端
+│   ├── FastAPI
+│   │   ├── async def 路由
+│   │   ├── 依赖注入
+│   │   ├── WebSocket
+│   │   └── 中间件
+│   ├── aiohttp.web
+│   │   ├── web.Application
+│   │   ├── web.Request/Response
+│   │   └── web.websocket
+│   └── 数据库
+│       ├── asyncpg (PostgreSQL)
+│       ├── motor (MongoDB)
+│       └── databases (SQLAlchemy 兼容)
+├── 客户端
+│   ├── aiohttp.ClientSession
+│   ├── httpx.AsyncClient
+│   └── 并发请求 + 限流
+└── 部署
+    ├── uvicorn (ASGI server)
+    ├── gunicorn + uvicorn workers
+    └── Docker + Nginx</code></pre>
+
+<hr>
+
+<h2>三、完整代码</h2>
+
+<h3>3.1 FastAPI 异步 API 服务</h3>
+
+<pre><code class="language-python"># server.py — Run with: uvicorn server:app --reload
+from fastapi import FastAPI, HTTPException
+from pydantic import BaseModel
+import asyncio
+import uvicorn
+
+app = FastAPI(title=&quot;Async Demo API&quot;)
+
+# --- Models ---
+class Item(BaseModel):
+    name: str
+    price: float
+    description: str = &quot;&quot;
+
+# --- In-memory store ---
+_db: dict = {}
+_counter = 0
+
+# --- Routes ---
+@app.get(&quot;/&quot;)
+async def root():
+    return {&quot;message&quot;: &quot;Async API is running&quot;}
+
+@app.post(&quot;/items&quot;, status_code=201)
+async def create_item(item: Item):
+    global _counter
+    _counter += 1
+    await asyncio.sleep(0.1)  # Simulate async DB write
+    _db[_counter] = item
+    return {&quot;id&quot;: _counter, **item.model_dump()}
+
+@app.get(&quot;/items/{item_id}&quot;)
+async def get_item(item_id: int):
+    await asyncio.sleep(0.05)  # Simulate async DB read
+    if item_id not in _db:
+        raise HTTPException(status_code=404, detail=&quot;Item not found&quot;)
+    return {&quot;id&quot;: item_id, **_db[item_id].model_dump()}
+
+@app.get(&quot;/items&quot;)
+async def list_items(skip: int = 0, limit: int = 10):
+    await asyncio.sleep(0.05)
+    items = [
+        {&quot;id&quot;: k, **v.model_dump()}
+        for k, v in list(_db.items())[skip:skip+limit]
+    ]
+    return {&quot;items&quot;: items, &quot;total&quot;: len(_db)}
+
+if __name__ == &quot;__main__&quot;:
+    uvicorn.run(app, host=&quot;0.0.0.0&quot;, port=8000)</code></pre>
+
+<h3>3.2 aiohttp 异步 HTTP 客户端</h3>
+
+<pre><code class="language-python">import asyncio
+import aiohttp
+import time
+
+async def fetch_one(session, url):
+    # Fetch a single URL with error handling
+    try:
+        async with session.get(url, timeout=aiohttp.ClientTimeout(total=10)) as resp:
+            return {
+                &quot;url&quot;: url,
+                &quot;status&quot;: resp.status,
+                &quot;length&quot;: len(await resp.text()),
+            }
+    except Exception as e:
+        return {&quot;url&quot;: url, &quot;error&quot;: str(e)}
+
+async def fetch_many(urls, max_concurrent=5):
+    # Fetch multiple URLs concurrently with rate limiting
+    sem = asyncio.Semaphore(max_concurrent)
+
+    async def limited_fetch(session, url):
+        async with sem:
+            return await fetch_one(session, url)
+
+    async with aiohttp.ClientSession() as session:
+        tasks = [limited_fetch(session, url) for url in urls]
+        return await asyncio.gather(*tasks)
+
+async def main_client():
+    urls = [
+        &quot;https://httpbin.org/get&quot;,
+        &quot;https://httpbin.org/delay/1&quot;,
+        &quot;https://httpbin.org/delay/2&quot;,
+        &quot;https://httpbin.org/status/404&quot;,
+        &quot;https://httpbin.org/json&quot;,
+    ]
+    start = time.time()
+    results = await fetch_many(urls, max_concurrent=3)
+    for r in results:
+        print(r)
+    print(f&quot;
+Total time: {time.time()-start:.1f}s&quot;)
+
+asyncio.run(main_client())</code></pre>
+
+<h3>3.3 WebSocket 实时通信</h3>
+
+<pre><code class="language-python"># ws_server.py
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+import json
+
+app = FastAPI()
+
+class ConnectionManager:
+    # Manage active WebSocket connections
+    def __init__(self):
+        self.active: list = []
+
+    async def connect(self, ws: WebSocket):
+        await ws.accept()
+        self.active.append(ws)
+
+    def disconnect(self, ws: WebSocket):
+        self.active.remove(ws)
+
+    async def broadcast(self, message: str, sender: WebSocket):
+        for connection in self.active:
+            if connection != sender:
+                await connection.send_text(message)
+
+manager = ConnectionManager()
+
+@app.websocket(&quot;/ws/chat&quot;)
+async def websocket_chat(ws: WebSocket):
+    await manager.connect(ws)
+    try:
+        while True:
+            data = await ws.receive_text()
+            msg = json.loads(data)
+            await manager.broadcast(
+                json.dumps({&quot;user&quot;: msg[&quot;user&quot;], &quot;text&quot;: msg[&quot;text&quot;]}),
+                sender=ws
+            )
+    except WebSocketDisconnect:
+        manager.disconnect(ws)
+        await manager.broadcast(
+            json.dumps({&quot;system&quot;: &quot;A user disconnected&quot;}),
+            sender=None
+        )</code></pre>
+
+<h3>3.4 异步数据库操作</h3>
+
+<pre><code class="language-python">import asyncio
+import asyncpg
+
+async def db_demo():
+    # Demo async PostgreSQL operations with asyncpg
+    conn = await asyncpg.connect(
+        host=&quot;localhost&quot;, port=5432,
+        user=&quot;postgres&quot;, password=&quot;password&quot;, database=&quot;testdb&quot;
+    )
+
+    # Create table
+    await conn.execute(
+        &quot;CREATE TABLE IF NOT EXISTS users (&quot;
+        &quot; id SERIAL PRIMARY KEY,&quot;
+        &quot; name VARCHAR(100),&quot;
+        &quot; email VARCHAR(255) UNIQUE)&quot;
+    )
+
+    # Insert (parameterized, safe from SQL injection)
+    await conn.execute(
+        &quot;INSERT INTO users (name, email) VALUES ($1, $2)&quot;,
+        &quot;Alice&quot;, &quot;alice@example.com&quot;
+    )
+
+    # Batch insert
+    users = [(&quot;Bob&quot;, &quot;bob@test.com&quot;), (&quot;Charlie&quot;, &quot;charlie@test.com&quot;)]
+    await conn.executemany(
+        &quot;INSERT INTO users (name, email) VALUES ($1, $2) ON CONFLICT DO NOTHING&quot;,
+        users
+    )
+
+    # Query
+    rows = await conn.fetch(&quot;SELECT * FROM users&quot;)
+    for row in rows:
+        print(dict(row))
+
+    # Transaction
+    async with conn.transaction():
+        await conn.execute(
+            &quot;UPDATE users SET name = $1 WHERE email = $2&quot;,
+            &quot;Alice Updated&quot;, &quot;alice@example.com&quot;
+        )
+        count = await conn.fetchval(&quot;SELECT COUNT(*) FROM users&quot;)
+        print(f&quot;Total users: {count}&quot;)
+
+    await conn.close()
+
+# asyncio.run(db_demo())</code></pre>
+
+<hr>
+
+<h2>四、执行预览</h2>
+
+<pre><code class="language-bash"># FastAPI server startup
+$ uvicorn server:app --reload
+INFO:     Uvicorn running on http://0.0.0.0:8000
+
+# Client fetch output
+{&#x27;url&#x27;: &#x27;https://httpbin.org/get&#x27;, &#x27;status&#x27;: 200, &#x27;length&#x27;: 308}
+{&#x27;url&#x27;: &#x27;https://httpbin.org/delay/1&#x27;, &#x27;status&#x27;: 200, &#x27;length&#x27;: 297}
+{&#x27;url&#x27;: &#x27;https://httpbin.org/delay/2&#x27;, &#x27;status&#x27;: 200, &#x27;length&#x27;: 297}
+{&#x27;url&#x27;: &#x27;https://httpbin.org/status/404&#x27;, &#x27;status&#x27;: 404, &#x27;length&#x27;: 0}
+{&#x27;url&#x27;: &#x27;https://httpbin.org/json&#x27;, &#x27;status&#x27;: 200, &#x27;length&#x27;: 429}
+
+Total time: 2.1s  # 5 requests in ~2s thanks to concurrency
+
+# Database query
+{&#x27;id&#x27;: 1, &#x27;name&#x27;: &#x27;Alice Updated&#x27;, &#x27;email&#x27;: &#x27;alice@example.com&#x27;}
+{&#x27;id&#x27;: 2, &#x27;name&#x27;: &#x27;Bob&#x27;, &#x27;email&#x27;: &#x27;bob@test.com&#x27;}
+{&#x27;id&#x27;: 3, &#x27;name&#x27;: &#x27;Charlie&#x27;, &#x27;email&#x27;: &#x27;charlie@test.com&#x27;}
+Total users: 3</code></pre>
+
+<hr>
+
+<h2>五、注意事项</h2>
+
+<table><thead><tr>
+<th>要点</th>
+<th>说明</th>
+</tr></thead><tbody>
+<tr>
+<td>ASGI vs WSGI</td>
+<td>FastAPI/aiohttp 是 ASGI，需要 uvicorn/daphne；Flask 是 WSGI</td>
+</tr>
+<tr>
+<td>同步路由</td>
+<td>FastAPI 支持普通 <code>def</code> 路由，会自动放线程池，但不如 <code>async def</code></td>
+</tr>
+<tr>
+<td>数据库驱动</td>
+<td>必须用异步驱动：asyncpg、motor、aiosqlite 等</td>
+</tr>
+<tr>
+<td>部署</td>
+<td>生产环境用 <code>gunicorn -k uvicorn.workers.UvicornWorker</code></td>
+</tr>
+<tr>
+<td>CORS</td>
+<td>FastAPI 需加 <code>CORSMiddleware</code></td>
+</tr>
+<tr>
+<td>超时</td>
+<td>始终设置请求超时 <code>ClientTimeout(total=30)</code></td>
+</tr>
+<tr>
+<td>连接池</td>
+<td><code>aiohttp.ClientSession()</code> 复用连接，不要每次请求新建</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>六、避坑指南</h2>
+
+<h3>❌ 每次请求新建 Session → ✅ 复用 Session</h3>
+
+<pre><code class="language-python"># ❌ New connection per request (slow, resource waste)
+async def fetch(url):
+    async with aiohttp.ClientSession() as session:
+        async with session.get(url) as r:
+            return await r.text()
+
+# ✅ Share session across requests
+_session = None
+async def get_session():
+    global _session
+    if _session is None:
+        _session = aiohttp.ClientSession()
+    return _session
+
+async def fetch(url):
+    session = await get_session()
+    async with session.get(url) as r:
+        return await r.text()</code></pre>
+
+<h3>❌ FastAPI 中用同步数据库驱动 → ✅ 用异步驱动</h3>
+
+<pre><code class="language-python"># ❌ Blocks the event loop
+@app.get(&quot;/users&quot;)
+def get_users():
+    users = psycopg2.query(&quot;SELECT * FROM users&quot;)  # Blocking!
+    return users
+
+# ✅ Async database driver
+@app.get(&quot;/users&quot;)
+async def get_users():
+    async with asyncpg.create_pool(dsn) as pool:
+        async with pool.acquire() as conn:
+            rows = await conn.fetch(&quot;SELECT * FROM users&quot;)
+            return [dict(r) for r in rows]</code></pre>
+
+<h3>❌ 不处理 WebSocket 异常 → ✅ 用 WebSocketDisconnect</h3>
+
+<pre><code class="language-python"># ❌ Unhandled disconnect crashes the handler
+@app.websocket(&quot;/ws&quot;)
+async def ws_endpoint(ws: WebSocket):
+    await ws.accept()
+    while True:
+        data = await ws.receive_text()  # Raises on disconnect!
+
+# ✅ Graceful disconnect handling
+@app.websocket(&quot;/ws&quot;)
+async def ws_endpoint(ws: WebSocket):
+    await ws.accept()
+    try:
+        while True:
+            data = await ws.receive_text()
+            await ws.send_text(f&quot;Echo: {data}&quot;)
+    except WebSocketDisconnect:
+        print(&quot;Client disconnected normally&quot;)</code></pre>
+
+<h3>❌ 单 worker 部署 → ✅ 多 worker + 反向代理</h3>
+
+<pre><code class="language-bash"># ❌ Single worker for production
+uvicorn app:app --host 0.0.0.0 --port 8000
+
+# ✅ Multiple workers with gunicorn
+gunicorn app:app -k uvicorn.workers.UvicornWorker -w 4 --bind 0.0.0.0:8000</code></pre>
+
+<hr>
+
+<h2>七、练习题</h2>
+
+<h3>🟢 基础题</h3>
+
+<p><strong>题目 1</strong>：用 FastAPI 创建一个异步 CRUD API，支持 Todo 的增删改查，数据存在内存 dict 中。</p>
+
+<p><strong>题目 2</strong>：用 <code>aiohttp.ClientSession</code> 并发请求 <code>httpbin.org</code> 的 5 个不同端点，打印每个响应的状态码。</p>
+
+<h3>🟡 进阶题</h3>
+
+<p><strong>题目 3</strong>：实现一个异步代理服务器：接收请求，异步转发到目标 URL，返回响应。支持并发限流。</p>
+
+<p><strong>题目 4</strong>：用 FastAPI WebSocket 实现一个实时聊天室，支持多个用户同时连接和广播消息。</p>
+
+<h3>🔴 挑战题</h3>
+
+<p><strong>题目 5</strong>：实现一个完整的异步微服务：FastAPI + asyncpg + Redis（aioredis），包含用户注册/登录（JWT）、RESTful API、WebSocket 通知、Docker Compose 部署。</p>
+
+<hr>
+
+<h2>八、知识点总结</h2>
+
+<pre><code>异步 Web 编程
+├── 服务端框架
+│   ├── FastAPI
+│   │   ├── async def 路由处理
+│   │   ├── Pydantic 模型验证
+│   │   ├── 依赖注入系统
+│   │   ├── WebSocket 支持
+│   │   └── 自动 OpenAPI 文档
+│   └── aiohttp.web
+│       ├── web.Application / web.RouteTableDef
+│       ├── web.Request / web.Response
+│       └── web.WebSocketResponse
+├── 客户端
+│   ├── aiohttp.ClientSession → 连接复用
+│   ├── httpx.AsyncClient → requests 风格
+│   └── 限流: Semaphore / Token Bucket
+├── 数据库
+│   ├── asyncpg (PostgreSQL)
+│   ├── motor (MongoDB)
+│   └── aiosqlite (SQLite)
+└── 部署
+    ├── uvicorn — ASGI 服务器
+    ├── gunicorn + uvicorn workers
+    ├── Nginx 反向代理
+    └── Docker 容器化</code></pre>
+
+<hr>
+
+<h2>九、举一反三</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>技术方案</th>
+<th>关键点</th>
+</tr></thead><tbody>
+<tr>
+<td>REST API 服务</td>
+<td>FastAPI + asyncpg</td>
+<td>自动文档 + 异步数据库</td>
+</tr>
+<tr>
+<td>实时聊天</td>
+<td>FastAPI WebSocket</td>
+<td>ConnectionManager 广播</td>
+</tr>
+<tr>
+<td>Web 爬虫</td>
+<td>aiohttp + asyncio</td>
+<td>Semaphore 限流 + 重试</td>
+</tr>
+<tr>
+<td>SSE 推送</td>
+<td>FastAPI StreamingResponse</td>
+<td>async generator</td>
+</tr>
+<tr>
+<td>文件上传</td>
+<td>FastAPI UploadFile</td>
+<td>异步读写磁盘</td>
+</tr>
+<tr>
+<td>定时任务</td>
+<td>asyncio.create_task + sleep</td>
+<td>后台任务循环</td>
+</tr>
+<tr>
+<td>微服务通信</td>
+<td>httpx.AsyncClient</td>
+<td>服务间异步调用</td>
+</tr>
+<tr>
+<td>API 网关</td>
+<td>FastAPI 中间件</td>
+<td>认证 + 限流 + 日志</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>十、参考资料</h2>
+
+<ul>
+<li><a href="https://fastapi.tiangolo.com/">FastAPI 官方文档</a></li>
+<li><a href="https://docs.aiohttp.org/">aiohttp 官方文档</a></li>
+<li><a href="https://www.uvicorn.org/">uvicorn 文档</a></li>
+<li><a href="https://magicstack.github.io/asyncpg/">asyncpg 文档</a></li>
+<li><a href="https://asgi.readthedocs.io/">ASGI 规范</a></li>
+<li>Real Python: <a href="https://realpython.com/python-async-await/">Async.await Web Scraping</a></li>
+
+<hr>
+
+<h2>十一、代码演进</h2>
+
+<h3>需求：构建一个异步 API 服务</h3>
+
+<pre><code class="language-python"># v1: Flask synchronous — simple but blocks under load
+from flask import Flask, jsonify, request
+
+app = Flask(__name__)
+_db = {}
+
+@app.route(&quot;/items&quot;, methods=[&quot;POST&quot;])
+def create_item():
+    data = request.json
+    _db[data[&quot;name&quot;]] = data
+    return jsonify(data), 201
+
+@app.route(&quot;/items/&lt;name&gt;&quot;)
+def get_item(name):
+    return jsonify(_db.get(name, {&quot;error&quot;: &quot;not found&quot;}))
+
+# v2: FastAPI async — non-blocking, auto docs
+from fastapi import FastAPI, HTTPException
+from pydantic import BaseModel
+import asyncio
+
+app = FastAPI()
+_db = {}
+
+class Item(BaseModel):
+    name: str
+    value: int
+
+@app.post(&quot;/items&quot;)
+async def create_item(item: Item):
+    await asyncio.sleep(0.05)  # Simulate async DB
+    _db[item.name] = item
+    return item
+
+@app.get(&quot;/items/{name}&quot;)
+async def get_item(name: str):
+    await asyncio.sleep(0.02)
+    if name not in _db:
+        raise HTTPException(404, &quot;Not found&quot;)
+    return _db[name]
+
+# v3: Production-ready with async DB, CORS, middleware
+from fastapi.middleware.cors import CORSMiddleware
+from contextlib import asynccontextmanager
+import asyncpg
+
+pool = None
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    global pool
+    pool = await asyncpg.create_pool(&quot;postgres://user:pass@localhost/db&quot;)
+    yield
+    await pool.close()
+
+app = FastAPI(lifespan=lifespan)
+app.add_middleware(CORSMiddleware, allow_origins=[&quot;*&quot;], allow_methods=[&quot;*&quot;])
+
+@app.post(&quot;/items&quot;, status_code=201)
+async def create_item(item: Item):
+    async with pool.acquire() as conn:
+        await conn.execute(
+            &quot;INSERT INTO items (name, value) VALUES ($1, $2)&quot;,
+            item.name, item.value
+        )
+    return item</code></pre>
+
+<p><strong>演进说明</strong>：v1 Flask 同步阻塞 → v2 FastAPI 异步 + 自动文档 → v3 生产级：连接池、生命周期、CORS、异步数据库。</p>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

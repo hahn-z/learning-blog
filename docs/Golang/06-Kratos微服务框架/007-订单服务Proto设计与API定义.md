@@ -1,0 +1,509 @@
+---
+title: "007-订单服务Proto设计与API定义"
+slug: "007-kratos-order-proto"
+category: "Kratos框架"
+tech_stack: "Golang"
+created_at: "2026-04-25T18:31:51.169+08:00"
+updated_at: "2026-04-29T10:02:45.342+08:00"
+reading_time: 29
+tags: []
+---
+
+# 007-订单服务Proto设计与API定义
+
+> 难度：⭐⭐⭐（中级）
+> 前置知识：Protobuf语法、HTTP/gRPC基础、RESTful API设计
+
+## 一、概念讲解
+
+### Proto 在 Kratos 中的角色
+
+Kratos 使用 Protocol Buffers（Proto）作为 API 的**唯一事实来源（Single Source of Truth）**：
+
+- 一个 `.proto` 文件同时生成 HTTP 和 gRPC 代码
+- 使用 `google/api/annotations.proto` 实现 RESTful 映射
+- 通过 `protoc` + Kratos 插件一键生成服务端骨架
+
+### 订单领域建模要点
+
+订单是电商核心领域，Proto 设计需要考虑：
+1. **CRUD 操作**：创建、读取、更新、删除
+2. **列表查询**：分页、过滤、排序
+3. **状态流转**：下单→支付→发货→完成/取消
+4. **错误处理**：业务错误码 + gRPC Status
+
+## 二、脑图
+
+```
+订单 Proto 设计
+├── 领域建模
+│   ├── Order 实体
+│   │   ├── 基础字段 (id, user_id, amount)
+│   │   ├── 状态字段 (status)
+│   │   ├── 时间字段 (created_at, updated_at)
+│   │   └── 关联字段 (items, address)
+│   ├── OrderItem 子实体
+│   └── OrderStatus 枚举
+├── API 设计
+│   ├── CreateOrder    → POST   /v1/orders
+│   ├── GetOrder       → GET    /v1/orders/{id}
+│   ├── UpdateOrder    → PUT    /v1/orders/{id}
+│   ├── DeleteOrder    → DELETE /v1/orders/{id}
+│   ├── ListOrders     → GET    /v1/orders
+│   ├── PayOrder       → POST   /v1/orders/{id}/pay
+│   ├── CancelOrder    → POST   /v1/orders/{id}/cancel
+│   └── ShipOrder      → POST   /v1/orders/{id}/ship
+├── 错误码设计
+│   ├── 使用 google.rpc.Code
+│   ├── 自定义 reason + metadata
+│   └── 错误码范围规划
+└── 版本化
+    ├── package v1
+    ├── 向后兼容原则
+    └── 废弃字段标记
+```
+
+## 三、完整代码示例
+
+### 3.1 订单 Proto 文件
+
+```protobuf
+// api/order/v1/order.proto
+syntax = "proto3";
+
+package api.order.v1;
+
+option go_package = "myapp/api/order/v1;v1";
+
+import "google/api/annotations.proto";
+import "google/protobuf/timestamp.proto";
+import "validate/validate.proto";
+
+// Order status enumeration
+enum OrderStatus {
+  ORDER_STATUS_UNSPECIFIED = 0;
+  ORDER_STATUS_PENDING = 1;    // 待支付
+  ORDER_STATUS_PAID = 2;       // 已支付
+  ORDER_STATUS_SHIPPED = 3;    // 已发货
+  ORDER_STATUS_COMPLETED = 4;  // 已完成
+  ORDER_STATUS_CANCELLED = 5;  // 已取消
+  ORDER_STATUS_REFUNDED = 6;   // 已退款
+}
+
+// Order entity message
+message Order {
+  int64 id = 1;
+  int64 user_id = 2;
+  double amount = 3;
+  OrderStatus status = 4;
+  string remark = 5;
+  repeated OrderItem items = 6;
+  Address shipping_address = 7;
+  google.protobuf.Timestamp created_at = 8;
+  google.protobuf.Timestamp updated_at = 9;
+}
+
+// Order item sub-entity
+message OrderItem {
+  int64 id = 1;
+  int64 product_id = 2;
+  string product_name = 3;
+  int32 quantity = 4;
+  double price = 5;
+}
+
+// Shipping address
+message Address {
+  string name = 1;
+  string phone = 2;
+  string province = 3;
+  string city = 4;
+  string district = 5;
+  string detail = 6;
+}
+
+// ========== Request / Response Messages ==========
+
+// Create order request
+message CreateOrderRequest {
+  int64 user_id = 1 [(validate.rules).int64.gt = 0];
+  repeated CreateOrderItem items = 2 [(validate.rules).repeated.min_items = 1];
+  Address shipping_address = 3 [(validate.rules).message.required = true];
+  string remark = 4;
+}
+
+message CreateOrderItem {
+  int64 product_id = 1 [(validate.rules).int64.gt = 0];
+  int32 quantity = 2 [(validate.rules).int32.gte = 1];
+}
+
+message CreateOrderReply {
+  int64 id = 1;
+  Order order = 2;
+}
+
+// Get order request
+message GetOrderRequest {
+  int64 id = 1 [(validate.rules).int64.gt = 0];
+}
+
+message GetOrderReply {
+  Order order = 1;
+}
+
+// Update order request
+message UpdateOrderRequest {
+  int64 id = 1 [(validate.rules).int64.gt = 0];
+  string remark = 2;
+  Address shipping_address = 3;
+}
+
+message UpdateOrderReply {
+  Order order = 1;
+}
+
+// Delete order request
+message DeleteOrderRequest {
+  int64 id = 1 [(validate.rules).int64.gt = 0];
+}
+
+message DeleteOrderReply {}
+
+// List orders request with pagination
+message ListOrdersRequest {
+  int64 user_id = 1;  // Optional filter by user
+  OrderStatus status = 2;  // Optional filter by status
+  int32 page = 3 [(validate.rules).int32.gte = 1];
+  int32 page_size = 4 [(validate.rules).int32 = {gte: 1, lte: 100}];
+}
+
+message ListOrdersReply {
+  repeated Order orders = 1;
+  int64 total = 2;
+  int32 page = 3;
+  int32 page_size = 4;
+}
+
+// Order status transition requests
+message PayOrderRequest {
+  int64 id = 1 [(validate.rules).int64.gt = 0];
+  string payment_method = 2 [(validate.rules).string.min_len = 1];
+}
+
+message PayOrderReply {
+  Order order = 1;
+}
+
+message CancelOrderRequest {
+  int64 id = 1 [(validate.rules).int64.gt = 0];
+  string reason = 2;
+}
+
+message CancelOrderReply {
+  Order order = 1;
+}
+
+message ShipOrderRequest {
+  int64 id = 1 [(validate.rules).int64.gt = 0];
+  string tracking_number = 2 [(validate.rules).string.min_len = 1];
+}
+
+message ShipOrderReply {
+  Order order = 1;
+}
+
+// ========== Service Definition ==========
+
+// OrderService defines the order service API
+service OrderService {
+  // Create a new order
+  rpc CreateOrder(CreateOrderRequest) returns (CreateOrderReply) {
+    option (google.api.http) = {
+      post: "/v1/orders"
+      body: "*"
+    };
+  }
+
+  // Get order by ID
+  rpc GetOrder(GetOrderRequest) returns (GetOrderReply) {
+    option (google.api.http) = {
+      get: "/v1/orders/{id}"
+    };
+  }
+
+  // Update an existing order
+  rpc UpdateOrder(UpdateOrderRequest) returns (UpdateOrderReply) {
+    option (google.api.http) = {
+      put: "/v1/orders/{id}"
+      body: "*"
+    };
+  }
+
+  // Delete an order
+  rpc DeleteOrder(DeleteOrderRequest) returns (DeleteOrderReply) {
+    option (google.api.http) = {
+      delete: "/v1/orders/{id}"
+    };
+  }
+
+  // List orders with pagination
+  rpc ListOrders(ListOrdersRequest) returns (ListOrdersReply) {
+    option (google.api.http) = {
+      get: "/v1/orders"
+    };
+  }
+
+  // Pay for a pending order
+  rpc PayOrder(PayOrderRequest) returns (PayOrderReply) {
+    option (google.api.http) = {
+      post: "/v1/orders/{id}/pay"
+      body: "*"
+    };
+  }
+
+  // Cancel an order
+  rpc CancelOrder(CancelOrderRequest) returns (CancelOrderReply) {
+    option (google.api.http) = {
+      post: "/v1/orders/{id}/cancel"
+      body: "*"
+    };
+  }
+
+  // Ship an order
+  rpc ShipOrder(ShipOrderRequest) returns (ShipOrderReply) {
+    option (google.api.http) = {
+      post: "/v1/orders/{id}/ship"
+      body: "*"
+    };
+  }
+}
+```
+
+### 3.2 错误码定义
+
+```go
+// internal/pkg/errorx/order.go
+package errorx
+
+import (
+    "github.com/go-kratos/kratos/v2/errors"
+)
+
+// Order error definitions using gRPC status codes
+var (
+    // 400 Bad Request - validation errors
+    ErrOrderInvalidItems = errors.BadRequest(
+        "ORDER_INVALID_ITEMS", "order items cannot be empty",
+    )
+    ErrOrderInvalidAddress = errors.BadRequest(
+        "ORDER_INVALID_ADDRESS", "shipping address is required",
+    )
+
+    // 404 Not Found
+    ErrOrderNotFound = errors.NotFound(
+        "ORDER_NOT_FOUND", "order not found",
+    )
+
+    // 409 Conflict - state transition errors
+    ErrOrderAlreadyPaid = errors.Conflict(
+        "ORDER_ALREADY_PAID", "order has already been paid",
+    )
+    ErrOrderCannotCancel = errors.Conflict(
+        "ORDER_CANNOT_CANCEL", "order cannot be cancelled in current status",
+    )
+    ErrOrderCannotShip = errors.Conflict(
+        "ORDER_CANNOT_SHIP", "order cannot be shipped in current status",
+    )
+
+    // 403 Forbidden
+    ErrOrderNoPermission = errors.Forbidden(
+        "ORDER_NO_PERMISSION", "no permission to operate this order",
+    )
+)
+
+// NewOrderStatusError creates a status transition error with metadata
+func NewOrderStatusError(from, to string) error {
+    return errors.Conflict(
+        "ORDER_STATUS_TRANSITION_INVALID",
+        "cannot transition order status from %s to %s",
+    ).WithMetadata(map[string]string{
+        "from_status": from,
+        "to_status":   to,
+    })
+}
+```
+
+### 3.3 代码生成命令
+
+```bash
+# Generate protobuf code with Kratos plugins
+protoc --proto_path=api \
+       --proto_path=third_party \
+       --go_out=api --go_opt=paths=source_relative \
+       --go-http_out=api --go-http_opt=paths=source_relative \
+       --go-grpc_out=api --go-grpc_opt=paths=source_relative \
+       --validate_out=api --validate_opt=paths=source_relative \
+       api/order/v1/order.proto
+
+# Or use Kratos CLI
+kratos proto client api/order/v1/order.proto
+
+# Generate server scaffold
+kratos proto server api/order/v1/order.proto -t internal/service
+```
+
+## 四、执行预览
+
+```bash
+# 生成 Proto 代码
+$ kratos proto client api/order/v1/order.proto
+# Generated: api/order/v1/order.pb.go
+# Generated: api/order/v1/order_http.pb.go
+# Generated: api/order/v1/order_grpc.pb.go
+
+# 生成服务端代码
+$ kratos proto server api/order/v1/order.proto -t internal/service
+# Generated: internal/service/order.go
+
+# 启动服务测试
+$ curl -X POST http://localhost:8080/v1/orders \
+  -H "Content-Type: application/json" \
+  -d '{
+    "user_id": 1,
+    "items": [{"product_id": 100, "quantity": 2}],
+    "shipping_address": {
+      "name": "张三", "phone": "13800138000",
+      "province": "广东", "city": "深圳",
+      "district": "南山", "detail": "科技园1号楼"
+    }
+  }'
+# Response: {"id": 1001, "order": {"id": 1001, "user_id": 1, "status": 1, ...}}
+
+# 查询订单列表
+$ curl http://localhost:8080/v1/orders?page=1&page_size=10
+# Response: {"orders": [...], "total": 42, "page": 1, "page_size": 10}
+```
+
+## 五、注意事项
+
+| 事项 | 说明 | 建议 |
+|------|------|------|
+| field_number 不可复用 | 一旦发布，field number 不能再改 | 预留一些 number 空间 |
+| 枚举从0开始 | proto3 枚举第一个必须是 UNSPECIFIED | 始终定义 _UNSPECIFIED = 0 |
+| gRPC Status 映射 | Kratos 自动映射 gRPC code 到 HTTP status | 了解映射关系：NOT_FOUND→404 |
+| 字段验证 | 使用 protoc-gen-validate | 不要只靠服务端代码验证 |
+| 包名版本化 | package api.order.v1 | 大版本变更时创建 v2 目录 |
+| 嵌套深度 | Message 嵌套不超过3层 | 超过时拆分成独立 message |
+
+## 六、避坑指南
+
+| ❌ 错误做法 | ✅ 正确做法 |
+|------------|-----------|
+| field number 随意分配，后续插入导致冲突 | 规划好 number 范围，预留间隔 |
+| 不用 validate 规则，全靠代码校验 | Proto 层加 validate 规则，双重保障 |
+| Request 和 Response 用同一个 Message | Request/Response 分开定义，独立演进 |
+| RESTful 路径不一致 | 统一用资源路径：/v1/orders/{id}/action |
+| 错误码直接用 HTTP status code | 用 gRPC Code + 自定义 reason |
+| proto 文件不加注释 | 每个 RPC 和 Message 都加注释 |
+
+## 七、练习题
+
+### 🟢 初级
+1. 为订单增加一个 `refund` 状态流转 RPC，包含退款原因字段。
+2. 修改 `ListOrdersRequest`，增加按时间范围过滤的字段。
+
+### 🟡 中级
+3. 设计一个 `OrderComment` 子资源的 Proto，支持对订单添加评价。
+4. 使用 `oneof` 实现订单支付方式（微信/支付宝/银行卡）的多态设计。
+
+### 🔴 高级
+5. 设计 v2 版本的订单 Proto，包含 v1 兼容策略和迁移方案。
+6. 实现一个自定义 `protoc` 插件，从 Proto 注解自动生成 API 文档。
+
+## 八、知识点总结
+
+```
+Proto 设计
+├── 语法
+│   ├── syntax = "proto3"
+│   ├── package + go_package
+│   └── import (annotations, validate, timestamp)
+├── Message 设计
+│   ├── 实体 Message (Order)
+│   ├── 请求/响应 Message (XxxRequest/XxxReply)
+│   ├── 枚举 (OrderStatus)
+│   └── 嵌套/子实体
+├── Service + HTTP 映射
+│   ├── rpc + google.api.http annotation
+│   ├── RESTful 路径设计
+│   └── CRUD + 状态流转
+├── 错误码
+│   ├── gRPC Status Code
+│   ├── 自定义 reason
+│   └── metadata 附加信息
+├── 验证
+│   ├── protoc-gen-validate
+│   └── 字段级规则
+└── 版本化
+    ├── package versioning (v1/v2)
+    ├── 向后兼容
+    └── deprecated 标记
+```
+
+## 九、举一反三
+
+| 领域 | 核心实体 | 关键 RPC | 特殊设计 |
+|------|---------|---------|---------|
+| 用户服务 | User | CRUD + Login/Register | 密码字段敏感处理 |
+| 商品服务 | Product | CRUD + Search | 全文搜索 proto 设计 |
+| 支付服务 | Payment | Create + Callback | 异步回调 proto |
+| 物流服务 | Shipment | Create + Track | 流式推送 (Server Stream) |
+| 通知服务 | Notification | Send + Subscribe | 双向流 (Bi-directional) |
+
+## 十、参考资料
+
+- [Protobuf 官方文档](https://protobuf.dev/programming-guides/proto3/)
+- [Kratos Proto 规范](https://go-kratos.dev/docs/component/proto)
+- [protoc-gen-validate](https://github.com/bufbuild/protoc-gen-validate)
+- [Google API 设计指南](https://cloud.google.com/apis/design)
+
+## 十一、代码演进
+
+### v1: 最简 Proto（只有 CRUD）
+
+```protobuf
+service OrderService {
+  rpc Create(CreateReq) returns (CreateResp);
+  rpc Get(GetReq) returns (GetResp);
+  rpc Update(UpdateReq) returns (UpdateResp);
+  rpc Delete(DeleteReq) returns (DeleteResp);
+}
+```
+
+**问题**：没有 HTTP 映射、没有验证、没有状态流转。
+
+### v2: 增加 RESTful 映射和验证
+
+```protobuf
+service OrderService {
+  rpc CreateOrder(CreateOrderRequest) returns (CreateOrderReply) {
+    option (google.api.http) = { post: "/v1/orders" body: "*" };
+  };
+  // ... with validate rules
+}
+```
+
+**改进**：RESTful API 就绪，字段验证到位。**但**错误码不够精细。
+
+### v3: 完整生产级 Proto（错误码+状态流转+版本化）
+
+```protobuf
+// 独立错误码包
+package api.order.v1;
+
+// 枚举 + 状态流转 RPC + metadata 错误
+// client/server 代码生成 + validate
+// v2 目录预留版本迁移
+```
+
+**最终形态**：完整的领域建模、RESTful 映射、精细错误码、版本化管理。

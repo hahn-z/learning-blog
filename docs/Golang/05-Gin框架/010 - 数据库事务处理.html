@@ -1,0 +1,809 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>010 - 数据库事务处理</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Golang/index.html">Golang</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Golang/05-Gin框架/index.html">Gin框架</a>
+</nav>
+<h1>010 - 数据库事务处理</h1>
+<div class="meta">
+<span>📂 Gin框架</span>
+<span>🏷️ Golang</span>
+</div>
+<article>
+
+
+<h1>010 - 数据库事务处理</h1>
+
+<blockquote><p><strong>难度标注：</strong> ⭐⭐⭐（中级）<br><br><strong>前置知识：</strong> GORM CRUD、Service 层架构<br><br><strong>学习目标：</strong> 掌握 GORM 事务管理、手动事务、嵌套事务、事务最佳实践</p></blockquote>
+
+<hr>
+
+<h2>一、概念讲解</h2>
+
+<p><strong>事务（Transaction）</strong> 是数据库操作的最小执行单元，具有 ACID 四大特性：</p>
+
+<table><thead><tr>
+<th>特性</th>
+<th>英文</th>
+<th>说明</th>
+<th>示例</th>
+</tr></thead><tbody>
+<tr>
+<td>原子性</td>
+<td>Atomicity</td>
+<td>全部成功或全部回滚</td>
+<td>转账：扣款+到账必须同时成功</td>
+</tr>
+<tr>
+<td>一致性</td>
+<td>Consistency</td>
+<td>操作前后数据一致</td>
+<td>总金额不变</td>
+</tr>
+<tr>
+<td>隔离性</td>
+<td>Isolation</td>
+<td>并发事务互不干扰</td>
+<td>两人同时转账不冲突</td>
+</tr>
+<tr>
+<td>持久性</td>
+<td>Durability</td>
+<td>提交后永久保存</td>
+<td>断电不丢数据</td>
+</tr>
+</tbody></table>
+
+<h3>什么时候需要事务？</h3>
+
+<ul>
+<li><strong>转账操作</strong>：扣款 + 加款必须原子性</li>
+<li><strong>订单创建</strong>：创建订单 + 扣库存 + 记录日志</li>
+<li><strong>批量操作</strong>：插入多条关联数据</li>
+<li><strong>状态变更</strong>：多个表联动更新</li>
+
+<h3>GORM 事务三种方式</h3>
+
+<ol>
+<li><strong>自动事务</strong>：<code>db.Transaction(func(tx *gorm.DB) error {...})</code>（推荐）</li>
+</ul>
+<ol>
+<li><strong>手动事务</strong>：<code>db.Begin()</code> + <code>tx.Commit()</code> + <code>tx.Rollback()</code></li>
+</ul>
+<ol>
+<li><strong>嵌套事务</strong>：<code>tx.SavePoint()</code> + <code>tx.RollbackTo()</code></li>
+
+<hr>
+
+<h2>二、脑图（ASCII）</h2>
+
+<pre><code>                  数据库事务处理
+                       │
+        ┌──────────────┼──────────────┐
+        │              │              │
+     事务方式        事务场景       最佳实践
+        │              │              │
+   ┌────┼────┐    ┌────┼────┐   ┌────┴────┐
+   │    │    │    │    │    │   │         │
+ 自动 手动 嵌套 转账 订单 批量 超时设计  重试策略
+ 事务 事务 SavePoint 扣库存 创建 更新  隔离级别  错误处理</code></pre>
+
+<hr>
+
+<h2>三、完整 Go 代码</h2>
+
+<h3>v1：三种事务方式基础示例</h3>
+
+<pre><code class="language-go">// main.go - Three ways to use transactions in GORM
+package main
+
+import (
+	&quot;errors&quot;
+	&quot;fmt&quot;
+	&quot;log&quot;
+
+	&quot;gorm.io/driver/sqlite&quot;
+	&quot;gorm.io/gorm&quot;
+)
+
+// Account model for transfer demo
+type Account struct {
+	ID      uint    `gorm:&quot;primaryKey&quot; json:&quot;id&quot;`
+	Name    string  `gorm:&quot;size:100;not null&quot; json:&quot;name&quot;`
+	Balance float64 `gorm:&quot;not null;default:0&quot; json:&quot;balance&quot;`
+}
+
+// TransferLog records each transfer
+type TransferLog struct {
+	ID       uint    `gorm:&quot;primaryKey&quot; json:&quot;id&quot;`
+	FromID   uint    `gorm:&quot;not null;index&quot; json:&quot;from_id&quot;`
+	ToID     uint    `gorm:&quot;not null;index&quot; json:&quot;to_id&quot;`
+	Amount   float64 `gorm:&quot;not null&quot; json:&quot;amount&quot;`
+	Status   string  `gorm:&quot;size:20;default:pending&quot; json:&quot;status&quot;`
+}
+
+var db *gorm.DB
+
+func main() {
+	var err error
+	db, err = gorm.Open(sqlite.Open(&quot;bank.db&quot;), &amp;gorm.Config{})
+	if err != nil {
+		log.Fatal(err)
+	}
+	db.AutoMigrate(&amp;Account{}, &amp;TransferLog{})
+
+	// Seed data
+	db.Where(&quot;1=1&quot;).Delete(&amp;Account{})
+	db.Where(&quot;1=1&quot;).Delete(&amp;TransferLog{})
+	db.Create(&amp;Account{Name: &quot;Alice&quot;, Balance: 1000})
+	db.Create(&amp;Account{Name: &quot;Bob&quot;, Balance: 500})
+
+	fmt.Println(&quot;=== Method 1: Auto Transaction ===&quot;)
+	transferAuto(1, 2, 200)
+
+	fmt.Println(&quot;\n=== Method 2: Manual Transaction ===&quot;)
+	transferManual(1, 2, 100)
+
+	fmt.Println(&quot;\n=== Method 3: Nested Transaction (SavePoint) ===&quot;)
+	transferWithSavePoint(1, 2, 50)
+
+	showBalances()
+}
+
+// ========== Method 1: Auto Transaction (Recommended) ==========
+func transferAuto(fromID, toID uint, amount float64) error {
+	return db.Transaction(func(tx *gorm.DB) error {
+		// Step 1: Deduct from sender
+		var from Account
+		if err := tx.First(&amp;from, fromID).Error; err != nil {
+			return err // Will auto rollback
+		}
+		if from.Balance &lt; amount {
+			return errors.New(&quot;insufficient balance&quot;) // Will auto rollback
+		}
+		if err := tx.Model(&amp;from).Update(&quot;balance&quot;, gorm.Expr(&quot;balance - ?&quot;, amount)).Error; err != nil {
+			return err // Will auto rollback
+		}
+
+		// Step 2: Add to receiver
+		if err := tx.Model(&amp;Account{}).Where(&quot;id = ?&quot;, toID).Update(&quot;balance&quot;, gorm.Expr(&quot;balance + ?&quot;, amount)).Error; err != nil {
+			return err // Will auto rollback
+		}
+
+		// Step 3: Log transfer
+		log := TransferLog{FromID: fromID, ToID: toID, Amount: amount, Status: &quot;completed&quot;}
+		if err := tx.Create(&amp;log).Error; err != nil {
+			return err // Will auto rollback
+		}
+
+		fmt.Printf(&quot;Transfer %.2f from Account%d to Account%d (auto)\n&quot;, amount, fromID, toID)
+		return nil // Commit
+	})
+}
+
+// ========== Method 2: Manual Transaction ==========
+func transferManual(fromID, toID uint, amount float64) error {
+	tx := db.Begin() // Start transaction
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+			panic(r) // Re-throw after rollback
+		}
+	}()
+
+	// Step 1: Check and deduct
+	var from Account
+	if err := tx.First(&amp;from, fromID).Error; err != nil {
+		tx.Rollback()
+		return err
+	}
+	if from.Balance &lt; amount {
+		tx.Rollback()
+		return errors.New(&quot;insufficient balance&quot;)
+	}
+	tx.Model(&amp;from).Update(&quot;balance&quot;, gorm.Expr(&quot;balance - ?&quot;, amount))
+
+	// Step 2: Add to receiver
+	tx.Model(&amp;Account{}).Where(&quot;id = ?&quot;, toID).Update(&quot;balance&quot;, gorm.Expr(&quot;balance + ?&quot;, amount))
+
+	// Step 3: Log
+	tx.Create(&amp;TransferLog{FromID: fromID, ToID: toID, Amount: amount, Status: &quot;completed&quot;})
+
+	fmt.Printf(&quot;Transfer %.2f from Account%d to Account%d (manual)\n&quot;, amount, fromID, toID)
+	return tx.Commit().Error // Commit
+}
+
+// ========== Method 3: Nested Transaction with SavePoint ==========
+func transferWithSavePoint(fromID, toID uint, amount float64) error {
+	return db.Transaction(func(tx *gorm.DB) error {
+		// Outer transaction: deduct from sender
+		var from Account
+		if err := tx.First(&amp;from, fromID).Error; err != nil {
+			return err
+		}
+		tx.Model(&amp;from).Update(&quot;balance&quot;, gorm.Expr(&quot;balance - ?&quot;, amount))
+
+		// Inner transaction: add to receiver (SavePoint)
+		err := tx.Transaction(func(tx2 *gorm.DB) error {
+			// Create savepoint automatically
+			if err := tx2.Model(&amp;Account{}).Where(&quot;id = ?&quot;, toID).
+				Update(&quot;balance&quot;, gorm.Expr(&quot;balance + ?&quot;, amount)).Error; err != nil {
+				return err // Rollback to savepoint
+			}
+
+			// Log with nested check
+			logEntry := TransferLog{FromID: fromID, ToID: toID, Amount: amount, Status: &quot;completed&quot;}
+			return tx2.Create(&amp;logEntry).Error
+		})
+		if err != nil {
+			// Inner failed, but outer can decide what to do
+			fmt.Println(&quot;Inner transaction failed:&quot;, err)
+			return err // Rollback everything
+		}
+
+		fmt.Printf(&quot;Transfer %.2f from Account%d to Account%d (nested)\n&quot;, amount, fromID, toID)
+		return nil
+	})
+}
+
+func showBalances() {
+	var accounts []Account
+	db.Find(&amp;accounts)
+	for _, a := range accounts {
+		fmt.Printf(&quot;  %s: %.2f\n&quot;, a.Name, a.Balance)
+	}
+}</code></pre>
+
+<p><strong>执行预览：</strong></p>
+
+<pre><code>$ go run main.go
+=== Method 1: Auto Transaction ===
+Transfer 200.00 from Account1 to Account2 (auto)
+
+=== Method 2: Manual Transaction ===
+Transfer 100.00 from Account1 to Account2 (manual)
+
+=== Method 3: Nested Transaction (SavePoint) ===
+Transfer 50.00 from Account1 to Account2 (nested)
+  Alice: 650.00
+  Bob: 850.00</code></pre>
+
+<h3>v2：事务 + Repository + Service 架构</h3>
+
+<pre><code class="language-go">// repository/account_repository.go
+package repository
+
+import (
+	&quot;myapp/models&quot;
+
+	&quot;gorm.io/gorm&quot;
+)
+
+type AccountRepository interface {
+	FindByID(tx *gorm.DB, id uint) (*models.Account, error)
+	UpdateBalance(tx *gorm.DB, id uint, amount float64) error
+	CreateLog(tx *gorm.DB, log *models.TransferLog) error
+	GetDB() *gorm.DB
+}
+
+type accountRepository struct {
+	db *gorm.DB
+}
+
+func NewAccountRepository(db *gorm.DB) AccountRepository {
+	return &amp;accountRepository{db: db}
+}
+
+func (r *accountRepository) FindByID(tx *gorm.DB, id uint) (*models.Account, error) {
+	if tx == nil {
+		tx = r.db
+	}
+	var account models.Account
+	if err := tx.First(&amp;account, id).Error; err != nil {
+		return nil, err
+	}
+	return &amp;account, nil
+}
+
+func (r *accountRepository) UpdateBalance(tx *gorm.DB, id uint, delta float64) error {
+	return tx.Model(&amp;models.Account{}).Where(&quot;id = ?&quot;, id).
+		Update(&quot;balance&quot;, gorm.Expr(&quot;balance + ?&quot;, delta)).Error
+}
+
+func (r *accountRepository) CreateLog(tx *gorm.DB, log *models.TransferLog) error {
+	return tx.Create(log).Error
+}
+
+func (r *accountRepository) GetDB() *gorm.DB {
+	return r.db
+}</code></pre>
+
+<pre><code class="language-go">// service/transfer_service.go - Business logic with transaction
+package service
+
+import (
+	&quot;errors&quot;
+	&quot;fmt&quot;
+
+	&quot;myapp/models&quot;
+	&quot;myapp/repository&quot;
+)
+
+type TransferService interface {
+	Transfer(fromID, toID uint, amount float64) (*models.TransferLog, error)
+}
+
+type transferService struct {
+	accountRepo repository.AccountRepository
+}
+
+func NewTransferService(accountRepo repository.AccountRepository) TransferService {
+	return &amp;transferService{accountRepo: accountRepo}
+}
+
+func (s *transferService) Transfer(fromID, toID uint, amount float64) (*models.TransferLog, error) {
+	// Validate
+	if amount &lt;= 0 {
+		return nil, errors.New(&quot;amount must be positive&quot;)
+	}
+	if fromID == toID {
+		return nil, errors.New(&quot;cannot transfer to self&quot;)
+	}
+
+	// Execute in transaction
+	var transferLog models.TransferLog
+	err := s.accountRepo.GetDB().Transaction(func(tx *gorm.DB) error {
+		// Lock and check sender balance
+		from, err := s.accountRepo.FindByID(tx, fromID)
+		if err != nil {
+			return fmt.Errorf(&quot;sender not found: %w&quot;, err)
+		}
+		if from.Balance &lt; amount {
+			return errors.New(&quot;insufficient balance&quot;)
+		}
+
+		// Check receiver exists
+		if _, err := s.accountRepo.FindByID(tx, toID); err != nil {
+			return fmt.Errorf(&quot;receiver not found: %w&quot;, err)
+		}
+
+		// Deduct
+		if err := s.accountRepo.UpdateBalance(tx, fromID, -amount); err != nil {
+			return fmt.Errorf(&quot;deduct failed: %w&quot;, err)
+		}
+
+		// Add
+		if err := s.accountRepo.UpdateBalance(tx, toID, amount); err != nil {
+			return fmt.Errorf(&quot;credit failed: %w&quot;, err)
+		}
+
+		// Log
+		transferLog = models.TransferLog{
+			FromID: fromID,
+			ToID:   toID,
+			Amount: amount,
+			Status: &quot;completed&quot;,
+		}
+		return s.accountRepo.CreateLog(tx, &amp;transferLog)
+	})
+
+	if err != nil {
+		return nil, err
+	}
+	return &amp;transferLog, nil
+}</code></pre>
+
+<h3>v3：重试机制 + 超时控制 + 死锁处理</h3>
+
+<pre><code class="language-go">// pkg/dbutil/transaction.go - Reusable transaction utilities
+package dbutil
+
+import (
+	&quot;errors&quot;
+	&quot;log&quot;
+	&quot;time&quot;
+
+	&quot;gorm.io/gorm&quot;
+)
+
+// RetryOption configures retry behavior
+type RetryOption struct {
+	MaxRetries int           // Max retry attempts (default: 3)
+	Delay      time.Duration // Delay between retries (default: 100ms)
+	MaxDelay   time.Duration // Max delay for exponential backoff
+}
+
+// RetryTransaction executes fn with automatic retry on deadlock
+func RetryTransaction(db *gorm.DB, opt RetryOption, fn func(tx *gorm.DB) error) error {
+	if opt.MaxRetries == 0 {
+		opt.MaxRetries = 3
+	}
+	if opt.Delay == 0 {
+		opt.Delay = 100 * time.Millisecond
+	}
+	if opt.MaxDelay == 0 {
+		opt.MaxDelay = 5 * time.Second
+	}
+
+	var lastErr error
+	for i := 0; i &lt; opt.MaxRetries; i++ {
+		err := db.Transaction(fn)
+		if err == nil {
+			return nil // Success
+		}
+
+		lastErr = err
+
+		// Check if error is retryable (deadlock, lock timeout)
+		if isDeadlockError(err) {
+			delay := time.Duration(1&lt;&lt;uint(i)) * opt.Delay // Exponential backoff
+			if delay &gt; opt.MaxDelay {
+				delay = opt.MaxDelay
+			}
+			log.Printf(&quot;Transaction retry %d/%d after %v: %v&quot;, i+1, opt.MaxRetries, delay, err)
+			time.Sleep(delay)
+			continue
+		}
+
+		// Non-retryable error
+		return err
+	}
+
+	return lastErr
+}
+
+// isDeadlockError checks if the error is a deadlock or lock timeout
+func isDeadlockError(err error) bool {
+	if err == nil {
+		return false
+	}
+	errMsg := err.Error()
+	// MySQL: Error 1213 (Deadlock found)
+	// PostgreSQL: could not serialize access
+	deadlockMessages := []string{
+		&quot;Deadlock&quot;,
+		&quot;deadlock&quot;,
+		&quot;lock timeout&quot;,
+		&quot;try restarting transaction&quot;,
+		&quot;could not serialize access&quot;,
+	}
+	for _, msg := range deadlockMessages {
+		if contains(errMsg, msg) {
+			return true
+		}
+	}
+	return false
+}
+
+func contains(s, substr string) bool {
+	return len(s) &gt;= len(substr) &amp;&amp; (s == substr || len(s) &gt; 0 &amp;&amp; containsStr(s, substr))
+}
+
+func containsStr(s, substr string) bool {
+	for i := 0; i &lt;= len(s)-len(substr); i++ {
+		if s[i:i+len(substr)] == substr {
+			return true
+		}
+	}
+	return false
+}
+
+// WithTimeout executes a transaction with a context timeout
+func WithTimeout(db *gorm.DB, timeout time.Duration, fn func(tx *gorm.DB) error) error {
+	tx := db.Begin()
+	done := make(chan error, 1)
+
+	go func() {
+		done &lt;- fn(tx)
+	}()
+
+	select {
+	case err := &lt;-done:
+		if err != nil {
+			tx.Rollback()
+			return err
+		}
+		return tx.Commit().Error
+	case &lt;-time.After(timeout):
+		tx.Rollback()
+		return errors.New(&quot;transaction timeout&quot;)
+	}
+}</code></pre>
+
+<p><strong>使用示例：</strong></p>
+
+<pre><code class="language-go">// Usage in service layer
+func (s *transferService) SafeTransfer(fromID, toID uint, amount float64) error {
+	return dbutil.RetryTransaction(s.accountRepo.GetDB(), dbutil.RetryOption{
+		MaxRetries: 3,
+		Delay:      100 * time.Millisecond,
+		MaxDelay:   2 * time.Second,
+	}, func(tx *gorm.DB) error {
+		// Same transfer logic...
+		return s.transferInTx(tx, fromID, toID, amount)
+	})
+}</code></pre>
+
+<hr>
+
+<h2>四、注意事项</h2>
+
+<table><thead><tr>
+<th>项目</th>
+<th>说明</th>
+<th>建议</th>
+</tr></thead><tbody>
+<tr>
+<td>事务粒度</td>
+<td>事务内操作越少越好</td>
+<td>长事务锁住资源，影响并发</td>
+</tr>
+<tr>
+<td>错误处理</td>
+<td>返回 error 自动回滚</td>
+<td>自动事务中 return err 即回滚</td>
+</tr>
+<tr>
+<td>手动事务</td>
+<td>忘记 Rollback 会泄漏连接</td>
+<td>用 <code>defer</code> 确保 Rollback</td>
+</tr>
+<tr>
+<td>嵌套事务</td>
+<td>GORM 用 SavePoint 实现</td>
+<td>不是真正的嵌套，注意语义</td>
+</tr>
+<tr>
+<td>超时</td>
+<td>长事务可能导致死锁</td>
+<td>设置合理超时</td>
+</tr>
+<tr>
+<td>并发</td>
+<td>高并发下注意隔离级别</td>
+<td>MySQL 默认 REPEATABLE READ</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>五、避坑指南</h2>
+
+<h3>❌ 手动事务忘记 Rollback</h3>
+<pre><code class="language-go">tx := db.Begin()
+tx.Create(&amp;order)
+tx.Create(&amp;orderItem)
+// If panic or error, connection leaks!
+tx.Commit()</code></pre>
+<h3>✅ 使用 defer + recover</h3>
+<pre><code class="language-go">tx := db.Begin()
+defer func() {
+    if r := recover(); r != nil {
+        tx.Rollback()
+        panic(r)
+    }
+}()
+// Or better: use db.Transaction() which handles this automatically</code></pre>
+
+<h3>❌ 事务中做耗时操作</h3>
+<pre><code class="language-go">db.Transaction(func(tx *gorm.DB) error {
+    tx.Create(&amp;order)
+    time.Sleep(5 * time.Second) // Holding lock for 5s!
+    emailService.Send(...)       // External call in transaction
+    return nil
+})</code></pre>
+<h3>✅ 事务只做数据库操作</h3>
+<pre><code class="language-go">// 1. Validate outside transaction
+// 2. Execute DB operations in transaction
+err := db.Transaction(func(tx *gorm.DB) error {
+    tx.Create(&amp;order)
+    tx.Create(&amp;orderItem)
+    return nil // Keep it short
+})
+// 3. Send notification AFTER transaction commits
+if err == nil {
+    emailService.Send(...)
+}</code></pre>
+
+<h3>❌ 不处理死锁</h3>
+<pre><code class="language-go">db.Transaction(func(tx *gorm.DB) error {
+    // Two concurrent transactions may deadlock
+    // User A: update account 1 then 2
+    // User B: update account 2 then 1
+    return nil
+})
+// Deadlock error goes unhandled!</code></pre>
+<h3>✅ 死锁重试</h3>
+<pre><code class="language-go">dbutil.RetryTransaction(db, dbutil.RetryOption{
+    MaxRetries: 3,
+}, func(tx *gorm.DB) error {
+    // Always lock in consistent order (e.g., by ID)
+    return nil
+})</code></pre>
+
+<hr>
+
+<h2>六、练习题</h2>
+
+<h3>🟢 初级</h3>
+<ol>
+<li>使用 <code>db.Transaction()</code> 实现一个简单的银行转账（两个账户余额加减）。</li>
+</ul>
+<ol>
+<li>故意在事务中返回 error，观察数据库是否正确回滚。</li>
+
+<h3>🟡 中级</h3>
+<ol>
+<li>实现一个"下单扣库存"的事务操作：创建订单 + 扣减库存 + 记录操作日志。</li>
+</ul>
+<ol>
+<li>使用 <code>tx.Raw("SELECT ... FOR UPDATE")</code> 实现行级锁，防止超卖。</li>
+
+<h3>🔴 高级</h3>
+<ol>
+<li>实现一个通用的事务重试工具函数，支持指数退避和最大重试次数。</li>
+</ul>
+<ol>
+<li>设计一个 TCC（Try-Confirm-Cancel）模式的分布式事务框架雏形。</li>
+
+<hr>
+
+<h2>七、知识点总结</h2>
+
+<pre><code>数据库事务处理
+├── ACID 特性
+│   ├── 原子性 (Atomicity) - 全部成功或全部失败
+│   ├── 一致性 (Consistency) - 数据状态一致
+│   ├── 隔离性 (Isolation) - 并发互不干扰
+│   └── 持久性 (Durability) - 提交后永久保存
+├── GORM 事务方式
+│   ├── 自动事务: db.Transaction(fn) ← 推荐
+│   ├── 手动事务: Begin/Commit/Rollback
+│   └── 嵌套事务: SavePoint/RollbackTo
+├── 事务场景
+│   ├── 转账: 扣款+到账
+│   ├── 订单: 创建+扣库存+日志
+│   └── 批量: 多表联动更新
+├── 最佳实践
+│   ├── 事务粒度小（只含 DB 操作）
+│   ├── 不在事务中做外部调用
+│   ├── 一致的锁顺序（防死锁）
+│   └── 超时控制 + 重试机制
+└── 高级话题
+    ├── 隔离级别: Read Uncommitted / RC / RR / Serializable
+    ├── 分布式事务: 2PC / TCC / Saga
+    └── 行锁: SELECT ... FOR UPDATE</code></pre>
+
+<hr>
+
+<h2>八、举一反三</h2>
+
+<table><thead><tr>
+<th>本文学到</th>
+<th>可应用到</th>
+<th>示例</th>
+</tr></thead><tbody>
+<tr>
+<td>自动事务</td>
+<td>所有需要原子性的操作</td>
+<td>用户注册（创建用户+初始化配置）</td>
+</tr>
+<tr>
+<td>重试机制</td>
+<td>高并发场景</td>
+<td>秒杀、抢红包</td>
+</tr>
+<tr>
+<td>行锁（FOR UPDATE）</td>
+<td>防止数据竞争</td>
+<td>库存扣减、余额操作</td>
+</tr>
+<tr>
+<td>嵌套事务</td>
+<td>复杂业务流程</td>
+<td>审批流（部分步骤可独立回滚）</td>
+</tr>
+<tr>
+<td>超时控制</td>
+<td>防止长事务</td>
+<td>批量导入、数据迁移</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>九、参考资料</h2>
+
+<ul>
+<li><a href="https://gorm.io/docs/transactions.html">GORM 事务文档</a></li>
+<li><a href="https://dev.mysql.com/doc/refman/8.0/en/innodb-transaction-isolation-levels.html">MySQL 事务隔离级别</a></li>
+<li><a href="https://microservices.io/patterns/data/saga.html">分布式事务模式</a></li>
+<li><a href="https://pkg.go.dev/context">Go context 超时控制</a></li>
+
+<hr>
+
+<h2>十、代码演进</h2>
+
+<table><thead><tr>
+<th>版本</th>
+<th>特点</th>
+<th>适用场景</th>
+</tr></thead><tbody>
+<tr>
+<td><strong>v1</strong></td>
+<td>三种事务方式基础示例</td>
+<td>学习、原型验证</td>
+</tr>
+<tr>
+<td><strong>v2</strong></td>
+<td>Repository + Service 架构化事务</td>
+<td>生产项目</td>
+</tr>
+<tr>
+<td><strong>v3</strong></td>
+<td>重试 + 超时 + 死锁处理</td>
+<td>高并发生产环境</td>
+</tr>
+</tbody></table>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

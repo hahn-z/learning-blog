@@ -1,0 +1,868 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>025 - Go gRPC服务通信实战：从Protobuf定义到双向流式通信</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Golang/index.html">Golang</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Golang/03-实战/index.html">Golang实战</a>
+</nav>
+<h1>025 - Go gRPC服务通信实战：从Protobuf定义到双向流式通信</h1>
+<div class="meta">
+<span>📂 Golang实战</span>
+<span>🏷️ Golang</span>
+</div>
+<article>
+
+
+<h1>Go gRPC服务通信实战：从Protobuf定义到双向流式通信</h1>
+
+<blockquote><p><strong>难度标注：</strong> ⭐⭐⭐ 中高级（需要了解Go基础、HTTP和基本网络概念）<br><strong>阅读时间：</strong> 约25分钟<br><strong>环境要求：</strong> Go 1.21+、protoc 3.x、protoc-gen-go、protoc-gen-go-grpc</p></blockquote>
+
+<h2>一、概念讲解</h2>
+
+<h3>什么是 gRPC？</h3>
+
+<p>gRPC（gRPC Remote Procedure Call）是 Google 开源的高性能 RPC 框架，核心特点：</p>
+
+<ul>
+<li><strong>基于 HTTP/2</strong>：多路复用、头部压缩、双向流</li>
+<li><strong>使用 Protobuf</strong>：强类型、高效序列化（比 JSON 小 3-10 倍）</li>
+<li><strong>多语言支持</strong>：一份 <code>.proto</code> 定义，自动生成 Go/Java/Python 等客户端</li>
+<li><strong>四种通信模式</strong>：Unary、Server Streaming、Client Streaming、Bidirectional Streaming</li>
+
+<h3>gRPC vs REST</h3>
+
+<table><thead><tr>
+<th>对比维度</th>
+<th>gRPC</th>
+<th>REST</th>
+</tr></thead><tbody>
+<tr>
+<td>协议</td>
+<td>HTTP/2</td>
+<td>HTTP/1.1</td>
+</tr>
+<tr>
+<td>数据格式</td>
+<td>Protobuf（二进制）</td>
+<td>JSON（文本）</td>
+</tr>
+<tr>
+<td>接口定义</td>
+<td><code>.proto</code> 文件（强类型）</td>
+<td>OpenAPI/Swagger</td>
+</tr>
+<tr>
+<td>代码生成</td>
+<td>自动生成客户端/服务端</td>
+<td>需手动或工具生成</td>
+</tr>
+<tr>
+<td>流式通信</td>
+<td>原生支持</td>
+<td>需 WebSocket</td>
+</tr>
+<tr>
+<td>浏览器支持</td>
+<td>需要 gRPC-Web</td>
+<td>直接支持</td>
+</tr>
+<tr>
+<td>适用场景</td>
+<td>微服务间通信</td>
+<td>对外API</td>
+</tr>
+</tbody></table>
+
+<h2>二、知识脑图</h2>
+
+<pre><code>gRPC实战
+├── Protobuf定义
+│   ├── 消息类型 (message)
+│   ├── 服务定义 (service)
+│   ├── 字段类型 (string, int32, repeated, map)
+│   └── 包管理 (package, go_package, import)
+├── 四种通信模式
+│   ├── Unary RPC (一元调用)
+│   ├── Server Streaming (服务端流)
+│   ├── Client Streaming (客户端流)
+│   └── Bidirectional Streaming (双向流)
+├── 核心组件
+│   ├── Server (服务端)
+│   ├── Client Conn (客户端连接)
+│   ├── Interceptor (拦截器)
+│   └── Codec (编解码)
+├── 工程实践
+│   ├── 错误处理 (status codes)
+│   ├── 超时与取消 (context)
+│   ├── 拦截器 (auth, logging)
+│   ├── 连接管理 (keepalive)
+│   └── 元数据传递 (metadata)
+└── 代码演进
+    ├── v1: 基础Unary调用
+    ├── v2: 加入流式通信
+    └── v3: 拦截器+错误处理+连接管理</code></pre>
+
+<h2>三、完整代码实现</h2>
+
+<h3>项目结构</h3>
+
+<pre><code>grpc-demo/
+├── proto/
+│   └── chat.proto
+├── gen/
+│   └── chat.pb.go      (自动生成)
+│   └── chat_grpc.pb.go  (自动生成)
+├── server/
+│   └── main.go
+├── client/
+│   └── main.go
+└── go.mod</code></pre>
+
+<h3>Step 1: Protobuf 定义</h3>
+
+<pre><code class="language-protobuf">// proto/chat.proto
+syntax = &quot;proto3&quot;;
+
+package chat;
+
+// The Go package path for generated code
+option go_package = &quot;grpc-demo/gen/chat&quot;;
+
+// Chat service definition - demonstrates all 4 RPC patterns
+service ChatService {
+  // Unary RPC: simple request-response
+  rpc SendMessage(SendMessageRequest) returns (SendMessageResponse);
+
+  // Server Streaming: server sends multiple messages
+  rpc Subscribe(SubscribeRequest) returns (stream ChatMessage);
+
+  // Client Streaming: client sends multiple messages
+  rpc UploadLog(stream LogEntry) returns (UploadLogResponse);
+
+  // Bidirectional Streaming: real-time chat
+  rpc ChatStream(stream ChatMessage) returns (stream ChatMessage);
+}
+
+// Common message type for chat
+message ChatMessage {
+  string user = 1;
+  string text = 2;
+  int64 timestamp = 3;
+}
+
+message SendMessageRequest {
+  string user = 1;
+  string text = 2;
+}
+
+message SendMessageResponse {
+  bool success = 1;
+  string message_id = 2;
+}
+
+message SubscribeRequest {
+  string topic = 1;
+}
+
+message LogEntry {
+  string level = 1;
+  string message = 2;
+  int64 timestamp = 3;
+}
+
+message UploadLogResponse {
+  int32 count = 1;
+  string summary = 2;
+}</code></pre>
+
+<p>生成代码：</p>
+
+<pre><code class="language-bash"># Install protoc plugins
+go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
+go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
+
+# Generate Go code from proto definition
+protoc --go_out=. --go_opt=paths=source_relative \
+       --go-grpc_out=. --go-grpc_opt=paths=source_relative \
+       proto/chat.proto</code></pre>
+
+<h3>Step 2: 服务端实现</h3>
+
+<pre><code class="language-go">// server/main.go
+package main
+
+import (
+	&quot;context&quot;
+	&quot;fmt&quot;
+	&quot;io&quot;
+	&quot;log&quot;
+	&quot;net&quot;
+	&quot;time&quot;
+
+	pb &quot;grpc-demo/gen/chat&quot;
+
+	&quot;google.golang.org/grpc&quot;
+	&quot;google.golang.org/grpc/codes&quot;
+	&quot;google.golang.org/grpc/metadata&quot;
+	&quot;google.golang.org/grpc/status&quot;
+)
+
+// chatServer implements ChatServiceServer interface
+type chatServer struct {
+	pb.UnimplementedChatServiceServer
+}
+
+// SendMessage - Unary RPC: simple request and response
+func (s *chatServer) SendMessage(ctx context.Context, req *pb.SendMessageRequest) (*pb.SendMessageResponse, error) {
+	// Validate input
+	if req.User == &quot;&quot; {
+		return nil, status.Error(codes.InvalidArgument, &quot;user is required&quot;)
+	}
+
+	// Read metadata from context (like HTTP headers)
+	md, ok := metadata.FromIncomingContext(ctx)
+	if ok {
+		if auth := md.Get(&quot;authorization&quot;); len(auth) &gt; 0 {
+			log.Printf(&quot;[Auth] Token: %s&quot;, auth[0])
+		}
+	}
+
+	// Generate message ID using timestamp
+	msgID := fmt.Sprintf(&quot;msg-%d&quot;, time.Now().UnixNano())
+
+	log.Printf(&quot;[Unary] %s: %s (id: %s)&quot;, req.User, req.Text, msgID)
+
+	return &amp;pb.SendMessageResponse{
+		Success:  true,
+		MessageId: msgID,
+	}, nil
+}
+
+// Subscribe - Server Streaming RPC: push messages to client
+func (s *chatServer) Subscribe(req *pb.SubscribeRequest, stream pb.ChatService_SubscribeServer) error {
+	topic := req.Topic
+	log.Printf(&quot;[ServerStream] New subscriber for topic: %s&quot;, topic)
+
+	// Simulate pushing 5 messages over 5 seconds
+	for i := 1; i &lt;= 5; i++ {
+		// Check if client has cancelled the request
+		if err := stream.Context().Err(); err != nil {
+			log.Printf(&quot;[ServerStream] Client disconnected: %v&quot;, err)
+			return err
+		}
+
+		msg := &amp;pb.ChatMessage{
+			User:      &quot;server&quot;,
+			Text:      fmt.Sprintf(&quot;Message #%d on topic &#x27;%s&#x27;&quot;, i, topic),
+			Timestamp: time.Now().Unix(),
+		}
+
+		if err := stream.Send(msg); err != nil {
+			return fmt.Errorf(&quot;failed to send message: %w&quot;, err)
+		}
+
+		log.Printf(&quot;[ServerStream] Sent message #%d&quot;, i)
+		time.Sleep(1 * time.Second)
+	}
+
+	return nil
+}
+
+// UploadLog - Client Streaming RPC: receive multiple log entries
+func (s *chatServer) UploadLog(stream pb.ChatService_UploadLogServer) error {
+	var count int32
+
+	for {
+		// Receive messages from client stream
+		entry, err := stream.Recv()
+		if err == io.EOF {
+			// Client finished sending, send summary response
+			summary := fmt.Sprintf(&quot;Received %d log entries&quot;, count)
+			log.Printf(&quot;[ClientStream] %s&quot;, summary)
+			return stream.SendAndClose(&amp;pb.UploadLogResponse{
+				Count:   count,
+				Summary: summary,
+			})
+		}
+		if err != nil {
+			return fmt.Errorf(&quot;failed to receive log entry: %w&quot;, err)
+		}
+
+		count++
+		log.Printf(&quot;[ClientStream] Log #%d: [%s] %s&quot;, count, entry.Level, entry.Message)
+	}
+}
+
+// ChatStream - Bidirectional Streaming RPC: real-time chat
+func (s *chatServer) ChatStream(stream pb.ChatService_ChatStreamServer) error {
+	for {
+		// Receive message from client
+		msg, err := stream.Recv()
+		if err == io.EOF {
+			return nil
+		}
+		if err != nil {
+			return fmt.Errorf(&quot;chat stream recv error: %w&quot;, err)
+		}
+
+		log.Printf(&quot;[BidiStream] %s: %s&quot;, msg.User, msg.Text)
+
+		// Echo back with server response
+		reply := &amp;pb.ChatMessage{
+			User:      &quot;server&quot;,
+			Text:      fmt.Sprintf(&quot;Echo: %s&quot;, msg.Text),
+			Timestamp: time.Now().Unix(),
+		}
+
+		if err := stream.Send(reply); err != nil {
+			return fmt.Errorf(&quot;chat stream send error: %w&quot;, err)
+		}
+	}
+}
+
+// authInterceptor - unary interceptor for authentication
+func authInterceptor(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
+	start := time.Now()
+
+	// Log the method being called
+	log.Printf(&quot;[Interceptor] Method: %s&quot;, info.FullMethod)
+
+	// Call the actual handler
+	resp, err := handler(ctx, req)
+
+	// Log duration
+	log.Printf(&quot;[Interceptor] Duration: %v, Error: %v&quot;, time.Since(start), err)
+
+	return resp, err
+}
+
+func main() {
+	// Create gRPC server with interceptor
+	server := grpc.NewServer(
+		grpc.UnaryInterceptor(authInterceptor),
+	)
+
+	// Register our service implementation
+	pb.RegisterChatServiceServer(server, &amp;chatServer{})
+
+	// Listen on TCP port
+	lis, err := net.Listen(&quot;tcp&quot;, &quot;:50051&quot;)
+	if err != nil {
+		log.Fatalf(&quot;Failed to listen: %v&quot;, err)
+	}
+
+	log.Println(&quot;gRPC server listening on :50051&quot;)
+	if err := server.Serve(lis); err != nil {
+		log.Fatalf(&quot;Failed to serve: %v&quot;, err)
+	}
+}</code></pre>
+
+<h3>Step 3: 客户端实现</h3>
+
+<pre><code class="language-go">// client/main.go
+package main
+
+import (
+	&quot;context&quot;
+	&quot;fmt&quot;
+	&quot;io&quot;
+	&quot;log&quot;
+	&quot;time&quot;
+
+	pb &quot;grpc-demo/gen/chat&quot;
+
+	&quot;google.golang.org/grpc&quot;
+	&quot;google.golang.org/grpc/credentials/insecure&quot;
+)
+
+func main() {
+	// Dial gRPC server (insecure for demo, use TLS in production)
+	conn, err := grpc.NewClient(
+		&quot;localhost:50051&quot;,
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+	)
+	if err != nil {
+		log.Fatalf(&quot;Failed to connect: %v&quot;, err)
+	}
+	defer conn.Close()
+
+	client := pb.NewChatServiceClient(conn)
+
+	// --- Demo 1: Unary RPC ---
+	demoUnary(client)
+
+	// --- Demo 2: Server Streaming ---
+	demoServerStream(client)
+
+	// --- Demo 3: Client Streaming ---
+	demoClientStream(client)
+
+	// --- Demo 4: Bidirectional Streaming ---
+	demoBidiStream(client)
+}
+
+// demoUnary demonstrates simple request-response call
+func demoUnary(client pb.ChatServiceClient) {
+	fmt.Println(&quot;\n=== Unary RPC ===&quot;)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	resp, err := client.SendMessage(ctx, &amp;pb.SendMessageRequest{
+		User: &quot;Alice&quot;,
+		Text: &quot;Hello gRPC!&quot;,
+	})
+	if err != nil {
+		log.Printf(&quot;SendMessage failed: %v&quot;, err)
+		return
+	}
+
+	fmt.Printf(&quot;Response: success=%v, message_id=%s\n&quot;, resp.Success, resp.MessageId)
+}
+
+// demoServerStream demonstrates server pushing multiple messages
+func demoServerStream(client pb.ChatServiceClient) {
+	fmt.Println(&quot;\n=== Server Streaming ===&quot;)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	stream, err := client.Subscribe(ctx, &amp;pb.SubscribeRequest{Topic: &quot;golang&quot;})
+	if err != nil {
+		log.Printf(&quot;Subscribe failed: %v&quot;, err)
+		return
+	}
+
+	for {
+		msg, err := stream.Recv()
+		if err == io.EOF {
+			fmt.Println(&quot;Server stream ended.&quot;)
+			break
+		}
+		if err != nil {
+			log.Printf(&quot;Stream recv error: %v&quot;, err)
+			break
+		}
+		fmt.Printf(&quot;Received: [%s] %s\n&quot;, msg.User, msg.Text)
+	}
+}
+
+// demoClientStream demonstrates client sending multiple messages
+func demoClientStream(client pb.ChatServiceClient) {
+	fmt.Println(&quot;\n=== Client Streaming ===&quot;)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	stream, err := client.UploadLog(ctx)
+	if err != nil {
+		log.Printf(&quot;UploadLog failed: %v&quot;, err)
+		return
+	}
+
+	// Send 3 log entries
+	levels := []string{&quot;INFO&quot;, &quot;WARN&quot;, &quot;ERROR&quot;}
+	for i, level := range levels {
+		entry := &amp;pb.LogEntry{
+			Level:     level,
+			Message:   fmt.Sprintf(&quot;Log entry #%d&quot;, i+1),
+			Timestamp: time.Now().Unix(),
+		}
+		if err := stream.Send(entry); err != nil {
+			log.Printf(&quot;Send log entry failed: %v&quot;, err)
+			return
+		}
+	}
+
+	// Close client stream and get response
+	resp, err := stream.CloseAndRecv()
+	if err != nil {
+		log.Printf(&quot;CloseAndRecv failed: %v&quot;, err)
+		return
+	}
+	fmt.Printf(&quot;Upload result: count=%d, summary=%s\n&quot;, resp.Count, resp.Summary)
+}
+
+// demoBidiStream demonstrates real-time bidirectional chat
+func demoBidiStream(client pb.ChatServiceClient) {
+	fmt.Println(&quot;\n=== Bidirectional Streaming ===&quot;)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	stream, err := client.ChatStream(ctx)
+	if err != nil {
+		log.Printf(&quot;ChatStream failed: %v&quot;, err)
+		return
+	}
+
+	// Send messages in a goroutine
+	messages := []string{&quot;Hi!&quot;, &quot;How are you?&quot;, &quot;Goodbye!&quot;}
+	go func() {
+		for _, text := range messages {
+			msg := &amp;pb.ChatMessage{
+				User:      &quot;Alice&quot;,
+				Text:      text,
+				Timestamp: time.Now().Unix(),
+			}
+			if err := stream.Send(msg); err != nil {
+				log.Printf(&quot;Bidi send error: %v&quot;, err)
+				return
+			}
+			time.Sleep(500 * time.Millisecond)
+		}
+		stream.CloseSend()
+	}()
+
+	// Receive server responses
+	for {
+		reply, err := stream.Recv()
+		if err == io.EOF {
+			fmt.Println(&quot;Bidirectional stream ended.&quot;)
+			break
+		}
+		if err != nil {
+			log.Printf(&quot;Bidi recv error: %v&quot;, err)
+			break
+		}
+		fmt.Printf(&quot;Server reply: [%s] %s\n&quot;, reply.User, reply.Text)
+	}
+}</code></pre>
+
+<h2>四、执行预览</h2>
+
+<pre><code class="language-bash"># Terminal 1: Start server
+$ go run server/main.go
+gRPC server listening on :50051
+[Interceptor] Method: /chat.ChatService/SendMessage
+[Unary] Alice: Hello gRPC! (id: msg-1714000000000000000)
+[Interceptor] Duration: 123.456µs, Error: &lt;nil&gt;
+[ServerStream] New subscriber for topic: golang
+[ServerStream] Sent message #1
+[ServerStream] Sent message #2
+[ClientStream] Log #1: [INFO] Log entry #1
+[ClientStream] Log #2: [WARN] Log entry #2
+[ClientStream] Log #3: [ERROR] Log entry #3
+[ClientStream] Received 3 log entries
+[BidiStream] Alice: Hi!
+[BidiStream] Alice: How are you?
+[BidiStream] Alice: Goodbye!
+
+# Terminal 2: Run client
+$ go run client/main.go
+
+=== Unary RPC ===
+Response: success=true, message_id=msg-1714000000000000000
+
+=== Server Streaming ===
+Received: [server] Message #1 on topic &#x27;golang&#x27;
+Received: [server] Message #2 on topic &#x27;golang&#x27;
+Received: [server] Message #3 on topic &#x27;golang&#x27;
+Received: [server] Message #4 on topic &#x27;golang&#x27;
+Received: [server] Message #5 on topic &#x27;golang&#x27;
+Server stream ended.
+
+=== Client Streaming ===
+Upload result: count=3, summary=Received 3 log entries
+
+=== Bidirectional Streaming ===
+Server reply: [server] Echo: Hi!
+Server reply: [server] Echo: How are you?
+Server reply: [server] Echo: Goodbye!
+Bidirectional stream ended.</code></pre>
+
+<h2>五、注意事项</h2>
+
+<table><thead><tr>
+<th>项目</th>
+<th>说明</th>
+</tr></thead><tbody>
+<tr>
+<td>Protobuf版本</td>
+<td>必须使用 <code>proto3</code>，<code>proto2</code> 语法不同且更复杂</td>
+</tr>
+<tr>
+<td>go_package</td>
+<td>必须正确设置，否则生成的代码 import 路径错误</td>
+</tr>
+<tr>
+<td>Unimplemented</td>
+<td>服务端必须嵌入 <code>UnimplementedChatServiceServer</code>，保证向前兼容</td>
+</tr>
+<tr>
+<td>连接安全</td>
+<td>生产环境必须使用 TLS，不要用 <code>insecure.NewCredentials()</code></td>
+</tr>
+<tr>
+<td>超时控制</td>
+<td>必须设置 <code>context.WithTimeout</code>，避免请求永久挂起</td>
+</tr>
+<tr>
+<td>流的生命周期</td>
+<td>服务端流要检查 <code>stream.Context().Err()</code>，处理客户端断连</td>
+</tr>
+<tr>
+<td>连接复用</td>
+<td>一个 <code>ClientConn</code> 可以复用，不需要每次请求创建新连接</td>
+</tr>
+<tr>
+<td>拦截器顺序</td>
+<td>多个拦截器按注册顺序执行，注意链式调用</td>
+</tr>
+<tr>
+<td>错误码</td>
+<td>使用 <code>status.Error(codes.XXX, msg)</code> 返回标准 gRPC 错误码</td>
+</tr>
+</tbody></table>
+
+<h2>六、避坑指南</h2>
+
+<h3>❌ 在生产环境使用 insecure 连接</h3>
+<pre><code class="language-go">// ❌ 危险：明文传输，数据可被截获
+grpc.WithTransportCredentials(insecure.NewCredentials())</code></pre>
+<pre><code class="language-go">// ✅ 正确：使用 TLS 加密
+creds := credentials.NewTLS(&amp;tls.Config{})
+grpc.WithTransportCredentials(creds)</code></pre>
+
+<h3>❌ 忘记处理流式 RPC 的 EOF</h3>
+<pre><code class="language-go">// ❌ 丢失：忽略 EOF 会导致无限循环
+for {
+    msg, err := stream.Recv()
+    if err != nil {
+        log.Fatal(err) // EOF 也会报错退出
+    }
+}</code></pre>
+<pre><code class="language-go">// ✅ 正确：区分 EOF 和真正的错误
+for {
+    msg, err := stream.Recv()
+    if err == io.EOF {
+        break // Normal end of stream
+    }
+    if err != nil {
+        return fmt.Errorf(&quot;stream error: %w&quot;, err)
+    }
+    // Process msg
+}</code></pre>
+
+<h3>❌ 不设置超时</h3>
+<pre><code class="language-go">// ❌ 危险：请求可能永远挂起
+resp, err := client.SendMessage(context.Background(), req)</code></pre>
+<pre><code class="language-go">// ✅ 正确：始终设置超时
+ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+defer cancel()
+resp, err := client.SendMessage(ctx, req)</code></pre>
+
+<h3>❌ 每次请求创建新连接</h3>
+<pre><code class="language-go">// ❌ 低效：频繁建立/断开连接开销大
+func call() {
+    conn, _ := grpc.NewClient(&quot;localhost:50051&quot;, ...)
+    defer conn.Close()
+    // ... use once
+}</code></pre>
+<pre><code class="language-go">// ✅ 正确：复用连接（在 main 或初始化时创建）
+var conn *grpc.ClientConn // Create once, reuse everywhere</code></pre>
+
+<h3>❌ 不检查客户端取消（服务端流）</h3>
+<pre><code class="language-go">// ❌ 问题：客户端已断开，服务端还在发送
+for i := 0; i &lt; 1000; i++ {
+    stream.Send(msg)
+    time.Sleep(time.Second)
+}</code></pre>
+<pre><code class="language-go">// ✅ 正确：每次发送前检查 context
+for i := 0; i &lt; 1000; i++ {
+    if stream.Context().Err() != nil {
+        return // Client disconnected
+    }
+    stream.Send(msg)
+    time.Sleep(time.Second)
+}</code></pre>
+
+<h2>七、练习题</h2>
+
+<h3>🟢 基础题</h3>
+<ol>
+<li>修改 <code>SendMessage</code>，添加一个 <code>MessageType</code> 枚举（TEXT, IMAGE, VIDEO），在 proto 中定义并使用</li>
+</ul>
+<ol>
+<li>为 gRPC 服务端添加一个健康检查服务（使用 <code>grpc.health</code> 包）</li>
+
+<h3>🟡 进阶题</h3>
+<ol>
+<li>实现一个流式拦截器（<code>grpc.StreamInterceptor</code>），记录每个流式调用的持续时间</li>
+</ul>
+<ol>
+<li>使用 <code>metadata</code> 实现简单的 Token 认证：客户端发送 token，服务端拦截器验证</li>
+
+<h3>🔴 挑战题</h3>
+<ol>
+<li>实现一个聊天室：多个客户端通过双向流连接，消息广播给所有在线用户（提示：需要用 map 管理所有活跃流）</li>
+</ul>
+<ol>
+<li>实现 gRPC 拦截器链（支持多个拦截器按顺序执行），类似 Gin 的中间件机制</li>
+
+<h2>八、知识点总结</h2>
+
+<pre><code>gRPC核心知识树
+├── 基础
+│   ├── Protobuf语法 (syntax, message, service, enum)
+│   ├── 代码生成 (protoc, protoc-gen-go, protoc-gen-go-grpc)
+│   └── 连接建立 (grpc.NewClient, grpc.NewServer)
+├── 通信模式
+│   ├── Unary (ctx, req) → (resp, error)
+│   ├── Server Stream (req, stream) → stream.Send()
+│   ├── Client Stream (stream) → stream.Send() + CloseAndRecv()
+│   └── Bidi Stream (stream) → Send() + Recv() concurrent
+├── 高级特性
+│   ├── Metadata (metadata.New, metadata.FromIncomingContext)
+│   ├── 错误处理 (status.Error, status.FromError)
+│   ├── 拦截器 (UnaryInterceptor, StreamInterceptor)
+│   └── 超时取消 (context.WithTimeout, context.WithCancel)
+└── 最佳实践
+    ├── 连接复用 (singleton ClientConn)
+    ├── TLS加密 (credentials.NewTLS)
+    ├── 健康检查 (grpc.health)
+    └── 反射服务 (grpc/reflection)</code></pre>
+
+<h2>九、举一反三</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>推荐RPC模式</th>
+<th>原因</th>
+</tr></thead><tbody>
+<tr>
+<td>用户登录认证</td>
+<td>Unary</td>
+<td>一次请求一次响应，最简单</td>
+</tr>
+<tr>
+<td>实时数据推送（股票行情）</td>
+<td>Server Streaming</td>
+<td>服务端持续推送，客户端被动接收</td>
+</tr>
+<tr>
+<td>文件上传</td>
+<td>Client Streaming</td>
+<td>客户端分块发送，服务端汇总处理</td>
+</tr>
+<tr>
+<td>即时聊天</td>
+<td>Bidi Streaming</td>
+<td>双方都需要随时发送消息</td>
+</tr>
+<tr>
+<td>日志收集</td>
+<td>Client Streaming</td>
+<td>多条日志批量发送，减少网络开销</td>
+</tr>
+<tr>
+<td>数据库查询</td>
+<td>Unary</td>
+<td>查询-响应模式，无需流式</td>
+</tr>
+<tr>
+<td>视频监控画面推送</td>
+<td>Server Streaming</td>
+<td>摄像头持续推流，客户端观看</td>
+</tr>
+<tr>
+<td>协同编辑</td>
+<td>Bidi Streaming</td>
+<td>多方实时同步编辑内容</td>
+</tr>
+</tbody></table>
+
+<h2>十、参考资料</h2>
+
+<ul>
+<li><a href="https://grpc.io/docs/">gRPC官方文档</a></li>
+<li><a href="https://protobuf.dev/programming-guides/proto3/">Protocol Buffers Language Guide</a></li>
+<li><a href="https://github.com/grpc/grpc-go">grpc-go GitHub</a></li>
+<li><a href="https://grpc.io/docs/languages/go/quickstart/">Go gRPC Quick Start</a></li>
+<li>《gRPC: Up and Running》- Kasun Indrasiri</li>
+
+<h2>十一、代码演进</h2>
+
+<h3>v1：最简 Unary 调用（5分钟上手）</h3>
+
+<p>只实现 <code>SendMessage</code> Unary RPC，proto 文件只有一条消息定义，服务端直接返回硬编码响应。目标是跑通 gRPC 的基本流程：proto → 代码生成 → 服务实现 → 客户端调用。</p>
+
+<h3>v2：加入流式通信（理解4种模式）</h3>
+
+<p>在 v1 基础上补全 Server Streaming（Subscribe）、Client Streaming（UploadLog）、Bidirectional Streaming（ChatStream）三种流式 RPC。每个方法都用最简单的实现，展示流式通信的基本用法。</p>
+
+<h3>v3：生产级增强（本文完整版）</h3>
+
+<p>加入 Unary 拦截器（日志+计时）、Metadata 传递、标准错误码（<code>status.Error</code>）、context 超时检查、输入验证。客户端使用 <code>context.WithTimeout</code> 控制超时，服务端流检查 <code>stream.Context().Err()</code> 处理客户端断连。</p>
+
+<p><strong>v2→v3 关键变化：</strong></p>
+<ul>
+<li>拦截器：零侵入地添加日志和认证逻辑</li>
+<li>错误码：用 <code>status.Error(codes.InvalidArgument, ...)</code> 替代 <code>fmt.Errorf</code></li>
+<li>超时控制：每个客户端调用都带 timeout context</li>
+<li>断连处理：服务端流每次发送前检查 context</li>
+
+<hr>
+
+<p><strong>下一步建议：</strong> 尝试将 gRPC 与你的 Gin HTTP 服务结合——用 gRPC 处理内部微服务通信，Gin 处理对外 API，通过 gRPC-Gateway 实现一个服务同时支持两种协议。</p>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

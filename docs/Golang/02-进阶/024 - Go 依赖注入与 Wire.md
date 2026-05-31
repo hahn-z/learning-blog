@@ -1,0 +1,397 @@
+---
+title: "024 - Go 依赖注入与 Wire"
+slug: "024-unit-test"
+category: "Golang进阶"
+tech_stack: "Golang"
+created_at: "2026-04-25T11:35:22.189+08:00"
+updated_at: "2026-04-29T10:02:44.871+08:00"
+reading_time: 21
+tags: ["测试"]
+---
+
+# 054 - Go 依赖注入与 Wire
+
+> **难度：⭐⭐⭐⭐** | 依赖注入不是 Spring 的专利，Go 的 DI 更轻量、更显式。
+
+## 一、概念讲解
+
+**依赖注入（Dependency Injection, DI）** 的核心思想：组件不自己创建依赖，而是从外部接收依赖。
+
+```
+没有 DI:  A 创建 B, B 创建 C → 耦合严重
+有 DI:    A 接收 B 接口, B 接收 C 接口 → 松耦合，可测试
+```
+
+Go 中的 DI 风格：
+1. **手动 DI**：在 `main()` 中手动组装依赖图（最 Go 风格）
+2. **google/wire**：编译时依赖注入，代码生成
+3. **uber/fx** / **google/dig**：运行时依赖注入，基于反射
+
+| 方案 | 类型 | 优点 | 缺点 |
+|------|------|------|------|
+| 手动 DI | 手动 | 零依赖，完全可追踪 | 大项目 main 函数很长 |
+| Wire | 编译时 | 类型安全，可追踪 | 需要 wire.go + 生成步骤 |
+| Fx/dig | 运行时 | 灵活，自动绑定 | 反射黑盒，难调试 |
+
+**推荐**：小项目手动 DI，中大项目用 Wire。
+
+## 二、脑图
+
+```
+依赖注入
+├── 核心概念
+│   ├── 控制反转 (IoC)
+│   ├── 依赖倒置原则 (DIP)
+│   └── 接口 + 实现 分离
+├── 手动 DI
+│   ├── main 中组装
+│   ├── 构造函数注入
+│   └── 适合小项目
+├── google/wire
+│   ├── Provider (构造函数)
+│   ├── Injector (组装函数)
+│   ├── wire.Build
+│   ├── wire.NewSet (分组)
+│   └── wire.Bind (接口绑定)
+├── DI 在测试中的价值
+│   ├── Mock 替换
+│   ├── 接口隔离
+│   └── 表格驱动测试
+└── 框架对比
+    ├── Wire (编译时)
+    ├── Fx (运行时)
+    └── dig (运行时底层)
+```
+
+## 三、代码演进
+
+### v1：手动依赖注入
+
+```go
+// Package main demonstrates manual dependency injection.
+package main
+
+import (
+	"context"
+	"fmt"
+	"log"
+)
+
+// --- Domain types ---
+
+// User represents a system user.
+type User struct {
+	ID   string
+	Name string
+}
+
+// --- Interfaces (dependencies) ---
+
+// UserRepo abstracts user persistence.
+type UserRepo interface {
+	Find(ctx context.Context, id string) (*User, error)
+	Save(ctx context.Context, u *User) error
+}
+
+// Notifier abstracts notification sending.
+type Notifier interface {
+	Notify(ctx context.Context, userID, message string) error
+}
+
+// --- Implementations ---
+
+// PostgresUserRepo implements UserRepo with PostgreSQL.
+type PostgresUserRepo struct {
+	connStr string
+}
+
+func NewPostgresUserRepo(connStr string) *PostgresUserRepo {
+	return &PostgresUserRepo{connStr: connStr}
+}
+
+func (r *PostgresUserRepo) Find(ctx context.Context, id string) (*User, error) {
+	// Simulate DB query
+	return &User{ID: id, Name: "Alice"}, nil
+}
+
+func (r *PostgresUserRepo) Save(ctx context.Context, u *User) error {
+	fmt.Printf("Saved user %s to PostgreSQL\n", u.Name)
+	return nil
+}
+
+// EmailNotifier implements Notifier with email.
+type EmailNotifier struct {
+	smtpAddr string
+}
+
+func NewEmailNotifier(smtpAddr string) *EmailNotifier {
+	return &EmailNotifier{smtpAddr: smtpAddr}
+}
+
+func (n *EmailNotifier) Notify(ctx context.Context, userID, message string) error {
+	fmt.Printf("Email to %s: %s\n", userID, message)
+	return nil
+}
+
+// --- Service (depends on interfaces) ---
+
+// UserService handles user business logic.
+type UserService struct {
+	repo     UserRepo
+	notifier Notifier
+}
+
+// NewUserService injects dependencies via constructor.
+func NewUserService(repo UserRepo, notifier Notifier) *UserService {
+	return &UserService{repo: repo, notifier: notifier}
+}
+
+// WelcomeUser sends a welcome notification to a user.
+func (s *UserService) WelcomeUser(ctx context.Context, userID string) error {
+	user, err := s.repo.Find(ctx, userID)
+	if err != nil {
+		return fmt.Errorf("find user: %w", err)
+	}
+	if err := s.notifier.Notify(ctx, userID, fmt.Sprintf("Welcome, %s!", user.Name)); err != nil {
+		return fmt.Errorf("notify: %w", err)
+	}
+	return nil
+}
+
+// --- Manual DI assembly in main ---
+
+func main() {
+	// Manually wire everything together
+	repo := NewPostgresUserRepo("postgres://localhost:5432/myapp")
+	notifier := NewEmailNotifier("smtp://localhost:587")
+	svc := NewUserService(repo, notifier)
+
+	if err := svc.WelcomeUser(context.Background(), "user-1"); err != nil {
+		log.Fatal(err)
+	}
+}
+```
+
+**执行预览：**
+```
+$ go run main.go
+Email to user-1: Welcome, Alice!
+```
+
+### v2：Wire 编译时注入
+
+```go
+// wire.go (build tag ensures wire only runs during generation)
+//go:build wireinject
+
+package main
+
+import (
+	"github.com/google/wire"
+)
+
+// SuperSet groups all infrastructure providers.
+var SuperSet = wire.NewSet(
+	NewPostgresUserRepo,
+	NewEmailNotifier,
+)
+
+// ServiceSet groups service-level providers.
+var ServiceSet = wire.NewSet(
+	NewUserService,
+	wire.Bind(new(UserRepo), new(*PostgresUserRepo)),
+	wire.Bind(new(Notifier), new(*EmailNotifier)),
+)
+
+// InitializeApp is the injector — Wire generates its implementation.
+func InitializeApp() *UserService {
+	wire.Build(SuperSet, ServiceSet)
+	return nil // Wire replaces this body
+}
+```
+
+```go
+// main.go - uses Wire-generated initialization
+package main
+
+import (
+	"context"
+	"fmt"
+	"log"
+)
+
+func main() {
+	// Wire generates InitializeApp in wire_gen.go
+	svc := InitializeApp()
+	if err := svc.WelcomeUser(context.Background(), "user-1"); err != nil {
+		log.Fatal(err)
+	}
+	fmt.Println("App initialized via Wire!")
+}
+```
+
+```go
+// wire_gen.go (auto-generated by `wire`)
+// Code generated by wire. DO NOT EDIT.
+
+package main
+
+// Injectors from wire.go:
+
+func InitializeApp() *UserService {
+	connStr := "postgres://localhost:5432/myapp"
+	postgresUserRepo := NewPostgresUserRepo(connStr)
+	smtpAddr := "smtp://localhost:587"
+	emailNotifier := NewEmailNotifier(smtpAddr)
+	userService := NewUserService(postgresUserRepo, emailNotifier)
+	return userService
+}
+```
+
+### v3：DI + 可测试代码
+
+```go
+// user_test.go - demonstrates DI value in testing
+package main
+
+import (
+	"context"
+	"testing"
+)
+
+// MockUserRepo is a test double for UserRepo.
+type MockUserRepo struct {
+	FindFunc func(ctx context.Context, id string) (*User, error)
+	SaveFunc func(ctx context.Context, u *User) error
+}
+
+func (m *MockUserRepo) Find(ctx context.Context, id string) (*User, error) {
+	return m.FindFunc(ctx, id)
+}
+
+func (m *MockUserRepo) Save(ctx context.Context, u *User) error {
+	return m.SaveFunc(ctx, u)
+}
+
+// MockNotifier captures notifications for assertion.
+type MockNotifier struct {
+	Calls []NotifyCall
+}
+
+// NotifyCall records a single notification.
+type NotifyCall struct {
+	UserID  string
+	Message string
+}
+
+func (m *MockNotifier) Notify(ctx context.Context, userID, message string) error {
+	m.Calls = append(m.Calls, NotifyCall{UserID: userID, Message: message})
+	return nil
+}
+
+func TestWelcomeUser(t *testing.T) {
+	tests := []struct {
+		name    string
+		user    *User
+		wantMsg string
+	}{
+		{"existing user", &User{ID: "1", Name: "Alice"}, "Welcome, Alice!"},
+		{"another user", &User{ID: "2", Name: "Bob"}, "Welcome, Bob!"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mockRepo := &MockUserRepo{
+				FindFunc: func(ctx context.Context, id string) (*User, error) {
+					return tt.user, nil
+				},
+			}
+			mockNotifier := &MockNotifier{}
+
+			// DI makes it trivial to inject mocks
+			svc := NewUserService(mockRepo, mockNotifier)
+
+			err := svc.WelcomeUser(context.Background(), tt.user.ID)
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if len(mockNotifier.Calls) != 1 {
+				t.Fatalf("expected 1 notification, got %d", len(mockNotifier.Calls))
+			}
+			if mockNotifier.Calls[0].Message != tt.wantMsg {
+				t.Errorf("got message %q, want %q", mockNotifier.Calls[0].Message, tt.wantMsg)
+			}
+		})
+	}
+}
+```
+
+## 四、注意事项
+
+| 项目 | 说明 |
+|------|------|
+| Wire 需要 `wire` 工具 | `go install github.com/google/wire/cmd/wire@latest` |
+| `wire.go` 需要 build tag | `//go:build wireinject` 确保正常编译时不包含 |
+| `wire_gen.go` 要提交到 Git | 它是生成代码，但应纳入版本控制 |
+| 接口绑定用 `wire.Bind` | 将具体类型绑定到接口 |
+| 循环依赖 | Wire 会报错，需要重新设计依赖图 |
+
+## 五、避坑指南
+
+| ❌ 错误做法 | ✅ 正确做法 |
+|------------|-----------|
+| 在 struct 里 `NewXxx()` 创建依赖 | 构造函数接收依赖作为参数 |
+| 用全局变量传递依赖 | 显式注入，依赖关系在 main 中组装 |
+| `init()` 里初始化数据库连接 | `main()` 中显式调用 `NewDB()` |
+| 测试时连真实数据库 | 用 Mock/Stub 替换接口实现 |
+| 大项目纯手动 DI 导致 main 膨胀 | 用 Wire 生成组装代码 |
+| Wire 用 `wire.Value` 硬编码配置 | 用 Provider 函数返回配置 |
+
+## 六、练习题
+
+🟢 **基础：** 重构一个在函数内 `db := sql.Open(...)` 的代码，将 `*sql.DB` 改为构造函数注入。
+
+🟡 **进阶：** 用 Wire 重构一个包含 3 层依赖（Handler → Service → Repo）的 Web 项目。
+
+🔴 **挑战：** 设计一个支持多环境（dev 用 mock，prod 用真实实现）的 Wire 配置，通过 Build Tags 切换。
+
+## 七、知识点总结
+
+```
+依赖注入
+├── 核心思想
+│   ├── 控制反转
+│   ├── 依赖倒置 (依赖接口不依赖实现)
+│   └── 构造函数注入
+├── 方案对比
+│   ├── 手动 DI (推荐小项目)
+│   ├── Wire (推荐中大型)
+│   └── Fx/dig (运行时)
+├── Wire 核心概念
+│   ├── Provider (提供者)
+│   ├── Injector (注入器)
+│   ├── wire.Build
+│   ├── wire.NewSet
+│   └── wire.Bind
+└── 测试价值
+    ├── Mock 替换
+    ├── 接口隔离
+    └── 表格驱动测试
+```
+
+## 八、举一反三
+
+| 场景 | 推荐方案 |
+|------|---------|
+| 个人小项目 | 手动 DI，main 函数组装 |
+| 团队中型项目 | Wire，编译时检查 |
+| 微服务全链路 | Wire + 接口 + 多环境 Provider |
+| 测试隔离 | 接口 + Mock/Stub |
+| 插件系统 | 接口注册 + DI |
+
+## 九、参考资料
+
+- [google/wire GitHub](https://github.com/google/wire)
+- [Wire 用户指南](https://github.com/google/wire/blob/main/docs/guide.md)
+- [uber/fx](https://github.com/uber-go/fx)
+- [Go DI 最佳实践](https://dave.cheney.net/2014/10/17/dependency-injection-has-hijacked-go)

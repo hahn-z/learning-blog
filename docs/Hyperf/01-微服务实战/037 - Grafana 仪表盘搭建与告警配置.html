@@ -1,0 +1,486 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>037 - Grafana 仪表盘搭建与告警配置</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Hyperf/index.html">Hyperf</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Hyperf/01-微服务实战/index.html">Hyperf微服务实战</a>
+</nav>
+<h1>037 - Grafana 仪表盘搭建与告警配置</h1>
+<div class="meta">
+<span>📂 Hyperf微服务实战</span>
+<span>🏷️ Hyperf</span>
+</div>
+<article>
+
+
+<h1>Grafana 仪表盘搭建与告警配置</h1>
+
+<blockquote><p><strong>难度：</strong> ⭐⭐⭐<br><strong>前置知识：</strong> Prometheus 指标采集（036篇）、Docker 基础<br><strong>预估用时：</strong> 45-60 分钟</p></blockquote>
+
+<h2>1. 概念讲解</h2>
+
+<p><strong>Grafana</strong> 是开源的数据可视化和监控平台，支持多种数据源（Prometheus、InfluxDB、MySQL 等），通过仪表盘（Dashboard）将指标数据转化为直观的图表，并支持灵活的告警规则。</p>
+
+<p>类比理解：如果 Prometheus 是仓库里的数据记录员，Grafana 就是前台的大屏展示系统。它把枯燥的数字变成好看的折线图、柱状图、仪表盘，还能在指标异常时自动打电话（告警）通知值班人员。</p>
+
+<p>在用户服务中，我们将搭建注册监控仪表盘，展示 QPS、成功率、P99 延迟、活跃用户数等核心指标，并配置告警规则：当注册失败率超过 5% 时自动通知。</p>
+
+<h2>2. 实时脑图</h2>
+
+<pre><code>┌──────────────────────────────────────────────────┐
+│        Grafana Dashboard Architecture             │
+├──────────────────────────────────────────────────┤
+│                                                   │
+│  [Prometheus TSDB] --query--&gt; [Grafana]           │
+│                                   |               │
+│                      ┌────────────┼──────────┐   │
+│                      v            v          v   │
+│                  [Row: Overview]                    │
+│                  |-- QPS Panel (graph)             │
+│                  |-- Success Rate (stat)           │
+│                  |-- P99 Latency (graph)           │
+│                  +-- Active Users (gauge)          │
+│                                                   │
+│                  [Row: Errors]                     │
+│                  |-- Error Rate (graph)            │
+│                  +-- Error Log (table)             │
+│                                                   │
+│                  [Alert Rules]                     │
+│                  |-- Error rate &gt; 5% -&gt; webhook    │
+│                  |-- P99 &gt; 2s -&gt; email             │
+│                  +-- No data &gt; 5m -&gt; pager         │
+└──────────────────────────────────────────────────┘</code></pre>
+
+<h2>3. 完整代码</h2>
+
+<h3>3.1 Docker Compose 扩展 <code>docker-compose.yml</code></h3>
+
+<pre><code class="language-yaml">version: &#x27;3.8&#x27;
+services:
+  prometheus:
+    image: prom/prometheus:latest
+    ports:
+      - &quot;9090:9090&quot;
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+
+  # ✅ Grafana service
+  grafana:
+    image: grafana/grafana:latest
+    ports:
+      - &quot;3000:3000&quot;
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning
+      - ./grafana/dashboards:/var/lib/grafana/dashboards
+    depends_on:
+      - prometheus
+
+volumes:
+  prometheus_data:
+  grafana_data:</code></pre>
+
+<h3>3.2 Grafana 数据源配置 <code>grafana/provisioning/datasources/prometheus.yml</code></h3>
+
+<pre><code class="language-yaml"># ✅ Auto-configure Prometheus as Grafana data source
+apiVersion: 1
+datasources:
+  - name: Prometheus
+    type: prometheus
+    access: proxy
+    url: http://prometheus:9090
+    isDefault: true
+    editable: false</code></pre>
+
+<h3>3.3 仪表盘 JSON 配置 <code>grafana/dashboards/user-service.json</code></h3>
+
+<pre><code class="language-json">{
+  &quot;dashboard&quot;: {
+    &quot;title&quot;: &quot;User Service Dashboard&quot;,
+    &quot;tags&quot;: [&quot;user-service&quot;, &quot;hyperf&quot;],
+    &quot;timezone&quot;: &quot;browser&quot;,
+    &quot;panels&quot;: [
+      {
+        &quot;id&quot;: 1,
+        &quot;title&quot;: &quot;Registration QPS&quot;,
+        &quot;type&quot;: &quot;timeseries&quot;,
+        &quot;gridPos&quot;: {&quot;h&quot;: 8, &quot;w&quot;: 12, &quot;x&quot;: 0, &quot;y&quot;: 0},
+        &quot;targets&quot;: [
+          {
+            &quot;expr&quot;: &quot;rate(user_service_user_registrations_total[5m])&quot;,
+            &quot;legendFormat&quot;: &quot;{{status}}&quot;
+          }
+        ]
+      },
+      {
+        &quot;id&quot;: 2,
+        &quot;title&quot;: &quot;Registration Success Rate&quot;,
+        &quot;type&quot;: &quot;stat&quot;,
+        &quot;gridPos&quot;: {&quot;h&quot;: 8, &quot;w&quot;: 6, &quot;x&quot;: 12, &quot;y&quot;: 0},
+        &quot;targets&quot;: [
+          {
+            &quot;expr&quot;: &quot;rate(user_service_user_registrations_total{status=\&quot;success\&quot;}[5m]) / rate(user_service_user_registrations_total[5m]) * 100&quot;,
+            &quot;legendFormat&quot;: &quot;Success %&quot;
+          }
+        ],
+        &quot;fieldConfig&quot;: {
+          &quot;defaults&quot;: {
+            &quot;unit&quot;: &quot;percent&quot;,
+            &quot;thresholds&quot;: {
+              &quot;steps&quot;: [
+                {&quot;value&quot;: null, &quot;color&quot;: &quot;green&quot;},
+                {&quot;value&quot;: 95, &quot;color&quot;: &quot;yellow&quot;},
+                {&quot;value&quot;: 99, &quot;color&quot;: &quot;green&quot;}
+              ]
+            }
+          }
+        }
+      },
+      {
+        &quot;id&quot;: 3,
+        &quot;title&quot;: &quot;Registration P99 Latency&quot;,
+        &quot;type&quot;: &quot;timeseries&quot;,
+        &quot;gridPos&quot;: {&quot;h&quot;: 8, &quot;w&quot;: 6, &quot;x&quot;: 18, &quot;y&quot;: 0},
+        &quot;targets&quot;: [
+          {
+            &quot;expr&quot;: &quot;histogram_quantile(0.99, rate(user_service_registration_duration_seconds_bucket[5m]))&quot;,
+            &quot;legendFormat&quot;: &quot;P99&quot;
+          }
+        ]
+      },
+      {
+        &quot;id&quot;: 4,
+        &quot;title&quot;: &quot;Active Users&quot;,
+        &quot;type&quot;: &quot;gauge&quot;,
+        &quot;gridPos&quot;: {&quot;h&quot;: 8, &quot;w&quot;: 6, &quot;x&quot;: 0, &quot;y&quot;: 8},
+        &quot;targets&quot;: [
+          {
+            &quot;expr&quot;: &quot;user_service_active_users&quot;,
+            &quot;legendFormat&quot;: &quot;Active&quot;
+          }
+        ]
+      }
+    ],
+    &quot;refresh&quot;: &quot;10s&quot;
+  },
+  &quot;overwrite&quot;: true
+}</code></pre>
+
+<h3>3.4 告警规则 <code>grafana/provisioning/alerting/rules.yml</code></h3>
+
+<pre><code class="language-yaml"># ✅ Alert rules for user service
+groups:
+  - name: user_service_alerts
+    rules:
+      # 🔴 Alert: registration error rate exceeds 5%
+      - alert: HighRegistrationErrorRate
+        expr: |
+          (
+            rate(user_service_user_registrations_total{status=&quot;error&quot;}[5m])
+            / rate(user_service_user_registrations_total[5m])
+          ) &gt; 0.05
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: &quot;Registration error rate is high&quot;
+          description: &quot;Error rate is {{ $value | humanizePercentage }} for the last 5 minutes&quot;
+
+      # 🔴 Alert: P99 latency exceeds 2 seconds
+      - alert: HighRegistrationLatency
+        expr: |
+          histogram_quantile(0.99,
+            rate(user_service_registration_duration_seconds_bucket[5m])
+          ) &gt; 2
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: &quot;Registration P99 latency is too high&quot;
+          description: &quot;P99 latency is {{ $value }}s&quot;</code></pre>
+
+<h3>3.5 Grafana 告警通知渠道 <code>grafana/provisioning/alerting/notifiers.yml</code></h3>
+
+<pre><code class="language-yaml"># ✅ Webhook notification channel for alerts
+notifiers:
+  - name: webhook-notify
+    type: webhook
+    uid: webhook-1
+    settings:
+      url: &quot;http://host.docker.internal:9501/api/alerts/webhook&quot;
+      httpMethod: POST
+
+# ✅ Alert notification policy
+policies:
+  - receiver: webhook-notify
+    group_by: [&#x27;alertname&#x27;]
+    group_wait: 10s
+    group_interval: 5m
+    repeat_interval: 1h</code></pre>
+
+<h3>3.6 Webhook 接收端 <code>app/Controller/AlertController.php</code></h3>
+
+<pre><code class="language-php">&lt;?php
+declare(strict_types=1);
+
+namespace App\Controller;
+
+use Hyperf\HttpServer\Annotation\Controller;
+use Hyperf\HttpServer\Annotation\PostMapping;
+use Hyperf\HttpServer\Contract\RequestInterface;
+use Psr\Log\LoggerInterface;
+use Hyperf\Di\Annotation\Inject;
+
+#[Controller(prefix: &#x27;/api/alerts&#x27;)]
+class AlertController
+{
+    #[Inject]
+    private LoggerInterface $logger;
+
+    /**
+     * ✅ Receive Grafana alert webhook
+     */
+    #[PostMapping(&#x27;/webhook&#x27;)]
+    public function webhook(RequestInterface $request): array
+    {
+        $payload = $request-&gt;all();
+
+        $this-&gt;logger-&gt;warning(&#x27;Grafana alert received&#x27;, [
+            &#x27;alerts&#x27; =&gt; $payload,
+        ]);
+
+        // ✅ Process alert: send to Slack, DingTalk, etc.
+        // $this-&gt;notificationService-&gt;sendAlert($payload);
+
+        return [&#x27;status&#x27; =&gt; &#x27;ok&#x27;];
+    }
+}</code></pre>
+
+<h2>4. 执行预览</h2>
+
+<pre><code class="language-bash">$ docker-compose up -d
+
+# Access Grafana: http://localhost:3000 (admin/admin)
+# Import dashboard or auto-provisioned
+
+# Test alert webhook:
+$ curl -X POST http://localhost:9501/api/alerts/webhook \
+  -H &quot;Content-Type: application/json&quot; \
+  -d &#x27;{&quot;title&quot;:&quot;High Error Rate&quot;,&quot;state&quot;:&quot;alerting&quot;}&#x27;
+
+# Logs:
+# [WARNING] Grafana alert received {&quot;alerts&quot;:{&quot;title&quot;:&quot;High Error Rate&quot;,&quot;state&quot;:&quot;alerting&quot;}}</code></pre>
+
+<h2>5. 注意事项</h2>
+
+<table><thead><tr>
+<th>约束</th>
+<th>说明</th>
+<th>违反后果</th>
+</tr></thead><tbody>
+<tr>
+<td>Dashboard JSON 版本控制</td>
+<td>纳入 Git 管理</td>
+<td>配置丢失无法恢复</td>
+</tr>
+<tr>
+<td>告警阈值要调优</td>
+<td>基于历史数据设置</td>
+<td>误报过多导致告警疲劳</td>
+</tr>
+<tr>
+<td>数据源用 provisioning</td>
+<td>不要手动配置</td>
+<td>重启后配置丢失</td>
+</tr>
+<tr>
+<td>告警分级</td>
+<td>warning/critical 区分</td>
+<td>所有告警同等对待无法排优先级</td>
+</tr>
+<tr>
+<td>避免仪表盘过载</td>
+<td>面板不超过 20 个</td>
+<td>加载慢，信息过载</td>
+</tr>
+</tbody></table>
+
+<h2>6. 避坑指南</h2>
+
+<table><thead><tr>
+<th>错误</th>
+<th>现象</th>
+<th>正确做法</th>
+</tr></thead><tbody>
+<tr>
+<td>告警不设 <code>for</code> 持续时间</td>
+<td>瞬时抖动触发告警</td>
+<td>设 <code>for: 2m</code> 持续后才触发</td>
+</tr>
+<tr>
+<td>只用邮件告警</td>
+<td>深夜邮件被忽略</td>
+<td>同时配置 IM/短信/webhook</td>
+</tr>
+<tr>
+<td>面板用绝对时间范围</td>
+<td>看不到最新数据</td>
+<td>用相对时间如 <code>now-1h</code> to <code>now</code></td>
+</tr>
+<tr>
+<td>不做仪表盘分类</td>
+<td>所有图表堆一起</td>
+<td>用 Row 分组：Overview/Errors/Performance</td>
+</tr>
+<tr>
+<td>PromQL 写错</td>
+<td>图表显示 No Data</td>
+<td>先在 Prometheus UI 验证查询</td>
+</tr>
+</tbody></table>
+
+<h2>7. 练习题</h2>
+
+<p>🟢 <strong>基础题 1：</strong> 在 Grafana 中创建一个 CPU 使用率面板。</p>
+
+<p>🟢 <strong>基础题 2：</strong> 配置一个告警：当活跃用户数为 0 持续 10 分钟时触发。</p>
+
+<p>🟡 <strong>进阶题：</strong> 使用 Grafana Variables 实现可切换环境的仪表盘（dev/staging/prod）。</p>
+
+<p>🔴 <strong>开放题：</strong> 设计一个完整的 On-Call 告警体系，包含分级、升级、静默机制。</p>
+
+<h2>8. 知识点总结</h2>
+
+<pre><code>Grafana Dashboard &amp; Alerting
+├── Setup
+│   ├── Docker Compose (Prometheus + Grafana)
+│   ├── Datasource provisioning
+│   └── Dashboard provisioning (JSON)
+├── Dashboard Panels
+│   ├── timeseries (QPS, latency trends)
+│   ├── stat (success rate)
+│   └── gauge (active users)
+├── PromQL Examples
+│   ├── rate() for QPS
+│   ├── histogram_quantile() for P99
+│   └── ratio for success rate
+├── Alerting
+│   ├── Prometheus alert rules
+│   ├── Notification channels (webhook)
+│   └── Alert severity (warning/critical)
+└── Best Practices
+    ├── Version-controlled JSON
+    ├── Provisioning over manual config
+    └── Alert threshold tuning</code></pre>
+
+<h2>9. 举一反三</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>面板设计</th>
+<th>告警规则</th>
+</tr></thead><tbody>
+<tr>
+<td>API 网关</td>
+<td>QPS/延迟/错误率 by path</td>
+<td>5xx > 1% 触发 critical</td>
+</tr>
+<tr>
+<td>数据库</td>
+<td>连接数/查询延迟/慢查询</td>
+<td>慢查询 > 100/min</td>
+</tr>
+<tr>
+<td>Kafka</td>
+<td>消费延迟/消息堆积</td>
+<td>堆积 > 10000 触发 warning</td>
+</tr>
+</tbody></table>
+
+<h2>10. 参考资料</h2>
+
+<ul>
+<li>🏆 <a href="https://grafana.com/docs/grafana/latest/">Grafana 官方文档</a></li>
+<li>🏆 <a href="https://prometheus.io/docs/prometheus/latest/configuration/alerting_rules/">Prometheus Alerting 规则</a></li>
+<li>⭐ <a href="https://grafana.com/docs/grafana/latest/administration/provisioning/">Grafana Provisioning</a></li>
+<li>📖 <a href="https://sre.google/sre-book/monitoring-distributed-systems/">SRE 监控框架</a></li>
+
+<h2>11. 代码演进</h2>
+
+<h3>v1 ❌ 无监控无告警</h3>
+<pre><code class="language-php">// ❌ No metrics, no dashboards, no alerts
+// Discover issues only when users complain</code></pre>
+
+<h3>v2 ✅ 基础仪表盘</h3>
+<pre><code class="language-yaml"># ✅ Basic Grafana dashboard with QPS and latency panels
+# But no alerting, manual setup</code></pre>
+
+<h3>v3 🟢 完整监控体系</h3>
+<pre><code class="language-yaml"># 🟢 Auto-provisioned dashboards + Prometheus alert rules
+# + webhook notification + alert severity classification
+# Version-controlled, reproducible deployment</code></pre>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

@@ -1,0 +1,478 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>007 - 函数类型与重载</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/TypeScript/index.html">TypeScript</a>
+<span class="sep">›</span>
+<a href="/tech-blog/TypeScript/01-TypeScript/index.html">TypeScript</a>
+</nav>
+<h1>007 - 函数类型与重载</h1>
+<div class="meta">
+<span>📂 TypeScript</span>
+<span>🏷️ TypeScript</span>
+</div>
+<article>
+
+
+<h1>034-函数类型与重载</h1>
+
+<blockquote><p><strong>难度：</strong> 🟡 进阶 | <strong>阅读时间：</strong> 18分钟 | <strong>前置知识：</strong> 接口与类型别名</p></blockquote>
+
+<hr>
+
+<h2>一、概念讲解</h2>
+
+<h3>函数类型基础</h3>
+
+<p>在TypeScript中，函数的每个参数和返回值都可以（也应该）有类型。</p>
+
+<pre><code class="language-typescript">// Named function
+function add(a: number, b: number): number {
+  return a + b;
+}
+
+// Arrow function
+const multiply = (a: number, b: number): number =&gt; a * b;
+
+// Function type expression
+type MathOp = (a: number, b: number) =&gt; number;
+const divide: MathOp = (a, b) =&gt; a / b;</code></pre>
+
+<h3>参数变体</h3>
+
+<pre><code class="language-typescript">// Optional parameters (must come last)
+function greet(name: string, title?: string): string {
+  return title ? `${title} ${name}` : name;
+}
+
+// Default parameters
+function createUser(name: string, role: string = &#x27;viewer&#x27;): object {
+  return { name, role };
+}
+
+// Rest parameters
+function sum(...nums: number[]): number {
+  return nums.reduce((a, b) =&gt; a + b, 0);
+}</code></pre>
+
+<h3>函数重载（Function Overloading）</h3>
+
+<p>TypeScript的函数重载通过<strong>多个签名+一个实现</strong>来实现：</p>
+
+<pre><code class="language-typescript">// Overload signatures
+function format(value: string): string;
+function format(value: number): string;
+// Implementation
+function format(value: string | number): string {
+  if (typeof value === &#x27;string&#x27;) return value.trim();
+  return value.toFixed(2);
+}</code></pre>
+
+<hr>
+
+<h2>二、思维导图</h2>
+
+<pre><code>函数类型与重载
+├── 函数类型定义
+│   ├── 行内标注
+│   ├── 函数类型表达式
+│   └── 接口定义函数
+├── 参数类型
+│   ├── 必选参数
+│   ├── 可选参数 (?:)
+│   ├── 默认参数 (= val)
+│   └── 剩余参数 (...args)
+├── 返回值类型
+│   ├── 显式返回
+│   ├── void
+│   ├── never
+│   └── 类型推断
+├── 函数重载
+│   ├── 多个签名
+│   ├── 实现签名
+│   └── 使用场景
+└── 高级用法
+    ├── this类型
+    ├── 断言函数
+    └── 可调用/可构造</code></pre>
+
+<hr>
+
+<h2>三、完整代码示例</h2>
+
+<pre><code class="language-typescript">// ============================================
+// Function Types and Overloads
+// ============================================
+
+// --- 1. Basic Function Types ---
+function greet(name: string): string {
+  return `Hello, ${name}!`;
+}
+
+// Function type alias
+type Callback = (data: string) =&gt; void;
+type AsyncFn = (url: string) =&gt; Promise&lt;Response&gt;;
+
+// --- 2. Optional &amp; Default Parameters ---
+function search(
+  query: string,
+  limit: number = 10,
+  offset?: number
+): string[] {
+  const results: string[] = [];
+  // Simulate search results
+  for (let i = 0; i &lt; limit; i++) {
+    results.push(`${query}-result-${i}`);
+  }
+  return results;
+}
+
+console.log(search(&#x27;ts&#x27;));           // 10 results
+console.log(search(&#x27;ts&#x27;, 5));        // 5 results
+console.log(search(&#x27;ts&#x27;, 5, 10));    // 5 results with offset
+
+// --- 3. Rest Parameters ---
+function log(level: string, ...messages: string[]): void {
+  console.log(`[${level}]`, messages.join(&#x27; &#x27;));
+}
+
+log(&#x27;INFO&#x27;, &#x27;Server&#x27;, &#x27;started&#x27;, &#x27;on&#x27;, &#x27;port&#x27;, &#x27;3000&#x27;);
+
+// --- 4. Function Overloading ---
+
+// Example 1: Type-safe event handler
+function on(event: &#x27;click&#x27;, handler: (e: MouseEvent) =&gt; void): void;
+function on(event: &#x27;input&#x27;, handler: (e: InputEvent) =&gt; void): void;
+function on(event: string, handler: (e: Event) =&gt; void): void {
+  console.log(`Registered handler for ${event}`);
+}
+
+on(&#x27;click&#x27;, (e) =&gt; {
+  console.log(&#x27;Click at&#x27;, e.clientX, e.clientY); // e is MouseEvent
+});
+
+// Example 2: Utility function with overloads
+function pluck&lt;T, K extends keyof T&gt;(obj: T, key: K): T[K];
+function pluck&lt;T&gt;(obj: T, keys: (keyof T)[]): unknown[];
+function pluck&lt;T&gt;(obj: T, keyOrKeys: keyof T | (keyof T)[]): unknown {
+  if (Array.isArray(keyOrKeys)) {
+    return keyOrKeys.map(k =&gt; obj[k]);
+  }
+  return obj[keyOrKeys];
+}
+
+const user = { name: &#x27;Alice&#x27;, age: 30, email: &#x27;a@b.com&#x27; };
+const name = pluck(user, &#x27;name&#x27;);      // type: string
+const vals = pluck(user, [&#x27;name&#x27;, &#x27;age&#x27;]); // type: unknown[]
+
+// --- 5. &#x27;this&#x27; Parameter ---
+interface DB {
+  users: string[];
+  addUser(this: DB, name: string): void;
+}
+
+const db: DB = {
+  users: [],
+  addUser(name: string) {
+    this.users.push(name);
+  }
+};
+
+db.addUser(&#x27;Alice&#x27;);
+console.log(db.users); // [&#x27;Alice&#x27;]
+
+// --- 6. Assertion Functions ---
+function assertDefined&lt;T&gt;(value: T | undefined | null, msg?: string): asserts value is T {
+  if (value == null) throw new Error(msg ?? &#x27;Value is null/undefined&#x27;);
+}
+
+let maybeName: string | undefined = &#x27;Alice&#x27;;
+assertDefined(maybeName);
+console.log(maybeName.toUpperCase()); // TS knows it&#x27;s string now
+
+// --- 7. Predicate Functions ---
+function isString(value: unknown): value is string {
+  return typeof value === &#x27;string&#x27;;
+}
+
+const items: unknown[] = [&#x27;hello&#x27;, 42, &#x27;world&#x27;, true];
+const strings = items.filter(isString); // type: string[]
+console.log(strings); // [&#x27;hello&#x27;, &#x27;world&#x27;]
+
+// --- 8. Constructor Type ---
+type Constructor&lt;T&gt; = new (...args: any[]) =&gt; T;
+
+function createInstance&lt;T&gt;(Ctor: Constructor&lt;T&gt;, ...args: any[]): T {
+  return new Ctor(...args);
+}
+
+class Person {
+  constructor(public name: string) {}
+}
+
+const p = createInstance(Person, &#x27;Alice&#x27;);
+console.log(p.name); // &quot;Alice&quot;
+
+console.log(&#x27;All function type examples completed!&#x27;);</code></pre>
+
+<hr>
+
+<h2>四、执行预览</h2>
+
+<pre><code class="language-bash">$ npx ts-node functions.ts
+[ &#x27;ts-result-0&#x27;, &#x27;ts-result-1&#x27;, ... &#x27;ts-result-9&#x27; ]
+[INFO] Server started on port 3000
+Registered handler for click
+Click at 100 200
+[ &#x27;Alice&#x27; ]
+ALICE
+[ &#x27;hello&#x27;, &#x27;world&#x27; ]
+Alice
+All function type examples completed!</code></pre>
+
+<hr>
+
+<h2>五、注意事项</h2>
+
+<table><thead><tr>
+<th>注意点</th>
+<th>说明</th>
+</tr></thead><tbody>
+<tr>
+<td>可选参数必须在必选参数后面</td>
+<td><code>fn(a?: string, b: string)</code>会报错</td>
+</tr>
+<tr>
+<td>重载的实现在内部是any式处理</td>
+<td>实现签名对外不可见</td>
+</tr>
+<tr>
+<td><code>void</code>返回值不阻止返回值</td>
+<td>只是告诉调用者不要使用返回值</td>
+</tr>
+<tr>
+<td>箭头函数不能重载</td>
+<td>只有用function声明的函数支持重载</td>
+</tr>
+<tr>
+<td><code>this</code>参数是编译时擦除的</td>
+<td>只用于类型检查，不影响运行时</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>六、避坑指南</h2>
+
+<table><thead><tr>
+<th>❌ 常见错误</th>
+<th>✅ 正确做法</th>
+</tr></thead><tbody>
+<tr>
+<td>重载签名顺序随意</td>
+<td><strong>最具体的</strong>签名放最前面</td>
+</tr>
+<tr>
+<td>实现签名与调用签名不匹配</td>
+<td>实现参数必须是所有重载的联合</td>
+</tr>
+<tr>
+<td>用<code>any</code>做回调参数</td>
+<td>用泛型或具体函数类型</td>
+</tr>
+<tr>
+<td>忽略返回值推断</td>
+<td>复杂函数显式标注返回值类型</td>
+</tr>
+<tr>
+<td>在重载中返回不同类型</td>
+<td>用联合返回值或泛型保持一致性</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>七、练习题</h2>
+
+<h3>🟢 基础</h3>
+<ol>
+<li>编写<code>clamp(value: number, min: number, max: number): number</code>函数。</li>
+</ul>
+<ol>
+<li>定义<code>Comparator<T></code>函数类型，用于排序。</li>
+
+<h3>🟡 进阶</h3>
+<ol>
+<li>实现重载函数<code>createElement</code>：传入string返回Text节点，传入对象返回Element。</li>
+</ul>
+<ol>
+<li>编写类型安全的<code>EventEmitter.on</code>方法，不同事件名对应不同回调类型。</li>
+
+<h3>🔴 挑战</h3>
+<ol>
+<li>实现一个类型安全的<code>pipe</code>函数：<code>pipe(fn1, fn2, fn3)</code>，前一个函数的输出是后一个的输入。</li>
+
+<hr>
+
+<h2>八、知识点总结</h2>
+
+<pre><code>函数类型与重载
+├── 基础
+│   ├── 参数类型标注
+│   ├── 返回值类型
+│   └── 类型推断
+├── 参数变体
+│   ├── 可选参数 (?:)
+│   ├── 默认参数 (= val)
+│   └── 剩余参数 (...args)
+├── 函数类型表达式
+│   ├── type Fn = (...) =&gt; ...
+│   └── interface Fn { (...): ... }
+├── 函数重载
+│   ├── 签名列表
+│   ├── 实现签名
+│   └── 顺序规则
+├── 特殊函数
+│   ├── 断言函数 (asserts)
+│   ├── 谓词函数 (is)
+│   └── 构造签名 (new)
+└── this参数
+    ├── 显式this类型
+    └── 回调中的this</code></pre>
+
+<hr>
+
+<h2>九、举一反三</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>函数类型用法</th>
+</tr></thead><tbody>
+<tr>
+<td>API层</td>
+<td><code>type APIFn<T> = (params: Request) => Promise<Response<T>></code></td>
+</tr>
+<tr>
+<td>事件系统</td>
+<td>重载实现不同事件的回调类型</td>
+</tr>
+<tr>
+<td>管道/中间件</td>
+<td>泛型函数链式调用</td>
+</tr>
+<tr>
+<td>数据验证</td>
+<td>谓词函数<code>value is T</code>做类型收窄</td>
+</tr>
+<tr>
+<td>工厂模式</td>
+<td><code>Constructor<T></code>类型做依赖注入</td>
+</tr>
+<tr>
+<td>条件检查</td>
+<td>断言函数<code>asserts value is T</code></td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>十、参考资料</h2>
+
+<ul>
+<li><a href="https://www.typescriptlang.org/docs/handbook/2/functions.html">TypeScript Handbook - Functions</a></li>
+<li><a href="https://www.typescriptlang.org/docs/handbook/2/functions.html#function-overloads">TypeScript Handbook - Function Overloads</a></li>
+
+<hr>
+
+<h2>十一、代码演进</h2>
+
+<h3>v1 — 简单函数</h3>
+<pre><code class="language-typescript">function processInput(input) {
+  if (typeof input === &#x27;string&#x27;) return input.toUpperCase();
+  if (typeof input === &#x27;number&#x27;) return input.toFixed(2);
+  return String(input);
+}</code></pre>
+
+<h3>v2 — 添加类型注解</h3>
+<pre><code class="language-typescript">function processInput(input: unknown): string {
+  if (typeof input === &#x27;string&#x27;) return input.toUpperCase();
+  if (typeof input === &#x27;number&#x27;) return input.toFixed(2);
+  return String(input);
+}</code></pre>
+
+<h3>v3 — 函数重载+泛型</h3>
+<pre><code class="language-typescript">function process(input: string): string;
+function process(input: number): string;
+function process(input: string | number): string {
+  if (typeof input === &#x27;string&#x27;) return input.toUpperCase();
+  return input.toFixed(2);
+}
+
+// Generic version with return type inference
+function transform&lt;T extends string | number&gt;(input: T): string {
+  return typeof input === &#x27;string&#x27; ? input.toUpperCase() : input.toFixed(2);
+}</code></pre>
+
+<hr>
+
+<p><strong>总结：</strong> TypeScript函数类型是日常开发中最常用的特性。掌握参数变体、函数重载和谓词函数，你的代码将拥有编译时的安全保障。</p>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

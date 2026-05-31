@@ -1,0 +1,644 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>006 - sync包深入(Once/Map/Pool)</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Golang/index.html">Golang</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Golang/02-进阶/index.html">Golang进阶</a>
+</nav>
+<h1>006 - sync包深入(Once/Map/Pool)</h1>
+<div class="meta">
+<span>📂 Golang进阶</span>
+<span>🏷️ Golang</span>
+</div>
+<article>
+
+
+<h1>036 - sync 包深入：Once/Map/Pool/Cond</h1>
+
+<blockquote><p>难度：⭐⭐⭐⭐（中高级）<br><br>本文深入讲解 Go <code>sync</code> 包的高级同步原语：<code>sync.Once</code>（单次执行）、<code>sync.Map</code>（并发安全 map）、<code>sync.Pool</code>（对象复用池）、<code>sync.Cond</code>（条件变量），以及 WaitGroup 的进阶用法。</p></blockquote>
+
+<hr>
+
+<h2>一、概念讲解</h2>
+
+<h3>sync.Once</h3>
+
+<p>确保某个函数<strong>只执行一次</strong>，无论多少 goroutine 同时调用。底层使用 <code>sync.Mutex</code> + 原子标志位实现。</p>
+
+<p><strong>典型场景：</strong> 单例模式、全局配置初始化、数据库连接建立。</p>
+
+<h3>sync.Map</h3>
+
+<p>Go 1.9+ 提供的<strong>并发安全 map</strong>，针对读多写少场景优化。内部使用读写分离（read map + dirty map）减少锁争用。</p>
+
+<p><strong>方法：</strong> <code>Load</code>、<code>Store</code>、<code>Delete</code>、<code>LoadOrStore</code>、<code>LoadAndDelete</code>、<code>Range</code></p>
+
+<h3>sync.Pool</h3>
+
+<p><strong>临时对象缓存池</strong>，用于复用对象减少 GC 压力。对象可能随时被 GC 回收，不适合做持久缓存。</p>
+
+<p><strong>核心：</strong> <code>Get()</code> 获取对象，<code>Put()</code> 归还对象。</p>
+
+<h3>sync.Cond</h3>
+
+<p><strong>条件变量</strong>，让 goroutine 等待/通知特定条件满足。基于 <code>sync.Locker</code>（通常是 <code><em>sync.Mutex</code> 或 <code></em>sync.RWMutex</code>）。</p>
+
+<p><strong>方法：</strong> <code>Wait()</code>、<code>Signal()</code>（唤醒一个）、<code>Broadcast()</code>（唤醒全部）</p>
+
+<hr>
+
+<h2>二、脑图</h2>
+
+<pre><code>                   sync 高级原语
+                        │
+        ┌───────┬───────┼───────┬───────┐
+        │       │       │       │       │
+     Once     Map     Pool    Cond   WaitGroup
+        │       │       │       │       │
+     Do(f)   Load    Get    Wait    Add/Done
+        │     Store   Put   Signal    Wait
+   单次执行  Delete  New    Broadcast 进阶
+        │     Range  GC回收  条件等待  用法
+   底层:
+   Mutex+atomic</code></pre>
+
+<hr>
+
+<h2>三、完整代码示例</h2>
+
+<h3>v1：sync.Once 与 sync.Map 基础</h3>
+
+<pre><code class="language-go">package main
+
+import (
+    &quot;fmt&quot;
+    &quot;sync&quot;
+)
+
+// --- sync.Once: thread-safe singleton ---
+
+type DBConnection struct {
+    DSN string
+}
+
+var (
+    db   *DBConnection
+    once sync.Once
+)
+
+func GetDB(dsn string) *DBConnection {
+    once.Do(func() {
+        fmt.Println(&quot;Connecting to DB:&quot;, dsn)
+        db = &amp;DBConnection{DSN: dsn}
+    })
+    return db
+}
+
+// --- sync.Map: concurrent-safe map ---
+
+func demoSyncMap() {
+    var m sync.Map
+
+    // Store key-value pairs
+    m.Store(&quot;name&quot;, &quot;Golang&quot;)
+    m.Store(&quot;version&quot;, &quot;1.22&quot;)
+    m.Store(&quot;year&quot;, 2009)
+
+    // Load values
+    if v, ok := m.Load(&quot;name&quot;); ok {
+        fmt.Println(&quot;name:&quot;, v)
+    }
+
+    // LoadOrStore: load if exists, store if not
+    actual, loaded := m.LoadOrStore(&quot;name&quot;, &quot;Rust&quot;)
+    fmt.Printf(&quot;LoadOrStore(&#x27;name&#x27;): value=%v, loaded=%v\n&quot;, actual, loaded)
+
+    // Range over all entries
+    fmt.Println(&quot;--- All entries ---&quot;)
+    m.Range(func(key, value interface{}) bool {
+        fmt.Printf(&quot;  %v = %v\n&quot;, key, value)
+        return true // continue iteration
+    })
+
+    // Delete
+    m.Delete(&quot;year&quot;)
+    fmt.Println(&quot;After delete &#x27;year&#x27;:&quot;)
+    m.Range(func(key, value interface{}) bool {
+        fmt.Printf(&quot;  %v = %v\n&quot;, key, value)
+        return true
+    })
+}
+
+func main() {
+    // Once demo
+    var wg sync.WaitGroup
+    for i := 0; i &lt; 3; i++ {
+        wg.Add(1)
+        go func(id int) {
+            defer wg.Done()
+            conn := GetDB(&quot;postgres://localhost:5432&quot;)
+            fmt.Printf(&quot;Goroutine %d got DB: %s\n&quot;, id, conn.DSN)
+        }(i)
+    }
+    wg.Wait()
+
+    fmt.Println()
+    demoSyncMap()
+}</code></pre>
+
+<h3>v2：sync.Pool 对象复用</h3>
+
+<pre><code class="language-go">package main
+
+import (
+    &quot;bytes&quot;
+    &quot;fmt&quot;
+    &quot;sync&quot;
+)
+
+// Buffer pool for reducing GC pressure
+var bufferPool = sync.Pool{
+    New: func() interface{} {
+        // Called when pool is empty
+        fmt.Println(&quot;  (allocating new buffer)&quot;)
+        return new(bytes.Buffer)
+    },
+}
+
+func processRequest(id int) {
+    // Get a buffer from pool
+    buf := bufferPool.Get().(*bytes.Buffer)
+    buf.Reset() // Always reset before use!
+
+    // Use the buffer
+    buf.WriteString(fmt.Sprintf(&quot;Request %d processed&quot;, id))
+    fmt.Println(buf.String())
+
+    // Return buffer to pool
+    bufferPool.Put(buf)
+}
+
+func main() {
+    fmt.Println(&quot;=== First 3 requests (allocate) ===&quot;)
+    for i := 1; i &lt;= 3; i++ {
+        processRequest(i)
+    }
+
+    fmt.Println(&quot;\n=== Next 3 requests (reuse) ===&quot;)
+    for i := 4; i &lt;= 6; i++ {
+        processRequest(i)
+    }
+
+    // Demonstrate Pool stats
+    fmt.Println(&quot;\n=== Pool behavior ===&quot;)
+    fmt.Println(&quot;Buffers are reused between Get/Put calls&quot;)
+    fmt.Println(&quot;Buffers may be GC&#x27;d between GC cycles&quot;)
+}</code></pre>
+
+<h3>v3：sync.Cond + 生产级对象池</h3>
+
+<pre><code class="language-go">package main
+
+import (
+    &quot;fmt&quot;
+    &quot;sync&quot;
+    &quot;time&quot;
+)
+
+// --- sync.Cond: blocking queue with condition variable ---
+
+type BlockingQueue struct {
+    mu      sync.Mutex
+    cond    *sync.Cond
+    items   []interface{}
+    maxSize int
+}
+
+func NewBlockingQueue(size int) *BlockingQueue {
+    q := &amp;BlockingQueue{maxSize: size}
+    q.cond = sync.NewCond(&amp;q.mu)
+    return q
+}
+
+func (q *BlockingQueue) Put(item interface{}) {
+    q.mu.Lock()
+    defer q.mu.Unlock()
+
+    // Wait until queue has space
+    for len(q.items) &gt;= q.maxSize {
+        q.cond.Wait() // releases mutex, waits for Signal
+    }
+    q.items = append(q.items, item)
+    q.cond.Signal() // wake one consumer
+}
+
+func (q *BlockingQueue) Take() interface{} {
+    q.mu.Lock()
+    defer q.mu.Unlock()
+
+    // Wait until queue has items
+    for len(q.items) == 0 {
+        q.cond.Wait()
+    }
+    item := q.items[0]
+    q.items = q.items[1:]
+    q.cond.Signal() // wake one producer
+    return item
+}
+
+// --- Advanced: object pool with cond ---
+
+type ObjectPool struct {
+    mu    sync.Mutex
+    cond  *sync.Cond
+    pool  []interface{}
+    newFn func() interface{}
+}
+
+func NewObjectPool(size int, factory func() interface{}) *ObjectPool {
+    p := &amp;ObjectPool{newFn: factory}
+    p.cond = sync.NewCond(&amp;p.mu)
+    for i := 0; i &lt; size; i++ {
+        p.pool = append(p.pool, factory())
+    }
+    return p
+}
+
+func (p *ObjectPool) Acquire() interface{} {
+    p.mu.Lock()
+    defer p.mu.Unlock()
+    for len(p.pool) == 0 {
+        p.cond.Wait()
+    }
+    obj := p.pool[0]
+    p.pool = p.pool[1:]
+    return obj
+}
+
+func (p *ObjectPool) Release(obj interface{}) {
+    p.mu.Lock()
+    defer p.mu.Unlock()
+    p.pool = append(p.pool, obj)
+    p.cond.Signal()
+}
+
+func main() {
+    // --- BlockingQueue demo ---
+    queue := NewBlockingQueue(3)
+
+    // Producer
+    go func() {
+        for i := 0; i &lt; 10; i++ {
+            queue.Put(fmt.Sprintf(&quot;item-%d&quot;, i))
+            fmt.Printf(&quot;Produced: item-%d\n&quot;, i)
+            time.Sleep(50 * time.Millisecond)
+        }
+    }()
+
+    // Consumer
+    go func() {
+        for i := 0; i &lt; 10; i++ {
+            item := queue.Take()
+            fmt.Printf(&quot;Consumed: %v\n&quot;, item)
+            time.Sleep(100 * time.Millisecond)
+        }
+    }()
+
+    time.Sleep(2 * time.Second)
+
+    // --- ObjectPool demo ---
+    fmt.Println(&quot;\n=== Object Pool ===&quot;)
+    pool := NewObjectPool(2, func() interface{} {
+        fmt.Println(&quot;  (creating new connection)&quot;)
+        return fmt.Sprintf(&quot;conn-%d&quot;, time.Now().UnixNano()%1000)
+    })
+
+    c1 := pool.Acquire()
+    c2 := pool.Acquire()
+    fmt.Printf(&quot;Acquired: %v, %v\n&quot;, c1, c2)
+
+    pool.Release(c1)
+    fmt.Println(&quot;Released c1&quot;)
+
+    c3 := pool.Acquire() // reuses c1
+    fmt.Printf(&quot;Acquired (reused): %v\n&quot;, c3)
+}</code></pre>
+
+<hr>
+
+<h2>四、执行预览</h2>
+
+<p><strong>v1 输出：</strong></p>
+<pre><code>Connecting to DB: postgres://localhost:5432
+Goroutine 0 got DB: postgres://localhost:5432
+Goroutine 2 got DB: postgres://localhost:5432
+Goroutine 1 got DB: postgres://localhost:5432
+
+name: Golang
+LoadOrStore(&#x27;name&#x27;): value=Golang, loaded=true
+--- All entries ---
+  name = Golang
+  version = 1.22
+  year = 2009
+After delete &#x27;year&#x27;:
+  name = Golang
+  version = 1.22</code></pre>
+
+<p><strong>v2 输出：</strong></p>
+<pre><code>=== First 3 requests (allocate) ===
+  (allocating new buffer)
+Request 1 processed
+  (allocating new buffer)
+Request 2 processed
+  (allocating new buffer)
+Request 3 processed
+
+=== Next 3 requests (reuse) ===
+Request 4 processed
+Request 5 processed
+Request 6 processed</code></pre>
+
+<p><strong>v3 输出示例：</strong></p>
+<pre><code>Produced: item-0
+Consumed: item-0
+Produced: item-1
+Produced: item-2
+Consumed: item-1
+...
+
+=== Object Pool ===
+  (creating new connection)
+  (creating new connection)
+Acquired: conn-123, conn-456
+Released c1
+Acquired (reused): conn-123</code></pre>
+
+<hr>
+
+<h2>五、注意事项</h2>
+
+<table><thead><tr>
+<th>注意点</th>
+<th>说明</th>
+</tr></thead><tbody>
+<tr>
+<td>Once.Do 不可重置</td>
+<td><code>sync.Once</code> 只能执行一次，没有 Reset 方法</td>
+</tr>
+<tr>
+<td>sync.Map 不适合写多场景</td>
+<td>频繁写入性能不如 <code>map + Mutex</code></td>
+</tr>
+<tr>
+<td>Pool 对象会被 GC 回收</td>
+<td>每次 GC 可能清空 Pool，不能用于持久存储</td>
+</tr>
+<tr>
+<td>Cond.Wait 必须在循环中</td>
+<td>用 <code>for !condition { cond.Wait() }</code> 防止虚假唤醒</td>
+</tr>
+<tr>
+<td>Cond.Signal vs Broadcast</td>
+<td>Signal 唤醒一个，Broadcast 唤醒全部</td>
+</tr>
+<tr>
+<td>Pool.Get 可能返回 nil</td>
+<td>如果 Pool 为空且没有设置 <code>New</code>，返回 nil</td>
+</tr>
+<tr>
+<td>sync.Map 的 Range 不保证快照</td>
+<td>Range 期间可能有并发修改</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>六、避坑指南</h2>
+
+<table><thead><tr>
+<th>❌ 错误做法</th>
+<th>✅ 正确做法</th>
+</tr></thead><tbody>
+<tr>
+<td>Pool 存数据库连接</td>
+<td>Pool 存临时可丢弃对象（Buffer、临时对象）</td>
+</tr>
+<tr>
+<td>Cond.Wait 不在循环中</td>
+<td><code>for !cond { c.Wait() }</code> 防虚假唤醒</td>
+</tr>
+<tr>
+<td>用 <code>sync.Map</code> 做高频写入</td>
+<td>高频写用 <code>map + RWMutex</code></td>
+</tr>
+<tr>
+<td>从 Pool Get 后不 Reset</td>
+<td><code>Get()</code> 后先 <code>Reset()</code> 再用</td>
+</tr>
+<tr>
+<td>Once.Do 内调用 panic</td>
+<td>Once 保证只执行一次，包括 panic 的情况（Go 1.18+修复）</td>
+</tr>
+<tr>
+<td>Pool.Put 放大对象</td>
+<td>只 Put 轻量对象，避免内存膨胀</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>七、练习题</h2>
+
+<h3>🟢 初级</h3>
+<ol>
+<li>用 <code>sync.Once</code> 实现一个延迟初始化的日志实例。</li>
+</ul>
+<ol>
+<li>用 <code>sync.Map</code> 实现一个并发安全的用户注册表（Store + Load）。</li>
+
+<h3>🟡 中级</h3>
+<ol>
+<li>用 <code>sync.Pool</code> 实现一个 JSON 编码 buffer 池，对比有池和无池的内存分配差异。</li>
+</ul>
+<ol>
+<li>用 <code>sync.Cond</code> 实现一个读写屏障：多个读者等写者完成后同时开始读。</li>
+
+<h3>🔴 高级</h3>
+<ol>
+<li>实现一个泛型对象池（Go 1.18+），支持泛型类型参数和自定义工厂函数。</li>
+</ul>
+<ol>
+<li>用 <code>sync.Map</code> + <code>sync.Cond</code> 实现一个并发安全的事件总线（EventBus）。</li>
+
+<hr>
+
+<h2>八、知识点总结</h2>
+
+<pre><code>sync 高级原语
+├── sync.Once
+│   ├── Do(f) — 保证 f 只执行一次
+│   ├── 底层：Mutex + atomic uint32
+│   └── 适用：单例、初始化、配置加载
+├── sync.Map
+│   ├── Load / Store / Delete
+│   ├── LoadOrStore / LoadAndDelete
+│   ├── Range — 遍历（回调式）
+│   ├── 底层：read map + dirty map
+│   └── 适用：读多写少、key 稳定
+├── sync.Pool
+│   ├── Get() / Put() — 获取/归还
+│   ├── New — 工厂函数
+│   ├── GC 时可能清空
+│   └── 适用：临时对象、减少分配
+└── sync.Cond
+    ├── Wait() — 等待（释放锁）
+    ├── Signal() — 唤醒一个
+    ├── Broadcast() — 唤醒全部
+    ├── 必须在循环中 Wait
+    └── 适用：生产者-消费者、屏障</code></pre>
+
+<hr>
+
+<h2>九、举一反三</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>推荐原语</th>
+<th>原因</th>
+</tr></thead><tbody>
+<tr>
+<td>全局配置初始化</td>
+<td>sync.Once</td>
+<td>只需执行一次</td>
+</tr>
+<tr>
+<td>并发缓存（读多写少）</td>
+<td>sync.Map</td>
+<td>内置读写分离优化</td>
+</tr>
+<tr>
+<td>高频写入的并发 map</td>
+<td>map + RWMutex</td>
+<td>sync.Map 写入开销大</td>
+</tr>
+<tr>
+<td>JSON/Buffer 复用</td>
+<td>sync.Pool</td>
+<td>减少内存分配和 GC</td>
+</tr>
+<tr>
+<td>连接池</td>
+<td>自建 Pool + Cond</td>
+<td>需要 size 限制和阻塞等待</td>
+</tr>
+<tr>
+<td>多 goroutine 等待事件</td>
+<td>Cond.Broadcast</td>
+<td>一次性唤醒所有等待者</td>
+</tr>
+<tr>
+<td>单 goroutine 通知</td>
+<td>Cond.Signal</td>
+<td>只唤醒一个</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>十、参考资料</h2>
+
+<ul>
+<li><a href="https://pkg.go.dev/sync">Go 官方文档 - sync 包</a></li>
+<li><a href="https://go.dev/blog/maps">Go 官方博客 - Go maps in action</a></li>
+<li><a href="https://draveness.me/golang/docs/part3-runtime/ch06-concurrency/golang-sync-pool/">sync.Pool 详解 - Go 语言设计与实现</a></li>
+<li><a href="https://qcrao91.gitbook.io/go/sync/map">sync.Map 源码分析</a></li>
+<li><a href="https://go.dev/doc/go1.19">Go 1.19 sync.Once 修复</a></li>
+
+<hr>
+
+<h2>十一、代码演进</h2>
+
+<table><thead><tr>
+<th>版本</th>
+<th>演进</th>
+<th>说明</th>
+</tr></thead><tbody>
+<tr>
+<td>v1</td>
+<td>Once + Map 基础</td>
+<td>单例模式和并发安全 map 基本操作</td>
+</tr>
+<tr>
+<td>v2</td>
+<td>Pool 对象复用</td>
+<td>buffer 池减少内存分配</td>
+</tr>
+<tr>
+<td>v3</td>
+<td>Cond + 自定义 Pool</td>
+<td>条件变量实现阻塞队列和对象池</td>
+</tr>
+</tbody></table>
+
+<blockquote><p><strong>上一篇：</strong> <a href="035-waitgroup">035 - sync.WaitGroup 与 Mutex</a> | 掌握这些高级原语，你的并发代码会更优雅！</p></blockquote>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

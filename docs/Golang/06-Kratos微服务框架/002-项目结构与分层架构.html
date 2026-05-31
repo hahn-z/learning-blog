@@ -1,0 +1,718 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>002-项目结构与分层架构</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Golang/index.html">Golang</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Golang/06-Kratos微服务框架/index.html">Kratos框架</a>
+</nav>
+<h1>002-项目结构与分层架构</h1>
+<div class="meta">
+<span>📂 Kratos框架</span>
+<span>🏷️ Golang</span>
+</div>
+<article>
+
+
+
+<h1>002-项目结构与分层架构</h1>
+
+<blockquote><p><strong>难度：⭐⭐⭐（进阶级）</strong><br><br>需要理解DDD基本概念。读完本文，你将掌握Kratos项目的完整结构，理解各层之间的依赖关系。</p></blockquote>
+
+<hr>
+
+<h2>一、概念讲解：DDD分层架构</h2>
+
+<h3>1.1 什么是DDD分层？</h3>
+
+<p>DDD（Domain-Driven Design，领域驱动设计）将系统分为四个核心层：</p>
+
+<pre><code>┌───────────────────────────┐
+│     Interface Layer       │  ← 接口层：处理请求/响应
+│   (API / Transport)       │
+├───────────────────────────┤
+│     Application Layer     │  ← 应用层：编排业务流程
+│     (Service)             │
+├───────────────────────────┤
+│     Domain Layer          │  ← 领域层：核心业务逻辑
+│     (Biz)                 │
+├───────────────────────────┤
+│     Infrastructure Layer  │  ← 基础设施层：技术实现
+│     (Data)                │
+└───────────────────────────┘</code></pre>
+
+<p><strong>关键原则：依赖倒置（Dependency Inversion）</strong></p>
+
+<ul>
+<li>上层依赖下层定义的<strong>接口</strong>，不依赖具体实现</li>
+<li>下层实现上层定义的接口</li>
+<li>通过依赖注入（Wire）在运行时组装</li>
+
+<h3>1.2 Kratos中的分层映射</h3>
+
+<table><thead><tr>
+<th>DDD层</th>
+<th>Kratos目录</th>
+<th>职责</th>
+</tr></thead><tbody>
+<tr>
+<td>接口层</td>
+<td><code>api/</code></td>
+<td>Proto定义 + 生成代码</td>
+</tr>
+<tr>
+<td>应用层</td>
+<td><code>internal/service/</code></td>
+<td>接收请求，调用Biz层</td>
+</tr>
+<tr>
+<td>领域层</td>
+<td><code>internal/biz/</code></td>
+<td>核心业务逻辑</td>
+</tr>
+<tr>
+<td>基础设施层</td>
+<td><code>internal/data/</code></td>
+<td>数据库、缓存、外部API</td>
+</tr>
+<tr>
+<td>入口层</td>
+<td><code>cmd/</code></td>
+<td>程序入口，依赖注入组装</td>
+</tr>
+<tr>
+<td>服务层</td>
+<td><code>internal/server/</code></td>
+<td>HTTP/gRPC服务器配置</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>二、脑图（ASCII）</h2>
+
+<pre><code>                    Kratos项目结构
+                         │
+          ┌──────────────┼──────────────┐
+          │              │              │
+       cmd/          internal/        api/
+          │              │              │
+      ┌───┴───┐    ┌─────┼─────┐    ┌──┴──┐
+      │       │    │     │     │    │     │
+    main    wire  server service biz  data proto
+      │       │    │     │     │    │     │
+    入口   依赖   HTTP  应用层 领域层 基础  Proto
+    加载   注入   gRPC  编排   逻辑  设施  定义
+                   配置</code></pre>
+
+<hr>
+
+<h2>三、目录详解与代码</h2>
+
+<h3>3.1 cmd/ — 程序入口</h3>
+
+<pre><code>cmd/
+└── helloworld/
+    ├── main.go        # Entry point
+    └── wire/
+        ├── wire.go    # Wire dependency injection declaration
+        └── wire_gen.go # Wire generated code</code></pre>
+
+<p><strong>main.go</strong> — 程序启动入口：</p>
+
+<pre><code class="language-go">package main
+
+import (
+    &quot;flag&quot;
+    &quot;os&quot;
+
+    &quot;helloworld/internal/conf&quot;
+
+    // Import wire generated injector
+    _ &quot;helloworld/cmd/helloworld/wire&quot;
+
+    &quot;github.com/go-kratos/kratos/v2&quot;
+    &quot;github.com/go-kratos/kratos/v2/config&quot;
+    &quot;github.com/go-kratos/kratos/v2/config/file&quot;
+    &quot;github.com/go-kratos/kratos/v2/log&quot;
+    &quot;github.com/go-kratos/kratos/v2/middleware/tracing&quot;
+    &quot;github.com/go-kratos/kratos/v2/transport/grpc&quot;
+    &quot;github.com/go-kratos/kratos/v2/transport/http&quot;
+)
+
+// go build -ldflags &quot;-X main.Name=x&quot;
+var (
+    Name     = &quot;helloworld&quot;
+    // Version holds the service version, injected at build time
+    Version  = &quot;1.0.0&quot;
+)
+
+func newApp(logger log.Logger, gs *grpc.Server, hs *http.Server) *kratos.App {
+    return kratos.New(
+        kratos.ID(Name),
+        kratos.Version(Version),
+        kratos.Metadata(map[string]string{}),
+        kratos.Logger(logger),
+        kratos.Server(gs, hs),
+    )
+}
+
+func main() {
+    flag.Parse()
+    logger := log.With(log.NewStdLogger(os.Stdout),
+        &quot;ts&quot;, log.DefaultTimestamp,
+        &quot;caller&quot;, log.DefaultCaller,
+        &quot;service_name&quot;, Name,
+        &quot;service_version&quot;, Version,
+        &quot;trace_id&quot;, tracing.TraceID(),
+        &quot;span_id&quot;, tracing.SpanID(),
+    )
+
+    c := config.New(
+        config.WithSource(
+            file.NewSource(flag.String(&quot;conf&quot;, &quot;configs&quot;, &quot;config path&quot;)),
+        ),
+    )
+    if err := c.Load(); err != nil {
+        panic(err)
+    }
+
+    var bc conf.Bootstrap
+    if err := c.Scan(&amp;bc); err != nil {
+        panic(err)
+    }
+
+    // Wire injector builds all dependencies
+    app, cleanup, err := wireApp(bc.Server, bc.Data, logger)
+    if err != nil {
+        panic(err)
+    }
+    defer cleanup()
+
+    // Start and block
+    if err := app.Run(); err != nil {
+        panic(err)
+    }
+}</code></pre>
+
+<h3>3.2 internal/service/ — 应用层（Service）</h3>
+
+<p>Service层是<strong>最薄的一层</strong>，只做请求转换和调用Biz层：</p>
+
+<pre><code class="language-go">package service
+
+import (
+    &quot;context&quot;
+
+    pb &quot;helloworld/api/helloworld/v1&quot;
+    &quot;helloworld/internal/biz&quot;
+
+    &quot;github.com/go-kratos/kratos/v2/log&quot;
+)
+
+// GreeterService implements the greeter service defined in proto
+type GreeterService struct {
+    pb.UnimplementedGreeterServer
+
+    // uc is the use case (biz layer) for greeter
+    uc  *biz.GreeterUsecase
+    log *log.Helper
+}
+
+// NewGreeterService creates a new greeter service
+func NewGreeterService(uc *biz.GreeterUsecase, logger log.Logger) *GreeterService {
+    return &amp;GreeterService{
+        uc:  uc,
+        log: log.NewHelper(logger),
+    }
+}
+
+// SayHello implements helloworld.v1.GreeterService
+func (s *GreeterService) SayHello(ctx context.Context, req *pb.HelloRequest) (*pb.HelloReply, error) {
+    s.log.WithContext(ctx).Infof(&quot;SayHello received: %v&quot;, req.GetName())
+
+    // Delegate to biz layer (core logic)
+    greeting, err := s.uc.CreateGreeting(ctx, req.GetName())
+    if err != nil {
+        return nil, err
+    }
+
+    return &amp;pb.HelloReply{Message: greeting}, nil
+}</code></pre>
+
+<h3>3.3 internal/biz/ — 领域层（核心）</h3>
+
+<p>Biz层包含<strong>核心业务逻辑</strong>，定义Repo接口但不实现：</p>
+
+<pre><code class="language-go">package biz
+
+import (
+    &quot;context&quot;
+    &quot;fmt&quot;
+
+    &quot;github.com/go-kratos/kratos/v2/log&quot;
+)
+
+// Greeter is the domain entity
+type Greeter struct {
+    ID      int64
+    Name    string
+    Greeting string
+}
+
+// GreeterRepo defines the repository interface (implemented by data layer)
+type GreeterRepo interface {
+    Save(ctx context.Context, g *Greeter) (*Greeter, error)
+    GetByName(ctx context.Context, name string) (*Greeter, error)
+}
+
+// GreeterUsecase holds business logic for greeter
+type GreeterUsecase struct {
+    repo GreeterRepo
+    log  *log.Helper
+}
+
+// NewGreeterUsecase creates a new use case
+func NewGreeterUsecase(repo GreeterRepo, logger log.Logger) *GreeterUsecase {
+    return &amp;GreeterUsecase{
+        repo: repo,
+        log:  log.NewHelper(logger),
+    }
+}
+
+// CreateGreeting contains core business logic
+func (uc *GreeterUsecase) CreateGreeting(ctx context.Context, name string) (string, error) {
+    // Business rule: name cannot be empty
+    if name == &quot;&quot; {
+        name = &quot;World&quot;
+    }
+
+    greeting := fmt.Sprintf(&quot;Hello, %s!&quot;, name)
+
+    // Save to repository (data layer handles actual storage)
+    _, err := uc.repo.Save(ctx, &amp;Greeter{
+        Name:     name,
+        Greeting: greeting,
+    })
+    if err != nil {
+        uc.log.Warnf(&quot;Failed to save greeting: %v&quot;, err)
+        // Don&#x27;t fail the request, just log
+    }
+
+    return greeting, nil
+}</code></pre>
+
+<h3>3.4 internal/data/ — 基础设施层</h3>
+
+<p>Data层<strong>实现Biz层定义的接口</strong>，处理数据库、缓存等：</p>
+
+<pre><code class="language-go">package data
+
+import (
+    &quot;context&quot;
+
+    &quot;helloworld/internal/biz&quot;
+    &quot;helloworld/internal/conf&quot;
+
+    &quot;github.com/go-kratos/kratos/v2/log&quot;
+)
+
+// greeterRepo implements biz.GreeterRepo interface
+type greeterRepo struct {
+    data *Data
+    log  *log.Helper
+}
+
+// NewGreeterRepo creates a new repository
+func NewGreeterRepo(data *Data, logger log.Logger) biz.GreeterRepo {
+    return &amp;greeterRepo{
+        data: data,
+        log:  log.NewHelper(logger),
+    }
+}
+
+// Save persists a greeter (implements biz.GreeterRepo)
+func (r *greeterRepo) Save(ctx context.Context, g *biz.Greeter) (*biz.Greeter, error) {
+    r.log.WithContext(ctx).Infof(&quot;Saving greeter: %s&quot;, g.Name)
+    // In real apps, save to database here
+    return g, nil
+}
+
+// GetByName retrieves a greeter by name (implements biz.GreeterRepo)
+func (r *greeterRepo) GetByName(ctx context.Context, name string) (*biz.Greeter, error) {
+    r.log.WithContext(ctx).Infof(&quot;Getting greeter: %s&quot;, name)
+    // In real apps, query database here
+    return &amp;biz.Greeter{Name: name}, nil
+}
+
+// Data holds infrastructure connections (DB, Redis, etc.)
+type Data struct {
+    // db *gorm.DB
+    // rdb *redis.Client
+}
+
+// NewData creates a new Data instance
+func NewData(c *conf.Data, logger log.Logger) (*Data, func(), error) {
+    cleanup := func() {
+        log.NewHelper(logger).Info(&quot;closing data resources&quot;)
+    }
+    return &amp;Data{}, cleanup, nil
+}</code></pre>
+
+<h3>3.5 internal/server/ — 服务器配置</h3>
+
+<pre><code class="language-go">// internal/server/http.go
+package server
+
+import (
+    pb &quot;helloworld/api/helloworld/v1&quot;
+    &quot;helloworld/internal/conf&quot;
+    &quot;helloworld/internal/service&quot;
+
+    &quot;github.com/go-kratos/kratos/v2/log&quot;
+    &quot;github.com/go-kratos/kratos/v2/middleware/recovery&quot;
+    &quot;github.com/go-kratos/kratos/v2/transport/http&quot;
+)
+
+// NewHTTPServer creates an HTTP server
+func NewHTTPServer(c *conf.Server, greeter *service.GreeterService, logger log.Logger) *http.Server {
+    opts := []http.ServerOption{
+        http.Middleware(
+            recovery.Recovery(),
+        ),
+    }
+    if c.Http.Network != &quot;&quot; {
+        opts = append(opts, http.Network(c.Http.Network))
+    }
+    if c.Http.Addr != &quot;&quot; {
+        opts = append(opts, http.Address(c.Http.Addr))
+    }
+
+    srv := http.NewServer(opts...)
+    pb.RegisterGreeterHTTPServer(srv, greeter)
+    return srv
+}</code></pre>
+
+<h3>3.6 Wire依赖注入</h3>
+
+<pre><code class="language-go">// cmd/helloworld/wire/wire.go
+//go:build wireinject
+
+package wire
+
+import (
+    &quot;helloworld/internal/conf&quot;
+    &quot;helloworld/internal/data&quot;
+    &quot;helloworld/internal/server&quot;
+    &quot;helloworld/internal/service&quot;
+
+    &quot;github.com/go-kratos/kratos/v2/log&quot;
+    &quot;github.com/google/wire&quot;
+)
+
+func wireApp(confServer *conf.Server, confData *conf.Data, logger log.Logger) (*kratos.App, func(), error) {
+    panic(wire.Build(
+        server.ProviderSet,
+        data.ProviderSet,
+        biz.ProviderSet,
+        service.ProviderSet,
+        newApp,
+    ))
+}</code></pre>
+
+<hr>
+
+<h2>四、执行预览</h2>
+
+<pre><code>$ make generate
+# Generating wire code...
+
+$ kratos run
+INFO msg=config loaded format: yaml
+INFO msg=server listening on [::]:8000
+INFO msg=server listening on [::]:9000
+
+$ curl http://localhost:8000/helloworld/Kratos
+{&quot;message&quot;:&quot;Hello, Kratos!&quot;}
+
+# Check logs to see the flow:
+# service layer → biz layer → data layer</code></pre>
+
+<hr>
+
+<h2>五、注意事项</h2>
+
+<table><thead><tr>
+<th>注意点</th>
+<th>说明</th>
+<th>严重度</th>
+</tr></thead><tbody>
+<tr>
+<td>Service层不要写业务逻辑</td>
+<td>Service只做编排，逻辑放Biz</td>
+<td>🔴 高</td>
+</tr>
+<tr>
+<td>Biz层定义接口，Data层实现</td>
+<td>依赖倒置的核心</td>
+<td>🔴 高</td>
+</tr>
+<tr>
+<td>ProviderSet必须正确声明</td>
+<td>Wire依赖注入需要ProviderSet</td>
+<td>🔴 高</td>
+</tr>
+<tr>
+<td>wire.go的build tag</td>
+<td>注意<code>//go:build wireinject</code></td>
+<td>🟡 中</td>
+</tr>
+<tr>
+<td>不要在Biz层直接import Data</td>
+<td>通过接口解耦</td>
+<td>🔴 高</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>六、避坑指南</h2>
+
+<table><thead><tr>
+<th>❌ 常见错误</th>
+<th>✅ 正确做法</th>
+</tr></thead><tbody>
+<tr>
+<td>在Service层直接操作数据库</td>
+<td>Service调Biz，Biz定义Repo接口，Data实现</td>
+</tr>
+<tr>
+<td>Biz层import Data层的包</td>
+<td>Biz定义接口，通过Wire注入Data实现</td>
+</tr>
+<tr>
+<td>忘记添加Wire ProviderSet</td>
+<td>每个包都声明<code>var ProviderSet = wire.NewSet(...)</code></td>
+</tr>
+<tr>
+<td>修改接口后不重新生成Wire</td>
+<td>执行<code>make generate</code>更新wire_gen.go</td>
+</tr>
+<tr>
+<td>把所有逻辑塞在一个文件</td>
+<td>按职责分文件：biz/greeter.go、data/greeter.go</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>七、练习题</h2>
+
+<h3>🟢 入门题</h3>
+<ol>
+<li>在Biz层新增一个<code>GetAllGreetings</code>方法，返回所有已保存的问候记录。</li>
+
+<h3>🟡 进阶题</h3>
+<ol>
+<li>在Data层接入SQLite数据库，实现<code>GreeterRepo</code>的所有方法，包括真实的持久化存储。</li>
+
+<h3>🔴 挑战题</h3>
+<ol>
+<li>实现一个完整的CRUD服务（User：增删改查），严格遵循DDD分层：Biz层定义UserRepo接口和业务规则，Data层用GORM实现，Service层做请求转换。</li>
+
+<hr>
+
+<h2>八、知识点总结</h2>
+
+<pre><code>项目结构与分层
+├── cmd/
+│   ├── main.go (入口、配置加载)
+│   └── wire/ (依赖注入)
+├── internal/
+│   ├── service/ (应用层 - 请求编排)
+│   ├── biz/ (领域层 - 业务逻辑)
+│   │   └── 定义Repo接口
+│   ├── data/ (基础设施层 - 数据访问)
+│   │   └── 实现Repo接口
+│   ├── server/ (服务器配置)
+│   │   ├── http.go
+│   │   └── grpc.go
+│   └── conf/ (配置结构)
+├── api/ (Proto定义+生成代码)
+├── configs/ (YAML配置文件)
+└── 依赖关系:
+    Service → Biz(接口) ← Data(实现)
+    Wire负责运行时组装</code></pre>
+
+<hr>
+
+<h2>九、举一反三</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>思路</th>
+<th>涉及的层</th>
+</tr></thead><tbody>
+<tr>
+<td>新增一个业务实体</td>
+<td>Biz定义实体+Repo接口→Data实现→Service暴露→Proto定义</td>
+<td>全层</td>
+</tr>
+<tr>
+<td>接入MySQL</td>
+<td>Data层初始化GORM，实现Repo接口</td>
+<td>Data层</td>
+</tr>
+<tr>
+<td>添加缓存</td>
+<td>Data层增加Redis依赖，实现缓存逻辑</td>
+<td>Data层</td>
+</tr>
+<tr>
+<td>添加中间件</td>
+<td>Server层注册中间件</td>
+<td>Server层</td>
+</tr>
+<tr>
+<td>多服务共享逻辑</td>
+<td>Biz层抽取公共包，独立module</td>
+<td>Biz层</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>十、参考资料</h2>
+
+<table><thead><tr>
+<th>资源</th>
+<th>链接</th>
+</tr></thead><tbody>
+<tr>
+<td>Kratos官方文档-项目布局</td>
+<td>https://go-kratos.dev/docs/intro/layout</td>
+</tr>
+<tr>
+<td>Wire用户指南</td>
+<td>https://github.com/google/wire/blob/main/docs/guide.md</td>
+</tr>
+<tr>
+<td>DDD分层架构详解</td>
+<td>https://go-kratos.dev/docs/intro/ddd</td>
+</tr>
+<tr>
+<td>Clean Architecture</td>
+<td>https://blog.cleancoder.com/uncle-bob/2012/08/33/the-clean-architecture.html</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>十一、代码演进</h2>
+
+<h3>v1：默认脚手架结构</h3>
+<pre><code class="language-bash">kratos new helloworld
+# 默认生成空壳各层文件</code></pre>
+
+<h3>v2：填充业务逻辑</h3>
+<pre><code class="language-go">// biz/greeter.go - 定义实体和Repo接口
+type GreeterRepo interface {
+    Save(ctx context.Context, g *Greeter) (*Greeter, error)
+}
+
+// data/greeter.go - 实现接口
+func (r *greeterRepo) Save(ctx context.Context, g *biz.Greeter) (*biz.Greeter, error) {
+    // 实际存储逻辑
+    return g, nil
+}
+
+// service/greeter.go - 调用Biz
+func (s *GreeterService) SayHello(ctx context.Context, req *pb.HelloRequest) (*pb.HelloReply, error) {
+    return &amp;pb.HelloReply{Message: &quot;Hello &quot; + req.Name}, nil
+}</code></pre>
+
+<h3>v3：接入真实数据库</h3>
+<pre><code class="language-go">// data/data.go - 初始化GORM
+func NewData(c *conf.Data, logger log.Logger) (*Data, func(), error) {
+    db, err := gorm.Open(sqlite.Open(&quot;test.db&quot;), &amp;gorm.Config{})
+    if err != nil {
+        return nil, nil, err
+    }
+    cleanup := func() {
+        sqlDB, _ := db.DB()
+        sqlDB.Close()
+    }
+    return &amp;Data{db: db}, cleanup, nil
+}
+
+// data/greeter.go - 用GORM实现
+func (r *greeterRepo) Save(ctx context.Context, g *biz.Greeter) (*biz.Greeter, error) {
+    model := &amp;GreeterModel{Name: g.Name, Greeting: g.Greeting}
+    err := r.data.db.WithContext(ctx).Create(model).Error
+    return g, err
+}</code></pre>
+
+<hr>
+
+<p><strong>上一篇：</strong> <a href="/posts/001-kratos-intro">001-Kratos框架简介与环境搭建</a></p>
+<p><strong>下一篇：</strong> <a href="/posts/003-kratos-protobuf">003-Protobuf协议与代码生成</a></p>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

@@ -1,0 +1,678 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>017 - 多实例部署与优雅上下线</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Hyperf/index.html">Hyperf</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Hyperf/01-微服务实战/index.html">Hyperf微服务实战</a>
+</nav>
+<h1>017 - 多实例部署与优雅上下线</h1>
+<div class="meta">
+<span>📂 Hyperf微服务实战</span>
+<span>🏷️ Hyperf</span>
+</div>
+<article>
+
+
+<h1>017 - 多实例部署与优雅上下线</h1>
+
+<blockquote><p><strong>难度：</strong> ⭐⭐⭐⭐ | <strong>前置知识：</strong> Docker 基础、健康检查（016）、Nacos 服务注册（014）| <strong>预估用时：</strong> 60 分钟</p></blockquote>
+
+<h2>概念讲解</h2>
+
+<p><strong>一句话定义：</strong> 多实例部署是指同一服务运行多个副本提高可用性和吞吐量，优雅上下线则确保实例在停止前处理完所有请求，避免请求丢失或错误。</p>
+
+<p><strong>现实类比：</strong> 就像餐厅高峰期——多名服务员同时上岗（多实例），下班时不直接关门，而是接待完最后一位顾客、清理完桌子再打烊（优雅停机）。顾客不会遇到"服务员突然消失"的情况。</p>
+
+<p><strong>技术场景：</strong> 用户服务从 1 个实例扩展到 5 个实例应对流量高峰。更新版本时，先启动新实例，新实例就绪后再下线旧实例，整个过程用户无感知。旧实例停止时先拒绝新请求，处理完现有请求后再退出。</p>
+
+<h2>实时脑图</h2>
+
+<pre><code>Before Scaling (1 instance):
+┌─────────────────┐
+│  user-service   │
+│   10.0.1.11     │ ← All traffic here
+└─────────────────┘
+
+After Scaling (3 instances):
+┌─────────────┐  ┌─────────────┐  ┌─────────────┐
+│ user-svc:11 │  │ user-svc:12 │  │ user-svc:13 │
+│  weight=1   │  │  weight=1   │  │  weight=1   │
+└─────────────┘  └─────────────┘  └─────────────┘
+     │               │               │
+     └─────── Load Balancer ────────┘
+                     │
+                Order Service
+
+Graceful Shutdown Flow:
+┌──────────────────────────────────────────────────────┐
+│ 1. Receive SIGTERM (K8s / Docker stop command)       │
+│ 2. Set readiness = DOWN (stop accepting new traffic) │
+│ 3. Wait for in-flight requests to complete (max 30s) │
+│ 4. Deregister from Nacos                             │
+│ 5. Close DB / Redis connections                      │
+│ 6. Exit gracefully                                   │
+└──────────────────────────────────────────────────────┘</code></pre>
+
+<h2>完整代码</h2>
+
+<h3>Docker Compose 多实例部署 — docker-compose-scale.yml</h3>
+
+<pre><code class="language-yaml">version: &#x27;3.8&#x27;
+
+services:
+  nacos:
+    image: nacos/nacos-server:v2.3.2
+    environment:
+      MODE: standalone
+    ports:
+      - &quot;8848:8848&quot;
+
+  mysql:
+    image: mysql:8.0
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: user_service
+    volumes:
+      - mysql-data:/var/lib/mysql
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - &quot;6379:6379&quot;
+
+  # ✅ User service with multiple replicas
+  user-service:
+    build: .
+    environment:
+      NACOS_HOST: nacos
+      NACOS_PORT: 8848
+      DB_HOST: mysql
+      DB_PORT: 3306
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+    depends_on:
+      - nacos
+      - mysql
+      - redis
+    ports:
+      - &quot;9501-9503:9501&quot;  # Map 3 instances to ports 9501-9503
+    deploy:
+      replicas: 3
+      resources:
+        limits:
+          cpus: &#x27;1&#x27;
+          memory: 512M
+    healthcheck:
+      test: [&quot;CMD&quot;, &quot;curl&quot;, &quot;-f&quot;, &quot;http://localhost:9501/health/live&quot;]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 30s
+
+volumes:
+  mysql-data:</code></pre>
+
+<h3>优雅停机处理器 — GracefulShutdownHandler.php</h3>
+
+<pre><code class="language-php">&lt;?php
+
+declare(strict_types=1);
+
+namespace App\Handler;
+
+use Hyperf\Contract\ConfigInterface;
+use Hyperf\Server\Event\MainServerStart;
+use Psr\Log\LoggerInterface;
+use Swoole\Coroutine as Co;
+use Swoole\Process;
+use Swoole\Timer;
+
+class GracefulShutdownHandler
+{
+    private bool $shuttingDown = false;
+    private int $inFlightRequests = 0;
+    private int $shutdownTimeout = 30;  // 🟡 seconds to wait for in-flight requests
+
+    public function __construct(
+        private LoggerInterface $logger,
+        private ConfigInterface $config
+    ) {
+        $this-&gt;shutdownTimeout = (int) $this-&gt;config-&gt;get(&#x27;server.settings.graceful_shutdown_timeout&#x27;, 30);
+    }
+
+    /**
+     * ✅ Register signal handlers for graceful shutdown
+     */
+    public function register(): void
+    {
+        // 🟢 Listen for SIGTERM (sent by Docker/K8s)
+        Process::signal(SIGTERM, [$this, &#x27;handleShutdown&#x27;]);
+
+        // 🟡 Also handle SIGINT (Ctrl+C)
+        Process::signal(SIGINT, [$this, &#x27;handleShutdown&#x27;]);
+
+        $this-&gt;logger-&gt;info(&#x27;Graceful shutdown handlers registered&#x27;);
+    }
+
+    /**
+     * ✅ Handle shutdown signal
+     */
+    public function handleShutdown(int $signo): void
+    {
+        if ($this-&gt;shuttingDown) {
+            $this-&gt;logger-&gt;warning(&#x27;Shutdown already in progress, ignoring signal&#x27;);
+            return;
+        }
+
+        $this-&gt;shuttingDown = true;
+        $signal = $signo === SIGTERM ? &#x27;SIGTERM&#x27; : &#x27;SIGINT&#x27;;
+
+        $this-&gt;logger-&gt;info(&quot;Received {$signal}, starting graceful shutdown...&quot;);
+
+        // 🟡 Step 1: Set readiness to DOWN (stop accepting new traffic)
+        $this-&gt;setReadinessDown();
+
+        // 🟢 Step 2: Wait for in-flight requests
+        $this-&gt;waitForInFlightRequests();
+
+        // 🟡 Step 3: Deregister from Nacos
+        $this-&gt;deregisterFromNacos();
+
+        // 🟡 Step 4: Close connections
+        $this-&gt;closeConnections();
+
+        // 🟢 Step 5: Stop the server
+        $this-&gt;stopServer();
+    }
+
+    /**
+     * ✅ Increment in-flight request counter
+     */
+    public function incrementInFlightRequests(): void
+    {
+        $this-&gt;inFlightRequests++;
+    }
+
+    /**
+     * ✅ Decrement in-flight request counter
+     */
+    public function decrementInFlightRequests(): void
+    {
+        $this-&gt;inFlightRequests--;
+    }
+
+    /**
+     * ✅ Set readiness to DOWN to stop accepting new traffic
+     */
+    private function setReadinessDown(): void
+    {
+        $this-&gt;logger-&gt;info(&#x27;Setting readiness to DOWN...&#x27;);
+
+        // Update local health check state
+        $ready = false;  // This flag will be read by /health/ready endpoint
+
+        // Deregister from Nacos immediately to stop receiving new traffic
+        $this-&gt;deregisterFromNacos();
+
+        // Wait a moment for the deregistration to propagate
+        Co::sleep(2);
+
+        $this-&gt;logger-&gt;info(&#x27;Readiness set to DOWN&#x27;);
+    }
+
+    /**
+     * ✅ Wait for in-flight requests to complete
+     */
+    private function waitForInFlightRequests(): void
+    {
+        $startTime = time();
+
+        while ($this-&gt;inFlightRequests &gt; 0) {
+            $elapsed = time() - $startTime;
+
+            if ($elapsed &gt;= $this-&gt;shutdownTimeout) {
+                $this-&gt;logger-&gt;warning(&quot;Shutdown timeout reached, forcing exit with {$this-&gt;inFlightRequests} in-flight requests&quot;);
+                break;
+            }
+
+            $this-&gt;logger-&gt;info(&quot;Waiting for {$this-&gt;inFlightRequests} in-flight requests... ({$elapsed}s elapsed)&quot;);
+            Co::sleep(1);
+        }
+
+        $this-&gt;logger-&gt;info(&#x27;All in-flight requests completed&#x27;);
+    }
+
+    /**
+     * ✅ Deregister from Nacos
+     */
+    private function deregisterFromNacos(): void
+    {
+        $nacosHost = $this-&gt;config-&gt;get(&#x27;nacos.host&#x27;, &#x27;127.0.0.1&#x27;);
+        $nacosPort = $this-&gt;config-&gt;get(&#x27;nacos.port&#x27;, 8848);
+        $serviceName = $this-&gt;config-&gt;get(&#x27;app_name&#x27;, &#x27;user-service&#x27;);
+        $ip = $this-&gt;getLocalIp();
+        $port = $this-&gt;config-&gt;get(&#x27;server_port&#x27;, 9501);
+
+        $url = &quot;http://{$nacosHost}:{$nacosPort}/nacos/v1/ns/instance&quot;;
+        $data = http_build_query([
+            &#x27;serviceName&#x27; =&gt; $serviceName,
+            &#x27;ip&#x27; =&gt; $ip,
+            &#x27;port&#x27; =&gt; $port,
+            &#x27;ephemeral&#x27; =&gt; &#x27;true&#x27;,
+        ]);
+
+        $ctx = stream_context_create([
+            &#x27;http&#x27; =&gt; [
+                &#x27;method&#x27; =&gt; &#x27;DELETE&#x27;,
+                &#x27;header&#x27; =&gt; &#x27;Content-Type: application/x-www-form-urlencoded&#x27;,
+                &#x27;content&#x27; =&gt; $data,
+            ],
+        ]);
+
+        $response = @file_get_contents($url, false, $ctx);
+
+        if ($response === &#x27;ok&#x27;) {
+            $this-&gt;logger-&gt;info(&#x27;Deregistered from Nacos&#x27;);
+        } else {
+            $this-&gt;logger-&gt;error(&#x27;Failed to deregister from Nacos&#x27;, [&#x27;response&#x27; =&gt; $response]);
+        }
+    }
+
+    /**
+     * ✅ Close database and Redis connections
+     */
+    private function closeConnections(): void
+    {
+        $this-&gt;logger-&gt;info(&#x27;Closing connections...&#x27;);
+
+        // Close DB connections
+        $dbPool = $this-&gt;container-&gt;get(\Hyperf\DbConnection\Pool\PoolFactory::class);
+        // DB connections will be closed automatically when the process exits
+
+        // Close Redis connections
+        $redisPool = $this-&gt;container-&gt;get(\Hyperf\Redis\Pool\RedisPoolFactory::class);
+
+        $this-&gt;logger-&gt;info(&#x27;Connections closed&#x27;);
+    }
+
+    /**
+     * ✅ Stop the server
+     */
+    private function stopServer(): void
+    {
+        $this-&gt;logger-&gt;info(&#x27;Stopping server...&#x27;);
+
+        // Stop the Swoole server
+        $server = $this-&gt;container-&gt;get(\Swoole\Server::class);
+        $server-&gt;shutdown();
+
+        $this-&gt;logger-&gt;info(&#x27;Server stopped gracefully&#x27;);
+    }
+
+    private function getLocalIp(): string
+    {
+        // Get the IP address that should be used for Nacos registration
+        return env(&#x27;APP_INSTANCE_IP&#x27;, gethostbyname(gethostname()));
+    }
+}</code></pre>
+
+<h3>中间件 — 计数器 — InFlightMiddleware.php</h3>
+
+<pre><code class="language-php">&lt;?php
+
+declare(strict_types=1);
+
+namespace App\Middleware;
+
+use App\Handler\GracefulShutdownHandler;
+use Hyperf\Di\Annotation\Inject;
+use Hyperf\HttpServer\Contract\RequestInterface;
+use Hyperf\HttpServer\Contract\ResponseInterface;
+use Psr\Container\ContainerInterface;
+use Psr\Http\Message\ResponseInterface;
+use Psr\Http\Message\ServerRequestInterface;
+use Psr\Http\Server\MiddlewareInterface;
+use Psr\Http\Server\RequestHandlerInterface;
+
+class InFlightMiddleware implements MiddlewareInterface
+{
+    #[Inject]
+    private GracefulShutdownHandler $shutdownHandler;
+
+    public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
+    {
+        // 🟡 Increment in-flight counter
+        $this-&gt;shutdownHandler-&gt;incrementInFlightRequests();
+
+        try {
+            $response = $handler-&gt;handle($request);
+            return $response;
+        } finally {
+            // 🟢 Always decrement in-flight counter
+            $this-&gt;shutdownHandler-&gt;decrementInFlightRequests();
+        }
+    }
+}
+
+### 更新 HealthController 支持优雅停机</code></pre>
+<p><?php</p>
+
+<p>declare(strict_types=1);</p>
+
+<p>namespace App\Controller;</p>
+
+<p>use App\Handler\GracefulShutdownHandler;</p>
+<p>use Hyperf\Di\Annotation\Inject;</p>
+<p>use Hyperf\HttpServer\Annotation\Controller;</p>
+<p>use Hyperf\HttpServer\Annotation\GetMapping;</p>
+
+<p>#[Controller(prefix: '/health')]</p>
+<p>class HealthController</p>
+<p>{</p>
+<p>private bool $ready = true;</p>
+<p>#[Inject]</p>
+<p>private GracefulShutdownHandler $shutdownHandler;</p>
+
+<p>/**</p>
+<ul>
+<li>✅ Readiness check — returns DOWN during graceful shutdown</li>
+</ul>
+<p>*/</p>
+<p>#[GetMapping(path: '/ready')]</p>
+<p>public function readiness(): array</p>
+<p>{</p>
+<p>return [</p>
+<p>'status' => $this->ready ? 'UP' : 'DOWN',</p>
+<p>'timestamp' => time(),</p>
+<p>'reason' => $this->ready ? null : 'graceful_shutdown_in_progress',</p>
+<p>];</p>
+<p>}</p>
+
+<p>/**</p>
+<ul>
+<li>✅ Allow external trigger for graceful shutdown</li>
+</ul>
+<p>*/</p>
+<p>#[GetMapping(path: '/shutdown')]</p>
+<p>public function triggerShutdown(): array</p>
+<p>{</p>
+<p>// Only allow local requests</p>
+<p>if ($_SERVER['REMOTE_ADDR'] !== '127.0.0.1') {</p>
+<p>return ['code' => 403, 'message' => 'Forbidden'];</p>
+<p>}</p>
+
+<p>$this->ready = false;</p>
+<p>$this->shutdownHandler->handleShutdown(SIGTERM);</p>
+
+<p>return ['code' => 0, 'message' => 'Graceful shutdown triggered'];</p>
+<p>}</p>
+<p>}</p>
+<pre><code>
+### 滚动更新脚本 — rolling-update.sh
+</code></pre>
+<p>#!/bin/bash</p>
+<h1>✅ Rolling update script for user-service</h1>
+
+<p>set -e</p>
+
+<p>NACOS_HOST="localhost"</p>
+<p>NACOS_PORT="8848"</p>
+<p>SERVICE_NAME="user-service"</p>
+<p>NEW_VERSION="2.0.0"</p>
+<p>MAX_DOWNTIME=5  # Maximum instances allowed to be down</p>
+
+<p>echo "🚀 Starting rolling update to version {$NEW_VERSION}..."</p>
+
+<h1>Get current instances</h1>
+<p>INSTANCES=$(curl -s "http://${NACOS_HOST}:${NACOS_PORT}/nacos/v1/ns/instance/list?serviceName=${SERVICE_NAME}" | \</p>
+<p>jq -r '.hosts[] | "\(.ip):\(.port)"' 2>/dev/null || echo "")</p>
+
+<p>if [ -z "$INSTANCES" ]; then</p>
+<p>echo "❌ No instances found in Nacos"</p>
+<p>exit 1</p>
+<p>fi</p>
+
+<p>INSTANCE_COUNT=$(echo "$INSTANCES" | wc -l)</p>
+<p>echo "📋 Found {$INSTANCE_COUNT} instances"</p>
+
+<h1>Update each instance one by one</h1>
+<p>INDEX=0</p>
+<p>for INSTANCE in $INSTANCES; do</p>
+<p>INDEX=$((INDEX + 1))</p>
+<p>IP=$(echo "$INSTANCE" | cut -d: -f1)</p>
+<p>PORT=$(echo "$INSTANCE" | cut -d: -f2)</p>
+
+<p>echo ""</p>
+<p>echo "🔄 Updating instance {$INDEX}/{$INSTANCE_COUNT}: {$IP}:{$PORT}"</p>
+
+<p># 1. Stop accepting new traffic (readiness = DOWN)</p>
+<p>echo "   Setting readiness to DOWN..."</p>
+<p>curl -s "http://${IP}:${PORT}/health/shutdown" > /dev/null</p>
+
+<p># 2. Wait for in-flight requests</p>
+<p>echo "   Waiting for in-flight requests..."</p>
+<p>sleep 5</p>
+
+<p># 3. Deploy new version</p>
+<p>echo "   Deploying new version..."</p>
+<p>ssh root@${IP} "docker pull user-service:${NEW_VERSION} && docker stop user-service && docker run -d --name user-service -p 9501:9501 user-service:${NEW_VERSION}"</p>
+
+<p># 4. Wait for health check</p>
+<p>echo "   Waiting for health check..."</p>
+<p>for i in {1..30}; do</p>
+<p>if curl -sf "http://${IP}:${PORT}/health/ready" | grep -q '"status":"UP"'; then</p>
+<p>echo "   ✅ Instance healthy"</p>
+<p>break</p>
+<p>fi</p>
+<p>echo "   Waiting... ({$i}/30)"</p>
+<p>sleep 2</p>
+<p>done</p>
+
+<p>echo "   ✅ Instance updated"</p>
+<p>done</p>
+
+<p>echo ""</p>
+<p>echo "🎉 Rolling update complete!"</p>
+<pre><code>
+## 执行预览
+</code></pre>
+<h1>启动 3 个实例</h1>
+<p>$ docker-compose -f docker-compose-scale.yml up -d --scale user-service=3</p>
+<p>[+] Running 6 services</p>
+<p>✔ nacos          started</p>
+<p>✔ mysql          started</p>
+<p>✔ redis          started</p>
+<p>✔ user-service   started (x3)</p>
+
+<h1>查看实例状态</h1>
+<p>$ php check-registration.php</p>
+<p>📋 Service: user-service</p>
+<p>Instances: 3</p>
+
+<p>✅ 172.18.0.5:9501</p>
+<p>weight: 1</p>
+<p>healthy: true</p>
+<p>✅ 172.18.0.6:9501</p>
+<p>weight: 1</p>
+<p>healthy: true</p>
+<p>✅ 172.18.0.7:9501</p>
+<p>weight: 1</p>
+<p>healthy: true</p>
+
+<h1>触发优雅停机</h1>
+<p>$ curl http://localhost:9501/health/shutdown</p>
+<p>{"code":0,"message":"Graceful shutdown triggered"}</p>
+
+<h1>日志输出</h1>
+<p>[INFO] Received SIGTERM, starting graceful shutdown...</p>
+<p>[INFO] Setting readiness to DOWN...</p>
+<p>[INFO] Deregistered from Nacos</p>
+<p>[INFO] Waiting for 2 in-flight requests...</p>
+<p>[INFO] Waiting for 2 in-flight requests... (1s elapsed)</p>
+<p>[INFO] Waiting for 0 in-flight requests...</p>
+<p>[INFO] All in-flight requests completed</p>
+<p>[INFO] Closing connections...</p>
+<p>[INFO] Connections closed</p>
+<p>[INFO] Stopping server...</p>
+<p>[INFO] Server stopped gracefully</p>
+<pre><code>
+## 注意事项
+
+| 约束 | 说明 | 违反后果 |
+|------|------|----------|
+| 🔴 先停流量再停机 | 先设置 readiness=DOWN，等待流量清空 | 新请求被拒绝，请求丢失 |
+| 🟡 停机超时 | 设置最大等待时间（30s），避免永久阻塞 | 请求挂起导致实例无法退出 |
+| 🟢 注销 Nacos | 停机前主动注销，不要依赖心跳超时 | 其他服务继续调用已停止实例 |
+| 🔴 关闭连接 | 停机前关闭 DB/Redis 连接，释放资源 | 连接泄露 |
+| 🟡 滚动更新 | 每次只更新一部分实例（1/N），保留容量 | 全量更新导致服务不可用 |
+
+## 避坑指南
+
+| 错误 | 现象 | 正确做法 |
+|------|------|----------|
+| kill -9 强制停止 | 进程直接退出，请求丢失 | 发送 SIGTERM，等待优雅停机 |
+| 未注销 Nacos | 实例停了但仍在注册中心 | 停机前主动注销 |
+| 滚动更新太快 | 同时更新多个实例 | 每次只更新 1 个，等待就绪 |
+| 未关闭连接 | DB/Redis 连接未释放 | 停机前显式关闭连接池 |
+| 忘记超时设置 | 永久等待无法完成的请求 | 设置最大停机时间（30s） |
+
+## 练习题
+
+### 🟢 基础
+1. 启动 3 个用户服务实例，通过 Nacos 查询确认注册成功。
+2. 手动触发优雅停机，观察日志中的停机流程。
+
+### 🟡 进阶
+3. 编写一个脚本，自动将新实例注册到 Nacos，并设置更高的权重实现灰度发布。
+
+### 🔴 开放
+4. 设计一个自动扩缩容方案：当 CPU 使用率 &gt; 70% 时自动增加实例，&lt; 30% 时自动减少实例。
+
+## 知识点总结
+</code></pre>
+<p>多实例部署与优雅上下线</p>
+<p>├── 多实例部署</p>
+<p>│   ├── Docker Compose --scale</p>
+<p>│   ├── K8s Deployment replicas</p>
+<p>│   └── 负载均衡策略</p>
+<p>├── 优雅停机</p>
+<p>│   ├── 1. 接收 SIGTERM</p>
+<p>│   ├── 2. 停止接收新流量</p>
+<p>│   ├── 3. 等待处理完现有请求</p>
+<p>│   ├── 4. 注销 Nacos</p>
+<p>│   ├── 5. 关闭连接</p>
+<p>│   └── 6. 退出进程</p>
+<p>├── 滚动更新</p>
+<p>│   ├── 逐步更新实例</p>
+<p>│   ├── 健康检查验证</p>
+<p>│   └── 回滚机制</p>
+<p>└── K8s 集成</p>
+<p>├── Deployment rollingUpdate</p>
+<p>├── PodDisruptionBudget</p>
+<p>└── terminationGracePeriodSeconds</p>
+<pre><code>
+## 举一反三
+
+| 场景 | 适配方式 | 关键差异 |
+|------|----------|----------|
+| 零停机发布 | 蓝绿部署 + 流量切换 | 两套环境同时运行，切换流量 |
+| 金丝雀发布 | 灰度权重 + 监控 | 小流量验证后逐步放量 |
+| 突发流量 | 自动扩缩容（HPA） | K8s HPA 自动调节副本数 |
+
+## 参考资料
+
+- ⭐⭐⭐ [Hyperf 进程信号处理](https://hyperf.wiki/3.1/#/zh-cn/process)
+- ⭐⭐⭐ [Docker 优雅停机](https://docs.docker.com/engine/reference/commandline/stop/)
+- ⭐⭐ [K8s Deployment 更新策略](https://kubernetes.io/docs/concepts/workloads/controllers/deployment/)
+
+## 代码演进
+
+### v1 ❌ 直接停止进程
+</code></pre>
+<h1>❌ Kill process directly — requests dropped</h1>
+<p>docker stop user-service</p>
+<h1>or</h1>
+<p>kill -9 $(pgrep -f hyperf)</p>
+<pre><code>
+### v2 ✅ 简单优雅停机
+</code></pre>
+<p>// ✅ Wait before shutdown</p>
+<p>register_shutdown_function(function () {</p>
+<p>sleep(5);  // Wait for in-flight requests</p>
+<p>exit(0);</p>
+<p>});</p>
+<pre><code>
+### v3 🟢 完整优雅停机体系
+</code></pre>
+<p>// 🟢 Full graceful shutdown with signal handling</p>
+<p>class GracefulShutdownHandler</p>
+<p>{</p>
+<p>public function handleShutdown(): void</p>
+<p>{</p>
+<p>$this->setReadinessDown();       // Stop new traffic</p>
+<p>$this->waitForInFlightRequests(); // Wait for current requests</p>
+<p>$this->deregisterFromNacos();     // Unregister from Nacos</p>
+<p>$this->closeConnections();        // Cleanup resources</p>
+<p>$this->stopServer();             // Exit gracefully</p>
+<p>}</p>
+<p>}</p>
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

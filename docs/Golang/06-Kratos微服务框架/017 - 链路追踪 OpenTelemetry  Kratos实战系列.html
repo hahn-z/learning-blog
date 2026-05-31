@@ -1,0 +1,549 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>017 - 链路追踪 OpenTelemetry | Kratos实战系列</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Golang/index.html">Golang</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Golang/06-Kratos微服务框架/index.html">Kratos框架</a>
+</nav>
+<h1>017 - 链路追踪 OpenTelemetry | Kratos实战系列</h1>
+<div class="meta">
+<span>📂 Kratos框架</span>
+<span>🏷️ Golang</span>
+</div>
+<article>
+
+
+<h1>链路追踪 OpenTelemetry</h1>
+
+<blockquote><p><strong>难度：</strong> ⭐⭐⭐⭐ | <strong>预计阅读：</strong> 18 分钟<br><br>在 Kratos 微服务中集成 OpenTelemetry，实现全链路追踪：从 HTTP/gRPC 入口到数据库查询，跨服务调用一目了然。</p></blockquote>
+
+<hr>
+
+<h2>1. 概念讲解</h2>
+
+<h3>什么是链路追踪？</h3>
+
+<p>微服务架构下一个请求可能经过多个服务，链路追踪（Distributed Tracing）记录请求在每个服务的耗时和状态，帮助定位性能瓶颈和故障根因。</p>
+
+<p>核心概念：</p>
+
+<table><thead><tr>
+<th>概念</th>
+<th>说明</th>
+</tr></thead><tbody>
+<tr>
+<td>Trace</td>
+<td>一次完整请求链路，包含多个 Span</td>
+</tr>
+<tr>
+<td>Span</td>
+<td>一个操作单元（如一次 HTTP 请求、一次 DB 查询）</td>
+</tr>
+<tr>
+<td>Context</td>
+<td>追踪上下文，在服务间传播（TraceID + SpanID）</td>
+</tr>
+<tr>
+<td>Sampler</td>
+<td>采样策略，控制哪些请求被追踪</td>
+</tr>
+</tbody></table>
+
+<h3>为什么选 OpenTelemetry？</h3>
+
+<p>OpenTelemetry 是 CNCF 的可观测性标准，合并了 OpenTracing 和 OpenCensus，提供统一的 API 用于 traces、metrics、logs。它是行业事实标准。</p>
+
+<h3>Kratos + OTel 集成点</h3>
+
+<pre><code>Client → [Kratos HTTP/gRPC Server] → [Service Layer] → [Data Layer → DB]
+              ↑ OTel Middleware              ↑ Manual Span       ↑ Auto Instrument</code></pre>
+
+<hr>
+
+<h2>2. 脑图</h2>
+
+<pre><code>OpenTelemetry 集成
+├── 基础概念
+│   ├── Trace / Span / Context
+│   ├── W3C TraceContext 传播
+│   └── Baggage 机制
+├── Kratos 集成
+│   ├── kratos/middleware/tracing
+│   ├── HTTP Server Provider
+│   └── gRPC Server Provider
+├── Jaeger 部署
+│   ├── All-in-one (开发)
+│   ├── Production (Collector + Agent)
+│   └── 存储后端 (Elasticsearch)
+├── 采样策略
+│   ├── AlwaysOn
+│   ├── TraceIDRatioBased
+│   └── ParentBased
+├── 自定义 Span
+│   ├── 手动创建 Span
+│   ├── 添加 Attributes/Events
+│   └── 记录错误
+└── 可视化分析
+    ├── Jaeger UI
+    ├── 服务依赖图
+    └── 慢查询定位</code></pre>
+
+<hr>
+
+<h2>3. 完整 Go 代码</h2>
+
+<h3>v1 — 基础 OTel + Jaeger 集成</h3>
+
+<pre><code class="language-go">// go.mod dependencies:
+// go.opentelemetry.io/otel
+// go.opentelemetry.io/otel/exporters/jaeger
+// go.opentelemetry.io/otel/sdk/trace
+// github.com/go-kratos/kratos/v2/middleware/tracing
+
+// cmd/server/main.go — OTel initialization
+package main
+
+import (
+	&quot;context&quot;
+	&quot;log&quot;
+
+	&quot;github.com/go-kratos/kratos/v2&quot;
+	&quot;github.com/go-kratos/kratos/v2/middleware/tracing&quot;
+	&quot;go.opentelemetry.io/otel&quot;
+	&quot;go.opentelemetry.io/otel/exporters/jaeger&quot;
+	sdktrace &quot;go.opentelemetry.io/otel/sdk/trace&quot;
+	&quot;go.opentelemetry.io/otel/propagation&quot;
+)
+
+// initTracer creates a Jaeger exporter and registers the tracer provider
+func initTracer(url string) (func(context.Context), error) {
+	exp, err := jaeger.New(jaeger.WithCollectorEndpoint(jaeger.WithEndpoint(url)))
+	if err != nil {
+		return nil, err
+	}
+
+	tp := sdktrace.NewTracerProvider(
+		sdktrace.WithSampler(sdktrace.AlwaysSample()),
+		sdktrace.WithBatcher(exp),
+	)
+
+	otel.SetTracerProvider(tp)
+	otel.SetTextMapPropagator(propagation.NewCompositeTextMapPropagator(
+		propagation.TraceContext{},
+		propagation.Baggage{},
+	))
+
+	return tp.Shutdown, nil
+}
+
+func main() {
+	shutdown, err := initTracer(&quot;http://localhost:14268/api/traces&quot;)
+	if err != nil {
+		log.Fatalf(&quot;init tracer failed: %v&quot;, err)
+	}
+	defer shutdown(context.Background())
+
+	// Use tracing middleware in Kratos server
+	httpSrv := http.NewServer(
+		http.Address(&quot;:8000&quot;),
+		http.Middleware(
+			tracing.Server(),
+		),
+	)
+
+	app := kratos.New(kratos.Server(httpSrv))
+	if err := app.Run(); err != nil {
+		log.Fatal(err)
+	}
+}</code></pre>
+
+<h3>v2 — 跨服务追踪 + 自定义 Span</h3>
+
+<pre><code class="language-go">// internal/service/user.go — add custom spans
+package service
+
+import (
+	&quot;context&quot;
+	&quot;fmt&quot;
+
+	&quot;go.opentelemetry.io/otel&quot;
+	&quot;go.opentelemetry.io/otel/attribute&quot;
+	&quot;go.opentelemetry.io/otel/codes&quot;
+)
+
+type UserService struct {
+	v1.UnimplementedUserHTTPServer
+	uc *biz.UserUsecase
+}
+
+func (s *UserService) GetUser(ctx context.Context, req *v1.GetUserReq) (*v1.GetUserReply, error) {
+	// Create custom span for business logic
+	ctx, span := otel.Tracer(&quot;user-service&quot;).Start(ctx, &quot;GetUser&quot;)
+	defer span.End()
+
+	// Add attributes
+	span.SetAttributes(attribute.Int64(&quot;user.id&quot;, req.Id))
+
+	user, err := s.uc.GetUser(ctx, req.Id)
+	if err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
+		return nil, err
+	}
+
+	// Add event
+	span.AddEvent(&quot;user.found&quot;, attribute.Int64(&quot;user.id&quot;, user.ID))
+	return &amp;v1.GetUserReply{User: user}, nil
+}</code></pre>
+
+<pre><code class="language-go">// internal/data/user.go — trace DB queries
+package data
+
+import (
+	&quot;context&quot;
+	semconv &quot;go.opentelemetry.io/otel/semconv/v1.20.0&quot;
+	&quot;go.opentelemetry.io/otel/attribute&quot;
+	&quot;go.opentelemetry.io/otel&quot;
+)
+
+func (r *userRepo) GetUser(ctx context.Context, id int64) (*biz.User, error) {
+	ctx, span := otel.Tracer(&quot;data-layer&quot;).Start(ctx, &quot;SELECT user&quot;,
+		attribute.String(&quot;db.system&quot;, &quot;mysql&quot;),
+		attribute.String(&quot;db.statement&quot;, &quot;SELECT * FROM users WHERE id = ?&quot;),
+	)
+	defer span.End()
+
+	var user biz.User
+	err := r.data.db.WithContext(ctx).First(&amp;user, id).Error
+	if err != nil {
+		span.RecordError(err)
+		return nil, err
+	}
+	return &amp;user, nil
+}</code></pre>
+
+<h3>v3 — 采样策略 + gRPC 跨服务传播</h3>
+
+<pre><code class="language-go">// cmd/server/main.go — production-grade tracing setup
+func initTracerProd(url string) (func(context.Context), error) {
+	exp, err := jaeger.New(jaeger.WithCollectorEndpoint(jaeger.WithEndpoint(url)))
+	if err != nil {
+		return nil, err
+	}
+
+	// Production sampling: 10% + errors always sampled
+	sampler := sdktrace.ParentBased(
+		sdktrace.TraceIDRatioBased(0.1),  // Sample 10% of new traces
+	)
+
+	tp := sdktrace.NewTracerProvider(
+		sdktrace.WithSampler(sampler),
+		sdktrace.WithBatcher(exp,
+			sdktrace.WithMaxExportBatchSize(512),
+			sdktrace.WithBatchTimeout(5*time.Second),
+		),
+		sdktrace.WithResource(resource.NewWithAttributes(
+			semconv.SchemaURL,
+			semconv.ServiceNameKey.String(&quot;user-service&quot;),
+			semconv.ServiceVersionKey.String(&quot;1.0.0&quot;),
+		)),
+	)
+
+	otel.SetTracerProvider(tp)
+	otel.SetTextMapPropagator(propagation.NewCompositeTextMapPropagator(
+		propagation.TraceContext{},
+		propagation.Baggage{},
+	))
+
+	return tp.Shutdown, nil
+}</code></pre>
+
+<pre><code class="language-go">// gRPC client with tracing propagation
+import (
+	grpcTracer &quot;go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc&quot;
+	&quot;google.golang.org/grpc&quot;
+)
+
+func NewOrderGRPCClient(addr string) v1.OrderServiceClient {
+	conn, err := grpc.Dial(addr,
+		grpc.WithDefaultServiceConfig(`{&quot;loadBalancingPolicy&quot;:&quot;round_robin&quot;}`),
+		grpc.WithStatsHandler(otelgrpc.NewClientHandler()),
+	)
+	if err != nil {
+		panic(err)
+	}
+	return v1.NewOrderServiceClient(conn)
+}</code></pre>
+
+<hr>
+
+<h2>4. 执行预览</h2>
+
+<pre><code class="language-bash"># Start Jaeger all-in-one
+$ docker run -d --name jaeger \
+  -p 16686:16686 -p 14268:14268 \
+  jaegertracing/all-in-one:1.52
+
+# Start service
+$ JAEGER_URL=http://localhost:14268/api/traces go run cmd/server/main.go
+
+# Make requests
+$ curl http://localhost:8000/user/1
+{&quot;id&quot;:1,&quot;name&quot;:&quot;Alice&quot;}
+
+# Open Jaeger UI → http://localhost:16686
+# Search by service &quot;user-service&quot; → see full trace with spans:
+#   - kratos.Server GetUser (HTTP)
+#     ├── GetUser (business logic)
+#     │   └── SELECT user (DB query)  2.3ms
+#     └── Serialize response</code></pre>
+
+<hr>
+
+<h2>5. 注意事项</h2>
+
+<table><thead><tr>
+<th>项目</th>
+<th>说明</th>
+</tr></thead><tbody>
+<tr>
+<td>Propagator</td>
+<td>必须设置 W3C TraceContext，否则跨服务传播失效</td>
+</tr>
+<tr>
+<td>采样率</td>
+<td>开发环境 AlwaysSample，生产建议 1%-10%</td>
+</tr>
+<tr>
+<td>Batch 导出</td>
+<td>用 Batcher 而非同步导出，避免阻塞请求</td>
+</tr>
+<tr>
+<td>Span 命名</td>
+<td>用 <code>类名.方法名</code> 格式，便于搜索</td>
+</tr>
+<tr>
+<td>Resource</td>
+<td>标注 service.name 和 version，区分不同服务</td>
+</tr>
+<tr>
+<td>错误记录</td>
+<td>用 <code>RecordError</code> + <code>SetStatus(Error)</code> 标记异常</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>6. 避坑指南</h2>
+
+<table><thead><tr>
+<th>❌ 错误做法</th>
+<th>✅ 正确做法</th>
+</tr></thead><tbody>
+<tr>
+<td>生产环境 AlwaysSample</td>
+<td>使用 ParentBased + TraceIDRatioBased 采样</td>
+</tr>
+<tr>
+<td>不设置 TextMapPropagator</td>
+<td>必须设置 W3C TraceContext 传播器</td>
+</tr>
+<tr>
+<td>用 SimpleSpanProcessor 同步导出</td>
+<td>用 BatchSpanProcessor 批量异步导出</td>
+</tr>
+<tr>
+<td>忘记 <code>defer span.End()</code></td>
+<td>每个 Span 必须 End，否则不会导出</td>
+</tr>
+<tr>
+<td>Context 丢失（goroutine 内未传递 ctx）</td>
+<td>所有 goroutine/调用链传递 ctx</td>
+</tr>
+<tr>
+<td>Resource 为空</td>
+<td>添加 service.name 等属性标识来源</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>7. 练习题</h2>
+
+<h3>🟢 Easy</h3>
+<ol>
+<li>启动 Jaeger，在 Kratos 服务中添加 tracing 中间件，查看 trace</li>
+</ul>
+<ol>
+<li>给一个 API 添加自定义 Span，设置 Attributes</li>
+
+<h3>🟡 Medium</h3>
+<ol>
+<li>实现两个 gRPC 服务的跨服务追踪，验证 TraceID 一致</li>
+</ul>
+<ol>
+<li>配置 ParentBased 采样策略，父 span 被采样时子 span 也采样</li>
+
+<h3>🔴 Hard</h3>
+<ol>
+<li>实现自定义 Sampler：对所有错误请求 100% 采样，正常请求 1% 采样</li>
+</ul>
+<ol>
+<li>集成 OTel + Prometheus + Loki，实现 Traces ↔ Metrics ↔ Logs 关联</li>
+
+<hr>
+
+<h2>8. 知识点总结</h2>
+
+<pre><code>OpenTelemetry 链路追踪
+├── 核心概念
+│   ├── Trace (一次请求链路)
+│   ├── Span (操作单元)
+│   └── Context (传播载体)
+├── Kratos 集成
+│   ├── tracing.Server() 中间件
+│   ├── HTTP/gRPC 自动注入
+│   └── 自定义 Span 创建
+├── 传播机制
+│   ├── W3C TraceContext
+│   ├── gRPC metadata
+│   └── HTTP headers
+├── 采样策略
+│   ├── AlwaysOn / AlwaysOff
+│   ├── TraceIDRatioBased
+│   └── ParentBased
+└── 可视化
+    ├── Jaeger UI
+    ├── 服务拓扑图
+    └── 延迟热力图</code></pre>
+
+<hr>
+
+<h2>9. 举一反三</h2>
+
+<table><thead><tr>
+<th>本文学到的</th>
+<th>可应用到</th>
+</tr></thead><tbody>
+<tr>
+<td>OTel SDK 初始化</td>
+<td>所有 Go 微服务</td>
+</tr>
+<tr>
+<td>Context 传播</td>
+<td>任何需要链路信息的中间件（日志、鉴权）</td>
+</tr>
+<tr>
+<td>自定义 Span</td>
+<td>第三方调用（支付、短信、OSS）追踪</td>
+</tr>
+<tr>
+<td>采样策略</td>
+<td>日志采样、Metrics 聚合</td>
+</tr>
+<tr>
+<td>Batcher 批量导出</td>
+<td>批量写入 DB/Kafka 等场景</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>10. 参考资料</h2>
+
+<ul>
+<li><a href="https://github.com/open-telemetry/opentelemetry-go">OpenTelemetry Go SDK</a></li>
+<li><a href="https://github.com/go-kratos/kratos/tree/main/middleware/tracing">Kratos tracing 中间件</a></li>
+<li><a href="https://www.jaegertracing.io/docs/">Jaeger 官方文档</a></li>
+<li><a href="https://www.w3.org/TR/trace-context/">W3C TraceContext 规范</a></li>
+
+<hr>
+
+<h2>11. 代码演进</h2>
+
+<table><thead><tr>
+<th>版本</th>
+<th>内容</th>
+<th>适用场景</th>
+</tr></thead><tbody>
+<tr>
+<td>v1</td>
+<td>基础 OTel + Jaeger + Kratos tracing 中间件</td>
+<td>开发环境、快速验证</td>
+</tr>
+<tr>
+<td>v2</td>
+<td>自定义 Span + 跨服务追踪 + 错误记录</td>
+<td>生产环境基础版</td>
+</tr>
+<tr>
+<td>v3</td>
+<td>采样策略 + Resource 标注 + gRPC 传播</td>
+<td>生产环境完整版</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<p>_没有链路追踪的微服务，就像没有地图的迷宫。_ 🔍</p>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

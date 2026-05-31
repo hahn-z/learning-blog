@@ -1,0 +1,1120 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>018 - Express RESTful API</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Node.js/index.html">Node.js</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Node.js/01-入门/index.html">Node.js入门</a>
+</nav>
+<h1>018 - Express RESTful API</h1>
+<div class="meta">
+<span>📂 Node.js入门</span>
+<span>🏷️ Node.js</span>
+</div>
+<article>
+
+
+<h1>Express RESTful API</h1>
+
+<blockquote><p><strong>难度标注：</strong> ⭐⭐⭐ 中级 | 适合有Express和路由基础的开发者<br><strong>阅读时间：</strong> 约22分钟 | <strong>上手时间：</strong> 约40分钟</p></blockquote>
+
+<hr>
+
+<h2>一、概念讲解</h2>
+
+<h3>什么是REST？</h3>
+
+<p>REST（Representational State Transfer）是一种软件架构风格，不是协议也不是标准。它定义了一组约束，用于创建Web服务。</p>
+
+<p><strong>核心原则：</strong></p>
+<ol>
+<li><strong>资源（Resource）</strong> — 一切皆资源，用URL标识（如 <code>/users</code>, <code>/posts</code>）</li>
+</ul>
+<ol>
+<li><strong>HTTP方法（Verb）</strong> — 用HTTP方法表达操作意图</li>
+</ul>
+<ol>
+<li><strong>无状态（Stateless）</strong> — 每个请求包含所有必要信息</li>
+</ul>
+<ol>
+<li><strong>统一接口（Uniform Interface）</strong> — 一致的URL和响应格式</li>
+
+<h3>HTTP方法映射CRUD</h3>
+
+<table><thead><tr>
+<th>HTTP方法</th>
+<th>CRUD操作</th>
+<th>路径示例</th>
+<th>说明</th>
+</tr></thead><tbody>
+<tr>
+<td>GET</td>
+<td>Read</td>
+<td><code>GET /users</code></td>
+<td>获取列表</td>
+</tr>
+<tr>
+<td>GET</td>
+<td>Read</td>
+<td><code>GET /users/1</code></td>
+<td>获取单个</td>
+</tr>
+<tr>
+<td>POST</td>
+<td>Create</td>
+<td><code>POST /users</code></td>
+<td>创建</td>
+</tr>
+<tr>
+<td>PUT</td>
+<td>Update</td>
+<td><code>PUT /users/1</code></td>
+<td>全量更新</td>
+</tr>
+<tr>
+<td>PATCH</td>
+<td>Update</td>
+<td><code>PATCH /users/1</code></td>
+<td>部分更新</td>
+</tr>
+<tr>
+<td>DELETE</td>
+<td>Delete</td>
+<td><code>DELETE /users/1</code></td>
+<td>删除</td>
+</tr>
+</tbody></table>
+
+<h3>RESTful API 设计原则</h3>
+
+<pre><code># 好的设计 ✅
+GET    /api/v1/users          → 获取用户列表
+POST   /api/v1/users          → 创建用户
+GET    /api/v1/users/123      → 获取指定用户
+PUT    /api/v1/users/123      → 更新指定用户
+DELETE /api/v1/users/123      → 删除指定用户
+
+# 坏的设计 ❌
+POST   /api/getUsers          → 动词不应该在URL中
+POST   /api/deleteUser/123    → 用DELETE方法
+GET    /api/user?action=list   → 用路径而非查询参数</code></pre>
+
+<h3>统一响应格式</h3>
+
+<pre><code class="language-json">// 成功 - 列表
+{
+  &quot;success&quot;: true,
+  &quot;data&quot;: [{ &quot;id&quot;: 1, &quot;name&quot;: &quot;Alice&quot; }],
+  &quot;pagination&quot;: { &quot;page&quot;: 1, &quot;pageSize&quot;: 10, &quot;total&quot;: 100 }
+}
+
+// 成功 - 单个
+{
+  &quot;success&quot;: true,
+  &quot;data&quot;: { &quot;id&quot;: 1, &quot;name&quot;: &quot;Alice&quot; }
+}
+
+// 失败
+{
+  &quot;success&quot;: false,
+  &quot;error&quot;: { &quot;code&quot;: &quot;VALIDATION_ERROR&quot;, &quot;message&quot;: &quot;Name is required&quot; }
+}</code></pre>
+
+<hr>
+
+<h2>二、脑图（ASCII）</h2>
+
+<pre><code>Express RESTful API
+├── REST原则
+│   ├── 资源导向 (名词URL)
+│   ├── HTTP方法 (动词操作)
+│   ├── 无状态
+│   └── 统一接口
+├── API设计
+│   ├── URL设计 /api/v1/resource
+│   ├── 状态码 200/201/204/400/404/500
+│   ├── 响应格式 JSON
+│   └── 版本控制 v1/v2
+├── 核心功能
+│   ├── CRUD操作
+│   ├── 分页 /users?page=1&amp;limit=10
+│   ├── 过滤 /users?role=admin
+│   ├── 排序 /users?sort=-createdAt
+│   └── 搜索 /users?q=alice
+├── 中间件
+│   ├── 参数校验
+│   ├── 错误处理
+│   ├── 日志记录
+│   └── 认证授权
+└── 测试
+    ├── 单元测试
+    └── 集成测试 (supertest)</code></pre>
+
+<hr>
+
+<h2>三、完整代码</h2>
+
+<h3>v1：基础CRUD API</h3>
+
+<pre><code class="language-javascript">// v1-basic-crud.js - Basic CRUD RESTful API
+const express = require(&#x27;express&#x27;);
+const app = express();
+const PORT = 3000;
+
+// Middleware
+app.use(express.json());
+
+// In-memory data store
+let todos = [
+  { id: 1, title: &#x27;Learn Express&#x27;, completed: false, createdAt: &#x27;2026-04-28T08:00:00Z&#x27; },
+  { id: 2, title: &#x27;Build REST API&#x27;, completed: false, createdAt: &#x27;2026-04-29T08:00:00Z&#x27; },
+  { id: 3, title: &#x27;Write tests&#x27;, completed: true, createdAt: &#x27;2026-04-30T08:00:00Z&#x27; }
+];
+let nextId = 4;
+
+// GET /api/todos - List all todos (with filtering)
+app.get(&#x27;/api/todos&#x27;, (req, res) =&gt; {
+  let result = [...todos];
+  
+  // Filter by completed status
+  if (req.query.completed !== undefined) {
+    const completed = req.query.completed === &#x27;true&#x27;;
+    result = result.filter(t =&gt; t.completed === completed);
+  }
+  
+  // Search by title
+  if (req.query.q) {
+    const query = req.query.q.toLowerCase();
+    result = result.filter(t =&gt; t.title.toLowerCase().includes(query));
+  }
+  
+  res.json({ success: true, data: result, total: result.length });
+});
+
+// GET /api/todos/:id - Get single todo
+app.get(&#x27;/api/todos/:id&#x27;, (req, res) =&gt; {
+  const todo = todos.find(t =&gt; t.id === parseInt(req.params.id));
+  if (!todo) {
+    return res.status(404).json({
+      success: false,
+      error: { code: &#x27;NOT_FOUND&#x27;, message: `Todo with id ${req.params.id} not found` }
+    });
+  }
+  res.json({ success: true, data: todo });
+});
+
+// POST /api/todos - Create todo
+app.post(&#x27;/api/todos&#x27;, (req, res) =&gt; {
+  const { title } = req.body;
+  if (!title || title.trim().length === 0) {
+    return res.status(400).json({
+      success: false,
+      error: { code: &#x27;VALIDATION_ERROR&#x27;, message: &#x27;Title is required&#x27; }
+    });
+  }
+  
+  const todo = {
+    id: nextId++,
+    title: title.trim(),
+    completed: false,
+    createdAt: new Date().toISOString()
+  };
+  todos.push(todo);
+  res.status(201).json({ success: true, data: todo });
+});
+
+// PUT /api/todos/:id - Update todo (full replacement)
+app.put(&#x27;/api/todos/:id&#x27;, (req, res) =&gt; {
+  const todo = todos.find(t =&gt; t.id === parseInt(req.params.id));
+  if (!todo) {
+    return res.status(404).json({
+      success: false,
+      error: { code: &#x27;NOT_FOUND&#x27;, message: `Todo with id ${req.params.id} not found` }
+    });
+  }
+  
+  const { title, completed } = req.body;
+  if (title !== undefined) todo.title = title;
+  if (completed !== undefined) todo.completed = completed;
+  todo.updatedAt = new Date().toISOString();
+  
+  res.json({ success: true, data: todo });
+});
+
+// DELETE /api/todos/:id - Delete todo
+app.delete(&#x27;/api/todos/:id&#x27;, (req, res) =&gt; {
+  const index = todos.findIndex(t =&gt; t.id === parseInt(req.params.id));
+  if (index === -1) {
+    return res.status(404).json({
+      success: false,
+      error: { code: &#x27;NOT_FOUND&#x27;, message: `Todo with id ${req.params.id} not found` }
+    });
+  }
+  
+  const deleted = todos.splice(index, 1)[0];
+  res.json({ success: true, data: deleted });
+});
+
+// 404 handler
+app.use((req, res) =&gt; {
+  res.status(404).json({
+    success: false,
+    error: { code: &#x27;NOT_FOUND&#x27;, message: `Route ${req.method} ${req.url} not found` }
+  });
+});
+
+// Error handler
+app.use((err, req, res, next) =&gt; {
+  console.error(err.stack);
+  res.status(500).json({
+    success: false,
+    error: { code: &#x27;INTERNAL_ERROR&#x27;, message: &#x27;Something went wrong&#x27; }
+  });
+});
+
+app.listen(PORT, () =&gt; {
+  console.log(`REST API running at http://localhost:${PORT}`);
+});</code></pre>
+
+<h3>v2：分层架构 + 分页</h3>
+
+<pre><code class="language-javascript">// v2-layered-api.js - Layered architecture with pagination
+const express = require(&#x27;express&#x27;);
+const cors = require(&#x27;cors&#x27;);
+const morgan = require(&#x27;morgan&#x27;);
+const app = express();
+const PORT = 3000;
+
+// Middleware
+app.use(cors());
+app.use(morgan(&#x27;combined&#x27;));
+app.use(express.json());
+
+// =============================================
+// Data Layer - Simulated database operations
+// =============================================
+class Database {
+  constructor() {
+    this.data = new Map();
+    this.nextId = 1;
+  }
+
+  findAll({ page = 1, limit = 10, sort, filter = {} } = {}) {
+    let results = Array.from(this.data.values());
+    
+    // Apply filters
+    Object.entries(filter).forEach(([key, value]) =&gt; {
+      if (value !== undefined) {
+        results = results.filter(item =&gt; {
+          if (typeof item[key] === &#x27;string&#x27;) {
+            return item[key].toLowerCase().includes(String(value).toLowerCase());
+          }
+          return item[key] == value;
+        });
+      }
+    });
+    
+    const total = results.length;
+    
+    // Sort
+    if (sort) {
+      const desc = sort.startsWith(&#x27;-&#x27;);
+      const field = desc ? sort.slice(1) : sort;
+      results.sort((a, b) =&gt; {
+        const cmp = a[field] &gt; b[field] ? 1 : a[field] &lt; b[field] ? -1 : 0;
+        return desc ? -cmp : cmp;
+      });
+    }
+    
+    // Paginate
+    const start = (page - 1) * limit;
+    results = results.slice(start, start + limit);
+    
+    return { data: results, pagination: { page, limit, total, totalPages: Math.ceil(total / limit) } };
+  }
+
+  findById(id) {
+    return this.data.get(Number(id)) || null;
+  }
+
+  create(item) {
+    const id = this.nextId++;
+    const record = { id, ...item, createdAt: new Date().toISOString() };
+    this.data.set(id, record);
+    return record;
+  }
+
+  update(id, updates) {
+    const existing = this.data.get(Number(id));
+    if (!existing) return null;
+    const updated = { ...existing, ...updates, updatedAt: new Date().toISOString() };
+    this.data.set(Number(id), updated);
+    return updated;
+  }
+
+  delete(id) {
+    const deleted = this.data.get(Number(id));
+    if (!deleted) return null;
+    this.data.delete(Number(id));
+    return deleted;
+  }
+}
+
+// =============================================
+// Service Layer - Business logic
+// =============================================
+class TodoService {
+  constructor(db) {
+    this.db = db;
+  }
+
+  list(options = {}) {
+    return this.db.findAll(options);
+  }
+
+  getById(id) {
+    const todo = this.db.findById(id);
+    if (!todo) throw new ApiError(404, &#x27;NOT_FOUND&#x27;, `Todo ${id} not found`);
+    return todo;
+  }
+
+  create(data) {
+    if (!data.title || data.title.trim().length &lt; 1) {
+      throw new ApiError(400, &#x27;VALIDATION_ERROR&#x27;, &#x27;Title is required&#x27;);
+    }
+    return this.db.create({ title: data.title.trim(), completed: false, priority: data.priority || &#x27;medium&#x27; });
+  }
+
+  update(id, data) {
+    this.getById(id); // Check existence, throws if not found
+    return this.db.update(id, data);
+  }
+
+  delete(id) {
+    const todo = this.getById(id);
+    this.db.delete(id);
+    return todo;
+  }
+}
+
+// Custom error class
+class ApiError extends Error {
+  constructor(status, code, message) {
+    super(message);
+    this.status = status;
+    this.code = code;
+  }
+}
+
+// =============================================
+// Controller Layer - Route handlers
+// =============================================
+const db = new Database();
+const todoService = new TodoService(db);
+
+// Seed data
+db.create({ title: &#x27;Learn REST API design&#x27;, completed: false, priority: &#x27;high&#x27; });
+db.create({ title: &#x27;Implement CRUD operations&#x27;, completed: false, priority: &#x27;medium&#x27; });
+db.create({ title: &#x27;Add pagination&#x27;, completed: true, priority: &#x27;low&#x27; });
+db.create({ title: &#x27;Write API documentation&#x27;, completed: false, priority: &#x27;high&#x27; });
+db.create({ title: &#x27;Add input validation&#x27;, completed: true, priority: &#x27;medium&#x27; });
+
+// GET /api/v1/todos
+const listTodos = (req, res, next) =&gt; {
+  try {
+    const { page = 1, limit = 10, sort, q, completed, priority } = req.query;
+    const filter = {};
+    if (q) filter.title = q;
+    if (completed !== undefined) filter.completed = completed === &#x27;true&#x27;;
+    if (priority) filter.priority = priority;
+    
+    const result = todoService.list({ page: Number(page), limit: Number(limit), sort, filter });
+    res.json({ success: true, ...result });
+  } catch (err) { next(err); }
+};
+
+// GET /api/v1/todos/:id
+const getTodo = (req, res, next) =&gt; {
+  try {
+    const todo = todoService.getById(req.params.id);
+    res.json({ success: true, data: todo });
+  } catch (err) { next(err); }
+};
+
+// POST /api/v1/todos
+const createTodo = (req, res, next) =&gt; {
+  try {
+    const todo = todoService.create(req.body);
+    res.status(201).json({ success: true, data: todo });
+  } catch (err) { next(err); }
+};
+
+// PUT /api/v1/todos/:id
+const updateTodo = (req, res, next) =&gt; {
+  try {
+    const todo = todoService.update(req.params.id, req.body);
+    res.json({ success: true, data: todo });
+  } catch (err) { next(err); }
+};
+
+// DELETE /api/v1/todos/:id
+const deleteTodo = (req, res, next) =&gt; {
+  try {
+    const todo = todoService.delete(req.params.id);
+    res.json({ success: true, data: todo });
+  } catch (err) { next(err); }
+};
+
+// =============================================
+// Routes
+// =============================================
+const router = express.Router();
+
+router.route(&#x27;/todos&#x27;)
+  .get(listTodos)
+  .post(createTodo);
+
+router.route(&#x27;/todos/:id&#x27;)
+  .get(getTodo)
+  .put(updateTodo)
+  .delete(deleteTodo);
+
+// Mount with version prefix
+app.use(&#x27;/api/v1&#x27;, router);
+
+// Root endpoint
+app.get(&#x27;/&#x27;, (req, res) =&gt; {
+  res.json({
+    name: &#x27;Todo API&#x27;,
+    version: &#x27;v1&#x27;,
+    endpoints: {
+      &#x27;GET /api/v1/todos&#x27;: &#x27;List todos (supports ?page, limit, sort, q, completed, priority)&#x27;,
+      &#x27;POST /api/v1/todos&#x27;: &#x27;Create todo&#x27;,
+      &#x27;GET /api/v1/todos/:id&#x27;: &#x27;Get todo&#x27;,
+      &#x27;PUT /api/v1/todos/:id&#x27;: &#x27;Update todo&#x27;,
+      &#x27;DELETE /api/v1/todos/:id&#x27;: &#x27;Delete todo&#x27;
+    }
+  });
+});
+
+// Error handling
+app.use((req, res) =&gt; {
+  res.status(404).json({ success: false, error: { code: &#x27;NOT_FOUND&#x27;, message: &#x27;Route not found&#x27; } });
+});
+
+app.use((err, req, res, next) =&gt; {
+  console.error(err.stack);
+  const status = err.status || 500;
+  const code = err.code || &#x27;INTERNAL_ERROR&#x27;;
+  res.status(status).json({ success: false, error: { code, message: err.message } });
+});
+
+app.listen(PORT, () =&gt; {
+  console.log(`REST API v2 running at http://localhost:${PORT}`);
+});</code></pre>
+
+<h3>v3：完整生产级API</h3>
+
+<pre><code class="language-javascript">// v3-production-api.js - Production-ready RESTful API
+const express = require(&#x27;express&#x27;);
+const cors = require(&#x27;cors&#x27;);
+const morgan = require(&#x27;morgan&#x27;);
+const helmet = require(&#x27;helmet&#x27;);
+const rateLimit = require(&#x27;express-rate-limit&#x27;);
+const { body, param, query, validationResult } = require(&#x27;express-validator&#x27;);
+const app = express();
+const PORT = 3000;
+
+// =============================================
+// Middleware Stack
+// =============================================
+app.use(helmet());                    // Security headers
+app.use(cors());                      // CORS
+app.use(morgan(&#x27;combined&#x27;));          // Logging
+app.use(express.json({ limit: &#x27;1mb&#x27; })); // Body parsing with size limit
+
+// Rate limiting
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100, // Limit each IP to 100 requests per window
+  standardHeaders: true,
+  message: { success: false, error: { code: &#x27;RATE_LIMIT&#x27;, message: &#x27;Too many requests&#x27; } }
+});
+app.use(&#x27;/api/&#x27;, limiter);
+
+// =============================================
+// Error Classes
+// =============================================
+class ApiError extends Error {
+  constructor(status, code, message) {
+    super(message);
+    this.status = status;
+    this.code = code;
+  }
+}
+
+// Validation middleware - checks express-validator results
+const validate = (req, res, next) =&gt; {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    throw new ApiError(400, &#x27;VALIDATION_ERROR&#x27;, errors.array().map(e =&gt; e.msg).join(&#x27;, &#x27;));
+  }
+  next();
+};
+
+// Async handler wrapper
+const asyncHandler = (fn) =&gt; (req, res, next) =&gt; {
+  Promise.resolve(fn(req, res, next)).catch(next);
+};
+
+// =============================================
+// Data Layer
+// =============================================
+let posts = [
+  { id: 1, title: &#x27;Getting Started with REST&#x27;, content: &#x27;REST is an architectural style...&#x27;, author: &#x27;Alice&#x27;, tags: [&#x27;rest&#x27;, &#x27;api&#x27;], published: true, createdAt: &#x27;2026-04-25T08:00:00Z&#x27;, updatedAt: null },
+  { id: 2, title: &#x27;Express Best Practices&#x27;, content: &#x27;Follow these patterns...&#x27;, author: &#x27;Bob&#x27;, tags: [&#x27;express&#x27;, &#x27;node&#x27;], published: true, createdAt: &#x27;2026-04-26T08:00:00Z&#x27;, updatedAt: null },
+  { id: 3, title: &#x27;API Security Guide&#x27;, content: &#x27;Security is important...&#x27;, author: &#x27;Charlie&#x27;, tags: [&#x27;security&#x27;, &#x27;api&#x27;], published: false, createdAt: &#x27;2026-04-27T08:00:00Z&#x27;, updatedAt: null },
+  { id: 4, title: &#x27;Database Design Tips&#x27;, content: &#x27;Good schema design matters...&#x27;, author: &#x27;Alice&#x27;, tags: [&#x27;database&#x27;, &#x27;sql&#x27;], published: true, createdAt: &#x27;2026-04-28T08:00:00Z&#x27;, updatedAt: null }
+];
+let nextId = 5;
+
+// =============================================
+// Routes with Validation
+// =============================================
+const router = express.Router();
+
+// GET /api/v1/posts - List with pagination, filtering, sorting
+router.get(&#x27;/posts&#x27;,
+  [
+    query(&#x27;page&#x27;).optional().isInt({ min: 1 }).withMessage(&#x27;Page must be a positive integer&#x27;),
+    query(&#x27;limit&#x27;).optional().isInt({ min: 1, max: 100 }).withMessage(&#x27;Limit must be 1-100&#x27;),
+    validate
+  ],
+  asyncHandler((req, res) =&gt; {
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const sort = req.query.sort || &#x27;-createdAt&#x27;;
+    const published = req.query.published;
+    const author = req.query.author;
+    const tag = req.query.tag;
+    const q = req.query.q;
+
+    let result = [...posts];
+    
+    // Filter
+    if (published !== undefined) result = result.filter(p =&gt; p.published === (published === &#x27;true&#x27;));
+    if (author) result = result.filter(p =&gt; p.author.toLowerCase() === author.toLowerCase());
+    if (tag) result = result.filter(p =&gt; p.tags.includes(tag));
+    if (q) {
+      const query = q.toLowerCase();
+      result = result.filter(p =&gt; p.title.toLowerCase().includes(query) || p.content.toLowerCase().includes(query));
+    }
+    
+    const total = result.length;
+    
+    // Sort
+    const desc = sort.startsWith(&#x27;-&#x27;);
+    const field = desc ? sort.slice(1) : sort;
+    result.sort((a, b) =&gt; {
+      const aVal = a[field] || &#x27;&#x27;;
+      const bVal = b[field] || &#x27;&#x27;;
+      const cmp = aVal &gt; bVal ? 1 : aVal &lt; bVal ? -1 : 0;
+      return desc ? -cmp : cmp;
+    });
+    
+    // Paginate
+    const start = (page - 1) * limit;
+    const paginated = result.slice(start, start + limit);
+    
+    // Strip content from list view for performance
+    const listData = paginated.map(({ content, ...rest }) =&gt; rest);
+    
+    res.json({
+      success: true,
+      data: listData,
+      pagination: { page, limit, total, totalPages: Math.ceil(total / limit) }
+    });
+  })
+);
+
+// GET /api/v1/posts/:id - Single post
+router.get(&#x27;/posts/:id&#x27;,
+  [param(&#x27;id&#x27;).isInt({ min: 1 }).withMessage(&#x27;ID must be a positive integer&#x27;), validate],
+  asyncHandler((req, res) =&gt; {
+    const post = posts.find(p =&gt; p.id === parseInt(req.params.id));
+    if (!post) throw new ApiError(404, &#x27;NOT_FOUND&#x27;, `Post ${req.params.id} not found`);
+    res.json({ success: true, data: post });
+  })
+);
+
+// POST /api/v1/posts - Create post
+router.post(&#x27;/posts&#x27;,
+  [
+    body(&#x27;title&#x27;).trim().isLength({ min: 3, max: 200 }).withMessage(&#x27;Title must be 3-200 characters&#x27;),
+    body(&#x27;content&#x27;).trim().isLength({ min: 10 }).withMessage(&#x27;Content must be at least 10 characters&#x27;),
+    body(&#x27;author&#x27;).trim().notEmpty().withMessage(&#x27;Author is required&#x27;),
+    body(&#x27;tags&#x27;).optional().isArray().withMessage(&#x27;Tags must be an array&#x27;),
+    body(&#x27;published&#x27;).optional().isBoolean().withMessage(&#x27;Published must be boolean&#x27;),
+    validate
+  ],
+  asyncHandler((req, res) =&gt; {
+    const post = {
+      id: nextId++,
+      title: req.body.title,
+      content: req.body.content,
+      author: req.body.author,
+      tags: req.body.tags || [],
+      published: req.body.published || false,
+      createdAt: new Date().toISOString(),
+      updatedAt: null
+    };
+    posts.push(post);
+    res.status(201).json({ success: true, data: post });
+  })
+);
+
+// PUT /api/v1/posts/:id - Full update
+router.put(&#x27;/posts/:id&#x27;,
+  [
+    param(&#x27;id&#x27;).isInt({ min: 1 }),
+    body(&#x27;title&#x27;).trim().isLength({ min: 3, max: 200 }),
+    body(&#x27;content&#x27;).trim().isLength({ min: 10 }),
+    body(&#x27;author&#x27;).trim().notEmpty(),
+    validate
+  ],
+  asyncHandler((req, res) =&gt; {
+    const index = posts.findIndex(p =&gt; p.id === parseInt(req.params.id));
+    if (index === -1) throw new ApiError(404, &#x27;NOT_FOUND&#x27;, `Post ${req.params.id} not found`);
+    
+    posts[index] = {
+      ...posts[index],
+      title: req.body.title,
+      content: req.body.content,
+      author: req.body.author,
+      tags: req.body.tags || posts[index].tags,
+      published: req.body.published !== undefined ? req.body.published : posts[index].published,
+      updatedAt: new Date().toISOString()
+    };
+    res.json({ success: true, data: posts[index] });
+  })
+);
+
+// PATCH /api/v1/posts/:id - Partial update
+router.patch(&#x27;/posts/:id&#x27;,
+  [
+    param(&#x27;id&#x27;).isInt({ min: 1 }),
+    body(&#x27;title&#x27;).optional().trim().isLength({ min: 3, max: 200 }),
+    body(&#x27;content&#x27;).optional().trim().isLength({ min: 10 }),
+    validate
+  ],
+  asyncHandler((req, res) =&gt; {
+    const post = posts.find(p =&gt; p.id === parseInt(req.params.id));
+    if (!post) throw new ApiError(404, &#x27;NOT_FOUND&#x27;, `Post ${req.params.id} not found`);
+    
+    const allowedFields = [&#x27;title&#x27;, &#x27;content&#x27;, &#x27;author&#x27;, &#x27;tags&#x27;, &#x27;published&#x27;];
+    allowedFields.forEach(field =&gt; {
+      if (req.body[field] !== undefined) post[field] = req.body[field];
+    });
+    post.updatedAt = new Date().toISOString();
+    res.json({ success: true, data: post });
+  })
+);
+
+// DELETE /api/v1/posts/:id
+router.delete(&#x27;/posts/:id&#x27;,
+  [param(&#x27;id&#x27;).isInt({ min: 1 }), validate],
+  asyncHandler((req, res) =&gt; {
+    const index = posts.findIndex(p =&gt; p.id === parseInt(req.params.id));
+    if (index === -1) throw new ApiError(404, &#x27;NOT_FOUND&#x27;, `Post ${req.params.id} not found`);
+    const deleted = posts.splice(index, 1)[0];
+    res.json({ success: true, data: deleted });
+  })
+);
+
+// Mount routes
+app.use(&#x27;/api/v1&#x27;, router);
+
+// API info
+app.get(&#x27;/&#x27;, (req, res) =&gt; {
+  res.json({ name: &#x27;Blog API&#x27;, version: &#x27;1.0.0&#x27;, docs: &#x27;/api/v1/posts&#x27; });
+});
+
+// 404
+app.use((req, res) =&gt; {
+  res.status(404).json({ success: false, error: { code: &#x27;NOT_FOUND&#x27;, message: &#x27;Route not found&#x27; } });
+});
+
+// Global error handler
+app.use((err, req, res, next) =&gt; {
+  console.error(`[${new Date().toISOString()}] ${err.code}: ${err.message}`);
+  const status = err.status || 500;
+  const code = err.code || &#x27;INTERNAL_ERROR&#x27;;
+  res.status(status).json({ success: false, error: { code, message: err.message } });
+});
+
+app.listen(PORT, () =&gt; {
+  console.log(`Production API running at http://localhost:${PORT}`);
+});</code></pre>
+
+<hr>
+
+<h2>四、执行预览</h2>
+
+<pre><code class="language-bash"># 启动v2
+$ node v2-layered-api.js
+REST API v2 running at http://localhost:3000
+
+# 列表（带分页）
+$ curl -s http://localhost:3000/api/v1/todos?page=1&amp;limit=2 | jq
+{
+  &quot;success&quot;: true,
+  &quot;data&quot;: [
+    { &quot;id&quot;: 1, &quot;title&quot;: &quot;Learn REST API design&quot;, &quot;completed&quot;: false, &quot;priority&quot;: &quot;high&quot; },
+    { &quot;id&quot;: 2, &quot;title&quot;: &quot;Implement CRUD operations&quot;, &quot;completed&quot;: false, &quot;priority&quot;: &quot;medium&quot; }
+  ],
+  &quot;pagination&quot;: { &quot;page&quot;: 1, &quot;limit&quot;: 2, &quot;total&quot;: 5, &quot;totalPages&quot;: 3 }
+}
+
+# 创建
+$ curl -s -X POST http://localhost:3000/api/v1/todos \
+  -H &quot;Content-Type: application/json&quot; \
+  -d &#x27;{&quot;title&quot;:&quot;New task&quot;,&quot;priority&quot;:&quot;high&quot;}&#x27; | jq .data.id
+6
+
+# 排序 + 过滤
+$ curl -s &quot;http://localhost:3000/api/v1/todos?sort=-priority&amp;completed=false&quot; | jq &#x27;.data[].title&#x27;
+&quot;Learn REST API design&quot;
+&quot;New task&quot;
+&quot;Implement CRUD operations&quot;
+
+# v3 - 参数校验
+$ curl -s -X POST http://localhost:3000/api/v1/posts \
+  -H &quot;Content-Type: application/json&quot; \
+  -d &#x27;{&quot;title&quot;:&quot;Hi&quot;,&quot;content&quot;:&quot;short&quot;}&#x27; | jq
+{
+  &quot;success&quot;: false,
+  &quot;error&quot;: { &quot;code&quot;: &quot;VALIDATION_ERROR&quot;, &quot;message&quot;: &quot;Title must be 3-200 characters, Content must be at least 10 characters&quot; }
+}
+
+# v3 - 成功创建
+$ curl -s -X POST http://localhost:3000/api/v1/posts \
+  -H &quot;Content-Type: application/json&quot; \
+  -d &#x27;{&quot;title&quot;:&quot;My New Post&quot;,&quot;content&quot;:&quot;This is the content of my new post&quot;,&quot;author&quot;:&quot;Alice&quot;}&#x27; | jq &#x27;.data | {id,title}&#x27;
+{
+  &quot;id&quot;: 5,
+  &quot;title&quot;: &quot;My New Post&quot;
+}
+
+# v3 - PATCH 部分更新
+$ curl -s -X PATCH http://localhost:3000/api/v1/posts/5 \
+  -H &quot;Content-Type: application/json&quot; \
+  -d &#x27;{&quot;published&quot;:true}&#x27; | jq &#x27;.data.published&#x27;
+true</code></pre>
+
+<hr>
+
+<h2>五、注意事项</h2>
+
+<table><thead><tr>
+<th>项目</th>
+<th>说明</th>
+<th>建议</th>
+</tr></thead><tbody>
+<tr>
+<td>HTTP状态码</td>
+<td>200成功/201创建/204无内容/400错误请求/404未找到/500服务器错误</td>
+<td>语义化使用，别全返回200</td>
+</tr>
+<tr>
+<td>PUT vs PATCH</td>
+<td>PUT全量替换，PATCH部分更新</td>
+<td>按需选择，推荐都实现</td>
+</tr>
+<tr>
+<td>ID参数类型</td>
+<td>URL参数是字符串</td>
+<td>用 <code>parseInt()</code> 转换</td>
+</tr>
+<tr>
+<td>输入验证</td>
+<td>永远不要信任客户端输入</td>
+<td>用 express-validator 校验</td>
+</tr>
+<tr>
+<td>响应格式</td>
+<td>保持统一结构</td>
+<td>用 <code>{ success, data, error }</code> 模式</td>
+</tr>
+<tr>
+<td>API版本</td>
+<td><code>/api/v1/</code> 前缀</td>
+<td>重大变更时升级版本号</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>六、避坑指南</h2>
+
+<h3>❌ 所有操作都返回200</h3>
+<pre><code class="language-javascript">// ❌ 不管成功失败都返回200
+app.delete(&#x27;/api/todos/:id&#x27;, (req, res) =&gt; {
+  // ... delete logic
+  res.json({ message: &#x27;deleted&#x27; }); // 200 even if not found
+});</code></pre>
+<pre><code class="language-javascript">// ✅ 语义化状态码
+app.delete(&#x27;/api/todos/:id&#x27;, (req, res) =&gt; {
+  const index = todos.findIndex(t =&gt; t.id === parseInt(req.params.id));
+  if (index === -1) return res.status(404).json({ error: &#x27;Not found&#x27; });
+  todos.splice(index, 1);
+  res.status(204).end(); // Or 200 with deleted resource
+});</code></pre>
+
+<h3>❌ 动词出现在URL中</h3>
+<pre><code class="language-javascript">// ❌ RPC风格，不符合REST
+app.post(&#x27;/api/createUser&#x27;, createUser);
+app.post(&#x27;/api/deleteUser&#x27;, deleteUser);
+app.get(&#x27;/api/getUserList&#x27;, getUserList);</code></pre>
+<pre><code class="language-javascript">// ✅ RESTful风格：名词+HTTP方法
+app.post(&#x27;/api/users&#x27;, createUser);      // Create
+app.delete(&#x27;/api/users/:id&#x27;, deleteUser); // Delete
+app.get(&#x27;/api/users&#x27;, getUserList);       // Read</code></pre>
+
+<h3>❌ 没有输入验证</h3>
+<pre><code class="language-javascript">// ❌ 直接使用body数据，存在安全隐患
+app.post(&#x27;/api/users&#x27;, (req, res) =&gt; {
+  const user = { id: nextId++, ...req.body }; // What if body has unexpected fields?
+  users.push(user);
+});</code></pre>
+<pre><code class="language-javascript">// ✅ 白名单字段 + 验证
+app.post(&#x27;/api/users&#x27;,
+  body(&#x27;email&#x27;).isEmail(),
+  body(&#x27;name&#x27;).trim().isLength({ min: 2 }),
+  validate,
+  (req, res) =&gt; {
+    const { name, email } = req.body; // Only pick allowed fields
+    const user = { id: nextId++, name, email };
+    users.push(user);
+    res.status(201).json({ data: user });
+  }
+);</code></pre>
+
+<h3>❌ PUT和PATCH不分</h3>
+<pre><code class="language-javascript">// ❌ PUT只更新部分字段（应该是全量替换）
+app.put(&#x27;/users/:id&#x27;, (req, res) =&gt; {
+  Object.assign(user, req.body); // Partial update with PUT
+});</code></pre>
+<pre><code class="language-javascript">// ✅ PUT全量替换，PATCH部分更新
+app.put(&#x27;/users/:id&#x27;, (req, res) =&gt; {
+  // Replace entire resource
+  user = { id: user.id, ...req.body };
+});
+app.patch(&#x27;/users/:id&#x27;, (req, res) =&gt; {
+  // Update only provided fields
+  Object.keys(req.body).forEach(key =&gt; { user[key] = req.body[key]; });
+});</code></pre>
+
+<hr>
+
+<h2>七、练习题</h2>
+
+<h3>🟢 初级</h3>
+<ol>
+<li>创建一个 <code>/api/books</code> 的CRUD API，支持 GET列表、GET单个、POST创建、DELETE删除</li>
+</ul>
+<ol>
+<li>给每个API添加统一的错误处理中间件</li>
+</ul>
+<ol>
+<li>实现简单的查询参数过滤：<code>GET /api/books?author=xxx</code></li>
+
+<h3>🟡 中级</h3>
+<ol>
+<li>实现分页功能，返回 <code>{ data, pagination: { page, limit, total, totalPages } }</code></li>
+</ul>
+<ol>
+<li>使用 <code>express.Router()</code> 按资源拆分路由（users路由、posts路由）</li>
+</ul>
+<ol>
+<li>实现排序功能：<code>GET /api/posts?sort=-createdAt</code>（<code>-</code> 表示降序）</li>
+
+<h3>🔴 高级</h3>
+<ol>
+<li>使用 express-validator 实现完整的请求校验（body/params/query），并返回结构化错误信息</li>
+</ul>
+<ol>
+<li>实现一个可复用的CRUD工厂函数：<code>createCRUD(resource, db)</code> 自动生成5个路由</li>
+</ul>
+<ol>
+<li>用 supertest 编写API集成测试，覆盖所有CRUD操作和边界情况</li>
+
+<hr>
+
+<h2>八、知识点总结</h2>
+
+<pre><code>RESTful API
+├── 1. REST原则
+│   ├── 资源导向（名词URL）
+│   ├── HTTP方法（动词操作）
+│   ├── 无状态通信
+│   └── 统一接口
+├── 2. API设计
+│   ├── URL规范 /api/v1/resource
+│   ├── 状态码 200/201/204/400/404/500
+│   ├── 统一响应格式
+│   └── 版本控制
+├── 3. 架构分层
+│   ├── Routes 路由定义
+│   ├── Controllers 请求处理
+│   ├── Services 业务逻辑
+│   └── Data 数据访问
+├── 4. 功能实现
+│   ├── CRUD操作
+│   ├── 分页 / 排序 / 过滤
+│   ├── 输入验证
+│   └── 错误处理
+└── 5. 生产级特性
+    ├── helmet 安全头
+    ├── rate-limit 限流
+    ├── morgan 日志
+    └── express-validator 校验</code></pre>
+
+<hr>
+
+<h2>九、举一反三</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>资源设计</th>
+<th>关键端点</th>
+</tr></thead><tbody>
+<tr>
+<td>博客系统</td>
+<td>posts, comments, users, tags</td>
+<td>CRUD + 关联查询</td>
+</tr>
+<tr>
+<td>电商系统</td>
+<td>products, orders, carts, reviews</td>
+<td>CRUD + 库存管理 + 支付</td>
+</tr>
+<tr>
+<td>任务管理</td>
+<td>projects, tasks, labels, members</td>
+<td>CRUD + 状态流转 + 权限</td>
+</tr>
+<tr>
+<td>社交平台</td>
+<td>users, posts, likes, follows</td>
+<td>CRUD + Feed流 + 通知</td>
+</tr>
+<tr>
+<td>IoT平台</td>
+<td>devices, sensors, readings, alerts</td>
+<td>CRUD + 实时数据 + 告警规则</td>
+</tr>
+<tr>
+<td>CMS系统</td>
+<td>pages, articles, media, settings</td>
+<td>CRUD + 草稿/发布 + SEO</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>十、参考资料</h2>
+
+<ul>
+<li><a href="https://www.ruanyifeng.com/blog/2014/05/restful_api.html">RESTful API 设计指南 -阮一峰</a></li>
+<li><a href="https://expressjs.com/">Express.js 官方文档</a></li>
+<li><a href="https://express-validator.github.io/">express-validator 文档</a></li>
+<li><a href="https://restfulapi.net/">REST API Tutorial</a></li>
+<li><a href="https://developer.mozilla.org/zh-CN/docs/Web/HTTP/Status">HTTP 状态码 - MDN</a></li>
+
+<hr>
+
+<h2>十一、代码演进路线</h2>
+
+<pre><code>v1 基础CRUD API
+├── 单文件，所有逻辑在一起
+├── 内存数据存储
+├── 基本的增删改查
+├── 简单的过滤和搜索
+└── 适合：学习RESTful概念
+        ↓
+v2 分层架构
+├── Data / Service / Controller 分层
+├── 分页、排序、多条件过滤
+├── 统一错误处理（ApiError）
+├── API版本前缀 /api/v1
+└── 适合：中小型项目，多人协作
+        ↓
+v3 生产级API
+├── 安全中间件（helmet, rate-limit）
+├── express-validator 参数校验
+├── PUT全量更新 + PATCH部分更新
+├── 列表视图字段优化（去掉content）
+├── 结构化错误响应
+└── 适合：生产环境部署</code></pre>
+
+<p><strong>关键演进思路：</strong> 从"能用的API"到"好维护的API"到"安全可靠的API"。每一步解决实际工程中的痛点：可维护性、可扩展性、安全性。</p>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

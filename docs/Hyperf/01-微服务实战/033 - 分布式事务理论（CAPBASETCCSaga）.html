@@ -1,0 +1,509 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>033 - 分布式事务理论（CAP/BASE/TCC/Saga）</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Hyperf/index.html">Hyperf</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Hyperf/01-微服务实战/index.html">Hyperf微服务实战</a>
+</nav>
+<h1>033 - 分布式事务理论（CAP/BASE/TCC/Saga）</h1>
+<div class="meta">
+<span>📂 Hyperf微服务实战</span>
+<span>🏷️ Hyperf</span>
+</div>
+<article>
+
+
+<h1>分布式事务理论（CAP/BASE/TCC/Saga）</h1>
+
+<blockquote><p><strong>难度：</strong> ⭐⭐⭐⭐⭐<br><strong>前置知识：</strong> 数据库 ACID 事务、微服务基础、网络分区概念<br><strong>预估用时：</strong> 60-90 分钟</p></blockquote>
+
+<h2>1. 概念讲解</h2>
+
+<p><strong>分布式事务</strong>是跨越多个服务或数据库的事务操作，需要保证这些操作要么全部成功、要么全部回滚，但在分布式环境下面临网络不可靠、节点故障等挑战。</p>
+
+<p>类比理解：想象三个人在不同银行转账——A 扣款、B 加款、C 记录手续费，三个操作必须同时成功或同时失败。但三家银行是独立的系统，网络可能断、系统可能宕机，这就是分布式事务的核心难题。</p>
+
+<p>理论基石：<strong>CAP 定理</strong>告诉我们分布式系统不可能同时满足一致性(C)、可用性(A)和分区容忍性(P)；<strong>BASE 理论</strong>提出妥协方案：基本可用、软状态、最终一致。常见的分布式事务模式有 <strong>2PC</strong>（两阶段提交）、<strong>TCC</strong>（Try-Confirm-Cancel）和 <strong>Saga</strong>（编排式/协调式长事务）。</p>
+
+<h2>2. 实时脑图</h2>
+
+<pre><code>┌────────────────────────────────────────────────────┐
+│            Distributed Transaction Patterns          │
+├────────────────────────────────────────────────────┤
+│                                                     │
+│  CAP Theorem (pick 2 of 3)                         │
+│  ├── CP → ZooKeeper, etcd                          │
+│  ├── AP → Cassandra, DNS                           │
+│  └── CA → impossible in distributed system         │
+│                                                     │
+│  BASE Theory                                        │
+│  ├── Basically Available                            │
+│  ├── Soft State                                     │
+│  └── Eventually Consistent                          │
+│                                                     │
+│  Patterns                                           │
+│  ├── 2PC ──► strong consistency, blocking ❌        │
+│  ├── TCC ──► try/confirm/cancel, 3 RPC ✅          │
+│  └── Saga ──► chain of local tx + compensations 🟢 │
+│       ├── Choreography (event-driven)               │
+│       └── Orchestration (central coordinator)       │
+│                                                     │
+│  Decision: User Registration                        │
+│  ├── Strong consistency needed? → TCC               │
+│  └── Eventual consistency OK? → Saga 🟢            │
+└────────────────────────────────────────────────────┘</code></pre>
+
+<h2>3. 完整代码</h2>
+
+<h3>3.1 Saga 编排器（伪实现）<code>app/Saga/UserRegistrationSaga.php</code></h3>
+
+<pre><code class="language-php">&lt;?php
+declare(strict_types=1);
+
+namespace App\Saga;
+
+use Psr\Log\LoggerInterface;
+use Hyperf\Di\Annotation\Inject;
+
+/**
+ * ✅ Saga Orchestrator for user registration
+ * Steps: CreateUser → InitPoints → SendWelcomeEmail
+ * Compensation: each step has a reverse operation
+ */
+class UserRegistrationSaga
+{
+    #[Inject]
+    private LoggerInterface $logger;
+
+    #[Inject]
+    private UserStep $userStep;
+
+    #[Inject]
+    private PointsStep $pointsStep;
+
+    #[Inject]
+    private EmailStep $emailStep;
+
+    /**
+     * ✅ Execute saga with automatic compensation on failure
+     */
+    public function execute(array $userData): SagaResult
+    {
+        $completedSteps = [];
+        $sagaId = uniqid(&#x27;saga_&#x27;, true);
+
+        $this-&gt;logger-&gt;info(&#x27;Saga started&#x27;, [&#x27;saga_id&#x27; =&gt; $sagaId]);
+
+        try {
+            // Step 1: Create user
+            $user = $this-&gt;userStep-&gt;try($userData);
+            $completedSteps[] = &#x27;user&#x27;;
+
+            // Step 2: Initialize points account
+            $this-&gt;pointsStep-&gt;try($user[&#x27;id&#x27;]);
+            $completedSteps[] = &#x27;points&#x27;;
+
+            // Step 3: Send welcome email
+            $this-&gt;emailStep-&gt;try($user[&#x27;email&#x27;], $user[&#x27;username&#x27;]);
+            $completedSteps[] = &#x27;email&#x27;;
+
+            $this-&gt;logger-&gt;info(&#x27;Saga completed successfully&#x27;, [&#x27;saga_id&#x27; =&gt; $sagaId]);
+            return SagaResult::success($sagaId, $user);
+
+        } catch (\Throwable $e) {
+            $this-&gt;logger-&gt;error(&#x27;Saga failed, starting compensation&#x27;, [
+                &#x27;saga_id&#x27; =&gt; $sagaId,
+                &#x27;failed_at_step&#x27; =&gt; end($completedSteps),
+                &#x27;error&#x27; =&gt; $e-&gt;getMessage(),
+            ]);
+
+            // ✅ Compensate in reverse order
+            $this-&gt;compensate($completedSteps, $userData, $sagaId);
+
+            return SagaResult::failure($sagaId, $e-&gt;getMessage());
+        }
+    }
+
+    /**
+     * ✅ Reverse compensation: undo completed steps in reverse order
+     */
+    private function compensate(array $completedSteps, array $context, string $sagaId): void
+    {
+        $reversed = array_reverse($completedSteps);
+
+        foreach ($reversed as $step) {
+            try {
+                match ($step) {
+                    &#x27;email&#x27; =&gt; $this-&gt;emailStep-&gt;compensate($context),
+                    &#x27;points&#x27; =&gt; $this-&gt;pointsStep-&gt;compensate($context),
+                    &#x27;user&#x27; =&gt; $this-&gt;userStep-&gt;compensate($context),
+                };
+                $this-&gt;logger-&gt;info(&quot;Compensated step: {$step}&quot;, [&#x27;saga_id&#x27; =&gt; $sagaId]);
+            } catch (\Throwable $compensateError) {
+                // 🔴 Critical: compensation failed — needs manual intervention
+                $this-&gt;logger-&gt;critical(&#x27;Compensation failed!&#x27;, [
+                    &#x27;saga_id&#x27; =&gt; $sagaId,
+                    &#x27;step&#x27; =&gt; $step,
+                    &#x27;error&#x27; =&gt; $compensateError-&gt;getMessage(),
+                ]);
+            }
+        }
+    }
+}</code></pre>
+
+<h3>3.2 Saga 步骤定义 <code>app/Saga/Steps/UserStep.php</code></h3>
+
+<pre><code class="language-php">&lt;?php
+declare(strict_types=1);
+
+namespace App\Saga\Steps;
+
+use Hyperf\DbConnection\Db;
+use Psr\Log\LoggerInterface;
+use Hyperf\Di\Annotation\Inject;
+
+class UserStep
+{
+    #[Inject]
+    private Db $db;
+
+    #[Inject]
+    private LoggerInterface $logger;
+
+    /**
+     * ✅ Try: create user record
+     */
+    public function try(array $userData): array
+    {
+        $id = $this-&gt;db-&gt;table(&#x27;users&#x27;)-&gt;insertGetId([
+            &#x27;username&#x27; =&gt; $userData[&#x27;username&#x27;],
+            &#x27;email&#x27; =&gt; $userData[&#x27;email&#x27;],
+            &#x27;password&#x27; =&gt; password_hash($userData[&#x27;password&#x27;], PASSWORD_BCRYPT),
+            &#x27;status&#x27; =&gt; &#x27;pending&#x27;, // ✅ Mark as pending until saga completes
+            &#x27;created_at&#x27; =&gt; date(&#x27;c&#x27;),
+        ]);
+
+        return array_merge($userData, [&#x27;id&#x27; =&gt; $id]);
+    }
+
+    /**
+     * ✅ Compensate: soft-delete or mark user as cancelled
+     */
+    public function compensate(array $context): void
+    {
+        if (isset($context[&#x27;id&#x27;])) {
+            $this-&gt;db-&gt;table(&#x27;users&#x27;)
+                -&gt;where(&#x27;id&#x27;, $context[&#x27;id&#x27;])
+                -&gt;update([&#x27;status&#x27; =&gt; &#x27;cancelled&#x27;, &#x27;updated_at&#x27; =&gt; date(&#x27;c&#x27;)]);
+        }
+    }
+}
+
+class PointsStep
+{
+    #[Inject]
+    private Db $db;
+
+    public function try(int $userId): void
+    {
+        $this-&gt;db-&gt;table(&#x27;user_points&#x27;)-&gt;insert([
+            &#x27;user_id&#x27; =&gt; $userId,
+            &#x27;points&#x27; =&gt; 0,
+            &#x27;created_at&#x27; =&gt; date(&#x27;c&#x27;),
+        ]);
+    }
+
+    public function compensate(array $context): void
+    {
+        if (isset($context[&#x27;id&#x27;])) {
+            $this-&gt;db-&gt;table(&#x27;user_points&#x27;)-&gt;where(&#x27;user_id&#x27;, $context[&#x27;id&#x27;])-&gt;delete();
+        }
+    }
+}
+
+class EmailStep
+{
+    #[Inject]
+    private LoggerInterface $logger;
+
+    public function try(string $email, string $username): void
+    {
+        // 🟢 Simulate email sending
+        $this-&gt;logger-&gt;info(&quot;Welcome email queued for {$email}&quot;);
+    }
+
+    public function compensate(array $context): void
+    {
+        // Email compensation: typically no-op or send cancellation notice
+        $this-&gt;logger-&gt;info(&quot;Email compensation: skip for {$context[&#x27;email&#x27;]}&quot;);
+    }
+}</code></pre>
+
+<h3>3.3 Saga 结果值对象 <code>app/Saga/SagaResult.php</code></h3>
+
+<pre><code class="language-php">&lt;?php
+declare(strict_types=1);
+
+namespace App\Saga;
+
+class SagaResult
+{
+    public function __construct(
+        public readonly string $sagaId,
+        public readonly bool $success,
+        public readonly ?string $error = null,
+        public readonly ?array $data = null,
+    ) {}
+
+    public static function success(string $sagaId, array $data): self
+    {
+        return new self($sagaId, true, null, $data);
+    }
+
+    public static function failure(string $sagaId, string $error): self
+    {
+        return new self($sagaId, false, $error);
+    }
+}</code></pre>
+
+<h2>4. 执行预览</h2>
+
+<pre><code class="language-bash">$ php bin/hyperf.php start
+
+# Successful saga:
+# [INFO] Saga started {&quot;saga_id&quot;:&quot;saga_662f...&quot;}
+# [INFO] Saga completed successfully {&quot;saga_id&quot;:&quot;saga_662f...&quot;,&quot;user_id&quot;:1001}
+
+# Failed saga (e.g., points service down):
+# [ERROR] Saga failed, starting compensation {&quot;saga_id&quot;:&quot;saga_662f...&quot;,&quot;failed_at_step&quot;:&quot;user&quot;}
+# [INFO] Compensated step: user {&quot;saga_id&quot;:&quot;saga_662f...&quot;}</code></pre>
+
+<h2>5. 注意事项</h2>
+
+<table><thead><tr>
+<th>约束</th>
+<th>说明</th>
+<th>违反后果</th>
+</tr></thead><tbody>
+<tr>
+<td>补偿操作必须幂等</td>
+<td>补偿可能被多次调用</td>
+<td>重复补偿导致数据异常</td>
+</tr>
+<tr>
+<td>补偿顺序必须逆向</td>
+<td>后执行的先回滚</td>
+<td>数据状态不一致</td>
+</tr>
+<tr>
+<td>补偿失败要持久化</td>
+<td>记录 saga 状态供人工介入</td>
+<td>补偿失败后无法恢复</td>
+</tr>
+<tr>
+<td>避免 Saga 步骤过多</td>
+<td>每步增加失败概率和延迟</td>
+<td>复杂度爆炸，难以维护</td>
+</tr>
+<tr>
+<td>理论选型要匹配业务</td>
+<td>强一致选 TCC，最终一致选 Saga</td>
+<td>选错模式导致过度设计或数据不一致</td>
+</tr>
+</tbody></table>
+
+<h2>6. 避坑指南</h2>
+
+<table><thead><tr>
+<th>错误</th>
+<th>现象</th>
+<th>正确做法</th>
+</tr></thead><tbody>
+<tr>
+<td>用 2PC 跨微服务</td>
+<td>锁持有时间长，性能差</td>
+<td>用 Saga 或 TCC 替代</td>
+</tr>
+<tr>
+<td>补偿操作不做幂等</td>
+<td>重试时补偿执行两次</td>
+<td>设计幂等补偿（软删除、状态标记）</td>
+</tr>
+<tr>
+<td>Saga 没有超时机制</td>
+<td>卡在某步骤永远等待</td>
+<td>每步设置超时，超时触发补偿</td>
+</tr>
+<tr>
+<td>忽略补偿失败</td>
+<td>数据残留不一致</td>
+<td>补偿失败持久化 + 告警 + 人工兜底</td>
+</tr>
+<tr>
+<td>混用一致性和最终一致</td>
+<td>同一操作部分同步部分异步</td>
+<td>明确边界，统一策略</td>
+</tr>
+</tbody></table>
+
+<h2>7. 练习题</h2>
+
+<p>🟢 <strong>基础题 1：</strong> 用表格对比 2PC、TCC、Saga 三种模式的优缺点。</p>
+
+<p>🟢 <strong>基础题 2：</strong> 画出一个订单创建的 Saga 流程图，包含 3 个步骤及其补偿操作。</p>
+
+<p>🟡 <strong>进阶题：</strong> 实现 TCC 模式的 Try 阶段：冻结用户余额而非直接扣减。</p>
+
+<p>🔴 <strong>开放题：</strong> 在一个电商系统中，下单涉及库存、支付、物流三个服务，请选择最合适的分布式事务方案并论证。</p>
+
+<h2>8. 知识点总结</h2>
+
+<pre><code>Distributed Transaction Theory
+├── CAP Theorem
+│   ├── Consistency (C)
+│   ├── Availability (A)
+│   └── Partition Tolerance (P)
+├── BASE Theory
+│   ├── Basically Available
+│   ├── Soft State
+│   └── Eventually Consistent
+├── 2PC (Two-Phase Commit)
+│   ├── Prepare → Commit/Rollback
+│   └── Blocking, poor performance
+├── TCC (Try-Confirm-Cancel)
+│   ├── Try: reserve resources
+│   ├── Confirm: finalize
+│   └── Cancel: release
+└── Saga Pattern
+    ├── Choreography (event-driven)
+    ├── Orchestration (centralized)
+    └── Compensation logic (reverse order)</code></pre>
+
+<h2>9. 举一反三</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>推荐模式</th>
+<th>原因</th>
+</tr></thead><tbody>
+<tr>
+<td>银行跨行转账</td>
+<td>TCC</td>
+<td>资金操作需要强一致性</td>
+</tr>
+<tr>
+<td>电商下单（库存+支付+物流）</td>
+<td>Saga 编排</td>
+<td>步骤多，最终一致可接受</td>
+</tr>
+<tr>
+<td>配置中心同步</td>
+<td>2PC</td>
+<td>节点少，需要强一致</td>
+</tr>
+<tr>
+<td>用户注册+初始化</td>
+<td>Saga 编排</td>
+<td>步骤少，最终一致即可</td>
+</tr>
+</tbody></table>
+
+<h2>10. 参考资料</h2>
+
+<ul>
+<li>🏆 <strong>论文：</strong> <a href="https://people.eecs.berkeley.edu/~brewer/cs262b-2004/PODC-keynote.pdf">Brewer's CAP Theorem (2000)</a></li>
+<li>🏆 <strong>论文：</strong> <a href="https://www.cs.cornell.edu/andru/cs711/2002fa/reading/sagas.pdf">Saga Pattern (Hector Garcia-Molina, 1987)</a></li>
+<li>⭐ <strong>推荐：</strong> 《Designing Data-Intensive Applications》第 9 章</li>
+<li>📖 <strong>延伸：</strong> <a href="https://seata.io/">Seata 分布式事务框架</a></li>
+
+<h2>11. 代码演进</h2>
+
+<h3>v1 ❌ 无事务管理</h3>
+
+<pre><code class="language-php">// ❌ No transaction boundary across services
+$user = $this-&gt;userService-&gt;create($data);        // Service A
+$this-&gt;pointsService-&gt;init($user-&gt;id);             // Service B — may fail
+$this-&gt;emailService-&gt;sendWelcome($user-&gt;email);    // Service C
+// If B fails, user exists but no points → inconsistency</code></pre>
+
+<h3>v2 ✅ Saga 编排模式</h3>
+
+<pre><code class="language-php">// ✅ Orchestrated saga with compensation
+$saga = new UserRegistrationSaga();
+$result = $saga-&gt;execute($userData);
+if (!$result-&gt;success) {
+    // All completed steps are automatically compensated
+    return $this-&gt;fail($result-&gt;error);
+}</code></pre>
+
+<h3>v3 🟢 持久化 Saga 状态</h3>
+
+<pre><code class="language-php">// 🟢 Persist saga state to DB for recovery
+$this-&gt;sagaRepository-&gt;create($sagaId, &#x27;user_registration&#x27;, $steps);
+foreach ($steps as $step) {
+    $this-&gt;sagaRepository-&gt;markStep($sagaId, $step, &#x27;started&#x27;);
+    $step-&gt;execute();
+    $this-&gt;sagaRepository-&gt;markStep($sagaId, $step, &#x27;completed&#x27;);
+}
+$this-&gt;sagaRepository-&gt;markCompleted($sagaId);</code></pre>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

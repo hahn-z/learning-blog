@@ -1,0 +1,475 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>038 - 日志标准化与 ELK 集成</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Hyperf/index.html">Hyperf</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Hyperf/01-微服务实战/index.html">Hyperf微服务实战</a>
+</nav>
+<h1>038 - 日志标准化与 ELK 集成</h1>
+<div class="meta">
+<span>📂 Hyperf微服务实战</span>
+<span>🏷️ Hyperf</span>
+</div>
+<article>
+
+
+<h1>日志标准化与 ELK 集成</h1>
+
+<blockquote><p><strong>难度：</strong> ⭐⭐⭐<br><strong>前置知识：</strong> Hyperf 日志组件、Docker 基础、JSON 格式<br><strong>预估用时：</strong> 45-60 分钟</p></blockquote>
+
+<h2>1. 概念讲解</h2>
+
+<p><strong>ELK Stack</strong>（Elasticsearch + Logstash + Kibana）是业界最流行的日志收集、存储和可视化方案。Elasticsearch 负责存储和搜索，Logstash 负责日志收集和转换，Kibana 负责可视化展示。</p>
+
+<p>类比理解：ELK 就像一个大型图书馆系统。Logstash 是图书管理员，负责收集各处送来的书（日志）并贴标签分类；Elasticsearch 是图书馆的索引柜，可以秒级找到任何一本书；Kibana 是前台的搜索终端，输入关键词就能看到结果。</p>
+
+<p>在用户服务中，我们将日志格式标准化为 JSON，通过 Filebeat 采集发送到 Elasticsearch，用 Kibana 进行搜索和可视化。</p>
+
+<h2>2. 实时脑图</h2>
+
+<pre><code>┌──────────────────────────────────────────────┐
+│         ELK Log Pipeline                      │
+├──────────────────────────────────────────────┤
+│                                               │
+│  [Hyperf App]                                 │
+│    |-- JSON log -&gt; /var/log/user-service.log  │
+│    |                                          │
+│  [Filebeat]                                   │
+│    |-- Read log file -&gt; parse JSON            │
+│    +-- Send to Elasticsearch                  │
+│                                               │
+│  [Elasticsearch]                              │
+│    |-- Index: user-service-2024.01.*          │
+│    +-- Full-text search + aggregation         │
+│                                               │
+│  [Kibana]                                     │
+│    |-- Discover: search logs                  │
+│    |-- Dashboard: error rate, latency         │
+│    +-- Alert: spike in errors                 │
+│                                               │
+│  Log Fields:                                  │
+│  |-- timestamp, level, message                │
+│  |-- trace_id, request_id                     │
+│  |-- user_id, action, duration                │
+│  +-- context (extra key-value pairs)          │
+└──────────────────────────────────────────────┘</code></pre>
+
+<h2>3. 完整代码</h2>
+
+<h3>3.1 Hyperf 日志配置 <code>config/autoload/logger.php</code></h3>
+
+<pre><code class="language-php">&lt;?php
+declare(strict_types=1);
+
+return [
+    &#x27;default&#x27; =&gt; [
+        &#x27;handler&#x27; =&gt; [
+            // ✅ JSON formatter for ELK compatibility
+            &#x27;class&#x27; =&gt; Monolog\Handler\StreamHandler::class,
+            &#x27;constructor&#x27; =&gt; [
+                &#x27;stream&#x27; =&gt; BASE_PATH . &#x27;/runtime/logs/user-service.log&#x27;,
+                &#x27;level&#x27; =&gt; Monolog\Logger::DEBUG,
+            ],
+            &#x27;formatter&#x27; =&gt; [
+                &#x27;class&#x27; =&gt; Monolog\Formatter\JsonFormatter::class, // ✅ JSON format
+            ],
+        ],
+        &#x27;processors&#x27; =&gt; [
+            // ✅ Add trace_id to every log entry
+            [
+                &#x27;class&#x27; =&gt; App\Log\TraceIdProcessor::class,
+            ],
+        ],
+    ],
+];</code></pre>
+
+<h3>3.2 TraceId 处理器 <code>app/Log/TraceIdProcessor.php</code></h3>
+
+<pre><code class="language-php">&lt;?php
+declare(strict_types=1);
+
+namespace App\Log;
+
+use Monolog\LogRecord;
+use Monolog\Processor\ProcessorInterface;
+use Hyperf\Context\Context;
+use Hyperf\Coroutine\Coroutine;
+
+/**
+ * ✅ Add trace_id and request context to every log entry
+ */
+class TraceIdProcessor implements ProcessorInterface
+{
+    public function __invoke(LogRecord $record): LogRecord
+    {
+        // ✅ Generate or reuse trace_id within request lifecycle
+        $traceId = Context::get(&#x27;trace_id&#x27;, uniqid(&#x27;tr_&#x27;, true));
+        Context::set(&#x27;trace_id&#x27;, $traceId);
+
+        $record-&gt;extra[&#x27;trace_id&#x27;] = $traceId;
+        $record-&gt;extra[&#x27;coroutine_id&#x27;] = Coroutine::id();
+
+        return $record;
+    }
+}</code></pre>
+
+<h3>3.3 结构化日志帮助类 <code>app/Log/StructuredLogger.php</code></h3>
+
+<pre><code class="language-php">&lt;?php
+declare(strict_types=1);
+
+namespace App\Log;
+
+use Psr\Log\LoggerInterface;
+use Hyperf\Di\Annotation\Inject;
+
+/**
+ * ✅ Structured logger with consistent field naming for ELK
+ */
+class StructuredLogger
+{
+    #[Inject]
+    private LoggerInterface $logger;
+
+    /**
+     * ✅ Log user action with structured context
+     */
+    public function logUserAction(string $action, int $userId, array $context = []): void
+    {
+        $this-&gt;logger-&gt;info(&quot;User action: {$action}&quot;, array_merge([
+            &#x27;action&#x27; =&gt; $action,
+            &#x27;user_id&#x27; =&gt; $userId,
+            &#x27;timestamp&#x27; =&gt; date(&#x27;c&#x27;),
+        ], $context));
+    }
+
+    /**
+     * ✅ Log saga event
+     */
+    public function logSagaEvent(string $sagaId, string $step, string $event, array $context = []): void
+    {
+        $this-&gt;logger-&gt;info(&quot;Saga {$event}: {$step}&quot;, array_merge([
+            &#x27;saga_id&#x27; =&gt; $sagaId,
+            &#x27;saga_step&#x27; =&gt; $step,
+            &#x27;saga_event&#x27; =&gt; $event,
+        ], $context));
+    }
+
+    /**
+     * ✅ Log error with full context for debugging
+     */
+    public function logError(string $message, \Throwable $e, array $context = []): void
+    {
+        $this-&gt;logger-&gt;error($message, array_merge([
+            &#x27;exception_class&#x27; =&gt; get_class($e),
+            &#x27;exception_message&#x27; =&gt; $e-&gt;getMessage(),
+            &#x27;exception_file&#x27; =&gt; $e-&gt;getFile() . &#x27;:&#x27; . $e-&gt;getLine(),
+        ], $context));
+    }
+}</code></pre>
+
+<h3>3.4 中间件：为每个请求添加 TraceId <code>app/Middleware/TraceIdMiddleware.php</code></h3>
+
+<pre><code class="language-php">&lt;?php
+declare(strict_types=1);
+
+namespace App\Middleware;
+
+use Hyperf\Context\Context;
+use Psr\Http\Message\ResponseInterface;
+use Psr\Http\Message\ServerRequestInterface;
+use Psr\Http\Server\MiddlewareInterface;
+use Psr\Http\Server\RequestHandlerInterface;
+
+/**
+ * ✅ Assign trace_id to every request for distributed tracing
+ */
+class TraceIdMiddleware implements MiddlewareInterface
+{
+    public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
+    {
+        // ✅ Use X-Trace-Id header or generate new one
+        $traceId = $request-&gt;getHeaderLine(&#x27;X-Trace-Id&#x27;) ?: uniqid(&#x27;tr_&#x27;, true);
+        Context::set(&#x27;trace_id&#x27;, $traceId);
+
+        $response = $handler-&gt;handle($request);
+
+        // ✅ Return trace_id in response header for debugging
+        return $response-&gt;withHeader(&#x27;X-Trace-Id&#x27;, $traceId);
+    }
+}</code></pre>
+
+<h3>3.5 Filebeat 配置 <code>filebeat.yml</code></h3>
+
+<pre><code class="language-yaml"># ✅ Filebeat configuration for log collection
+filebeat.inputs:
+  - type: log
+    enabled: true
+    paths:
+      - /var/log/user-service/*.log
+    json.keys_under_root: true      # ✅ Parse JSON logs
+    json.add_error_key: true
+    fields:
+      service: user-service          # ✅ Tag with service name
+      env: ${ENV:production}
+
+output.elasticsearch:
+  hosts: [&quot;elasticsearch:9200&quot;]
+  index: &quot;user-service-%{+yyyy.MM.dd}&quot;  # ✅ Daily index
+
+logging.level: info</code></pre>
+
+<h3>3.6 Docker Compose <code>docker-compose.yml</code></h3>
+
+<pre><code class="language-yaml">version: &#x27;3.8&#x27;
+services:
+  elasticsearch:
+    image: elasticsearch:8.12.0
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - &quot;ES_JAVA_OPTS=-Xms512m -Xmx512m&quot;
+    ports:
+      - &quot;9200:9200&quot;
+    volumes:
+      - es_data:/usr/share/elasticsearch/data
+
+  kibana:
+    image: kibana:8.12.0
+    ports:
+      - &quot;5601:5601&quot;
+    environment:
+      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+    depends_on:
+      - elasticsearch
+
+  filebeat:
+    image: elastic/filebeat:8.12.0
+    volumes:
+      - ./filebeat.yml:/usr/share/filebeat/filebeat.yml:ro
+      - ./runtime/logs:/var/log/user-service:ro
+    depends_on:
+      - elasticsearch
+
+volumes:
+  es_data:</code></pre>
+
+<h2>4. 执行预览</h2>
+
+<pre><code class="language-bash">$ docker-compose up -d elasticsearch kibana filebeat
+
+# Log output (JSON format):
+# {&quot;message&quot;:&quot;User action: register&quot;,&quot;context&quot;:{&quot;action&quot;:&quot;register&quot;,&quot;user_id&quot;:1001},&quot;level&quot;:200,&quot;channel&quot;:&quot;default&quot;,&quot;datetime&quot;:&quot;2024-01-15T10:30:00+08:00&quot;,&quot;extra&quot;:{&quot;trace_id&quot;:&quot;tr_662f...&quot;,&quot;coroutine_id&quot;:1}}
+
+# Kibana query (http://localhost:5601):
+# level: &quot;ERROR&quot; AND context.action: &quot;register&quot;
+# Aggregation: avg(context.duration) by date histogram</code></pre>
+
+<h2>5. 注意事项</h2>
+
+<table><thead><tr>
+<th>约束</th>
+<th>说明</th>
+<th>违反后果</th>
+</tr></thead><tbody>
+<tr>
+<td>日志必须用 JSON 格式</td>
+<td>ELK 需要结构化数据</td>
+<td>无法解析，搜索困难</td>
+</tr>
+<tr>
+<td>每条日志含 trace_id</td>
+<td>分布式追踪的基础</td>
+<td>无法关联同一请求的日志</td>
+</tr>
+<tr>
+<td>敏感数据不入日志</td>
+<td>密码、token 等</td>
+<td>安全泄露</td>
+</tr>
+<tr>
+<td>日志文件做轮转</td>
+<td>防止磁盘满</td>
+<td>磁盘爆满服务崩溃</td>
+</tr>
+<tr>
+<td>Elasticsearch 索引按天分割</td>
+<td>便于清理和查询</td>
+<td>单索引过大查询慢</td>
+</tr>
+</tbody></table>
+
+<h2>6. 避坑指南</h2>
+
+<table><thead><tr>
+<th>错误</th>
+<th>现象</th>
+<th>正确做法</th>
+</tr></thead><tbody>
+<tr>
+<td>日志用纯文本</td>
+<td>无法按字段搜索</td>
+<td>用 JSON Formatter</td>
+</tr>
+<tr>
+<td>不加 trace_id</td>
+<td>无法追踪请求链路</td>
+<td>中间件注入 + Context 传递</td>
+</tr>
+<tr>
+<td>大量 DEBUG 日志</td>
+<td>ES 存储暴增</td>
+<td>生产用 INFO 级别</td>
+</tr>
+<tr>
+<td>Filebeat 路径错误</td>
+<td>采集不到日志</td>
+<td>确认容器内路径映射</td>
+</tr>
+<tr>
+<td>不配索引生命周期</td>
+<td>ES 磁盘持续增长</td>
+<td>配 ILM 策略保留 30 天</td>
+</tr>
+</tbody></table>
+
+<h2>7. 练习题</h2>
+
+<p>🟢 <strong>基础题 1：</strong> 添加一个 Kibana 仪表盘面板，展示每小时 ERROR 日志数量。</p>
+
+<p>🟢 <strong>基础题 2：</strong> 配置 Filebeat 多服务采集（user-service + order-service）。</p>
+
+<p>🟡 <strong>进阶题：</strong> 实现日志的 ILM（Index Lifecycle Management）策略，自动删除 30 天前的索引。</p>
+
+<p>🔴 <strong>开放题：</strong> 设计一个完整的日志告警方案：当 5 分钟内 ERROR 日志超过阈值时自动通知。</p>
+
+<h2>8. 知识点总结</h2>
+
+<pre><code>Logging with ELK
+├── Hyperf Logger
+│   ├── JSON Formatter
+│   ├── TraceIdProcessor
+│   └── StructuredLogger helper
+├── Middleware
+│   └── TraceIdMiddleware (X-Trace-Id header)
+├── ELK Stack
+│   ├── Elasticsearch (storage + search)
+│   ├── Logstash/Filebeat (collection)
+│   └── Kibana (visualization)
+├── Log Schema
+│   ├── message, level, channel, datetime
+│   ├── trace_id, coroutine_id
+│   └── context (action, user_id, etc.)
+└── Best Practices
+    ├── JSON format, trace_id on every entry
+    ├── No sensitive data in logs
+    ├── Daily index + ILM
+    └── Production: INFO level</code></pre>
+
+<h2>9. 举一反三</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>日志策略</th>
+<th>搜索需求</th>
+</tr></thead><tbody>
+<tr>
+<td>API 网关</td>
+<td>每请求记录 method/path/status/duration</td>
+<td>按 status_code 过滤慢请求</td>
+</tr>
+<tr>
+<td>支付服务</td>
+<td>记录 payment_id/amount/channel/result</td>
+<td>按订单号查支付流水</td>
+</tr>
+<tr>
+<td>定时任务</td>
+<td>记录 job_name/start/end/duration</td>
+<td>查看任务执行历史和失败原因</td>
+</tr>
+</tbody></table>
+
+<h2>10. 参考资料</h2>
+
+<ul>
+<li>🏆 <a href="https://www.elastic.co/guide/en/elasticsearch/reference/current/index.html">Elasticsearch 官方文档</a></li>
+<li>🏆 <a href="https://hyperf.wiki/3.1/#/zh-cn/logger">Hyperf 日志组件</a></li>
+<li>⭐ <a href="https://www.elastic.co/guide/en/beats/filebeat/current/configuring-howto-filebeat.html">Filebeat 配置指南</a></li>
+<li>📖 <a href="https://github.com/Seldaek/monolog">Monolog JSON Formatter</a></li>
+
+<h2>11. 代码演进</h2>
+
+<h3>v1 ❌ 混乱日志</h3>
+<pre><code class="language-php">error_log(&quot;User registered: &quot; . $userId);
+// Plain text, no structure, no trace_id</code></pre>
+
+<h3>v2 ✅ PSR-3 日志</h3>
+<pre><code class="language-php">$this-&gt;logger-&gt;info(&#x27;User registered&#x27;, [&#x27;user_id&#x27; =&gt; $userId]);
+// Structured but text format, hard for ELK to parse</code></pre>
+
+<h3>v3 🟢 JSON + TraceId + ELK</h3>
+<pre><code class="language-php">// JSON formatted + trace_id + structured context
+$this-&gt;structuredLogger-&gt;logUserAction(&#x27;register&#x27;, $userId, [&#x27;email&#x27; =&gt; $email]);
+// Filebeat -&gt; Elasticsearch -&gt; Kibana: full-text search, aggregation, alerting</code></pre>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

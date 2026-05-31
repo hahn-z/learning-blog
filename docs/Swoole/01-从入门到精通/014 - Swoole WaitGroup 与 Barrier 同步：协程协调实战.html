@@ -1,0 +1,742 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>014 - Swoole WaitGroup 与 Barrier 同步：协程协调实战</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Swoole/index.html">Swoole</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Swoole/01-从入门到精通/index.html">Swoole从入门到精通</a>
+</nav>
+<h1>014 - Swoole WaitGroup 与 Barrier 同步：协程协调实战</h1>
+<div class="meta">
+<span>📂 Swoole从入门到精通</span>
+<span>🏷️ Swoole</span>
+</div>
+<article>
+
+
+<h2>难度标注</h2>
+
+<blockquote><p>⭐⭐☆☆☆ 中级入门</p></blockquote>
+
+<p><strong>前置知识：</strong> 协程基础、Channel 通信</p>
+<p><strong>预计学习时间：</strong> 40 分钟</p>
+
+<hr>
+
+<h2>概念讲解</h2>
+
+<h3>什么是 WaitGroup？</h3>
+
+<p>WaitGroup 是一种<strong>计数器同步原语</strong>，用于等待一组协程全部完成后再继续执行。类似于 Go 的 <code>sync.WaitGroup</code>。</p>
+
+<p><strong>核心操作：</strong></p>
+<ul>
+<li><code>add($n)</code> — 计数器 +n（注册 n 个任务）</li>
+<li><code>done()</code> — 计数器 -1（任务完成）</li>
+<li><code>wait()</code> — 阻塞直到计数器归零</li>
+
+<p><strong>生活类比：</strong></p>
+<blockquote><p>餐厅等位 —— 一桌10个人，到齐了才入座。WaitGroup 就是那个计数器，每来一个人 -1，归零开饭。</p></blockquote>
+
+<h3>什么是 Barrier？</h3>
+
+<p>Barrier（屏障）是一种<strong>集合点同步</strong>机制，所有协程到达屏障后才能继续执行。类似于 Java 的 <code>CyclicBarrier</code>。</p>
+
+<p><strong>WaitGroup vs Barrier 对比：</strong></p>
+
+<table><thead><tr>
+<th>特性</th>
+<th>WaitGroup</th>
+<th>Barrier</th>
+</tr></thead><tbody>
+<tr>
+<td>用途</td>
+<td>等待一组任务完成</td>
+<td>多方在集合点同步</td>
+</tr>
+<tr>
+<td>使用次数</td>
+<td>一次性</td>
+<td>可重用</td>
+</tr>
+<tr>
+<td>计数方向</td>
+<td>递减到零</td>
+<td>等待 N 方到达</td>
+</tr>
+<tr>
+<td>适用场景</td>
+<td>并发请求，等结果</td>
+<td>多阶段流水线</td>
+</tr>
+</tbody></table>
+
+<h3>Swoole 中的实现</h3>
+
+<p>Swoole 没有内置 WaitGroup/Barrier 类，但可以用 <strong>Channel</strong> 轻松实现：</p>
+
+<pre><code class="language-php">// WaitGroup with Channel
+class WaitGroup {
+    private Channel $chan;
+    private int $count = 0;
+    
+    public function add(int $n = 1): void {
+        $this-&gt;count += $n;
+    }
+    
+    public function done(): void {
+        $this-&gt;chan-&gt;push(true);
+    }
+    
+    public function wait(float $timeout = -1): bool {
+        for ($i = 0; $i &lt; $this-&gt;count; $i++) {
+            if ($this-&gt;chan-&gt;pop($timeout) === false) return false;
+        }
+        return true;
+    }
+}</code></pre>
+
+<hr>
+
+<h2>脑图（ASCII）</h2>
+
+<pre><code>WaitGroup &amp; Barrier
+├── WaitGroup
+│   ├── add(n) 计数+N
+│   ├── done() 计数-1
+│   ├── wait() 阻塞等归零
+│   └── 适用：并发请求等结果
+├── Barrier
+│   ├── 各方到达后同步
+│   ├── 可重用
+│   └── 适用：多阶段流水线
+├── 实现方式
+│   ├── Channel 实现
+│   ├── 计数器 + Channel
+│   └── 闭包引用共享
+└── 典型场景
+    ├── 并发HTTP+DB+Redis聚合
+    ├── MapReduce 协程版
+    ├── 多阶段数据处理
+    └── 批量任务并行处理</code></pre>
+
+<hr>
+
+<h2>完整代码示例</h2>
+
+<h3>示例 1：WaitGroup 基础实现与使用</h3>
+
+<pre><code class="language-php">&lt;?php
+// 014_waitgroup_basic.php
+// WaitGroup implementation and basic usage
+
+use Swoole\Coroutine;
+use Swoole\Coroutine\Channel;
+use function Swoole\Coroutine\run;
+
+class WaitGroup
+{
+    private Channel $chan;
+    private int $count = 0;
+
+    public function __construct()
+    {
+        $this-&gt;chan = new Channel(128);
+    }
+
+    public function add(int $n = 1): void
+    {
+        $this-&gt;count += $n;
+    }
+
+    public function done(): void
+    {
+        $this-&gt;chan-&gt;push(true, 0.001);
+    }
+
+    public function wait(float $timeout = 30): bool
+    {
+        for ($i = 0; $i &lt; $this-&gt;count; $i++) {
+            if ($this-&gt;chan-&gt;pop($timeout) === false) {
+                return false; // Timeout
+            }
+        }
+        $this-&gt;count = 0;
+        return true;
+    }
+}
+
+run(function () {
+    $wg = new WaitGroup();
+    $results = [];
+    
+    $tasks = [
+        [&#x27;name&#x27; =&gt; &#x27;Fetch Users&#x27;, &#x27;delay&#x27; =&gt; 0.1],
+        [&#x27;name&#x27; =&gt; &#x27;Fetch Orders&#x27;, &#x27;delay&#x27; =&gt; 0.15],
+        [&#x27;name&#x27; =&gt; &#x27;Fetch Products&#x27;, &#x27;delay&#x27; =&gt; 0.08],
+    ];
+    
+    $wg-&gt;add(count($tasks));
+    
+    foreach ($tasks as $task) {
+        go(function () use ($wg, $task, &amp;$results) {
+            echo &quot;[Start] {$task[&#x27;name&#x27;]}...\n&quot;;
+            Coroutine::sleep($task[&#x27;delay&#x27;]); // Simulate I/O
+            $results[$task[&#x27;name&#x27;]] = &quot;Data from {$task[&#x27;name&#x27;]}&quot;;
+            echo &quot;[Done] {$task[&#x27;name&#x27;]}\n&quot;;
+            $wg-&gt;done();
+        });
+    }
+    
+    echo &quot;[Main] Waiting for all tasks...\n&quot;;
+    $wg-&gt;wait();
+    
+    echo &quot;\n=== All tasks completed ===\n&quot;;
+    foreach ($results as $name =&gt; $data) {
+        echo &quot;  {$name}: {$data}\n&quot;;
+    }
+});</code></pre>
+
+<h3>示例 2：Barrier 实现（多阶段流水线）</h3>
+
+<pre><code class="language-php">&lt;?php
+// 014_barrier.php
+// Barrier: synchronize multiple coroutines at rendezvous points
+
+use Swoole\Coroutine;
+use Swoole\Coroutine\Channel;
+use function Swoole\Coroutine\run;
+
+class Barrier
+{
+    private int $parties;
+    private Channel $chan;
+
+    public function __construct(int $parties)
+    {
+        $this-&gt;parties = $parties;
+        $this-&gt;chan = new Channel($parties);
+    }
+
+    public function await(float $timeout = 30): bool
+    {
+        $this-&gt;chan-&gt;push(true, $timeout);
+        // Wait until all parties have arrived
+        while ($this-&gt;chan-&gt;length() &lt; $this-&gt;parties) {
+            Coroutine::sleep(0.001);
+        }
+        // Drain for reuse
+        while (!$this-&gt;chan-&gt;isEmpty()) {
+            $this-&gt;chan-&gt;pop(0.001);
+        }
+        return true;
+    }
+}
+
+run(function () {
+    $workers = 3;
+    $barrier = new Barrier($workers);
+    
+    for ($w = 0; $w &lt; $workers; $w++) {
+        go(function () use ($w, $barrier) {
+            // Phase 1
+            echo &quot;[Worker {$w}] Phase 1 start\n&quot;;
+            Coroutine::sleep(rand(1, 5) * 0.01); // Variable work time
+            echo &quot;[Worker {$w}] Phase 1 done, waiting at barrier\n&quot;;
+            $barrier-&gt;await();
+            
+            // Phase 2 (all start together)
+            echo &quot;[Worker {$w}] Phase 2 start\n&quot;;
+            Coroutine::sleep(rand(1, 3) * 0.01);
+            echo &quot;[Worker {$w}] Phase 2 done, waiting at barrier\n&quot;;
+            $barrier-&gt;await();
+            
+            // Phase 3
+            echo &quot;[Worker {$w}] Phase 3 complete!\n&quot;;
+        });
+    }
+    
+    Coroutine::sleep(1); // Wait for all phases
+});</code></pre>
+
+<h3>示例 3：并发数据聚合（API + DB + Cache）</h3>
+
+<pre><code class="language-php">&lt;?php
+// 014_data_aggregation.php
+// Real-world: aggregate data from multiple sources concurrently
+
+use Swoole\Coroutine;
+use Swoole\Coroutine\Channel;
+use function Swoole\Coroutine\run;
+
+class WaitGroup {
+    private Channel $chan;
+    private int $count = 0;
+    public function __construct() { $this-&gt;chan = new Channel(128); }
+    public function add(int $n = 1): void { $this-&gt;count += $n; }
+    public function done(): void { $this-&gt;chan-&gt;push(true); }
+    public function wait(float $timeout = 10): bool {
+        for ($i = 0; $i &lt; $this-&gt;count; $i++) {
+            if ($this-&gt;chan-&gt;pop($timeout) === false) return false;
+        }
+        return true;
+    }
+}
+
+run(function () {
+    $wg = new WaitGroup();
+    $data = new \stdClass();
+    $data-&gt;users = null;
+    $data-&gt;orders = null;
+    $data-&gt;stats = null;
+    $data-&gt;config = null;
+    
+    $wg-&gt;add(4);
+    $start = microtime(true);
+    
+    // Task 1: Simulate MySQL query
+    go(function () use ($wg, $data) {
+        Coroutine::sleep(0.05);
+        $data-&gt;users = [&#x27;Alice&#x27;, &#x27;Bob&#x27;, &#x27;Charlie&#x27;];
+        $wg-&gt;done();
+    });
+    
+    // Task 2: Simulate Redis query
+    go(function () use ($wg, $data) {
+        Coroutine::sleep(0.02);
+        $data-&gt;stats = [&#x27;views&#x27; =&gt; 1234, &#x27;likes&#x27; =&gt; 567];
+        $wg-&gt;done();
+    });
+    
+    // Task 3: Simulate HTTP API call
+    go(function () use ($wg, $data) {
+        Coroutine::sleep(0.08);
+        $data-&gt;orders = [&#x27;order_1&#x27;, &#x27;order_2&#x27;];
+        $wg-&gt;done();
+    });
+    
+    // Task 4: Simulate file read
+    go(function () use ($wg, $data) {
+        Coroutine::sleep(0.01);
+        $data-&gt;config = [&#x27;debug&#x27; =&gt; false, &#x27;cache_ttl&#x27; =&gt; 3600];
+        $wg-&gt;done();
+    });
+    
+    $wg-&gt;wait();
+    $elapsed = round((microtime(true) - $start) * 1000);
+    
+    echo &quot;All data loaded in {$elapsed}ms:\n&quot;;
+    echo &quot;  Users:  &quot; . json_encode($data-&gt;users) . &quot;\n&quot;;
+    echo &quot;  Stats:  &quot; . json_encode($data-&gt;stats) . &quot;\n&quot;;
+    echo &quot;  Orders: &quot; . json_encode($data-&gt;orders) . &quot;\n&quot;;
+    echo &quot;  Config: &quot; . json_encode($data-&gt;config) . &quot;\n&quot;;
+    
+    // Compare: serial would take 50+20+80+10 = 160ms
+    // Concurrent: ~80ms (max of all)
+});</code></pre>
+
+<hr>
+
+<h2>执行预览</h2>
+
+<h3>示例 1 输出</h3>
+
+<pre><code>$ php 014_waitgroup_basic.php
+[Start] Fetch Users...
+[Start] Fetch Orders...
+[Start] Fetch Products...
+[Main] Waiting for all tasks...
+[Done] Fetch Products
+[Done] Fetch Users
+[Done] Fetch Orders
+
+=== All tasks completed ===
+  Fetch Users: Data from Fetch Users
+  Fetch Orders: Data from Fetch Orders
+  Fetch Products: Data from Fetch Products</code></pre>
+
+<h3>示例 3 输出</h3>
+
+<pre><code>$ php 014_data_aggregation.php
+All data loaded in 82ms:
+  Users:  [&quot;Alice&quot;,&quot;Bob&quot;,&quot;Charlie&quot;]
+  Stats:  {&quot;views&quot;:1234,&quot;likes&quot;:567}
+  Orders: [&quot;order_1&quot;,&quot;order_2&quot;]
+  Config: {&quot;debug&quot;:false,&quot;cache_ttl&quot;:3600}</code></pre>
+
+<hr>
+
+<h2>注意事项</h2>
+
+<table><thead><tr>
+<th>项目</th>
+<th>说明</th>
+<th>严重程度</th>
+</tr></thead><tbody>
+<tr>
+<td>add() 在 go() 之前调用</td>
+<td>否则 done() 可能先于 add() 执行</td>
+<td>🔴 严重</td>
+</tr>
+<tr>
+<td>done() 必须与 add() 匹配</td>
+<td>少调 done() → wait 永久阻塞</td>
+<td>🔴 严重</td>
+</tr>
+<tr>
+<td>wait() 要设超时</td>
+<td>防止某个协程崩溃导致永久等待</td>
+<td>🟡 中等</td>
+</tr>
+<tr>
+<td>闭包中的 &$results</td>
+<td>使用引用传值收集结果，注意生命周期</td>
+<td>🟡 中等</td>
+</tr>
+<tr>
+<td>Barrier 的重入问题</td>
+<td>自定义 Barrier 需正确处理重置逻辑</td>
+<td>🟡 中等</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>避坑指南</h2>
+
+<h3>❌ add() 放在 go() 内部</h3>
+<pre><code class="language-php">// WRONG: Race condition - done() might execute before add()
+$wg = new WaitGroup();
+for ($i = 0; $i &lt; 10; $i++) {
+    go(function () use ($wg) {
+        $wg-&gt;add(1); // Too late!
+        // If this coroutine finishes fast, done() runs before add()
+        $wg-&gt;done();
+    });
+}
+$wg-&gt;wait();</code></pre>
+
+<h3>✅ 先 add() 再 go()</h3>
+<pre><code class="language-php">// CORRECT: Add count first, then start coroutines
+$wg = new WaitGroup();
+$wg-&gt;add(10);
+for ($i = 0; $i &lt; 10; $i++) {
+    go(function () use ($wg, $i) {
+        // Do work
+        $wg-&gt;done();
+    });
+}
+$wg-&gt;wait();</code></pre>
+
+<hr>
+
+<h3>❌ 忘记 done() 导致永久阻塞</h3>
+<pre><code class="language-php">// WRONG: Exception skips done()
+go(function () use ($wg) {
+    throw new \Exception(&#x27;Oops&#x27;); // done() never called!
+    $wg-&gt;done();
+});</code></pre>
+
+<h3>✅ 使用 try/finally 确保 done()</h3>
+<pre><code class="language-php">// CORRECT: Always call done() with try/finally
+go(function () use ($wg) {
+    try {
+        throw new \Exception(&#x27;Oops&#x27;);
+    } finally {
+        $wg-&gt;done(); // Always executed
+    }
+});</code></pre>
+
+<hr>
+
+<h2>练习题</h2>
+
+<h3>🟢 初级</h3>
+<ol>
+<li>使用 WaitGroup 并发请求 3 个 URL，等待所有结果后输出</li>
+</ul>
+<ol>
+<li>测量 WaitGroup 并发 vs 串行的性能差异（5个任务，每个 sleep 0.1s）</li>
+
+<h3>🟡 中级</h3>
+<ol>
+<li>实现一个可重用的 Barrier，支持 3 个阶段的数据处理流水线</li>
+</ul>
+<ol>
+<li>用 WaitGroup 实现一个 MapReduce：Map 阶段并发处理数据，Reduce 阶段汇总</li>
+
+<h3>🔴 高级</h3>
+<ol>
+<li>实现一个带超时和错误报告的 EnhancedWaitGroup，某个任务超时时不影响其他任务</li>
+
+<p><details></p>
+<p><summary>参考答案（题4 - MapReduce）</summary></p>
+
+<pre><code class="language-php">&lt;?php
+use Swoole\Coroutine;
+use Swoole\Coroutine\Channel;
+use function Swoole\Coroutine\run;
+
+class WaitGroup {
+    private Channel $chan;
+    private int $count = 0;
+    public function __construct() { $this-&gt;chan = new Channel(128); }
+    public function add(int $n = 1): void { $this-&gt;count += $n; }
+    public function done(): void { $this-&gt;chan-&gt;push(true); }
+    public function wait(float $t = 10): bool {
+        for ($i = 0; $i &lt; $this-&gt;count; $i++) {
+            if ($this-&gt;chan-&gt;pop($t) === false) return false;
+        }
+        return true;
+    }
+}
+
+run(function () {
+    $data = range(1, 100);
+    $chunks = array_chunk($data, 20);
+    $results = new Channel(100);
+    $wg = new WaitGroup();
+    $wg-&gt;add(count($chunks));
+    
+    // Map phase
+    foreach ($chunks as $chunk) {
+        go(function () use ($chunk, $wg, $results) {
+            $mapped = array_map(fn($x) =&gt; $x * $x, $chunk);
+            foreach ($mapped as $val) $results-&gt;push($val);
+            $wg-&gt;done();
+        });
+    }
+    
+    $wg-&gt;wait();
+    
+    // Reduce phase
+    $sum = 0;
+    while (!$results-&gt;isEmpty()) {
+        $sum += $results-&gt;pop();
+    }
+    echo &quot;Sum of squares (1-100): {$sum}\n&quot;;
+});</code></pre>
+
+<p></details></p>
+
+<hr>
+
+<h2>知识点总结（树状）</h2>
+
+<pre><code>WaitGroup &amp; Barrier
+├── WaitGroup
+│   ├── 原理：计数器 + Channel
+│   ├── add() → done() → wait()
+│   ├── 用途：等待一组协程完成
+│   └── 关键：add 先于 go，done 在 finally
+├── Barrier
+│   ├── 原理：N方到达后统一放行
+│   ├── 适用：多阶段流水线
+│   └── 可重用设计
+├── Channel 实现原理
+│   ├── push = done 信号
+│   ├── pop N 次 = wait
+│   └── 超时保护
+└── 典型应用
+    ├── 并发数据聚合
+    ├── MapReduce
+    ├── 批量任务并行
+    └── 多阶段处理</code></pre>
+
+<hr>
+
+<h2>举一反三</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>同步方式</th>
+<th>说明</th>
+</tr></thead><tbody>
+<tr>
+<td>并发HTTP请求等结果</td>
+<td>WaitGroup</td>
+<td>add(N), 每个请求 done()</td>
+</tr>
+<tr>
+<td>API+DB+Cache聚合</td>
+<td>WaitGroup</td>
+<td>3个并发源，等最慢的</td>
+</tr>
+<tr>
+<td>多阶段ETL</td>
+<td>Barrier</td>
+<td>每阶段等所有Worker完成</td>
+</tr>
+<tr>
+<td>批量文件处理</td>
+<td>WaitGroup + Channel</td>
+<td>WaitGroup等完成，Channel收集结果</td>
+</tr>
+<tr>
+<td>分布式计算</td>
+<td>WaitGroup</td>
+<td>Map阶段并发，Reduce汇总</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>参考资料</h2>
+
+<ul>
+<li><a href="https://pkg.go.dev/sync#WaitGroup">Go sync.WaitGroup</a></li>
+<li><a href="https://docs.oracle.com/javase/8/docs/api/java/util/concurrent/CyclicBarrier.html">Java CyclicBarrier</a></li>
+<li><a href="https://wiki.swoole.com/#/coroutine/channel">Swoole Channel 文档</a></li>
+<li><a href="https://en.wikipedia.org/wiki/Synchronization_(computer_science">并发同步原语对比</a>)</li>
+
+<hr>
+
+<h2>代码演进</h2>
+
+<h3>v1：Channel 直接模拟 WaitGroup</h3>
+<pre><code class="language-php">&lt;?php
+// v1: Simple Channel-based wait
+use Swoole\Coroutine\Channel;
+use function Swoole\Coroutine\run;
+
+run(function () {
+    $chan = new Channel(3);
+    for ($i = 0; $i &lt; 3; $i++) {
+        go(function () use ($i, $chan) {
+            \Swoole\Coroutine::sleep(0.1);
+            $chan-&gt;push(&quot;result-{$i}&quot;);
+        });
+    }
+    for ($i = 0; $i &lt; 3; $i++) {
+        echo $chan-&gt;pop() . &quot;\n&quot;;
+    }
+});</code></pre>
+
+<h3>v2：封装 WaitGroup 类</h3>
+<pre><code class="language-php">&lt;?php
+// v2: Reusable WaitGroup class
+// (See 示例1 above)</code></pre>
+
+<h3>v3：生产级数据聚合框架</h3>
+<pre><code class="language-php">&lt;?php
+// v3: Production data aggregation with timeout and error handling
+use Swoole\Coroutine;
+use Swoole\Coroutine\Channel;
+use function Swoole\Coroutine\run;
+
+class WaitGroup {
+    private Channel $chan;
+    private int $count = 0;
+    public function __construct() { $this-&gt;chan = new Channel(128); }
+    public function add(int $n = 1): void { $this-&gt;count += $n; }
+    public function done(): void { $this-&gt;chan-&gt;push(true); }
+    public function wait(float $timeout = 10): bool {
+        for ($i = 0; $i &lt; $this-&gt;count; $i++) {
+            if ($this-&gt;chan-&gt;pop($timeout) === false) return false;
+        }
+        return true;
+    }
+}
+
+run(function () {
+    $wg = new WaitGroup();
+    $errors = new Channel(32);
+    $results = [];
+    
+    $sources = [
+        &#x27;api&#x27; =&gt; fn() =&gt; Coroutine::sleep(0.1) ?? [&#x27;status&#x27; =&gt; &#x27;ok&#x27;],
+        &#x27;db&#x27; =&gt; fn() =&gt; Coroutine::sleep(0.05) ?? [&#x27;users&#x27; =&gt; 42],
+        &#x27;cache&#x27; =&gt; fn() =&gt; Coroutine::sleep(0.02) ?? [&#x27;hit_rate&#x27; =&gt; 0.95],
+    ];
+    
+    $wg-&gt;add(count($sources));
+    
+    foreach ($sources as $name =&gt; $fn) {
+        go(function () use ($name, $fn, $wg, &amp;$results, $errors) {
+            try {
+                $results[$name] = $fn();
+            } catch (\Throwable $e) {
+                $errors-&gt;push([&#x27;source&#x27; =&gt; $name, &#x27;error&#x27; =&gt; $e-&gt;getMessage()]);
+                $results[$name] = null;
+            } finally {
+                $wg-&gt;done();
+            }
+        });
+    }
+    
+    $ok = $wg-&gt;wait(5.0);
+    
+    echo &quot;Aggregation &quot; . ($ok ? &#x27;complete&#x27; : &#x27;timed out&#x27;) . &quot;:\n&quot;;
+    echo json_encode($results, JSON_PRETTY_PRINT) . &quot;\n&quot;;
+    
+    while (!$errors-&gt;isEmpty()) {
+        $err = $errors-&gt;pop();
+        echo &quot;ERROR [{$err[&#x27;source&#x27;]}]: {$err[&#x27;error&#x27;]}\n&quot;;
+    }
+});</code></pre>
+
+<p><strong>演进思路：</strong></p>
+<ul>
+<li>v1 → Channel 直接实现简单等待</li>
+<li>v2 → 封装 WaitGroup 类，语义清晰</li>
+<li>v3 → 生产级：超时保护、错误处理、多数据源聚合</li>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

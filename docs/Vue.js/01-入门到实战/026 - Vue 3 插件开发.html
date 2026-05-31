@@ -1,0 +1,569 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>026 - Vue 3 插件开发</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Vue.js/index.html">Vue.js</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Vue.js/01-入门到实战/index.html">Vue.js入门到实战</a>
+</nav>
+<h1>026 - Vue 3 插件开发</h1>
+<div class="meta">
+<span>📂 Vue.js入门到实战</span>
+<span>🏷️ Vue.js</span>
+</div>
+<article>
+
+
+<h2>难度标注</h2>
+
+<blockquote><p>🟡 <strong>中高级</strong> — 需要 Vue 3 基础、了解 app 实例和 provide/inject</p></blockquote>
+
+<h2>概念讲解</h2>
+
+<h3>什么是 Vue 插件？</h3>
+
+<p>插件是<strong>自包含的功能模块</strong>，通过 <code>app.use()</code> 注册时向 Vue 应用添加全局功能。插件可以：</p>
+
+<ul>
+<li>注册全局组件</li>
+<li>注册全局指令</li>
+<li>提供 provide/inject 服务</li>
+<li>添加全局属性</li>
+<li>执行初始化逻辑</li>
+
+<h3>插件的结构</h3>
+
+<pre><code class="language-javascript">// Plugin pattern
+const myPlugin = {
+  install(app, options) {
+    // app: Vue app instance
+    // options: user-provided config
+  }
+}
+
+// Usage: app.use(myPlugin, { theme: &#x27;dark&#x27; })</code></pre>
+
+<h3>插件 vs 组件库</h3>
+
+<table><thead><tr>
+<th>概念</th>
+<th>范围</th>
+<th>例子</th>
+</tr></thead><tbody>
+<tr>
+<td>插件</td>
+<td>添加功能（组件+指令+服务）</td>
+<td>vuetify, vue-router</td>
+</tr>
+<tr>
+<td>组件库</td>
+<td>主要是 UI 组件</td>
+<td>element-plus</td>
+</tr>
+<tr>
+<td>指令库</td>
+<td>主要是指令</td>
+<td>@vueuse/integrations</td>
+</tr>
+</tbody></table>
+
+<h2>脑图</h2>
+
+<pre><code>Vue 3 插件开发
+├── 基本结构
+│   ├── install(app, options)
+│   └── app.use(plugin, config)
+├── 插件能力
+│   ├── app.component() — 注册组件
+│   ├── app.directive() — 注册指令
+│   ├── app.provide() — 全局服务
+│   ├── app.config.globalProperties — 全局属性
+│   └── app.mixin() — 混入（不推荐）
+├── 设计模式
+│   ├── 配置驱动
+│   ├── 工厂函数
+│   └── 组合式 API 封装
+├── 打包分发
+│   ├── Vite Library Mode
+│   ├── peerDependencies: vue
+│   └── Tree-shaking 友好
+└── 实战
+    ├── Toast 通知插件
+    ├── Loading 加载插件
+    └── 权限插件</code></pre>
+
+<h2>完整代码</h2>
+
+<pre><code class="language-javascript">// plugins/toast/index.js — Toast notification plugin
+import ToastContainer from &#x27;./ToastContainer.vue&#x27;
+import { createApp, ref } from &#x27;vue&#x27;
+
+// Plugin state (shared across all toast instances)
+const toasts = ref([])
+let toastId = 0
+
+function addToast(message, options = {}) {
+  const id = toastId++
+  const toast = {
+    id,
+    message,
+    type: options.type || &#x27;info&#x27;,
+    duration: options.duration || 3000
+  }
+  toasts.value.push(toast)
+
+  // Auto-remove after duration
+  if (toast.duration &gt; 0) {
+    setTimeout(() =&gt; removeToast(id), toast.duration)
+  }
+
+  return id
+}
+
+function removeToast(id) {
+  toasts.value = toasts.value.filter(t =&gt; t.id !== id)
+}
+
+// Exported toast service
+export function useToast() {
+  return {
+    success: (msg, opts) =&gt; addToast(msg, { ...opts, type: &#x27;success&#x27; }),
+    error: (msg, opts) =&gt; addToast(msg, { ...opts, type: &#x27;error&#x27; }),
+    info: (msg, opts) =&gt; addToast(msg, { ...opts, type: &#x27;info&#x27; }),
+    warning: (msg, opts) =&gt; addToast(msg, { ...opts, type: &#x27;warning&#x27; }),
+    remove: removeToast
+  }
+}
+
+// Plugin install function
+export default {
+  install(app, options = {}) {
+    // 1. Register toast container component
+    app.component(&#x27;ToastContainer&#x27;, ToastContainer)
+
+    // 2. Provide toast service globally
+    app.provide(&#x27;toast&#x27;, useToast())
+
+    // 3. Global property (for Options API)
+    app.config.globalProperties.$toast = useToast()
+  }
+}</code></pre>
+
+<pre><code class="language-vue">&lt;!-- plugins/toast/ToastContainer.vue --&gt;
+&lt;script setup&gt;
+import { toasts, removeToast } from &#x27;./index&#x27;
+&lt;/script&gt;
+
+&lt;template&gt;
+  &lt;Teleport to=&quot;body&quot;&gt;
+    &lt;div class=&quot;toast-container&quot;&gt;
+      &lt;TransitionGroup name=&quot;toast&quot;&gt;
+        &lt;div
+          v-for=&quot;toast in toasts&quot;
+          :key=&quot;toast.id&quot;
+          :class=&quot;[&#x27;toast&#x27;, `toast-${toast.type}`]&quot;
+          @click=&quot;removeToast(toast.id)&quot;
+        &gt;
+          &lt;span class=&quot;toast-icon&quot;&gt;
+            {{ toast.type === &#x27;success&#x27; ? &#x27;✓&#x27; : toast.type === &#x27;error&#x27; ? &#x27;✕&#x27; : &#x27;ℹ&#x27; }}
+          &lt;/span&gt;
+          &lt;span&gt;{{ toast.message }}&lt;/span&gt;
+        &lt;/div&gt;
+      &lt;/TransitionGroup&gt;
+    &lt;/div&gt;
+  &lt;/Teleport&gt;
+&lt;/template&gt;
+
+&lt;style scoped&gt;
+.toast-container {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.toast {
+  padding: 12px 20px;
+  border-radius: 8px;
+  color: white;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  min-width: 200px;
+}
+.toast-success { background: #42b883; }
+.toast-error { background: #e74c3c; }
+.toast-info { background: #3498db; }
+.toast-warning { background: #f39c12; }
+.toast-enter-active, .toast-leave-active { transition: all 0.3s ease; }
+.toast-enter-from { opacity: 0; transform: translateX(100px); }
+.toast-leave-to { opacity: 0; transform: translateX(100px); }
+&lt;/style&gt;</code></pre>
+
+<pre><code class="language-javascript">// plugins/loading/index.js — Loading directive plugin
+export default {
+  install(app) {
+    app.directive(&#x27;loading&#x27;, {
+      mounted(el, binding) {
+        // Create loading overlay
+        const overlay = document.createElement(&#x27;div&#x27;)
+        overlay.className = &#x27;v-loading-overlay&#x27;
+        overlay.innerHTML = &#x27;&lt;div class=&quot;spinner&quot;&gt;&lt;/div&gt;&#x27;
+        el.style.position = &#x27;relative&#x27;
+        el._loadingOverlay = overlay
+
+        if (binding.value) {
+          el.appendChild(overlay)
+        }
+      },
+
+      updated(el, binding) {
+        if (binding.value &amp;&amp; !el.contains(el._loadingOverlay)) {
+          el.appendChild(el._loadingOverlay)
+        } else if (!binding.value &amp;&amp; el.contains(el._loadingOverlay)) {
+          el.removeChild(el._loadingOverlay)
+        }
+      },
+
+      unmounted(el) {
+        el._loadingOverlay = null
+      }
+    })
+  }
+}</code></pre>
+
+<pre><code class="language-javascript">// plugins/i18n/index.js — Simple i18n plugin
+import { ref, computed } from &#x27;vue&#x27;
+
+const locale = ref(&#x27;zh&#x27;)
+const messages = ref({})
+
+export function useI18n() {
+  const t = (key) =&gt; {
+    return messages.value[locale.value]?.[key] || key
+  }
+  const setLocale = (newLocale) =&gt; {
+    locale.value = newLocale
+  }
+  return { t, locale: computed(() =&gt; locale.value), setLocale }
+}
+
+export default {
+  install(app, options = {}) {
+    // Set initial messages
+    if (options.messages) {
+      messages.value = options.messages
+    }
+    if (options.locale) {
+      locale.value = options.locale
+    }
+
+    // Provide globally
+    app.provide(&#x27;i18n&#x27;, useI18n())
+    app.config.globalProperties.$t = (key) =&gt;
+      messages.value[locale.value]?.[key] || key
+  }
+}</code></pre>
+
+<pre><code class="language-javascript">// main.js — Using all plugins
+import { createApp } from &#x27;vue&#x27;
+import App from &#x27;./App.vue&#x27;
+
+// Plugins
+import ToastPlugin from &#x27;./plugins/toast&#x27;
+import LoadingPlugin from &#x27;./plugins/loading&#x27;
+import I18nPlugin from &#x27;./plugins/i18n&#x27;
+
+const app = createApp(App)
+
+app.use(ToastPlugin)
+app.use(LoadingPlugin)
+app.use(I18nPlugin, {
+  locale: &#x27;zh&#x27;,
+  messages: {
+    zh: { hello: &#x27;你好&#x27;, goodbye: &#x27;再见&#x27; },
+    en: { hello: &#x27;Hello&#x27;, goodbye: &#x27;Goodbye&#x27; }
+  }
+})
+
+app.mount(&#x27;#app&#x27;)</code></pre>
+
+<pre><code class="language-vue">&lt;!-- App.vue — Using plugins in components --&gt;
+&lt;script setup&gt;
+import { useToast } from &#x27;./plugins/toast&#x27;
+import { useI18n } from &#x27;./plugins/i18n&#x27;
+import { ref } from &#x27;vue&#x27;
+
+const toast = useToast()
+const { t, setLocale } = useI18n()
+const loading = ref(false)
+
+async function saveData() {
+  loading.value = true
+  try {
+    await new Promise(r =&gt; setTimeout(r, 2000))
+    toast.success(&#x27;保存成功！&#x27;)
+  } catch {
+    toast.error(&#x27;保存失败&#x27;)
+  } finally {
+    loading.value = false
+  }
+}
+&lt;/script&gt;
+
+&lt;template&gt;
+  &lt;div v-loading=&quot;loading&quot;&gt;
+    &lt;h1&gt;{{ t(&#x27;hello&#x27;) }}&lt;/h1&gt;
+    &lt;button @click=&quot;setLocale(&#x27;en&#x27;)&quot;&gt;English&lt;/button&gt;
+    &lt;button @click=&quot;setLocale(&#x27;zh&#x27;)&quot;&gt;中文&lt;/button&gt;
+    &lt;button @click=&quot;saveData&quot;&gt;Save&lt;/button&gt;
+    &lt;button @click=&quot;toast.info(&#x27;Just a message&#x27;)&quot;&gt;Show Toast&lt;/button&gt;
+  &lt;/div&gt;
+  &lt;ToastContainer /&gt;
+&lt;/template&gt;</code></pre>
+
+<h2>执行预览</h2>
+
+<pre><code>app.use(ToastPlugin):
+  → 注册 ToastContainer 组件
+  → 提供 useToast() 服务
+
+点击 &quot;Save&quot;:
+  → loading = true → v-loading 显示加载遮罩
+  → 2秒后 loading = false → 遮罩消失
+  → toast.success(&#x27;保存成功！&#x27;) → 右上角弹出绿色通知
+  → 3秒后通知自动消失
+
+切换语言:
+  → setLocale(&#x27;en&#x27;) → &quot;你好&quot; → &quot;Hello&quot;
+  → setLocale(&#x27;zh&#x27;) → &quot;Hello&quot; → &quot;你好&quot;</code></pre>
+
+<h2>注意事项</h2>
+
+<table><thead><tr>
+<th>注意点</th>
+<th>说明</th>
+</tr></thead><tbody>
+<tr>
+<td>install 必须有</td>
+<td>插件必须有 <code>install</code> 方法才能用 <code>app.use()</code></td>
+</tr>
+<tr>
+<td>app.use 自动防重</td>
+<td>同一插件多次 use 只执行一次 install</td>
+</tr>
+<tr>
+<td>provide/inject 优先</td>
+<td>比 globalProperties 更适合 Composition API</td>
+</tr>
+<tr>
+<td>Tree-shaking</td>
+<td>导出单独的 composable（如 useToast）便于按需引入</td>
+</tr>
+<tr>
+<td>peerDependencies</td>
+<td>插件包的 vue 应设为 peerDependency，不打包进产物</td>
+</tr>
+</tbody></table>
+
+<h2>避坑指南</h2>
+
+<table><thead><tr>
+<th>❌ 错误做法</th>
+<th>✅ 正确做法</th>
+</tr></thead><tbody>
+<tr>
+<td>所有功能塞进一个插件</td>
+<td>按功能拆分多个插件，按需注册</td>
+</tr>
+<tr>
+<td>用 globalProperties 挂载所有东西</td>
+<td>provide/inject + composable 更类型安全</td>
+</tr>
+<tr>
+<td>插件中硬编码配置</td>
+<td>install(app, options) 接受用户配置</td>
+</tr>
+<tr>
+<td>不清理副作用</td>
+<td>提供卸载机制或文档说明</td>
+</tr>
+<tr>
+<td>打包时包含 vue</td>
+<td>vue 设为 peerDependency，external 处理</td>
+</tr>
+</tbody></table>
+
+<h2>练习题</h2>
+
+<h3>🟢 基础</h3>
+<ol>
+<li>创建一个简单的插件，注册一个全局组件 <code><MyButton></code></li>
+</ul>
+<ol>
+<li>创建一个插件，通过 provide 提供一个全局配置对象</li>
+
+<h3>🟡 进阶</h3>
+<ol>
+<li>实现一个完整的 Toast 通知插件（如本文代码）</li>
+</ul>
+<ol>
+<li>实现一个 v-loading 指令插件</li>
+
+<h3>🔴 挑战</h3>
+<ol>
+<li>将你的插件打包为 npm 包：配置 Vite Library Mode，发布到 npm</li>
+
+<h2>知识点总结</h2>
+
+<pre><code>Vue 3 插件开发
+├── 基本结构
+│   ├── { install(app, options) {} }
+│   └── app.use(plugin, config)
+├── 插件能力
+│   ├── app.component() — 全局组件
+│   ├── app.directive() — 全局指令
+│   ├── app.provide() — 全局服务
+│   └── globalProperties — 全局属性
+├── Composable 导出
+│   ├── export function useXxx()
+│   └── 便于 Tree-shaking
+└── 打包
+    ├── vite.config.js lib mode
+    ├── peerDependencies: vue
+    └── external: [&#x27;vue&#x27;]</code></pre>
+
+<h2>举一反三</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>插件设计</th>
+<th>关键 API</th>
+</tr></thead><tbody>
+<tr>
+<td>通知系统</td>
+<td>Toast plugin</td>
+<td>provide + Teleport</td>
+</tr>
+<tr>
+<td>加载状态</td>
+<td>v-loading 指令</td>
+<td>app.directive()</td>
+</tr>
+<tr>
+<td>国际化</td>
+<td>i18n plugin</td>
+<td>provide + reactive</td>
+</tr>
+<tr>
+<td>主题系统</td>
+<td>Theme plugin</td>
+<td>CSS variables + provide</td>
+</tr>
+<tr>
+<td>权限系统</td>
+<td>Auth plugin</td>
+<td>directive + provide</td>
+</tr>
+<tr>
+<td>数据埋点</td>
+<td>Analytics plugin</td>
+<td>全局 mixin 替代方案</td>
+</tr>
+</tbody></table>
+
+<h2>参考资料</h2>
+
+<ul>
+<li><a href="https://vuejs.org/guide/reusability/plugins.html">Vue 3 官方文档 - Plugins</a></li>
+<li><a href="https://vuejs.org/api/application.html#app-use">Vue 3 API - app.use()</a></li>
+<li><a href="https://vitejs.dev/guide/build.html#library-mode">Vite Library Mode</a></li>
+
+<h2>代码演进</h2>
+
+<h3>v1 — 最简插件</h3>
+<pre><code class="language-javascript">export default {
+  install(app) {
+    app.component(&#x27;MyBtn&#x27;, MyButton)
+  }
+}</code></pre>
+
+<h3>v2 — 带配置和服务</h3>
+<pre><code class="language-javascript">export default {
+  install(app, options) {
+    app.provide(&#x27;config&#x27;, options)
+    app.directive(&#x27;loading&#x27;, LoadingDirective)
+  }
+}
+export function useService() { /* composable */ }</code></pre>
+
+<h3>v3 — 完整方案（本文代码）</h3>
+<ul>
+<li>Toast 通知系统</li>
+<li>Loading 指令</li>
+<li>i18n 国际化</li>
+<li>Composable 导出</li>
+<li>打包配置</li>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

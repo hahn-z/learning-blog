@@ -1,0 +1,490 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>018 - 动态路由与嵌套路由</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Vue.js/index.html">Vue.js</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Vue.js/01-入门到实战/index.html">Vue.js入门到实战</a>
+</nav>
+<h1>018 - 动态路由与嵌套路由</h1>
+<div class="meta">
+<span>📂 Vue.js入门到实战</span>
+<span>🏷️ Vue.js</span>
+</div>
+<article>
+
+
+<h1>056-动态路由与嵌套路由</h1>
+
+<blockquote><p>📌 <strong>难度标注</strong>：⭐⭐⭐ 中级（需要理解 Vue Router 基础配置）</p></blockquote>
+
+<h2>一、概念讲解</h2>
+
+<h3>动态路由</h3>
+
+<p>动态路由通过在路径中使用<strong>动态参数</strong>（<code>:param</code>）匹配多个相似路由。例如 <code>/user/:id</code> 可以匹配 <code>/user/1</code>、<code>/user/42</code> 等。</p>
+
+<p>关键特性：</p>
+<ul>
+<li><strong>参数获取</strong>：通过 <code>useRoute().params</code> 访问</li>
+<li><strong>参数变化监听</strong>：同组件间跳转时组件会复用，需要手动监听参数变化</li>
+<li><strong>可选参数</strong>：<code>/user/:id?</code> 中 <code>?</code> 表示参数可选</li>
+<li><strong>正则约束</strong>：<code>/user/:id(\d+)</code> 限制 id 只能是数字</li>
+<li><strong>通配符</strong>：<code>/:pathMatch(.<em>)</em></code> 匹配所有未命中的路径（404页面）</li>
+
+<h3>嵌套路由</h3>
+
+<p>嵌套路由允许在组件内部嵌套 <code><router-view></code>，实现页面布局的层级嵌套。例如后台管理系统中，侧边栏固定、内容区根据子路由变化。</p>
+
+<h3>命名视图</h3>
+
+<p>同一层级同时展示多个 <code><router-view></code>，通过 <code>name</code> 属性区分，适合复杂布局。</p>
+
+<h2>二、脑图</h2>
+
+<pre><code>动态路由与嵌套路由
+├── 动态路由
+│   ├── 基础参数  /user/:id
+│   ├── 多参数    /post/:category/:id
+│   ├── 可选参数  /user/:id?
+│   ├── 正则约束  /user/:id(\d+)
+│   ├── 通配符    /:pathMatch(.*)*
+│   └── 参数获取  useRoute().params
+├── 嵌套路由
+│   ├── children 配置
+│   ├── 嵌套 &lt;router-view&gt;
+│   ├── 默认子路由
+│   └── 深层嵌套 (3+ levels)
+├── 命名视图
+│   ├── &lt;router-view name=&quot;header&quot;&gt;
+│   ├── components 配置 (复数)
+│   └── 嵌套命名视图
+└── 编程式导航
+    ├── router.push()
+    ├── router.replace()
+    └── router.go() / back() / forward()</code></pre>
+
+<h2>三、完整代码</h2>
+
+<pre><code class="language-javascript">// router/index.js
+import { createRouter, createWebHistory } from &#x27;vue-router&#x27;
+
+const AdminLayout = () =&gt; import(&#x27;../views/admin/Layout.vue&#x27;)
+const DashboardHome = () =&gt; import(&#x27;../views/admin/Dashboard.vue&#x27;)
+const UserList = () =&gt; import(&#x27;../views/admin/UserList.vue&#x27;)
+const UserDetail = () =&gt; import(&#x27;../views/admin/UserDetail.vue&#x27;)
+const UserEdit = () =&gt; import(&#x27;../views/admin/UserEdit.vue&#x27;)
+const PostDetail = () =&gt; import(&#x27;../views/admin/PostDetail.vue&#x27;)
+const Settings = () =&gt; import(&#x27;../views/admin/Settings.vue&#x27;)
+const NotFound = () =&gt; import(&#x27;../views/NotFound.vue&#x27;)
+
+const routes = [
+  {
+    path: &#x27;/&#x27;,
+    component: () =&gt; import(&#x27;../views/Home.vue&#x27;)
+  },
+  {
+    path: &#x27;/admin&#x27;,
+    component: AdminLayout,
+    children: [
+      {
+        path: &#x27;&#x27;,           // /admin
+        name: &#x27;AdminHome&#x27;,
+        component: DashboardHome
+      },
+      {
+        path: &#x27;users&#x27;,      // /admin/users
+        name: &#x27;UserList&#x27;,
+        component: UserList
+      },
+      {
+        path: &#x27;users/:id&#x27;,  // /admin/users/:id
+        name: &#x27;UserDetail&#x27;,
+        component: UserDetail,
+        children: [
+          {
+            path: &#x27;&#x27;,        // /admin/users/:id
+            name: &#x27;UserProfile&#x27;,
+            component: () =&gt; import(&#x27;../views/admin/UserProfile.vue&#x27;)
+          },
+          {
+            path: &#x27;edit&#x27;,   // /admin/users/:id/edit
+            name: &#x27;UserEdit&#x27;,
+            component: UserEdit
+          }
+        ]
+      },
+      {
+        path: &#x27;posts/:category/:id&#x27;, // Multiple dynamic params
+        name: &#x27;PostDetail&#x27;,
+        component: PostDetail
+      },
+      {
+        path: &#x27;settings&#x27;,
+        name: &#x27;Settings&#x27;,
+        component: Settings
+      }
+    ]
+  },
+  {
+    // Regex constraint: id must be numeric
+    path: &#x27;/article/:id(\d+)&#x27;,
+    name: &#x27;Article&#x27;,
+    component: () =&gt; import(&#x27;../views/Article.vue&#x27;)
+  },
+  {
+    // Named views example
+    path: &#x27;/blog/:id&#x27;,
+    name: &#x27;BlogPost&#x27;,
+    components: {
+      default: () =&gt; import(&#x27;../views/BlogContent.vue&#x27;),
+      sidebar: () =&gt; import(&#x27;../views/BlogSidebar.vue&#x27;),
+      footer: () =&gt; import(&#x27;../views/BlogFooter.vue&#x27;)
+    }
+  },
+  {
+    // Catch-all 404
+    path: &#x27;/:pathMatch(.*)*&#x27;,
+    name: &#x27;NotFound&#x27;,
+    component: NotFound
+  }
+]
+
+const router = createRouter({
+  history: createWebHistory(),
+  routes
+})
+
+export default router</code></pre>
+
+<pre><code class="language-vue">&lt;!-- views/admin/Layout.vue --&gt;
+&lt;template&gt;
+  &lt;div class=&quot;admin-layout&quot;&gt;
+    &lt;aside class=&quot;sidebar&quot;&gt;
+      &lt;h3&gt;管理后台&lt;/h3&gt;
+      &lt;nav&gt;
+        &lt;router-link :to=&quot;{ name: &#x27;AdminHome&#x27; }&quot;&gt;仪表盘&lt;/router-link&gt;
+        &lt;router-link :to=&quot;{ name: &#x27;UserList&#x27; }&quot;&gt;用户管理&lt;/router-link&gt;
+        &lt;router-link :to=&quot;{ name: &#x27;Settings&#x27; }&quot;&gt;设置&lt;/router-link&gt;
+      &lt;/nav&gt;
+    &lt;/aside&gt;
+    &lt;main class=&quot;content&quot;&gt;
+      &lt;router-view /&gt;
+    &lt;/main&gt;
+  &lt;/div&gt;
+&lt;/template&gt;
+
+&lt;style scoped&gt;
+.admin-layout { display: flex; min-height: 100vh; }
+.sidebar { width: 220px; background: #2c3e50; color: #fff; padding: 20px; }
+.sidebar nav { display: flex; flex-direction: column; gap: 8px; margin-top: 16px; }
+.sidebar a { color: #ccc; text-decoration: none; padding: 8px; border-radius: 4px; }
+.sidebar a.router-link-active { background: #42b883; color: #fff; }
+.content { flex: 1; padding: 24px; }
+&lt;/style&gt;</code></pre>
+
+<pre><code class="language-vue">&lt;!-- views/admin/UserDetail.vue --&gt;
+&lt;template&gt;
+  &lt;div class=&quot;user-detail&quot;&gt;
+    &lt;h2&gt;用户详情 #{{ $route.params.id }}&lt;/h2&gt;
+    &lt;nav class=&quot;sub-nav&quot;&gt;
+      &lt;router-link :to=&quot;{ name: &#x27;UserProfile&#x27; }&quot;&gt;基本信息&lt;/router-link&gt;
+      &lt;router-link :to=&quot;{ name: &#x27;UserEdit&#x27; }&quot;&gt;编辑&lt;/router-link&gt;
+    &lt;/nav&gt;
+    &lt;router-view /&gt;
+  &lt;/div&gt;
+&lt;/template&gt;</code></pre>
+
+<pre><code class="language-vue">&lt;!-- views/admin/PostDetail.vue --&gt;
+&lt;template&gt;
+  &lt;div&gt;
+    &lt;h2&gt;文章详情&lt;/h2&gt;
+    &lt;p&gt;分类：{{ $route.params.category }}&lt;/p&gt;
+    &lt;p&gt;文章ID：{{ $route.params.id }}&lt;/p&gt;
+    &lt;button @click=&quot;$router.back()&quot;&gt;返回&lt;/button&gt;
+  &lt;/div&gt;
+&lt;/template&gt;
+
+&lt;script setup&gt;
+import { useRoute } from &#x27;vue-router&#x27;
+import { watch } from &#x27;vue&#x27;
+
+const route = useRoute()
+
+// Watch params for component reuse
+watch(() =&gt; route.params, (newParams) =&gt; {
+  console.log(&#x27;Params changed:&#x27;, newParams)
+}, { immediate: true })
+&lt;/script&gt;</code></pre>
+
+<h2>四、执行预览</h2>
+
+<pre><code>URL结构示例：
+
+/admin                     -&gt; Layout + DashboardHome
+/admin/users               -&gt; Layout + UserList
+/admin/users/42            -&gt; Layout + UserDetail + UserProfile
+/admin/users/42/edit       -&gt; Layout + UserDetail + UserEdit
+/admin/posts/vue/123       -&gt; Layout + PostDetail (category=vue, id=123)
+/article/999               -&gt; Article (id must be numeric)
+/article/abc               -&gt; NotFound (regex fails)
+/anything/else             -&gt; NotFound (catch-all)</code></pre>
+
+<h2>五、注意事项</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>注意事项</th>
+<th>推荐做法</th>
+</tr></thead><tbody>
+<tr>
+<td>组件复用</td>
+<td>/user/1->/user/2 组件不重建</td>
+<td>watch(() => route.params)</td>
+</tr>
+<tr>
+<td>404路由</td>
+<td>必须放在路由配置最后</td>
+<td>使用 /:pathMatch(.<em>)</em></td>
+</tr>
+<tr>
+<td>嵌套层级</td>
+<td>避免超过3层</td>
+<td>过深时考虑扁平化</td>
+</tr>
+<tr>
+<td>参数类型</td>
+<td>params 拿到的都是字符串</td>
+<td>手动 parseInt()</td>
+</tr>
+<tr>
+<td>正则转义</td>
+<td>字符串中需要双重转义</td>
+<td>仔细测试正则</td>
+</tr>
+<tr>
+<td>命名视图</td>
+<td>components 是复数</td>
+<td>components: { default: A, sidebar: B }</td>
+</tr>
+</tbody></table>
+
+<h2>六、避坑指南</h2>
+
+<h3>❌ 坑1：组件复用时数据不更新</h3>
+
+<pre><code class="language-vue">&lt;!-- ❌ onMounted 只执行一次 --&gt;
+&lt;script setup&gt;
+import { onMounted } from &#x27;vue&#x27;
+import { useRoute } from &#x27;vue-router&#x27;
+const route = useRoute()
+onMounted(() =&gt; {
+  fetchUser(route.params.id) // /user/1-&gt;/user/2 won&#x27;t trigger
+})
+&lt;/script&gt;
+
+&lt;!-- ✅ 使用 watch 监听参数变化 --&gt;
+&lt;script setup&gt;
+import { watch } from &#x27;vue&#x27;
+import { useRoute } from &#x27;vue-router&#x27;
+const route = useRoute()
+watch(() =&gt; route.params.id, (newId) =&gt; {
+  fetchUser(newId)
+}, { immediate: true })
+&lt;/script&gt;</code></pre>
+
+<h3>❌ 坑2：子路由 path 加了前导斜杠</h3>
+
+<pre><code class="language-javascript">// ❌ 绝对路径，不再是嵌套子路由
+children: [
+  { path: &#x27;/users&#x27;, component: UserList } // matches /users, not /admin/users
+]
+
+// ✅ 相对路径
+children: [
+  { path: &#x27;users&#x27;, component: UserList } // matches /admin/users
+]</code></pre>
+
+<h3>❌ 坑3：编程式导航 params 被忽略</h3>
+
+<pre><code class="language-javascript">// ❌ path + params 无效（Vue Router 4）
+router.push({ path: &#x27;/user&#x27;, params: { id: 1 } })
+
+// ✅ 使用 name 传递 params
+router.push({ name: &#x27;UserDetail&#x27;, params: { id: 1 } })</code></pre>
+
+<h2>七、练习题</h2>
+
+<h3>🟢 入门：用户资料路由</h3>
+<p>创建 <code>/profile/:username</code> 动态路由，显示对应用户名。用户名为空时跳转首页。</p>
+
+<h3>🟡 进阶：三级嵌套管理后台</h3>
+<p>实现 <code>/admin/users/:userId/posts/:postId</code> 四层路由，展示特定用户的文章。</p>
+
+<h3>🔴 挑战：命名视图布局</h3>
+<p>实现三栏布局：左侧导航（<code><router-view name="nav"></code>）、中间内容、右侧边栏（<code><router-view name="aside"></code>）。</p>
+
+<h2>八、知识点总结</h2>
+
+<pre><code>动态路由与嵌套路由
+├── 动态路由参数
+│   ├── :param        -&gt; 单个参数
+│   ├── :param?       -&gt; 可选参数
+│   ├── :param(\d+)   -&gt; 正则约束
+│   └── :pathMatch(.*)* -&gt; 通配符
+├── 嵌套路由
+│   ├── children 数组
+│   ├── 父组件 &lt;router-view&gt;
+│   └── 默认子路由 path: &#x27;&#x27;
+├── 命名视图
+│   ├── components (复数)
+│   └── &lt;router-view name=&quot;xxx&quot;&gt;
+└── 关键API
+    ├── useRoute()  -&gt; 当前路由信息
+    ├── useRouter() -&gt; 编程式导航
+    └── watch(route.params) -&gt; 参数变化监听</code></pre>
+
+<h2>九、举一反三</h2>
+
+<table><thead><tr>
+<th>技术</th>
+<th>场景</th>
+<th>实际应用</th>
+</tr></thead><tbody>
+<tr>
+<td>动态路由</td>
+<td>RESTful URL</td>
+<td>/api/post/:id</td>
+</tr>
+<tr>
+<td>嵌套路由</td>
+<td>后台管理菜单</td>
+<td>系统->用户->详情</td>
+</tr>
+<tr>
+<td>命名视图</td>
+<td>复杂布局</td>
+<td>CMS：头部+主体+侧边栏</td>
+</tr>
+<tr>
+<td>正则约束</td>
+<td>参数校验</td>
+<td>/article/:id(\d+)</td>
+</tr>
+<tr>
+<td>通配符404</td>
+<td>兜底页面</td>
+<td>未匹配URL显示404</td>
+</tr>
+<tr>
+<td>watch params</td>
+<td>组件复用刷新</td>
+<td>列表点击不同项</td>
+</tr>
+</tbody></table>
+
+<h2>十、参考资料</h2>
+
+<ul>
+<li><a href="https://router.vuejs.org/zh/guide/essentials/dynamic-matching.html">Vue Router - 动态路由匹配</a></li>
+<li><a href="https://router.vuejs.org/zh/guide/essentials/nested-routes.html">Vue Router - 嵌套路由</a></li>
+<li><a href="https://router.vuejs.org/zh/guide/essentials/named-views.html">Vue Router - 命名视图</a></li>
+
+<h2>十一、代码演进</h2>
+
+<h3>v1：基础动态路由</h3>
+<pre><code class="language-javascript">const routes = [
+  { path: &#x27;/user/:id&#x27;, component: UserDetail }
+]</code></pre>
+
+<h3>v2：嵌套+多参数</h3>
+<pre><code class="language-javascript">const routes = [
+  {
+    path: &#x27;/admin&#x27;,
+    component: AdminLayout,
+    children: [
+      { path: &#x27;users/:id&#x27;, component: UserDetail },
+      { path: &#x27;posts/:category/:id&#x27;, component: PostDetail }
+    ]
+  }
+]</code></pre>
+
+<h3>v3：完整方案</h3>
+<pre><code class="language-javascript">const routes = [
+  {
+    path: &#x27;/admin&#x27;,
+    component: AdminLayout,
+    children: [
+      { path: &#x27;&#x27;, component: Dashboard },
+      { path: &#x27;users/:id(\d+)&#x27;, component: UserDetail },
+      { path: &#x27;posts/:category/:id&#x27;, component: PostDetail }
+    ]
+  },
+  {
+    path: &#x27;/blog/:id&#x27;,
+    components: { default: BlogContent, sidebar: BlogSidebar }
+  },
+  { path: &#x27;/:pathMatch(.*)*&#x27;, component: NotFound }
+]</code></pre>
+
+<blockquote><p>💡 <strong>总结</strong>：动态路由和嵌套路由是构建复杂单页应用的基石。掌握参数获取、组件复用时的数据刷新、以及合理的路由层级设计，能让你构建出清晰、可维护的前端路由架构。</p></blockquote>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

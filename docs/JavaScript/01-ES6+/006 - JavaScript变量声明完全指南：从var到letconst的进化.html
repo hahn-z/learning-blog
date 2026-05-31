@@ -1,0 +1,437 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>006 - JavaScript变量声明完全指南：从var到let/const的进化</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/JavaScript/index.html">JavaScript</a>
+<span class="sep">›</span>
+<a href="/tech-blog/JavaScript/01-ES6+/index.html">JavaScript ES6+</a>
+</nav>
+<h1>006 - JavaScript变量声明完全指南：从var到let/const的进化</h1>
+<div class="meta">
+<span>📂 JavaScript ES6+</span>
+<span>🏷️ JavaScript</span>
+</div>
+<article>
+
+
+
+<h1>JavaScript变量声明完全指南：从var到let/const的进化</h1>
+
+<blockquote><p><strong>难度标注：</strong> 🟡 中级 | <strong>前置知识：</strong> 基本JS语法、作用域概念<br><strong>阅读时间：</strong> 约15分钟 | <strong>代码量：</strong> 约120行</p></blockquote>
+
+<hr>
+
+<h2>一、概念讲解</h2>
+
+<p>JavaScript变量声明经历了三个阶段：<code>var</code>（ES1）→ <code>let/const</code>（ES6）。理解它们的区别，核心在于三个机制：<strong>作用域规则、变量提升、重新赋值约束</strong>。</p>
+
+<h3>1.1 var：函数作用域 + 变量提升</h3>
+
+<p><code>var</code>声明的变量受<strong>函数作用域</strong>约束，且存在<strong>变量提升（hoisting）</strong>——声明会被提升到作用域顶部，但赋值不会。</p>
+
+<h3>1.2 let：块级作用域 + 暂时性死区</h3>
+
+<p><code>let</code>声明的变量受<strong>块级作用域</strong>（<code>{}</code>）约束，在声明前访问会触发<strong>暂时性死区（TDZ）</strong>错误。</p>
+
+<h3>1.3 const：块级作用域 + 不可重新赋值</h3>
+
+<p><code>const</code>与<code>let</code>行为一致，额外增加一条：<strong>必须在声明时初始化，且不可重新赋值</strong>。注意：const保护的是绑定，不是值——对象和数组的内容仍可修改。</p>
+
+<hr>
+
+<h2>二、脑图</h2>
+
+<pre><code>                    变量声明
+                   /    |    \
+                var   let   const
+                 |      |      |
+           函数作用域  块作用域  块作用域
+           变量提升    TDZ      TDZ
+           可重复声明  不可重复  不可重复
+           可重新赋值  可重新赋值 不可重新赋值
+                              必须初始化
+                              对象属性可改</code></pre>
+
+<hr>
+
+<h2>三、完整代码示例</h2>
+
+<pre><code class="language-javascript">// ============================================
+// 1. var: function scope &amp; hoisting
+// ============================================
+function varDemo() {
+  console.log(a); // undefined (hoisted, not initialized)
+  var a = 10;
+  console.log(a); // 10
+
+  if (true) {
+    var b = 20; // leaks out of if-block
+  }
+  console.log(b); // 20
+
+  // re-declaration is allowed
+  var a = 30;
+  console.log(a); // 30
+}
+
+// ============================================
+// 2. let: block scope &amp; TDZ
+// ============================================
+function letDemo() {
+  // console.log(x); // ReferenceError: TDZ
+  let x = 1;
+
+  if (true) {
+    let x = 2; // different scope, shadowing
+    console.log(x); // 2
+  }
+  console.log(x); // 1
+
+  // let x = 3; // SyntaxError: cannot redeclare
+  x = 3; // reassignment is OK
+  console.log(x); // 3
+}
+
+// ============================================
+// 3. const: block scope + immutable binding
+// ============================================
+function constDemo() {
+  const PI = 3.14159;
+  // PI = 3; // TypeError: assignment to constant
+
+  const obj = { name: &quot;Alice&quot; };
+  obj.name = &quot;Bob&quot;; // OK: mutating content, not rebinding
+  console.log(obj); // { name: &quot;Bob&quot; }
+
+  const arr = [1, 2, 3];
+  arr.push(4); // OK
+  console.log(arr); // [1, 2, 3, 4]
+}
+
+// ============================================
+// 4. Loop gotcha: var vs let
+// ============================================
+function loopDemo() {
+  // var: all callbacks share the same i
+  for (var i = 0; i &lt; 3; i++) {
+    setTimeout(() =&gt; console.log(&quot;var:&quot;, i), 0); // 3, 3, 3
+  }
+
+  // let: each iteration has its own i
+  for (let j = 0; j &lt; 3; j++) {
+    setTimeout(() =&gt; console.log(&quot;let:&quot;, j), 0); // 0, 1, 2
+  }
+}
+
+// Run all demos
+varDemo();
+letDemo();
+constDemo();
+loopDemo();</code></pre>
+
+<hr>
+
+<h2>四、执行预览</h2>
+
+<pre><code>undefined
+10
+20
+30
+2
+1
+3
+{ name: &#x27;Bob&#x27; }
+[ 1, 2, 3, 4 ]
+var: 3
+var: 3
+var: 3
+let: 0
+let: 1
+let: 2</code></pre>
+
+<hr>
+
+<h2>五、注意事项</h2>
+
+<table><thead><tr>
+<th>特性</th>
+<th>var</th>
+<th>let</th>
+<th>const</th>
+<th>说明</th>
+</tr></thead><tbody>
+<tr>
+<td>作用域</td>
+<td>函数</td>
+<td>块</td>
+<td>块</td>
+<td>块 = <code>{}</code>内的范围</td>
+</tr>
+<tr>
+<td>提升</td>
+<td>✅ (undefined)</td>
+<td>❌ (TDZ)</td>
+<td>❌ (TDZ)</td>
+<td>let/const存在但不可访问</td>
+</tr>
+<tr>
+<td>重复声明</td>
+<td>✅</td>
+<td>❌</td>
+<td>❌</td>
+<td>let/const同名会SyntaxError</td>
+</tr>
+<tr>
+<td>重新赋值</td>
+<td>✅</td>
+<td>✅</td>
+<td>❌</td>
+<td>const绑定不可变</td>
+</tr>
+<tr>
+<td>必须初始化</td>
+<td>❌</td>
+<td>❌</td>
+<td>✅</td>
+<td>const必须 <code>const x = value</code></td>
+</tr>
+<tr>
+<td>全局属性</td>
+<td>✅</td>
+<td>❌</td>
+<td>❌</td>
+<td>var会挂到window/globalThis</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>六、避坑指南</h2>
+
+<h3>❌ 用var在循环中创建闭包</h3>
+<pre><code class="language-javascript">// ❌ Bug: 所有回调打印3
+for (var i = 0; i &lt; 3; i++) {
+  setTimeout(() =&gt; console.log(i), 0);
+}</code></pre>
+<h3>✅ 用let解决循环闭包</h3>
+<pre><code class="language-javascript">// ✅ 每次迭代独立作用域
+for (let i = 0; i &lt; 3; i++) {
+  setTimeout(() =&gt; console.log(i), 0); // 0, 1, 2
+}</code></pre>
+
+<h3>❌ 以为const对象完全不可变</h3>
+<pre><code class="language-javascript">const config = { debug: false };
+config.debug = true; // 居然能改！</code></pre>
+<h3>✅ 需要真正不可变用Object.freeze</h3>
+<pre><code class="language-javascript">const config = Object.freeze({ debug: false });
+config.debug = true; // silently fails (strict mode throws)</code></pre>
+
+<hr>
+
+<h2>七、练习题</h2>
+
+<h3>🟢 基础</h3>
+<ol>
+<li>将以下<code>var</code>改为<code>let</code>或<code>const</code>，说明理由：</li>
+<pre><code class="language-javascript">var API_URL = &quot;https://api.example.com&quot;;
+var counter = 0;
+counter++;</code></pre>
+
+<h3>🟡 进阶</h3>
+<ol>
+<li>预测输出并解释原因：</li>
+<pre><code class="language-javascript">let x = 1;
+{
+  let x = 2;
+  {
+    let x = 3;
+    console.log(x);
+  }
+  console.log(x);
+}
+console.log(x);</code></pre>
+
+<h3>🔴 挑战</h3>
+<ol>
+<li>实现一个<code>createCounter()</code>函数，用闭包+let实现私有变量，返回<code>increment</code>、<code>decrement</code>、<code>getValue</code>三个方法，且<code>getValue</code>返回的值不可被外部修改。</li>
+
+<hr>
+
+<h2>八、知识点总结</h2>
+
+<pre><code>变量声明体系
+├── var (ES1, 遗留)
+│   ├── 函数作用域
+│   ├── 变量提升 (undefined)
+│   └── 可重复声明
+├── let (ES6, 推荐)
+│   ├── 块级作用域
+│   ├── 暂时性死区 (TDZ)
+│   └── 不可重复声明
+└── const (ES6, 默认选择)
+    ├── 块级作用域
+    ├── 暂时性死区 (TDZ)
+    ├── 不可重新赋值
+    └── 值可变（对象/数组）</code></pre>
+
+<hr>
+
+<h2>九、举一反三</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>推荐声明</th>
+<th>原因</th>
+</tr></thead><tbody>
+<tr>
+<td>循环计数器</td>
+<td><code>let</code></td>
+<td>块作用域避免闭包bug</td>
+</tr>
+<tr>
+<td>配置常量</td>
+<td><code>const</code></td>
+<td>语义明确，防止误改</td>
+</tr>
+<tr>
+<td>函数内中间变量</td>
+<td><code>let</code></td>
+<td>需要重新赋值</td>
+</tr>
+<tr>
+<td>模块导出引用</td>
+<td><code>const</code></td>
+<td>引用不变</td>
+</tr>
+<tr>
+<td>解构赋值</td>
+<td><code>let</code>/<code>const</code></td>
+<td>视是否需要重赋值</td>
+</tr>
+<tr>
+<td>for...of迭代</td>
+<td><code>const</code></td>
+<td>每次迭代是新的绑定</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>十、参考资料</h2>
+
+<ul>
+<li><a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Statements/let">MDN: let</a></li>
+<li><a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Statements/const">MDN: const</a></li>
+<li><a href="https://hacks.mozilla.org/2015/07/es6-in-depth-let-and-const/">ES6 In Depth: let and const</a></li>
+<li><a href="https://github.com/getify/You-Dont-Know-JS">You Don't Know JS: Scope & Closures</a></li>
+
+<hr>
+
+<h2>十一、代码演进</h2>
+
+<h3>v1: ES5 — 只能用var</h3>
+<pre><code class="language-javascript">// 经典闭包bug，需要IIFE修复
+for (var i = 0; i &lt; 3; i++) {
+  (function(j) {
+    setTimeout(() =&gt; console.log(j), 0);
+  })(i);
+}</code></pre>
+
+<h3>v2: ES6 — let解决作用域</h3>
+<pre><code class="language-javascript">// let自动创建块作用域，简洁优雅
+for (let i = 0; i &lt; 3; i++) {
+  setTimeout(() =&gt; console.log(i), 0);
+}</code></pre>
+
+<h3>v3: 最佳实践 — const优先</h3>
+<pre><code class="language-javascript">// 默认用const，需要重赋值才用let
+const delays = [100, 200, 300];
+for (const delay of delays) {
+  setTimeout(() =&gt; console.log(`fired after ${delay}ms`), delay);
+}</code></pre>
+
+<hr>
+
+<h2>十二、总结</h2>
+
+<table><thead><tr>
+<th>原则</th>
+<th>说明</th>
+</tr></thead><tbody>
+<tr>
+<td><strong>默认用const</strong></td>
+<td>除非需要重赋值</td>
+</tr>
+<tr>
+<td><strong>需要重赋值用let</strong></td>
+<td>循环计数器、累加器</td>
+</tr>
+<tr>
+<td><strong>永远别用var</strong></td>
+<td>ES6+没有理由再用</td>
+</tr>
+<tr>
+<td><strong>const ≠ 不可变</strong></td>
+<td>需要深冻结用<code>Object.freeze()</code></td>
+</tr>
+</tbody></table>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

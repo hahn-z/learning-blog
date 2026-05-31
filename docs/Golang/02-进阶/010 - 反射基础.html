@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>010 - 反射基础</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Golang/index.html">Golang</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Golang/02-进阶/index.html">Golang进阶</a>
+</nav>
+<h1>010 - 反射基础</h1>
+<div class="meta">
+<span>📂 Golang进阶</span>
+<span>🏷️ Golang</span>
+</div>
+<article>
+
+
+<h1>040 - 反射基础</h1>
+
+<blockquote><p><strong>难度：</strong> ⭐⭐⭐⭐<br><strong>关键词：</strong> reflect、Type、Value、Kind、FieldByName、MethodByName</p></blockquote>
+
+<h2>一、概念讲解</h2>
+
+<p>反射（Reflection）是 Go 语言在运行时检查类型信息、读取和修改值的能力。Go 的 <code>reflect</code> 包提供了两大核心类型：</p>
+
+<ul>
+<li><strong>reflect.Type</strong>：类型的元信息（名称、种类、字段、方法等）</li>
+<li><strong>reflect.Value</strong>：运行时的值（可以读取、修改、调用方法）</li>
+
+<p>反射的本质是：<strong>在编译期不知道具体类型的情况下，在运行时动态获取类型信息和操作值</strong>。</p>
+
+<h3>为什么需要反射？</h3>
+
+<ul>
+<li><code>fmt.Println</code> 能打印任意类型 → 靠反射</li>
+<li><code>encoding/json</code> 能序列化任意结构体 → 靠反射</li>
+<li>ORM 框架能映射数据库行到结构体 → 靠反射</li>
+
+<h3>Kind — 类型种类</h3>
+
+<p>Go 把类型分为底层的"种类"（Kind），如 <code>Struct</code>、<code>Slice</code>、<code>Map</code>、<code>Func</code> 等。注意 Type 和 Kind 的区别：</p>
+
+<pre><code class="language-go">type User struct{ Name string }
+// Type.Name() = &quot;User&quot;, Kind() = Struct</code></pre>
+
+<h2>二、脑图</h2>
+
+<pre><code>反射基础 (reflect)
+├── reflect.Type (类型元信息)
+│   ├── Name()      → 类型名
+│   ├── Kind()      → 种类 (Struct/Slice/Map/...)
+│   ├── NumField()  → 结构体字段数
+│   ├── Field(i)    → 按索引取字段
+│   ├── FieldByName()  → 按名称取字段
+│   ├── NumMethod()    → 方法数量
+│   └── Method(i)      → 按索引取方法
+├── reflect.Value (运行时值)
+│   ├── Interface()    → 转回 interface{}
+│   ├── Kind()         → 种类
+│   ├── Type()         → 获取 Type
+│   ├── FieldByName()  → 读取结构体字段
+│   ├── MethodByName() → 获取方法
+│   └── Call()         → 调用方法
+└── 性能影响
+    └── 比静态调用慢 10-100 倍</code></pre>
+
+<h2>三、完整代码</h2>
+
+<pre><code class="language-go">package main
+
+import (
+	&quot;fmt&quot;
+	&quot;reflect&quot;
+)
+
+// User demonstrates a struct with fields and methods
+type User struct {
+	Name string `json:&quot;name&quot; db:&quot;user_name&quot;`
+	Age  int    `json:&quot;age&quot;`
+	City string `json:&quot;city&quot;`
+}
+
+// Greet is a method bound to User
+func (u User) Greet() string {
+	return fmt.Sprintf(&quot;Hello, I&#x27;m %s, age %d, from %s&quot;, u.Name, u.Age, u.City)
+}
+
+// HasBirthday is a pointer receiver method
+func (u *User) HasBirthday() {
+	u.Age++
+}
+
+func main() {
+	u := User{Name: &quot;Alice&quot;, Age: 30, City: &quot;Shanghai&quot;}
+
+	// === 1. Basic Type and Value ===
+	t := reflect.TypeOf(u)
+	v := reflect.ValueOf(u)
+
+	fmt.Println(&quot;=== Type Info ===&quot;)
+	fmt.Printf(&quot;Type Name: %s\n&quot;, t.Name())   // User
+	fmt.Printf(&quot;Type Kind: %s\n&quot;, t.Kind())    // struct
+	fmt.Printf(&quot;Package Path: %s\n&quot;, t.PkgPath())
+
+	fmt.Println(&quot;\n=== Value Info ===&quot;)
+	fmt.Printf(&quot;Value Kind: %s\n&quot;, v.Kind())   // struct
+	fmt.Printf(&quot;Value Type: %s\n&quot;, v.Type())   // User
+	fmt.Printf(&quot;Interface: %v\n&quot;, v.Interface()) // {Alice 30 Shanghai}
+
+	// === 2. Iterate struct fields ===
+	fmt.Println(&quot;\n=== Fields ===&quot;)
+	for i := 0; i &lt; t.NumField(); i++ {
+		field := t.Field(i)
+		fieldValue := v.Field(i)
+		fmt.Printf(&quot;  [%d] %s (%s) = %v, tag=%s\n&quot;,
+			i, field.Name, field.Type, fieldValue.Interface(), field.Tag)
+	}
+
+	// === 3. FieldByName ===
+	fmt.Println(&quot;\n=== FieldByName ===&quot;)
+	if f, ok := t.FieldByName(&quot;Name&quot;); ok {
+		fmt.Printf(&quot;  Found field: %s, type: %s\n&quot;, f.Name, f.Type)
+	}
+	if fv := v.FieldByName(&quot;Age&quot;); fv.IsValid() {
+		fmt.Printf(&quot;  Age value: %v\n&quot;, fv.Int())
+	}
+
+	// === 4. Methods ===
+	fmt.Println(&quot;\n=== Methods ===&quot;)
+	fmt.Printf(&quot;NumMethod on User value: %d\n&quot;, v.NumMethod())
+	fmt.Printf(&quot;NumMethod on User type: %d\n&quot;, t.NumMethod())
+
+	// MethodByName + Call
+	greetMethod := v.MethodByName(&quot;Greet&quot;)
+	if greetMethod.IsValid() {
+		results := greetMethod.Call(nil) // no args
+		fmt.Printf(&quot;  Greet result: %s\n&quot;, results[0].String())
+	}
+
+	// === 5. Pointer receiver methods ===
+	fmt.Println(&quot;\n=== Pointer Methods ===&quot;)
+	pv := reflect.ValueOf(&amp;u)
+	fmt.Printf(&quot;NumMethod on *User: %d\n&quot;, pv.NumMethod())
+	// Note: pointer Value includes both value and pointer receiver methods
+
+	hasBirthday := pv.MethodByName(&quot;HasBirthday&quot;)
+	if hasBirthday.IsValid() {
+		hasBirthday.Call(nil)
+		fmt.Printf(&quot;  After HasBirthday, Age: %d\n&quot;, u.Age)
+	}
+
+	// === 6. Kind switch ===
+	fmt.Println(&quot;\n=== Kind Examples ===&quot;)
+	examine(&quot;hello&quot;)
+	examine(42)
+	examine([]int{1, 2, 3})
+	examine(map[string]int{&quot;a&quot;: 1})
+}
+
+// examine prints type info using Kind switch
+func examine(v interface{}) {
+	t := reflect.TypeOf(v)
+	switch t.Kind() {
+	case reflect.String:
+		fmt.Printf(&quot;  String: %s (len=%d)\n&quot;, v, len(v.(string)))
+	case reflect.Int:
+		fmt.Printf(&quot;  Int: %d\n&quot;, v)
+	case reflect.Slice:
+		fmt.Printf(&quot;  Slice: len=%d, elem=%s\n&quot;,
+			reflect.ValueOf(v).Len(), t.Elem())
+	case reflect.Map:
+		fmt.Printf(&quot;  Map: len=%d, key=%s, val=%s\n&quot;,
+			reflect.ValueOf(v).Len(), t.Key(), t.Elem())
+	default:
+		fmt.Printf(&quot;  Other: %s (%s)\n&quot;, t.Name(), t.Kind())
+	}
+}</code></pre>
+
+<h2>四、执行预览</h2>
+
+<pre><code>=== Type Info ===
+Type Name: User
+Type Kind: struct
+Package Path: main
+
+=== Value Info ===
+Value Kind: struct
+Value Type: User
+Interface: {Alice 30 Shanghai}
+
+=== Fields ===
+  [0] Name (string) = Alice, tag=json:&quot;name&quot; db:&quot;user_name&quot;
+  [1] Age (int) = 30, tag=json:&quot;age&quot;
+  [2] City (string) = Shanghai, tag=json:&quot;city&quot;
+
+=== FieldByName ===
+  Found field: Name, type: string
+  Age value: 30
+
+=== Methods ===
+NumMethod on User value: 1
+NumMethod on User type: 1
+  Greet result: Hello, I&#x27;m Alice, age 30, from Shanghai
+
+=== Pointer Methods ===
+NumMethod on *User: 2
+  After HasBirthday, Age: 31
+
+=== Kind Examples ===
+  String: hello (len=5)
+  Int: 42
+  Slice: len=3, elem=int
+  Map: len=1, key=string, val=int</code></pre>
+
+<h2>五、注意事项</h2>
+
+<table><thead><tr>
+<th>项目</th>
+<th>说明</th>
+</tr></thead><tbody>
+<tr>
+<td>ValueOf 传值 vs 传指针</td>
+<td><code>ValueOf(u)</code> 只能读取，<code>ValueOf(&u)</code> 才能 CanSet</td>
+</tr>
+<tr>
+<td>值接收者 vs 指针接收者</td>
+<td>值类型的 NumMethod 不包含指针接收者方法</td>
+</tr>
+<tr>
+<td>FieldByName 查找</td>
+<td>大小写敏感，未导出字段也能读到但不建议依赖</td>
+</tr>
+<tr>
+<td>Kind vs Type</td>
+<td>Kind 是底层种类（Struct），Type 是具体名称（User）</td>
+</tr>
+<tr>
+<td>Nil 检查</td>
+<td>Value.IsValid() 检查是否为零值，不要直接判 nil</td>
+</tr>
+</tbody></table>
+
+<h2>六、避坑指南</h2>
+
+<p>❌ <strong>直接修改不可寻址的值</strong></p>
+<pre><code class="language-go">v := reflect.ValueOf(42)
+v.SetInt(100) // panic: call of reflect.Value.SetInt on unaddressable value</code></pre>
+<p>✅ <strong>使用指针 + Elem 获取可寻址值</strong></p>
+<pre><code class="language-go">x := 42
+v := reflect.ValueOf(&amp;x).Elem()
+v.SetInt(100) // OK</code></pre>
+
+<p>❌ <strong>忽略 IsValid 检查</strong></p>
+<pre><code class="language-go">v := reflect.ValueOf(u).FieldByName(&quot;NotExist&quot;)
+fmt.Println(v.Int()) // panic: Method on nil Interface</code></pre>
+<p>✅ <strong>先检查 IsValid</strong></p>
+<pre><code class="language-go">v := reflect.ValueOf(u).FieldByName(&quot;NotExist&quot;)
+if v.IsValid() {
+    fmt.Println(v.Int())
+}</code></pre>
+
+<p>❌ <strong>在性能敏感路径使用反射</strong></p>
+<pre><code class="language-go">for i := 0; i &lt; 1000000; i++ {
+    v := reflect.ValueOf(obj)
+    name := v.FieldByName(&quot;Name&quot;).String() // slow!
+}</code></pre>
+<p>✅ <strong>缓存反射结果或用代码生成替代</strong></p>
+<pre><code class="language-go">// Use code generation (like easyjson) for hot paths
+// Or cache reflect.Type/Field offsets</code></pre>
+
+<h2>七、练习题</h2>
+
+<p>🟢 <strong>基础：</strong> 写一个函数 <code>PrintFields(x interface{})</code>，遍历任意结构体的字段名和值并打印。</p>
+
+<p>🟡 <strong>进阶：</strong> 写一个函数 <code>GetMethodCount(x interface{}) int</code>，同时统计值接收者和指针接收者的方法数量。</p>
+
+<p>🔴 <strong>挑战：</strong> 实现 <code>CallByName(obj interface{}, methodName string, args ...interface{}) ([]interface{}, error)</code>，通过名字调用任意对象的方法，支持参数传递。</p>
+
+<h2>八、知识点总结</h2>
+
+<pre><code>反射基础
+├── 核心入口
+│   ├── reflect.TypeOf(x) → Type
+│   └── reflect.ValueOf(x) → Value
+├── Type 操作
+│   ├── Name() / Kind()
+│   ├── NumField() / Field(i) / FieldByName()
+│   ├── NumMethod() / Method(i)
+│   ├── Key() / Elem() (Map/Slice/Chan/Ptr)
+│   └── Field(i).Tag.Get(&quot;json&quot;)
+├── Value 操作
+│   ├── Interface() → 转回 interface{}
+│   ├── Int() / String() / Float() 等
+│   ├── FieldByName() → 取字段 Value
+│   ├── MethodByName() → 取方法 Value
+│   └── Call(in []Value) → 调用方法
+├── 可寻址性
+│   ├── CanAddr() / CanSet()
+│   ├── Elem() 解引用指针
+│   └── 传指针才能修改
+└── 性能
+    ├── 反射调用比静态调用慢 10-100x
+    ├── 避免在热路径使用
+    └── 考虑代码生成替代</code></pre>
+
+<h2>九、举一反三</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>反射用法</th>
+<th>现实案例</th>
+</tr></thead><tbody>
+<tr>
+<td>JSON 序列化</td>
+<td>遍历字段 + 读取 Tag</td>
+<td>encoding/json</td>
+</tr>
+<tr>
+<td>配置文件映射</td>
+<td>FieldByName + Set</td>
+<td>viper</td>
+</tr>
+<tr>
+<td>ORM 字段映射</td>
+<td>Type.NumField + Tag.Get</td>
+<td>GORM</td>
+</tr>
+<tr>
+<td>依赖注入</td>
+<td>MethodByName + Call</td>
+<td>wire/dig</td>
+</tr>
+<tr>
+<td>表单验证</td>
+<td>遍历字段 + Tag 规则</td>
+<td>validator</td>
+</tr>
+<tr>
+<td>日志格式化</td>
+<td>Kind switch + 值读取</td>
+<td>zap/slog</td>
+</tr>
+<tr>
+<td>插件系统</td>
+<td>动态加载 + 反射调用</td>
+<td>hashicorp/go-plugin</td>
+</tr>
+</tbody></table>
+
+<h2>十、参考资料</h2>
+
+<ul>
+<li><a href="https://pkg.go.dev/reflect">Go 官方 reflect 包文档</a></li>
+<li><a href="https://go.dev/blog/laws-of-reflection">Go 反射定律 - The Laws of Reflection</a></li>
+<li><a href="https://github.com/stretchr/testify">Go 反射性能分析</a></li>
+
+<h2>十一、代码演进</h2>
+
+<h3>v1 — 基本类型检查</h3>
+
+<pre><code class="language-go">func printType(x interface{}) {
+    fmt.Println(reflect.TypeOf(x).Name())
+}
+// Only prints type name, no field/method inspection</code></pre>
+
+<h3>v2 — 结构体字段遍历</h3>
+
+<pre><code class="language-go">func printFields(x interface{}) {
+    v := reflect.ValueOf(x)
+    t := v.Type()
+    for i := 0; i &lt; t.NumField(); i++ {
+        fmt.Printf(&quot;%s: %v\n&quot;, t.Field(i).Name, v.Field(i).Interface())
+    }
+}
+// Can inspect fields but cannot modify or call methods</code></pre>
+
+<h3>v3 — 完整反射工具（含方法调用和 Kind switch）</h3>
+
+<pre><code class="language-go">func inspect(x interface{}) {
+    v := reflect.ValueOf(x)
+    t := v.Type()
+
+    // Print all fields
+    for i := 0; i &lt; t.NumField(); i++ {
+        f := t.Field(i)
+        fmt.Printf(&quot;Field %s: %v (tag: %s)\n&quot;,
+            f.Name, v.Field(i).Interface(), f.Tag.Get(&quot;json&quot;))
+    }
+
+    // Print all methods
+    for i := 0; i &lt; v.NumMethod(); i++ {
+        m := t.Method(i)
+        fmt.Printf(&quot;Method %s: %v\n&quot;, m.Name, m.Type)
+    }
+
+    // Try to call a method
+    if greet := v.MethodByName(&quot;Greet&quot;); greet.IsValid() {
+        results := greet.Call(nil)
+        fmt.Println(&quot;Greet:&quot;, results[0])
+    }
+}
+// Full inspection: fields, tags, methods, and invocation</code></pre>
+
+<blockquote><p><strong>小结：</strong> 反射是 Go 运行时类型系统的基石。掌握 Type/Value 的基本操作，理解可寻址性规则，避免在热路径滥用反射，是 Go 工程师的必修课。</p></blockquote>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

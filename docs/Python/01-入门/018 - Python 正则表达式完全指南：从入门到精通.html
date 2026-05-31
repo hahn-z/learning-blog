@@ -1,0 +1,679 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>018 - Python 正则表达式完全指南：从入门到精通</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Python/index.html">Python</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Python/01-入门/index.html">Python入门</a>
+</nav>
+<h1>018 - Python 正则表达式完全指南：从入门到精通</h1>
+<div class="meta">
+<span>📂 Python入门</span>
+<span>🏷️ Python</span>
+</div>
+<article>
+
+
+<h1>Python 正则表达式完全指南：从入门到精通</h1>
+
+<blockquote><p><strong>难度标注</strong>：⭐⭐⭐ 中级 | 预计阅读时间：18 分钟<br><br><strong>前置知识</strong>：Python 基础语法、字符串操作、基础数学逻辑</p></blockquote>
+
+<hr>
+
+<h2>一、概念讲解</h2>
+
+<h3>1.1 什么是正则表达式？</h3>
+
+<p>正则表达式（Regular Expression，简称 regex）是一种描述字符串模式的强大工具。它用一套特殊的语法来定义搜索模式，可以用来匹配、查找、替换和验证字符串。</p>
+
+<p><strong>核心用途：</strong></p>
+<ul>
+<li><strong>验证</strong>：检查字符串是否符合格式（邮箱、手机号、URL）</li>
+<li><strong>提取</strong>：从文本中提取特定内容</li>
+<li><strong>替换</strong>：批量替换文本中的模式</li>
+<li><strong>分割</strong>：按复杂规则拆分字符串</li>
+
+<h3>1.2 Python 的 re 模块</h3>
+
+<p>Python 通过内置的 <code>re</code> 模块提供正则表达式支持。核心函数：</p>
+
+<table><thead><tr>
+<th>函数</th>
+<th>作用</th>
+<th>返回</th>
+</tr></thead><tbody>
+<tr>
+<td><code>re.search(pattern, string)</code></td>
+<td>搜索第一个匹配</td>
+<td>Match 或 None</td>
+</tr>
+<tr>
+<td><code>re.match(pattern, string)</code></td>
+<td>从开头匹配</td>
+<td>Match 或 None</td>
+</tr>
+<tr>
+<td><code>re.fullmatch(pattern, string)</code></td>
+<td>完整匹配</td>
+<td>Match 或 None</td>
+</tr>
+<tr>
+<td><code>re.findall(pattern, string)</code></td>
+<td>找所有匹配</td>
+<td>列表</td>
+</tr>
+<tr>
+<td><code>re.finditer(pattern, string)</code></td>
+<td>迭代所有匹配</td>
+<td>迭代器</td>
+</tr>
+<tr>
+<td><code>re.sub(pattern, repl, string)</code></td>
+<td>替换</td>
+<td>新字符串</td>
+</tr>
+<tr>
+<td><code>re.split(pattern, string)</code></td>
+<td>分割</td>
+<td>列表</td>
+</tr>
+</tbody></table>
+
+<h3>1.3 核心元字符速查</h3>
+
+<pre><code>.       → 任意字符（不含换行，除非 re.DOTALL）
+^       → 字符串开头
+$       → 字符串结尾
+*       → 前一个字符 0 次或多次
++       → 前一个字符 1 次或多次
+?       → 前一个字符 0 次或 1 次
+{n}     → 恰好 n 次
+{n,m}   → n 到 m 次
+[...]   → 字符类
+[^...]  → 排除字符类
+|       → 或
+(...)   → 分组
+\       → 转义
+\d      → 数字 [0-9]
+\w      → 单词字符 [a-zA-Z0-9_]
+\s      → 空白字符
+\b      → 单词边界</code></pre>
+
+<hr>
+
+<h2>二、知识脑图</h2>
+
+<pre><code>Python 正则表达式 (re 模块)
+├── 基础语法
+│   ├── 元字符：. ^ $ * + ? {n,m}
+│   ├── 字符类：[abc] [^abc] [\d] [\w]
+│   ├── 预定义：\d \D \w \W \s \S \b
+│   └── 转义：\. \* \\
+├── 分组与捕获
+│   ├── (...) → 捕获组
+│   ├── (?:...) → 非捕获组
+│   ├── (?P&lt;name&gt;...) → 命名组
+│   └── \1, \2 → 反向引用
+├── 核心函数
+│   ├── search / match / fullmatch
+│   ├── findall / finditer
+│   ├── sub / subn
+│   └── split
+├── 修饰符（Flags）
+│   ├── re.IGNORECASE (re.I)
+│   ├── re.MULTILINE (re.M)
+│   ├── re.DOTALL (re.S)
+│   └── re.VERBOSE (re.X)
+├── 贪婪与非贪婪
+│   ├── 贪婪：* + ? {n,m}（默认）
+│   └── 非贪婪：*? +? ?? {n,m}?
+└── 性能优化
+    ├── 预编译 re.compile()
+    ├── 避免回溯
+    └── 原始字符串 r&quot;&quot;</code></pre>
+
+<hr>
+
+<h2>三、代码演进</h2>
+
+<h3>v1：基础匹配与验证</h3>
+
+<pre><code class="language-python">import re
+
+# Basic pattern matching
+text = &quot;My phone is 138-1234-5678 and email is test@example.com&quot;
+
+# Search for first match
+phone = re.search(r&quot;\d{3}-\d{4}-\d{4}&quot;, text)
+if phone:
+    print(f&quot;Phone: {phone.group()}&quot;)  # 138-1234-5678
+
+# Find all matches
+emails = re.findall(r&quot;[\w.]+@[\w.]+&quot;, text)
+print(f&quot;Emails: {emails}&quot;)  # [&#x27;test@example.com&#x27;]
+
+# Simple validation
+def is_valid_phone(phone_str):
+    &quot;&quot;&quot;Validate Chinese mobile phone number.&quot;&quot;&quot;
+    return bool(re.fullmatch(r&quot;1[3-9]\d{9}&quot;, phone_str))
+
+print(is_valid_phone(&quot;13812345678&quot;))  # True
+print(is_valid_phone(&quot;12345678901&quot;))  # False (starts with 12)
+
+# Match vs Search
+print(re.match(r&quot;hello&quot;, &quot;say hello&quot;))   # None (not at start)
+print(re.search(r&quot;hello&quot;, &quot;say hello&quot;))  # Match object</code></pre>
+
+<p><strong>执行预览：</strong></p>
+<pre><code>Phone: 138-1234-5678
+Emails: [&#x27;test@example.com&#x27;]
+True
+False
+None
+&lt;re.Match object; span=(4, 9), match=&#x27;hello&#x27;&gt;</code></pre>
+
+<h3>v2：分组、命名组与替换</h3>
+
+<pre><code class="language-python">import re
+
+# Named groups for readable extraction
+log_line = &#x27;192.168.1.100 - - [29/Apr/2026:06:30:00 +0800] &quot;GET /api/users HTTP/1.1&quot; 200 1234&#x27;
+
+pattern = r&#x27;(?P&lt;ip&gt;\d+\.\d+\.\d+\.\d+).*?\[(?P&lt;time&gt;[^\]]+)\].*?&quot;(?P&lt;method&gt;\w+) (?P&lt;path&gt;\S+)&#x27;
+match = re.search(pattern, log_line)
+if match:
+    print(f&quot;IP: {match.group(&#x27;ip&#x27;)}&quot;)
+    print(f&quot;Time: {match.group(&#x27;time&#x27;)}&quot;)
+    print(f&quot;Method: {match.group(&#x27;method&#x27;)}&quot;)
+    print(f&quot;Path: {match.group(&#x27;path&#x27;)}&quot;)
+
+# Multiple groups with findall
+text = &quot;Alice: 85, Bob: 92, Charlie: 78&quot;
+scores = re.findall(r&quot;(\w+):\s*(\d+)&quot;, text)
+print(scores)  # [(&#x27;Alice&#x27;, &#x27;85&#x27;), (&#x27;Bob&#x27;, &#x27;92&#x27;), (&#x27;Charlie&#x27;, &#x27;78&#x27;)]
+
+# Substitution with backreferences
+def mask_phone(text):
+    &quot;&quot;&quot;Mask middle digits of phone numbers.&quot;&quot;&quot;
+    return re.sub(r&quot;(\d{3})\d{4}(\d{4})&quot;, r&quot;\1-****-\2&quot;, text)
+
+print(mask_phone(&quot;Call 13812345678 or 15987654321&quot;))
+# Call 138-****-5678 or 159-****-4321
+
+# Non-capturing group
+html = &quot;&lt;div&gt;content&lt;/div&gt;&lt;span&gt;text&lt;/span&gt;&quot;
+tags = re.findall(r&quot;&lt;(?:div|span)&gt;(.*?)&lt;/(?:div|span)&gt;&quot;, html)
+print(tags)  # [&#x27;content&#x27;, &#x27;text&#x27;]</code></pre>
+
+<p><strong>执行预览：</strong></p>
+<pre><code>IP: 192.168.1.100
+Time: 29/Apr/2026:06:30:00 +0800
+Method: GET
+Path: /api/users
+[(&#x27;Alice&#x27;, &#x27;85&#x27;), (&#x27;Bob&#x27;, &#x27;92&#x27;), (&#x27;Charlie&#x27;, &#x27;78&#x27;)]
+Call 138-****-5678 or 159-****-4321
+[&#x27;content&#x27;, &#x27;text&#x27;]</code></pre>
+
+<h3>v3：预编译、VERBOSE 模式与实战模式</h3>
+
+<pre><code class="language-python">import re
+
+# Pre-compile for performance (use in loops)
+EMAIL_RE = re.compile(r&quot;&quot;&quot;
+    ^                   # Start of string
+    [\w.%+-]+           # Username: letters, digits, dots, special chars
+    @                   # @ symbol
+    [\w.-]+             # Domain name
+    \.                  # Literal dot
+    [a-zA-Z]{2,}        # TLD (at least 2 letters)
+    $                   # End of string
+&quot;&quot;&quot;, re.VERBOSE | re.IGNORECASE)
+
+print(EMAIL_RE.fullmatch(&quot;Test.User+tag@Example.COM&quot;))  # Match
+print(EMAIL_RE.fullmatch(&quot;not-an-email&quot;))               # None
+
+# Common patterns collection
+PATTERNS = {
+    &quot;chinese_mobile&quot;: re.compile(r&quot;^1[3-9]\d{9}$&quot;),
+    &quot;chinese_id&quot;: re.compile(r&quot;^\d{17}[\dXx]$&quot;),
+    &quot;url&quot;: re.compile(r&quot;^https?://[\w\-.]+(:\d+)?(/[\w./-]*)?$&quot;),
+    &quot;ipv4&quot;: re.compile(r&quot;^(\d{1,3}\.){3}\d{1,3}$&quot;),
+    &quot;date_ymd&quot;: re.compile(r&quot;^\d{4}[-/]\d{2}[-/]\d{2}$&quot;),
+    &quot;html_tag&quot;: re.compile(r&quot;&lt;(\w+)[^&gt;]*&gt;(.*?)&lt;/\1&gt;&quot;),
+}
+
+# Advanced: finditer for large text processing
+def extract_urls(html_content):
+    &quot;&quot;&quot;Extract all URLs from HTML content.&quot;&quot;&quot;
+    url_pattern = re.compile(r&#x27;href=[&quot;\x27](https?://[^&quot;\x27]+)[&quot;\x27]&#x27;)
+    return [m.group(1) for m in url_pattern.finditer(html_content)]
+
+html_sample = &#x27;&lt;a href=&quot;https://example.com/page1&quot;&gt;Link 1&lt;/a&gt;\n&lt;a href=&quot;http://test.org/page2&quot;&gt;Link 2&lt;/a&gt;\n&lt;a href=&quot;/relative&quot;&gt;Skip&lt;/a&gt;&#x27;
+print(extract_urls(html_sample))
+# [&#x27;https://example.com/page1&#x27;, &#x27;http://test.org/page2&#x27;]
+
+# Greedy vs Non-greedy
+text = &quot;&lt;div&gt;first&lt;/div&gt;&lt;div&gt;second&lt;/div&gt;&quot;
+greedy = re.findall(r&quot;&lt;div&gt;.*&lt;/div&gt;&quot;, text)
+lazy = re.findall(r&quot;&lt;div&gt;.*?&lt;/div&gt;&quot;, text)
+print(f&quot;Greedy: {greedy}&quot;)  # Matches entire string
+print(f&quot;Lazy:    {lazy}&quot;)   # Two separate matches</code></pre>
+
+<p><strong>执行预览：</strong></p>
+<pre><code>&lt;re.Match object; span=(0, 27), match=&#x27;Test.User+tag@Example.COM&#x27;&gt;
+None
+[&#x27;https://example.com/page1&#x27;, &#x27;http://test.org/page2&#x27;]
+Greedy: [&#x27;&lt;div&gt;first&lt;/div&gt;&lt;div&gt;second&lt;/div&gt;&#x27;]
+Lazy:    [&#x27;&lt;div&gt;first&lt;/div&gt;&#x27;, &#x27;&lt;div&gt;second&lt;/div&gt;&#x27;]</code></pre>
+
+<hr>
+
+<h2>四、注意事项</h2>
+
+<table><thead><tr>
+<th>要点</th>
+<th>说明</th>
+<th>建议</th>
+</tr></thead><tbody>
+<tr>
+<td>使用原始字符串</td>
+<td><code>r"\d"</code> 而非 <code>"\\d"</code></td>
+<td>避免转义地狱</td>
+</tr>
+<tr>
+<td>贪婪是默认行为</td>
+<td><code>.*</code> 会尽可能多匹配</td>
+<td>加 <code>?</code> 变非贪婪：<code>.*?</code></td>
+</tr>
+<tr>
+<td><code>match</code> 只匹配开头</td>
+<td>不是搜索整个字符串</td>
+<td>通常用 <code>search</code> 更通用</td>
+</tr>
+<tr>
+<td><code>findall</code> 返回值不同</td>
+<td>有组返回组的元组，无组返回整个匹配</td>
+<td>注意分组对结果的影响</td>
+</tr>
+<tr>
+<td>正则性能有限</td>
+<td>复杂模式可能很慢</td>
+<td>预编译、避免嵌套量词</td>
+</tr>
+<tr>
+<td>特殊字符要转义</td>
+<td>`. * + ? ^ $ { } [ ] ( ) \</td>
+<td>\`</td>
+<td>用 <code>re.escape()</code> 自动转义</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>五、避坑指南</h2>
+
+<h3>❌ 坑1：忘记用原始字符串</h3>
+
+<pre><code class="language-python"># ❌ Wrong: \b is backspace in Python strings
+re.search(&quot;\bword\b&quot;, &quot;a word&quot;)  # None
+
+# ✅ Correct: use raw string
+re.search(r&quot;\bword\b&quot;, &quot;a word&quot;)  # Match!</code></pre>
+
+<h3>❌ 坑2：贪婪匹配导致过度匹配</h3>
+
+<pre><code class="language-python"># ❌ Wrong: greedy .* matches too much
+text = &#x27;name=&quot;Alice&quot; age=&quot;30&quot;&#x27;
+re.findall(r&#x27;&quot;.*&quot;&#x27;, text)  # [&#x27;&quot;Alice&quot; age=&quot;30&quot;&#x27;]
+
+# ✅ Correct: non-greedy .*?
+re.findall(r&#x27;&quot;.*?&quot;&#x27;, text)  # [&#x27;&quot;Alice&quot;&#x27;, &#x27;&quot;30&quot;&#x27;]</code></pre>
+
+<h3>❌ 坑3：用正则解析 HTML</h3>
+
+<pre><code class="language-python"># ❌ Wrong: regex is not suitable for HTML parsing
+re.findall(r&quot;&lt;div&gt;(.*?)&lt;/div&gt;&quot;, nested_html)  # Breaks on nested tags
+
+# ✅ Correct: use an HTML parser
+from bs4 import BeautifulSoup
+soup = BeautifulSoup(html, &quot;html.parser&quot;)
+divs = soup.find_all(&quot;div&quot;)</code></pre>
+
+<h3>❌ 坑4：match vs search 混淆</h3>
+
+<pre><code class="language-python"># ❌ Wrong: match only checks from the start
+re.match(r&quot;\d+&quot;, &quot;abc123&quot;)  # None
+
+# ✅ Correct: use search to find anywhere
+re.search(r&quot;\d+&quot;, &quot;abc123&quot;)  # Match &#x27;123&#x27;</code></pre>
+
+<h3>❌ 坑5：findall 有分组时返回值变化</h3>
+
+<pre><code class="language-python">text = &quot;2024-01-15, 2025-03-20&quot;
+
+# No group → full match
+re.findall(r&quot;\d{4}-\d{2}-\d{2}&quot;, text)
+# [&#x27;2024-01-15&#x27;, &#x27;2025-03-20&#x27;]
+
+# With group → only groups!
+re.findall(r&quot;(\d{4})-\d{2}-(\d{2})&quot;, text)
+# [(&#x27;2024&#x27;, &#x27;15&#x27;), (&#x27;2025&#x27;, &#x27;20&#x27;)]</code></pre>
+
+<hr>
+
+<h2>六、练习题</h2>
+
+<h3>🟢 初级</h3>
+
+<ol>
+<li>编写正则验证密码：至少 8 位，包含大小写字母和数字。</li>
+
+<pre><code class="language-python">def is_strong_password(pwd):
+    pattern = r&quot;^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$&quot;
+    return bool(re.fullmatch(pattern, pwd))
+
+print(is_strong_password(&quot;Abc12345&quot;))   # True
+print(is_strong_password(&quot;password&quot;))   # False</code></pre>
+
+<ol>
+<li>用正则提取字符串中的所有 URL。</li>
+
+<h3>🟡 中级</h3>
+
+<ol>
+<li>编写一个日志解析器，提取 IP、时间、请求方法、路径、状态码、响应时间。</li>
+
+<pre><code class="language-python">log = &#x27;192.168.1.1 - [29/Apr/2026:06:30:00] &quot;GET /api HTTP/1.1&quot; 200 50ms&#x27;
+pattern = r&#x27;(?P&lt;ip&gt;[\d.]+).*\[(?P&lt;time&gt;[^\]]+)\].*&quot;(?P&lt;method&gt;\w+) (?P&lt;path&gt;\S+).*&quot;(?P&lt;status&gt;\d+) (?P&lt;duration&gt;\d+)ms&#x27;
+match = re.search(pattern, log)
+print(match.groupdict())</code></pre>
+
+<ol>
+<li>实现一个模板引擎，将 <code>{{ variable }}</code> 替换为字典中的值。</li>
+
+<h3>🔴 高级</h3>
+
+<ol>
+<li>实现一个 Markdown 行内格式的简易解析器（加粗、斜体、代码、链接）。</li>
+
+<ol>
+<li>用正则实现一个简易的数学表达式 token 化器（提取数字、运算符、括号）。</li>
+
+<hr>
+
+<h2>七、知识点总结</h2>
+
+<pre><code>Python 正则表达式
+├── 核心语法
+│   ├── 字符匹配：. \d \w \s \b
+│   ├── 量词：* + ? {n} {n,m}
+│   ├── 非贪婪：*? +? ??
+│   ├── 锚点：^ $
+│   └── 字符类：[abc] [^abc] [a-z]
+├── 分组
+│   ├── 捕获组 (...)
+│   ├── 非捕获组 (?:...)
+│   ├── 命名组 (?P&lt;name&gt;...)
+│   └── 反向引用 \1 \2
+├── re 函数
+│   ├── search / match / fullmatch
+│   ├── findall / finditer
+│   ├── sub / subn
+│   └── split
+├── Flags
+│   ├── re.I 忽略大小写
+│   ├── re.M 多行模式
+│   ├── re.S DOTALL (. 匹配换行)
+│   └── re.X VERBOSE 可读模式
+└── 最佳实践
+    ├── 预编译 re.compile()
+    ├── 原始字符串 r&quot;&quot;
+    ├── 优先非贪婪
+    └── 复杂解析用专用库</code></pre>
+
+<hr>
+
+<h2>八、举一反三</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>正则模式</th>
+<th>说明</th>
+</tr></thead><tbody>
+<tr>
+<td>邮箱验证</td>
+<td><code>[\w.%+-]+@[\w.-]+\.[a-zA-Z]{2,}</code></td>
+<td>基础邮箱格式</td>
+</tr>
+<tr>
+<td>手机号</td>
+<td><code>1[3-9]\d{9}</code></td>
+<td>中国大陆手机号</td>
+</tr>
+<tr>
+<td>URL</td>
+<td><code>https?://[\w\-.]+(/\S*)?</code></td>
+<td>HTTP/HTTPS URL</td>
+</tr>
+<tr>
+<td>IPv4</td>
+<td><code>(\d{1,3}\.){3}\d{1,3}</code></td>
+<td>IP 地址</td>
+</tr>
+<tr>
+<td>日期</td>
+<td><code>\d{4}[-/]\d{2}[-/]\d{2}</code></td>
+<td>YYYY-MM-DD</td>
+</tr>
+<tr>
+<td>HTML 标签</td>
+<td><code><(\w+)[^>]<em>>(.</em>?)</\1></code></td>
+<td>匹配配对标签</td>
+</tr>
+<tr>
+<td>中文字符</td>
+<td><code>[\u4e00-\u9fff]+</code></td>
+<td>Unicode 范围</td>
+</tr>
+<tr>
+<td>去除首尾空格</td>
+<td>`^\s+\</td>
+<td>\s+$`</td>
+<td>或用 str.strip()</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>九、参考资料</h2>
+
+<ol>
+<li><a href="https://docs.python.org/3/library/re.html">Python 官方文档 - re 模块</a></li>
+</ul>
+<ol>
+<li><a href="https://docs.python.org/3/howto/regex.html">Regular Expression HOWTO</a></li>
+</ul>
+<ol>
+<li><a href="https://regex101.com/">regex101.com</a> — 在线正则测试工具（选 Python 模式）</li>
+</ul>
+<ol>
+<li><a href="https://regexr.com/">regexr.com</a> — 另一个在线测试工具</li>
+</ul>
+<ol>
+<li>《精通正则表达式》，Jeffrey Friedl</li>
+</ul>
+<ol>
+<li>《Fluent Python》第二版，第19章</li>
+
+<hr>
+
+<h2>十、完整示例代码</h2>
+
+<pre><code class="language-python">&quot;&quot;&quot;
+Complete demo: Python regular expressions.
+Covers validation, extraction, substitution, and common patterns.
+&quot;&quot;&quot;
+
+import re
+
+# === Pre-compiled patterns ===
+PATTERNS = {
+    &quot;email&quot;: re.compile(r&quot;[\w.%+-]+@[\w.-]+\.[a-zA-Z]{2,}&quot;),
+    &quot;phone_cn&quot;: re.compile(r&quot;1[3-9]\d{9}&quot;),
+    &quot;url&quot;: re.compile(r&quot;https?://[\w\-.]+(?:\.\w{2,})(?:/\S*)?&quot;),
+    &quot;date&quot;: re.compile(r&quot;(\d{4})[-/](\d{2})[-/](\d{2})&quot;),
+    &quot;html_tag&quot;: re.compile(r&quot;&lt;(\w+)[^&gt;]*&gt;(.*?)&lt;/\1&gt;&quot;),
+    &quot;chinese&quot;: re.compile(r&quot;[\u4e00-\u9fff]+&quot;),
+}
+
+
+def validate_email(email):
+    &quot;&quot;&quot;Validate email format.&quot;&quot;&quot;
+    return bool(PATTERNS[&quot;email&quot;].fullmatch(email))
+
+
+def mask_phones(text):
+    &quot;&quot;&quot;Mask phone numbers: 138****5678.&quot;&quot;&quot;
+    return PATTERNS[&quot;phone_cn&quot;].sub(
+        lambda m: m.group()[:3] + &quot;****&quot; + m.group()[-4:], text
+    )
+
+
+def extract_dates(text):
+    &quot;&quot;&quot;Extract and format dates from text.&quot;&quot;&quot;
+    results = []
+    for match in PATTERNS[&quot;date&quot;].finditer(text):
+        y, m, d = match.groups()
+        results.append(f&quot;{y}年{int(m)}月{int(d)}日&quot;)
+    return results
+
+
+def strip_html_tags(html):
+    &quot;&quot;&quot;Remove HTML tags, keep content.&quot;&quot;&quot;
+    return re.sub(r&quot;&lt;[^&gt;]+&gt;&quot;, &quot;&quot;, html)
+
+
+def template_render(template, variables):
+    &quot;&quot;&quot;Simple template engine: {{ key }} → value.&quot;&quot;&quot;
+    def replacer(match):
+        key = match.group(1).strip()
+        return str(variables.get(key, f&quot;{{{{ {key} }}}}&quot;))
+    return re.sub(r&quot;\{\{\s*(\w+)\s*\}\}&quot;, replacer, template)
+
+
+# === Demo ===
+if __name__ == &quot;__main__&quot;:
+    print(&quot;=== Email validation ===&quot;)
+    for email in [&quot;test@example.com&quot;, &quot;bad@&quot;, &quot;ok@domain.cn&quot;]:
+        print(f&quot;  {email}: {validate_email(email)}&quot;)
+
+    print(&quot;\n=== Phone masking ===&quot;)
+    print(f&quot;  {mask_phones(&#x27;Contact: 13812345678 or 15987654321&#x27;)}&quot;)
+
+    print(&quot;\n=== Date extraction ===&quot;)
+    print(f&quot;  {extract_dates(&#x27;Dates: 2024-01-15 and 2025/12/25&#x27;)}&quot;)
+
+    print(&quot;\n=== HTML stripping ===&quot;)
+    print(f&quot;  {strip_html_tags(&#x27;&lt;p&gt;Hello &lt;b&gt;World&lt;/b&gt;&lt;/p&gt;&#x27;)}&quot;)
+
+    print(&quot;\n=== Template engine ===&quot;)
+    tpl = &quot;Hello {{ name }}, your order {{ id }} is ready.&quot;
+    print(f&quot;  {template_render(tpl, {&#x27;name&#x27;: &#x27;Alice&#x27;, &#x27;id&#x27;: 42})}&quot;)
+
+    print(&quot;\n=== Chinese text ===&quot;)
+    text = &quot;Hello 世界, this is 测试 text&quot;
+    print(f&quot;  Found: {PATTERNS[&#x27;chinese&#x27;].findall(text)}&quot;)
+
+    print(&quot;\n=== Greedy vs Lazy ===&quot;)
+    html = &quot;&lt;p&gt;A&lt;/p&gt;&lt;p&gt;B&lt;/p&gt;&quot;
+    print(f&quot;  Greedy: {re.findall(r&#x27;&lt;p&gt;.*&lt;/p&gt;&#x27;, html)}&quot;)
+    print(f&quot;  Lazy:    {re.findall(r&#x27;&lt;p&gt;.*?&lt;/p&gt;&#x27;, html)}&quot;)</code></pre>
+
+<p><strong>执行预览：</strong></p>
+<pre><code>=== Email validation ===
+  test@example.com: True
+  bad@: False
+  ok@domain.cn: True
+
+=== Phone masking ===
+  Contact: 138****5678 or 159****4321
+
+=== Date extraction ===
+  [&#x27;2024年1月15日&#x27;, &#x27;2025年12月25日&#x27;]
+
+=== HTML stripping ===
+  Hello World
+
+=== Template engine ===
+  Hello Alice, your order 42 is ready.
+
+=== Chinese text ===
+  Found: [&#x27;世界&#x27;, &#x27;测试&#x27;]
+
+=== Greedy vs Lazy ===
+  Greedy: [&#x27;&lt;p&gt;A&lt;/p&gt;&lt;p&gt;B&lt;/p&gt;&#x27;]
+  Lazy:    [&#x27;&lt;p&gt;A&lt;/p&gt;&#x27;, &#x27;&lt;p&gt;B&lt;/p&gt;&#x27;]</code></pre>
+
+<hr>
+
+<blockquote><p>💡 <strong>一句话总结</strong>：正则表达式是文本处理的瑞士军刀——掌握 <code>re.search</code>、<code>re.findall</code>、<code>re.sub</code> 三板斧，加上 <code>r""</code> 原始字符串和 <code>?</code> 非贪婪修饰，就能解决 90% 的文本匹配问题。</p></blockquote>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

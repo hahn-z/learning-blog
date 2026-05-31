@@ -1,0 +1,499 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>008 - 泛型：让类型也灵活</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/TypeScript/index.html">TypeScript</a>
+<span class="sep">›</span>
+<a href="/tech-blog/TypeScript/01-TypeScript/index.html">TypeScript</a>
+</nav>
+<h1>008 - 泛型：让类型也灵活</h1>
+<div class="meta">
+<span>📂 TypeScript</span>
+<span>🏷️ TypeScript</span>
+</div>
+<article>
+
+
+<h1>035-泛型：让类型也灵活</h1>
+
+<blockquote><p><strong>难度：</strong> 🟡 进阶 | <strong>阅读时间：</strong> 22分钟 | <strong>前置知识：</strong> 函数类型与重载</p></blockquote>
+
+<hr>
+
+<h2>一、概念讲解</h2>
+
+<h3>什么是泛型（Generics）？</h3>
+
+<p>泛型让类型变成<strong>参数</strong>——就像函数接受值参数一样，泛型接受<strong>类型参数</strong>。</p>
+
+<pre><code class="language-typescript">// Without generics: one function per type
+function identityString(val: string): string { return val; }
+function identityNumber(val: number): number { return val; }
+
+// With generics: one function for all types
+function identity&lt;T&gt;(val: T): T { return val; }</code></pre>
+
+<h3>泛型的三个使用场景</h3>
+
+<ol>
+<li><strong>泛型函数</strong> — <code>function fn<T>(arg: T): T</code></li>
+</ul>
+<ol>
+<li><strong>泛型接口</strong> — <code>interface Container<T> { value: T }</code></li>
+</ul>
+<ol>
+<li><strong>泛型类</strong> — <code>class Stack<T> { ... }</code></li>
+
+<h3>泛型约束（Constraints）</h3>
+
+<pre><code class="language-typescript">// T must have a &#x27;length&#x27; property
+function logLength&lt;T extends { length: number }&gt;(arg: T): number {
+  console.log(arg.length);
+  return arg.length;
+}
+
+logLength(&#x27;hello&#x27;);     // OK, string has .length
+logLength([1, 2, 3]);   // OK, array has .length
+// logLength(123);      // Error, number has no .length</code></pre>
+
+<h3>keyof 和泛型</h3>
+
+<pre><code class="language-typescript">function getProperty&lt;T, K extends keyof T&gt;(obj: T, key: K): T[K] {
+  return obj[key];
+}
+
+const user = { name: &#x27;Alice&#x27;, age: 30 };
+getProperty(user, &#x27;name&#x27;); // type: string
+// getProperty(user, &#x27;job&#x27;); // Error: &#x27;job&#x27; not in keyof user</code></pre>
+
+<hr>
+
+<h2>二、思维导图</h2>
+
+<pre><code>泛型 (Generics)
+├── 基础
+│   ├── 泛型函数 &lt;T&gt;
+│   ├── 泛型接口 Interface&lt;T&gt;
+│   ├── 泛型类 Class&lt;T&gt;
+│   └── 多类型参数 &lt;T, U&gt;
+├── 约束
+│   ├── extends 约束
+│   ├── keyof 约束
+│   └── 默认类型 &lt;T = string&gt;
+├── 高级模式
+│   ├── 条件类型 T extends U ? X : Y
+│   ├── infer 关键字
+│   ├── 映射类型
+│   └── 模板字面量类型
+└── 内置工具类型
+    ├── Partial / Required
+    ├── Pick / Omit
+    ├── Record
+    ├── Exclude / Extract
+    ├── ReturnType / Parameters
+    └── Readonly</code></pre>
+
+<hr>
+
+<h2>三、完整代码示例</h2>
+
+<pre><code class="language-typescript">// ============================================
+// Generics - Complete Guide
+// ============================================
+
+// --- 1. Generic Functions ---
+function identity&lt;T&gt;(value: T): T {
+  return value;
+}
+
+const num = identity(42);        // type: number
+const str = identity(&#x27;hello&#x27;);   // type: string
+
+// Multiple type parameters
+function merge&lt;T, U&gt;(a: T, b: U): T &amp; U {
+  return { ...a, ...b };
+}
+
+const merged = merge({ name: &#x27;Alice&#x27; }, { age: 30 });
+// type: { name: string } &amp; { age: number }
+
+// --- 2. Generic Constraints ---
+interface HasId {
+  id: string | number;
+}
+
+function findById&lt;T extends HasId&gt;(items: T[], id: T[&#x27;id&#x27;]): T | undefined {
+  return items.find(item =&gt; item.id === id);
+}
+
+// keyof constraint
+function pluck&lt;T, K extends keyof T&gt;(obj: T, key: K): T[K] {
+  return obj[key];
+}
+
+// --- 3. Generic Interfaces ---
+interface Repository&lt;T&gt; {
+  findAll(): T[];
+  findById(id: string): T | undefined;
+  create(item: Omit&lt;T, &#x27;id&#x27;&gt;): T;
+  update(id: string, item: Partial&lt;T&gt;): T;
+  delete(id: string): boolean;
+}
+
+// API Response pattern
+interface ApiResponse&lt;T&gt; {
+  data: T;
+  status: number;
+  message: string;
+  timestamp: Date;
+}
+
+function success&lt;T&gt;(data: T): ApiResponse&lt;T&gt; {
+  return { data, status: 200, message: &#x27;OK&#x27;, timestamp: new Date() };
+}
+
+// --- 4. Generic Classes ---
+class Stack&lt;T&gt; {
+  private items: T[] = [];
+
+  push(item: T): void {
+    this.items.push(item);
+  }
+
+  pop(): T | undefined {
+    return this.items.pop();
+  }
+
+  peek(): T | undefined {
+    return this.items[this.items.length - 1];
+  }
+
+  get size(): number {
+    return this.items.length;
+  }
+
+  get isEmpty(): boolean {
+    return this.items.length === 0;
+  }
+}
+
+const numberStack = new Stack&lt;number&gt;();
+numberStack.push(1);
+numberStack.push(2);
+console.log(numberStack.pop());  // 2
+console.log(numberStack.peek()); // 1
+
+// --- 5. Default Type Parameters ---
+interface PaginatedResult&lt;T, Meta = { total: number; page: number }&gt; {
+  items: T[];
+  meta: Meta;
+}
+
+// --- 6. Conditional Types ---
+type IsString&lt;T&gt; = T extends string ? &#x27;yes&#x27; : &#x27;no&#x27;;
+type A = IsString&lt;string&gt;;  // &#x27;yes&#x27;
+type B = IsString&lt;number&gt;;  // &#x27;no&#x27;
+
+// infer keyword
+type UnwrapPromise&lt;T&gt; = T extends Promise&lt;infer U&gt; ? U : T;
+type Unpacked = UnwrapPromise&lt;Promise&lt;string&gt;&gt;; // string
+
+type GetReturnType&lt;T&gt; = T extends (...args: any[]) =&gt; infer R ? R : never;
+type R = GetReturnType&lt;() =&gt; string&gt;; // string
+
+// --- 7. Mapped Types ---
+type MyPartial&lt;T&gt; = {
+  [K in keyof T]?: T[K];
+};
+
+type MyReadonly&lt;T&gt; = {
+  readonly [K in keyof T]: T[K];
+};
+
+// Key remapping (TS 4.1+)
+type Getters&lt;T&gt; = {
+  [K in keyof T as `get${Capitalize&lt;string &amp; K&gt;}`]: () =&gt; T[K];
+};
+
+interface User {
+  name: string;
+  age: number;
+}
+
+type UserGetters = Getters&lt;User&gt;;
+// { getName: () =&gt; string; getAge: () =&gt; number }
+
+// --- 8. Built-in Utility Types in Action ---
+interface Todo {
+  title: string;
+  description: string;
+  done: boolean;
+}
+
+// Pick: choose specific fields
+type TodoPreview = Pick&lt;Todo, &#x27;title&#x27; | &#x27;done&#x27;&gt;;
+
+// Omit: exclude specific fields
+type TodoInfo = Omit&lt;Todo, &#x27;done&#x27;&gt;;
+
+// Record: construct a type with keys and value type
+type PageInfo = Record&lt;&#x27;home&#x27; | &#x27;about&#x27; | &#x27;contact&#x27;, { title: string }&gt;;
+
+const pages: PageInfo = {
+  home: { title: &#x27;Home&#x27; },
+  about: { title: &#x27;About&#x27; },
+  contact: { title: &#x27;Contact&#x27; }
+};
+
+console.log(&#x27;All generics examples completed!&#x27;);</code></pre>
+
+<hr>
+
+<h2>四、执行预览</h2>
+
+<pre><code class="language-bash">$ npx ts-node generics.ts
+2
+1
+All generics examples completed!</code></pre>
+
+<hr>
+
+<h2>五、注意事项</h2>
+
+<table><thead><tr>
+<th>注意点</th>
+<th>说明</th>
+</tr></thead><tbody>
+<tr>
+<td>泛型参数要有意义</td>
+<td><code>T</code>、<code>K</code>、<code>V</code>是约定，但<code>TItem</code>、<code>TKey</code>更清晰</td>
+</tr>
+<tr>
+<td>别过度泛化</td>
+<td>只有一个调用场景的函数不需要泛型</td>
+</tr>
+<tr>
+<td><code>keyof</code>在泛型中极常用</td>
+<td>访问对象属性时几乎必用</td>
+</tr>
+<tr>
+<td>条件类型分布式</td>
+<td>联合类型会<strong>分发</strong>条件检查</td>
+</tr>
+<tr>
+<td><code>infer</code>只能在条件类型的extends中使用</td>
+<td>不能在别处使用</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>六、避坑指南</h2>
+
+<table><thead><tr>
+<th>❌ 常见错误</th>
+<th>✅ 正确做法</th>
+</tr></thead><tbody>
+<tr>
+<td>泛型参数从来不约束</td>
+<td>用<code>extends</code>约束，缩小类型范围</td>
+</tr>
+<tr>
+<td><code>T extends any</code>无意义约束</td>
+<td>约束到具体接口如<code>T extends Entity</code></td>
+</tr>
+<tr>
+<td>忘记<code>keyof</code>直接用字符串访问</td>
+<td><code>obj[key: K]</code>配合<code>K extends keyof T</code></td>
+</tr>
+<tr>
+<td>泛型类的方法返回any</td>
+<td>用<code>T</code>作为方法返回类型保持类型链</td>
+</tr>
+<tr>
+<td>条件类型内不用<code>infer</code></td>
+<td>利用<code>infer</code>提取嵌套类型</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>七、练习题</h2>
+
+<h3>🟢 基础</h3>
+<ol>
+<li>实现泛型函数<code>first<T>(arr: T[]): T | undefined</code>。</li>
+</ul>
+<ol>
+<li>实现泛型接口<code>Pair<A, B></code>，包含<code>first</code>和<code>second</code>属性。</li>
+
+<h3>🟡 进阶</h3>
+<ol>
+<li>实现<code>DeepReadonly<T></code>，递归地让所有属性只读。</li>
+</ul>
+<ol>
+<li>实现<code>UnionToIntersection<U></code>，将联合类型转为交叉类型。</li>
+
+<h3>🔴 挑战</h3>
+<ol>
+<li>不使用内置工具类型，手写<code>Pick<T, K></code>和<code>Omit<T, K></code>。</li>
+
+<hr>
+
+<h2>八、知识点总结</h2>
+
+<pre><code>泛型
+├── 基础用法
+│   ├── &lt;T&gt; 单类型参数
+│   ├── &lt;T, U&gt; 多类型参数
+│   ├── &lt;T = Default&gt; 默认类型
+│   └── 类型推断
+├── 约束
+│   ├── extends 接口约束
+│   ├── extends keyof 属性约束
+│   └── new() 构造约束
+├── 高级类型
+│   ├── 条件类型 (T extends U ? X : Y)
+│   ├── infer 类型推断
+│   ├── 映射类型 {[K in keyof T]: V}
+│   ├── 键重映射 as
+│   └── 模板字面量类型
+└── 工具类型
+    ├── Partial / Required / Readonly
+    ├── Pick / Omit
+    ├── Record / Exclude / Extract
+    ├── ReturnType / Parameters / InstanceType
+    └── NonNullable</code></pre>
+
+<hr>
+
+<h2>九、举一反三</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>泛型模式</th>
+</tr></thead><tbody>
+<tr>
+<td>数据仓库</td>
+<td><code>Repository<T></code> 接口</td>
+</tr>
+<tr>
+<td>API响应</td>
+<td><code>ApiResponse<T></code> 包装</td>
+</tr>
+<tr>
+<td>分页</td>
+<td><code>PaginatedResult<T></code></td>
+</tr>
+<tr>
+<td>事件系统</td>
+<td><code>EventMap<T></code> 映射</td>
+</tr>
+<tr>
+<td>表单验证</td>
+<td><code>Validator<T></code> 约束</td>
+</tr>
+<tr>
+<td>组件Props</td>
+<td><code>ComponentProps<T></code> 提取</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>十、参考资料</h2>
+
+<ul>
+<li><a href="https://www.typescriptlang.org/docs/handbook/2/generics.html">TypeScript Handbook - Generics</a></li>
+<li><a href="https://www.typescriptlang.org/docs/handbook/utility-types.html">TypeScript Handbook - Utility Types</a></li>
+<li><a href="https://www.typescriptlang.org/docs/handbook/2/conditional-types.html">TypeScript Handbook - Conditional Types</a></li>
+
+<hr>
+
+<h2>十一、代码演进</h2>
+
+<h3>v1 — 重复函数</h3>
+<pre><code class="language-typescript">function firstString(arr: string[]): string | undefined { return arr[0]; }
+function firstNumber(arr: number[]): number | undefined { return arr[0]; }</code></pre>
+
+<h3>v2 — 泛型函数</h3>
+<pre><code class="language-typescript">function first&lt;T&gt;(arr: T[]): T | undefined { return arr[0]; }</code></pre>
+
+<h3>v3 — 约束+工具类型</h3>
+<pre><code class="language-typescript">interface Entity { id: string; }
+
+function findById&lt;T extends Entity&gt;(items: T[], id: string): T | undefined {
+  return items.find(item =&gt; item.id === id);
+}
+
+function updateEntity&lt;T extends Entity&gt;(
+  items: T[], id: string, patch: Partial&lt;Omit&lt;T, &#x27;id&#x27;&gt;&gt;
+): T[] {
+  return items.map(item =&gt;
+    item.id === id ? { ...item, ...patch } : item
+  );
+}</code></pre>
+
+<hr>
+
+<p><strong>总结：</strong> 泛型是TypeScript最强大的特性之一。它让你的代码既灵活又类型安全——用一套逻辑服务多种类型，编译器帮你检查每一个。</p>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

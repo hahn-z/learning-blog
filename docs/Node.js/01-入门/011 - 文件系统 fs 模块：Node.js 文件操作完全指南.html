@@ -1,0 +1,874 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>011 - 文件系统 fs 模块：Node.js 文件操作完全指南</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f8fafc;color:#1e293b;max-width:800px;margin:0 auto;padding:40px 20px 80px;line-height:1.8}
+h1{font-size:1.8rem;margin:24px 0 16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+h2{font-size:1.4rem;margin:20px 0 12px;color:#1e293b}
+h3{font-size:1.2rem;margin:16px 0 8px;color:#334155}
+h4{font-size:1.05rem;margin:14px 0 6px;color:#475569}
+p{margin:10px 0;color:#334155}
+a{color:#2563eb;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#c7254e;font-family:"Fira Code",Consolas,monospace}
+pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;color:inherit}
+blockquote{border-left:4px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#eff6ff;border-radius:0 8px 8px 0;color:#1e40af}
+blockquote p{color:#1e40af}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0;color:#334155}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95rem}
+th,td{border:1px solid #e2e8f0;padding:8px 12px;text-align:left}
+th{background:#f1f5f9;font-weight:600;color:#1e293b}
+tr:nth-child(even){background:#f8fafc}
+img{max-width:100%;border-radius:8px;margin:8px 0}
+hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0}
+strong{color:#0f172a}
+.nav{margin-bottom:24px;padding:12px 16px;background:#1e293b;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nav a{color:#60a5fa;font-size:0.9rem}
+.nav .sep{color:#475569}
+.meta{color:#64748b;font-size:0.85rem;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0}
+.meta span{margin-right:16px}
+@media(prefers-color-scheme:dark){
+body{background:#0f172a;color:#e2e8f0}
+h1{color:#f1f5f9;border-color:#334155}
+h2{color:#e2e8f0}h3{color:#cbd5e1}h4{color:#94a3b8}
+p,li{color:#cbd5e1}
+code{background:#1e293b;color:#f472b6}
+pre{background:#1e293b;border-color:#334155}
+pre code{color:#e2e8f0}
+blockquote{background:#1e293b;border-color:#3b82f6;color:#93c5fd}
+blockquote p{color:#93c5fd}
+th{background:#1e293b;color:#e2e8f0}
+td{border-color:#334155}tr:nth-child(even){background:#1e293b}
+hr{border-color:#334155}
+strong{color:#f1f5f9}
+.meta{color:#64748b;border-color:#334155}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+<a href="/tech-blog/index.html">📚 首页</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Node.js/index.html">Node.js</a>
+<span class="sep">›</span>
+<a href="/tech-blog/Node.js/01-入门/index.html">Node.js入门</a>
+</nav>
+<h1>011 - 文件系统 fs 模块：Node.js 文件操作完全指南</h1>
+<div class="meta">
+<span>📂 Node.js入门</span>
+<span>🏷️ Node.js</span>
+</div>
+<article>
+
+
+<h1>文件系统 fs 模块</h1>
+
+<blockquote><p><strong>难度：</strong> ⭐⭐⭐ 中高<br><strong>标签：</strong> Node.js、fs、文件操作、异步IO<br><strong>适用人群：</strong> 有 JavaScript 基础，需要掌握 Node.js 文件操作的开发者</p></blockquote>
+
+<hr>
+
+<h2>一、概念讲解</h2>
+
+<h3>什么是 fs 模块？</h3>
+
+<p><code>fs</code>（File System）是 Node.js 的核心模块，提供了一套完整的文件系统操作 API。它是你与操作系统文件系统交互的桥梁——读写文件、创建目录、管理权限、监听变化，全靠它。</p>
+
+<h3>同步 vs 异步 vs Promise</h3>
+
+<p>Node.js 的 fs 模块为几乎每个操作提供了<strong>三种风格</strong>：</p>
+
+<pre><code>fs.readFile(path, callback)        // 异步回调
+fs.readFileSync(path)              // 同步阻塞
+fs.promises.readFile(path)         // Promise (推荐)</code></pre>
+
+<table><thead><tr>
+<th>风格</th>
+<th>优点</th>
+<th>缺点</th>
+<th>适用场景</th>
+</tr></thead><tbody>
+<tr>
+<td>异步回调</td>
+<td>性能好，不阻塞</td>
+<td>回调地狱</td>
+<td>兼容老代码</td>
+</tr>
+<tr>
+<td>同步</td>
+<td>代码简单</td>
+<td>阻塞事件循环</td>
+<td>启动时加载配置</td>
+</tr>
+<tr>
+<td>Promise</td>
+<td>性能好 + 可读</td>
+<td>需要 Node 10+</td>
+<td><strong>现代项目首选</strong></td>
+</tr>
+</tbody></table>
+
+<h3>文件描述符（File Descriptor）</h3>
+
+<p>操作系统用<strong>文件描述符</strong>（fd）来追踪打开的文件。它是一个非负整数：</p>
+
+<pre><code>0 → stdin   (标准输入)
+1 → stdout  (标准输出)
+2 → stderr  (标准错误)
+3+ → 你的文件</code></pre>
+
+<h3>文件系统标志（flags）</h3>
+
+<table><thead><tr>
+<th>标志</th>
+<th>说明</th>
+</tr></thead><tbody>
+<tr>
+<td><code>'r'</code></td>
+<td>只读（默认）</td>
+</tr>
+<tr>
+<td><code>'r+'</code></td>
+<td>读写</td>
+</tr>
+<tr>
+<td><code>'w'</code></td>
+<td>只写，创建或截断</td>
+</tr>
+<tr>
+<td><code>'w+'</code></td>
+<td>读写，创建或截断</td>
+</tr>
+<tr>
+<td><code>'a'</code></td>
+<td>追加写入</td>
+</tr>
+<tr>
+<td><code>'a+'</code></td>
+<td>读写追加</td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>二、知识脑图</h2>
+
+<pre><code>fs 模块
+├── 文件操作
+│   ├── 读写
+│   │   ├── readFile / writeFile         # 一次性读写
+│   │   ├── appendFile                   # 追加内容
+│   │   └── open + read + write + close  # 底层操作
+│   ├── 信息
+│   │   ├── stat / fstat                 # 文件信息
+│   │   ├── exists                       # 是否存在
+│   │   └── access                       # 权限检查
+│   ├── 修改
+│   │   ├── rename                       # 重命名/移动
+│   │   ├── copyFile                     # 复制
+│   │   ├── chmod                        # 修改权限
+│   │   └── truncate                     # 截断
+│   └── 删除
+│       ├── unlink                       # 删除文件
+│       └── rm                           # 删除文件/目录 (Node 14.14+)
+├── 目录操作
+│   ├── mkdir / mkdirp                   # 创建目录
+│   ├── rmdir                            # 删除空目录
+│   ├── readdir                          # 列出内容
+│   └── opendir                          # 流式遍历
+├── 监听
+│   └── watch / watchFile                # 文件变化监听
+├── 流（配合 fs）
+│   ├── createReadStream                 # 可读流
+│   └── createWriteStream                # 可写流
+└── 三种风格
+    ├── fs.xxx(cb)                       # 回调
+    ├── fs.xxxSync()                     # 同步
+    └── fs.promises.xxx()                # Promise</code></pre>
+
+<hr>
+
+<h2>三、完整代码示例</h2>
+
+<pre><code class="language-js">// ============================================
+// fs-demo.js - File System Module Demo
+// ============================================
+
+const fs = require(&#x27;fs&#x27;);
+const path = require(&#x27;path&#x27;);
+const { log } = console;
+
+const DIR = &#x27;./demo-fs-test&#x27;;
+
+// Helper: clean up test directory
+function cleanup() {
+  if (fs.existsSync(DIR)) {
+    fs.rmSync(DIR, { recursive: true });
+  }
+}
+
+// ---------- 1. Basic File Read/Write ----------
+
+async function demoReadWrite() {
+  const fsp = fs.promises;
+  const filePath = path.join(DIR, &#x27;hello.txt&#x27;);
+
+  // Write file
+  await fsp.writeFile(filePath, &#x27;Hello, FS Module!\n&#x27;, &#x27;utf8&#x27;);
+  log(&#x27;Written:&#x27;, filePath);
+
+  // Read file
+  const content = await fsp.readFile(filePath, &#x27;utf8&#x27;);
+  log(&#x27;Read:&#x27;, content.trim());
+
+  // Append
+  await fsp.appendFile(filePath, &#x27;Appended line.\n&#x27;);
+  const updated = await fsp.readFile(filePath, &#x27;utf8&#x27;);
+  log(&#x27;After append:&#x27;, updated.trim());
+}
+
+
+// ---------- 2. File Stats ----------
+
+async function demoStats() {
+  const fsp = fs.promises;
+  const filePath = path.join(DIR, &#x27;hello.txt&#x27;);
+
+  const stats = await fsp.stat(filePath);
+  log(&#x27;--- File Stats ---&#x27;);
+  log(&#x27;isFile:&#x27;, stats.isFile());           // true
+  log(&#x27;isDirectory:&#x27;, stats.isDirectory()); // false
+  log(&#x27;Size:&#x27;, stats.size, &#x27;bytes&#x27;);
+  log(&#x27;Created:&#x27;, stats.birthtime.toISOString());
+  log(&#x27;Modified:&#x27;, stats.mtime.toISOString());
+  log(&#x27;Mode:&#x27;, stats.mode.toString(8));     // octal permissions
+}
+
+
+// ---------- 3. Directory Operations ----------
+
+async function demoDirectory() {
+  const fsp = fs.promises;
+
+  // Create nested directory
+  const nested = path.join(DIR, &#x27;a&#x27;, &#x27;b&#x27;, &#x27;c&#x27;);
+  await fsp.mkdir(nested, { recursive: true });
+  log(&#x27;Created nested dir:&#x27;, nested);
+
+  // Create some files
+  await fsp.writeFile(path.join(DIR, &#x27;a&#x27;, &#x27;file1.txt&#x27;), &#x27;content1&#x27;);
+  await fsp.writeFile(path.join(DIR, &#x27;a&#x27;, &#x27;b&#x27;, &#x27;file2.txt&#x27;), &#x27;content2&#x27;);
+
+  // List directory
+  const entries = await fsp.readdir(DIR, { withFileTypes: true });
+  log(&#x27;--- Directory listing ---&#x27;);
+  for (const entry of entries) {
+    const type = entry.isDirectory() ? &#x27;DIR &#x27; : &#x27;FILE&#x27;;
+    log(`  [${type}] ${entry.name}`);
+  }
+
+  // Recursive listing
+  log(&#x27;--- Recursive listing ---&#x27;);
+  await listAll(DIR, &#x27;&#x27;);
+}
+
+async function listAll(dir, indent) {
+  const fsp = fs.promises;
+  const entries = await fsp.readdir(dir, { withFileTypes: true });
+  for (const entry of entries) {
+    log(`${indent}${entry.name}`);
+    if (entry.isDirectory()) {
+      await listAll(path.join(dir, entry.name), indent + &#x27;  &#x27;);
+    }
+  }
+}
+
+
+// ---------- 4. Copy, Rename, Delete ----------
+
+async function demoCRUD() {
+  const fsp = fs.promises;
+  const src = path.join(DIR, &#x27;hello.txt&#x27;);
+  const dst = path.join(DIR, &#x27;hello-copy.txt&#x27;);
+
+  // Copy
+  await fsp.copyFile(src, dst);
+  log(&#x27;Copied to:&#x27;, dst);
+
+  // Rename
+  const renamed = path.join(DIR, &#x27;hello-renamed.txt&#x27;);
+  await fsp.rename(dst, renamed);
+  log(&#x27;Renamed to:&#x27;, renamed);
+
+  // Check existence
+  log(&#x27;Original copy exists:&#x27;, fs.existsSync(dst));     // false
+  log(&#x27;Renamed exists:&#x27;, fs.existsSync(renamed));        // true
+
+  // Delete
+  await fsp.unlink(renamed);
+  log(&#x27;Deleted:&#x27;, renamed);
+  log(&#x27;After delete exists:&#x27;, fs.existsSync(renamed));   // false
+}
+
+
+// ---------- 5. Streaming Read/Write ----------
+
+async function demoStream() {
+  const src = path.join(DIR, &#x27;hello.txt&#x27;);
+  const dst = path.join(DIR, &#x27;stream-copy.txt&#x27;);
+
+  // Pipe: read stream -&gt; write stream
+  await new Promise((resolve, reject) =&gt; {
+    const readStream = fs.createReadStream(src, { highWaterMark: 4 });
+    const writeStream = fs.createWriteStream(dst);
+
+    readStream.on(&#x27;data&#x27;, (chunk) =&gt; {
+      log(&#x27;Chunk:&#x27;, chunk.toString().trim());
+    });
+
+    readStream.pipe(writeStream)
+      .on(&#x27;finish&#x27;, () =&gt; {
+        log(&#x27;Stream copy done!&#x27;);
+        resolve();
+      })
+      .on(&#x27;error&#x27;, reject);
+  });
+}
+
+
+// ---------- 6. File Watch ----------
+
+function demoWatch() {
+  const filePath = path.join(DIR, &#x27;watch-test.txt&#x27;);
+
+  // Write initial
+  fs.writeFileSync(filePath, &#x27;initial content\n&#x27;);
+
+  const watcher = fs.watch(filePath, (eventType, filename) =&gt; {
+    log(`Watch: ${eventType} on ${filename}`);
+  });
+
+  // Trigger changes
+  setTimeout(() =&gt; fs.appendFileSync(filePath, &#x27;change 1\n&#x27;), 100);
+  setTimeout(() =&gt; fs.appendFileSync(filePath, &#x27;change 2\n&#x27;), 300);
+  setTimeout(() =&gt; {
+    watcher.close();
+    log(&#x27;Watcher closed.&#x27;);
+  }, 600);
+}
+
+
+// ---------- 7. Sync Style (for startup) ----------
+
+function demoSync() {
+  const configPath = path.join(DIR, &#x27;config.json&#x27;);
+  const config = { port: 3000, host: &#x27;localhost&#x27; };
+
+  // Sync write + read (OK at startup)
+  fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
+  const loaded = JSON.parse(fs.readFileSync(configPath, &#x27;utf8&#x27;));
+  log(&#x27;Sync loaded config:&#x27;, loaded);
+}
+
+
+// ---------- Main ----------
+
+(async () =&gt; {
+  cleanup();
+  fs.mkdirSync(DIR, { recursive: true });
+
+  log(&#x27;=== 1. Read/Write ===&#x27;);
+  await demoReadWrite();
+
+  log(&#x27;\n=== 2. Stats ===&#x27;);
+  await demoStats();
+
+  log(&#x27;\n=== 3. Directory ===&#x27;);
+  await demoDirectory();
+
+  log(&#x27;\n=== 4. Copy/Rename/Delete ===&#x27;);
+  await demoCRUD();
+
+  log(&#x27;\n=== 5. Stream ===&#x27;);
+  await demoStream();
+
+  log(&#x27;\n=== 6. Sync Style ===&#x27;);
+  demoSync();
+
+  log(&#x27;\n=== 7. Watch ===&#x27;);
+  demoWatch();
+
+  // Cleanup after watch demo
+  setTimeout(() =&gt; {
+    cleanup();
+    log(&#x27;\nCleaned up.&#x27;);
+  }, 800);
+})();</code></pre>
+
+<hr>
+
+<h2>四、执行预览</h2>
+
+<pre><code class="language-bash">$ node fs-demo.js
+=== 1. Read/Write ===
+Written: ./demo-fs-test/hello.txt
+Read: Hello, FS Module!
+After append: Hello, FS Module!
+Appended line.
+
+=== 2. Stats ===
+--- File Stats ---
+isFile: true
+isDirectory: false
+Size: 40 bytes
+Created: 2026-04-29T00:00:00.000Z
+Modified: 2026-04-29T00:00:00.000Z
+Mode: 100644
+
+=== 3. Directory ===
+Created nested dir: ./demo-fs-test/a/b/c
+--- Directory listing ---
+  [DIR ] a
+--- Recursive listing ---
+a
+  file1.txt
+  b
+    file2.txt
+    c
+
+=== 4. Copy/Rename/Delete ===
+Copied to: ./demo-fs-test/hello-copy.txt
+Renamed to: ./demo-fs-test/hello-renamed.txt
+Original copy exists: false
+Renamed exists: true
+Deleted: ./demo-fs-test/hello-renamed.txt
+After delete exists: false
+
+=== 5. Stream ===
+Chunk: Hell
+Chunk: o, F
+Chunk: S Mo
+Chunk: dule!
+Chunk: 
+App
+Chunk: ende
+Chunk: d lin
+Chunk: e.
+
+Stream copy done!
+
+=== 6. Sync Style ===
+Sync loaded config: { port: 3000, host: &#x27;localhost&#x27; }
+
+=== 7. Watch ===
+Watch: change on watch-test.txt
+Watch: change on watch-test.txt
+Watcher closed.
+
+Cleaned up.</code></pre>
+
+<hr>
+
+<h2>五、注意事项</h2>
+
+<table><thead><tr>
+<th>项目</th>
+<th>说明</th>
+</tr></thead><tbody>
+<tr>
+<td><strong>路径编码</strong></td>
+<td>Windows 路径用 <code>\\</code> 或 <code>/</code>，建议用 <code>path.join()</code> 拼接</td>
+</tr>
+<tr>
+<td><strong>相对路径</strong></td>
+<td>相对于 <code>process.cwd()</code>，不是文件所在目录</td>
+</tr>
+<tr>
+<td><strong>ENOENT</strong></td>
+<td>文件不存在，最常见错误，操作前检查或用 try-catch</td>
+</tr>
+<tr>
+<td><strong>EACCES</strong></td>
+<td>权限不足，检查文件权限和运行用户</td>
+</tr>
+<tr>
+<td><strong>EMFILE</strong></td>
+<td>打开文件过多，确保及时关闭 fd，或用 <code>graceful-fs</code></td>
+</tr>
+<tr>
+<td><strong>大文件</strong></td>
+<td>不要用 <code>readFile</code> 一次性加载，用 <code>createReadStream</code> 流式处理</td>
+</tr>
+<tr>
+<td><strong>编码</strong></td>
+<td>不指定编码时 <code>readFile</code> 返回 Buffer，指定 <code>'utf8'</code> 返回字符串</td>
+</tr>
+<tr>
+<td><strong>mkdir recursive</strong></td>
+<td>Node 10.12+ 支持 <code>{ recursive: true }</code>，老版本需 <code>mkdirp</code> 包</td>
+</tr>
+<tr>
+<td><strong>watch 不可靠</strong></td>
+<td><code>fs.watch</code> 在某些文件系统/编辑器上行为不一致，生产用 <code>chokidar</code></td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>六、避坑指南</h2>
+
+<h3>❌ 同步方法在请求处理中使用</h3>
+
+<pre><code class="language-js">app.get(&#x27;/data&#x27;, (req, res) =&gt; {
+  const data = fs.readFileSync(&#x27;./data.json&#x27;); // 阻塞所有请求！
+  res.send(data);
+});</code></pre>
+
+<h3>✅ 使用异步方法</h3>
+
+<pre><code class="language-js">app.get(&#x27;/data&#x27;, async (req, res) =&gt; {
+  const data = await fs.promises.readFile(&#x27;./data.json&#x27;, &#x27;utf8&#x27;);
+  res.send(data);
+});</code></pre>
+
+<hr>
+
+<h3>❌ 拼接路径用字符串 +</h3>
+
+<pre><code class="language-js">const filePath = &#x27;./data/&#x27; + filename; // filename 可能是 &#x27;../../etc/passwd&#x27;！</code></pre>
+
+<h3>✅ 用 path.join 并校验</h3>
+
+<pre><code class="language-js">const basePath = path.resolve(&#x27;./data&#x27;);
+const filePath = path.join(basePath, filename);
+if (!filePath.startsWith(basePath)) throw new Error(&#x27;Invalid path&#x27;);</code></pre>
+
+<hr>
+
+<h3>❌ 不处理文件不存在的错误</h3>
+
+<pre><code class="language-js">const data = await fs.promises.readFile(&#x27;maybe-exists.txt&#x27;, &#x27;utf8&#x27;);</code></pre>
+
+<h3>✅ 检查存在或捕获错误</h3>
+
+<pre><code class="language-js">try {
+  const data = await fs.promises.readFile(&#x27;maybe-exists.txt&#x27;, &#x27;utf8&#x27;);
+} catch (err) {
+  if (err.code === &#x27;ENOENT&#x27;) {
+    console.log(&#x27;File not found, using defaults&#x27;);
+  } else {
+    throw err;
+  }
+}</code></pre>
+
+<hr>
+
+<h3>❌ 大文件用 readFile 一次性加载</h3>
+
+<pre><code class="language-js">const videoBuffer = await fs.promises.readFile(&#x27;movie.mp4&#x27;); // 可能几百 MB！</code></pre>
+
+<h3>✅ 用 Stream 流式处理</h3>
+
+<pre><code class="language-js">const stats = await fs.promises.stat(&#x27;movie.mp4&#x27;);
+const stream = fs.createReadStream(&#x27;movie.mp4&#x27;);
+response.setHeader(&#x27;Content-Length&#x27;, stats.size);
+stream.pipe(response);</code></pre>
+
+<hr>
+
+<h2>七、练习题</h2>
+
+<h3>🟢 初级</h3>
+
+<p><strong>1. 读取一个 JSON 配置文件并打印其中的 <code>port</code> 字段。</strong></p>
+
+<p><details></p>
+<p><summary>参考答案</summary></p>
+
+<pre><code class="language-js">const fs = require(&#x27;fs&#x27;);
+const config = JSON.parse(fs.readFileSync(&#x27;config.json&#x27;, &#x27;utf8&#x27;));
+console.log(&#x27;Port:&#x27;, config.port);</code></pre>
+
+<p></details></p>
+
+<p><strong>2. 创建一个目录 <code>logs</code>，如果已存在则忽略。</strong></p>
+
+<p><details></p>
+<p><summary>参考答案</summary></p>
+
+<pre><code class="language-js">const fs = require(&#x27;fs&#x27;);
+fs.mkdirSync(&#x27;logs&#x27;, { recursive: true });</code></pre>
+
+<p></details></p>
+
+<h3>🟡 中级</h3>
+
+<p><strong>3. 递归列出目录下所有 <code>.js</code> 文件的完整路径。</strong></p>
+
+<p><details></p>
+<p><summary>参考答案</summary></p>
+
+<pre><code class="language-js">const fs = require(&#x27;fs&#x27;);
+const path = require(&#x27;path&#x27;);
+
+function findJS(dir) {
+  let results = [];
+  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    const full = path.join(dir, entry.name);
+    if (entry.isDirectory()) {
+      results = results.concat(findJS(full));
+    } else if (entry.name.endsWith(&#x27;.js&#x27;)) {
+      results.push(full);
+    }
+  }
+  return results;
+}
+
+console.log(findJS(&#x27;.&#x27;));</code></pre>
+
+<p></details></p>
+
+<p><strong>4. 用 Stream 实现文件的逐行读取并输出。</strong></p>
+
+<p><details></p>
+<p><summary>参考答案</summary></p>
+
+<pre><code class="language-js">const fs = require(&#x27;fs&#x27;);
+const readline = require(&#x27;readline&#x27;);
+
+const rl = readline.createInterface({
+  input: fs.createReadStream(&#x27;data.txt&#x27;),
+  crlfDelay: Infinity
+});
+
+rl.on(&#x27;line&#x27;, (line) =&gt; {
+  console.log(&#x27;Line:&#x27;, line);
+});</code></pre>
+
+<p></details></p>
+
+<h3>🔴 高级</h3>
+
+<p><strong>5. 实现一个简单的文件锁：<code>lockFile(path)</code> 返回 Promise，文件不存在时创建锁，已存在则等待重试。</strong></p>
+
+<p><details></p>
+<p><summary>参考答案</summary></p>
+
+<pre><code class="language-js">const fs = require(&#x27;fs&#x27;).promises;
+const path = require(&#x27;path&#x27;);
+const { setTimeout: sleep } = require(&#x27;timers/promises&#x27;);
+
+async function lockFile(filePath, retries = 10, delay = 500) {
+  for (let i = 0; i &lt; retries; i++) {
+    try {
+      const fd = await fs.open(filePath, &#x27;wx&#x27;); // exclusive create
+      await fd.write(Buffer.from(`${process.pid}\n`));
+      await fd.close();
+      return true;
+    } catch (err) {
+      if (err.code === &#x27;EEXIST&#x27;) {
+        await sleep(delay);
+        continue;
+      }
+      throw err;
+    }
+  }
+  throw new Error(`Could not acquire lock: ${filePath}`);
+}
+
+async function unlockFile(filePath) {
+  await fs.unlink(filePath);
+}
+
+// Usage
+(async () =&gt; {
+  await lockFile(&#x27;/tmp/myapp.lock&#x27;);
+  console.log(&#x27;Lock acquired!&#x27;);
+  // ... do work ...
+  await unlockFile(&#x27;/tmp/myapp.lock&#x27;);
+  console.log(&#x27;Lock released!&#x27;);
+})();</code></pre>
+
+<p></details></p>
+
+<hr>
+
+<h2>八、知识点总结</h2>
+
+<pre><code>fs 模块知识体系
+├── 三种 API 风格
+│   ├── fs.xxx(callback)        # 回调 (最早)
+│   ├── fs.xxxSync()            # 同步 (简单但阻塞)
+│   └── fs.promises.xxx()       # Promise (现代推荐)
+├── 文件操作
+│   ├── readFile / writeFile    # 一次性读写
+│   ├── appendFile              # 追加
+│   ├── stat                    # 元信息
+│   ├── rename                  # 重命名/移动
+│   ├── copyFile                # 复制
+│   ├── unlink                  # 删除文件
+│   ├── access                  # 权限检查
+│   └── existsSync              # 同步存在检查
+├── 目录操作
+│   ├── mkdir({recursive})      # 创建
+│   ├── readdir                 # 列出
+│   ├── rmdir                   # 删除空目录
+│   └── rm({recursive})         # 递归删除
+├── 流式操作
+│   ├── createReadStream        # 可读流
+│   └── createWriteStream       # 可写流
+├── 监听
+│   ├── watch                   # 文件变化
+│   └── watchFile               # 轮询检查
+└── 文件打开模式
+    ├── r / r+ / w / w+ / a / a+
+    └── wx / ax (exclusive)</code></pre>
+
+<hr>
+
+<h2>九、举一反三</h2>
+
+<table><thead><tr>
+<th>场景</th>
+<th>推荐方案</th>
+<th>关键 API</th>
+</tr></thead><tbody>
+<tr>
+<td>读取配置文件</td>
+<td>同步读取启动</td>
+<td><code>fs.readFileSync</code></td>
+</tr>
+<tr>
+<td>日志写入</td>
+<td>追加模式或流</td>
+<td><code>fs.appendFile</code> / <code>createWriteStream</code></td>
+</tr>
+<tr>
+<td>文件上传</td>
+<td>流式存储</td>
+<td><code>createWriteStream</code> + <code>pipe</code></td>
+</tr>
+<tr>
+<td>静态文件服务</td>
+<td>流式响应</td>
+<td><code>createReadStream.pipe(res)</code></td>
+</tr>
+<tr>
+<td>文件监控</td>
+<td>chokidar 库</td>
+<td><code>chokidar.watch()</code></td>
+</tr>
+<tr>
+<td>临时文件</td>
+<td><code>os.tmpdir()</code> + 随机名</td>
+<td><code>fs.mkdtemp</code></td>
+</tr>
+<tr>
+<td>CSV 处理</td>
+<td>流 + readline</td>
+<td><code>createReadStream</code> + <code>readline</code></td>
+</tr>
+<tr>
+<td>目录遍历</td>
+<td>递归 readdir</td>
+<td><code>fs.promises.readdir</code></td>
+</tr>
+<tr>
+<td>文件搜索</td>
+<td><code>glob</code> 模式</td>
+<td><code>fast-glob</code> / <code>globby</code></td>
+</tr>
+<tr>
+<td>大文件复制</td>
+<td>流式 pipe</td>
+<td><code>createReadStream.pipe(createWriteStream)</code></td>
+</tr>
+</tbody></table>
+
+<hr>
+
+<h2>十、参考资料</h2>
+
+<ul>
+<li><a href="https://nodejs.org/api/fs.html">Node.js 官方文档 - fs</a></li>
+<li><a href="https://nodejs.org/en/learn/manipulating-files/nodejs-file-module">Node.js File System Best Practices</a></li>
+<li><a href="https://github.com/paulmillr/chokidar">chokidar - Better file watching</a></li>
+
+<hr>
+
+<h2>十一、代码演进</h2>
+
+<h3>v1：基础 — 读写文件</h3>
+
+<pre><code class="language-js">const fs = require(&#x27;fs&#x27;);
+
+// Read file synchronously
+const data = fs.readFileSync(&#x27;input.txt&#x27;, &#x27;utf8&#x27;);
+console.log(data);
+
+// Write file synchronously
+fs.writeFileSync(&#x27;output.txt&#x27;, &#x27;Hello World&#x27;);</code></pre>
+
+<h3>v2：进阶 — 异步 + 目录操作</h3>
+
+<pre><code class="language-js">const fs = require(&#x27;fs&#x27;).promises;
+const path = require(&#x27;path&#x27;);
+
+async function processDir(dir) {
+  const entries = await fs.readdir(dir, { withFileTypes: true });
+  for (const entry of entries) {
+    const fullPath = path.join(dir, entry.name);
+    if (entry.isFile()) {
+      const content = await fs.readFile(fullPath, &#x27;utf8&#x27;);
+      console.log(`${entry.name}: ${content.length} chars`);
+    } else if (entry.isDirectory()) {
+      await processDir(fullPath); // recursive
+    }
+  }
+}
+
+processDir(&#x27;./src&#x27;).catch(console.error);</code></pre>
+
+<h3>v3：实战 — 文件变化监控 + 自动处理</h3>
+
+<pre><code class="language-js">const fs = require(&#x27;fs&#x27;);
+const path = require(&#x27;path&#x27;);
+
+const WATCH_DIR = &#x27;./watch&#x27;;
+const OUTPUT_DIR = &#x27;./output&#x27;;
+
+// Ensure output directory exists
+fs.mkdirSync(OUTPUT_DIR, { recursive: true });
+
+fs.watch(WATCH_DIR, { recursive: true }, (eventType, filename) =&gt; {
+  if (!filename) return;
+
+  const srcPath = path.join(WATCH_DIR, filename);
+  const dstPath = path.join(OUTPUT_DIR, filename);
+
+  if (!fs.existsSync(srcPath)) return;
+
+  // Read, transform (uppercase), write
+  const content = fs.readFileSync(srcPath, &#x27;utf8&#x27;);
+  const transformed = content.toUpperCase();
+  fs.writeFileSync(dstPath, transformed);
+  console.log(`Processed: ${filename} -&gt; ${dstPath}`);
+});
+
+console.log(`Watching ${WATCH_DIR} for changes...`);</code></pre>
+
+<hr>
+
+<p><strong>总结：</strong> fs 模块是 Node.js 的文件系统瑞士军刀。现代项目优先使用 <code>fs.promises</code>，启动时可用同步方法，大文件务必用 Stream。记住三个原则：异步优先、路径校验、及时关闭。</p>
+
+</article>
+<script>hljs.highlightAll();</script>
+</body>
+</html>
