@@ -114,11 +114,14 @@ export default defineConfig({
     nav: [
       { text: '首页', link: '/' },
       { text: 'Golang', link: '/Golang/' },
+      { text: 'PHP', link: '/PHP/' },
       { text: 'Python', link: '/Python/' },
       { text: 'Vue.js', link: '/Vue.js/' },
+      { text: 'Hyperf', link: '/Hyperf/' },
+      { text: 'Swoole', link: '/Swoole/' },
       {
         text: '更多',
-        items: TECH_STACKS.filter(([dir]) => !['Golang', 'Python', 'Vue.js'].includes(dir))
+        items: TECH_STACKS.filter(([dir]) => !['Golang', 'PHP', 'Python', 'Vue.js', 'Hyperf', 'Swoole'].includes(dir))
           .map(([dir, name]) => ({ text: name, link: `/${dir}/` })),
       },
     ],
