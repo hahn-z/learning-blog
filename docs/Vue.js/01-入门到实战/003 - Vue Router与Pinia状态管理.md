@@ -7,7 +7,8 @@ created_at: "2026-04-26T10:22:36.39+08:00"
 updated_at: "2026-04-29T10:02:46.479+08:00"
 reading_time: 25
 tags: ["前端"]
----
+:v-pre:
+---------
 
 # Vue Router与Pinia状态管理
 

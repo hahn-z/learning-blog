@@ -7,7 +7,8 @@ created_at: "2026-04-26T17:33:29.308+08:00"
 updated_at: "2026-04-29T10:02:46.579+08:00"
 reading_time: 13
 tags: ["Vue.js", "Vue 3"]
----
+:v-pre:
+---------
 
 # 051-透传Attributes
 

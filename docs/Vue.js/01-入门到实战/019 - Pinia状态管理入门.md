@@ -7,7 +7,8 @@ created_at: "2026-04-26T17:38:25.956+08:00"
 updated_at: "2026-04-29T10:02:46.641+08:00"
 reading_time: 21
 tags: ["Vue.js", "Vue 3"]
----
+:v-pre:
+---------
 
 # 057-Pinia状态管理入门
 

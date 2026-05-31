@@ -7,7 +7,8 @@ created_at: "2026-04-29T06:16:59.379+08:00"
 updated_at: "2026-04-29T10:02:47.552+08:00"
 reading_time: 31
 tags: []
----
+:v-pre:
+---------
 
 # Python 正则表达式完全指南：从入门到精通
 
@@ -472,7 +473,7 @@ def template_render(template, variables):
     def replacer(match):
         key = match.group(1).strip()
         return str(variables.get(key, f"{{{{ {key} }}}}"))
-    return re.sub(r"\{\{\s*(\w+)\s*\}\}", replacer, template)
+    return re.sub(r"{{\s*(\w+)\s*}}", replacer, template)
 
 
 # === Demo ===

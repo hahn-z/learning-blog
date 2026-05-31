@@ -6,7 +6,8 @@ tech_stack: "PHP"
 created_at: "2026-05-31T10:00:00+08:00"
 reading_time: 15
 tags: ["PHP", "CI/CD", "GitHub Actions", "Docker"]
----
+:v-pre:
+---------
 
 # PHP CI/CD流水线实践
 

@@ -7,7 +7,8 @@ created_at: "2026-04-26T17:44:16.813+08:00"
 updated_at: "2026-04-29T10:02:46.654+08:00"
 reading_time: 28
 tags: ["Vue.js", "Vue 3"]
----
+:v-pre:
+---------
 
 # 058-Pinia进阶：Getters与Actions
 

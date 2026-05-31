@@ -7,7 +7,8 @@ created_at: "2026-04-26T17:39:27.6+08:00"
 updated_at: "2026-04-29T10:02:46.603+08:00"
 reading_time: 13
 tags: ["Vue.js", "Vue 3"]
----
+:v-pre:
+---------
 
 # 054-Vue Router 入门
 

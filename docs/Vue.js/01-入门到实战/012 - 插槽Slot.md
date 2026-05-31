@@ -7,7 +7,8 @@ created_at: "2026-04-26T17:33:29.295+08:00"
 updated_at: "2026-04-29T10:02:46.573+08:00"
 reading_time: 16
 tags: ["Vue.js", "Vue 3"]
----
+:v-pre:
+---------
 
 # 050-插槽Slot
 
