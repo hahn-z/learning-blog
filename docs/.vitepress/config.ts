@@ -26,6 +26,7 @@ const TECH_STACKS: [string, string][] = [
   ['Swoole', 'Swoole'],
   ['HTML-CSS', 'HTML/CSS'],
   ['其他', '其他'],
+  ['AI应用架构', 'AI应用架构'],
 ]
 
 /**
@@ -119,6 +120,7 @@ export default defineConfig({
       { text: 'Vue.js', link: '/Vue.js/' },
       { text: 'Hyperf', link: '/Hyperf/' },
       { text: 'Swoole', link: '/Swoole/' },
+      { text: 'AI应用架构', link: '/AI应用架构/' },
       {
         text: '更多',
         items: TECH_STACKS.filter(([dir]) => !['Golang', 'PHP', 'Python', 'Vue.js', 'Hyperf', 'Swoole'].includes(dir))
